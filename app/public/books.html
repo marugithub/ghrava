@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f0f4f8">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<title>Books — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+/* Shelf tabs */
+/* shelf-tabs now uses shared view-tabs/view-tab classes */
+
+/* Book cards */
+.book-card {
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);
+  display:flex;gap:12px;padding:13px 14px;margin-bottom:8px;
+  cursor:pointer;transition:all .15s;
+}
+.book-card:hover { border-color:var(--border2);box-shadow:0 2px 8px rgba(0,0,0,.06); }
+.book-spine { width:4px;border-radius:2px;flex-shrink:0;align-self:stretch;background:var(--accent); }
+.book-body { flex:1;min-width:0; }
+.book-title { font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px; }
+.book-author { font-size:12px;color:var(--text3);margin-bottom:6px; }
+.book-meta { display:flex;gap:8px;flex-wrap:wrap;align-items:center; }
+.book-badge { font-size:11px;padding:2px 7px;border-radius:99px;font-weight:600; }
+.badge-reading { background:rgba(34,197,94,.1);color:var(--green); }
+.badge-read    { background:var(--accent-bg);color:var(--accent); }
+.badge-want    { background:rgba(139,92,246,.1);color:#8b5cf6; }
+
+/* Stars */
+.stars { display:flex;gap:1px; }
+.star { font-size:13px;color:var(--border2); }
+.star.lit { color:#f59e0b; }
+
+/* Stats */
+.book-stats-row { display:flex;gap:8px;padding:10px 16px 4px;overflow-x:auto;scrollbar-width:none; }
+.book-stats-row::-webkit-scrollbar { display:none; }
+.book-stat { flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;text-align:center;min-width:72px; }
+.book-stat-val { font-size:20px;font-weight:800;font-family:var(--mono);color:var(--text); }
+.book-stat-lbl { font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-top:2px; }
+</style>
+</head>
+<body>
+<script>
+window.GH_PAGE = { module: 'books', title: 'Books' };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script src="/js/lt-shared-data.js"></script>
+<div id="nav-container"></div>
+
+<div id="app">
+
+  <!-- Stats -->
+  <div class="book-stats-row">
+    <div class="book-stat"><div class="book-stat-val" id="stReading">—</div><div class="book-stat-lbl">Reading</div></div>
+    <div class="book-stat"><div class="book-stat-val" id="stRead">—</div><div class="book-stat-lbl">Read</div></div>
+    <div class="book-stat"><div class="book-stat-val" id="stWant">—</div><div class="book-stat-lbl">Want</div></div>
+    <div class="book-stat"><div class="book-stat-val" id="stRating">—</div><div class="book-stat-lbl">Avg ★</div></div>
+  </div>
+
+  <!-- Shelf tabs -->
+  <div class="view-tabs" id="shelfTabs" style="--tab-color:#8b5cf6">
+    <button class="view-tab active" onclick="setShelf('Currently Reading',this)">Reading</button>
+    <button class="view-tab" onclick="setShelf('Want to Read',this)">Want to Read</button>
+    <button class="view-tab" onclick="setShelf('Read',this)">Read</button>
+    <button class="view-tab" onclick="setShelf('all',this)">All</button>
+    <button class="view-tab" onclick="setFormatFilter('Physical',this)">Physical</button>
+    <button class="view-tab" onclick="setFormatFilter('Kindle',this)">Kindle</button>
+    <button class="view-tab" onclick="setFormatFilter('Audible',this)">Audible</button>
+  </div>
+
+  <!-- Search -->
+  <div style="padding:6px 16px 0">
+    <input class="form-input" id="bookSearch" placeholder="Search title or author…" oninput="loadBooks()" style="font-size:13px">
+  </div>
+  <!-- Genre sub-filter populated dynamically -->
+  <div style="display:flex;gap:6px;padding:4px 16px;overflow-x:auto;scrollbar-width:none" id="genreFilters"></div>
+
+  <!-- Book list -->
+  <div id="bookList" style="padding:4px 16px 100px">
+    <div class="spinner"><div class="spin"></div>Loading…</div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" onclick="openBookDrawer()" title="Add book">+</button>
+
+<!-- ════════════════════════════════════════════════════════════
+     BOOK DRAWER
+     ════════════════════════════════════════════════════════════ -->
+<div class="drawer-overlay" id="bookDrawer" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="bookDrawerTitle">Add Book</div>
+
+    <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-input" id="bkTitle"></div>
+    <div class="form-group"><label class="form-label">Author</label><input class="form-input" id="bkAuthor"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Genre</label><select class="form-select" id="bkGenre"></select></div>
+      <div class="form-group"><label class="form-label">Format</label>
+        <select class="form-select" id="bkFormat">
+          <option>Physical</option><option>Kindle</option><option>Audible</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-select" id="bkStatus">
+        <option>Want to Read</option><option>Currently Reading</option><option>Read</option>
+      </select>
+    </div>
+
+    <!-- Rating stars -->
+    <div class="form-group">
+      <label class="form-label">Rating</label>
+      <div id="ratingPicker" style="display:flex;gap:8px;align-items:center">
+        <button onclick="setRating(1)" id="star1" style="font-size:24px;background:none;border:none;cursor:pointer;padding:0;color:var(--border2)">★</button>
+        <button onclick="setRating(2)" id="star2" style="font-size:24px;background:none;border:none;cursor:pointer;padding:0;color:var(--border2)">★</button>
+        <button onclick="setRating(3)" id="star3" style="font-size:24px;background:none;border:none;cursor:pointer;padding:0;color:var(--border2)">★</button>
+        <button onclick="setRating(4)" id="star4" style="font-size:24px;background:none;border:none;cursor:pointer;padding:0;color:var(--border2)">★</button>
+        <button onclick="setRating(5)" id="star5" style="font-size:24px;background:none;border:none;cursor:pointer;padding:0;color:var(--border2)">★</button>
+        <button onclick="setRating(0)" style="font-size:12px;color:var(--text3);background:none;border:none;cursor:pointer;padding:4px 8px">Clear</button>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date Started</label><input class="form-input" type="date" id="bkStarted"></div>
+      <div class="form-group"><label class="form-label">Date Finished</label><input class="form-input" type="date" id="bkFinished"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes / Highlights</label><textarea class="form-textarea" id="bkNotes" style="min-height:80px"></textarea></div>
+
+    <div style="display:flex;gap:8px;margin-top:8px">
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="bookTagsWrap" onclick="document.getElementById('bookTagInput').focus()">
+        <input id="bookTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+      <button class="btn btn-primary" id="bkSave" style="flex:1" onclick="saveBook()">Save</button>
+      <button class="btn btn-ghost" id="bkDeleteBtn" style="color:var(--red);display:none" onclick="deleteBook()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1/books';
+const $ = id => document.getElementById(id);
+const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+// Use window.api from lt-core.js (path prefixed with /api/v1)
+// Books uses a module-local wrapper to prepend /books
+const api = (path, method='GET', body) => window.api(method, '/books' + path, body || undefined);
+
+let currentShelf  = 'Currently Reading';
+let currentFormat = '';
+let currentGenre  = '';
+let currentRating = 0;
+let editingBookId = null;
+let _allBooks     = [];  // local cache for fast drawer open
+
+const FORMAT_COLOR = { Physical:'#22c55e', Kindle:'#5c72fa', Audible:'#f59e0b' };
+
+function setShelf(shelf, btn) {
+  currentShelf = shelf;
+  document.querySelectorAll('#shelfTabs .view-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadBooks();
+}
+
+function setFormatFilter(fmt, btn) {
+  currentFormat = fmt;
+  document.querySelectorAll('#shelfTabs .view-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadBooks();
+}
+
+function setGenreFilter(genre, btn) {
+  currentGenre = genre;
+  document.querySelectorAll('#genreFilters .filter-chip').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadBooks();
+}
+
+async function loadBooks() {
+  const el = $('bookList'); if(!el) return;
+  const search = $('bookSearch')?.value.trim()||'';
+  el.innerHTML='<div class="spinner"><div class="spin"></div>Loading…</div>';
+  try {
+    const qs=new URLSearchParams();
+    if(currentShelf!=='all') qs.set('status',currentShelf);
+    if(currentFormat) qs.set('format',currentFormat);
+    if(currentGenre)  qs.set('genre',currentGenre);
+    const books = await api('?'+qs.toString());
+    _allBooks = books;
+
+    // Build genre filter from results (all books)
+    buildGenreFilter(books);
+
+    // Client-side search
+    const filtered = search
+      ? books.filter(b=>(b.title+' '+(b.author||'')).toLowerCase().includes(search.toLowerCase()))
+      : books;
+
+    if(!filtered.length){
+      el.innerHTML=emptyState(...GH_EMPTY.books);
+      return;
+    }
+    el.innerHTML=filtered.map(b=>bookCardHtml(b)).join('');
+  } catch(e){ el.innerHTML = errorState(e.message, ''); }
+}
+
+function buildGenreFilter(books) {
+  const gf = $('genreFilters'); if(!gf) return;
+  const genres = [...new Set(books.map(b=>b.genre).filter(Boolean))].sort();
+  if(!genres.length){ gf.innerHTML=''; return; }
+  gf.innerHTML = `<button class="filter-chip${!currentGenre?' active':''}" onclick="setGenreFilter('',this)">All Genres</button>` +
+    genres.map(g=>`<button class="filter-chip${g===currentGenre?' active':''}" onclick="setGenreFilter('${g.replace(/'/g,"\\'")}',this)">${esc(g)}</button>`).join('');
+}
+
+async function loadStats() {
+  try {
+    const s = await api('/stats');
+    $('stReading').textContent = s.reading_count||0;
+    $('stRead').textContent    = s.read_count||0;
+    $('stWant').textContent    = s.want_count||0;
+    $('stRating').textContent  = s.avg_rating ? parseFloat(s.avg_rating).toFixed(1) : '—';
+  } catch(e){}
+}
+
+function bookCardHtml(b) {
+  const statusClass = {'Currently Reading':'badge-reading','Read':'badge-read','Want to Read':'badge-want'}[b.status]||'badge-want';
+  const stars = b.rating ? Array.from({length:5},(_,i)=>`<span class="star${i<b.rating?' lit':''}">★</span>`).join('') : '';
+  const spine = FORMAT_COLOR[b.format]||'var(--accent)';
+  return `<div class="book-card" onclick="openBookDrawer(${b.id})">
+    <div class="book-spine" style="background:${spine}"></div>
+    <div class="book-body">
+      <div class="book-title">${esc(b.title)}</div>
+      ${b.author?`<div class="book-author">${esc(b.author)}${b.genre?' · '+esc(b.genre):''}</div>`:''}
+      <div class="book-meta">
+        <span class="book-badge ${statusClass}">${esc(b.status)}</span>
+        <span style="font-size:11px;color:var(--text3)">${esc(b.format||'')}</span>
+        ${stars?`<div class="stars">${stars}</div>`:''}
+      </div>
+      ${b.date_finished?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Finished ${b.date_finished}</div>`:''}
+      ${b.notes?`<div style="font-size:12px;color:var(--text2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.notes)}</div>`:''}
+    </div>
+  </div>`;
+}
+
+function setRating(n) {
+  currentRating = n;
+  for(let i=1;i<=5;i++){
+    const el=$('star'+i);
+    if(el) el.style.color = i<=n ? '#f59e0b' : 'var(--border2)';
+  }
+}
+
+async function openBookDrawer(id) {
+  editingBookId = id||null;
+  $('bookDrawerTitle').textContent = id ? 'Edit Book' : 'Add Book';
+  $('bkDeleteBtn').style.display   = id ? 'inline-flex' : 'none';
+
+  const b = id ? (_allBooks.find(x=>x.id===id)||{}) : {};
+  $('bkTitle').value    = b.title||'';
+  $('bkAuthor').value   = b.author||'';
+  await GH_SELECT.init('bkGenre', 'book_genre', b.genre||'', { allowAdd: true, placeholder: '— select genre —' });
+  $('bkFormat').value   = b.format||'Physical';
+  $('bkStatus').value   = b.status||'Want to Read';
+  $('bkStarted').value  = b.date_started||'';
+  $('bkFinished').value = b.date_finished||'';
+  $('bkNotes').value    = b.notes||'';
+  currentRating = b.rating||0;
+  setRating(currentRating);
+  initBookTags(b.tags||[]);
+  $('bookDrawer').classList.add('open');
+}
+
+async function saveBook() {
+  const title=$('bkTitle').value.trim();
+  if(!title){ toast('Title required','err'); return; }
+  const btn=$('bkSave'); btn.textContent='Saving…'; btn.disabled=true;
+  const body={
+    title, author:$('bkAuthor').value.trim()||null,
+    genre:$('bkGenre').value.trim()||null, format:$('bkFormat').value,
+    status:$('bkStatus').value, rating:currentRating||null,
+    date_started:$('bkStarted').value||null,
+    date_finished:$('bkFinished').value||null,
+    notes:$('bkNotes').value.trim()||null,
+    tags:bookFormTags,
+  };
+  try {
+    if(editingBookId) await api(`/${editingBookId}`,'PUT',body);
+    else              await api('/','POST',body);
+    toast(editingBookId?'Updated':'Book added');
+    $('bookDrawer').classList.remove('open');
+    loadBooks(); loadStats();
+  } catch(e){ toast(e.message||'Save failed','err'); }
+  finally{ btn.textContent='Save'; btn.disabled=false; }
+}
+
+async function deleteBook() {
+  if(!await LT.confirm('Remove this book?')) return;
+  await api(`/${editingBookId}`,'DELETE');
+  toast('Removed'); $('bookDrawer').classList.remove('open');
+  loadBooks(); loadStats();
+}
+
+
+// ── Tags (books) ───────────────────────────────────────────
+let bookFormTags = [];
+function renderBookTags() {
+  const wrap = $('bookTagsWrap'), input = $('bookTagInput'); if (!wrap||!input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  bookFormTags.forEach(t => {
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{ bookFormTags=bookFormTags.filter(x=>x!==t);renderBookTags(); });
+    wrap.insertBefore(chip,input);
+  });
+}
+function addBookTag(raw) {
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!bookFormTags.includes(t)).forEach(t=>bookFormTags.push(t));
+  renderBookTags(); const inp=$('bookTagInput'); if(inp)inp.value='';
+}
+function initBookTags(existing) {
+  bookFormTags=(existing||[]).slice(); renderBookTags();
+  const inp=$('bookTagInput'); if(!inp)return;
+  inp.value='';
+  inp.onkeydown=e=>{ if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addBookTag(inp.value);} else if(e.key==='Backspace'&&!inp.value&&bookFormTags.length){bookFormTags.pop();renderBookTags();} };
+  inp.onblur=()=>{if(inp.value.trim())addBookTag(inp.value);};
+  GH_TAGS.init({inputId:'bookTagInput',wrapId:'bookTagsWrap',module:'books',getFormTags:()=>bookFormTags,addTag:t=>addBookTag(t),allowCreate:true});
+}
+document.addEventListener('DOMContentLoaded', ()=>{
+  loadBooks();
+  loadStats();
+});
+</script>
+</body>
+</html>

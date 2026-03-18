@@ -1,0 +1,2996 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f0f4f8">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<title>Inventory — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+:root { --tab-color: #f59e0b; }
+/* ── Category system — vars now in shared.css :root ─────────── */
+
+/* ── Stats bar ───────────────────────────────────────────────── */
+.stats-bar {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  gap: 8px; padding: 12px 20px 0;
+}
+.stat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 10px 12px; text-align:center;
+  cursor: default;
+}
+.stat-num { font-family: var(--mono); font-size: 22px; font-weight: 700; color: var(--text); line-height:1; }
+.stat-lbl { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.stat-val  { font-size: 10px; color: #22c55e; font-family:var(--mono); }
+
+/* ── View tabs ───────────────────────────────────────────────── */
+/* ── Header controls ─────────────────────────────────────────── */
+.header-controls {
+  display: flex; gap: 8px; align-items: center;
+}
+.header-controls .search-wrap { flex: 1; margin-top: 0; }
+.entry-count-badge {
+  font-family: var(--mono); font-size: 11px; color: var(--text3);
+  background: var(--bg3); border: 1px solid var(--border);
+  padding: 2px 10px; border-radius: 20px; flex-shrink: 0;
+}
+
+/* ── View switcher icons ─────────────────────────────────────── */
+.view-switcher {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  padding: 0 20px;
+  margin-top: 8px;
+  justify-content: flex-end;
+}
+.vsw-btn {
+  width: 30px; height: 30px;
+  border-radius: 7px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text3);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: all .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.vsw-btn:hover { background: var(--bg3); color: var(--text2); }
+.vsw-btn.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+.vsw-btn svg { width: 14px; height: 14px; }
+
+/* ── Grid view ───────────────────────────────────────────────── */
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+@media (min-width: 500px) { .inv-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.item-grid-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.item-grid-card:hover { border-color: var(--border2); background: var(--bg3); transform: translateY(-1px); }
+.item-grid-card.archived { opacity: .55; }
+.item-grid-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  object-fit: cover;
+  display: block;
+}
+.item-grid-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+}
+.item-grid-body {
+  padding: 8px 10px;
+  flex: 1;
+}
+.item-grid-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.item-grid-cat {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+.item-grid-stripe {
+  height: 3px;
+  width: 100%;
+}
+
+/* ── Compact view (dense list) ───────────────────────────────── */
+.item-compact-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background .1s;
+  -webkit-tap-highlight-color: transparent;
+}
+.item-compact-card:first-child { border-top: 1px solid var(--border); }
+.item-compact-card:hover { background: var(--bg3); }
+.item-compact-card.archived { opacity: .55; }
+.item-compact-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.item-compact-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item-compact-meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+  flex-shrink: 0;
+}
+
+/* ── Item card ───────────────────────────────────────────────── */
+.item-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 0; margin-bottom: 8px;
+  cursor: pointer; transition: all .15s; overflow:hidden;
+  display: flex; align-items: stretch; position:relative;
+}
+.item-card:hover { border-color: var(--border2); background: var(--bg3); transform:translateY(-1px); }
+.item-card.archived { opacity: .55; }
+.item-card.archived .item-card-inner::after {
+  content: 'ARCHIVED'; position:absolute; top:8px; right:8px;
+  font-family:var(--mono); font-size:9px; font-weight:600;
+  background:var(--amber-bg); border:1px solid rgba(245,158,11,.3);
+  color:var(--amber); padding:1px 6px; border-radius:4px;
+}
+
+.item-card-stripe {
+  width: 4px; flex-shrink: 0; border-radius: 0;
+}
+
+.item-card-thumb {
+  width: 72px; height: 72px; flex-shrink: 0;
+  object-fit: cover; display:block;
+}
+.item-card-thumb-placeholder {
+  width: 72px; height: 72px; flex-shrink:0;
+  display: flex; align-items:center; justify-content:center;
+  font-size: 28px;
+}
+
+.item-card-inner {
+  flex:1; padding: 10px 12px; min-width:0; position:relative;
+}
+.item-card-name {
+  font-size: 14px; font-weight: 600; color: var(--text);
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.item-card-brand { font-size: 12px; color: var(--text3); margin-top: 1px; }
+.item-card-path  {
+  font-size: 11px; color: var(--text3); margin-top: 4px;
+  display:flex; align-items:center; gap:4px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+
+/* ── Container card ──────────────────────────────────────────── */
+.ctn-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--r-lg); padding:12px 14px; margin-bottom:6px;
+  cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:10px;
+}
+.ctn-card:hover { border-color:var(--border2); background:var(--bg3); }
+.ctn-icon {
+  width:38px; height:38px; border-radius:var(--r);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; flex-shrink:0;
+}
+
+/* ── Location card ───────────────────────────────────────────── */
+.loc-card {
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:var(--r-lg); margin-bottom:8px; overflow:hidden;
+}
+.loc-header {
+  display:flex; align-items:center; gap:10px; padding:13px 14px;
+  cursor:pointer; transition:background .15s;
+}
+.loc-header:hover { background:var(--bg3); }
+.loc-icon {
+  width:38px; height:38px; border-radius:var(--r);
+  display:flex; align-items:center; justify-content:center;
+  font-size:20px; flex-shrink:0;
+}
+.loc-chevron { color:var(--text3); transition:transform .2s; flex-shrink:0; width:16px; height:16px; }
+.loc-card.expanded .loc-chevron { transform:rotate(90deg); }
+.loc-children {
+  display:none; padding:0 12px 12px; border-top:1px solid var(--border); background:var(--bg);
+}
+.loc-card.expanded .loc-children { display:block; }
+.loc-actions { display:flex; gap:4px; flex-shrink:0; }
+.loc-btn {
+  padding:4px 8px; background:var(--bg4); border:1px solid var(--border2);
+  border-radius:var(--r); color:var(--text3); font-size:11px;
+  cursor:pointer; transition:all .15s;
+}
+.loc-btn:hover { color:var(--text); border-color:var(--border2); }
+
+/* ── Breadcrumb ──────────────────────────────────────────────── */
+.bc {
+  font-family:var(--mono); font-size:11px; color:var(--text3);
+  padding:8px 20px 0; white-space:nowrap; overflow-x:auto; scrollbar-width:none;
+  display:flex; align-items:center; gap:5px;
+}
+.bc::-webkit-scrollbar { display:none; }
+.bc span { cursor:pointer; white-space:nowrap; }
+.bc span:hover { color:var(--text2); }
+.bc .sep { color:var(--text3); cursor:default; }
+.bc .cur { color:var(--text2); cursor:default; }
+
+/* ── Category filter chips ───────────────────────────────────── */
+.chip-scroll {
+  display:flex; gap:6px; overflow-x:auto; scrollbar-width:none;
+  padding:10px 20px 0; -webkit-overflow-scrolling:touch;
+}
+.chip-scroll::-webkit-scrollbar { display:none; }
+.chip {
+  flex-shrink:0; padding:5px 12px; border-radius:20px;
+  background:var(--bg3); border:1px solid var(--border);
+  font-family:var(--mono); font-size:11px; color:var(--text3);
+  cursor:pointer; transition:all .15s; white-space:nowrap;
+}
+.chip:hover { border-color:var(--border2); color:var(--text2); }
+.chip.active { background:var(--accent-bg); border-color:var(--accent-bd); color:var(--accent); }
+
+/* ── Archive toggle ──────────────────────────────────────────── */
+.archive-toggle {
+  display:inline-flex; align-items:center; gap:6px;
+  padding:5px 12px; border-radius:20px;
+  background:var(--bg3); border:1px solid var(--border);
+  font-size:11px; color:var(--text3); cursor:pointer;
+  transition:all .15s; font-family:var(--mono);
+}
+.archive-toggle.active { background:var(--amber-bg); border-color:rgba(245,158,11,.3); color:var(--amber); }
+
+/* ── Barcode scanner ─────────────────────────────────────────── */
+.scanner-overlay {
+  position:fixed; inset:0; z-index:600; background:#000;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+}
+.scanner-overlay.open { display:flex; }
+#scannerVideo { width:100%; max-width:400px; border-radius:var(--r); }
+.scanner-guide {
+  position:absolute; width:260px; height:160px;
+  border:3px solid var(--accent); border-radius:12px;
+  box-shadow: 0 0 0 9999px rgba(0,0,0,.6);
+  pointer-events:none;
+}
+.scanner-line {
+  position:absolute; width:100%; height:2px;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent);
+  animation:scan 2s ease-in-out infinite;
+  top:50%;
+}
+@keyframes scan { 0%,100%{top:10%} 50%{top:90%} }
+.scanner-label {
+  color:white; font-size:13px; margin-top:16px; opacity:.7;
+  font-family:var(--mono);
+}
+.scanner-close {
+  position:absolute; top:20px; right:20px;
+  width:40px; height:40px; background:rgba(255,255,255,.15);
+  border:none; border-radius:50%; color:white; font-size:20px;
+  cursor:pointer;
+}
+
+/* ── UPC result bar ──────────────────────────────────────────── */
+.upc-found {
+  padding:10px 12px; background:rgba(34,197,94,.1); border:1px solid var(--green-bd);
+  border-radius:var(--r); font-size:13px; color:var(--green);
+  margin-bottom:12px; display:flex; align-items:center; gap:8px;
+}
+.upc-manual-link {
+  padding:8px 12px; background:var(--accent-bg); border:1px solid var(--accent-bd);
+  border-radius:var(--r); font-size:12px; color:var(--accent);
+  margin-bottom:12px; display:flex; align-items:center; gap:8px;
+}
+.upc-manual-link a { color:var(--accent); }
+
+/* ── Photo gallery ───────────────────────────────────────────── */
+.photo-row {
+  display:flex; gap:8px; overflow-x:auto; scrollbar-width:none;
+  padding:4px 2px;
+}
+.photo-row::-webkit-scrollbar { display:none; }
+.photo-thumb {
+  width:80px; height:80px; border-radius:var(--r);
+  object-fit:cover; flex-shrink:0; cursor:pointer;
+  border:2px solid transparent; transition:all .15s;
+}
+.photo-thumb:hover { border-color:var(--accent); }
+.photo-thumb.primary { border-color:var(--green); }
+
+.photo-add-btn {
+  width:80px; height:80px; border-radius:var(--r);
+  background:var(--bg4); border:2px dashed var(--border2);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:4px; cursor:pointer; flex-shrink:0; transition:all .15s; color:var(--text3);
+  font-size:10px; font-family:var(--mono);
+}
+.photo-add-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── Fullscreen photo viewer ─────────────────────────────────── */
+.photo-viewer {
+  position:fixed; inset:0; z-index:700; background:rgba(0,0,0,.95);
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+}
+.photo-viewer.open { display:flex; }
+.photo-viewer img { max-width:100vw; max-height:85vh; object-fit:contain; }
+.photo-viewer-close {
+  position:absolute; top:16px; right:16px; width:40px; height:40px;
+  background:rgba(255,255,255,.15); border:none; border-radius:50%;
+  color:white; font-size:20px; cursor:pointer;
+}
+.photo-viewer-nav {
+  position:absolute; bottom:20px; display:flex; gap:12px;
+}
+.photo-viewer-dot {
+  width:8px; height:8px; border-radius:50%;
+  background:rgba(255,255,255,.3); cursor:pointer; transition:all .15s;
+}
+.photo-viewer-dot.active { background:white; }
+.photo-viewer-prev, .photo-viewer-next {
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:44px; height:44px; background:rgba(255,255,255,.12);
+  border:none; border-radius:50%; color:white; font-size:20px;
+  cursor:pointer; transition:all .15s;
+}
+.photo-viewer-prev { left:12px; }
+.photo-viewer-next { right:12px; }
+.photo-viewer-prev:hover, .photo-viewer-next:hover { background:rgba(255,255,255,.25); }
+
+/* ── Detail sections ─────────────────────────────────────────── */
+.det-section {
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:var(--r); margin-bottom:8px; overflow:hidden;
+}
+.det-section-hdr {
+  padding:9px 12px; font-family:var(--mono); font-size:10px;
+  font-weight:500; letter-spacing:.1em; text-transform:uppercase;
+  color:var(--text3); background:var(--bg4); border-bottom:1px solid var(--border);
+  cursor:pointer; display:flex; justify-content:space-between; align-items:center;
+  -webkit-tap-highlight-color:transparent; user-select:none;
+}
+.det-section-body { padding:10px 12px; }
+.det-section.collapsed .det-section-body { display:none; }
+.det-section-hdr::after { content:'▲'; font-size:10px; transition:transform .2s; }
+.det-section.collapsed .det-section-hdr::after { content:'▼'; }
+
+.det-row {
+  display:flex; justify-content:space-between; align-items:baseline;
+  padding:5px 0; gap:8px; border-bottom:1px solid var(--border);
+  font-size:13px;
+}
+.det-row:last-child { border-bottom:none; }
+.det-lbl { color:var(--text3); flex-shrink:0; }
+.det-val { color:var(--text); text-align:right; word-break:break-all; }
+
+/* ── Timeline ────────────────────────────────────────────────── */
+.timeline { padding:4px 0; }
+.tl-item {
+  display:flex; gap:10px; padding:6px 0;
+  border-bottom:1px solid var(--border); font-size:12px;
+}
+.tl-item:last-child { border-bottom:none; }
+.tl-dot {
+  width:8px; height:8px; border-radius:50%; flex-shrink:0;
+  margin-top:4px;
+}
+.tl-body { flex:1; min-width:0; }
+.tl-event { font-weight:600; color:var(--text2); }
+.tl-meta  { color:var(--text3); margin-top:2px; }
+
+/* ── Doc list ────────────────────────────────────────────────── */
+.doc-row {
+  display:flex; align-items:center; gap:10px; padding:8px 0;
+  border-bottom:1px solid var(--border); font-size:13px;
+}
+.doc-row:last-child { border-bottom:none; }
+.doc-icon { font-size:20px; flex-shrink:0; }
+.doc-info { flex:1; min-width:0; }
+.doc-name { color:var(--text); font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.doc-size { color:var(--text3); font-size:11px; font-family:var(--mono); }
+
+/* ── Inline mini-form (add location/container from item form) ── */
+.mini-drawer {
+  background:var(--bg); border:1px solid var(--accent-bd);
+  border-radius:var(--r); padding:14px; margin:8px 0;
+  display:none;
+}
+.mini-drawer.open { display:block; animation:fadein .15s ease; }
+
+/* ── Add menu ────────────────────────────────────────────────── */
+.add-menu-btn {
+  width:100%; padding:13px; border-radius:var(--r);
+  background:var(--bg3); border:1px solid var(--border);
+  color:var(--text2); font-family:var(--sans); font-size:15px;
+  font-weight:600; cursor:pointer; display:flex; align-items:center;
+  gap:12px; transition:all .15s; margin-bottom:8px;
+  -webkit-tap-highlight-color:transparent;
+}
+.add-menu-btn:hover { border-color:var(--border2); color:var(--text); background:var(--bg4); }
+
+/* ── Sold form ───────────────────────────────────────────────── */
+.sell-section {
+  background:rgba(34,197,94,.1); border:1px solid var(--green-bd);
+  border-radius:var(--r); padding:12px 14px; margin-bottom:12px;
+}
+</style>
+</head>
+<body class="module-inventory">
+<div id="app">
+
+<!-- Header -->
+<!-- header injected by nav.js -->
+
+<!-- Stats -->
+<div class="stats-bar" id="statsBar">
+  <div class="stat-card" onclick="showAllItems()" style="cursor:pointer" title="View all items">
+    <div class="stat-num" id="stItems">—</div>
+    <div class="stat-lbl">Items</div>
+  </div>
+  <div class="stat-card" onclick="showAllContainers()" style="cursor:pointer" title="View all containers">
+    <div class="stat-num" id="stCtns">—</div>
+    <div class="stat-lbl">Containers</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num" id="stValue">—</div>
+    <div class="stat-lbl">Est. Value</div>
+    <div class="stat-val" id="stArchived"></div>
+  </div>
+</div>
+
+<!-- Browse view -->
+<div id="browseView">
+  <!-- View switcher: shown only when inside a location/container with items -->
+  <!-- Context + Rooms filter strips -->
+  <!-- Inventory tab bar: biz filter + rooms (rooms populated dynamically) -->
+  <div class="view-tabs" id="bizToggleRow" style="--tab-color:#f59e0b;margin:8px 16px 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none">
+    <button class="view-tab active" id="bizAll"      onclick="setBizFilter('all')">All</button>
+    <button class="view-tab"        id="bizHome"     onclick="setBizFilter('home')">Home</button>
+    <button class="view-tab"        id="bizBusiness" onclick="setBizFilter('business')">Business</button>
+  </div>
+  <!-- Rooms row populated by loadRooms() - shows as second tab row -->
+  <div id="roomsRow" style="display:flex;gap:6px;padding:4px 16px 0;overflow-x:auto;scrollbar-width:none"></div>
+  <div class="view-switcher" id="viewSwitcher" style="display:none">
+    <button class="vsw-btn active" id="vswList" title="List view" onclick="setItemView('list')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+    </button>
+    <button class="vsw-btn" id="vswGrid" title="Grid view" onclick="setItemView('grid')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+    </button>
+    <button class="vsw-btn" id="vswCompact" title="Compact view" onclick="setItemView('compact')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+  </div>
+  <div id="bcBar" class="bc" style="display:none"></div>
+  <!-- Category filter — populated dynamically from dropdown_options -->
+  <div class="chip-scroll" id="catChips" style="display:none">
+    <div class="chip active" data-cat="">All</div>
+  </div>
+  <div id="archiveToggleRow" style="padding:8px 20px 0;display:none">
+    <button class="archive-toggle" id="archiveToggle"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> Archived</button>
+  </div>
+  <div id="browseContent" style="padding:8px 20px 0">
+    <div class="spinner"><div class="spin"></div>Loading…</div>
+  </div>
+</div>
+
+<!-- Search results (shown below browse when search is active) -->
+<div id="searchView" style="display:none">
+  <div class="chip-scroll" id="searchTypeChips">
+    <div class="chip active" data-stype="">All</div>
+    <div class="chip" data-stype="item">Items</div>
+    <div class="chip" data-stype="container">Containers</div>
+    <div class="chip" data-stype="location">Locations</div>
+  </div>
+  <div id="searchResults" style="padding:12px 20px 0">
+    <div class="empty"><div class="empty-icon" style="color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><h3>Search inventory</h3><p>Type at least 2 characters to search.</p></div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- FAB -->
+<button class="fab" id="fabBtn">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- ══ BARCODE SCANNER OVERLAY ══════════════════════════════ -->
+<div class="scanner-overlay" id="scannerOverlay">
+  <video id="scannerVideo" autoplay playsinline></video>
+  <div class="scanner-guide"><div class="scanner-line"></div></div>
+  <div class="scanner-label">Point camera at barcode</div>
+  <button class="scanner-close" id="scannerClose">✕</button>
+</div>
+
+<!-- ══ ADD MENU DRAWER ══════════════════════════════════════ -->
+<div class="drawer-overlay" id="addMenu">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Add to Inventory</div>
+    <button class="add-menu-btn" id="menuAddLocation"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> Location</button>
+    <button class="add-menu-btn" id="menuAddContainer"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/></svg> Container</button>
+    <button class="add-menu-btn" id="menuAddItem">🏷️ Item</button>
+    <button class="add-menu-btn" id="menuScanBarcode">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M18 21h3M13 3v3M13 8v2M13 13h2M16 13v2M13 18v3M16 18h-3"/></svg>
+      Scan Barcode
+    </button>
+    <div style="margin-top:4px;display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="$('addMenu').classList.remove('open')">Cancel</button>
+      <a href="/api/v1/inventory/export" class="btn btn-ghost" style="flex:1;text-decoration:none;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Export xlsx</a>
+    </div>
+    <div style="margin-top:8px">
+      <label class="btn btn-ghost btn-full" style="cursor:pointer;justify-content:center">
+        ⬆️ Import xlsx
+        <input type="file" id="importFileInput" accept=".xlsx,.xls" style="display:none">
+      </label>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOCATION DRAWER ══════════════════════════════════════ -->
+<div class="drawer-overlay" id="locationDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="locDrawerTitle">Add Location</div>
+    <div class="form-group">
+      <label class="form-label">Name <span class="req">*</span></label>
+      <select class="form-select" id="loc_name_sel"></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <select class="form-select" id="loc_type">
+        <option value="house">🏠 House</option>
+        <option value="room" selected>🚪 Room</option>
+        <option value="garage">🏗️ Garage</option>
+        <option value="attic">📦 Attic</option>
+        <option value="basement">⬇️ Basement</option>
+        <option value="storage_unit">🗄️ Storage Unit</option>
+        <option value="shed">🏚️ Shed</option>
+        <option value="office">💼 Office</option>
+        <option value="other">📍 Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <input class="form-input" id="loc_desc" placeholder="e.g. Shared bathroom on first floor">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="loc_notes" style="min-height:60px"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="locCancel">Cancel</button>
+      <button class="btn btn-primary" id="locSave">Save Location</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CONTAINER DRAWER ══════════════════════════════════════ -->
+<div class="drawer-overlay" id="containerDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="ctnDrawerTitle">Add Container</div>
+    <div class="form-group">
+      <label class="form-label">Name <span class="req">*</span></label>
+      <input class="form-input" id="ctn_name" placeholder="e.g. Blue Tote, Filing Cabinet, Junk Drawer">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Type</label>
+      <select class="form-select" id="ctn_sub">
+        <option value="movable">📦 Movable (box, bin, tote, bag)</option>
+        <option value="fixed">🗄️ Fixed (cabinet, bookshelf)</option>
+        <option value="shelf">📚 Shelf</option>
+        <option value="drawer">🗃️ Drawer</option>
+        <option value="closet">🚪 Closet</option>
+        <option value="other">📦 Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Location <span class="req">*</span></label>
+      <select class="form-select" id="ctn_parent">
+        <option value="">— select —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="ctn_notes" style="min-height:60px"></textarea>
+    </div>
+    <div style="font-size:12px;color:var(--text3);margin:-8px 0 12px">QR code auto-generated on save.</div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('containerDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="ctnSave">Save Container</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ITEM DRAWER ══════════════════════════════════════════ -->
+<div class="drawer-overlay" id="itemDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="itemDrawerTitle">Add Item</div>
+
+    <!-- UPC / Barcode row -->
+    <div style="display:flex;gap:8px;margin-bottom:14px">
+      <input class="form-input" id="upc_input" placeholder="UPC barcode…" style="flex:1;font-family:var(--mono)">
+      <button class="btn btn-ghost" id="scanBtn" title="Scan barcode">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M18 21h3M13 3v3M13 8v2M13 13h2M16 13v2M13 18v3M16 18h-3"/></svg>
+      </button>
+      <button class="btn btn-ghost" id="upcBtn">Lookup</button>
+    </div>
+    <div id="upcFeedback" style="display:none"></div>
+
+    <!-- Core fields -->
+    <div class="form-group">
+      <label class="form-label">Name <span class="req">*</span></label>
+      <input class="form-input" id="itm_name">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="itm_cat" onchange="onCatChange(this.value)">
+          <option value="">— none —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Qty</label>
+        <input class="form-input" type="number" id="itm_qty" value="1" min="1">
+      </div>
+    </div>
+
+    <!-- Where does this live? — friendly two-step picker -->
+    <div class="form-group" id="whereSection">
+      <label class="form-label">Where does this live? <span class="req">*</span></label>
+
+      <!-- Step 1: Container (optional) — shown first, greyed until place chosen -->
+      <!-- Logic: user thinks "pen → in a box → box is in the garage" -->
+      <div id="ctnRow" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;opacity:0.4;pointer-events:none">
+        <span style="font-size:12px;color:var(--text3);width:32px;flex-shrink:0">📦 In</span>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:4px">
+            Container <span style="font-weight:400;color:var(--text3)">(optional)</span>
+            <span class="gh-info-icon" data-info="container"></span>
+          </div>
+          <select class="form-select" id="itm_ctn_sel" onchange="onCtnSelChange()">
+            <option value="">— no container, directly in a place —</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost" id="newBoxBtn" style="white-space:nowrap;font-size:13px;padding:8px 10px;align-self:flex-end" title="Add a new container">+ New</button>
+      </div>
+
+
+      <!-- Step 2: Room / Place (required) -->
+      <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
+        <span style="font-size:12px;color:var(--text3);width:32px;flex-shrink:0">📍 In</span>
+        <div style="flex:1">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:4px">
+            Room or place <span style="color:var(--red);font-size:10px">*</span>
+            <span class="gh-info-icon" data-info="location"></span>
+          </div>
+          <select class="form-select" id="itm_loc_sel" onchange="onLocSelChange()">
+            <option value="">— pick a location —</option>
+          </select>
+        </div>
+        <button class="btn btn-ghost" id="newPlaceBtn" style="white-space:nowrap;font-size:13px;padding:8px 10px;align-self:flex-end" title="Add a new place">+ New</button>
+      </div>
+
+
+      <!-- Summary: "Blue Tote › Garage" -->
+      <div id="whereSummary" style="font-size:12px;color:var(--accent);margin-top:4px;margin-left:38px;display:none"></div>
+
+      <input type="hidden" id="itm_parent_type">
+      <input type="hidden" id="itm_parent_id">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Brand</label><input class="form-input" id="itm_brand"></div>
+      <div class="form-group"><label class="form-label">Model #</label><input class="form-input" id="itm_model"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Serial Number</label><input class="form-input" id="itm_serial"></div>
+
+    <!-- Purchase section -->
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border);margin-top:4px">Purchase</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="itm_pdate"></div>
+      <div class="form-group"><label class="form-label">Price $</label><input class="form-input" type="number" id="itm_price" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Store Name</label>
+        <input class="form-input" id="itm_store" placeholder="e.g. Costco, Amazon">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Purchase Method</label>
+        <select class="form-select" id="itm_method">
+          <option value="">—</option>
+          <option value="in_store">In Store</option>
+          <option value="online">Online</option>
+          <option value="facebook_marketplace">Facebook Marketplace</option>
+          <option value="craigslist">Craigslist</option>
+          <option value="gift">Gift</option>
+          <option value="auction">Auction</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Order / Receipt #</label><input class="form-input" id="itm_order"></div>
+
+    <!-- Condition & Warranty -->
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border)">Condition & Warranty</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Condition</label>
+        <select class="form-select" id="itm_cond">
+          <option value="">—</option>
+          <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Warranty Expires</label><input class="form-input" type="date" id="itm_warranty"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Warranty Vendor</label>
+      <select class="form-select" id="itm_wvendor"></select>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Lifetime warranty</span>
+      <label class="toggle"><input type="checkbox" id="itm_lifewrnt"><span class="toggle-track"></span></label>
+    </div>
+
+    <!-- Insurance -->
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border)">Insurance</div>
+    <div class="toggle-row" style="padding-top:0">
+      <span class="toggle-label">Item is insured</span>
+      <label class="toggle"><input type="checkbox" id="itm_insured"><span class="toggle-track"></span></label>
+    </div>
+    <div id="insuranceFields" style="display:none">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Policy #</label><input class="form-input" id="itm_policy"></div>
+        <div class="form-group"><label class="form-label">Insured Value $</label><input class="form-input" type="number" id="itm_insval" step="0.01"></div>
+      </div>
+    </div>
+
+    <div class="form-group" style="margin-top:8px">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="itm_notes" style="min-height:70px"></textarea>
+    </div>
+
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0 8px">
+      <input type="checkbox" id="itm_is_business" style="width:16px;height:16px;accent-color:var(--accent)">
+      <label for="itm_is_business" style="font-size:13px;color:var(--text2);cursor:pointer">💼 Business item</label>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="itmTagsWrap" onclick="document.getElementById('itmTagInput').focus()">
+        <input class="tags-text-input" id="itmTagInput" placeholder="Type tag, Enter to add…" autocomplete="off">
+      </div>
+    </div>
+
+    <!-- ── Health & Wellness extended fields ─────────────────── -->
+    <div id="hwSection" style="display:none">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);padding:14px 0 8px;border-top:1px solid var(--border);margin-top:4px">
+        💊 Health &amp; Wellness
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Sub-category <span class="req">*</span></label>
+          <select class="form-select" id="hw_subcat" onchange="onHwSubcatChange(this.value)"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">For Family Member</label>
+          <select class="form-select" id="hw_family_member">
+            <option value="">— anyone —</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Dosage / Strength</label>
+          <input class="form-input" id="hw_dosage" placeholder="e.g. 500mg, 2%">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expiration Date</label>
+          <input class="form-input" type="date" id="hw_expiry">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Lot Number</label>
+          <input class="form-input" id="hw_lot" placeholder="Optional">
+        </div>
+        <div class="form-group" id="hw_ingredients_group">
+          <label class="form-label">Active Ingredients</label>
+          <input class="form-input" id="hw_ingredients" placeholder="e.g. Ibuprofen 200mg">
+        </div>
+      </div>
+
+      <!-- Rx-only fields — shown when subcategory = Prescription -->
+      <div id="hwRxSection" style="display:none">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:10px 0 6px;border-top:1px solid var(--border)">Prescription Details</div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Rx Number</label>
+            <input class="form-input" id="hw_rx_number" placeholder="e.g. RX1234567">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date Filled</label>
+            <input class="form-input" type="date" id="hw_date_filled">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Pharmacy</label>
+          <select class="form-select" id="hw_pharmacy">
+            <option value="">— select pharmacy —</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Prescribing Doctor</label>
+          <select class="form-select" id="hw_doctor">
+            <option value="">— select doctor —</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Refills Remaining</label>
+            <input class="form-input" type="number" id="hw_refills" min="0" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Next Refill Date</label>
+            <input class="form-input" type="date" id="hw_next_refill">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('itemDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="itemSave">Save Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ITEM DETAIL DRAWER ════════════════════════════════════ -->
+<div class="drawer-overlay" id="detailDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- ══ MAINTENANCE DRAWER ═══════════════════════════════════ -->
+<div class="drawer-overlay" id="maintDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Log Maintenance</div>
+    <input type="hidden" id="maint_item_id">
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="maint_date"></div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="maint_type">
+          <option value="repair">🔧 Repair</option>
+          <option value="service">⚙️ Service</option>
+          <option value="inspection">🔍 Inspection</option>
+          <option value="cleaning">🧹 Cleaning</option>
+          <option value="upgrade">⬆️ Upgrade</option>
+          <option value="replacement">🔄 Replacement</option>
+          <option value="other">📝 Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Description <span class="req">*</span></label><textarea class="form-textarea" id="maint_desc" style="min-height:80px"></textarea></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Cost $</label><input class="form-input" type="number" id="maint_cost" step="0.01"></div>
+      <div class="form-group"><label class="form-label">Provider</label><input class="form-input" id="maint_provider"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Next Due Date</label><input class="form-input" type="date" id="maint_next"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('maintDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="maintSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SELL DRAWER ══════════════════════════════════════════ -->
+<div class="drawer-overlay" id="sellDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Mark as Sold</div>
+    <input type="hidden" id="sell_item_id">
+    <div class="sell-section">
+      <div style="font-size:13px;color:var(--green);margin-bottom:4px">Item will be marked sold and archived.</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Sale Date</label><input class="form-input" type="date" id="sell_date"></div>
+      <div class="form-group"><label class="form-label">Sale Price $</label><input class="form-input" type="number" id="sell_price" step="0.01"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Sold To</label><input class="form-input" id="sell_to" placeholder="e.g. Facebook Marketplace, neighbor"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('sellDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="sellSave">Mark Sold</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ARCHIVE DRAWER ══════════════════════════════════════ -->
+<div class="drawer-overlay" id="archiveDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Archive Item</div>
+    <input type="hidden" id="arch_item_id">
+    <div class="form-group"><label class="form-label">Reason (optional)</label><input class="form-input" id="arch_reason" placeholder="e.g. Broken, Donated, Replaced"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('archiveDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-danger" id="archiveSave">Archive Item</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MOVE DRAWER ══════════════════════════════════════════ -->
+<div class="drawer-overlay" id="moveDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Move Container</div>
+    <div id="movePreviewBox" style="margin-bottom:14px"></div>
+    <div class="form-label" style="margin-bottom:8px">Select new location</div>
+    <div id="moveTargetsList"></div>
+    <input type="hidden" id="move_ctn_id">
+    <input type="hidden" id="move_target_type">
+    <input type="hidden" id="move_target_id">
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('moveDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="moveConfirmBtn" disabled>Move Here</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ PHOTO VIEWER ═════════════════════════════════════════ -->
+<div class="photo-viewer" id="photoViewer">
+  <button class="photo-viewer-close" id="viewerClose">✕</button>
+  <button class="photo-viewer-prev" id="viewerPrev">‹</button>
+  <img id="viewerImg" src="" alt="">
+  <button class="photo-viewer-next" id="viewerNext">›</button>
+  <div class="photo-viewer-nav" id="viewerDots"></div>
+</div>
+
+<!-- Confirm -->
+
+<!-- Hidden file inputs -->
+<input type="file" id="photoInput" accept="image/*" multiple style="display:none" capture="environment">
+<input type="file" id="docInput" accept=".pdf,.doc,.docx,.txt,.png,.jpg" style="display:none">
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js" crossorigin="anonymous"></script>
+<script>
+  window.GH_PAGE = {
+    module: 'inventory',
+    title:  'Inventory',
+    headerExtra: `
+      <div style="padding:8px 16px 0;display:flex;align-items:center;gap:8px">
+        <div class="search-wrap" style="flex:1;margin-top:0">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input class="search-input" id="invSearch" type="search" placeholder="Search items, containers…" autocomplete="off">
+        </div>
+        <span class="entry-count-badge" id="invCount" style="display:none"></span>
+      </div>`,
+  };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script src="/js/lt-shared-data.js"></script>
+<script src="/attachments.js"></script>
+<script>
+AttachmentManager.injectStyles();
+window.addEventListener('att:uploaded', () => { loadStats(); renderBrowse(); });
+window.addEventListener('att:deleted',  () => { loadStats(); renderBrowse(); });
+window.addEventListener('att:changed',  () => renderBrowse());
+// ── Globals ────────────────────────────────────────────────────
+// Auth token alias (LT.authToken from lt-core.js)
+Object.defineProperty(window, 'authToken', { get: () => LT.authToken, set: v => { LT.authToken = v; } });
+const API = '/api/v1/inventory';
+const $ = id => document.getElementById(id);
+
+// ── authFetch — like fetch() but adds Authorization header and
+// handles 401 the same way window.api does (prompt + retry once).
+async function authFetch(url, opts = {}, _isRetry = false) {
+  opts.headers = Object.assign({}, opts.headers, {
+    'Authorization': `Bearer ${LT.authToken}`
+  });
+  const res = await fetch(url, opts);
+  if (res.status === 401 && !_isRetry) {
+    try {
+      await window.reAuthPrompt();
+      // Token refreshed — retry with new token
+      opts.headers['Authorization'] = `Bearer ${LT.authToken}`;
+      return fetch(url, opts);
+    } catch {
+      throw new Error('Not authenticated');
+    }
+  }
+  return res;
+}
+
+
+let view = 'browse';
+let itemView = localStorage.getItem('inv_item_view') || 'list'; // 'list' | 'grid' | 'compact'
+let stack = []; // browse breadcrumb stack
+let catFilter = '';
+let bizFilter = 'all'; // 'all' | 'home' | 'business'
+let searchTypeFilter = '';
+let showArchived = false;
+let editingId = null;
+let currentDetailId = null;
+let currentPhotos = [];
+let viewerIdx = 0;
+let searchTimer;
+let itmFormTags = [];
+let codeReader = null;
+let scannerActive = false;
+let familyMembers  = [];
+let medicalContacts = [];
+let invCategories  = []; // loaded from dropdown_options
+
+// ── Silent fetch (no 401 redirect) ────────────────────────────
+async function silentGet(path) {
+  try {
+    const r = await fetch('/api/v1' + path, { headers: { 'Authorization': `Bearer ${authToken}` } });
+    if (!r.ok) return [];
+    return await r.json();
+  } catch { return []; }
+}
+
+// ── Load shared data ───────────────────────────────────────────
+async function loadSharedData() {
+  [familyMembers, medicalContacts, invCategories] = await Promise.all([
+    silentGet('/settings/family'),
+    silentGet('/settings/contacts?type=Medical'),
+    silentGet('/settings/dropdowns/inventory_category'),
+  ]);
+  // GH_SELECT loads inventory_category on demand when drawer opens
+}
+
+async function populateCategoryDropdown(currentValue) {
+  // GH_SELECT populates from dropdown_options and appends ＋ Add new…
+  await GH_SELECT.init('itm_cat', 'inventory_category', currentValue||'', {
+    allowAdd: true,
+    placeholder: '— none —'
+  });
+}
+
+// ── Category config ────────────────────────────────────────────
+const CAT_CONFIG = {
+  Electronics:        { icon:'💻', color:'var(--cat-electronics)', bg:'var(--cat-electronics-bg)' },
+  Appliances:         { icon:'🔌', color:'var(--cat-appliances)',  bg:'var(--cat-appliances-bg)' },
+  Furniture:          { icon:'🪑', color:'var(--cat-furniture)',   bg:'var(--cat-furniture-bg)' },
+  Tools:              { icon:'🔧', color:'var(--cat-tools)',       bg:'var(--cat-tools-bg)' },
+  Clothing:           { icon:'👕', color:'var(--cat-clothing)',    bg:'var(--cat-clothing-bg)' },
+  Sports:             { icon:'⚽', color:'var(--cat-sports)',      bg:'var(--cat-sports-bg)' },
+  Toys:               { icon:'🧸', color:'var(--cat-toys)',        bg:'var(--cat-toys-bg)' },
+  Kitchen:            { icon:'🍳', color:'var(--cat-kitchen)',     bg:'var(--cat-kitchen-bg)' },
+  Outdoor:            { icon:'🌳', color:'var(--cat-outdoor)',     bg:'var(--cat-outdoor-bg)' },
+  Documents:          { icon:'📄', color:'var(--cat-documents)',   bg:'var(--cat-documents-bg)' },
+  'Health & Wellness':{ icon:'💊', color:'var(--cat-hw)',          bg:'var(--cat-hw-bg)' },
+  Medical:            { icon:'💊', color:'var(--cat-medical)',     bg:'var(--cat-medical-bg)' }, // legacy
+  Holiday:            { icon:'🎄', color:'var(--cat-holiday)',     bg:'var(--cat-holiday-bg)' },
+  Books:              { icon:'📚', color:'var(--cat-books)',       bg:'var(--cat-books-bg)' },
+  Other:              { icon:'📦', color:'var(--cat-other)',       bg:'var(--cat-other-bg)' },
+};
+
+const LOC_ICONS = { house:'🏠', room:'🚪', garage:'🏗️', attic:'📦', basement:'⬇️', storage_unit:'🗄️', shed:'🏚️', office:'💼', other:'📍' };
+const CTN_ICONS = { movable:'📦', fixed:'🗄️', shelf:'📚', drawer:'🗃️', closet:'🚪', other:'📦' };
+const MAINT_COLORS = { repair:'#ef4444', service:'#5c72fa', inspection:'#f59e0b', cleaning:'#22c55e', upgrade:'#a78bfa', replacement:'#f97316', other:'#64748b' };
+const EVENT_COLORS = { created:'#22c55e', moved:'#5c72fa', field_updated:'#94a3b8', photo_added:'#a78bfa', photo_removed:'#ef4444', document_added:'#f59e0b', archived:'#f97316', unarchived:'#22c55e', sold:'#10b981', quantity_changed:'#5c72fa', maintenance_logged:'#f59e0b', condition_changed:'#ec4899' };
+
+function catCfg(cat) { return CAT_CONFIG[cat] || CAT_CONFIG.Other; }
+
+// ══════════════════════════════════════════════════════════════
+// HEALTH & WELLNESS
+// ══════════════════════════════════════════════════════════════
+const HW_CAT = 'Health & Wellness';
+
+function isHW(cat) { return cat === HW_CAT || cat === 'Medical'; }
+
+function onCatChange(val) {
+  const hw = $('hwSection');
+  if (isHW(val)) {
+    hw.style.display = 'block';
+    populateHWDropdowns();
+  } else {
+    hw.style.display = 'none';
+  }
+}
+
+function onHwSubcatChange(val) {
+  $('hwRxSection').style.display = val === 'Prescription' ? 'block' : 'none';
+  $('hw_ingredients_group').style.display = val === 'Prescription' ? 'none' : 'block';
+}
+
+async function populateHWDropdowns() {
+  // Family members
+  const fmSel = $('hw_family_member');
+  const currentFm = fmSel.value;
+  fmSel.innerHTML = '<option value="">— anyone —</option>';
+  familyMembers.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.id; o.textContent = m.display_name;
+    if (m.id == currentFm) o.selected = true;
+    fmSel.appendChild(o);
+  });
+
+  // Pharmacies from contacts
+  const pharmSel = $('hw_pharmacy');
+  const currentPharm = pharmSel.value;
+  pharmSel.innerHTML = '<option value="">— select pharmacy —</option>';
+  const pharmacies = medicalContacts.filter(c => c.contact_type === 'Medical');
+  pharmacies.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = c.name;
+    if (c.id == currentPharm) o.selected = true;
+    pharmSel.appendChild(o);
+  });
+
+  // Doctors from contacts
+  const drSel = $('hw_doctor');
+  const currentDr = drSel.value;
+  drSel.innerHTML = '<option value="">— select doctor —</option>';
+  medicalContacts.filter(c => c.contact_type === 'Medical').forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.id; o.textContent = c.name;
+    if (c.id == currentDr) o.selected = true;
+    drSel.appendChild(o);
+  });
+}
+
+async function resetHWForm() {
+  $('hwSection').style.display = 'none';
+  $('hwRxSection').style.display = 'none';
+  await GH_SELECT.init('hw_subcat', 'hw_subcategory', 'OTC', { allowAdd: true });
+  $('hw_family_member').value = '';
+  $('hw_dosage').value = '';
+  $('hw_expiry').value = '';
+  $('hw_lot').value = '';
+  $('hw_ingredients').value = '';
+  $('hw_rx_number').value = '';
+  $('hw_date_filled').value = '';
+  $('hw_pharmacy').value = '';
+  $('hw_doctor').value = '';
+  $('hw_refills').value = '';
+  $('hw_next_refill').value = '';
+}
+
+async function loadHWDetails(itemId) {
+  try {
+    const r = await fetch(`${API}/items/${itemId}/hw-details`);
+    const hw = await r.json();
+    if (!hw || !hw.hw_subcategory) return;
+    await GH_SELECT.init('hw_subcat', 'hw_subcategory', hw.hw_subcategory||'OTC', { allowAdd: true });
+    onHwSubcatChange(hw.hw_subcategory);
+    $('hw_family_member').value = hw.family_member_id || '';
+    $('hw_dosage').value = hw.dosage_strength || '';
+    $('hw_expiry').value = hw.expiration_date || '';
+    $('hw_lot').value = hw.lot_number || '';
+    $('hw_ingredients').value = hw.active_ingredients || '';
+    $('hw_rx_number').value = hw.rx_number || '';
+    $('hw_date_filled').value = hw.date_filled || '';
+    $('hw_pharmacy').value = hw.pharmacy_contact_id || '';
+    $('hw_doctor').value = hw.prescribing_doctor_id || '';
+    $('hw_refills').value = hw.refills_remaining != null ? hw.refills_remaining : '';
+    $('hw_next_refill').value = hw.next_refill_date || '';
+  } catch(e) { console.warn('Could not load H&W details', e); }
+}
+
+async function saveHWDetails(itemId) {
+  const subcat = $('hw_subcat').value;
+  const isRx = subcat === 'Prescription';
+  const body = {
+    hw_subcategory:       subcat,
+    family_member_id:     $('hw_family_member').value || null,
+    dosage_strength:      $('hw_dosage').value || null,
+    expiration_date:      $('hw_expiry').value || null,
+    lot_number:           $('hw_lot').value || null,
+    active_ingredients:   isRx ? null : ($('hw_ingredients').value || null),
+    rx_number:            isRx ? ($('hw_rx_number').value || null) : null,
+    pharmacy_contact_id:  isRx ? ($('hw_pharmacy').value || null) : null,
+    prescribing_doctor_id:isRx ? ($('hw_doctor').value || null) : null,
+    date_filled:          isRx ? ($('hw_date_filled').value || null) : null,
+    refills_remaining:    isRx && $('hw_refills').value !== '' ? +$('hw_refills').value : null,
+    next_refill_date:     isRx ? ($('hw_next_refill').value || null) : null,
+  };
+  await fetch(`${API}/items/${itemId}/hw-details`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
+// Expiry badge helper
+function hwExpiryBadge(expiryDate) {
+  if (!expiryDate) return '';
+  const days = Math.ceil((new Date(expiryDate) - new Date()) / 86400000);
+  if (days < 0)  return `<span style="background:#fee2e2;color:#ef4444;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600">Expired</span>`;
+  if (days <= 30) return `<span style="background:#fef3c7;color:#d97706;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600">Exp ${expiryDate}</span>`;
+  return '';
+}
+
+// ── Toast ──────────────────────────────────────────────────────
+function toast(msg, type='ok') {
+  const e=$('toast'); e.textContent=msg; e.className=`toast ${type} show`;
+  setTimeout(()=>e.className='toast', 2600);
+}
+
+function confirm(title, msg, cb) {
+  LT.confirm({ title, msg, onConfirm: cb });
+}
+
+
+// ── Stats ──────────────────────────────────────────────────────
+// ── Stats bar click handlers ──────────────────────────────────
+function showAllItems() {
+  // Switch to search view showing all items
+  setView('search');
+  $('invSearch').value = '';
+  const p = new URLSearchParams();
+  if (bizFilter === 'home') p.set('is_business', '0');
+  if (bizFilter === 'business') p.set('is_business', '1');
+  fetch(`${API}/items?${p}`).then(r=>r.json()).then(items => {
+    const el = $('searchResults'); if(!el) return;
+    $('invCount').style.display = 'block';
+    $('invCount').textContent = items.length + ' items';
+    if (!items.length) { el.innerHTML = emptyState(...GH_EMPTY.items); return; }
+    el.innerHTML = items.map(i => renderItemCard(i)).join('');
+    el.querySelectorAll('[data-item]').forEach(c => c.addEventListener('click', () => openDetail(+c.dataset.item)));
+  }).catch(() => {});
+}
+
+
+function showUnassigned() {
+  setView('search');
+  $('invSearch').value = '';
+  fetch(`${API}/items`).then(r=>r.json()).then(all => {
+    const items = all.filter(i => !i.parent_type || i.parent_type === 'none');
+    const el = $('searchResults'); if(!el) return;
+    $('invCount').style.display = 'block';
+    $('invCount').textContent = items.length + ' unassigned';
+    if (!items.length) { el.innerHTML = emptyState(...GH_EMPTY.unassigned); return; }
+    el.innerHTML = `<div class="section-label" style="padding:14px 0 6px;color:var(--amber)">Unassigned Items (${items.length})</div>` +
+      items.map(i => renderItemCard(i)).join('');
+    el.querySelectorAll('[data-item]').forEach(c => c.addEventListener('click', () => openDetail(+c.dataset.item)));
+  }).catch(() => {});
+}
+
+function showAllContainers() {
+  setView('search');
+  $('invSearch').value = '';
+  fetch(`${API}/containers`).then(r=>r.json()).then(ctns => {
+    const el = $('searchResults'); if(!el) return;
+    $('invCount').style.display = 'block';
+    $('invCount').textContent = ctns.length + ' containers';
+    if (!ctns.length) { el.innerHTML = emptyState('📦','No containers yet','Add containers to organize your items.',''); return; }
+    el.innerHTML = `<div class="section-label" style="padding:14px 0 6px">All Containers (${ctns.length})</div>` +
+      ctns.map(c => `<div class="ctn-card" data-ctn="${c.id}">
+        <div class="ctn-icon" style="background:rgba(92,114,250,.12);display:flex;align-items:center;justify-content:center;color:var(--accent)">${CTN_ICONS[c.subtype]||'📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--text)">${esc(c.name)}</div>
+          <div style="font-size:12px;color:var(--text3)">${c.subtype}${c.location_path?' · '+c.location_path:''}</div>
+        </div>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${c.container_ref||''}</span>
+      </div>`).join('');
+    el.querySelectorAll('[data-ctn]').forEach(card => {
+      card.addEventListener('click', () => { stack=[]; stack.push({type:'container',id:+card.dataset.ctn,name:card.querySelector('[style*="font-weight"]')?.textContent||'Container'}); setView('browse'); renderBrowse(); });
+    });
+  }).catch(() => {});
+}
+
+async function loadStats() {
+  try {
+    const r = await fetch(`${API}/stats`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const si = $('stItems'), sc = $('stCtns'), sv = $('stValue'), sa = $('stArchived');
+    if (si) si.textContent = d.items;
+    if (sc) sc.textContent = d.containers;
+    if (sv) {
+      const v = d.total_value || 0;
+      sv.textContent = v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${Math.round(v)}`;
+    }
+    if (sa) sa.textContent = d.archived > 0 ? `+${d.archived} archived` : '';
+  } catch(e) { console.warn('loadStats failed', e); }
+}
+
+// ── Search activates on typing, browse is always the base view ──
+function setView(v) {
+  view = v;
+  $('browseView').style.display = v==='browse' ? 'block' : 'none';
+  $('searchView').style.display = v==='search' ? 'block' : 'none';
+  $('statsBar').style.display   = v==='browse' ? 'grid'  : 'none';
+  const ic = $('invCount');
+  if (v==='browse') { renderBrowse(); if (ic) ic.style.display='none'; }
+}
+
+// ── Item view mode switcher ──────────────────────────────────
+function setItemView(mode) {
+  itemView = mode;
+  try { localStorage.setItem('inv_item_view', mode); } catch {}
+  ['list','grid','compact'].forEach(m => {
+    const btn = $(`vsw${m.charAt(0).toUpperCase()+m.slice(1)}`);
+    if (btn) btn.classList.toggle('active', m === mode);
+  });
+  renderBrowse();
+}
+
+function applyViewSwitcherState() {
+  ['list','grid','compact'].forEach(m => {
+    const btn = $(`vsw${m.charAt(0).toUpperCase()+m.slice(1)}`);
+    if (btn) btn.classList.toggle('active', m === itemView);
+  });
+}
+
+// ── Category filter ────────────────────────────────────────────
+$('catChips').addEventListener('click', e => {
+  const chip = e.target.closest('[data-cat]'); if (!chip) return;
+  document.querySelectorAll('[data-cat]').forEach(c=>c.classList.toggle('active',c===chip));
+  catFilter = chip.dataset.cat;
+  renderBrowse();
+});
+
+// ── Archive toggle ─────────────────────────────────────────────
+$('archiveToggle').addEventListener('click', () => {
+  showArchived = !showArchived;
+  $('archiveToggle').classList.toggle('active', showArchived);
+  $('archiveToggle').textContent = showArchived ? '📦 Hide Archived' : '📦 Show Archived';
+  renderBrowse();
+});
+
+// ── Breadcrumb ─────────────────────────────────────────────────
+function updateBC() {
+  const el = $('bcBar');
+  if (!stack.length) { el.style.display='none'; return; }
+  el.style.display='flex';
+  let html = `<span onclick="goHome()">🏠</span>`;
+  stack.forEach((s,i)=>{
+    html += `<span class="sep">›</span>`;
+    html += i<stack.length-1
+      ? `<span onclick="goToStack(${i})">${s.name}</span>`
+      : `<span class="cur">${s.name}</span>`;
+  });
+  el.innerHTML = html;
+}
+
+function goHome() {
+  stack=[]; catFilter=''; showArchived=false; bizFilter='all'; roomFilter='';
+  $('archiveToggle').classList.remove('active');
+  $('archiveToggle').textContent='📦 Show Archived';
+  ['bizAll','bizHome','bizBusiness'].forEach(id=>{const el=$(id);if(el)el.classList.remove('active');});
+  const allBtn=$('bizAll');if(allBtn)allBtn.classList.add('active');
+  // Reset room tab to All Rooms
+  const row=$('roomsRow');
+  if(row) { row.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active')); row.querySelector('.view-tab')?.classList.add('active'); }
+  renderBrowse();
+}
+
+function setBizFilter(mode) {
+  bizFilter = mode;
+  ['bizAll','bizHome','bizBusiness'].forEach(id => { const el=$(id); if(el) el.classList.remove('active'); });
+  const map = { all:'bizAll', home:'bizHome', business:'bizBusiness' };
+  const active = $(map[mode]); if(active) active.classList.add('active');
+  renderBrowse();
+}
+
+let roomFilter = ''; // location id or ''
+async function loadRooms() {
+  const row = $('roomsRow'); if (!row) return;
+  try {
+    const locs = await fetch('/api/v1/inventory/locations').then(r=>r.ok?r.json():[]);
+    // Store locs for name lookup in setRoomFilter
+    window._roomLocs = locs;
+    if (!locs.length) { row.innerHTML=''; return; }
+    row.innerHTML = `<button class="view-tab${!roomFilter?' active':''}" onclick="setRoomFilter('',this)">All Rooms</button>` +
+      locs.map(l => `<button class="view-tab${roomFilter===String(l.id)?' active':''}" onclick="setRoomFilter('${l.id}',this,'${esc(l.name)}')">${esc(l.name)}</button>`).join('');
+  } catch(e) { row.innerHTML=''; }
+}
+
+function setRoomFilter(id, btn, name) {
+  roomFilter = id ? String(id) : '';
+  const row = $('roomsRow');
+  if (row) row.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  if (id) {
+    // Drill into the selected room
+    stack = [{ type:'location', id: +id, name: name || id }];
+  } else {
+    // All Rooms — go back to root
+    stack = [];
+  }
+  renderBrowse();
+}
+function goToStack(idx)  { stack=stack.slice(0,idx+1); renderBrowse(); }
+
+// ══════════════════════════════════════════════════════════════
+// BROWSE RENDER
+// ══════════════════════════════════════════════════════════════
+async function renderBrowse() {
+  const el = $('browseContent');
+  el.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  updateBC();
+  const top = stack[stack.length-1];
+
+  // Show category chips and archive toggle only when inside a location/container
+  const inContent = top && (top.type==='location'||top.type==='container');
+  $('catChips').style.display       = inContent ? 'flex' : 'none';
+  $('archiveToggleRow').style.display = inContent ? 'block' : 'none';
+
+  if (!top) {
+    await renderLocationTree(el);
+  } else if (top.type==='location') {
+    await renderLocationContents(el, top.id);
+  } else if (top.type==='container') {
+    await renderContainerContents(el, top.id);
+  }
+}
+
+async function renderLocationTree(el) {
+  const r = await fetch(`${API}/locations`);
+  const locs = await r.json();
+  if (!locs.length) {
+    el.innerHTML = emptyState(...GH_EMPTY.locations);
+    return;
+  }
+
+  // Check for items with no location (unassigned)
+  let unassignedHtml = '';
+  try {
+    const unassigned = await fetch(`${API}/items?parent_type=none`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    // Also check for null parent_type
+    const noPt = await fetch(`${API}/items`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const orphans = noPt.filter(i => !i.parent_type || i.parent_type === 'none');
+    if (orphans.length) {
+      unassignedHtml = `<div class="loc-card" style="border-left:3px solid var(--amber)">
+        <div class="loc-header" onclick="showUnassigned()">
+          <div class="loc-icon" style="background:rgba(245,158,11,.12);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:600;color:var(--text)">Unassigned Items</div>
+            <div style="font-size:12px;color:var(--text3)">${orphans.length} item${orphans.length!==1?'s':''} not in any location</div>
+          </div>
+        </div>
+      </div>`;
+    }
+  } catch(e) {}
+
+  el.innerHTML = unassignedHtml + locs.map(loc => renderLocCard(loc)).join('');
+  attachLocHandlers(el);
+  el.querySelector('[onclick="showUnassigned()"]')?.closest('.loc-card')
+    ?.addEventListener('click', showUnassigned);
+}
+
+function renderLocCard(loc) {
+  const icon = LOC_ICONS[loc.location_type]||'📍';
+  const bgColor = loc.location_type==='house'?'rgba(245,158,11,.15)':loc.location_type==='garage'?'rgba(107,114,128,.15)':'rgba(92,114,250,.12)';
+  const childCount = (loc.children||[]).length;
+  return `<div class="loc-card" id="lc-${loc.id}">
+    <div class="loc-header" onclick="drillLoc(${loc.id},'${esc(loc.name)}')">
+      <div class="loc-icon" style="background:${bgColor};display:flex;align-items:center;justify-content:center;color:var(--accent)">${icon}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;font-weight:600;color:var(--text)">${loc.name}</div>
+        <div style="font-size:12px;color:var(--text3)">${loc.location_type}${childCount?' · '+childCount+' sub-location'+(childCount>1?'s':''):''}${loc.address?' · '+loc.address:''}</div>
+      </div>
+      <div class="loc-actions" onclick="event.stopPropagation()">
+        <button class="loc-btn" onclick="editLoc(${loc.id})" title="Edit" style="padding:5px 8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        <button class="loc-btn" style="color:var(--red);padding:5px 8px" title="Delete" onclick="delLoc(${loc.id},'${esc(loc.name)}')" ><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg></button>
+      </div>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;flex-shrink:0;opacity:0.4"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>`;
+}
+
+function attachLocHandlers(el) {
+  // handlers are inline onclick — nothing extra needed
+}
+
+function toggleLoc(id) {
+  $(`lc-${id}`)?.classList.toggle('expanded');
+}
+
+function drillLoc(id, name) {
+  stack.push({ type:'location', id, name }); renderBrowse();
+}
+
+async function renderLocationContents(el, locId) {
+  const [cr, ir] = await Promise.all([
+    fetch(`${API}/containers?parent_type=location&parent_id=${locId}`),
+    fetch(`${API}/items?parent_type=location&parent_id=${locId}${catFilter?'&category='+catFilter:''}${showArchived?'&archived=1':''}${bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':''}`)
+  ]);
+  const ctns = await cr.json(), items = await ir.json();
+  renderContainerItemList(el, ctns, items);
+}
+
+async function renderContainerContents(el, ctnId) {
+  const r = await fetch(`${API}/containers/${ctnId}`);
+  const data = await r.json();
+  const items = catFilter
+    ? (data.contents.items||[]).filter(i=>i.category===catFilter)
+    : (data.contents.items||[]);
+  // Container header
+  let html = `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+    <span class="badge badge-grey" style="font-family:var(--mono);font-size:12px">${data.container_ref}</span>
+    <div style="display:flex;gap:6px">
+      <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="openQR('container','${data.container_ref}')">QR</button>
+      <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="openMove(${data.id})">Move</button>
+      <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editCtn(${data.id})" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+    </div>
+  </div>`;
+  el.innerHTML = html;
+  renderContainerItemList(el, data.contents.containers||[], items, true);
+}
+
+function renderContainerItemList(el, ctns, items, append=false) {
+  // Show/hide view-switcher when we have items
+  const vsw = $('viewSwitcher');
+  if (vsw) vsw.style.display = items.length ? 'flex' : 'none';
+  applyViewSwitcherState();
+
+  let html = '';
+  if (ctns.length) {
+    html += `<div class="section-label" style="padding:14px 0 6px">Containers (${ctns.length})</div>`;
+    html += ctns.map(c=>`
+      <div class="ctn-card" data-ctn="${c.id}">
+        <div class="ctn-icon" style="background:rgba(92,114,250,.12)">${CTN_ICONS[c.subtype]||'📦'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:600;color:var(--text)">${c.name}</div>
+          <div style="font-size:12px;color:var(--text3)">${c.subtype}${c.location_path?' · '+c.location_path:''}</div>
+        </div>
+        <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${c.container_ref||''}</span>
+      </div>`).join('');
+  }
+  if (items.length) {
+    const label = `<div class="section-label" style="padding:14px 0 6px">Items (${items.length})</div>`;
+    if (itemView === 'grid') {
+      html += label + `<div class="inv-grid">${items.map(i=>renderItemGridCard(i)).join('')}</div>`;
+    } else if (itemView === 'compact') {
+      html += label + `<div>${items.map(i=>renderItemCompactCard(i)).join('')}</div>`;
+    } else {
+      html += label + items.map(i=>renderItemCard(i)).join('');
+    }
+  }
+  if (!ctns.length&&!items.length) {
+    html += '<div class="empty"><div class="empty-icon" style="color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></div><h3>Nothing here yet</h3><p>Tap + to add containers or items.</p></div>';
+    if (vsw) vsw.style.display = 'none';
+  }
+
+  if (append) {
+    el.innerHTML += html;
+  } else {
+    el.innerHTML = html;
+  }
+
+  el.querySelectorAll('[data-ctn]').forEach(c=>{
+    c.addEventListener('click',()=>{ stack.push({type:'container',id:+c.dataset.ctn,name:c.querySelector('[style*="font-weight"]')?.textContent||'Container'}); renderBrowse(); });
+  });
+  el.querySelectorAll('[data-item]').forEach(c=>{
+    c.addEventListener('click',()=>openDetail(+c.dataset.item));
+  });
+}
+
+function renderItemGridCard(item) {
+  const cfg = catCfg(item.category);
+  const thumbSrc = item.primary_photo_id
+    ? `/api/v1/attachments/thumb/${item.primary_photo_id}`
+    : (item.thumb_path ? `/api/v1/inventory/photos/${item.id}/thumb_primary` : null);
+  return `<div class="item-grid-card${item.is_archived?' archived':''}" data-item="${item.id}">
+    <div class="item-grid-stripe" style="background:${cfg.color}"></div>
+    ${thumbSrc
+      ? `<img class="item-grid-thumb" src="${thumbSrc}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+      : ''}
+    <div class="item-grid-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
+    <div class="item-grid-body">
+      <div class="item-grid-name">${item.name}</div>
+      ${item.category ? `<div class="item-grid-cat" style="color:${cfg.color}">${item.category}</div>` : ''}
+    </div>
+  </div>`;
+}
+
+function renderItemCompactCard(item) {
+  const cfg = catCfg(item.category);
+  const thumbSrc = item.primary_photo_id
+    ? `/api/v1/attachments/thumb/${item.primary_photo_id}`
+    : null;
+  return `<div class="item-compact-card${item.is_archived?' archived':''}" data-item="${item.id}">
+    ${thumbSrc
+      ? `<img src="${thumbSrc}" alt="" style="width:32px;height:32px;border-radius:var(--r);object-fit:cover;flex-shrink:0;border:1px solid var(--border)" onerror="this.style.display='none'">`
+      : `<div class="item-compact-dot" style="background:${cfg.color}"></div>`
+    }
+    <div class="item-compact-name">${item.name}</div>
+    ${item.brand ? `<div class="item-compact-meta">${item.brand}</div>` : ''}
+    ${item.location_path ? `<div class="item-compact-meta" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${item.location_path}</div>` : ''}
+  </div>`;
+}
+
+function renderItemCard(item) {
+  const cfg = catCfg(item.category);
+  // thumb_small = NAS thumb path served via new shared attachments endpoint
+  const thumbSrc = item.primary_photo_id
+    ? `/api/v1/attachments/thumb/${item.primary_photo_id}`
+    : (item.thumb_path ? `/api/v1/inventory/photos/${item.id}/thumb_primary` : null);
+  const archived = item.is_archived;
+  const attBadge = item.attachment_count > 0
+    ? `<span class="att-badge has-files" onclick="event.stopPropagation();AttachmentManager.open('item',${item.id},'${esc(item.name)}')" style="position:absolute;bottom:6px;right:6px">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:10px;height:10px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        ${item.attachment_count}
+      </span>` : '';
+  return `<div class="item-card${archived?' archived':''}" data-item="${item.id}">
+    <div class="item-card-stripe" style="background:${cfg.color}"></div>
+    ${thumbSrc
+      ? `<img class="item-card-thumb" src="${thumbSrc}" alt="${item.name}" onerror="this.style.display='none'">`
+      : `<div class="item-card-thumb-placeholder" style="background:${cfg.bg}">${cfg.icon}</div>`
+    }
+    <div class="item-card-inner">
+      <div class="item-card-name">${item.name}</div>
+      ${item.brand?`<div class="item-card-brand">${item.brand}${item.model_number?' · '+item.model_number:''}</div>`:''}
+      <div class="item-card-path">
+        ${item.location_path
+          ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg> ${item.location_path}`
+          : item.category
+            ? `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg> ${item.category}`
+            : ''
+        }
+      </div>
+      ${attBadge}
+    </div>
+  </div>`;
+}
+
+// Photo thumb endpoint shortcut
+// We serve by photo_id not item_id — need primary photo id
+// Simplified: items already have thumb_path set in query
+// Use a proxy endpoint
+
+// ══════════════════════════════════════════════════════════════
+// SEARCH
+// ══════════════════════════════════════════════════════════════
+// invSearch is injected by nav.js via headerExtra — wire after nav runs
+function wireSearch() {
+  const inp = document.getElementById('invSearch');
+  if (!inp) return;
+  inp.addEventListener('input', ()=>{
+    clearTimeout(searchTimer);
+    const q = inp.value.trim();
+    if (!q) { setView('browse'); return; }
+    setView('search');
+    searchTimer = setTimeout(()=>doSearch(q), 280);
+  });
+}
+
+$('searchTypeChips').addEventListener('click', e=>{
+  const chip=e.target.closest('[data-stype]'); if(!chip) return;
+  document.querySelectorAll('[data-stype]').forEach(c=>c.classList.toggle('active',c===chip));
+  searchTypeFilter=chip.dataset.stype;
+  doSearch($('invSearch').value.trim());
+});
+
+async function doSearch(q) {
+  const el=$('searchResults');
+  if(!q||q.length<2){el.innerHTML='<div class="empty"><div class="empty-icon" style="color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><h3>Search inventory</h3><p>Type at least 2 characters.</p></div>';return;}
+  el.innerHTML='<div class="spinner"><div class="spin"></div>Searching…</div>';
+  const r=await fetch(`${API}/search?q=${encodeURIComponent(q)}${searchTypeFilter?'&type='+searchTypeFilter:''}`);
+  const results=await r.json();
+  if(!results.length){el.innerHTML=`<div class="empty"><div class="empty-icon" style="color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><h3>No results for "${esc(q)}"</h3></div>`;return;}
+  el.innerHTML=results.map(r=>{
+    const cfg=catCfg(r.category||r.type);
+    return `<div class="card" data-search-id="${r.id}" data-search-type="${r.type}" style="border-left:3px solid ${cfg.color}">
+      <div class="flex-between">
+        <div class="card-title">${r.name}</div>
+        <span class="badge badge-grey">${r.type}</span>
+      </div>
+      ${r.category?`<div class="card-sub" style="color:${cfg.color}">${cfg.icon} ${r.category}</div>`:''}
+      ${r.brand?`<div class="card-sub">${r.brand}${r.model_number?' · '+r.model_number:''}</div>`:''}
+    </div>`;
+  }).join('');
+  el.querySelectorAll('[data-search-id]').forEach(c=>{
+    c.addEventListener('click',()=>{
+      if(c.dataset.searchType==='item') openDetail(+c.dataset.searchId);
+    });
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// ITEM DETAIL
+// ══════════════════════════════════════════════════════════════
+async function openDetail(id) {
+  currentDetailId = id;
+  const r = await fetch(`${API}/items/${id}`);
+  const item = await r.json();
+  currentPhotos = item.photos||[];
+
+  const cfg = catCfg(item.category);
+  const isArchived = item.is_archived;
+
+  let html = `
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span style="font-size:24px">${cfg.icon}</span>
+          <div>
+            <div style="font-size:18px;font-weight:700;letter-spacing:-.02em">${item.name}</div>
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${item.item_ref||''}</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+          ${item.category?`<span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${cfg.bg};color:${cfg.color};font-family:var(--mono)">${item.category}</span>`:''}
+          ${item.condition?`<span class="badge badge-${item.condition==='Excellent'?'green':item.condition==='Good'?'blue':'amber'}">${item.condition}</span>`:''}
+          ${isArchived?`<span class="badge badge-amber">Archived</span>`:''}
+          ${item.insured?`<span class="badge badge-green">✓ Insured</span>`:''}
+        </div>
+        ${item.location_path?`<div style="font-size:12px;color:var(--text3);margin-top:6px">📍 ${item.location_path}</div>`:''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;margin-left:10px">
+        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="openQR('item','${item.item_ref}')">QR</button>
+        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editItem(${item.id})" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      </div>
+    </div>
+    ${item.description?`<div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:12px">${item.description}</div>`:''}
+
+    <!-- Photos & Attachments section — handled by shared AttachmentManager -->
+    <div class="det-section">
+      <div class="det-section-hdr" onclick="toggleSection(this)">Photos & Attachments</div>
+      <div class="det-section-body">
+        ${item.photos && item.photos.length ? `
+          <div class="att-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+            ${item.photos.map(p => `
+              <div style="aspect-ratio:1;border-radius:var(--r);overflow:hidden;border:1px solid ${p.is_primary_photo?'var(--green)':'var(--border)'};cursor:zoom-in"
+                   onclick="AttachmentManager._viewImage(${p.id},'${esc(p.label||p.original_filename)}')">
+                <img src="/api/v1/attachments/thumb/${p.id}" style="width:100%;height:100%;object-fit:cover"
+                     alt="${esc(p.label||p.original_filename)}" onerror="this.parentElement.innerHTML='📷'">
+              </div>`).join('')}
+          </div>` : ''}
+        <button class="btn btn-ghost" style="font-size:13px;padding:7px 14px;width:100%"
+                onclick="AttachmentManager.open('item',${id},'${esc(item.name)}')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0">
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/>
+          </svg>
+          Manage Attachments${item.attachments&&item.attachments.length?' ('+item.attachments.length+')':''}
+        </button>
+      </div>
+    </div>
+
+    <!-- Identity -->
+    ${buildDetSection('Identity',[
+      ['Brand', item.brand],['Model', item.model_number],['Serial', item.serial_number],
+      ['Manufacturer', item.manufacturer],['UPC', item.upc_barcode],['Qty', item.quantity>1?item.quantity:null]
+    ])}
+
+    <!-- Purchase -->
+    ${buildDetSection('Purchase',[
+      ['Date', item.purchase_date],['Price', item.purchase_price?'$'+fmtMoney(item.purchase_price):null],
+      ['Store', item.store_name],['Method', item.purchase_method?.replace(/_/g,' ')],
+      ['From', item.purchased_from],['Order #', item.order_number],
+      ['Replacement Value', item.replacement_value?'$'+fmtMoney(item.replacement_value):null]
+    ])}
+
+    <!-- Warranty -->
+    ${buildDetSection('Warranty',[
+      ['Expires', item.lifetime_warranty?'Lifetime':item.warranty_expires],
+      ['Vendor', item.warranty_vendor],['Phone', item.warranty_phone],
+      ['Claim URL', item.warranty_claim_url?`<a href="${item.warranty_claim_url}" target="_blank" style="color:var(--accent)">Open ↗</a>`:null]
+    ])}
+
+    <!-- Insurance -->
+    ${item.insured||item.insurance_policy?buildDetSection('Insurance',[
+      ['Status', item.insured?'✓ Insured':'Not insured'],
+      ['Policy #', item.insurance_policy],
+      ['Insured Value', item.insured_value?'$'+fmtMoney(item.insured_value):null]
+    ]):''}
+
+    <!-- Sold -->
+    ${item.sold_date||item.sold_price?buildDetSection('Sale',[
+      ['Date', item.sold_date],['Price', item.sold_price?'$'+fmtMoney(item.sold_price):null],['Sold To', item.sold_to]
+    ]):''}
+
+    ${item.notes?`<div class="det-section"><div class="det-section-hdr" onclick="toggleSection(this)">Notes</div><div class="det-section-body" style="font-size:14px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${item.notes}</div></div>`:''}
+
+    <!-- Maintenance -->
+    <div class="det-section">
+      <div class="det-section-hdr" onclick="toggleSection(this)">Maintenance Log ${item.maintenance.length?`(${item.maintenance.length})`:'(0)'}</div>
+      <div class="det-section-body">
+        ${item.maintenance.length?`<div class="timeline">
+          ${item.maintenance.map(m=>`
+            <div class="tl-item">
+              <div class="tl-dot" style="background:${MAINT_COLORS[m.maintenance_type]||'#64748b'}"></div>
+              <div class="tl-body">
+                <div class="tl-event">${m.maintenance_type} — ${m.description}</div>
+                <div class="tl-meta">${m.log_date}${m.cost?' · $'+fmtMoney(m.cost):''}${m.provider?' · '+m.provider:''}</div>
+                ${m.next_due_date?`<div style="font-size:11px;color:var(--amber);margin-top:2px">Next due: ${m.next_due_date}</div>`:''}
+              </div>
+            </div>`).join('')}
+        </div>`:`<div style="font-size:13px;color:var(--text3)">No maintenance records yet.</div>`}
+        <button class="btn btn-ghost" style="margin-top:10px;font-size:13px;padding:7px 12px" onclick="openMaint(${id})">+ Log Maintenance</button>
+      </div>
+    </div>
+
+    <!-- Audit history -->
+    <div class="det-section collapsed">
+      <div class="det-section-hdr" onclick="toggleSection(this)">History / Audit Log ${item.events.length?`(${item.events.length})`:'(0)'}</div>
+      <div class="det-section-body">
+        ${item.events.length?`<div class="timeline">
+          ${item.events.map(e=>`
+            <div class="tl-item">
+              <div class="tl-dot" style="background:${EVENT_COLORS[e.event_type]||'#64748b'}"></div>
+              <div class="tl-body">
+                <div class="tl-event">${e.event_type.replace(/_/g,' ')}</div>
+                <div class="tl-meta">${fmtDatetime(e.created_at)}${e.old_value&&e.new_value?' · '+e.old_value+' → '+e.new_value:e.new_value?' · '+e.new_value:''}</div>
+                ${e.notes?`<div style="font-size:11px;color:var(--text3)">${e.notes}</div>`:''}
+              </div>
+            </div>`).join('')}
+        </div>`:`<div style="font-size:13px;color:var(--text3)">No history yet.</div>`}
+      </div>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="btn-row" style="margin-top:12px">
+      <button class="btn btn-ghost" onclick="$('detailDrawer').classList.remove('open')">Close</button>
+      ${isArchived
+        ? `<button class="btn btn-ghost" onclick="doUnarchive(${id})">Unarchive</button>`
+        : `<button class="btn btn-ghost" onclick="openSell(${id})">Sell</button>
+           <button class="btn btn-danger" onclick="openArchive(${id})">Archive</button>`}
+    </div>
+  `;
+
+  $('detailContent').innerHTML = html;
+
+  // Append H&W section if applicable
+  if (isHW(item.category)) {
+    fetch(`${API}/items/${id}/hw-details`).then(r=>r.json()).then(hw => {
+      if (!hw || !hw.hw_subcategory) return;
+      const rxRows = hw.hw_subcategory === 'Prescription' ? `
+        ${hw.rx_number ? `<div class="det-row"><span class="det-label">Rx #</span><span>${hw.rx_number}</span></div>` : ''}
+        ${hw.pharmacy_name ? `<div class="det-row"><span class="det-label">Pharmacy</span><span>${hw.pharmacy_name}</span></div>` : ''}
+        ${hw.doctor_name ? `<div class="det-row"><span class="det-label">Doctor</span><span>${hw.doctor_name}</span></div>` : ''}
+        ${hw.date_filled ? `<div class="det-row"><span class="det-label">Date Filled</span><span>${hw.date_filled}</span></div>` : ''}
+        ${hw.refills_remaining != null ? `<div class="det-row"><span class="det-label">Refills Left</span><span>${hw.refills_remaining}</span></div>` : ''}
+        ${hw.next_refill_date ? `<div class="det-row"><span class="det-label">Next Refill</span><span>${hw.next_refill_date}</span></div>` : ''}
+      ` : (hw.active_ingredients ? `<div class="det-row"><span class="det-label">Ingredients</span><span>${hw.active_ingredients}</span></div>` : '');
+
+      const hwHtml = `
+        <div class="det-section" style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+          <div class="det-section-title">💊 Health &amp; Wellness</div>
+          <div class="det-row"><span class="det-label">Type</span><span>${hw.hw_subcategory}</span></div>
+          ${hw.family_member_name ? `<div class="det-row"><span class="det-label">For</span><span>${hw.family_member_name}</span></div>` : ''}
+          ${hw.dosage_strength ? `<div class="det-row"><span class="det-label">Dosage</span><span>${hw.dosage_strength}</span></div>` : ''}
+          ${hw.expiration_date ? `<div class="det-row"><span class="det-label">Expires</span><span>${hw.expiration_date} ${hwExpiryBadge(hw.expiration_date)}</span></div>` : ''}
+          ${hw.lot_number ? `<div class="det-row"><span class="det-label">Lot #</span><span>${hw.lot_number}</span></div>` : ''}
+          ${rxRows}
+        </div>`;
+      const btnRow = $('detailContent').querySelector('.btn-row');
+      if (btnRow) btnRow.insertAdjacentHTML('beforebegin', hwHtml);
+    }).catch(()=>{});
+  }
+
+  $('detailDrawer').classList.add('open');
+}
+
+function buildDetSection(title, rows) {
+  const filled = rows.filter(([,v])=>v!=null&&v!==''&&v!==false);
+  if (!filled.length) return '';
+  return `<div class="det-section">
+    <div class="det-section-hdr" onclick="toggleSection(this)">${title}</div>
+    <div class="det-section-body">
+      ${filled.map(([l,v])=>`<div class="det-row"><span class="det-lbl">${l}</span><span class="det-val">${v}</span></div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function toggleSection(hdr) {
+  hdr.parentElement.classList.toggle('collapsed');
+}
+
+(function(){ let _d=false; $('detailDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('detailDrawer')}); $('detailDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('detailDrawer'))$('detailDrawer').classList.remove('open');}); })();
+
+// ══════════════════════════════════════════════════════════════
+// PHOTO VIEWER
+// ══════════════════════════════════════════════════════════════
+function openViewer(idx) {
+  if (!currentPhotos.length) return;
+  viewerIdx = idx;
+  updateViewer();
+  $('photoViewer').classList.add('open');
+}
+
+function updateViewer() {
+  const p = currentPhotos[viewerIdx];
+  $('viewerImg').src = `${API}/photos/${p.id}/file`;
+  $('viewerDots').innerHTML = currentPhotos.map((_,i)=>
+    `<div class="photo-viewer-dot${i===viewerIdx?' active':''}" onclick="viewerIdx=${i};updateViewer()"></div>`).join('');
+}
+
+$('viewerClose').addEventListener('click',()=>$('photoViewer').classList.remove('open'));
+$('viewerPrev').addEventListener('click',()=>{ viewerIdx=Math.max(0,viewerIdx-1); updateViewer(); });
+$('viewerNext').addEventListener('click',()=>{ viewerIdx=Math.min(currentPhotos.length-1,viewerIdx+1); updateViewer(); });
+
+// Swipe support
+let touchX = 0;
+$('photoViewer').addEventListener('touchstart',e=>{ touchX=e.touches[0].clientX; });
+$('photoViewer').addEventListener('touchend',e=>{
+  const dx = e.changedTouches[0].clientX - touchX;
+  if (Math.abs(dx)>50) { dx<0?$('viewerNext').click():$('viewerPrev').click(); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// PHOTO UPLOAD
+// ══════════════════════════════════════════════════════════════
+$('photoInput').addEventListener('change', async e=>{
+  const itemId = e.target.dataset.itemId;
+  if (!itemId||!e.target.files.length) return;
+  const fd = new FormData();
+  Array.from(e.target.files).forEach(f=>fd.append('photos',f));
+  try {
+    const r = await fetch(`${API}/items/${itemId}/photos`,{method:'POST',headers:{'Authorization':'Bearer '+LT.authToken},body:fd});
+    if(!r.ok) throw new Error((await r.json()).error||'Upload failed');
+    toast('Photos uploaded');
+    if (currentDetailId===+itemId) await openDetail(+itemId);
+    await loadStats(); renderBrowse();
+  } catch(err) { toast(err.message,'err'); }
+  e.target.value='';
+});
+
+async function delDoc(itemId, docId) {
+  confirm('Delete document?','This cannot be undone.',async()=>{
+    await apiDelete(`/inventory/items/${itemId}/documents/${docId}`);
+    toast('Deleted');
+    await openDetail(itemId);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// DOCUMENT UPLOAD
+// ══════════════════════════════════════════════════════════════
+$('docInput').addEventListener('change', async e=>{
+  const itemId = e.target.dataset.itemId;
+  if (!itemId||!e.target.files[0]) return;
+  const fd = new FormData();
+  fd.append('document', e.target.files[0]);
+  try {
+    const r = await fetch(`${API}/items/${itemId}/documents`,{method:'POST',headers:{'Authorization':'Bearer '+LT.authToken},body:fd});
+    if(!r.ok) throw new Error((await r.json()).error||'Upload failed');
+    toast('Document attached');
+    if (currentDetailId===+itemId) await openDetail(+itemId);
+  } catch(err) { toast(err.message,'err'); }
+  e.target.value='';
+});
+
+// ══════════════════════════════════════════════════════════════
+// BARCODE SCANNER
+// Strategy:
+//   1. Native BarcodeDetector API (Android Chrome 83+)
+//      — uses device native pipeline, works over HTTP, no canvas reads
+//   2. ZXing fallback for browsers without BarcodeDetector
+// ══════════════════════════════════════════════════════════════
+
+let _scanStream = null;  // track stream so closeScanner can stop tracks
+
+async function startBarcodeScan() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    toast('Camera not available — HTTPS required on this browser', 'err');
+    return;
+  }
+  try {
+    _scanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+    });
+    const video = $('scannerVideo');
+    video.srcObject = _scanStream;
+    await video.play();
+
+    $('scannerOverlay').classList.add('open');
+    scannerActive = true;
+
+    if (typeof BarcodeDetector !== 'undefined') {
+      await _scanWithNativeDetector(video);
+    } else if (typeof ZXing !== 'undefined') {
+      await _scanWithZXing();
+    } else {
+      closeScanner();
+      toast('Barcode scanning not supported on this browser', 'err');
+    }
+  } catch(err) {
+    closeScanner();
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      toast('Camera permission denied — tap Allow when prompted', 'err');
+    } else if (err.name === 'NotFoundError') {
+      toast('No camera found on this device', 'err');
+    } else if (err.name === 'NotReadableError') {
+      toast('Camera in use by another app — close it and try again', 'err');
+    } else {
+      toast('Camera error: ' + err.message, 'err');
+    }
+  }
+}
+
+// ── Native BarcodeDetector ───────────────────────────────────
+// Polls video frames via requestAnimationFrame. Works over HTTP on Android.
+async function _scanWithNativeDetector(video) {
+  const wantFormats = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code','itf'];
+  let formats = wantFormats;
+  try {
+    const supported = await BarcodeDetector.getSupportedFormats();
+    formats = wantFormats.filter(f => supported.includes(f));
+    if (!formats.length) formats = wantFormats;
+  } catch { /* use full list */ }
+
+  const detector = new BarcodeDetector({ formats });
+
+  const poll = async () => {
+    if (!scannerActive) return;
+    try {
+      const results = await detector.detect(video);
+      if (results.length > 0 && scannerActive) {
+        const raw = results[0].rawValue;
+        scannerActive = false;
+        closeScanner();
+        $('upc_input').value = raw;
+        $('upcFeedback').innerHTML = `<div style="color:var(--green);font-size:13px;padding:6px 0">📷 Scanned: <strong>${esc(raw)}</strong></div>`;
+        $('upcFeedback').style.display = 'block';
+        triggerUPCLookup();
+        return;
+      }
+    } catch { /* frame not ready — normal during startup */ }
+    if (scannerActive) requestAnimationFrame(poll);
+  };
+  requestAnimationFrame(poll);
+}
+
+// ── ZXing fallback ───────────────────────────────────────────
+// Canvas-based. Works on desktop, may be blocked over HTTP on Android.
+async function _scanWithZXing() {
+  let hints = null;
+  try {
+    if (ZXing.BarcodeFormat && ZXing.DecodeHintType) {
+      hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.UPC_A,  ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.QR_CODE,
+      ]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    }
+  } catch { hints = null; }
+
+  codeReader = new ZXing.BrowserMultiFormatReader(hints);
+  let deviceId = null;
+  try {
+    const devices = await codeReader.listVideoInputDevices();
+    const back = devices.find(d =>
+      d.label.toLowerCase().includes('back') ||
+      d.label.toLowerCase().includes('rear') ||
+      d.label.toLowerCase().includes('environment'));
+    deviceId = back?.deviceId || devices[0]?.deviceId || null;
+  } catch { /* use default */ }
+
+  await codeReader.decodeFromVideoDevice(deviceId, 'scannerVideo', (result) => {
+    if (result && scannerActive) {
+      scannerActive = false;
+      const raw = result.getText();
+      closeScanner();
+      $('upc_input').value = raw;
+      $('upcFeedback').innerHTML = `<div style="color:var(--green);font-size:13px;padding:6px 0">📷 Scanned: <strong>${esc(raw)}</strong></div>`;
+      $('upcFeedback').style.display = 'block';
+      triggerUPCLookup();
+    }
+  });
+}
+
+function closeScanner() {
+  if (_scanStream) { _scanStream.getTracks().forEach(t => t.stop()); _scanStream = null; }
+  const video = $('scannerVideo');
+  if (video) video.srcObject = null;
+  codeReader?.reset();
+  $('scannerOverlay').classList.remove('open');
+  scannerActive = false;
+}
+
+$('scannerClose').addEventListener('click', closeScanner);
+$('scanBtn').addEventListener('click', startBarcodeScan);
+
+// menuScanBarcode: scan from FAB — open item drawer first so UPC field is visible,
+// then start scanner. Result populates the drawer's UPC field and triggers lookup.
+document.getElementById('menuScanBarcode')?.addEventListener('click', async () => {
+  $('addMenu').classList.remove('open');
+  await openItemDrawer();          // open a blank new-item drawer
+  setTimeout(startBarcodeScan, 350); // small delay so drawer animation completes
+});
+
+// ══════════════════════════════════════════════════════════════
+// UPC LOOKUP
+// ══════════════════════════════════════════════════════════════
+$('upcBtn').addEventListener('click', triggerUPCLookup);
+
+async function triggerUPCLookup() {
+  const upc = $('upc_input').value.trim();
+  if (!upc) { toast('Enter a UPC barcode','err'); return; }
+  const btn = $('upcBtn'); btn.textContent='…'; btn.disabled=true;
+  $('upcFeedback').style.display='none';
+  try {
+    const r = await fetch(`${API}/upc/${upc}`);
+    if (!r.ok) {
+      $('upcFeedback').innerHTML=`<div class="upc-manual-link">Product not found. <a href="https://www.manualslib.com/search/?q=${encodeURIComponent(upc)}" target="_blank">Search ManualsLib ↗</a></div>`;
+      $('upcFeedback').style.display='block';
+      return;
+    }
+    const d = await r.json();
+
+    // Store manual URL for later
+    if (d.manual_url) $('upc_input').dataset.manualUrl = d.manual_url;
+
+    // Show status while parsing
+    $('upcFeedback').innerHTML = `<div class="upc-found" style="color:var(--text2)">⏳ Parsing product details…</div>`;
+    $('upcFeedback').style.display = 'block';
+
+    // Parse the raw title into structured fields
+    const parsed = await parseTitleToFields(d.name || '', d);
+
+    // Show confirm panel — user reviews before fields are populated
+    showUpcConfirmPanel(d, parsed);
+
+  } catch(err) { toast(ghErrorMsg(e),'err'); }
+  finally { btn.textContent='Lookup'; btn.disabled=false; }
+}
+
+/** Call parse-title endpoint — falls back gracefully */
+async function parseTitleToFields(rawTitle, upcData) {
+  try {
+    const r = await fetch(`${API}/parse-title`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title: rawTitle })
+    });
+    if (!r.ok) throw new Error('parse failed');
+    const parsed = await r.json();
+    // Merge: UPC data wins for brand/model if already set
+    return {
+      name:         parsed.name         || upcData.name        || '',
+      brand:        upcData.brand       || parsed.brand        || '',
+      category:     parsed.category     || upcData.category    || '',
+      description:  parsed.description  || upcData.description || '',
+      size:         parsed.size         || '',
+      model_number: upcData.model_number|| parsed.model_number || '',
+      source:       parsed.source,
+    };
+  } catch {
+    // Fallback: use raw UPC data as-is
+    return {
+      name:         upcData.name        || '',
+      brand:        upcData.brand       || '',
+      category:     upcData.category    || '',
+      description:  upcData.description || '',
+      size:         '',
+      model_number: upcData.model_number|| '',
+      source:       'upc_raw',
+    };
+  }
+}
+
+/** Show an inline confirm/edit panel so user can review before accepting */
+// ── Map UPC category string to closest Ghrava inventory_category ─
+// UPC returns full breadcrumb e.g. "Health & Beauty > Personal Care > Deodorant"
+// We match keywords against our known category list.
+function mapUpcCategory(upcCat) {
+  if (!upcCat) return '';
+  const s = upcCat.toLowerCase();
+  if (/personal care|hygiene|skin care|hair care|dental|deodorant|shaving|beauty|cosmetic|fragrance/.test(s)) return 'Personal Care';
+  if (/vitamin|supplement|medicine|medical|first aid|pharmacy|health|wellness|otc|over.the.counter/.test(s)) return 'Health & Wellness';
+  if (/food|beverage|grocery|snack|drink|coffee|tea|cereal|condiment|cooking/.test(s)) return 'Food & Beverage';
+  if (/electronic|computer|laptop|phone|tablet|cable|charger|battery|camera|audio|speaker|tv|monitor/.test(s)) return 'Electronics';
+  if (/cleaning|detergent|laundry|dish|soap|disinfect|mop|broom|vacuum/.test(s)) return 'Cleaning';
+  if (/tool|hardware|drill|wrench|screwdriver|hammer|nail|screw|plier/.test(s)) return 'Tools';
+  if (/kitchen|cookware|bakeware|utensil|appliance|pot|pan|plate|cup|mug/.test(s)) return 'Kitchen';
+  if (/office|stationery|pen|pencil|paper|notebook|binder|folder|ink/.test(s)) return 'Office';
+  if (/baby|infant|toddler|diaper|formula|nursery/.test(s)) return 'Baby & Kids';
+  if (/pet|dog|cat|bird|fish|aquarium|litter|kibble/.test(s)) return 'Pet';
+  if (/toy|game|puzzle|hobby|craft|sport|outdoor|camping/.test(s)) return 'Toys & Hobbies';
+  if (/clothing|apparel|shoe|boot|accessories|bag|luggage/.test(s)) return 'Clothing';
+  if (/furniture|home decor|bedding|bath|curtain|rug|lamp|storage/.test(s)) return 'Home & Furniture';
+  return '';
+}
+
+function showUpcConfirmPanel(upcData, parsed) {
+  const srcLabel = parsed.source === 'ai' ? '✦ AI parsed'
+                 : parsed.source === 'regex' ? '⚙ Auto parsed'
+                 : 'UPC data';
+
+  // Map UPC's full category breadcrumb to our closest category
+  const upcRawCat  = upcData.category || parsed.category || '';
+  const mappedCat  = mapUpcCategory(upcRawCat);
+
+  const html = `
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-lg);padding:14px;margin-top:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:12px;font-family:var(--mono);color:var(--accent);letter-spacing:.06em;text-transform:uppercase">${srcLabel}</span>
+        <span style="font-size:11px;color:var(--text3)">Review and edit before applying</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Name</div>
+          <input class="form-input" id="pc_name" value="${esc(parsed.name)}" style="font-size:13px;padding:8px 10px">
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Brand</div>
+          <input class="form-input" id="pc_brand" value="${esc(parsed.brand)}" style="font-size:13px;padding:8px 10px">
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">
+            Category
+          </div>
+          ${upcRawCat ? `<div style="font-size:10px;color:var(--text3);margin-bottom:4px;padding:4px 8px;background:var(--bg);border-radius:4px;border:1px solid var(--border)">
+            UPC: ${esc(upcRawCat)}
+          </div>` : ''}
+          <input class="form-input" id="pc_cat" value="${esc(mappedCat)}" placeholder="— pick after applying —" style="font-size:13px;padding:8px 10px">
+          ${upcRawCat && !mappedCat ? `<div style="font-size:10px;color:var(--amber);margin-top:3px">No match found — pick manually after applying</div>` : ''}
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Size</div>
+          <input class="form-input" id="pc_size" value="${esc(parsed.size)}" style="font-size:13px;padding:8px 10px">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Description / Details</div>
+        <input class="form-input" id="pc_desc" value="${esc(parsed.description)}" style="font-size:13px;padding:8px 10px">
+      </div>
+      ${parsed.model_number ? `<div style="margin-bottom:10px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Model</div>
+        <input class="form-input" id="pc_model" value="${esc(parsed.model_number)}" style="font-size:13px;padding:8px 10px">
+      </div>` : '<input type="hidden" id="pc_model" value="">'}
+      <input type="hidden" id="pc_upc_cat" value="${esc(upcRawCat)}">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-primary" style="flex:1;padding:9px" onclick="applyParsedFields().catch(e=>toast('Apply failed','err'))">Apply to Form</button>
+        <button class="btn btn-ghost" style="padding:9px 14px" onclick="$('upcFeedback').style.display='none'">Dismiss</button>
+      </div>
+      ${upcData.manual_search_url ? `<div style="margin-top:8px;font-size:12px;color:var(--text3)">📋 <a href="${upcData.manual_search_url}" target="_blank" style="color:var(--accent)">Search for manual on ManualsLib ↗</a></div>` : ''}
+    </div>`;
+  $('upcFeedback').innerHTML = html;
+  $('upcFeedback').style.display = 'block';
+}
+
+/** Apply the confirm panel values to the actual item form fields */
+async function applyParsedFields() {
+  const name    = $('pc_name')?.value?.trim();
+  const brand   = $('pc_brand')?.value?.trim();
+  const cat     = $('pc_cat')?.value?.trim();
+  const desc    = $('pc_desc')?.value?.trim();
+  const size    = $('pc_size')?.value?.trim();
+  const model   = $('pc_model')?.value?.trim();
+  const upcCat  = $('pc_upc_cat')?.value?.trim(); // full UPC category breadcrumb
+
+  if (name)  $('itm_name').value  = name;
+  if (brand) $('itm_brand').value = brand;
+  if (model) $('itm_model').value = model;
+
+  // Category: use our mapped value via GH_SELECT so it selects or creates correctly
+  if (cat) {
+    await GH_SELECT.init('itm_cat', 'inventory_category', cat, { allowAdd: true });
+    onCatChange($('itm_cat').value);
+  }
+
+  // Build notes: size, description, and UPC category context (if different from mapped)
+  const notesParts = [];
+  if (size) notesParts.push(`Size: ${size}`);
+  if (desc) notesParts.push(desc);
+  if (upcCat) notesParts.push(`Product category (from barcode): ${upcCat}`);
+
+  if (notesParts.length && $('itm_notes') && !$('itm_notes').value.trim()) {
+    $('itm_notes').value = notesParts.join('\n');
+  }
+
+  $('upcFeedback').innerHTML = `<div style="color:var(--green);font-size:13px;padding:6px 0">✓ Fields applied — review and save</div>`;
+  setTimeout(() => { $('upcFeedback').style.display='none'; }, 2500);
+  $('itm_name').focus();
+}
+
+// ══════════════════════════════════════════════════════════════
+// LOCATION CRUD
+// ══════════════════════════════════════════════════════════════
+// _locFromItemDrawer: when true, on save auto-selects the new location
+// in the item drawer and returns to it instead of refreshing the browse tree.
+let _locFromItemDrawer = false;
+
+async function openLocDrawer(loc=null, fromItemDrawer=false) {
+  _locFromItemDrawer = fromItemDrawer;
+  editingId = loc?.id||null;
+  $('locDrawerTitle').textContent = loc ? 'Edit Location' : 'Add Location';
+  await GH_SELECT.init('loc_name_sel', 'location_name', loc?.name||'', { allowAdd: true });
+  $('loc_type').value  = loc?.location_type||'room';
+  $('loc_desc').value  = loc?.description||'';
+  $('loc_notes').value = loc?.notes||'';
+  // Raise z-index when stacking over item drawer
+  $('locationDrawer').style.zIndex = fromItemDrawer ? '500' : '';
+  $('locationDrawer').classList.add('open');
+  setTimeout(()=>$('loc_name_sel').focus(), 300);
+}
+
+async function editLoc(id) {
+  const locs = await (await fetch(`${API}/locations/flat`)).json();
+  openLocDrawer(locs.find(l=>l.id===id), false);
+}
+
+function delLoc(id,name) {
+  confirm('Delete location?',`"${name}" will be deleted. It must be empty first.`,async()=>{
+    const r=await authFetch(`${API}/locations/${id}`,{method:'DELETE'});
+    const d=await r.json();
+    if(d.error){toast(d.error,'err');return;}
+    toast('Deleted'); await loadStats(); goHome();
+  });
+}
+
+$('locCancel').addEventListener('click', () => {
+  $('locationDrawer').classList.remove('open');
+  $('locationDrawer').style.zIndex = '';
+  if (_locFromItemDrawer) $('itemDrawer').classList.add('open');
+  _locFromItemDrawer = false;
+});
+
+$('locSave').addEventListener('click', async () => {
+  const name = $('loc_name_sel').value?.trim();
+  if (!name) { toast('Name required', 'err'); return; }
+  const btn = $('locSave'); btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    const url = editingId ? `${API}/locations/${editingId}` : `${API}/locations`;
+    const r = await authFetch(url, { method: editingId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        location_type: $('loc_type').value,
+        description:   $('loc_desc').value.trim() || null,
+        notes:         $('loc_notes').value || null
+      })
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+    const saved = await r.json();
+    $('locationDrawer').classList.remove('open');
+    $('locationDrawer').style.zIndex = '';
+
+    if (_locFromItemDrawer) {
+      // Called from item drawer — refresh location list, auto-select, return to item drawer
+      _locFromItemDrawer = false;
+      await loadWhereLists(true); // force reload
+      populateLocSel(saved.id);
+      populateCtnSel(saved.id, null);
+      updateWhereSummary();
+      $('itemDrawer').classList.add('open');
+      toast(`"${name}" added and selected`);
+    } else {
+      toast(editingId ? 'Updated' : 'Location added');
+      await loadStats(); renderBrowse();
+    }
+  } catch(err) { toast(ghErrorMsg(err), 'err'); }
+  finally { btn.textContent = 'Save Location'; btn.disabled = false; }
+});
+
+// ══════════════════════════════════════════════════════════════
+// CONTAINER CRUD
+// ══════════════════════════════════════════════════════════════
+async function populateCtnParent(selectedType, selectedId) {
+  const [locR,ctnR]=await Promise.all([fetch(`${API}/locations/flat`),fetch(`${API}/containers`)]);
+  const locs=await locR.json(), ctns=await ctnR.json();
+  let opts='<option value="">— select —</option><optgroup label="Locations">';
+  locs.forEach(l=>{ opts+=`<option value="location:${l.id}"${selectedType==='location'&&+selectedId===l.id?' selected':''}>${LOC_ICONS[l.location_type]||'📍'} ${l.name}</option>`; });
+  opts+='</optgroup><optgroup label="Containers (nested)">';
+  ctns.filter(c=>c.id!==editingId).forEach(c=>{ opts+=`<option value="container:${c.id}"${selectedType==='container'&&+selectedId===c.id?' selected':''}>${CTN_ICONS[c.subtype]||'📦'} ${c.name}</option>`; });
+  opts+='</optgroup>';
+  return opts;
+}
+
+let _ctnFromItemDrawer = false;
+
+async function openCtnDrawer(ctn=null, fromItemDrawer=false) {
+  _ctnFromItemDrawer = fromItemDrawer;
+  editingId = ctn?.id||null;
+  $('ctnDrawerTitle').textContent = ctn?'Edit Container':'Add Container';
+  $('ctn_name').value  = ctn?.name||'';
+  $('ctn_sub').value   = ctn?.subtype||'movable';
+  $('ctn_notes').value = ctn?.notes||'';
+  // When opened from item drawer, pre-select current location if one is chosen
+  const locId = fromItemDrawer ? $('itm_loc_sel').value : null;
+  const top = stack[stack.length-1];
+  const selType = ctn?.parent_type || (locId ? 'location' : (top?.type||'location'));
+  const selId   = ctn?.parent_id   || locId || (top?.type!=='root'?top?.id:null);
+  $('ctn_parent').innerHTML = await populateCtnParent(selType, selId);
+  // Raise z-index when stacking over item drawer
+  $('containerDrawer').style.zIndex = fromItemDrawer ? '500' : '';
+  $('containerDrawer').classList.add('open');
+  setTimeout(()=>$('ctn_name').focus(),300);
+}
+
+async function editCtn(id) {
+  const r=await fetch(`${API}/containers/${id}`); openCtnDrawer(await r.json(), false);
+}
+
+$('ctnSave').addEventListener('click', async () => {
+  const name = $('ctn_name').value.trim(), parentVal = $('ctn_parent').value;
+  if (!name) { toast('Name required', 'err'); return; }
+  if (!parentVal) { toast('Location required', 'err'); return; }
+  const [pt, pid] = parentVal.split(':');
+  const btn = $('ctnSave'); btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    const url = editingId ? `${API}/containers/${editingId}` : `${API}/containers`;
+    const method = editingId ? 'PUT' : 'POST';
+    const body = { name, subtype: $('ctn_sub').value, notes: $('ctn_notes').value||null };
+    if (!editingId) { body.parent_type = pt; body.parent_id = +pid; }
+    const r = await authFetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+    const saved = await r.json();
+    $('containerDrawer').classList.remove('open');
+    $('containerDrawer').style.zIndex = '';
+
+    if (_ctnFromItemDrawer) {
+      // Return to item drawer — reload where lists, auto-select the new container
+      _ctnFromItemDrawer = false;
+      await loadWhereLists(true);
+      // Auto-select the location it belongs to, then the container
+      const locId = pt === 'location' ? +pid : null;
+      if (locId) { $('itm_loc_sel').value = locId; onLocSelChange(); }
+      populateCtnSel(locId, saved.id);
+      updateWhereSummary();
+      $('itemDrawer').classList.add('open');
+      toast(`"${name}" added and selected`);
+    } else {
+      toast(editingId ? 'Updated' : 'Container added — QR generated');
+      await loadStats(); renderBrowse();
+    }
+  } catch(err) { toast(ghErrorMsg(err), 'err'); }
+  finally { btn.textContent = 'Save Container'; btn.disabled = false; }
+});
+
+// ══════════════════════════════════════════════════════════════
+// ITEM CRUD
+// ══════════════════════════════════════════════════════════════
+async function openItemDrawer(item=null) {
+  editingId = item?.id||null;
+  $('itemDrawerTitle').textContent = item?'Edit Item':'Add Item';
+  $('upc_input').value=''; $('upcFeedback').style.display='none';
+  $('upc_input').dataset.manualUrl='';
+  $('itm_name').value=''; $('itm_qty').value=1;
+  await populateCategoryDropdown('');
+  $('itm_brand').value=''; $('itm_model').value=''; $('itm_serial').value='';
+  $('itm_pdate').value=''; $('itm_price').value=''; $('itm_store').value='';
+  $('itm_method').value=''; $('itm_order').value='';
+  $('itm_cond').value=''; $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
+  GH_REFS.populateContact('itm_wvendor', null, { placeholder: '— none —' });
+  $('itm_insured').checked=false; $('insuranceFields').style.display='none';
+  $('itm_policy').value=''; $('itm_insval').value='';
+  $('itm_notes').value='';
+  $('itm_is_business').checked=false;
+  itmFormTags=[]; renderItmTags();
+  
+  resetHWForm();
+
+  if (item) {
+    $('upc_input').value=item.upc_barcode||'';
+    $('itm_name').value=item.name;
+    await populateCategoryDropdown(item.category||'');
+    $('itm_qty').value=item.quantity||1;
+    $('itm_brand').value=item.brand||''; $('itm_model').value=item.model_number||'';
+    $('itm_serial').value=item.serial_number||'';
+    $('itm_pdate').value=item.purchase_date||''; $('itm_price').value=item.purchase_price||'';
+    $('itm_store').value=item.store_name||''; $('itm_method').value=item.purchase_method||'';
+    $('itm_order').value=item.order_number||'';
+    $('itm_cond').value=item.condition||''; $('itm_warranty').value=item.warranty_expires||'';
+    GH_REFS.populateContact('itm_wvendor', item.warranty_vendor_contact_id||null, { placeholder: '— none —' });
+    $('itm_lifewrnt').checked=!!item.lifetime_warranty;
+    $('itm_insured').checked=!!item.insured;
+    $('insuranceFields').style.display=item.insured?'block':'none';
+    $('itm_policy').value=item.insurance_policy||''; $('itm_insval').value=item.insured_value||'';
+    $('itm_notes').value=item.notes||'';
+    $('itm_is_business').checked=!!item.is_business;
+  itmFormTags=item.tags||[]; renderItmTags();
+    // Load H&W details if applicable
+    if (isHW(item.category)) {
+      onCatChange(item.category);
+      await loadHWDetails(item.id);
+    }
+  }
+
+  const selType = item?.parent_type || null;
+  const selId   = item?.parent_id   || null;
+  await initWherePicker(selType, selId);
+  $('itemDrawer').classList.add('open');
+  if (window.GH_INFO) GH_INFO.wire($('itemDrawer'));
+  setTimeout(()=>{
+    $('itm_name').focus();
+    // Wire GH_TAGS here so it runs fresh each time drawer opens
+    GH_TAGS.init({ inputId:'itmTagInput', wrapId:'itmTagsWrap', module:'inventory', getFormTags:()=>itmFormTags, addTag: t=>addItmTag(t), allowCreate: true });
+    // Also wire keydown/blur on tag input
+    const itmInput = document.getElementById('itmTagInput');
+    if (itmInput && !itmInput._tagWired) {
+      itmInput._tagWired = true;
+      itmInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); if (itmInput.value.trim()) addItmTag(itmInput.value); }
+        else if (e.key === 'Backspace' && !itmInput.value && itmFormTags.length) { itmFormTags.pop(); renderItmTags(); }
+      });
+      itmInput.addEventListener('blur', () => { if (itmInput.value.trim()) addItmTag(itmInput.value); });
+    }
+  }, 300);
+}
+
+async function editItem(id) {
+  $('detailDrawer').classList.remove('open');
+  const r=await fetch(`${API}/items/${id}`); openItemDrawer(await r.json());
+}
+
+$('itm_insured').addEventListener('change',()=>{
+  $('insuranceFields').style.display = $('itm_insured').checked?'block':'none';
+});
+
+// ── "Where does this live?" two-step picker ──────────────────
+let _whereLocs = [];
+let _whereCtns = [];
+
+async function loadWhereLists(force=false) {
+  if (!force && _whereLocs.length) return; // already loaded
+  const [locR, ctnR] = await Promise.all([fetch(`${API}/locations/flat`), fetch(`${API}/containers`)]);
+  _whereLocs = locR.ok ? await locR.json() : [];
+  _whereCtns = ctnR.ok ? await ctnR.json() : [];
+}
+
+// ── Location/Container picker ────────────────────────────────
+// Flow: Container first (all containers shown, optional)
+//       Picking a container auto-fills the location.
+//       Location picker always active — filters container list when changed.
+
+function populateLocSel(selectLocId) {
+  $('itm_loc_sel').innerHTML = '<option value="">— pick a room or place —</option>' +
+    _whereLocs.map(l => `<option value="${l.id}"${+l.id === +selectLocId ? ' selected' : ''}>${LOC_ICONS[l.location_type]||'📍'} ${esc(l.name)}</option>`).join('');
+}
+
+function populateCtnSel(locId, selectCtnId) {
+  const sel = $('itm_ctn_sel');
+  // Show ALL containers when no location chosen; filter when location chosen
+  const ctns = locId
+    ? _whereCtns.filter(c => c.parent_type === 'location' && +c.parent_id === +locId)
+    : _whereCtns;
+
+  sel.innerHTML = '<option value="">— no container, directly in a place —</option>' +
+    ctns.map(c => {
+      const loc = _whereLocs.find(l => +l.id === +c.parent_id);
+      const suffix = !locId && loc ? ` (${esc(loc.name)})` : '';
+      return `<option value="${c.id}"${+c.id === +selectCtnId ? ' selected' : ''}>${CTN_ICONS[c.subtype]||'📦'} ${esc(c.name)}${suffix}</option>`;
+    }).join('');
+
+  // Container row always enabled — no greying
+  const row = $('ctnRow');
+  row.style.opacity = '1';
+  row.style.pointerEvents = 'auto';
+
+  if (selectCtnId) sel.value = selectCtnId;
+  updateWhereSummary();
+}
+
+function updateWhereSummary() {
+  const locId = $('itm_loc_sel').value;
+  const ctnId = $('itm_ctn_sel')?.value;
+  const sum   = $('whereSummary');
+  if (!locId && !ctnId) {
+    sum.style.display = 'none';
+    $('itm_parent_type').value = '';
+    $('itm_parent_id').value   = '';
+    return;
+  }
+  const loc = _whereLocs.find(l => +l.id === +locId);
+  const ctn = ctnId ? _whereCtns.find(c => +c.id === +ctnId) : null;
+  sum.textContent = `📌 ${ctn ? ctn.name + ' › ' + (loc?.name||'') : loc?.name||''}`;
+  sum.style.display = 'block';
+  $('itm_parent_type').value = ctn ? 'container' : 'location';
+  $('itm_parent_id').value   = ctn ? ctnId : locId;
+}
+
+function onLocSelChange() {
+  // Location changed — re-filter container list, keep container selection if still valid
+  
+  const locId    = $('itm_loc_sel').value;
+  const ctnId    = $('itm_ctn_sel').value;
+  const stillValid = ctnId && _whereCtns.find(c => +c.id === +ctnId && +c.parent_id === +locId);
+  populateCtnSel(locId, stillValid ? ctnId : null);
+  updateWhereSummary();
+}
+
+function onCtnSelChange() {
+  // Container chosen — auto-fill the location to match
+  const ctnId = $('itm_ctn_sel').value;
+  if (ctnId) {
+    const ctn = _whereCtns.find(c => +c.id === +ctnId);
+    if (ctn && !$('itm_loc_sel').value) {
+      $('itm_loc_sel').value = ctn.parent_id;
+    }
+  }
+  updateWhereSummary();
+}
+window.onLocSelChange = onLocSelChange;
+window.onCtnSelChange = onCtnSelChange;
+
+async function initWherePicker(parentType, parentId) {
+  await loadWhereLists();
+  let locId = null, ctnId = null;
+  if (parentType === 'location') { locId = parentId; }
+  else if (parentType === 'container') {
+    ctnId  = parentId;
+    locId  = _whereCtns.find(c => +c.id === +parentId)?.parent_id || null;
+  }
+  if (!locId && !ctnId) {
+    const top = stack[stack.length-1];
+    if (top?.type === 'location')  { locId = top.id; }
+    if (top?.type === 'container') { ctnId = top.id; locId = _whereCtns.find(c => +c.id === +top.id)?.parent_id; }
+  }
+  populateLocSel(locId);
+  populateCtnSel(locId, ctnId);
+  updateWhereSummary();
+}
+
+// + New place button — opens the full Location Drawer (same as FAB)
+// _locDrawerFromItemDrawer flag tells the save handler to auto-select and return
+$('newPlaceBtn').addEventListener('click', () => {
+  
+  openLocDrawer(null, true); // true = called from item drawer
+});
+
+// + New container — opens full Container Drawer (same as FAB)
+$('newBoxBtn').addEventListener('click', () => {
+  openCtnDrawer(null, true); // true = called from item drawer
+});
+
+
+$('itemSave').addEventListener('click', async ()=>{
+  const name=$('itm_name').value.trim();
+  const pt=$('itm_parent_type').value, pid=$('itm_parent_id').value;
+  if(!name){toast('Name required','err');return;}
+  if(!pt||!pid){toast('Pick a location first','err');return;}
+  const btn=$('itemSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try{
+    const url=editingId?`${API}/items/${editingId}`:`${API}/items`;
+    const method=editingId?'PUT':'POST';
+    const r=await authFetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      name, category:$('itm_cat').value||null, quantity:+$('itm_qty').value||1,
+      parent_type:pt, parent_id:+pid,
+      brand:$('itm_brand').value||null, model_number:$('itm_model').value||null,
+      serial_number:$('itm_serial').value||null, upc_barcode:$('upc_input').value||null,
+      purchase_date:$('itm_pdate').value||null,
+      purchase_price:$('itm_price').value?parseFloat($('itm_price').value):null,
+      store_name:$('itm_store').value||null, purchase_method:$('itm_method').value||null,
+      order_number:$('itm_order').value||null,
+      condition:$('itm_cond').value||null, warranty_expires:$('itm_warranty').value||null,
+      warranty_vendor_contact_id: $('itm_wvendor').value ? parseInt($('itm_wvendor').value) : null,
+      lifetime_warranty:$('itm_lifewrnt').checked,
+      insured:$('itm_insured').checked, insurance_policy:$('itm_policy').value||null,
+      insured_value:$('itm_insval').value?parseFloat($('itm_insval').value):null,
+      notes:$('itm_notes').value||null,
+      is_business: $('itm_is_business').checked ? 1 : 0,
+      tags:itmFormTags
+    })});
+    if(!r.ok) throw new Error((await r.json()).error||'Save failed');
+    const saved=await r.json();
+    // Save H&W details if category is Health & Wellness
+    if (isHW($('itm_cat').value)) {
+      await saveHWDetails(saved.id);
+    }
+    // Attach manual PDF if found
+    const manualUrl=$('upc_input').dataset.manualUrl;
+    if(manualUrl&&!editingId){
+      try{await apiPost(`/inventory/items/${saved.id}/attach-url`,{url:manualUrl,label:'Manual'});}catch{}
+    }
+    $('itemDrawer').classList.remove('open');
+    toast(editingId?'Item updated':'Item added');
+    await loadStats(); renderBrowse();
+  }catch(err){toast(err.message,'err');}
+  finally{btn.textContent='Save Item';btn.disabled=false;}
+});
+
+// ══════════════════════════════════════════════════════════════
+// ARCHIVE / SELL / UNARCHIVE
+// ══════════════════════════════════════════════════════════════
+function openArchive(id) {
+  $('arch_item_id').value=id; $('arch_reason').value='';
+  $('detailDrawer').classList.remove('open');
+  $('archiveDrawer').classList.add('open');
+}
+
+$('archiveSave').addEventListener('click', async ()=>{
+  const id=$('arch_item_id').value;
+  await authFetch(`${API}/items/${id}/archive`,{method:'PUT',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({reason:$('arch_reason').value||null})});
+  $('archiveDrawer').classList.remove('open');
+  toast('Item archived'); await loadStats(); renderBrowse();
+});
+
+async function doUnarchive(id) {
+  await authFetch(`${API}/items/${id}/unarchive`,{method:'PUT',headers:{'Content-Type':'application/json'},body:'{}'});
+  $('detailDrawer').classList.remove('open');
+  toast('Item unarchived'); await loadStats(); renderBrowse();
+}
+
+function openSell(id) {
+  $('sell_item_id').value=id;
+  $('sell_date').value=new Date().toISOString().slice(0,10);
+  $('sell_price').value=''; $('sell_to').value='';
+  $('detailDrawer').classList.remove('open');
+  $('sellDrawer').classList.add('open');
+}
+
+$('sellSave').addEventListener('click', async ()=>{
+  const id=$('sell_item_id').value;
+  await authFetch(`${API}/items/${id}/sell`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    sold_date:$('sell_date').value||null, sold_price:$('sell_price').value?parseFloat($('sell_price').value):null, sold_to:$('sell_to').value||null
+  })});
+  $('sellDrawer').classList.remove('open');
+  toast('Item marked sold & archived'); await loadStats(); renderBrowse();
+});
+
+// ══════════════════════════════════════════════════════════════
+// MAINTENANCE
+// ══════════════════════════════════════════════════════════════
+function openMaint(itemId) {
+  $('maint_item_id').value=itemId;
+  $('maint_date').value=new Date().toISOString().slice(0,10);
+  $('maint_type').value='repair'; $('maint_desc').value='';
+  $('maint_cost').value=''; $('maint_provider').value=''; $('maint_next').value='';
+  $('detailDrawer').classList.remove('open');
+  $('maintDrawer').classList.add('open');
+}
+
+$('maintSave').addEventListener('click', async ()=>{
+  const id=$('maint_item_id').value, desc=$('maint_desc').value.trim();
+  if(!desc){toast('Description required','err');return;}
+  const btn=$('maintSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try{
+    const r=await authFetch(`${API}/items/${id}/maintenance`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      log_date:$('maint_date').value, maintenance_type:$('maint_type').value, description:desc,
+      cost:$('maint_cost').value?parseFloat($('maint_cost').value):null,
+      provider:$('maint_provider').value||null, next_due_date:$('maint_next').value||null
+    })});
+    if(!r.ok) throw new Error((await r.json()).error||'Save failed');
+    $('maintDrawer').classList.remove('open');
+    toast('Maintenance logged');
+    if(currentDetailId===+id) await openDetail(+id);
+  }catch(err){toast(err.message,'err');}
+  finally{btn.textContent='Save';btn.disabled=false;}
+});
+
+// ══════════════════════════════════════════════════════════════
+// MOVE CONTAINER
+// ══════════════════════════════════════════════════════════════
+async function openMove(ctnId) {
+  $('move_ctn_id').value=ctnId;
+  $('move_target_type').value=''; $('move_target_id').value='';
+  $('moveConfirmBtn').disabled=true;
+  const [preR,locR]=await Promise.all([fetch(`${API}/containers/${ctnId}/move-preview`),fetch(`${API}/locations/flat`)]);
+  const prev=await preR.json(), locs=await locR.json();
+  $('movePreviewBox').innerHTML=`<div style="background:var(--amber-bg);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:10px 12px;font-size:13px;color:var(--amber)">Moving <strong>${prev.container.name}</strong> · ${prev.total_children} sub-items will also move</div>`;
+  $('moveTargetsList').innerHTML=locs.map(l=>`
+    <div class="card" style="margin-bottom:6px;cursor:pointer" data-mt-type="location" data-mt-id="${l.id}">
+      ${LOC_ICONS[l.location_type]||'📍'} ${l.name}
+    </div>`).join('');
+  $('moveTargetsList').querySelectorAll('[data-mt-id]').forEach(t=>{
+    t.addEventListener('click',()=>{
+      $('moveTargetsList').querySelectorAll('[data-mt-id]').forEach(x=>x.style.borderColor='');
+      t.style.borderColor='var(--accent)';
+      $('move_target_type').value=t.dataset.mtType;
+      $('move_target_id').value=t.dataset.mtId;
+      $('moveConfirmBtn').disabled=false;
+    });
+  });
+  $('detailDrawer').classList.remove('open');
+  $('moveDrawer').classList.add('open');
+}
+
+$('moveConfirmBtn').addEventListener('click', async ()=>{
+  const btn=$('moveConfirmBtn'); btn.textContent='Moving…'; btn.disabled=true;
+  try{
+    const r=await authFetch(`${API}/containers/${$('move_ctn_id').value}/move`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+      new_parent_type:$('move_target_type').value, new_parent_id:+$('move_target_id').value, confirm:true
+    })});
+    if(!r.ok) throw new Error((await r.json()).error||'Move failed');
+    $('moveDrawer').classList.remove('open');
+    toast('Container moved'); renderBrowse();
+  }catch(err){toast(err.message,'err');}
+  finally{btn.textContent='Move Here';btn.disabled=false;}
+});
+
+// ══════════════════════════════════════════════════════════════
+// QR CODE
+// ══════════════════════════════════════════════════════════════
+function openQR(type, ref) {
+  $('detailContent').innerHTML=`
+    <div style="text-align:center;padding:20px 0 10px">
+      <img src="${API}/qr/${type}/${ref}" alt="QR" style="width:200px;height:200px;border-radius:var(--r);border:1px solid var(--border)" onerror="this.style.display='none';document.getElementById('qrErr').style.display='block'">
+      <div id="qrErr" style="display:none;color:var(--red);font-size:13px">QR not generated yet</div>
+      <div style="font-family:var(--mono);font-size:14px;color:var(--text2);margin-top:10px">${type.toUpperCase()} · ${ref}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:6px">Scan to navigate directly to this ${type}</div>
+    </div>
+    <div class="btn-row"><button class="btn btn-ghost btn-full" onclick="$('detailDrawer').classList.remove('open')">Close</button></div>`;
+  $('detailDrawer').classList.add('open');
+}
+
+// ══════════════════════════════════════════════════════════════
+// IMPORT
+// ══════════════════════════════════════════════════════════════
+$('importFileInput').addEventListener('change', async e=>{
+  if(!e.target.files[0]) return;
+  $('addMenu').classList.remove('open');
+  const fd=new FormData(); fd.append('file',e.target.files[0]);
+  try{
+    const r=await fetch(`${API}/import`,{method:'POST',headers:{'Authorization':'Bearer '+LT.authToken},body:fd});
+    const d=await r.json();
+    if(d.errors?.length) console.log('Import errors:',d.errors);
+    toast(`Imported ${d.imported} items${d.skipped?' · '+d.skipped+' skipped':''}`);
+    await loadStats(); renderBrowse();
+  }catch(err){toast('Import failed: '+err.message,'err');}
+  e.target.value='';
+});
+
+// ══════════════════════════════════════════════════════════════
+// FAB + ADD MENU
+// ══════════════════════════════════════════════════════════════
+$('fabBtn').addEventListener('click',()=>$('addMenu').classList.add('open'));
+(function(){ let _d=false; $('addMenu').addEventListener('pointerdown',e=>{_d=e.target===$('addMenu')}); $('addMenu').addEventListener('pointerup',e=>{if(_d&&e.target===$('addMenu'))$('addMenu').classList.remove('open');}); })();
+$('menuAddLocation').addEventListener('click',()=>{ $('addMenu').classList.remove('open'); openLocDrawer(); });
+$('menuAddContainer').addEventListener('click',()=>{ $('addMenu').classList.remove('open'); openCtnDrawer(); });
+$('menuAddItem').addEventListener('click',()=>{ $('addMenu').classList.remove('open'); openItemDrawer(); });
+
+// ══════════════════════════════════════════════════════════════
+// UTILITIES
+// ══════════════════════════════════════════════════════════════
+function esc(s) { return String(s||'').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+function fmtMoney(v) { return Number(v).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+function fmtDatetime(dt) {
+  if(!dt) return '';
+  return new Date(dt).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric',hour:'numeric',minute:'2-digit'});
+}
+
+// Serve primary photo by item id (shortcut used in item cards)
+// We use a special endpoint alias - the item card uses item id, we need to find the primary photo id
+// Add a proxy route for this
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+// ── Init — defer until after nav.js / lt-core.js have both run ──
+// nav.js injects the search input via headerExtra synchronously, but
+// lt-core.js defines LT and $() — we just need a microtask delay.
+document.addEventListener('DOMContentLoaded', () => {
+  wireSearch();
+  applyViewSwitcherState();
+  loadCategoryChips();
+  loadRooms();
+  if (window.LT && LT.authToken) loadSharedData();
+  loadStats();
+  renderBrowse().then(() => {
+    // Deep-link: /inventory.html?open=ITM-0004 or CNT-0002 (from QR scan)
+    const openRef = new URLSearchParams(window.location.search).get('open');
+    if (openRef) {
+      fetch(`${API}/by-ref/${encodeURIComponent(openRef)}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (!data) { toast(`Item not found: ${openRef}`, 'err'); return; }
+          if (data.type === 'item') openDetail(data.id);
+          else if (data.type === 'container') openContainer(data.id);
+        })
+        .catch(() => toast('Could not open QR link', 'err'));
+    }
+  });
+});
+
+// Load category chips dynamically from dropdown_options table
+async function loadCategoryChips() {
+  const CAT_ICONS = {
+    'Electronics':'💻','Appliances':'🔌','Furniture':'🪑','Tools':'🔧','Clothing':'👕',
+    'Sports':'⚽','Toys':'🧸','Kitchen':'🍳','Outdoor':'🌳','Documents':'📄',
+    'Medical':'💊','Holiday':'🎄','Books':'📚','Other':'📦','Health & Wellness':'💊',
+    'Office':'🖊️','Garden':'🌻','Automotive':'🚗','Art & Crafts':'🎨'
+  };
+  try {
+    const opts = await fetch('/api/v1/settings/dropdowns/inventory_category').then(r => r.ok ? r.json() : []);
+    const strip = $('catChips');
+    if (!strip || !opts.length) return;
+    strip.innerHTML = '<div class="chip active" data-cat="">All</div>';
+    opts.forEach(o => {
+      const icon = CAT_ICONS[o.value] || CAT_ICONS[o.label] || '📦';
+      const chip = document.createElement('div');
+      chip.className = 'chip';
+      chip.dataset.cat = o.value;
+      chip.textContent = `${icon} ${o.label}`;
+      strip.appendChild(chip);
+    });
+  } catch(e) {
+    // Fallback: silently keep "All" chip only — still functional
+  }
+}
+
+// ── Inventory tag input helpers ─────────────────────────────
+function renderItmTags() {
+  const wrap = document.getElementById('itmTagsWrap');
+  const input = document.getElementById('itmTagInput');
+  if (!wrap || !input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  itmFormTags.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t) : '';
+    if (cs) chip.style.cssText = cs;
+    chip.innerHTML = `${t}<span class="tag-chip-remove">&times;</span>`;
+    chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
+      itmFormTags = itmFormTags.filter(x => x !== t);
+      renderItmTags();
+    });
+    wrap.insertBefore(chip, input);
+  });
+}
+function addItmTag(raw) {
+  raw.split(',').map(t => t.trim().toLowerCase()).filter(t => t && !itmFormTags.includes(t))
+    .forEach(t => itmFormTags.push(t));
+  renderItmTags();
+  const inp = document.getElementById('itmTagInput');
+  if (inp) inp.value = '';
+}
+
+// tag input wired in openItemDrawer via GH_TAGS.init
+
+// deep-link handled in DOMContentLoaded init
+</script>
+</body>
+</html>

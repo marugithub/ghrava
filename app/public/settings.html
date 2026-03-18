@@ -1,0 +1,2855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="theme-color" content="#f0f4f8">
+<title>Settings — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+  /* ── Login gate ──────────────────────────────────────────── */
+  #loginGate {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; min-height: 80vh; padding: 24px; text-align: center;
+  }
+  .login-icon  { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+  .login-title { font-size: 22px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.02em; }
+  .login-sub   { font-size: 14px; color: var(--text3); margin-bottom: 28px; }
+  .pin-wrap    { width: 100%; max-width: 300px; position: relative; }
+  .pin-input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border);
+    border-radius: var(--r); color: var(--text); font-family: var(--mono);
+    font-size: 22px; letter-spacing: 0.2em; text-align: center; padding: 14px; outline: none;
+    transition: border-color 0.15s;
+  }
+  .pin-input:focus { border-color: var(--accent); }
+  .pin-input.err   { border-color: var(--red); animation: shake 0.3s; }
+  @keyframes shake {
+    0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 60%{transform:translateX(8px)}
+  }
+
+  /* ── Sub-panel slide system ──────────────────────────────── */
+  .sub-panel {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    z-index: 400; /* above sidebar (300), drawers (300), everything */
+    background: var(--bg);
+    transform: translateX(100%);
+    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .sub-panel.open { transform: translateX(0); }
+
+  /* Desktop: sidebar is always 220px — panel slides in beside it */
+  @media (min-width: 900px) {
+    .sub-panel { left: 220px; }
+    body.nav-collapsed .sub-panel { left: 58px; }
+  }
+
+  /* Lock body scroll while any panel is open */
+  body.panel-open { overflow: hidden; }
+
+  .sub-panel-header {
+    display: flex; align-items: center; gap: 10px;
+    padding: 16px 20px 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--bg); z-index: 10;
+  }
+  .sub-back {
+    display: flex; align-items: center; gap: 4px;
+    background: none; border: none; color: var(--accent);
+    font-size: 15px; font-weight: 500; cursor: pointer; padding: 4px 0;
+    font-family: inherit;
+  }
+  .sub-back svg { width: 18px; height: 18px; }
+  .sub-panel-title { font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
+  /* sub-panel-add removed — replaced by .sub-panel-fab below */
+
+  /* FAB inside sub-panels — position:fixed so it sits bottom-right of the
+     full-screen panel overlay, consistent with other pages */
+  .sub-panel-fab {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    width: 52px; height: 52px;
+    background: var(--accent);
+    border: none; border-radius: 50%;
+    color: #fff; font-size: 26px; line-height: 1;
+    display: none; /* hidden by default, shown when parent panel is open */
+    align-items: center; justify-content: center;
+    cursor: pointer; z-index: 410;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    transition: background 0.15s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .sub-panel.open .sub-panel-fab { display: flex; }
+  .sub-panel-fab:hover { background: var(--accent); transform: scale(1.06); }
+
+  /* Drawers must appear above sub-panels (z-index 400) */
+  .drawer-overlay { z-index: 500 !important; }
+
+  /* ── Settings menu rows (inside .settings-card) ─────────── */
+  .settings-group { margin: 0 0 8px; }
+  .settings-group-label {
+    font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--text3);
+    padding: 20px 20px 8px;
+  }
+  .settings-rows {
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .settings-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 0;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    transition: opacity .12s;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .settings-row:first-of-type { border-top: none; }
+  .settings-row:hover { opacity: .8; }
+  .settings-row-icon {
+    width: 36px; height: 36px; border-radius: var(--r);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; flex-shrink: 0;
+  }
+  .settings-row-body { flex: 1; min-width: 0; }
+  .settings-row-label { font-size: 15px; font-weight: 500; color: var(--text); }
+  .settings-row-sub   { font-size: 12px; color: var(--text3); margin-top: 1px; }
+  .settings-row-right {
+    display: flex; align-items: center; gap: 6px;
+    color: var(--text3); font-size: 13px; flex-shrink: 0; opacity: .5;
+  }
+  .settings-row-badge {
+    background: var(--accent); color: #fff;
+    font-size: 10px; font-weight: 700;
+    padding: 2px 7px; border-radius: 10px; font-family: var(--mono);
+  }
+
+  /* ── Type badges ─────────────────────────────────────────── */
+  .tag-swatch  { display:inline-block;width:16px;height:16px;border-radius:50%;flex-shrink:0;vertical-align:middle; }
+  .ctype-badge { font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;background:var(--bg4);color:var(--text2);border:1px solid var(--border2);white-space:nowrap; }
+  .ftype-badge { font-family:var(--mono);font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(139,92,246,.1);color:#8b5cf6;border:1px solid rgba(167,139,250,0.2); }
+  .ext-section { background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-top:12px;overflow:hidden; }
+  .ext-section-header { padding:10px 14px;font-size:12px;font-weight:600;color:var(--text3);font-family:var(--mono);letter-spacing:0.06em;text-transform:uppercase;border-bottom:1px solid var(--border);background:var(--bg3); }
+  .ext-section-body { padding:12px 14px 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Login gate (only shown if no active session) ─────────── -->
+  <div id="loginGate" style="display:none">
+    <div class="login-icon">🔐</div>
+    <div class="login-title">Settings</div>
+    <div class="login-sub">Enter your Ghrava password to continue.</div>
+    <form class="pin-wrap" onsubmit="event.preventDefault(); doSettingsLogin()">
+      <input type="text" name="username" autocomplete="username"
+             style="display:none" aria-hidden="true" tabindex="-1" value="admin">
+      <input class="pin-input" type="password" id="pinInput"
+             name="password" placeholder="Enter password" autocomplete="current-password">
+      <div style="margin-top:12px">
+        <button type="submit" class="btn btn-primary" id="pinSubmit" style="width:180px">Unlock</button>
+      </div>
+    </form>
+    <div id="pinError" style="color:var(--red);font-size:13px;margin-top:10px;display:none">Incorrect password</div>
+  </div>
+
+  <!-- ── Main settings home ──────────────────────────────────── -->
+  <div id="mainContent" style="display:none">
+    <!-- header injected by nav.js -->
+
+    <div class="settings-page-bg">
+
+      <!-- ── APPEARANCE ─────────────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-title">Appearance</div>
+        <div class="settings-card-desc">Choose your theme. Changes apply instantly.</div>
+        <div id="themeSwitch"></div>
+      </div>
+
+      <!-- ── ACCOUNT ────────────────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-title">Account</div>
+        <div class="settings-card-desc">Manage your password and session.</div>
+        <div class="settings-row" onclick="openPanel('account')">
+          <div class="settings-row-icon" style="background:var(--accent-bg);color:var(--accent)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Change Password</div>
+            <div class="settings-row-desc">Update your Ghrava password</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <!-- ── PEOPLE ─────────────────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-title">People</div>
+        <div class="settings-card-desc">Family members and contacts used throughout the app.</div>
+        <div class="settings-row" onclick="openPanel('family')">
+          <div class="settings-row-icon" style="background:rgba(99,102,241,.1);color:#6366f1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Family Members</div>
+            <div class="settings-row-desc">People who appear throughout Ghrava</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="badge-family" class="settings-row-badge" style="display:none"></span>
+            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+        <div class="settings-row" onclick="openPanel('contacts')">
+          <div class="settings-row-icon" style="background:rgba(20,184,166,.1);color:#14b8a6">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Contacts</div>
+            <div class="settings-row-desc">Doctors, pharmacies, services &amp; more</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="badge-contacts" class="settings-row-badge" style="display:none"></span>
+            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+        <div class="settings-row" onclick="openPanel('tags')">
+          <div class="settings-row-icon" style="background:rgba(167,139,250,.1);color:#a78bfa">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Tags</div>
+            <div class="settings-row-desc">Labels used across all modules</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="badge-tags" class="settings-row-badge" style="display:none"></span>
+            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── CUSTOMIZATION ──────────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-title">Customization</div>
+        <div class="settings-card-desc">Manage dropdown options and custom fields used throughout the app.</div>
+        <div class="settings-row" onclick="openPanel('dropdowns')">
+          <div class="settings-row-icon" style="background:rgba(245,158,11,.1);color:#f59e0b">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Dropdown Lists</div>
+            <div class="settings-row-desc">Categories, types, conditions &amp; more</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="settings-row" onclick="openPanel('fields')">
+          <div class="settings-row-icon" style="background:rgba(249,115,22,.1);color:#f97316">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Custom Fields</div>
+            <div class="settings-row-desc">Add fields to inventory and other modules</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <!-- ── GOOGLE INTEGRATION ─────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-title">Google Integration</div>
+        <div class="settings-card-desc">Connect Google for Calendar sync and Contacts import.</div>
+        <div class="settings-row" onclick="openPanel('google')">
+          <div class="settings-row-icon" style="background:rgba(66,133,244,.1)">
+            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Google Services</div>
+            <div class="settings-row-desc">Calendar sync, Contacts import</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="badge-google" style="font-size:10px;color:var(--text3);font-family:var(--mono)">Not connected</span>
+            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── DATA ───────────────────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-title">Data</div>
+        <div class="settings-card-desc">Backup, restore, and export your data.</div>
+        <div class="settings-row" onclick="openPanel('backup')">
+          <div class="settings-row-icon" style="background:rgba(34,197,94,.1);color:#22c55e">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Backup &amp; Restore</div>
+            <div class="settings-row-desc">Export and restore your data</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="settings-row" onclick="openPanel('infra')">
+          <div class="settings-row-icon" style="background:rgba(100,116,139,.1);color:#64748b">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Infrastructure</div>
+            <div class="settings-row-desc">Base URL, QR codes, app URL</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+      </div>
+
+      <!-- ── SYSTEM ──────────────────────────────────────── -->
+      <div class="settings-card">
+        <div class="settings-card-title">System</div>
+        <div class="settings-card-desc">App information, diagnostics, and changelog.</div>
+        <div class="settings-row" onclick="openPanel('about')">
+          <div class="settings-row-icon" style="background:rgba(92,114,250,.1);color:var(--accent)">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">About &amp; Diagnostics</div>
+            <div class="settings-row-desc">Version, uptime, tests, changelog</div>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span id="badge-version" style="font-family:var(--mono);font-size:11px;color:var(--text3)">—</span>
+            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+
+
+  <!-- ════════════════════════════════════════════════════════
+       SUB-PANELS
+  ════════════════════════════════════════════════════════ -->
+
+  <!-- ACCOUNT -->
+  <div class="sub-panel" id="panel-account">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('account')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="sub-panel-title">Account</div>
+    </div>
+    <div style="padding:16px 20px 80px">
+      <div class="settings-card">
+        <div class="settings-card-title">Change Password</div>
+        <div class="settings-card-desc">Enter your current password, then choose a new one.</div>
+        <div class="form-group">
+          <label class="form-label">Current Password</label>
+          <input class="form-input" type="password" id="pwCurrent" placeholder="Current password" autocomplete="current-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">New Password</label>
+          <input class="form-input" type="password" id="pwNew" placeholder="New password" autocomplete="new-password">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Confirm New Password</label>
+          <input class="form-input" type="password" id="pwConfirm" placeholder="Confirm new password" autocomplete="new-password">
+        </div>
+        <div id="pwError" style="color:var(--red);font-size:13px;margin-bottom:10px;display:none"></div>
+        <button class="btn btn-primary btn-full" onclick="changePassword()">Update Password</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAMILY -->
+  <div class="sub-panel" id="panel-family">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('family')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Family Members</div>
+    </div>
+    <button class="sub-panel-fab" onclick="openFamilyDrawer()" title="Add family member">+</button>
+    <div class="content" style="padding-top:8px">
+      <div id="familyList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- CONTACTS -->
+  <div class="sub-panel" id="panel-contacts">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('contacts')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Contacts</div>
+    </div>
+    <button class="sub-panel-fab" onclick="openContactDrawer()" title="Add contact">+</button>
+    <div class="content" style="padding-top:8px">
+      <div style="padding:0 0 12px;display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:8px 20px 12px">
+        <button class="cat-pill active" data-ctype="" style="flex-shrink:0">All</button>
+        <button class="cat-pill" data-ctype="Medical" style="flex-shrink:0">Medical</button>
+        <button class="cat-pill" data-ctype="Contractor" style="flex-shrink:0">Contractor</button>
+        <button class="cat-pill" data-ctype="Financial" style="flex-shrink:0">Financial</button>
+        <button class="cat-pill" data-ctype="Employer" style="flex-shrink:0">Employer</button>
+        <button class="cat-pill" data-ctype="School" style="flex-shrink:0">School</button>
+        <button class="cat-pill" data-ctype="Vendor" style="flex-shrink:0">Vendor</button>
+        <button class="cat-pill" data-ctype="General" style="flex-shrink:0">General</button>
+        <button class="cat-pill" data-ctype="Other" style="flex-shrink:0">Other</button>
+      </div>
+      <div id="contactsList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- TAGS -->
+  <div class="sub-panel" id="panel-tags">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('tags')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Tags</div>
+    </div>
+    <div class="content" style="padding-top:8px">
+      <button class="sub-panel-fab" onclick="openTagDrawer()" title="Add tag">+</button>
+    <div id="tagsList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    </div>
+  </div>
+
+  <!-- DROPDOWN LISTS -->
+  <div class="sub-panel" id="panel-dropdowns">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('dropdowns')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Dropdown Lists</div>
+    </div>
+    <div class="content" style="padding-top:8px">
+      <div style="padding:0 20px 16px">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:12px">Manage options that appear in dropdowns across the app. Disable to hide, delete to remove custom ones.</div>
+        <select class="form-select" id="dd_list_key" onchange="loadDropdownList(this.value)">
+          <option value="">— choose a list —</option>
+          <option value="inventory_category">Inventory Categories</option>
+          <option value="hw_subcategory">Health &amp; Wellness Sub-categories</option>
+          <option value="contact_type">Contact Types</option>
+          <option value="item_condition">Item Condition</option>
+          <option value="purchase_method">Purchase Method</option>
+        </select>
+      </div>
+      <div id="dd_items" style="padding:0 20px"></div>
+      <div id="dd_add_form" style="display:none;padding:0 20px 20px">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border)">Add Option</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Label <span class="req">*</span></label>
+            <input class="form-input" id="dd_new_label" placeholder="Displayed to user">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Value</label>
+            <input class="form-input" id="dd_new_value" placeholder="Auto-generated if blank">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" onclick="addDropdownOption()">Add Option</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CUSTOM FIELDS -->
+  <div class="sub-panel" id="panel-fields">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('fields')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Custom Fields</div>
+    </div>
+    <button class="sub-panel-fab" onclick="openFieldDrawer()" title="Add field">+</button>
+    <div class="content" style="padding-top:8px">
+      <div style="padding:0 20px 12px">
+        <select class="form-select" id="fieldsModuleFilter" style="font-size:13px">
+          <option value="">All modules</option>
+          <option value="inventory">Inventory</option>
+          <option value="hsa">HSA</option>
+          <option value="finance">Finance</option>
+          <option value="medical">Medical</option>
+          <option value="career">Career</option>
+        </select>
+      </div>
+      <div id="fieldsList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    </div>
+  </div>
+
+
+  <!-- BACKUP -->
+  <div class="sub-panel" id="panel-backup">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('backup')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Backup & Restore</div>
+    </div>
+    <div class="content" style="padding-top:12px">
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+          <div>
+            <div style="font-weight:600;font-size:14px">Create Backup</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Saves a copy of your database</div>
+          </div>
+          <button class="btn btn-primary" id="backupNowBtn" style="flex-shrink:0;white-space:nowrap">Backup Now</button>
+        </div>
+        <div id="backupResult" style="display:none;margin-top:12px;padding:10px 12px;background:rgba(34,197,94,.1);border:1px solid var(--green-bd);border-radius:var(--r)">
+          <div style="font-size:13px;color:var(--green)" id="backupResultMsg"></div>
+        </div>
+      </div>
+
+      <!-- Data Export section -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Export Data</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Download your data as JSON or CSV for external use, migration, or archiving.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a class="btn btn-ghost" style="font-size:13px;text-decoration:none" href="/api/v1/backup/export-json" download>⬇️ Full JSON Export</a>
+          <button class="btn btn-ghost" style="font-size:13px" onclick="showCsvExportMenu()">⬇️ CSV by Table ▾</button>
+        </div>
+        <div id="csvTableMenu" style="display:none;margin-top:10px;display:none">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Choose table</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px" id="csvTableBtns"></div>
+        </div>
+      </div>
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:4px 0 10px;display:flex;align-items:center;justify-content:space-between">
+        <span>Saved Backups</span>
+        <span id="backupCountNote" style="font-weight:400;text-transform:none;letter-spacing:0"></span>
+      </div>
+      <div id="backupList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+      <div id="restoreConfirm" style="display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.7);align-items:center;justify-content:center">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;width:calc(100% - 40px);max-width:360px">
+          <div style="font-size:16px;font-weight:700;margin-bottom:8px">Restore from backup?</div>
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Current data will be overwritten. This cannot be undone.</div>
+          <div style="font-family:var(--mono);font-size:11px;color:var(--text3);background:var(--bg4);padding:8px 10px;border-radius:var(--r);margin-bottom:14px;word-break:break-all" id="restoreFilename"></div>
+          <div class="btn-row">
+            <button class="btn btn-ghost btn-full" onclick="document.getElementById('restoreConfirm').style.display='none'">Cancel</button>
+            <button class="btn btn-danger btn-full" id="restoreConfirmBtn">Yes, Restore</button>
+          </div>
+        </div>
+      </div>
+      <div id="restoreSuccess" style="display:none;margin-top:12px;padding:14px 16px;background:rgba(34,197,94,.1);border:1px solid var(--green-bd);border-radius:var(--r);line-height:1.6">
+        <div style="font-weight:600;color:var(--green);margin-bottom:6px">✓ Database file restored</div>
+        <div style="font-size:13px;color:var(--text2);margin-bottom:8px">The backup has been copied over the live database file.</div>
+        <div style="font-size:13px;font-weight:600;color:var(--amber);background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;margin-bottom:12px">
+          ⚠️ You must restart the container to apply the restore.<br>
+          <span style="font-weight:400;color:var(--text3)">Go to Synology Container Manager → lifetracker → Action → Restart. The app holds the DB file open — a reload alone will not pick up the restored data.</span>
+        </div>
+        <button class="btn btn-ghost btn-full" onclick="location.reload()">Reload Page (after restart)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INFRASTRUCTURE -->
+  <div class="sub-panel" id="panel-infra">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('infra')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Infrastructure</div>
+    </div>
+    <div class="content" style="padding-top:16px">
+      <div class="section-label" style="padding-top:0">App URL</div>
+      <div style="padding:0 20px">
+        <div class="card card-static">
+          <div class="form-group">
+            <label class="form-label">Base URL</label>
+            <input class="form-input" id="infraBaseUrl" placeholder="http://192.168.1.x:3001">
+            <div class="form-hint">The URL used to reach this app on your network. Used in QR codes so scanning opens the app directly.</div>
+          </div>
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-primary" style="flex:1" onclick="saveBaseUrl()">Save URL</button>
+            <button class="btn btn-ghost" onclick="detectBaseUrl()">Auto-detect</button>
+          </div>
+          <div id="infraUrlResult" style="display:none;margin-top:10px;font-size:13px;color:var(--green)"></div>
+        </div>
+      </div>
+      <div class="section-label">QR Codes</div>
+      <div style="padding:0 20px">
+        <div class="card card-static">
+          <div style="font-size:14px;color:var(--text2);margin-bottom:12px">Regenerate all QR codes to use the current Base URL. Do this once after setting the URL above, or any time your NAS IP changes.</div>
+          <button class="btn btn-ghost btn-full" id="regenQrBtn" onclick="regenAllQR()">Regenerate All QR Codes</button>
+          <div id="regenQrResult" style="display:none;margin-top:10px;font-size:13px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GOOGLE SERVICES -->
+  <div class="sub-panel" id="panel-google">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('google')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Google Services</div>
+    </div>
+    <div class="content" style="padding-top:16px;padding-bottom:40px">
+
+      <!-- Status cards -->
+      <div class="section-label" style="padding-top:0">Status</div>
+      <div style="padding:0 20px">
+        <div class="card card-static" style="padding:0" id="googleStatusCard">
+          <div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Loading…</div>
+        </div>
+      </div>
+
+      <!-- OAuth buttons -->
+      <div style="padding:12px 20px 0" id="googleAuthBtns"></div>
+
+      <!-- Credentials -->
+      <div class="section-label">OAuth Credentials</div>
+      <div style="padding:0 20px">
+        <div class="card card-static">
+          <div style="font-size:13px;color:var(--text3);margin-bottom:12px;line-height:1.5">
+            Create a project at <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Google Cloud Console</a>,
+            enable the Calendar API and People API, then create OAuth 2.0 credentials.
+            Set the redirect URI to: <span id="googleRedirectUri" style="font-family:var(--mono);font-size:11px;color:var(--text2)">your-base-url/api/v1/google/oauth/callback</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Client ID</label>
+            <input class="form-input" id="googleClientId" placeholder="xxxxxx.apps.googleusercontent.com" autocomplete="off">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label">Client Secret</label>
+            <input class="form-input" type="password" id="googleClientSecret" placeholder="Client secret" autocomplete="off">
+          </div>
+        </div>
+        <button class="btn btn-primary btn-full" style="margin-top:10px" onclick="saveGoogleCredentials()">Save Credentials</button>
+      </div>
+
+      <!-- Sync settings -->
+      <div class="section-label">Sync Settings</div>
+      <div style="padding:0 20px">
+        <div class="card card-static" style="padding:0">
+          <label style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer">
+            <div>
+              <div style="font-size:14px;font-weight:500;color:var(--text)">📅 Google Calendar</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:1px">Pull events into Ghrava calendar</div>
+            </div>
+            <input type="checkbox" id="googleSyncCal" onchange="saveGooglePrefs()" style="width:18px;height:18px;accent-color:var(--accent)">
+          </label>
+          <label style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer">
+            <div>
+              <div style="font-size:14px;font-weight:500;color:var(--text)">👥 Google Contacts</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:1px">Import contacts (one-way, read-only)</div>
+            </div>
+            <input type="checkbox" id="googleSyncCon" onchange="saveGooglePrefs()" style="width:18px;height:18px;accent-color:var(--accent)">
+          </label>
+        </div>
+      </div>
+
+      <!-- Manual sync triggers -->
+      <div class="section-label" id="googleSyncActionsLabel" style="display:none">Sync Now</div>
+      <div style="padding:0 20px" id="googleSyncActions"></div>
+
+      <!-- Calendars list -->
+      <div class="section-label" id="googleCalsLabel" style="display:none">Your Calendars</div>
+      <div style="padding:0 20px" id="googleCalsList"></div>
+
+    </div>
+  </div>
+
+  <!-- ABOUT -->
+  <div class="sub-panel" id="panel-about">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('about')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">About Ghrava</div>
+    </div>
+    <div class="content" style="padding-top:16px;padding-bottom:40px">
+
+      <div style="padding:0 20px 16px">
+        <div style="background:var(--bg2);border-radius:var(--r);padding:20px;text-align:center">
+          <div style="font-size:36px;margin-bottom:8px">🏠</div>
+          <div style="font-size:22px;font-weight:800;letter-spacing:-.02em">Ghrava</div>
+          <div id="aboutVersion" style="font-family:var(--mono);font-size:12px;color:var(--accent);margin-top:4px">v28.0.0</div>
+          <div id="aboutBuildDate" style="font-size:11px;color:var(--text3);margin-top:2px">Build 2026-03-08</div>
+        </div>
+      </div>
+
+      <div class="section-label" style="padding-top:0">System</div>
+      <div style="padding:0 20px">
+        <div class="card card-static" style="padding:0">
+          <div id="aboutSystemRows" style="font-size:13px">
+            <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+              <span style="color:var(--text3)">Status</span>
+              <span style="color:var(--green);font-weight:600">● Online</span>
+            </div>
+            <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+              <span style="color:var(--text3)">Uptime</span>
+              <span id="aboutUptime" style="font-family:var(--mono)">—</span>
+            </div>
+            <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+              <span style="color:var(--text3)">Node.js</span>
+              <span id="aboutNode" style="font-family:var(--mono)">—</span>
+            </div>
+            <div style="padding:12px 14px;display:flex;justify-content:space-between">
+              <span style="color:var(--text3)">Base URL</span>
+              <span id="aboutBaseUrl" style="font-family:var(--mono);font-size:11px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">—</span>
+            </div>
+            <div style="padding:12px 14px;border-top:1px solid var(--border);display:flex;justify-content:space-between">
+              <span style="color:var(--text3)">Image Processing</span>
+              <span id="aboutSharp" style="font-family:var(--mono)">—</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-label">Data</div>
+      <div style="padding:0 20px">
+        <div class="card card-static" style="padding:0" id="aboutCounts">
+          <div style="padding:16px;color:var(--text3);font-size:13px;text-align:center">Loading…</div>
+        </div>
+      </div>
+
+      <div class="section-label">Recent Changes</div>
+      <div style="padding:0 20px">
+        <div class="card card-static" style="padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.6">
+          <div style="font-weight:600;color:var(--text);margin-bottom:6px">v30 — 2026-03-08</div>
+          <div>• Kids module — full build (profiles, activities, notes, school info)</div>
+          <div>• App log file — /app/logs/ghrava.log, request logging</div>
+          <div>• Log viewer in Settings → About</div>
+          <div>• Daily log follow-up badge improvements</div>
+          <div style="font-weight:600;color:var(--text);margin:10px 0 6px">v33 — 2026-03-09</div>
+          <div>• Dashboard crash fixes (medStats, resources, kidsStats)</div>
+          <div>• Medical summary column fix</div>
+          <div>• Sidebar scrollbar hidden</div>
+          <div>• Diagnostic test fixes (inventory, HSA, todos)</div>
+          <div style="font-weight:600;color:var(--text);margin:10px 0 6px">v29 — 2026-03-08</div>
+          <div>• Google Calendar sync (OAuth, month view, event CRUD)</div>
+          <div>• Google Contacts import</div>
+          <div>• Settings → Google Services panel</div>
+          <div>• Dashboard upcoming events widget</div>
+          <div style="font-weight:600;color:var(--text);margin:10px 0 6px">v28 — 2026-03-08</div>
+          <div>• Tag colors applied to chips in all modules</div>
+          <div>• Inline tag creation on inventory &amp; daily log</div>
+          <div>• Settings → About panel + /app/info endpoint</div>
+        </div>
+      </div>
+
+      <div class="section-label">Logs</div>
+      <div style="padding:0 20px 20px">
+        <!-- Log tabs -->
+        <div style="display:flex;gap:4px;margin-bottom:10px;background:var(--bg3);border-radius:var(--r);padding:3px">
+          <button id="logTabServer" onclick="switchLogTab('server')"
+            style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:var(--accent);color:#fff;transition:all .15s">
+            Server Log
+          </button>
+          <button id="logTabClient" onclick="switchLogTab('client')"
+            style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:transparent;color:var(--text2);transition:all .15s">
+            Client Log
+          </button>
+        </div>
+
+        <!-- Server log controls -->
+        <div id="logCtrlServer" style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="btn btn-ghost" style="flex:1" onclick="loadLogs(50)">Last 50 lines</button>
+          <button class="btn btn-ghost" style="flex:1" onclick="loadLogs(200)">Last 200 lines</button>
+        </div>
+
+        <!-- Client log controls -->
+        <div id="logCtrlClient" style="display:none;gap:8px;margin-bottom:8px">
+          <button class="btn btn-ghost" style="flex:1" onclick="loadClientLog('all')">All</button>
+          <button class="btn btn-ghost" style="flex:1" onclick="loadClientLog('error')">Errors only</button>
+          <button class="btn btn-ghost" style="flex:1" onclick="GH_LOG.download()">↓ Download</button>
+          <button class="btn btn-ghost" style="flex:1;color:var(--red)" onclick="GH_LOG.clear();loadClientLog('all')">Clear</button>
+        </div>
+
+        <div id="logViewer" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:400px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all"></div>
+      </div>
+
+      <div class="section-label">Data Cleanup</div>
+      <div style="padding:0 20px 20px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+          Fixes common data quality issues: extracts brand/description from bloated item names,
+          sets missing quantities to 1. Also runs automatically on every app restart and after CSV imports.
+          Only fills blank fields — never overwrites existing data.
+        </div>
+        <button class="btn btn-ghost" id="cleanupRunBtn" onclick="runCleanup()" style="margin-bottom:12px">▶ Run Cleanup Now</button>
+        <div id="cleanupLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6"></div>
+
+        <div style="font-size:12px;color:var(--text3);margin:16px 0 8px">
+          Downloads product images from the internet for inventory items that have a UPC barcode but no photo yet. Processes up to 50 items per run — tap again if more remain.
+        </div>
+        <button class="btn btn-ghost" id="imageFetchBtn" onclick="runImageBackfill()" style="margin-bottom:12px">🖼 Fetch Product Images</button>
+        <div id="imageFetchLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6"></div>
+      </div>
+
+      <div class="section-label">Data Review</div>
+      <div style="padding:0 20px 20px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+          Records flagged for review after data imports or system changes.
+          Edit and save any flagged record to clear its flag.
+        </div>
+        <button class="btn btn-ghost" onclick="loadReviewSummary()" style="margin-bottom:12px">🔄 Check Now</button>
+        <div id="reviewDashboard"></div>
+      </div>
+
+      <div class="section-label">Diagnostics</div>
+      <div style="padding:0 20px 20px">
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Run API tests against this Ghrava instance. All CRUD tests clean up after themselves — no test data is left behind.</div>
+        <div style="display:flex;gap:8px;margin-bottom:10px">
+          <button class="btn btn-ghost" id="diagRunBtn" onclick="diagStartRun()" style="flex:1">▶ Run All Tests</button>
+          <button class="btn btn-ghost" onclick="runOrphanCheck()" style="white-space:nowrap">🔍 Orphan Check</button>
+          <button class="btn btn-ghost" id="diagDlBtn" onclick="diagDownloadLog()" style="display:none;white-space:nowrap">↓ Log</button>
+        </div>
+        <div id="orphanResults" style="display:none;margin-bottom:12px;font-size:12px;font-family:var(--mono)"></div>
+
+        <!-- Progress -->
+        <div id="diagProgress" style="display:none;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+            <div style="flex:1;height:4px;border-radius:2px;background:var(--border);overflow:hidden">
+              <div id="diagFill" style="height:100%;width:0%;border-radius:2px;background:var(--green);transition:width .3s"></div>
+            </div>
+            <span id="diagStat" style="font-size:11px;color:var(--text2);white-space:nowrap;font-family:var(--mono)">0/0</span>
+            <span id="diagFailed" style="font-size:11px;color:var(--red);display:none"></span>
+          </div>
+          <!-- filter strip -->
+          <div style="display:flex;gap:6px;margin-bottom:8px">
+            <button onclick="diagSetFilter('all')"  id="dfAll"  style="flex:1" class="btn btn-ghost btn-sm diag-fbtn diag-fbtn-active">all</button>
+            <button onclick="diagSetFilter('pass')" id="dfPass" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">pass</button>
+            <button onclick="diagSetFilter('fail')" id="dfFail" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">fail</button>
+          </div>
+        </div>
+
+        <!-- Suite list -->
+        <div id="diagSuites"></div>
+
+        <!-- Log output -->
+        <div id="diagLogWrap" style="display:none;margin-top:10px">
+          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Output Log</div>
+          <div id="diagLog" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:200px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+
+<!-- ── Family Member Drawer ─────────────────────────────── -->
+<div class="drawer-overlay" id="familyDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="familyDrawerTitle">Add Family Member</div>
+    <div class="form-group">
+      <label class="form-label">Display Name <span class="req">*</span></label>
+      <input class="form-input" id="fm_display_name" placeholder="e.g. A, Z, Arnav">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Full Legal Name</label>
+      <input class="form-input" id="fm_legal_name" placeholder="As it appears on legal docs">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Relationship</label>
+        <select class="form-select" id="fm_relationship">
+          <option value="">— select —</option>
+          <option>Self</option><option>Spouse</option><option>Son</option>
+          <option>Daughter</option><option>Parent</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date of Birth</label>
+        <input class="form-input" type="date" id="fm_dob">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">SSN Last 4</label>
+        <input class="form-input" id="fm_ssn4" maxlength="4" placeholder="0000">
+      </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:2px">
+        <div class="toggle-row" style="border:none;padding:0;width:100%">
+          <span class="toggle-label" style="font-size:13px">Primary user</span>
+          <label class="toggle">
+            <input type="checkbox" id="fm_primary">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="fm_notes" style="min-height:70px"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="familyCancel">Cancel</button>
+      <button class="btn btn-primary" id="familySave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Contact Drawer ───────────────────────────────────── -->
+<div class="drawer-overlay" id="contactDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="contactDrawerTitle">Add Contact</div>
+    <div class="form-group">
+      <label class="form-label">Type <span class="req">*</span></label>
+      <select class="form-select" id="ct_type">
+        <option value="">— select —</option>
+        <option value="Medical">Medical</option>
+        <option value="Contractor">Contractor</option>
+        <option value="Financial">Financial</option>
+        <option value="Employer">Employer</option>
+        <option value="School">School</option>
+        <option value="Vendor">Vendor</option>
+        <option value="General">General</option>
+        <option value="Other">Other</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Name <span class="req">*</span></label>
+      <input class="form-input" id="ct_name">
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Company / Practice</label>
+        <input class="form-input" id="ct_company">
+      </div>
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Specialty</label>
+        <select class="form-select" id="ct_specialty"></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Primary Phone</label>
+        <input class="form-input" type="tel" id="ct_phone1">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Secondary Phone</label>
+        <input class="form-input" type="tel" id="ct_phone2">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Email</label>
+        <input class="form-input" type="email" id="ct_email">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Website</label>
+        <input class="form-input" type="url" id="ct_website" placeholder="https://…">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Street</label>
+      <input class="form-input" id="ct_street" placeholder="123 Main St">
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">City</label>
+        <input class="form-input" id="ct_city">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">State</label>
+        <input class="form-input" id="ct_state" placeholder="AL" maxlength="2" style="text-transform:uppercase">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">ZIP</label>
+        <input class="form-input" id="ct_zip" placeholder="12345" inputmode="numeric">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="ct_notes" style="min-height:70px"></textarea>
+    </div>
+    <div id="ctExtension"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="contactCancel">Cancel</button>
+      <button class="btn btn-primary" id="contactSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tag Drawer ────────────────────────────────────────── -->
+<div class="drawer-overlay" id="tagDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="tagDrawerTitle">Add Tag</div>
+    <div class="form-group">
+      <label class="form-label">Tag Name <span class="req">*</span></label>
+      <input class="form-input" id="tg_name" placeholder="e.g. electronics, taxes, warranty">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Color</label>
+      <div class="color-swatches" id="tagColorSwatches"></div>
+      <input type="hidden" id="tg_color" value="5c72fa">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="tagCancel">Cancel</button>
+      <button class="btn btn-primary" id="tagSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Custom Field Drawer ───────────────────────────────── -->
+<div class="drawer-overlay" id="fieldDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="fieldDrawerTitle">Add Custom Field</div>
+    <div class="form-group">
+      <label class="form-label">Field Name <span class="req">*</span></label>
+      <input class="form-input" id="cf_name" placeholder="e.g. Purchase URL, Vendor Code">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Type <span class="req">*</span></label>
+        <select class="form-select" id="cf_type">
+          <option value="text">Text</option>
+          <option value="number">Number</option>
+          <option value="date">Date</option>
+          <option value="boolean">Yes/No</option>
+          <option value="url">URL</option>
+          <option value="currency">Currency</option>
+          <option value="dropdown">Dropdown</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Module</label>
+        <select class="form-select" id="cf_module">
+          <option value="">All modules</option>
+          <option value="inventory">Inventory</option>
+          <option value="hsa">HSA</option>
+          <option value="finance">Finance</option>
+          <option value="medical">Medical</option>
+          <option value="career">Career</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category (optional)</label>
+      <input class="form-input" id="cf_category" placeholder="e.g. Electronics, Appliances">
+    </div>
+    <div class="form-group" id="cf_options_wrap" style="display:none">
+      <label class="form-label">Options (one per line)</label>
+      <textarea class="form-textarea" id="cf_options" style="min-height:80px" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Default Value</label>
+      <input class="form-input" id="cf_default">
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Required field</span>
+      <label class="toggle">
+        <input type="checkbox" id="cf_required">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="fieldCancel">Cancel</button>
+      <button class="btn btn-primary" id="fieldSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm delete -->
+
+<script>
+  window.GH_PAGE = {
+    module: 'settings',
+    title:  'Settings',
+    rightExtra: `
+      <button class="gh-icon-btn" id="logoutBtn" aria-label="Lock">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+      </button>`,
+  };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────────
+let activePanel = null;
+let contactTypeFilter = '';
+let editingId = null;
+let deletingType = null, deletingId = null;
+const TAG_COLORS = ['5c72fa','22c55e','f59e0b','ef4444','a78bfa','ec4899','14b8a6','f97316','6366f1','94a3b8'];
+
+function toast(msg, type='ok') {
+  const el=$('toast'); el.textContent=msg; el.className=`toast ${type} show`;
+  setTimeout(()=>el.className='toast',2600);
+}
+
+async function checkAuth() {
+  if (LT.authToken) {
+    // Already have a token — verify it's still valid
+    try {
+      const r = await fetch('/api/v1/auth/status', {headers:{'Authorization':`Bearer ${LT.authToken}`}});
+      const d = await r.json();
+      if (d.authenticated) { showMain(); return; }
+    } catch {}
+    // Token invalid — clear it and show login
+    LT.authToken = null;
+    localStorage.removeItem('lt_token');
+  }
+  showLogin();
+}
+
+function showLogin() {
+  $('loginGate').style.display = 'flex';
+  $('mainContent').style.display = 'none';
+  setTimeout(() => { const p = $('pinInput'); if (p) p.focus(); }, 100);
+}
+
+function showMain() {
+  $('loginGate').style.display = 'none';
+  $('mainContent').style.display = 'block';
+  loadBadges();
+  // Render theme switcher
+  const ts = $('themeSwitch');
+  if (ts && window.LTTheme) ts.innerHTML = LTTheme.switcherHTML();
+  // Update version badge
+  fetch('/api/v1/app/info').then(r=>r.json()).then(d=>{
+    if ($('badge-version')) $('badge-version').textContent = 'v' + d.version;
+  }).catch(()=>{});
+}
+
+async function doSettingsLogin() {
+  const pw = $('pinInput').value;
+  if (!pw) return;
+  const btn = $('pinSubmit');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pw})
+    });
+    if (r.ok) {
+      const d = await r.json();
+      LT.authToken = d.token;
+      localStorage.setItem('lt_token', d.token);
+      $('pinError').style.display = 'none';
+      showMain();
+    } else {
+      $('pinInput').classList.add('err');
+      $('pinError').style.display = 'block';
+      $('pinInput').value = '';
+      setTimeout(() => { $('pinInput').classList.remove('err'); $('pinInput').focus(); }, 500);
+    }
+  } catch(e) {
+    $('pinError').textContent = 'Connection error — ' + e.message;
+    $('pinError').style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Unlock';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Logout
+  const lbtn = $('logoutBtn');
+  if (lbtn) lbtn.addEventListener('click', () => {
+    fetch('/api/v1/auth/logout', {method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}}).catch(()=>{});
+    LT.authToken = null; localStorage.removeItem('lt_token'); showLogin();
+  });
+
+  // Backup buttons — guarded so a missing element never crashes the page
+  const backupNowBtn = $('backupNowBtn');
+  if (backupNowBtn) backupNowBtn.addEventListener('click', doBackupNow);
+
+  const restoreConfirmBtn = $('restoreConfirmBtn');
+  if (restoreConfirmBtn) restoreConfirmBtn.addEventListener('click', async () => {
+    const btn = $('restoreConfirmBtn');
+    btn.textContent = 'Restoring…'; btn.disabled = true;
+    try {
+      const r = await fetch('/api/v1/backup/restore', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` },
+        body: JSON.stringify({ filename: _restoreTarget })
+      });
+      if (!r.ok) throw new Error((await r.json()).error||'Restore failed');
+      $('restoreConfirm').style.display = 'none';
+      $('restoreSuccess').style.display = 'block';
+      await loadBackups();
+    } catch(e) {
+      toast(e.message, 'err');
+      $('restoreConfirm').style.display = 'none';
+    } finally {
+      btn.textContent = 'Yes, Restore'; btn.disabled = false;
+    }
+  });
+});
+
+// ── Panel navigation ──────────────────────────────────────────
+const PANEL_LOADERS = {
+  account:   () => { $('pwCurrent').value=$('pwNew').value=$('pwConfirm').value=''; $('pwError').style.display='none'; },
+  family:    () => { loadFamily(); },
+  contacts:  () => { loadContacts(); },
+  tags:      () => { loadTags(); },
+  fields:    () => { loadFields(); },
+  dropdowns: () => { $('dd_list_key').value=''; $('dd_items').innerHTML=''; $('dd_add_form').style.display='none'; },
+  backup:    () => { loadBackups(); },
+  infra:     () => { loadInfra(); },
+  about:     () => { loadAbout(); loadReviewSummary(); },
+  google:    () => { loadGooglePanel(); },
+};
+
+// ── Google Services Panel ────────────────────────────────────
+async function loadGooglePanel() {
+  // Update redirect URI hint
+  const baseUrl = document.getElementById('infraBaseUrl')?.value || window.location.origin;
+  const rUri = document.getElementById('googleRedirectUri');
+  if (rUri) rUri.textContent = `${baseUrl}/api/v1/google/oauth/callback`;
+
+  try {
+    const s = await fetch('/api/v1/google/status').then(r=>r.json());
+
+    // Update nav badge
+    const badge = document.getElementById('badge-google');
+    if (badge) badge.textContent = s.connected ? '● Connected' : (s.configured ? 'Needs auth' : 'Not connected');
+    if (badge) badge.style.color = s.connected ? 'var(--green)' : 'var(--text3)';
+
+    // Status card
+    const card = document.getElementById('googleStatusCard');
+    if (card) {
+      const rows = [
+        { label: 'Connection',     value: s.connected ? '<span style="color:var(--green)">● Connected</span>' : (s.configured ? '<span style="color:var(--amber)">Needs authorization</span>' : '<span style="color:var(--text3)">Not configured</span>') },
+        { label: 'Calendar sync',  value: s.services.calendar.enabled ? `On · ${s.services.calendar.event_count} events` : 'Off' },
+        { label: 'Last cal sync',  value: s.services.calendar.last_sync ? new Date(s.services.calendar.last_sync).toLocaleString() : 'Never' },
+        { label: 'Contacts sync',  value: s.services.contacts.enabled ? `On · ${s.services.contacts.contact_count} imported` : 'Off' },
+      ];
+      card.innerHTML = rows.map((r,i) => `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;${i<rows.length-1?'border-bottom:1px solid var(--border)':''}">
+          <span style="color:var(--text3);font-size:13px">${r.label}</span>
+          <span style="font-size:13px;color:var(--text)">${r.value}</span>
+        </div>`).join('');
+    }
+
+    // Auth buttons
+    const authBtns = document.getElementById('googleAuthBtns');
+    if (authBtns) {
+      if (s.configured && !s.connected) {
+        authBtns.innerHTML = `<button class="btn btn-primary btn-full" onclick="startGoogleOAuth()">🔗 Authorize with Google</button>`;
+      } else if (s.connected) {
+        authBtns.innerHTML = `
+          <div style="display:flex;gap:8px">
+            <button class="btn btn-ghost" style="flex:1" onclick="startGoogleOAuth()">Re-authorize</button>
+            <button class="btn btn-danger" style="flex:1" onclick="disconnectGoogle()">Disconnect</button>
+          </div>`;
+      } else {
+        authBtns.innerHTML = '';
+      }
+    }
+
+    // Prefs checkboxes
+    if (document.getElementById('googleSyncCal')) document.getElementById('googleSyncCal').checked = s.services.calendar.enabled;
+    if (document.getElementById('googleSyncCon')) document.getElementById('googleSyncCon').checked = s.services.contacts.enabled;
+
+    // Pre-fill credentials
+    const creds = s.configured ? await fetch('/api/v1/google/status').then(()=>({})) : {};
+    // (We don't return secrets — just leave fields blank if already saved)
+
+    // Sync action buttons
+    const actLabel = document.getElementById('googleSyncActionsLabel');
+    const actDiv   = document.getElementById('googleSyncActions');
+    if (actLabel && actDiv && s.connected) {
+      actLabel.style.display = '';
+      actDiv.innerHTML = `
+        <div style="display:flex;gap:8px">
+          ${s.services.calendar.enabled ? `<button class="btn btn-ghost" style="flex:1" id="calSyncBtn" onclick="triggerCalSync()">📅 Sync Calendar</button>` : ''}
+          ${s.services.contacts.enabled ? `<button class="btn btn-ghost" style="flex:1" id="conSyncBtn" onclick="triggerConSync()">👥 Sync Contacts</button>` : ''}
+        </div>`;
+    }
+
+    // Calendars list
+    const calsLabel = document.getElementById('googleCalsLabel');
+    const calsDiv   = document.getElementById('googleCalsList');
+    if (calsLabel && calsDiv && s.connected) {
+      const cals = await fetch('/api/v1/google/calendars').then(r=>r.ok?r.json():[]);
+      if (cals.length) {
+        calsLabel.style.display = '';
+        calsDiv.innerHTML = `<div class="card card-static" style="padding:0">` +
+          cals.map((c,i) => `
+            <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;${i<cals.length-1?'border-bottom:1px solid var(--border)':''}">
+              <div style="width:12px;height:12px;border-radius:50%;background:${c.color_hex||'var(--accent)'};flex-shrink:0"></div>
+              <div style="flex:1;font-size:13px;color:var(--text)">${c.summary||c.id}${c.is_primary?' <span style="font-size:10px;color:var(--text3)">(primary)</span>':''}</div>
+              <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;color:var(--text3)">
+                <input type="checkbox" ${c.is_enabled?'checked':''} onchange="toggleCalendar('${c.id}',this)" style="accent-color:var(--accent)">
+                Sync
+              </label>
+            </div>`).join('') + '</div>';
+      }
+    }
+  } catch(e) {
+    const card = document.getElementById('googleStatusCard');
+    if (card) card.innerHTML = '<div style="padding:14px;color:var(--red);font-size:13px">Failed to load Google status</div>';
+  }
+}
+
+async function saveGoogleCredentials() {
+  const clientId     = document.getElementById('googleClientId')?.value.trim();
+  const clientSecret = document.getElementById('googleClientSecret')?.value.trim();
+  if (!clientId || !clientSecret) { toast('Both Client ID and Client Secret are required', 'err'); return; }
+  try {
+    const r = await fetch('/api/v1/google/credentials', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
+      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    toast('Credentials saved', 'ok');
+    document.getElementById('googleClientSecret').value = '';
+    loadGooglePanel();
+  } catch(e) { toast('Failed to save: ' + e.message, 'err'); }
+}
+
+async function saveGooglePrefs() {
+  try {
+    await fetch('/api/v1/google/prefs', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
+      body: JSON.stringify({
+        sync_calendars: document.getElementById('googleSyncCal')?.checked,
+        sync_contacts:  document.getElementById('googleSyncCon')?.checked,
+      }),
+    });
+  } catch {}
+}
+
+async function startGoogleOAuth() {
+  try {
+    const r = await fetch('/api/v1/google/oauth/start', { headers:{'Authorization':'Bearer '+LT.authToken} });
+    const d = await r.json();
+    if (d.auth_url) window.location.href = d.auth_url;
+    else toast(d.error || 'Failed to start OAuth', 'err');
+  } catch { toast('Failed', 'err'); }
+}
+
+async function disconnectGoogle() {
+  if (!confirm('Disconnect Google and remove all synced calendar events?')) return;
+  try {
+    await fetch('/api/v1/google/disconnect', {
+      method: 'DELETE', headers:{'Authorization':'Bearer '+LT.authToken}
+    });
+    toast('Disconnected from Google', 'ok');
+    loadGooglePanel();
+  } catch { toast('Failed', 'err'); }
+}
+
+async function triggerCalSync() {
+  const btn = document.getElementById('calSyncBtn'); if (btn) { btn.disabled=true; btn.textContent='Syncing…'; }
+  try {
+    const r = await fetch('/api/v1/google/sync/calendar', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken}
+    });
+    const d = await r.json();
+    if (r.ok) toast(`Synced ${d.synced} events from ${d.calendars} calendar${d.calendars!==1?'s':''}`, 'ok');
+    else toast(d.error || 'Sync failed', 'err');
+    loadGooglePanel();
+  } catch { toast('Sync failed', 'err'); }
+  finally { if (btn) { btn.disabled=false; btn.textContent='📅 Sync Calendar'; } }
+}
+
+async function triggerConSync() {
+  const btn = document.getElementById('conSyncBtn'); if (btn) { btn.disabled=true; btn.textContent='Syncing…'; }
+  try {
+    const r = await fetch('/api/v1/google/sync/contacts', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken}
+    });
+    const d = await r.json();
+    if (r.ok) toast(`Imported ${d.imported} new contacts (${d.total} total)`, 'ok');
+    else toast(d.error || 'Sync failed', 'err');
+    loadGooglePanel();
+  } catch { toast('Sync failed', 'err'); }
+  finally { if (btn) { btn.disabled=false; btn.textContent='👥 Sync Contacts'; } }
+}
+
+async function toggleCalendar(calId, checkbox) {
+  try {
+    await fetch(`/api/v1/google/calendars/${encodeURIComponent(calId)}/toggle`, {
+      method:'PATCH', headers:{'Authorization':'Bearer '+LT.authToken}
+    });
+  } catch { checkbox.checked = !checkbox.checked; toast('Failed', 'err'); }
+}
+
+// Also handle Google OAuth return in settings
+(function() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('google_connected') === '1') {
+    history.replaceState({}, '', '/settings.html');
+    setTimeout(() => { openPanel('google'); toast('Google connected!', 'ok'); }, 500);
+  } else if (params.get('google_error')) {
+    history.replaceState({}, '', '/settings.html');
+    setTimeout(() => toast('Google error: ' + params.get('google_error'), 'err'), 500);
+  }
+
+  // ── Drawer auto-open via ?drawer=contact|family&type=Medical ──
+  // Used when GH_REFS opens Settings in an iframe to add a new record.
+  const drawerParam = params.get('drawer');
+  const typeParam   = params.get('type');
+  if (drawerParam === 'contact') {
+    setTimeout(() => openContactDrawer(null, typeParam || null), 400);
+  } else if (drawerParam === 'family') {
+    setTimeout(() => {
+      loadFamily();
+      $('familyDrawer').classList.add('open');
+    }, 400);
+  }
+})();
+
+async function loadAbout() {
+  try {
+    const d = await fetch('/api/v1/app/info').then(r => r.json());
+    if ($('aboutVersion'))  $('aboutVersion').textContent  = 'v' + d.version;
+    if ($('badge-version')) $('badge-version').textContent = 'v' + d.version;
+    if ($('aboutBuildDate'))$('aboutBuildDate').textContent= 'Build ' + (d.build_date||'');
+    if ($('aboutNode'))     $('aboutNode').textContent     = d.node_version || '—';
+    if ($('aboutBaseUrl'))  $('aboutBaseUrl').textContent  = d.base_url || 'not set';
+    if ($('aboutSharp'))    $('aboutSharp').textContent    = d.sharp_available ? '✓ sharp' : '✗ no sharp (images save unresized)';
+
+    // Uptime
+    if ($('aboutUptime') && d.uptime_s != null) {
+      const h = Math.floor(d.uptime_s / 3600);
+      const m = Math.floor((d.uptime_s % 3600) / 60);
+      $('aboutUptime').textContent = h > 0 ? `${h}h ${m}m` : `${m}m`;
+    }
+
+    // Record counts
+    const LABELS = {
+      items:'Inventory items', hsa_payments:'HSA expenses',
+      med_visit_notes:'Medical visits', finance_transactions:'Transactions',
+      todos:'To-dos', daily_log:'Journal entries', contacts:'Contacts',
+      family_members:'Family members', books:'Books', documents:'Documents',
+    };
+    if ($('aboutCounts') && d.record_counts) {
+      $('aboutCounts').innerHTML = Object.entries(d.record_counts).map(([k,v], i, arr) => `
+        <div style="padding:10px 14px;${i<arr.length-1?'border-bottom:1px solid var(--border)':''};display:flex;justify-content:space-between;align-items:center">
+          <span style="color:var(--text2);font-size:13px">${LABELS[k]||k}</span>
+          <span style="font-family:var(--mono);font-size:13px;font-weight:600;color:${v>0?'var(--text)':'var(--text3)'}">${v ?? '—'}</span>
+        </div>`).join('');
+    }
+  } catch(e) {
+    if ($('aboutCounts')) $('aboutCounts').innerHTML = '<div style="padding:14px;color:var(--red);font-size:13px">Failed to load</div>';
+  }
+}
+
+
+// ── Data Cleanup ──────────────────────────────────────────────
+async function runCleanup() {
+  const btn = $('cleanupRunBtn');
+  const log = $('cleanupLog');
+  btn.disabled = true; btn.textContent = 'Running…';
+  log.style.display = 'block';
+  log.textContent = 'Running cleanup…';
+  try {
+    const d = await fetch('/api/v1/settings/cleanup/run', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LT.authToken }
+    }).then(r => r.json());
+
+    const lines = [];
+    if (d.titles > 0)     lines.push(`✓ ${d.titles} item name(s) cleaned — fields extracted`);
+    else                  lines.push(`✓ No bloated item names found`);
+    if (d.quantities > 0) lines.push(`✓ ${d.quantities} item quantity/quantities set to 1`);
+    else                  lines.push(`✓ No missing quantities found`);
+    if (d.errors?.length) lines.push(`⚠ ${d.errors.length} error(s): ${d.errors.slice(0,3).join('; ')}`);
+
+    const totalChanged = (d.titles||0) + (d.quantities||0);
+    lines.push('');
+    if (totalChanged > 0) {
+      lines.push(`${totalChanged} record(s) updated — check Settings → Data Review to verify changes.`);
+      loadReviewSummary(); // refresh the review dashboard
+    } else {
+      lines.push('Everything looks clean.');
+    }
+    log.innerHTML = lines.map(l =>
+      `<span style="color:${l.startsWith('⚠') ? 'var(--amber)' : l.startsWith('✓') ? 'var(--green)' : 'var(--text3)'}">${esc(l)}</span>`
+    ).join('\n');
+  } catch(e) {
+    log.innerHTML = `<span style="color:var(--red)">${ghErrorMsg(e)}</span>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Run Cleanup Now';
+  }
+}
+
+// ── Product Image Backfill ────────────────────────────────────
+async function runImageBackfill() {
+  const btn = $('imageFetchBtn');
+  const log = $('imageFetchLog');
+  btn.disabled = true; btn.textContent = 'Fetching…';
+  log.style.display = 'block';
+  log.innerHTML = '<span style="color:var(--text3)">Scanning for items with UPC but no photo…</span>';
+  try {
+    const r = await fetch('/api/v1/inventory/items/backfill-images', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LT.authToken }
+    });
+    if (!r.ok) throw new Error((await r.json()).error || `HTTP ${r.status}`);
+    const d = await r.json();
+    const lines = [];
+    if (d.succeeded > 0) lines.push(`✓ ${d.succeeded} image(s) downloaded`);
+    if (d.skipped  > 0) lines.push(`⏭ ${d.skipped} already had a photo`);
+    if (d.failed   > 0) lines.push(`⚠ ${d.failed} failed (no image found for UPC)`);
+    if (d.remaining > 0) lines.push(`${d.remaining} item(s) still need images — tap again to continue`);
+    else if (d.processed > 0) lines.push('All done — no more items need images.');
+    else lines.push('No items found with a UPC barcode but no photo.');
+    log.innerHTML = lines.map(l =>
+      `<span style="color:${l.startsWith('⚠') ? 'var(--amber)' : l.startsWith('✓') ? 'var(--green)' : 'var(--text3)'}">${esc(l)}</span>`
+    ).join('\n');
+  } catch(e) {
+    log.innerHTML = `<span style="color:var(--red)">${ghErrorMsg(e)}</span>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '🖼 Fetch Product Images';
+  }
+}
+
+async function loadReviewSummary() {
+  const el = $('reviewDashboard');
+  if (!el) return;
+  el.innerHTML = spinnerHtml('Checking…');
+  try {
+    const d = await fetch('/api/v1/settings/review/summary').then(r => r.json());
+    if (!d.total) {
+      el.innerHTML = `<div style="color:var(--green);font-size:13px;padding:8px 0">✓ No records need review</div>`;
+      return;
+    }
+    el.innerHTML = `
+      <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:14px;margin-bottom:8px">
+        <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:12px">⚠️ ${d.total} record(s) need review</div>
+        ${d.modules.map(m => `
+          <div style="margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">
+              ${esc(m.label)} <span style="color:var(--text3);font-weight:400">(${m.count})</span>
+            </div>
+            ${m.samples.map(s => `
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:6px 0;border-bottom:1px solid var(--border)">
+                <div>
+                  <div style="font-size:13px;color:var(--text2)">${esc(s.name||'—')}</div>
+                  <div style="font-size:11px;color:var(--amber);margin-top:2px">${esc(s.review_reason||'Flagged for review')}</div>
+                  ${s.review_flagged_at ? `<div style="font-size:10px;color:var(--text3);margin-top:1px">${s.review_flagged_at.slice(0,10)}</div>` : ''}
+                </div>
+              </div>`).join('')}
+            ${m.count > 5 ? `<div style="font-size:11px;color:var(--text3);padding-top:6px">+ ${m.count-5} more — edit and save each to clear</div>` : ''}
+          </div>`).join('')}
+        <div style="font-size:12px;color:var(--text3);margin-top:8px;padding-top:8px;border-top:1px solid var(--border)">
+          To clear a flag: open the record in its module, make any needed corrections, and save.
+        </div>
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:13px">${ghErrorMsg(e)}</div>`;
+  }
+}
+
+
+let _logTab = 'server'; // 'server' | 'client'
+
+function switchLogTab(tab) {
+  _logTab = tab;
+  // Update tab button styles
+  $('logTabServer').style.background = tab === 'server' ? 'var(--accent)' : 'transparent';
+  $('logTabServer').style.color      = tab === 'server' ? '#fff' : 'var(--text2)';
+  $('logTabClient').style.background = tab === 'client' ? 'var(--accent)' : 'transparent';
+  $('logTabClient').style.color      = tab === 'client' ? '#fff' : 'var(--text2)';
+  // Show correct controls
+  $('logCtrlServer').style.display = tab === 'server' ? 'flex' : 'none';
+  $('logCtrlClient').style.display = tab === 'client' ? 'flex' : 'none';
+  // Load default view
+  if (tab === 'server') loadLogs(50);
+  else loadClientLog('all');
+}
+
+async function loadLogs(n) {
+  const el = $('logViewer');
+  if (!el) return;
+  el.style.display = 'block';
+  el.textContent = 'Loading…';
+  try {
+    const d = await fetch(`/api/v1/app/logs?lines=${n}`, {
+      headers: { 'Authorization': 'Bearer ' + LT.authToken }
+    }).then(r => r.json());
+    if (!d.lines?.length) { el.textContent = 'No log entries yet.'; return; }
+    // Colour-code by level
+    el.innerHTML = d.lines.map(line => {
+      const col = line.includes('[ERROR]') ? 'var(--red)' :
+                  line.includes('[WARN]')  ? 'var(--amber)' : 'var(--text2)';
+      return `<span style="color:${col}">${esc(line)}</span>`;
+    }).join('\n');
+    el.scrollTop = el.scrollHeight;
+  } catch(e) {
+    el.textContent = 'Could not load logs: ' + e.message;
+  }
+}
+
+function loadClientLog(filter) {
+  const el = $('logViewer');
+  if (!el) return;
+  el.style.display = 'block';
+  const entries = GH_LOG.entries();
+  const filtered = filter === 'error'
+    ? entries.filter(e => e.level === 'error' || e.level === 'warn')
+    : entries;
+  if (!filtered.length) {
+    el.textContent = filter === 'error' ? 'No errors recorded this session.' : 'No client log entries yet.';
+    return;
+  }
+  el.innerHTML = filtered.map(e => {
+    const col = e.level === 'error' ? 'var(--red)' :
+                e.level === 'warn'  ? 'var(--amber)' : 'var(--text2)';
+    const line = `[${e.ts.slice(11,19)}] [${e.level.toUpperCase()}] [${e.page}] ${e.msg}${e.data ? ' | ' + e.data : ''}`;
+    return `<span style="color:${col}">${esc(line)}</span>`;
+  }).join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+
+// ── Orphan Check ──────────────────────────────────────────
+async function runOrphanCheck() {
+  const el = $('orphanResults'); if (!el) return;
+  el.style.display = 'block';
+  el.innerHTML = '<span style="color:var(--text3)">Checking…</span>';
+  try {
+    const r = await fetch('/api/v1/settings/diagnostics/orphans', {
+      headers: { 'Authorization': 'Bearer ' + (LT.authToken || '') }
+    }).then(r => r.json());
+
+    const rows = r.checks.map(c => {
+      const icon  = c.ok ? '✓' : (c.warning ? '⚠' : '✗');
+      const color = c.ok ? 'var(--green)' : (c.warning ? 'var(--amber)' : 'var(--red)');
+      return `<div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)">
+        <span style="color:${color};width:14px;flex-shrink:0">${icon}</span>
+        <span style="flex:1;color:var(--text)">${esc(c.check)}</span>
+        <span style="color:var(--text3)">${esc(c.detail||'')}</span>
+      </div>`;
+    }).join('');
+
+    const summary = r.ok
+      ? '<div style="color:var(--green);padding:6px 0;font-weight:600">✓ No orphaned records found</div>'
+      : '<div style="color:var(--red);padding:6px 0;font-weight:600">✗ Orphaned records detected — see details below</div>';
+
+    el.innerHTML = summary + rows;
+  } catch(e) {
+    el.innerHTML = '<span style="color:var(--red)">Check failed: ' + esc(e.message) + '</span>';
+  }
+}
+// ── Diagnostics Test Runner ───────────────────────────────────
+(function() {
+  let _running = false, _aborted = false, _results = {}, _log = [], _filter = 'all', _suites = [];
+
+  function diagApi(method, path, body, auth=true) {
+    const headers = {'Content-Type':'application/json'};
+    if (auth) headers['Authorization'] = 'Bearer ' + LT.authToken;
+    const opts = {method, headers};
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const t0 = Date.now();
+    return fetch(path, opts).then(async r => {
+      const ms = Date.now()-t0;
+      let data; try { data = await r.json(); } catch { data = null; }
+      return {status:r.status, data, ms};
+    }).catch(e => ({status:0, data:null, ms:0, error:e.message}));
+  }
+  const dGET=(p,a)=>diagApi('GET',p,undefined,a);
+  const dPOST=(p,b,a)=>diagApi('POST',p,b,a);
+  const dPUT=(p,b)=>diagApi('PUT',p,b);
+  const dPATCH=(p,b)=>diagApi('PATCH',p,b);
+  const dDEL=(p)=>diagApi('DELETE',p);
+
+  function buildDiagSuites() {
+    const today = new Date().toISOString().slice(0,10);
+    const year  = new Date().getFullYear();
+    return [
+      {id:'health',label:'Health & App Info',tests:[
+        {name:'GET /health → 200',run:async()=>{const r=await dGET('/health',false);return{ok:r.status===200,detail:`${r.status} ${r.ms}ms`};}},
+        {name:'App name is Ghrava',run:async()=>{const r=await dGET('/api/v1/app/info',false);return{ok:r.data?.name==='Ghrava',detail:r.data?.version||`${r.status}`};}},
+        {name:'Record counts present',run:async()=>{const r=await dGET('/api/v1/app/info',false);return{ok:!!r.data?.record_counts,detail:r.status===200?'ok':`${r.status}`};}},
+      ]},
+      {id:'auth',label:'Auth',tests:[
+        {name:'GET /auth/status → 200',run:async()=>{const r=await dGET('/api/v1/auth/status',false);return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'Bad password → 401',run:async()=>{const r=await dPOST('/api/v1/auth/login',{password:'bad_wrong_xyz'},false);return{ok:r.status===401,detail:`got ${r.status}`};}},
+        {name:'Session check → 200',run:async()=>{const r=await dGET('/api/v1/auth/session');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+      ]},
+      {id:'dashboard',label:'Dashboard',tests:[
+        {name:'GET /dashboard → 200',run:async()=>{const r=await dGET('/api/v1/dashboard');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'inventory key present',run:async()=>{const r=await dGET('/api/v1/dashboard');return{ok:!!r.data?.inventory,detail:r.status===200?'✓':'missing'};}},
+        {name:'hsa key present',run:async()=>{const r=await dGET('/api/v1/dashboard');return{ok:!!r.data?.hsa,detail:r.status===200?'✓':'missing'};}},
+        {name:'todos key present',run:async()=>{const r=await dGET('/api/v1/dashboard');return{ok:!!r.data?.todos,detail:r.status===200?'✓':'missing'};}},
+        {name:'kids key present',run:async()=>{const r=await dGET('/api/v1/dashboard');return{ok:!!r.data?.kids,detail:r.status===200?'✓':'missing'};}},
+        {name:'GET /dashboard/attention',run:async()=>{
+          const r=await dGET('/api/v1/dashboard/attention');
+          return{ok:r.status===200&&'items'in(r.data||{})&&'counts'in(r.data||{}),
+            detail:`${r.ms}ms · ${r.data?.counts?.total??'?'} items`};
+        }},
+      ]},
+      {id:'settings',label:'Settings',tests:[
+        {name:'GET /settings/family',run:async()=>{const r=await dGET('/api/v1/settings/family');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} members`};}},
+        {name:'Tag CRUD',run:async()=>{const c=await dPOST('/api/v1/settings/tags',{name:'_diag_tag_',color_hex:'#ff0000'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await dDEL(`/api/v1/settings/tags/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+        {name:'Dropdown hsa_category seeded',run:async()=>{const r=await dGET('/api/v1/settings/dropdowns/hsa_category');return{ok:r.status===200&&r.data?.length>0,detail:`${r.data?.length??0} options`};}},
+        {name:'Dropdown contact_specialty seeded',run:async()=>{const r=await dGET('/api/v1/settings/dropdowns/contact_specialty');return{ok:r.status===200&&r.data?.length>=30,detail:`${r.data?.length??0} options`};}},
+        {name:'Contact CRUD (flat model)',run:async()=>{
+          const c=await dPOST('/api/v1/settings/contacts',{contact_type:'Medical',name:'_diag_contact_',specialty:'Cardiology',phone_primary:'555-0000'});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const id=c.data?.id;
+          const u=await dPUT(`/api/v1/settings/contacts/${id}`,{contact_type:'Medical',name:'_diag_contact_upd',specialty:'Neurology'});
+          if(u.status!==200)return{ok:false,detail:`update ${u.status}`};
+          const g=await dGET(`/api/v1/settings/contacts/${id}`);
+          const hasSpecialty=g.data?.specialty==='Neurology';
+          const del=await dDEL(`/api/v1/settings/contacts/${id}`);
+          return{ok:del.status===200&&hasSpecialty,detail:`create·update·specialty·delete OK`};
+        }},
+        {name:'GET /settings/contacts?type=Medical',run:async()=>{const r=await dGET('/api/v1/settings/contacts?type=Medical');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} Medical contacts`};}},
+      ]},
+      {id:'inventory',label:'Inventory',tests:[
+        {name:'GET /inventory/items → list',run:async()=>{const r=await dGET('/api/v1/inventory/items');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} items`};}},
+        {name:'Inventory CRUD',run:async()=>{
+          // Need a valid location to attach the item to
+          const locs=await dGET('/api/v1/inventory/locations');
+          const locId=locs.data?.[0]?.id;
+          if(!locId)return{ok:false,detail:'no locations found'};
+          const c=await dPOST('/api/v1/inventory/items',{name:'_diag_item_',parent_type:'location',parent_id:locId,quantity:1});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const id=c.data?.id;
+          const u=await dPUT(`/api/v1/inventory/items/${id}`,{...c.data,name:'_diag_upd_',quantity:2});
+          const arc=await dPUT(`/api/v1/inventory/items/${id}/archive`,{});
+          const d=await dDEL(`/api/v1/inventory/items/${id}`);
+          return{ok:u.status===200&&d.status===200,detail:`201·${u.status}·${d.status}`};
+        }},
+      ]},
+      {id:'hsa',label:'HSA / Finance',tests:[
+        {name:'GET /hsa/pool',run:async()=>{const r=await dGET('/api/v1/hsa/pool');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'Expense CRUD',run:async()=>{const c=await dPOST('/api/v1/hsa/payments',{date:today,you_paid:9.99,provider:'_diag_',category:'Doctor',payment_type:'Out of Pocket'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await dDEL(`/api/v1/hsa/payments/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+        {name:'GET /finance/accounts',run:async()=>{const r=await dGET('/api/v1/finance/accounts');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'GET /finance/transactions',run:async()=>{const r=await dGET('/api/v1/finance/transactions');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+      ]},
+      {id:'reports',label:'Finance Reports',tests:[
+        {name:'spending-by-category',run:async()=>{const r=await dGET(`/api/v1/finance/reports/spending-by-category?year=${year}`);return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'monthly-totals',run:async()=>{const r=await dGET(`/api/v1/finance/reports/monthly-totals?year=${year}`);return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'net-worth-trend',run:async()=>{const r=await dGET('/api/v1/finance/reports/net-worth-trend');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+      ]},
+      {id:'medical',label:'Medical',tests:[
+        {name:'GET /medical/summary',run:async()=>{const r=await dGET('/api/v1/medical/summary');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'Visit note CRUD (contact_id)',run:async()=>{
+          const c=await dPOST('/api/v1/medical/notes',{visit_date:today,patient:'_diag_',notes:'_test_'});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const d=await dDEL(`/api/v1/medical/notes/${c.data?.id}`);
+          return{ok:d.status===200,detail:`201→del ${d.status}`};
+        }},
+        {name:'Medication CRUD (physician_contact_id)',run:async()=>{
+          const c=await dPOST('/api/v1/medical/medications',{name:'_diag_med_',patient:'Self',status:'Active'});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const d=await dDEL(`/api/v1/medical/medications/${c.data?.id}`);
+          return{ok:d.status===200,detail:`201→del ${d.status}`};
+        }},
+        {name:'Condition CRUD (physician_contact_id)',run:async()=>{
+          const c=await dPOST('/api/v1/medical/conditions',{condition_name:'_diag_cond_',patient:'Self',status:'Active'});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const d=await dDEL(`/api/v1/medical/conditions/${c.data?.id}`);
+          return{ok:d.status===200,detail:`201→del ${d.status}`};
+        }},
+        {name:'No /medical/physicians route',run:async()=>{
+          const r=await dGET('/api/v1/medical/physicians');
+          return{ok:r.status===404,detail:`got ${r.status} (expected 404 — removed)`};
+        }},
+      ]},
+      {id:'todos',label:'Todos',tests:[
+        {name:'GET /todos → list',run:async()=>{const r=await dGET('/api/v1/todos');return{ok:r.status===200&&Array.isArray(r.data?.todos),detail:`${r.data?.todos?.length??r.status} items`};}},
+        {name:'Todo CRUD + complete',run:async()=>{const c=await dPOST('/api/v1/todos',{title:'_diag_todo_',category:'General',priority:'medium'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const id=c.data?.id;const s=await dPATCH(`/api/v1/todos/${id}/status`,{status:'done'});const d=await dDEL(`/api/v1/todos/${id}`);return{ok:s.status===200&&d.status===200,detail:`201·${s.status}·${d.status}`};}},
+      ]},
+      {id:'dailylog',label:'Daily Log',tests:[
+        {name:'GET /daily-log',run:async()=>{const r=await dGET('/api/v1/daily-log');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'Entry CRUD + clear followup',run:async()=>{const c=await dPOST('/api/v1/daily-log',{log_date:today,category:'General',entry_text:'_diag_',follow_up_needed:true,follow_up_date:today});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const id=c.data?.id;const p=await dPATCH(`/api/v1/daily-log/${id}`,{follow_up_needed:0,follow_up_date:null});const d=await dDEL(`/api/v1/daily-log/${id}`);return{ok:p.status===200&&d.status===200,detail:`201·patch ${p.status}·del ${d.status}`};}},
+      ]},
+      {id:'kids',label:'Kids',tests:[
+        {name:'GET /kids → list',run:async()=>{const r=await dGET('/api/v1/kids');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} kids`};}},
+        {name:'Kid full CRUD',run:async()=>{const c=await dPOST('/api/v1/kids',{display_name:'_diag_kid_',grade:'3rd'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const id=c.data?.id;const act=await dPOST(`/api/v1/kids/${id}/activities`,{name:'_diag_act_',category:'Sports'});const note=await dPOST(`/api/v1/kids/${id}/notes`,{body:'_diag_note_',category:'General'});if(act.data?.id)await dDEL(`/api/v1/kids/${id}/activities/${act.data.id}`);if(note.data?.id)await dDEL(`/api/v1/kids/${id}/notes/${note.data.id}`);const del=await dDEL(`/api/v1/kids/${id}`);return{ok:c.status===201&&act.status===201&&note.status===201&&del.status===200,detail:`${[c.status,act.status,note.status,del.status].join('·')}`};}},
+      ]},
+      {id:'documents',label:'Documents',tests:[
+        {name:'Document CRUD',run:async()=>{const c=await dPOST('/api/v1/documents',{title:'_diag_doc_',doc_type:'Other',status:'active'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await dDEL(`/api/v1/documents/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+      ]},
+      {id:'career',label:'Career',tests:[
+        {name:'GET /career/certifications',run:async()=>{const r=await dGET('/api/v1/career/certifications');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'Cert CRUD',run:async()=>{const c=await dPOST('/api/v1/career/certifications',{name:'_diag_cert_',status:'Active',issued_date:today});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await dDEL(`/api/v1/career/certifications/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+        {name:'Career goals CRUD',run:async()=>{
+          const c=await dPOST('/api/v1/career/goals',{title:'_diag_goal_',category:'General',status:'active'});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const id=c.data?.id;
+          const d=await dDEL(`/api/v1/career/goals/${id}`);
+          return{ok:d.status===200,detail:`create→delete OK`};
+        }},
+      ]},
+      {id:'property',label:'Property & Vehicles',tests:[
+        {name:'Vehicle CRUD',run:async()=>{const c=await dPOST('/api/v1/property/vehicles',{nickname:'_diag_vehicle_',year:2020,make:'Test',model:'_diag_'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await dDEL(`/api/v1/property/vehicles/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+        {name:'Property maintenance CRUD',run:async()=>{
+          const props=await dGET('/api/v1/property/properties');
+          if(!props.data?.length)return{ok:true,detail:'No properties to test against'};
+          const pid=props.data[0].id;
+          const c=await dPOST(`/api/v1/property/properties/${pid}/maintenance`,{maint_date:'2025-01-01',category:'General',description:'_diag_maint_'});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const mid=c.data?.id;
+          const d=await dDEL(`/api/v1/property/maintenance/${mid}`);
+          return{ok:d.status===200,detail:`create→delete OK`};
+        }},
+      ]},
+      {id:'books',label:'Books',tests:[
+        {name:'Book CRUD',run:async()=>{const c=await dPOST('/api/v1/books',{title:'_diag_book_',author:'Test',status:'to-read',format:'physical'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await dDEL(`/api/v1/books/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+      ]},
+      {id:'import',label:'Import / Finance Accounts',tests:[
+        {name:'GET /import/accounts',run:async()=>{const r=await dGET('/api/v1/import/accounts');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.ms}ms`};}},
+        {name:'Account CRUD',run:async()=>{
+          const c=await dPOST('/api/v1/import/accounts',{nickname:'_diag_acct_',institution:'Test Bank',account_type:'checking',track_statements:0});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}: ${JSON.stringify(c.data)}`};
+          const id=c.data?.id;
+          const u=await dPUT(`/api/v1/import/accounts/${id}`,{nickname:'_diag_acct_upd',institution:'Test Bank',account_type:'checking',track_statements:0});
+          if(u.status!==200)return{ok:false,detail:`update ${u.status}`};
+          const d=await dDEL(`/api/v1/import/accounts/${id}`);
+          return{ok:d.status===200,detail:`create→update→delete OK`};
+        }},
+        {name:'GET /import/holdings',run:async()=>{const r=await dGET('/api/v1/import/holdings');return{ok:r.status===200&&'holdings'in(r.data||{}),detail:`${r.ms}ms`};}},
+        {name:'GET /import/transactions',run:async()=>{const r=await dGET('/api/v1/import/transactions');return{ok:r.status===200&&'transactions'in(r.data||{}),detail:`${r.ms}ms`};}},
+        {name:'GET /import/batches',run:async()=>{const r=await dGET('/api/v1/import/batches');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.ms}ms`};}},
+        {name:'GET /import/net-worth',run:async()=>{const r=await dGET('/api/v1/import/net-worth');return{ok:r.status===200&&'accounts'in(r.data||{})&&'timeline'in(r.data||{}),detail:`${r.ms}ms`};}},
+        {name:'GET /import/missing-statements',run:async()=>{const r=await dGET('/api/v1/import/missing-statements');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.ms}ms`};}},
+        {name:'GET /import/spending',run:async()=>{const r=await dGET('/api/v1/import/spending');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.ms}ms`};}},
+      ]},
+      {id:'notifications',label:'Notifications',tests:[
+        {name:'GET /notifications',run:async()=>{const r=await dGET('/api/v1/notifications');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:"unread-count has 'count'",run:async()=>{const r=await dGET('/api/v1/notifications/unread-count');return{ok:r.status===200&&'count'in(r.data||{}),detail:`count: ${r.data?.count??'?'}`};}},
+      ]},
+      {id:'authprotect',label:'Auth Protection',tests:[
+        {name:'POST /inventory → 401 w/o token',run:async()=>{const r=await dPOST('/api/v1/inventory/items',{name:'x'},false);return{ok:r.status===401,detail:`got ${r.status}`};}},
+        {name:'POST /todos → 401 w/o token',run:async()=>{const r=await dPOST('/api/v1/todos',{title:'x'},false);return{ok:r.status===401,detail:`got ${r.status}`};}},
+        {name:'POST /hsa/payments → 401 w/o token',run:async()=>{const r=await dPOST('/api/v1/hsa/payments',{amount:1},false);return{ok:r.status===401,detail:`got ${r.status}`};}},
+      ]},
+    ];
+  }
+
+  function diagKey(sid,name){ return sid+'__'+name.replace(/[^a-z0-9]/gi,'_'); }
+
+  function diagSetTestState(sid, name, state, detail='') {
+    const k = diagKey(sid,name);
+    const dot=$('diag_tdot_'+k), nm=$('diag_tnm_'+k), det=$('diag_tdet_'+k);
+    if(dot) dot.className='diag-dot'+(state?' diag-'+state:'');
+    if(nm)  nm.className='diag-test-name'+(state?' diag-'+state:'');
+    if(det) det.textContent=detail;
+    _results[sid+'::'+name]={state,detail};
+    diagUpdateSuite(sid);
+    diagUpdateProgress();
+  }
+
+  function diagUpdateSuite(sid) {
+    const suite=_suites.find(s=>s.id===sid); if(!suite)return;
+    const states=suite.tests.map(t=>(_results[sid+'::'+t.name]||{}).state||'idle');
+    let st=null;
+    if(states.every(s=>s==='idle'))st=null;
+    else if(states.some(s=>s==='running'))st='running';
+    else if(states.some(s=>s==='fail'))st='fail';
+    else if(states.every(s=>s==='pass'))st='pass';
+    const dot=$('diag_sdot_'+sid), pill=$('diag_spill_'+sid), cnt=$('diag_scnt_'+sid);
+    if(dot) dot.className='diag-dot'+(st?' diag-'+st:'');
+    const pc=states.filter(s=>s==='pass').length, fc=states.filter(s=>s==='fail').length;
+    if(pill){
+      if(st==='pass') pill.innerHTML=`<span class="diag-pill diag-pill-pass">${pc} ✓</span>`;
+      else if(st==='fail') pill.innerHTML=`<span class="diag-pill diag-pill-fail">${fc} ✗</span>`;
+      else pill.innerHTML='';
+    }
+    if(cnt) cnt.textContent=st?`${pc}/${suite.tests.length}`:`${suite.tests.length} tests`;
+    if(st==='fail'){const el=$('diag_suite_'+sid);if(el)el.open=true;}
+    diagApplyFilter();
+  }
+
+  function diagUpdateProgress() {
+    const all=Object.values(_results);
+    const totalTests=_suites.reduce((n,s)=>n+s.tests.length,0);
+    const passed=all.filter(r=>r.state==='pass').length;
+    const failed=all.filter(r=>r.state==='fail').length;
+    const pct=totalTests>0?Math.round(passed/totalTests*100):0;
+    $('diagProgress').style.display='block';
+    const fill=$('diagFill');
+    fill.style.width=pct+'%';
+    fill.style.background=failed>0?'var(--red)':'var(--green)';
+    $('diagStat').textContent=`${passed}/${totalTests} passed`;
+    const sf=$('diagFailed');
+    sf.style.display=failed>0?'':'none';
+    sf.textContent=failed+' failed';
+  }
+
+  function diagApplyFilter() {
+    _suites.forEach(suite=>{
+      const el=$('diag_suite_'+suite.id); if(!el)return;
+      if(_filter==='all'){el.style.display='';return;}
+      const states=suite.tests.map(t=>(_results[suite.id+'::'+t.name]||{}).state||'idle');
+      const hasFail=states.some(s=>s==='fail'), allPass=states.every(s=>s==='pass');
+      el.style.display=(_filter==='fail'?hasFail:allPass)?'':'none';
+    });
+  }
+
+  function diagAppendLog(line) {
+    _log.push(line);
+    const el=$('diagLog'), wrap=$('diagLogWrap');
+    if(!el||!wrap)return;
+    wrap.style.display='block';
+    const div=document.createElement('div');
+    if(line.startsWith('  ✓'))div.style.color='var(--green)';
+    else if(line.startsWith('  ✗'))div.style.color='var(--red)';
+    else if(line.startsWith('['))div.style.color='var(--accent)';
+    div.textContent=line;
+    el.appendChild(div);
+    el.scrollTop=el.scrollHeight;
+  }
+
+  window.diagSetFilter = function(f) {
+    _filter=f;
+    ['all','pass','fail'].forEach(x=>{
+      const b=$('df'+x.charAt(0).toUpperCase()+x.slice(1));
+      if(b) b.style.color=f===x?(x==='fail'?'var(--red)':x==='pass'?'var(--green)':'var(--accent)'):'';
+    });
+    diagApplyFilter();
+  };
+
+  window.diagDownloadLog = function() {
+    const blob=new Blob([_log.join('\n')],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`ghrava_diag_${new Date().toISOString().slice(0,16).replace(/:/g,'-')}.log`;
+    a.click();
+  };
+
+  window.diagStartRun = async function() {
+    if(_running){_aborted=true;return;}
+    _running=true;_aborted=false;_results={};_log=[];
+
+    const btn=$('diagRunBtn');
+    if(btn){btn.textContent='⏹ Stop';btn.onclick=()=>{_aborted=true;};}
+    const logEl=$('diagLog');if(logEl)logEl.innerHTML='';
+    $('diagLogWrap').style.display='none';
+    $('diagProgress').style.display='none';
+
+    _suites=buildDiagSuites();
+
+    // Render suite shells
+    const container=$('diagSuites');
+    container.innerHTML='<style>'+
+      '.diag-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text3)}'+
+      '.diag-dot.diag-pass{background:var(--green)}.diag-dot.diag-fail{background:var(--red)}'+
+      '.diag-dot.diag-running{background:var(--amber);animation:pulse 1s infinite;box-shadow:0 0 6px var(--amber)}'+
+      '.diag-suite{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden}'+
+      'details.diag-suite summary{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none;list-style:none;font-size:12px;font-weight:700}'+
+      'details.diag-suite summary::-webkit-details-marker{display:none}'+
+      '.diag-suite-name{flex:1}.diag-suite-cnt{font-size:11px;color:var(--text3)}'+
+      '.diag-chevron{font-size:13px;color:var(--text3);transition:transform .15s}'+
+      'details.diag-suite[open] .diag-chevron{transform:rotate(90deg)}'+
+      '.diag-test-row{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 26px;border-top:1px solid var(--border)}'+
+      '.diag-test-name{flex:1;font-size:11px;color:var(--text2)}.diag-test-name.diag-pass{color:var(--text)}.diag-test-name.diag-fail{color:var(--red)}'+
+      '.diag-test-det{font-size:10px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}'+
+      '.diag-pill{font-size:10px;padding:1px 7px;border-radius:99px;font-weight:700}'+
+      '.diag-pill-pass{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}'+
+      '.diag-pill-fail{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}'+
+      '</style>'+
+      _suites.map(suite=>`
+        <details class="diag-suite" id="diag_suite_${suite.id}">
+          <summary>
+            <div class="diag-dot" id="diag_sdot_${suite.id}"></div>
+            <span class="diag-suite-name">${suite.label}</span>
+            <span id="diag_spill_${suite.id}"></span>
+            <span class="diag-suite-cnt" id="diag_scnt_${suite.id}">${suite.tests.length} tests</span>
+            <span class="diag-chevron">›</span>
+          </summary>
+          ${suite.tests.map(t=>`
+            <div class="diag-test-row">
+              <div class="diag-dot" id="diag_tdot_${diagKey(suite.id,t.name)}"></div>
+              <span class="diag-test-name" id="diag_tnm_${diagKey(suite.id,t.name)}">${t.name}</span>
+              <span class="diag-test-det" id="diag_tdet_${diagKey(suite.id,t.name)}"></span>
+            </div>`).join('')}
+        </details>`).join('');
+
+    const totalTests=_suites.reduce((n,s)=>n+s.tests.length,0);
+    diagAppendLog(`Starting diagnostics — ${totalTests} tests across ${_suites.length} suites`);
+    diagAppendLog(`Time: ${new Date().toLocaleString()}`);
+    diagAppendLog('─'.repeat(44));
+
+    for(const suite of _suites){
+      if(_aborted)break;
+      diagAppendLog(`\n[${suite.label}]`);
+      for(const test of suite.tests){
+        if(_aborted)break;
+        diagSetTestState(suite.id,test.name,'running');
+        try{
+          const{ok,detail}=await test.run();
+          diagSetTestState(suite.id,test.name,ok?'pass':'fail',detail);
+          diagAppendLog(`  ${ok?'✓':'✗'} ${test.name}${detail?`  (${detail})`:''}`);
+        }catch(e){
+          diagSetTestState(suite.id,test.name,'fail',e.message);
+          diagAppendLog(`  ✗ ${test.name}  ERROR: ${e.message}`);
+        }
+      }
+    }
+
+    const all=Object.values(_results);
+    const passed=all.filter(r=>r.state==='pass').length, failed=all.filter(r=>r.state==='fail').length;
+    diagAppendLog('');
+    diagAppendLog('─'.repeat(44));
+    diagAppendLog(`Done: ${passed} passed, ${failed} failed`);
+
+    // Hard-delete all _diag_* test rows created during this run.
+    // Soft-delete (is_active=0) leaves ghost rows that inflate record counts.
+    try {
+      const p = await fetch('/api/v1/settings/diagnostics/purge', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+LT.authToken }
+      }).then(r => r.json());
+      if (p.total > 0) diagAppendLog(`Cleanup: removed ${p.total} test record(s)`);
+    } catch(e) { diagAppendLog(`Cleanup warning: ${e.message}`); }
+
+    _running=false;
+    if(btn){btn.textContent='▶ Run All Tests';btn.onclick=diagStartRun;}
+    const dlBtn=$('diagDlBtn'); if(dlBtn) dlBtn.style.display='block';
+  };
+})();
+
+async function changePassword() {
+  const cur  = $('pwCurrent').value;
+  const nw   = $('pwNew').value;
+  const conf = $('pwConfirm').value;
+  const errEl = $('pwError');
+  errEl.style.display = 'none';
+  if (!cur || !nw || !conf) { errEl.textContent = 'All fields required'; errEl.style.display = 'block'; return; }
+  if (nw !== conf) { errEl.textContent = 'New passwords do not match'; errEl.style.display = 'block'; return; }
+  if (nw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = 'block'; return; }
+  try {
+    const r = await fetch('/api/v1/auth/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LT.authToken },
+      body: JSON.stringify({ current_password: cur, new_password: nw }),
+    });
+    if (r.ok) {
+      toast('Password updated');
+      $('pwCurrent').value = $('pwNew').value = $('pwConfirm').value = '';
+      closePanel('account');
+    } else {
+      const d = await r.json();
+      errEl.textContent = d.error || 'Incorrect current password';
+      errEl.style.display = 'block';
+    }
+  } catch(e) { errEl.textContent = 'Request failed'; errEl.style.display = 'block'; }
+}
+
+function openPanel(name) {
+  activePanel = name;
+  document.getElementById(`panel-${name}`).classList.add('open');
+  document.body.classList.add('panel-open');
+  history.pushState({ panel: name }, '', '');
+  PANEL_LOADERS[name]?.();
+}
+
+function closePanel(name) {
+  document.getElementById(`panel-${name}`).classList.remove('open');
+  document.body.classList.remove('panel-open');
+  activePanel = null;
+}
+
+// Back button closes panel instead of navigating away
+window.addEventListener('popstate', (e) => {
+  if (activePanel) {
+    closePanel(activePanel);
+  }
+});
+
+
+// ── Badges (counts on home screen) ───────────────────────────
+async function loadBadges() {
+  try {
+    const [fam, con, tags] = await Promise.all([
+      fetch('/api/v1/settings/family', {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json()),
+      fetch('/api/v1/settings/contacts', {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json()),
+      fetch('/api/v1/settings/tags').then(r=>r.ok?r.json():[]),
+    ]);
+    const show = (id, n) => { const el=$(id); if(n>0){el.textContent=n;el.style.display='inline-block';}else el.style.display='none'; };
+    show('badge-family', fam.length);
+    show('badge-contacts', con.length);
+    show('badge-tags', tags.length);
+
+    // Google badge (non-auth endpoint)
+    try {
+      const gs = await fetch('/api/v1/google/status').then(r=>r.ok?r.json():null);
+      const gb = $('badge-google');
+      if (gb && gs) {
+        gb.textContent = gs.connected ? '● Connected' : (gs.configured ? 'Needs auth' : 'Not connected');
+        gb.style.color = gs.connected ? 'var(--green)' : 'var(--text3)';
+      }
+    } catch {}
+  } catch {}
+}
+
+// Contact filter pills — scoped to panel-contacts
+document.getElementById('panel-contacts').querySelector('div div').addEventListener('click', e => {
+  const btn = e.target.closest('[data-ctype]');
+  if (!btn) return;
+  document.querySelectorAll('[data-ctype]').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  contactTypeFilter = btn.dataset.ctype;
+  loadContacts();
+});
+
+// ══════════════════════════════════════════════════════════════
+// FAMILY
+// ══════════════════════════════════════════════════════════════
+async function loadFamily() {
+  const r = await fetch('/api/v1/settings/family', {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+  const members = await r.json();
+  const el = $('familyList');
+  if (!members.length) {
+    el.innerHTML='<div class="empty"><div class="empty-icon">👨‍👩‍👧‍👦</div><h3>No family members yet</h3><p>Add the people who appear throughout Ghrava.</p></div>';
+    return;
+  }
+  el.innerHTML = members.map(m => `
+    <div class="card" data-id="${m.id}" data-type="family">
+      <div class="flex-between">
+        <div class="card-title">${m.display_name}${m.is_primary_user?'  <span class="badge badge-blue">Primary</span>':''}</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editFamily(${m.id});event.stopPropagation()">Edit</button>
+          <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="startDelete('family',${m.id},'${m.display_name}');event.stopPropagation()">Del</button>
+        </div>
+      </div>
+      <div class="card-meta">
+        ${m.relationship?`<span class="badge badge-grey">${m.relationship}</span>`:''}
+        ${m.date_of_birth?`<span class="text-mono text-sm text-muted">DOB: ${m.date_of_birth}</span>`:''}
+        ${m.ssn_last4?`<span class="text-mono text-sm text-muted">SSN: XXX-XX-${m.ssn_last4}</span>`:''}
+      </div>
+      ${m.notes?`<div class="card-sub" style="margin-top:6px">${m.notes}</div>`:''}
+    </div>`).join('');
+}
+
+function openFamilyDrawer(member=null) {
+  editingId = member?.id || null;
+  $('familyDrawerTitle').textContent = member ? 'Edit Family Member' : 'Add Family Member';
+  $('fm_display_name').value = member?.display_name || '';
+  $('fm_legal_name').value   = member?.full_legal_name || '';
+  $('fm_relationship').value = member?.relationship || '';
+  $('fm_dob').value          = member?.date_of_birth || '';
+  $('fm_ssn4').value         = member?.ssn_last4 || '';
+  $('fm_primary').checked    = !!member?.is_primary_user;
+  $('fm_notes').value        = member?.notes || '';
+  $('familyDrawer').classList.add('open');
+  setTimeout(()=>$('fm_display_name').focus(), 300);
+}
+
+async function editFamily(id) {
+  const r = await fetch(`/api/v1/settings/family/${id}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+  openFamilyDrawer(await r.json());
+}
+
+$('familyCancel').addEventListener('click', () => $('familyDrawer').classList.remove('open'));
+(function(){ let _d=false; $('familyDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('familyDrawer')}); $('familyDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('familyDrawer'))$('familyDrawer').classList.remove('open');}); })();
+
+$('familySave').addEventListener('click', async () => {
+  const name = $('fm_display_name').value.trim();
+  if (!name) { toast('Display name required','err'); return; }
+  const btn=$('familySave'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    const url = editingId ? `/api/v1/settings/family/${editingId}` : '/api/v1/settings/family';
+    const method = editingId ? 'PUT' : 'POST';
+    const r = await fetch(url, {method, headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({
+      display_name:$('fm_display_name').value.trim(),
+      full_legal_name:$('fm_legal_name').value.trim()||null,
+      relationship:$('fm_relationship').value||null,
+      date_of_birth:$('fm_dob').value||null,
+      ssn_last4:$('fm_ssn4').value||null,
+      is_primary_user:$('fm_primary').checked,
+      notes:$('fm_notes').value.trim()||null
+    })});
+    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    const saved = await r.json();
+    $('familyDrawer').classList.remove('open');
+    toast(editingId?'Updated':'Added');
+    await loadFamily();
+    loadBadges();
+    // Notify parent window if we were opened as a drawer iframe
+    if (window.parent !== window) {
+      window.parent.postMessage({ ghravaSaved: 'family', record: saved }, '*');
+    }
+  } catch(err) { toast(err.message,'err'); }
+  finally { btn.textContent='Save'; btn.disabled=false; }
+});
+
+// ══════════════════════════════════════════════════════════════
+// CONTACTS
+// ══════════════════════════════════════════════════════════════
+async function loadContacts() {
+  const url = contactTypeFilter ? `/api/v1/settings/contacts?type=${contactTypeFilter}` : '/api/v1/settings/contacts';
+  const el = $('contactsList');
+  try {
+    const r = await fetch(url, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const contacts = await r.json();
+    if (!Array.isArray(contacts) || !contacts.length) {
+      el.innerHTML='<div class="empty"><div class="empty-icon">📇</div><h3>No contacts yet</h3><p>Add doctors, vendors, services, and more.</p></div>';
+      return;
+    }
+  el.innerHTML = contacts.map(c => `
+    <div class="card">
+      <div class="flex-between">
+        <div class="card-title">${esc(c.name)}</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editContact(${c.id});event.stopPropagation()">Edit</button>
+          <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="startDelete('contact',${c.id},'${c.name}');event.stopPropagation()">Del</button>
+        </div>
+      </div>
+      <div class="card-meta">
+        <span class="ctype-badge">${esc(c.contact_type)}</span>
+        ${c.specialty?`<span class="text-sm text-muted">${esc(c.specialty)}</span>`:''}
+        ${c.company?`<span class="text-sm text-muted">${esc(c.company)}</span>`:''}
+      </div>
+      <div class="card-meta" style="margin-top:4px">
+        ${c.phone_primary?`<span class="text-mono text-sm">${esc(c.phone_primary)}</span>`:''}
+        ${c.email?`<span class="text-sm text-muted">${esc(c.email)}</span>`:''}
+      </div>
+    </div>`).join('');
+  } catch(err) {
+    el.innerHTML = `<div class="empty"><p style="color:var(--red)">Failed to load contacts: ${esc(err.message)}</p></div>`;
+    console.error('loadContacts error:', err);
+  }
+}
+
+// ── Type-specific field groups (shown/hidden by contact type) ──
+const TYPE_FIELDS = {
+  Medical:    ['patients_seen','accepts_ins'],
+  Contractor: ['license','ins_verified','bonded','last_used','rating'],
+  Financial:  ['inst_type','rep_name','acct_types'],
+  Employer:   ['hr_name','hr_phone','ein'],
+  School:     ['principal','grades','kids'],
+  Vendor:     [],
+  General:    [],
+  Other:      [],
+};
+
+const FIELD_DEFS = {
+  patients_seen: { label:'Patients Seen',      id:'ct_patients_seen', type:'text' },
+  accepts_ins:   { label:'Accepts Insurance',  id:'ct_accepts_ins',   type:'text' },
+  license:       { label:'License Number',     id:'ct_license',       type:'text' },
+  ins_verified:  { label:'Insurance Verified', id:'ct_ins_verified',  type:'checkbox' },
+  bonded:        { label:'Bonded',             id:'ct_bonded',        type:'checkbox' },
+  last_used:     { label:'Last Used',          id:'ct_last_used',     type:'date' },
+  rating:        { label:'Quality Rating (1-5)',id:'ct_rating',       type:'number' },
+  hr_name:       { label:'HR Contact Name',    id:'ct_hr_name',       type:'text' },
+  hr_phone:      { label:'HR Phone',           id:'ct_hr_phone',      type:'tel' },
+  ein:           { label:'EIN',                id:'ct_ein',           type:'text' },
+  inst_type:     { label:'Institution Type',   id:'ct_inst_type',     type:'text' },
+  rep_name:      { label:'Rep Name',           id:'ct_rep_name',      type:'text' },
+  acct_types:    { label:'Account Types',      id:'ct_acct_types',    type:'text' },
+  principal:     { label:'Principal Name',     id:'ct_principal',     type:'text' },
+  grades:        { label:'Grade Range',        id:'ct_grades',        type:'text' },
+  kids:          { label:'Enrolled Kids',      id:'ct_kids',          type:'text' },
+};
+
+function _fieldHtml(key) {
+  const f = FIELD_DEFS[key];
+  if (!f) return '';
+  if (f.type === 'checkbox') {
+    return `<div class="form-group toggle-row" style="padding:6px 0">
+      <span class="toggle-label">${f.label}</span>
+      <label class="toggle"><input type="checkbox" id="${f.id}"><span class="toggle-track"></span></label>
+    </div>`;
+  }
+  return `<div class="form-group">
+    <label class="form-label">${f.label}</label>
+    <input class="form-input" id="${f.id}" type="${f.type}">
+  </div>`;
+}
+
+function updateExtensionFields(type) {
+  const wrap = $('ctExtension');
+  const keys = TYPE_FIELDS[type] || [];
+  if (!keys.length) { wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border)">${type} Details</div>
+    ${keys.map(_fieldHtml).join('')}`;
+}
+
+function _fillExtFields(c) {
+  const setVal = (id, val) => { const el = $(id); if (el) { if (el.type === 'checkbox') el.checked = !!val; else el.value = val||''; } };
+  setVal('ct_patients_seen', c.patients_seen);
+  setVal('ct_accepts_ins',   c.accepts_insurance);
+  setVal('ct_license',       c.license_number);
+  setVal('ct_ins_verified',  c.insurance_verified);
+  setVal('ct_bonded',        c.bonded);
+  setVal('ct_last_used',     c.last_used_date);
+  setVal('ct_rating',        c.quality_rating);
+  setVal('ct_hr_name',       c.hr_contact_name);
+  setVal('ct_hr_phone',      c.hr_phone);
+  setVal('ct_ein',           c.ein);
+  setVal('ct_inst_type',     c.institution_type);
+  setVal('ct_rep_name',      c.rep_name);
+  setVal('ct_acct_types',    c.account_types_served);
+  setVal('ct_principal',     c.principal_name);
+  setVal('ct_grades',        c.grade_range);
+  setVal('ct_kids',          c.enrolled_kids);
+}
+
+function openContactDrawer(contact=null, presetType=null) {
+  try {
+    editingId = contact?.id || null;
+    $('contactDrawerTitle').textContent = contact ? 'Edit Contact' : 'Add Contact';
+    $('ct_type').value    = contact?.contact_type || presetType || '';
+    $('ct_name').value    = contact?.name || '';
+    $('ct_company').value = contact?.company || '';
+    $('ct_phone1').value  = contact?.phone_primary || '';
+    $('ct_phone2').value  = contact?.phone_secondary || '';
+    $('ct_email').value   = contact?.email || '';
+    $('ct_website').value = contact?.website || '';
+    $('ct_street').value  = contact?.address_street || '';
+    $('ct_city').value    = contact?.address_city   || '';
+    $('ct_state').value   = contact?.address_state  || '';
+    $('ct_zip').value     = contact?.address_zip    || '';
+    $('ct_notes').value   = contact?.notes || '';
+    updateExtensionFields(contact?.contact_type || presetType || '');
+    GH_SELECT.init('ct_specialty', 'contact_specialty', contact?.specialty||null, { placeholder: '— select —' });
+    if (contact) _fillExtFields(contact);
+    $('contactDrawer').classList.add('open');
+    setTimeout(()=>$('ct_name').focus(), 300);
+  } catch(err) {
+    console.error('openContactDrawer error:', err);
+    toast('Could not open contact drawer: ' + err.message, 'err');
+  }
+}
+
+$('ct_type').addEventListener('change', () => {
+  updateExtensionFields($('ct_type').value);
+});
+
+async function editContact(id) {
+  const r = await fetch(`/api/v1/settings/contacts/${id}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+  openContactDrawer(await r.json());
+}
+
+$('contactCancel').addEventListener('click', () => {
+  $('contactDrawer').classList.remove('open');
+  if (window.parent !== window) {
+    window.parent.postMessage({ ghravaCancelled: 'contact' }, '*');
+  }
+});
+(function(){ let _d=false; $('contactDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('contactDrawer')}); $('contactDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('contactDrawer'))$('contactDrawer').classList.remove('open');}); })();
+
+$('contactSave').addEventListener('click', async () => {
+  const name = $('ct_name').value.trim();
+  const type = $('ct_type').value;
+  if (!name) { toast('Name required','err'); return; }
+  if (!type) { toast('Contact type required','err'); return; }
+  const btn=$('contactSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    const url = editingId ? `/api/v1/settings/contacts/${editingId}` : '/api/v1/settings/contacts';
+    const method = editingId ? 'PUT' : 'POST';
+    const r = await fetch(url, {method, headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({
+      contact_type: type, name,
+      specialty:         $('ct_specialty')?.value||null,
+      company:           $('ct_company').value||null,
+      phone_primary:     $('ct_phone1').value||null,
+      phone_secondary:   $('ct_phone2').value||null,
+      email:             $('ct_email').value||null,
+      website:           $('ct_website').value||null,
+      address_street:    $('ct_street').value.trim()||null,
+      address_city:      $('ct_city').value.trim()||null,
+      address_state:     $('ct_state').value.trim().toUpperCase()||null,
+      address_zip:       $('ct_zip').value.trim()||null,
+      notes:             $('ct_notes').value||null,
+      // Type-specific flat fields
+      patients_seen:         $('ct_patients_seen')?.value||null,
+      accepts_insurance:     $('ct_accepts_ins')?.value||null,
+      license_number:        $('ct_license')?.value||null,
+      insurance_verified:    $('ct_ins_verified')?.checked ? 1 : 0,
+      bonded:                $('ct_bonded')?.checked ? 1 : 0,
+      last_used_date:        $('ct_last_used')?.value||null,
+      quality_rating:        $('ct_rating')?.value ? parseInt($('ct_rating').value) : null,
+      hr_contact_name:       $('ct_hr_name')?.value||null,
+      hr_phone:              $('ct_hr_phone')?.value||null,
+      ein:                   $('ct_ein')?.value||null,
+      principal_name:        $('ct_principal')?.value||null,
+      grade_range:           $('ct_grades')?.value||null,
+      enrolled_kids:         $('ct_kids')?.value||null,
+      institution_type:      $('ct_inst_type')?.value||null,
+      rep_name:              $('ct_rep_name')?.value||null,
+      account_types_served:  $('ct_acct_types')?.value||null,
+    })});
+    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    const saved = await r.json();
+    $('contactDrawer').classList.remove('open');
+    toast(editingId?'Updated':'Added');
+    await loadContacts();
+    loadBadges();
+    // Notify parent window if we were opened as a drawer iframe
+    if (window.parent !== window) {
+      window.parent.postMessage({ ghravaSaved: 'contact', record: saved }, '*');
+    }
+  } catch(err) { toast(err.message,'err'); }
+  finally { btn.textContent='Save'; btn.disabled=false; }
+});
+
+// ══════════════════════════════════════════════════════════════
+// TAGS
+// ══════════════════════════════════════════════════════════════
+function buildColorSwatches(selected='5c72fa') {
+  $('tagColorSwatches').innerHTML = TAG_COLORS.map(c=>`
+    <div class="color-swatch${c===selected?' selected':''}" data-color="${c}"
+         style="background:#${c}" onclick="selectTagColor('${c}')"></div>`).join('');
+  $('tg_color').value = selected;
+}
+
+function selectTagColor(c) {
+  document.querySelectorAll('.color-swatch').forEach(s=>s.classList.toggle('selected', s.dataset.color===c));
+  $('tg_color').value = c;
+}
+
+async function loadTags() {
+  // GET /tags is now public — no auth needed for reads
+  const r = await fetch('/api/v1/settings/tags');
+  if (!r.ok) {
+    $('tagsList').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><h3>Could not load tags</h3><p>'+r.status+'</p></div>';
+    return;
+  }
+  const tags = await r.json();
+  const el = $('tagsList');
+  if (!Array.isArray(tags) || !tags.length) {
+    el.innerHTML='<div class="empty"><div class="empty-icon">🏷️</div><h3>No tags yet</h3><p>Tags apply to any item, container, or entry across all modules.</p></div>';
+    return;
+  }
+  el.innerHTML = tags.map(t=>`
+    <div class="card">
+      <div class="flex-between">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:14px;height:14px;border-radius:50%;background:#${t.color_hex};flex-shrink:0"></div>
+          <span class="card-title" style="margin:0">${t.name}</span>
+          ${t.usage_count > 0 ? `<span style="font-family:var(--mono);font-size:10px;color:var(--text3);background:var(--bg3);border:1px solid var(--border);padding:1px 6px;border-radius:4px">${t.usage_count} use${t.usage_count!==1?'s':''}</span>` : ''}
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editTag(${t.id},'${t.name}','${t.color_hex}');event.stopPropagation()">Edit</button>
+          <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="startDelete('tag',${t.id},'${t.name}');event.stopPropagation()">Del</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function openTagDrawer(tag=null) {
+  editingId = tag?.id || null;
+  $('tagDrawerTitle').textContent = tag ? 'Edit Tag' : 'Add Tag';
+  $('tg_name').value = tag?.name || '';
+  buildColorSwatches(tag?.color_hex || '5c72fa');
+  $('tagDrawer').classList.add('open');
+  setTimeout(()=>$('tg_name').focus(),300);
+}
+
+function editTag(id, name, color) { openTagDrawer({id, name, color_hex:color}); }
+$('tagCancel').addEventListener('click', ()=>$('tagDrawer').classList.remove('open'));
+(function(){ let _d=false; $('tagDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('tagDrawer')}); $('tagDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('tagDrawer'))$('tagDrawer').classList.remove('open');}); })();
+
+$('tagSave').addEventListener('click', async () => {
+  const name = $('tg_name').value.trim().toLowerCase();
+  if (!name) { toast('Tag name required','err'); return; }
+  const btn=$('tagSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    const url = editingId ? `/api/v1/settings/tags/${editingId}` : '/api/v1/settings/tags';
+    const method = editingId ? 'PUT' : 'POST';
+    const r = await fetch(url, {method, headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({name, color_hex:$('tg_color').value})});
+    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    $('tagDrawer').classList.remove('open');
+    toast(editingId?'Updated':'Tag added');
+    await loadTags();
+    loadBadges();
+  } catch(err) { toast(err.message,'err'); }
+  finally { btn.textContent='Save'; btn.disabled=false; }
+});
+
+// ══════════════════════════════════════════════════════════════
+// CUSTOM FIELDS
+// ══════════════════════════════════════════════════════════════
+async function loadFields() {
+  const mod = $('fieldsModuleFilter').value;
+  const url = mod ? `/api/v1/settings/custom-fields?module=${mod}` : '/api/v1/settings/custom-fields';
+  const r = await fetch(url, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+  const fields = await r.json();
+  const el = $('fieldsList');
+  if (!fields.length) {
+    el.innerHTML='<div class="empty"><div class="empty-icon">⚙️</div><h3>No custom fields yet</h3><p>Add fields that appear on any module or specific inventory categories.</p></div>';
+    return;
+  }
+  el.innerHTML = fields.map(f=>`
+    <div class="card">
+      <div class="flex-between">
+        <div>
+          <div class="card-title">${f.name}${f.required?'  <span class="badge badge-red">Required</span>':''}</div>
+          <div class="card-meta" style="margin-top:4px">
+            <span class="ftype-badge">${f.field_type}</span>
+            ${f.scope_module?`<span class="badge badge-grey">${f.scope_module}</span>`:'<span class="badge badge-grey">all modules</span>'}
+            ${f.scope_category?`<span class="text-sm text-muted">→ ${f.scope_category}</span>`:''}
+          </div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="startDelete('field',${f.id},'${f.name}');event.stopPropagation()">Del</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+$('fieldsModuleFilter').addEventListener('change', loadFields);
+
+function openFieldDrawer() {
+  editingId = null;
+  $('cf_name').value=''; $('cf_type').value='text'; $('cf_module').value='';
+  $('cf_category').value=''; $('cf_options').value=''; $('cf_default').value='';
+  $('cf_required').checked=false; $('cf_options_wrap').style.display='none';
+  $('fieldDrawer').classList.add('open');
+  setTimeout(()=>$('cf_name').focus(),300);
+}
+
+$('cf_type').addEventListener('change', ()=>{
+  $('cf_options_wrap').style.display = $('cf_type').value==='dropdown' ? 'block' : 'none';
+});
+
+$('fieldCancel').addEventListener('click', ()=>$('fieldDrawer').classList.remove('open'));
+(function(){ let _d=false; $('fieldDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('fieldDrawer')}); $('fieldDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('fieldDrawer'))$('fieldDrawer').classList.remove('open');}); })();
+
+$('fieldSave').addEventListener('click', async () => {
+  const name = $('cf_name').value.trim();
+  const type = $('cf_type').value;
+  if (!name) { toast('Field name required','err'); return; }
+  const btn=$('fieldSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    const options = type==='dropdown'
+      ? $('cf_options').value.split('\n').map(s=>s.trim()).filter(Boolean)
+      : null;
+    const r = await fetch('/api/v1/settings/custom-fields', {method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({
+      name, field_type:type,
+      scope_module:$('cf_module').value||null,
+      scope_category:$('cf_category').value||null,
+      required:$('cf_required').checked,
+      default_value:$('cf_default').value||null,
+      options
+    })});
+    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    $('fieldDrawer').classList.remove('open');
+    toast('Field added');
+    await loadFields();
+  } catch(err) { toast(err.message,'err'); }
+  finally { btn.textContent='Save'; btn.disabled=false; }
+});
+
+// ══════════════════════════════════════════════════════════════
+// DELETE
+// ══════════════════════════════════════════════════════════════
+function startDelete(type, id, name) {
+  deletingType=type; deletingId=id;
+  LT.confirm({
+    title: `Delete ${type}?`,
+    msg: `"${name}" will be permanently deleted.`,
+    onConfirm: async () => {
+      const urls = { family:`/api/v1/settings/family/${deletingId}`, contact:`/api/v1/settings/contacts/${deletingId}`, tag:`/api/v1/settings/tags/${deletingId}`, field:`/api/v1/settings/custom-fields/${deletingId}` };
+      const loaders = { family:loadFamily, contact:loadContacts, tag:loadTags, field:loadFields };
+      try {
+        const r = await fetch(urls[deletingType], {method:'DELETE', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+        if (!r.ok) throw new Error((await r.json()).error||'Delete failed');
+        toast('Deleted');
+        await loaders[deletingType]?.();
+        loadBadges();
+      } catch(err) { toast(err.message,'err'); }
+      deletingType=deletingId=null;
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// BACKUP & RESTORE
+// ══════════════════════════════════════════════════════════════
+function fmtBytes(b) {
+  if (!b) return '';
+  if (b < 1024*1024) return (b/1024).toFixed(1)+' KB';
+  return (b/(1024*1024)).toFixed(2)+' MB';
+}
+
+function fmtBackupDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
+    + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
+async function loadBackups() {
+  const el = $('backupList');
+  el.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  if (!LT.authToken) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">🔒 Log in via Settings to manage backups.</div>';
+    return;
+  }
+  try {
+    const r = await fetch('/api/v1/backup/list', {headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }});
+    if (r.status === 401) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">🔒 Session expired — log in again via the lock icon.</div>';
+      return;
+    }
+    if (!r.ok) throw new Error((await r.json()).error||'Failed');
+    const d = await r.json();
+    const note = $('backupCountNote');
+    if (d.total_on_disk > d.shown_in_ui) {
+      note.textContent = `(showing last ${d.shown_in_ui} of ${d.total_on_disk} on disk)`;
+    } else {
+      note.textContent = d.total_on_disk ? `(${d.total_on_disk} file${d.total_on_disk!==1?'s':''} on disk)` : '';
+    }
+    if (!d.backups.length) {
+      el.innerHTML = '<div style="text-align:center;padding:20px 0;color:var(--text3);font-size:13px">No backups yet. Click "Backup Now" to create one.</div>';
+      return;
+    }
+    el.innerHTML = d.backups.map(b => `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="min-width:0">
+            <div style="font-family:var(--mono);font-size:11px;color:var(--text2);word-break:break-all">${b.filename}</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px">${fmtBackupDate(b.created_at)} · ${fmtBytes(b.size)}</div>
+          </div>
+          <div style="display:flex;gap:6px;flex-shrink:0">
+            <button class="btn btn-ghost" style="padding:4px 9px;font-size:11px"
+                    onclick="downloadBackup('${b.filename.replace(/'/g,"\\'")}')">↓ Save</button>
+            <button class="btn btn-danger" style="padding:4px 9px;font-size:11px"
+                    onclick="openRestoreConfirm('${b.filename.replace(/'/g,"\\'")}')">Restore</button>
+          </div>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:13px;padding:8px 0">${e.message}</div>`;
+  }
+}
+
+async function doBackupNow() {
+  const btn = $('backupNowBtn');
+  btn.textContent = 'Backing up…'; btn.disabled = true;
+  $('backupResult').style.display = 'none';
+  try {
+    const r = await fetch('/api/v1/backup/now', {method:'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }});
+    if (!r.ok) throw new Error((await r.json()).error||'Backup failed');
+    const d = await r.json();
+    $('backupResultMsg').textContent = `✓ Saved: ${d.filename} (${fmtBytes(d.size)})`;
+    $('backupResult').style.display = 'block';
+    await loadBackups();
+    toast('Backup complete');
+  } catch(e) {
+    toast(e.message, 'err');
+  } finally {
+    btn.textContent = 'Backup Now'; btn.disabled = false;
+  }
+}
+
+async function downloadBackup(filename) {
+  try {
+    const r = await fetch('/api/v1/backup/download/' + encodeURIComponent(filename), {
+      headers: { 'Authorization': `Bearer ${LT.authToken}` }
+    });
+    if (!r.ok) { toast('Download failed', 'err'); return; }
+    const blob = await r.blob();
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+let _restoreTarget = '';
+function openRestoreConfirm(filename) {
+  _restoreTarget = filename;
+  $('restoreFilename').textContent = filename;
+  $('restoreConfirm').style.display = 'flex';
+  $('restoreSuccess').style.display = 'none';
+}
+
+// Backup button listeners wired in DOMContentLoaded below
+
+// ══════════════════════════════════════════════════════════════
+// INFRASTRUCTURE
+// ══════════════════════════════════════════════════════════════
+async function loadInfra() {
+  try {
+    const r = await fetch('/api/v1/settings/config', {headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }});
+    const cfg = await r.json();
+    $('infraBaseUrl').value = cfg.app_base_url || window.location.origin;
+  } catch { $('infraBaseUrl').value = window.location.origin; }
+}
+
+async function saveBaseUrl() {
+  const url = $('infraBaseUrl').value.trim().replace(/\/$/, '');
+  if (!url) { toast('Enter a URL', 'err'); return; }
+  try {
+    const r = await fetch('/api/v1/settings/config/app_base_url', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }, body: JSON.stringify({ value: url })
+    });
+    if (!r.ok) throw new Error('Save failed');
+    $('infraUrlResult').textContent = '✓ Saved. Regenerate QR codes below to apply.';
+    $('infraUrlResult').style.color = 'var(--green)';
+    $('infraUrlResult').style.display = 'block';
+    toast('Base URL saved');
+  } catch(e) { toast(e.message || 'Save failed', 'err'); }
+}
+
+function detectBaseUrl() {
+  $('infraBaseUrl').value = window.location.origin;
+  toast('Detected: ' + window.location.origin);
+}
+
+async function regenAllQR() {
+  const btn = $('regenQrBtn');
+  btn.textContent = 'Regenerating…'; btn.disabled = true;
+  $('regenQrResult').style.display = 'none';
+  try {
+    const r = await fetch('/api/v1/inventory/qr/regenerate-all', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    const d = await r.json();
+    $('regenQrResult').innerHTML = `✓ Regenerated ${d.regenerated} QR code${d.regenerated!==1?'s':''}${d.failed?` · ${d.failed} failed`:''}.<br><span style="font-size:11px;color:var(--text3)">Base URL: ${d.base_url}</span>`;
+    $('regenQrResult').style.color = 'var(--green)';
+    $('regenQrResult').style.display = 'block';
+    toast(`${d.regenerated} QR codes updated`);
+  } catch(e) {
+    $('regenQrResult').textContent = '✗ ' + (e.message || 'Failed');
+    $('regenQrResult').style.color = 'var(--red)';
+    $('regenQrResult').style.display = 'block';
+  } finally { btn.textContent = 'Regenerate All QR Codes'; btn.disabled = false; }
+}
+
+// ══════════════════════════════════════════════════════════════
+// DROPDOWN OPTIONS
+// ══════════════════════════════════════════════════════════════
+async function loadDropdownList(listKey) {
+  const container = $('dd_items');
+  const addForm   = $('dd_add_form');
+  if (!listKey) { container.innerHTML = ''; addForm.style.display='none'; return; }
+  container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">Loading…</div>';
+  const r = await fetch(`/api/v1/settings/dropdowns/${listKey}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+  const items = await r.json();
+  if (!items.length) {
+    container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">No options yet</div>';
+  } else {
+    container.innerHTML = items.map(item => `
+      <div class="card card-static" style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;margin-bottom:6px">
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;font-size:14px">${item.label}</div>
+          <div style="font-size:11px;color:var(--text3);font-family:var(--mono)">${item.value}</div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          ${!item.is_system ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:12px" title="Rename value" onclick="renameDropdownOption(${item.id},'${listKey}','${item.label.replace(/'/g,"\\'")}','${item.value.replace(/'/g,"\\'")}')">✏️</button>` : ''}
+          <label class="toggle" title="${item.is_active ? 'Active' : 'Disabled'}">
+            <input type="checkbox" ${item.is_active?'checked':''} onchange="toggleDropdownOption(${item.id}, this.checked, '${listKey}')">
+            <span class="toggle-track"></span>
+          </label>
+          ${!item.is_system ? `<button class="btn btn-ghost" style="padding:4px 8px;font-size:12px;color:var(--red)" onclick="deleteDropdownOption(${item.id},'${listKey}')">✕</button>` : ''}
+        </div>
+      </div>`).join('');
+  }
+  addForm.style.display = 'block';
+  $('dd_new_label').value = '';
+  $('dd_new_value').value = '';
+}
+
+async function addDropdownOption() {
+  const listKey = $('dd_list_key').value;
+  const label   = $('dd_new_label').value.trim();
+  const value   = $('dd_new_value').value.trim() || label.toLowerCase().replace(/[^a-z0-9]+/g,'_');
+  if (!listKey || !label) { toast('Select a list and enter a label','err'); return; }
+  try {
+    const r = await fetch('/api/v1/settings/dropdowns', {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`},
+      body: JSON.stringify({ list_key:listKey, label, value })
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    toast('Option added');
+    loadDropdownList(listKey);
+  } catch(e) { toast(e.message,'err'); }
+}
+
+async function toggleDropdownOption(id, active, listKey) {
+  const row = await (await fetch(`/api/v1/settings/dropdowns/${id}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}})).json();
+  await fetch(`/api/v1/settings/dropdowns/${id}`, {
+    method:'PUT', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`},
+    body: JSON.stringify({...row, is_active: active ? 1 : 0})
+  });
+  toast(active ? 'Option enabled' : 'Option disabled');
+}
+
+async function renameDropdownOption(id, listKey, currentLabel, currentValue) {
+  // Check usage first
+  let usageMsg = '';
+  try {
+    const u = await fetch(`/api/v1/settings/dropdowns/${id}/usage`, {headers:{'Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json());
+    if (u.total_usage > 0) {
+      usageMsg = `\n⚠️ This value is used by ${u.total_usage} existing record${u.total_usage!==1?'s':''} (${u.breakdown.map(b=>`${b.count} ${b.label}`).join(', ')}).\nRenaming will UPDATE all those records to the new value.`;
+    }
+  } catch(e) {}
+
+  const newLabel = prompt(`Rename label "${currentLabel}":${usageMsg}\n\nNew label:`, currentLabel);
+  if (!newLabel || newLabel === currentLabel) return;
+
+  const wantsValueRename = usageMsg
+    ? confirm(`Also rename the internal value "${currentValue}"?\n\nThis will cascade-update all ${usageMsg.match(/\d+/)?.[0]||''} records.\nClick OK to cascade, Cancel to only rename the label.`)
+    : false;
+
+  const newValue = wantsValueRename
+    ? (prompt(`New internal value (current: "${currentValue}"):`, newLabel.toLowerCase().replace(/[^a-z0-9]+/g,'_')) || currentValue)
+    : currentValue;
+
+  try {
+    const r = await fetch(`/api/v1/settings/dropdowns/${id}`, {
+      method:'PUT',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`},
+      body: JSON.stringify({ label: newLabel, value: newValue, rename_value: wantsValueRename })
+    }).then(r=>r.json());
+    if (r.cascaded_records > 0) toast(`✓ Renamed · ${r.cascaded_records} records updated`);
+    else toast('✓ Renamed');
+    loadDropdownList(listKey);
+  } catch(e) { toast('Rename failed','err'); }
+}
+
+async function deleteDropdownOption(id, listKey) {
+  // Check usage before deleting
+  try {
+    const u = await fetch(`/api/v1/settings/dropdowns/${id}/usage`, {headers:{'Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json());
+    if (u.total_usage > 0) {
+      const ok = confirm(`⚠️ "${u.value}" is used by ${u.total_usage} record${u.total_usage!==1?'s':''} (${u.breakdown.map(b=>`${b.count} ${b.label}`).join(', ')}).\n\nDeleting will orphan those records. Disabling is safer.\n\nDelete anyway?`);
+      if (!ok) return;
+    } else {
+      if (!confirm('Delete this option?')) return;
+    }
+  } catch(e) {
+    if (!confirm('Delete this option?')) return;
+  }
+  try {
+    const r = await fetch(`/api/v1/settings/dropdowns/${id}`, {method:'DELETE', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
+    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    toast('Deleted');
+    loadDropdownList(listKey);
+  } catch(e) { toast(e.message,'err'); }
+}
+
+// ── CSV Export menu ───────────────────────────────────────────
+function showCsvExportMenu() {
+  const el = $('csvTableMenu');
+  if (!el) return;
+  const tables = ['todos','hsa_payments','hsa_otc','finance_transactions','inventory_items',
+                  'med_medications','med_conditions','med_visit_notes','daily_log','books',
+                  'career_certifications','documents','gift_cards','vehicle_service'];
+  if (!$('csvTableBtns').children.length) {
+    $('csvTableBtns').innerHTML = tables.map(t =>
+      `<a href="/api/v1/backup/export-csv/${t}" download class="btn btn-ghost" style="font-size:11px;padding:4px 10px;text-decoration:none">${t.replace(/_/g,' ')}</a>`
+    ).join('');
+  }
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
+// ── Boot ──────────────────────────────────────────────────────
+checkAuth();
+
+</script>

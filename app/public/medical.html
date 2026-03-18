@@ -1,0 +1,999 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f0f4f8">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<title>Medical — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+/* ── View tabs ─────────────────────────────────────────────── */
+
+/* ── Medical card ──────────────────────────────────────────── */
+.med-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px 16px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+}
+.med-card:hover { border-color: var(--border2); background: var(--bg3); transform: translateY(-1px); }
+.med-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.med-card-meta {
+  font-size: 12px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+.med-card-sub {
+  font-size: 13px;
+  color: var(--text2);
+  margin-top: 6px;
+  line-height: 1.5;
+}
+.med-card-actions {
+  position: absolute;
+  top: 10px; right: 10px;
+  display: flex;
+  gap: 4px;
+}
+
+/* ── Patient pills ─────────────────────────────────────────── */
+.patient-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.patient-strip::-webkit-scrollbar { display: none; }
+.patient-pill {
+  flex-shrink: 0;
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  cursor: pointer;
+  transition: all .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.patient-pill.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-bd);
+  color: var(--accent);
+}
+
+/* ── Status dot ────────────────────────────────────────────── */
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+}
+.status-active { background: var(--green); }
+.status-discontinued, .status-resolved { background: var(--text3); }
+.status-asneeded, .status-monitoring { background: var(--amber); }
+.status-chronic { background: var(--red); }
+.status-completed { background: var(--accent); }
+
+/* ── Follow-up badge ───────────────────────────────────────── */
+.followup-badge {
+  background: var(--amber-bg);
+  border: 1px solid rgba(245,158,11,.3);
+  color: var(--amber);
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Page header ──────────────────────────────────────── -->
+  <!-- header injected by nav.js -->
+
+  <!-- ── View tabs ────────────────────────────────────────── -->
+  <div class="view-tabs" style="--tab-color:#14b8a6" style="--tab-color:#14b8a6">
+    <button class="view-tab active" onclick="switchView('medications',this)">Meds</button>
+    <button class="view-tab" onclick="switchView('conditions',this)">Conditions</button>
+    <button class="view-tab" onclick="switchView('notes',this)">Visits</button>
+    
+    <button class="view-tab" onclick="switchView('hw',this)">H&amp;W</button>
+    <button class="view-tab" onclick="switchView('summary',this)">Summary</button>
+  </div>
+
+  <!-- ── Patient filter ───────────────────────────────────── -->
+  <div class="patient-strip" id="patientStrip">
+    <button class="patient-pill active" data-patient="" onclick="setPatient(this,'')">All</button>
+  </div>
+
+  <!-- ── Main list ────────────────────────────────────────── -->
+  <div class="content" style="padding-top:12px">
+    <div id="listArea"></div>
+  </div>
+
+  <!-- ── Summary panel (hidden until tab switched) ───────── -->
+  <div id="summaryPanel" style="display:none;padding:8px 16px 100px">
+    <div id="summaryContent">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── FAB ──────────────────────────────────────────────────── -->
+<button class="fab" onclick="openAddDrawer()" title="Add record">+</button>
+
+<!-- ── Add/Edit Medication Drawer ───────────────────────────── -->
+<div class="drawer-overlay" id="medDrawer">
+  <div class="drawer">
+    <div class="drawer-handle" onclick="closeMedDrawer()"></div>
+    <div class="drawer-title" id="medDrawerTitle">Add Medication</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <select class="form-select" id="mPatient">
+          <option>Self</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="mStatus">
+          <option>Active</option><option>As Needed</option>
+          <option>Discontinued</option><option>Completed</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Medication Name <span class="req">*</span></label>
+      <input class="form-input" type="text" id="mName" placeholder="e.g. Lisinopril 10mg">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Dosage</label>
+        <input class="form-input" type="text" id="mDosage" placeholder="e.g. 10mg">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Frequency</label>
+        <input class="form-input" type="text" id="mFreq" placeholder="e.g. Once daily">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Prescribing Physician</label>
+      <select class="form-select" id="mPhysician">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Start Date</label>
+        <input class="form-input" type="date" id="mStart">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date</label>
+        <input class="form-input" type="date" id="mEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Purpose / Indication</label>
+      <input class="form-input" type="text" id="mPurpose" placeholder="Why prescribed">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="mNotes" rows="2"></textarea>
+    </div>
+        <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="medTagsWrap" onclick="document.getElementById('medTagInput').focus()">
+        <input id="medTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+<div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeMedDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMedication()">Save</button>
+    </div>
+    <div style="height:4px"></div>
+  </div>
+</div>
+
+<!-- ── Add/Edit Condition Drawer ──────────────────────────────── -->
+<div class="drawer-overlay" id="condDrawer">
+  <div class="drawer">
+    <div class="drawer-handle" onclick="closeCondDrawer()"></div>
+    <div class="drawer-title" id="condDrawerTitle">Add Condition</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <select class="form-select" id="cPatient">
+          <option>Self</option><option>Spouse</option><option>Dependent</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="cStatus">
+          <option>Active</option><option>Chronic</option>
+          <option>Monitoring</option><option>Resolved</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Condition Name <span class="req">*</span></label>
+      <input class="form-input" type="text" id="cName" placeholder="e.g. Hypertension">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Onset Date</label>
+        <input class="form-input" type="date" id="cStart">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Resolved Date</label>
+        <input class="form-input" type="date" id="cEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Physician</label>
+      <select class="form-select" id="cPhysician">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Treatment Notes</label>
+      <textarea class="form-textarea" id="cTreatment" rows="3" placeholder="Treatment plan, medications, outcomes…"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="cNotes" rows="2"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeCondDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCondition()">Save</button>
+    </div>
+    <div style="height:4px"></div>
+  </div>
+</div>
+
+<!-- ── Add/Edit Visit Note Drawer ─────────────────────────────── -->
+<div class="drawer-overlay" id="noteDrawer">
+  <div class="drawer">
+    <div class="drawer-handle" onclick="closeNoteDrawer()"></div>
+    <div class="drawer-title" id="noteDrawerTitle">Add Visit Note</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <select class="form-select" id="nPatient">
+          <option>Self</option><option>Spouse</option><option>Dependent</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Visit Date <span class="req">*</span></label>
+        <input class="form-input" type="date" id="nDate">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Physician</label>
+      <select class="form-select" id="nPhysician">
+        <option value="">— Select or leave blank —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Questions / Concerns Brought</label>
+      <textarea class="form-textarea" id="nQuestions" rows="3" placeholder="What did you want to discuss?"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Doctor's Response / Assessment</label>
+      <textarea class="form-textarea" id="nResponse" rows="3" placeholder="What did the doctor say?"></textarea>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Follow-up Needed</span>
+      <label class="toggle"><input type="checkbox" id="nFollowUp" onchange="toggleFollowDate()"><span class="toggle-track"></span></label>
+    </div>
+    <div class="form-group" id="followDateGroup" style="display:none;margin-top:10px">
+      <label class="form-label">Follow-up Date</label>
+      <input class="form-input" type="date" id="nFollowDate">
+    </div>
+    <div class="form-group" style="margin-top:10px">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="nNotes" rows="2"></textarea>
+    </div>
+        <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="visitTagsWrap" onclick="document.getElementById('visitTagInput').focus()">
+        <input id="visitTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+<div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeNoteDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">Save</button>
+    </div>
+    <div style="height:4px"></div>
+  </div>
+</div>
+
+
+</div>
+
+<!-- ── Confirm ──────────────────────────────────────────────── -->
+<div class="confirm-overlay" id="confirmDlg">
+  <div class="confirm-box">
+    <h3 id="confirmTitle">Delete?</h3>
+    <p id="confirmMsg">This cannot be undone.</p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="cancelConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="doConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+  window.GH_PAGE = { module: 'medical', title: 'Medical' };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script src="/js/lt-shared-data.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────────
+// Auth token from lt-core.js (LT.authToken)
+Object.defineProperty(window, 'authToken', { get: () => LT.authToken, set: v => { LT.authToken = v; } });
+let familyMembers = [];
+let medicalContacts = [];
+
+async function api(method, path, body) {
+  const opts = {
+    method,
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
+  };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch('/api/v1' + path, opts);
+  if (res.status === 401) { if (typeof toast === 'function') toast('Please log in via Settings to make changes', 'err'); throw new Error('Not authenticated'); }
+  if (!res.ok) { const e = await res.json().catch(()=>({error:'Error'})); throw new Error(e.error || 'Error'); }
+  return res.json();
+}
+
+async function loadSharedData() {
+  async function silentGet(path) {
+    try {
+      const r = await fetch('/api/v1' + path, {
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+      if (!r.ok) return [];
+      return await r.json();
+    } catch { return []; }
+  }
+  familyMembers   = await silentGet('/settings/family');
+  medicalContacts = await silentGet('/settings/contacts?type=Medical');
+}
+
+function populateFamilySelect(selectEl, currentVal) {
+  selectEl.innerHTML = '';
+  const members = familyMembers.length ? familyMembers : [{ display_name: 'Self' }];
+  members.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.display_name;
+    opt.textContent = m.display_name;
+    if (m.display_name === (currentVal || 'Self')) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+function populatePhysicianDatalist(datalistEl) {
+  if (!datalistEl) return;
+  datalistEl.innerHTML = '';
+  medicalContacts.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name;
+    datalistEl.appendChild(opt);
+  });
+}
+
+function $id(id) { return document.getElementById(id); }
+function showToast(msg, type='ok') {
+  const t = $id('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 2400);
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function formatDate(d) {
+  if (!d) return '';
+  const [y,m,day] = d.split('-');
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${mo[parseInt(m)-1]} ${parseInt(day)}, ${y}`;
+}
+
+// ── State ──────────────────────────────────────────────────────
+let currentView = 'medications';
+let currentPatient = '';
+let editingId = null;
+let confirmCb = null;
+
+// ── View switching ─────────────────────────────────────────────
+function switchView(view, btn) {
+  currentView = view;
+  document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const strip = $id('patientStrip');
+  strip.style.display = (view === 'summary') ? 'none' : 'flex';
+  renderCurrentView();
+}
+
+function setPatient(btn, val) {
+  currentPatient = val;
+  document.querySelectorAll('.patient-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCurrentView();
+}
+
+async function renderCurrentView() {
+  const listArea = $id('listArea');
+  const summaryPanel = document.getElementById('summaryPanel');
+  if (currentView === 'summary') {
+    listArea.style.display = 'none';
+    summaryPanel.style.display = 'block';
+    await renderSummary();
+  } else {
+    listArea.style.display = '';
+    summaryPanel.style.display = 'none';
+    if (currentView === 'medications')  await renderMedications();
+    else if (currentView === 'conditions') await renderConditions();
+    else if (currentView === 'notes')   await renderNotes();
+    else if (currentView === 'hw')      await renderHW();
+  }
+}
+
+async function renderSummary() {
+  const el = document.getElementById('summaryContent'); if (!el) return;
+  try {
+    const data = await api('GET', '/summary');
+    if (!data.length) { el.innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center">No family members found</div>'; return; }
+    el.innerHTML = data.map(item => {
+      const m = item.member;
+      const activeConds  = item.conditions.filter(c => c.status === 'Active');
+      const activeMeds   = item.medications.filter(x => x.status === 'Active');
+      const inactiveConds = item.conditions.filter(c => c.status !== 'Active');
+      const inactiveMeds  = item.medications.filter(x => x.status !== 'Active');
+      return `<div style="background:var(--bg2);border-radius:var(--r);margin-bottom:16px;overflow:hidden">
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
+            ${m.relationship === 'Child' ? '👦' : m.is_primary_user ? '🧑' : '👤'}
+          </div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700;color:var(--text)">${esc(m.display_name)}</div>
+            <div style="font-size:12px;color:var(--text3)">${esc(m.relationship||'')}</div>
+          </div>
+          <div style="display:flex;gap:10px;text-align:center">
+            <div><div style="font-size:18px;font-weight:800;color:var(--text)">${activeConds.length}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase">Conditions</div></div>
+            <div><div style="font-size:18px;font-weight:800;color:var(--text)">${activeMeds.length}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase">Meds</div></div>
+          </div>
+        </div>
+
+        ${activeConds.length ? `<div style="padding:10px 16px 4px">
+          <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Active Conditions</div>
+          ${activeConds.map(c => `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;color:var(--text)">${esc(c.condition_name)}</span>
+            ${c.physician?`<span style="font-size:11px;color:var(--text3)">${esc(c.physician)}</span>`:''}
+          </div>`).join('')}
+        </div>` : ''}
+
+        ${activeMeds.length ? `<div style="padding:10px 16px 4px">
+          <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Active Medications</div>
+          ${activeMeds.map(med => `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <span style="font-size:13px;color:var(--text);font-weight:600">${esc(med.name)}</span>
+              ${med.dosage?`<span style="font-size:12px;color:var(--text3)"> · ${esc(med.dosage)}</span>`:''}
+            </div>
+            ${med.frequency?`<span style="font-size:11px;color:var(--text3)">${esc(med.frequency)}</span>`:''}
+          </div>`).join('')}
+        </div>` : ''}
+
+        ${item.recent_visits.length ? `<div style="padding:10px 16px 12px">
+          <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Recent Visits</div>
+          ${item.recent_visits.map(v => `<div style="padding:4px 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:13px;color:var(--text)">${esc(v.reason||'Visit')}</div>
+            <div style="font-size:11px;color:var(--text3)">${v.visit_date||''}</div>
+          </div>`).join('')}
+        </div>` : ''}
+
+        ${!activeConds.length && !activeMeds.length && !item.recent_visits.length ? `<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">No active records</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = errorState(e.message, ''); }
+}
+
+async function renderHW() {
+  const area = $id('listArea');
+  area.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Loading…</div>';
+  try {
+    const params = currentPatient && currentPatient !== 'All'
+      ? `?family_member_id=${encodeURIComponent(currentPatient)}` : '';
+    const items = await api('GET', `/inventory/hw${params}`);
+
+    if (!items.length) {
+      area.innerHTML = `<div style="text-align:center;padding:60px 20px">
+        <div style="font-size:40px;margin-bottom:12px">💊</div>
+        <h3 style="color:var(--text2)">No Health &amp; Wellness items</h3>
+        <p style="color:var(--text3);font-size:14px">Add items in Inventory using the Health &amp; Wellness category</p>
+      </div>`;
+      return;
+    }
+
+    // Group by subcategory
+    const groups = {};
+    items.forEach(i => {
+      const g = i.hw_subcategory || 'Other';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(i);
+    });
+
+    const subcatOrder = ['Prescription','OTC','First Aid','Personal Care','Vitamins & Supplements','Medical Equipment','Other'];
+    let html = '';
+    subcatOrder.forEach(subcat => {
+      if (!groups[subcat]) return;
+      html += `<div style="padding:12px 16px 4px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">${subcat}</div>`;
+      groups[subcat].forEach(item => {
+        const expBadge = item.expiration_date ? (() => {
+          const days = Math.ceil((new Date(item.expiration_date) - new Date()) / 86400000);
+          if (days < 0) return '<span style="background:#fee2e2;color:#ef4444;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:6px">Expired</span>';
+          if (days <= 30) return `<span style="background:#fef3c7;color:#d97706;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:6px">Exp soon</span>`;
+          return '';
+        })() : '';
+
+        html += `<div style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="window.location='/inventory.html?open=${item.item_ref}'">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-weight:600;font-size:15px">${item.name}${expBadge}</div>
+              <div style="font-size:13px;color:var(--text3);margin-top:2px">
+                ${item.family_member_name ? `For ${item.family_member_name} · ` : ''}
+                ${item.dosage_strength || ''}
+                ${item.rx_number ? ` · Rx ${item.rx_number}` : ''}
+              </div>
+              ${item.pharmacy_name ? `<div style="font-size:12px;color:var(--text3)">${item.pharmacy_name}</div>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text3);text-align:right">
+              Qty ${item.quantity || 1}
+              ${item.expiration_date ? `<br>${item.expiration_date}` : ''}
+            </div>
+          </div>
+        </div>`;
+      });
+    });
+
+    area.innerHTML = `<div style="padding-bottom:80px">${html}</div>`;
+  } catch(e) {
+    area.innerHTML = errorState(e.message, '');
+  }
+}
+
+function statusDotClass(status) {
+  const m = {
+    'Active': 'status-active',
+    'Discontinued': 'status-discontinued', 'Resolved': 'status-resolved',
+    'As Needed': 'status-asneeded', 'Monitoring': 'status-monitoring',
+    'Chronic': 'status-chronic', 'Completed': 'status-completed',
+  };
+  return m[status] || 'status-active';
+}
+
+// ── Medications ─────────────────────────────────────────────────
+async function renderMedications() {
+  const area = $id('listArea');
+  area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  try {
+    let url = '/medical/medications';
+    const ps = [];
+    if (currentPatient) ps.push(`patient=${encodeURIComponent(currentPatient)}`);
+    if (ps.length) url += '?' + ps.join('&');
+    const rows = await api('GET', url);
+
+    if (!rows.length) {
+      area.innerHTML = `<div class="empty">
+        <div class="empty-icon">💊</div><h3>No medications</h3>
+        <p>Track current and past medications for all family members.</p>
+      </div>`; return;
+    }
+
+    // Group by patient
+    const byPatient = {};
+    rows.forEach(r => { (byPatient[r.patient] = byPatient[r.patient]||[]).push(r); });
+
+    area.innerHTML = Object.entries(byPatient).map(([patient, meds]) => `
+      <div class="section-label">${esc(patient)}</div>
+      ${meds.map(r => `
+        <div class="med-card" onclick="editMedication(${r.id})">
+          <div class="med-card-actions">
+            <button class="btn btn-danger" style="padding:3px 8px;font-size:11px"
+                    onclick="event.stopPropagation();deleteMed(${r.id})">del</button>
+          </div>
+          <div class="med-card-title">
+            <span class="status-dot ${statusDotClass(r.status)}"></span>
+            ${esc(r.name)}
+            <span class="badge badge-grey">${r.status}</span>
+          </div>
+          ${r.dosage||r.frequency ? `<div class="med-card-meta">
+            ${r.dosage ? `<span>${esc(r.dosage)}</span>` : ''}
+            ${r.frequency ? `<span>· ${esc(r.frequency)}</span>` : ''}
+          </div>` : ''}
+          <div class="med-card-meta">
+            ${r.physician ? `<span>Dr. ${esc(r.physician)}</span>` : ''}
+            ${r.start_date ? `<span>Started ${formatDate(r.start_date)}</span>` : ''}
+            ${r.purpose ? `<span style="color:var(--text2)">${esc(r.purpose)}</span>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    `).join('');
+  } catch (e) {
+    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${e.message}</p></div>`;
+  }
+}
+
+// ── Conditions ─────────────────────────────────────────────────
+async function renderConditions() {
+  const area = $id('listArea');
+  area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  try {
+    let url = '/medical/conditions';
+    if (currentPatient) url += `?patient=${encodeURIComponent(currentPatient)}`;
+    const rows = await api('GET', url);
+
+    if (!rows.length) {
+      area.innerHTML = `<div class="empty">
+        <div class="empty-icon">🩺</div><h3>No conditions logged</h3>
+        <p>Track diagnoses and medical conditions for the whole family.</p>
+      </div>`; return;
+    }
+
+    area.innerHTML = rows.map(r => `
+      <div class="med-card" onclick="editCondition(${r.id})">
+        <div class="med-card-actions">
+          <button class="btn btn-danger" style="padding:3px 8px;font-size:11px"
+                  onclick="event.stopPropagation();deleteCond(${r.id})">del</button>
+        </div>
+        <div class="med-card-title">
+          <span class="status-dot ${statusDotClass(r.status)}"></span>
+          ${esc(r.condition_name)}
+          <span class="badge badge-grey">${r.status}</span>
+          <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
+        </div>
+        <div class="med-card-meta">
+          ${r.physician ? `<span>${esc(r.physician)}</span>` : ''}
+          ${r.start_date ? `<span>Since ${formatDate(r.start_date)}</span>` : ''}
+          ${r.end_date ? `<span>→ ${formatDate(r.end_date)}</span>` : ''}
+        </div>
+        ${r.treatment_notes ? `<div class="med-card-sub">${esc(r.treatment_notes)}</div>` : ''}
+      </div>
+    `).join('');
+  } catch (e) {
+    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${e.message}</p></div>`;
+  }
+}
+
+// ── Visit Notes ────────────────────────────────────────────────
+async function renderNotes() {
+  const area = $id('listArea');
+  area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  try {
+    let url = '/medical/notes';
+    if (currentPatient) url += `?patient=${encodeURIComponent(currentPatient)}`;
+    const rows = await api('GET', url);
+
+    if (!rows.length) {
+      area.innerHTML = `<div class="empty">
+        <div class="empty-icon">📋</div><h3>No visit notes</h3>
+        <p>Record questions and doctor responses to keep track of your health history.</p>
+      </div>`; return;
+    }
+
+    area.innerHTML = rows.map(r => `
+      <div class="med-card" onclick="editNote(${r.id})">
+        <div class="med-card-actions">
+          <button class="btn btn-danger" style="padding:3px 8px;font-size:11px"
+                  onclick="event.stopPropagation();deleteNote(${r.id})">del</button>
+        </div>
+        <div class="med-card-title">
+          ${r.physician_name ? esc(r.physician_name) : 'Visit Note'}
+          ${r.follow_up_needed ? `<span class="followup-badge">Follow-up needed</span>` : ''}
+          <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
+        </div>
+        <div class="med-card-meta">
+          <span>${formatDate(r.visit_date)}</span>
+          ${r.specialty ? `<span>${esc(r.specialty)}</span>` : ''}
+          ${r.follow_up_date ? `<span style="color:var(--amber)">→ ${formatDate(r.follow_up_date)}</span>` : ''}
+        </div>
+        ${r.questions ? `<div class="med-card-sub" style="margin-top:6px">
+          <span style="color:var(--text3);font-size:11px">Q: </span>${esc(r.questions).substring(0,120)}${r.questions.length>120?'…':''}
+        </div>` : ''}
+        ${r.doctors_response ? `<div class="med-card-sub">
+          <span style="color:var(--text3);font-size:11px">A: </span>${esc(r.doctors_response).substring(0,120)}${r.doctors_response.length>120?'…':''}
+        </div>` : ''}
+      </div>
+    `).join('');
+  } catch (e) {
+    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${e.message}</p></div>`;
+  }
+}
+
+// ── FAB routing ────────────────────────────────────────────────
+function openAddDrawer() {
+  editingId = null;
+  if (currentView === 'medications')  openMedDrawer();
+  else if (currentView === 'conditions') openCondDrawer();
+  else if (currentView === 'notes')   openNoteDrawer();
+}
+
+// ── Medication CRUD ────────────────────────────────────────────
+function openMedDrawer(r) {
+  editingId = r?.id || null;
+  $id('medDrawerTitle').textContent = editingId ? 'Edit Medication' : 'Add Medication';
+  GH_REFS.populateFamily('mPatient', r?.patient || currentPatient || 'Self');
+  GH_REFS.populateContact('mPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
+  $id('mStatus').value = r?.status || 'Active';
+  $id('mName').value = r?.name || '';
+  $id('mDosage').value = r?.dosage || '';
+  $id('mFreq').value = r?.frequency || '';
+  $id('mStart').value = r?.start_date || '';
+  $id('mEnd').value = r?.end_date || '';
+  $id('mPurpose').value = r?.purpose || '';
+  $id('mNotes').value = r?.notes || '';
+  initMedTags(r?.tags||[]);
+  $id('medDrawer').classList.add('open');
+}
+function closeMedDrawer() { $id('medDrawer').classList.remove('open'); }
+
+async function editMedication(id) {
+  try {
+    const rows = await api('GET', '/medical/medications');
+    const r = rows.find(x => x.id === id);
+    if (r) openMedDrawer(r);
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function saveMedication() {
+  if (!$id('mName').value.trim()) { showToast('Name required','err'); return; }
+  const body = {
+    patient: $id('mPatient').value, status: $id('mStatus').value,
+    name: $id('mName').value.trim(), dosage: $id('mDosage').value.trim()||null,
+    frequency: $id('mFreq').value.trim()||null,
+    physician_contact_id: $id('mPhysician').value ? parseInt($id('mPhysician').value) : null,
+    start_date: $id('mStart').value||null, end_date: $id('mEnd').value||null,
+    purpose: $id('mPurpose').value.trim()||null, notes: $id('mNotes').value.trim()||null,
+    tags: medFormTags,
+  };
+  try {
+    if (editingId) { await api('PUT',`/medical/medications/${editingId}`,body); showToast('Updated'); }
+    else { await api('POST','/medical/medications',body); showToast('Saved'); }
+    closeMedDrawer(); await renderMedications();
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function deleteMed(id) {
+  confirmCb = async () => {
+    await api('DELETE',`/medical/medications/${id}`);
+    showToast('Deleted'); await renderMedications();
+  };
+  showConfirm('Delete medication?');
+}
+
+// ── Condition CRUD ──────────────────────────────────────────────
+function openCondDrawer(r) {
+  editingId = r?.id || null;
+  $id('condDrawerTitle').textContent = editingId ? 'Edit Condition' : 'Add Condition';
+  GH_REFS.populateFamily('cPatient', r?.patient || currentPatient || 'Self');
+  GH_REFS.populateContact('cPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
+  $id('cStatus').value = r?.status || 'Active';
+  $id('cName').value = r?.condition_name || '';
+  $id('cStart').value = r?.start_date || '';
+  $id('cEnd').value = r?.end_date || '';
+  $id('cTreatment').value = r?.treatment_notes || '';
+  $id('cNotes').value = r?.notes || '';
+  $id('condDrawer').classList.add('open');
+}
+function closeCondDrawer() { $id('condDrawer').classList.remove('open'); }
+
+async function editCondition(id) {
+  try {
+    const rows = await api('GET', '/medical/conditions');
+    const r = rows.find(x => x.id === id);
+    if (r) openCondDrawer(r);
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function saveCondition() {
+  if (!$id('cName').value.trim()) { showToast('Condition name required','err'); return; }
+  const body = {
+    patient: $id('cPatient').value, status: $id('cStatus').value,
+    condition_name: $id('cName').value.trim(), start_date: $id('cStart').value||null,
+    end_date: $id('cEnd').value||null,
+    physician_contact_id: $id('cPhysician').value ? parseInt($id('cPhysician').value) : null,
+    treatment_notes: $id('cTreatment').value.trim()||null, notes: $id('cNotes').value.trim()||null,
+  };
+  try {
+    if (editingId) { await api('PUT',`/medical/conditions/${editingId}`,body); showToast('Updated'); }
+    else { await api('POST','/medical/conditions',body); showToast('Saved'); }
+    closeCondDrawer(); await renderConditions();
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function deleteCond(id) {
+  confirmCb = async () => { await api('DELETE',`/medical/conditions/${id}`); showToast('Deleted'); await renderConditions(); };
+  showConfirm('Delete condition?');
+}
+
+// ── Visit Notes CRUD ────────────────────────────────────────────
+function toggleFollowDate() {
+  $id('followDateGroup').style.display = $id('nFollowUp').checked ? 'block' : 'none';
+}
+
+async function openNoteDrawer(r) {
+  editingId = r?.id || null;
+  $id('noteDrawerTitle').textContent = editingId ? 'Edit Visit Note' : 'Add Visit Note';
+  GH_REFS.populateFamily('nPatient', r?.patient || currentPatient || 'Self');
+  await GH_REFS.populateContact('nPhysician', r?.contact_id || null, { type: 'Medical', placeholder: '— Select or leave blank —' });
+  $id('nDate').value = r?.visit_date || new Date().toISOString().split('T')[0];
+  $id('nQuestions').value = r?.questions || '';
+  $id('nResponse').value = r?.doctors_response || '';
+  $id('nFollowUp').checked = !!r?.follow_up_needed;
+  $id('nFollowDate').value = r?.follow_up_date || '';
+  $id('followDateGroup').style.display = r?.follow_up_needed ? 'block' : 'none';
+  $id('nNotes').value = r?.notes || '';
+  initVisitTags(r?.tags||[]);
+  $id('noteDrawer').classList.add('open');
+}
+function closeNoteDrawer() { $id('noteDrawer').classList.remove('open'); }
+
+async function editNote(id) {
+  try {
+    const rows = await api('GET', '/medical/notes');
+    const r = rows.find(x => x.id === id);
+    if (r) await openNoteDrawer(r);
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function saveNote() {
+  if (!$id('nDate').value) { showToast('Visit date required','err'); return; }
+  const body = {
+    patient: $id('nPatient').value, visit_date: $id('nDate').value,
+    contact_id: $id('nPhysician').value ? parseInt($id('nPhysician').value) : null,
+    questions: $id('nQuestions').value.trim()||null,
+    doctors_response: $id('nResponse').value.trim()||null,
+    follow_up_needed: $id('nFollowUp').checked,
+    follow_up_date: $id('nFollowDate').value||null,
+    notes: $id('nNotes').value.trim()||null,
+    tags: visitFormTags,
+  };
+  try {
+    if (editingId) { await api('PUT',`/medical/notes/${editingId}`,body); showToast('Updated'); }
+    else { await api('POST','/medical/notes',body); showToast('Saved'); }
+    closeNoteDrawer(); await renderNotes();
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function deleteNote(id) {
+  confirmCb = async () => { await api('DELETE',`/medical/notes/${id}`); showToast('Deleted'); await renderNotes(); };
+  showConfirm('Delete visit note?');
+}
+
+// ── Physician CRUD ──────────────────────────────────────────────
+// ── Confirm ─────────────────────────────────────────────────────
+function showConfirm(title, msg='This cannot be undone.') {
+  $id('confirmTitle').textContent = title;
+  $id('confirmMsg').textContent = msg;
+  $id('confirmDlg').classList.add('open');
+}
+function cancelConfirm() { $id('confirmDlg').classList.remove('open'); confirmCb=null; }
+function doConfirm() {
+  $id('confirmDlg').classList.remove('open');
+  if (confirmCb) { confirmCb(); confirmCb=null; }
+}
+
+// ── Close drawers on overlay click ─────────────────────────────
+['medDrawer','condDrawer','noteDrawer'].forEach(id => {
+  const el = $id(id);
+  if (el) el.addEventListener('click', e => {
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+
+// ── Boot ───────────────────────────────────────────────────────
+async function _medBoot() {
+  if (LT.authToken) await loadSharedData();
+  // Populate patient filter strip from family members
+  const strip = document.getElementById('patientStrip');
+  if (strip && familyMembers.length) {
+    familyMembers.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'patient-pill';
+      btn.dataset.patient = m.display_name;
+      btn.textContent = m.display_name;
+      btn.onclick = function() { setPatient(this, m.display_name); };
+      strip.appendChild(btn);
+    });
+  }
+  renderMedications();
+}
+_medBoot();
+
+// ── Tags (medical) ───────────────────────────────────────────────────
+let visitFormTags = [];
+function renderVisitTags() {
+  const wrap = $id('visitTagsWrap'), input = $id('visitTagInput'); if (!wrap||!input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  visitFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{visitFormTags=visitFormTags.filter(x=>x!==t);renderVisitTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addVisitTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!visitFormTags.includes(t)).forEach(t=>visitFormTags.push(t));
+  renderVisitTags(); const inp=$id('visitTagInput'); if(inp)inp.value='';
+}
+function initVisitTags(existing){
+  visitFormTags=(existing||[]).slice(); renderVisitTags();
+  const inp=$id('visitTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addVisitTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&visitFormTags.length){visitFormTags.pop();renderVisitTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addVisitTag(inp.value);};
+  GH_TAGS.init({inputId:'visitTagInput',wrapId:'visitTagsWrap',module:'medical',getFormTags:()=>visitFormTags,addTag:t=>addVisitTag(t),allowCreate:true});
+}
+
+// ── Tags (medical) ───────────────────────────────────────────────────
+let medFormTags = [];
+function renderMedTags() {
+  const wrap = $id('medTagsWrap'), input = $id('medTagInput'); if (!wrap||!input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  medFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{medFormTags=medFormTags.filter(x=>x!==t);renderMedTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addMedTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!medFormTags.includes(t)).forEach(t=>medFormTags.push(t));
+  renderMedTags(); const inp=$id('medTagInput'); if(inp)inp.value='';
+}
+function initMedTags(existing){
+  medFormTags=(existing||[]).slice(); renderMedTags();
+  const inp=$id('medTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addMedTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&medFormTags.length){medFormTags.pop();renderMedTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addMedTag(inp.value);};
+  GH_TAGS.init({inputId:'medTagInput',wrapId:'medTagsWrap',module:'medical',getFormTags:()=>medFormTags,addTag:t=>addMedTag(t),allowCreate:true});
+}
+</script>
+</body>
+</html>

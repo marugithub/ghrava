@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f0f4f8">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<title>Property — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+/* view-tab styles from shared.css */
+.view-panel{display:none}.view-panel.active{display:block}
+.prop-card,.veh-card{background:var(--bg2);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
+.card-header{padding:14px 16px 10px;display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.card-icon{width:38px;height:38px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
+.card-title{font-size:15px;font-weight:700;color:var(--text)}
+.card-sub{font-size:12px;color:var(--text3);margin-top:2px}
+.stat-row{display:flex;border-top:1px solid var(--border)}
+.stat-cell{flex:1;padding:10px 12px;border-right:1px solid var(--border)}
+.stat-cell:last-child{border-right:none}
+.stat-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em}
+.stat-val{font-size:14px;font-weight:700;color:var(--text);margin-top:2px}
+.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
+.pill-red{background:#2a0508;color:#ef4444}
+.pill-amber{background:var(--amber-bg);color:var(--amber)}
+.svc-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.svc-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
+</style>
+</head>
+<body>
+<script>
+window.GH_PAGE = { module: 'property', title: 'Property' };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
+<div id="nav-container"></div>
+
+<div id="app" style="padding-bottom:100px">
+  <div class="view-tabs" style="--tab-color:#ef4444">
+    <button class="view-tab active" onclick="switchTab('props',this)">🏠 Properties</button>
+    <button class="view-tab" onclick="switchTab('vehs',this)">🚗 Vehicles</button>
+    <button class="view-tab" onclick="switchTab('maint',this)">🔧 Maintenance</button>
+  </div>
+
+  <div class="view-panel active" id="panel-props">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Properties</span>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openPropDrawer()">+ Add</button>
+    </div>
+    <div style="display:flex;gap:8px;padding:8px 16px 4px">
+      <div class="hsa-card" style="flex:1;text-align:center"><div class="hsa-card-label">Est. Value</div><div id="pTotalVal" class="hsa-card-value" style="color:var(--green)">—</div></div>
+      <div class="hsa-card" style="flex:1;text-align:center"><div class="hsa-card-label">Mortgage</div><div id="pTotalMort" class="hsa-card-value" style="color:var(--red)">—</div></div>
+      <div class="hsa-card" style="flex:1;text-align:center"><div class="hsa-card-label">Equity</div><div id="pEquity" class="hsa-card-value">—</div></div>
+    </div>
+    <div id="propList" style="padding:4px 16px 0"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+  </div>
+
+  <div class="view-panel" id="panel-vehs">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Vehicles</span>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openVehDrawer()">+ Add</button>
+    </div>
+    <div id="vehList" style="padding:4px 16px 0"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+  </div>
+
+  <!-- ══ MAINTENANCE PANEL ══════════════════════════════════ -->
+  <div class="view-panel" id="panel-maint">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Property Maintenance</span>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openMaintDrawer()">+ Add</button>
+    </div>
+    <!-- Property selector -->
+    <div style="padding:8px 16px 0">
+      <select class="form-select" id="maintPropFilter" onchange="loadMaint()" style="font-size:13px">
+        <option value="">All properties</option>
+      </select>
+    </div>
+    <div id="maintList" style="padding:8px 16px 80px">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<button class="fab" id="fabBtn" onclick="onFab()">+</button>
+
+<!-- PROPERTY DRAWER -->
+<div class="drawer-overlay" id="propDrawer" onclick="bgClose('propDrawer')">
+ <div class="drawer" style="max-height:92vh;overflow-y:auto">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="propDrawerTitle">Add Property</div>
+  <div class="form-row">
+    <div class="form-group" style="flex:2"><label class="form-label">Nickname *</label><input class="form-input" id="pNick" placeholder="Main Home, Lake House…"></div>
+    <div class="form-group"><label class="form-label">Type</label>
+      <select class="form-select" id="pType"></select>
+    </div>
+  </div>
+  <div class="form-group"><input class="form-input" id="pStreet" placeholder="Street address"></div>
+  <div class="form-row">
+    <div class="form-group" style="flex:2"><input class="form-input" id="pCity" placeholder="City"></div>
+    <div class="form-group"><input class="form-input" id="pState" placeholder="ST" maxlength="2"></div>
+    <div class="form-group"><input class="form-input" id="pZip" placeholder="ZIP"></div>
+  </div>
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Financials</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" type="date" id="pPurchDate"></div>
+    <div class="form-group"><label class="form-label">Purchase Price</label><input class="form-input" type="number" id="pPurchPrice"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Est. Value Today</label><input class="form-input" type="number" id="pEstVal"></div>
+    <div class="form-group"><label class="form-label">Property Tax/yr</label><input class="form-input" type="number" id="pTax"></div>
+  </div>
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Mortgage</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Balance</label><input class="form-input" type="number" id="pMBal"></div>
+    <div class="form-group"><label class="form-label">Monthly Pmt</label><input class="form-input" type="number" id="pMPmt"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Lender</label><input class="form-input" id="pMLender"></div>
+    <div class="form-group"><label class="form-label">Rate %</label><input class="form-input" type="number" id="pMRate" step="0.001" placeholder="6.750"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Payoff Date</label><input class="form-input" type="date" id="pMEnd"></div>
+    <div class="form-group"><label class="form-label">HOA/mo</label><input class="form-input" type="number" id="pHoa"></div>
+  </div>
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Insurance</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Company</label><input class="form-input" id="pInsComp"></div>
+    <div class="form-group"><label class="form-label">Policy #</label><input class="form-input" id="pInsPol"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Annual Premium</label><input class="form-input" type="number" id="pInsAmt"></div>
+  <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="pNotes" style="min-height:60px"></textarea></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+        <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="propTagsWrap" onclick="document.getElementById('propTagInput').focus()">
+        <input id="propTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+<button class="btn btn-primary" id="pSave" style="flex:1" onclick="saveProp()">Save</button>
+    <button class="btn btn-ghost" id="pDelBtn" style="color:var(--red);display:none" onclick="delProp()">Delete</button>
+  </div>
+ </div>
+</div>
+
+<!-- VEHICLE DRAWER -->
+<div class="drawer-overlay" id="vehDrawer" onclick="bgClose('vehDrawer')">
+ <div class="drawer" style="max-height:92vh;overflow-y:auto">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="vehDrawerTitle">Add Vehicle</div>
+  <div class="form-group"><label class="form-label">Nickname *</label><input class="form-input" id="vNick" placeholder="Daily Driver, Wife's Car…"></div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Year</label><input class="form-input" type="number" id="vYear" placeholder="2022"></div>
+    <div class="form-group"><label class="form-label">Make</label><input class="form-input" id="vMake" placeholder="Toyota"></div>
+    <div class="form-group" style="flex:2"><label class="form-label">Model</label><input class="form-input" id="vModel" placeholder="Camry"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Trim</label><input class="form-input" id="vTrim"></div>
+    <div class="form-group"><label class="form-label">Color</label><input class="form-input" id="vColor"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group" style="flex:2"><label class="form-label">VIN</label><input class="form-input" id="vVin"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">License Plate</label><input class="form-input" id="vPlate"></div>
+    <div class="form-group"><label class="form-label">State</label><input class="form-input" id="vState" maxlength="2"></div>
+  </div>
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Financials</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Purchase Price</label><input class="form-input" type="number" id="vPurchPrice"></div>
+    <div class="form-group"><label class="form-label">Est. Value</label><input class="form-input" type="number" id="vEstVal"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Loan Balance</label><input class="form-input" type="number" id="vLoanBal"></div>
+    <div class="form-group"><label class="form-label">Monthly Pmt</label><input class="form-input" type="number" id="vLoanPmt"></div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Lender</label><input class="form-input" id="vLender"></div>
+    <div class="form-group"><label class="form-label">Rate %</label><input class="form-input" type="number" id="vRate" step="0.001"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Odometer</label><input class="form-input" type="number" id="vOdo"></div>
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Key Dates</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Registration Expires</label><input class="form-input" type="date" id="vRegExp"></div>
+    <div class="form-group"><label class="form-label">Inspection Expires</label><input class="form-input" type="date" id="vInspExp"></div>
+  </div>
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Insurance</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Company</label><input class="form-input" id="vInsComp"></div>
+    <div class="form-group"><label class="form-label">Policy #</label><input class="form-input" id="vInsPol"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Annual Premium</label><input class="form-input" type="number" id="vInsAmt"></div>
+  <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="vNotes" style="min-height:60px"></textarea></div>
+  <div style="display:flex;gap:8px;margin-top:8px">
+        <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="vehTagsWrap" onclick="document.getElementById('vehTagInput').focus()">
+        <input id="vehTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+<button class="btn btn-primary" id="vSave" style="flex:1" onclick="saveVeh()">Save</button>
+    <button class="btn btn-ghost" id="vDelBtn" style="color:var(--red);display:none" onclick="delVeh()">Delete</button>
+  </div>
+ </div>
+</div>
+
+<!-- SERVICE DRAWER -->
+<div class="drawer-overlay" id="svcDrawer" onclick="bgClose('svcDrawer')">
+ <div class="drawer" style="max-height:92vh;overflow-y:auto">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="svcDrawerTitle">Service Log</div>
+  <div id="svcLogList" style="margin-bottom:16px"></div>
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:0 0 8px">Add Record</div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="sDate"></div>
+    <div class="form-group" style="flex:2"><label class="form-label">Service Type *</label>
+      <input class="form-input" id="sType" list="sTypes" placeholder="Oil Change…">
+      <datalist id="sTypes"><option>Oil Change</option><option>Tire Rotation</option><option>New Tires</option><option>Brakes</option><option>Battery</option><option>State Inspection</option><option>Registration Renewal</option><option>Air Filter</option><option>Transmission Service</option><option>Detail</option></datalist>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Mileage</label><input class="form-input" type="number" id="sMiles"></div>
+    <div class="form-group"><label class="form-label">Cost</label><input class="form-input" type="number" id="sCost" step="0.01"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Shop</label><input class="form-input" id="sShop"></div>
+  <div class="form-row">
+    <div class="form-group"><label class="form-label">Next Due Date</label><input class="form-input" type="date" id="sNextDate"></div>
+    <div class="form-group"><label class="form-label">Next Due Miles</label><input class="form-input" type="number" id="sNextMiles"></div>
+  </div>
+  <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="sNotes" style="min-height:50px"></textarea></div>
+  <button class="btn btn-primary" style="width:100%" onclick="saveSvc()">Add Record</button>
+ </div>
+</div>
+
+<!-- MAINTENANCE DRAWER -->
+<div class="drawer-overlay" id="maintDrawer" onclick="bgClose('maintDrawer')">
+ <div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="maintDrawerTitle">Add Maintenance Record</div>
+  <div class="form-group">
+    <label class="form-label">Property <span class="req">*</span></label>
+    <select class="form-select" id="mProp"></select>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Date <span class="req">*</span></label>
+      <input class="form-input" type="date" id="mDate">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Category <span class="req">*</span></label>
+      <select class="form-select" id="mCat">
+        <option>Roof</option><option>HVAC</option><option>Plumbing</option>
+        <option>Electrical</option><option>Landscaping</option><option>Pest Control</option>
+        <option>Foundation</option><option>Windows/Doors</option><option>Appliances</option>
+        <option>General</option><option>Other</option>
+      </select>
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Description <span class="req">*</span></label>
+    <input class="form-input" id="mDesc" placeholder="What was done?">
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Cost</label>
+      <input class="form-input" type="number" id="mCost" placeholder="0.00" step="0.01">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Vendor</label>
+      <select class="form-select" id="mVendor"></select>
+    </div>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Warranty Expiry</label>
+      <input class="form-input" type="date" id="mWarranty">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Next Due Date</label>
+      <input class="form-input" type="date" id="mNextDue">
+    </div>
+  </div>
+  <div class="form-group">
+    <label class="form-label">Notes</label>
+    <textarea class="form-textarea" id="mNotes" style="min-height:60px"></textarea>
+  </div>
+  <div style="display:flex;gap:8px;margin-top:4px">
+    <button class="btn btn-primary" id="maintSaveBtn" style="flex:1" onclick="saveMaint()">Save</button>
+    <button class="btn btn-ghost" id="maintDeleteBtn" style="color:var(--red);display:none" onclick="deleteMaint()">Delete</button>
+  </div>
+ </div>
+</div>
+
+<script>
+const API = '/api/v1/property';
+const $  = id => document.getElementById(id);
+const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+const fmt$ = n => '$'+(Math.abs(n)||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+const api = (path, opts={}) => {
+  const h = {'Content-Type':'application/json'};
+  if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
+  return fetch(API+path,{headers:h,...opts}).then(r=>r.ok?r.json():r.json().then(e=>{throw e;}));
+};
+function bgClose(id){ if(event.target===$(id)) $(id).classList.remove('open'); }
+
+let tab='props', editProp=null, editVeh=null, svcVehId=null;
+
+function switchTab(t,btn){
+  tab=t;
+  document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.view-panel').forEach(p=>p.classList.toggle('active',p.id==='panel-'+t));
+  if(t==='props') loadProps();
+  else if(t==='vehs') loadVehs();
+  else if(t==='maint') loadMaint();
+}
+function onFab(){
+  if(tab==='props') openPropDrawer();
+  else if(tab==='vehs') openVehDrawer();
+  else openMaintDrawer();
+}
+
+// ── PROPERTIES ──────────────────────────────────────────────
+async function loadProps(){
+  const el=$('propList'); if(!el) return;
+  try{
+    const ps=await api('/properties');
+    const tv=ps.reduce((s,p)=>s+(parseFloat(p.current_est_value)||0),0);
+    const tm=ps.reduce((s,p)=>s+(parseFloat(p.mortgage_balance)||0),0);
+    const eq=tv-tm;
+    $('pTotalVal').textContent=fmt$(tv);
+    $('pTotalMort').textContent=fmt$(tm);
+    $('pEquity').textContent=fmt$(eq);
+    $('pEquity').style.color=eq>=0?'var(--green)':'var(--red)';
+    if(!ps.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px">No properties yet</div>';return;}
+    const ICONS={'Primary Residence':'🏠',Rental:'🏢',Vacation:'🏖️',Land:'🌳',Other:'🏗️'};
+    el.innerHTML=ps.map(p=>{
+      const v=parseFloat(p.current_est_value)||0, m=parseFloat(p.mortgage_balance)||0, eq=v-m;
+      return `<div class="prop-card" onclick="openPropDrawer(${p.id})">
+        <div class="card-header">
+          <div class="card-icon" style="background:rgba(239,68,68,.12)">${ICONS[p.property_type]||'🏠'}</div>
+          <div style="flex:1;min-width:0">
+            <div class="card-title">${esc(p.nickname)}</div>
+            <div class="card-sub">${[p.address_city,p.address_state].filter(Boolean).map(esc).join(', ')||esc(p.property_type)}</div>
+          </div>
+        </div>
+        <div class="stat-row">
+          <div class="stat-cell"><div class="stat-lbl">Value</div><div class="stat-val" style="color:var(--green)">${v?fmt$(v):'—'}</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Mortgage</div><div class="stat-val" style="color:${m?'var(--red)':'var(--text3)'}">${m?fmt$(m):'None'}</div></div>
+          <div class="stat-cell"><div class="stat-lbl">Equity</div><div class="stat-val" style="color:${eq>=0?'var(--green)':'var(--red)'}">${v?fmt$(eq):'—'}</div></div>
+        </div>
+        ${p.mortgage_monthly?`<div style="padding:8px 16px;font-size:12px;color:var(--text3);border-top:1px solid var(--border)">${fmt$(p.mortgage_monthly)}/mo${p.hoa_monthly?' · HOA '+fmt$(p.hoa_monthly)+'/mo':''}</div>`:''}
+      </div>`;
+    }).join('');
+  }catch(e){el.innerHTML = errorState(e.message, '');}
+}
+
+async function openPropDrawer(id){
+  editProp=id||null; let p={};
+  if(id){try{const all=await api('/properties');p=all.find(x=>x.id===id)||{};}catch(e){}}
+  $('propDrawerTitle').textContent=id?'Edit Property':'Add Property';
+  $('pNick').value=p.nickname||''; $('pType').value=p.property_type||'Primary Residence';
+  $('pStreet').value=p.address_street||''; $('pCity').value=p.address_city||'';
+  $('pState').value=p.address_state||''; $('pZip').value=p.address_zip||'';
+  $('pPurchDate').value=p.purchase_date||''; $('pPurchPrice').value=p.purchase_price||'';
+  $('pEstVal').value=p.current_est_value||''; $('pTax').value=p.property_tax_annual||'';
+  $('pMBal').value=p.mortgage_balance||''; $('pMPmt').value=p.mortgage_monthly||'';
+  $('pMLender').value=p.mortgage_lender||'';
+  $('pMRate').value=p.mortgage_rate?(p.mortgage_rate*100).toFixed(3):'';
+  $('pMEnd').value=p.mortgage_end_date||''; $('pHoa').value=p.hoa_monthly||'';
+  $('pInsComp').value=p.insurance_company||''; $('pInsPol').value=p.insurance_policy||'';
+  $('pInsAmt').value=p.insurance_annual||''; $('pNotes').value=p.notes||'';
+  $('pDelBtn').style.display=id?'inline-flex':'none';
+  initPropTags(p?.tags||[]);
+  await loadPropertyDropdowns();
+  $('propDrawer').classList.add('open');
+}
+
+async function saveProp(){
+  const btn=$('pSave');btn.textContent='Saving…';btn.disabled=true;
+  try{
+    const r=parseFloat($('pMRate').value);
+    const payload={
+      nickname:$('pNick').value.trim(),property_type:$('pType').value,
+      address_street:$('pStreet').value||null,address_city:$('pCity').value||null,
+      address_state:$('pState').value||null,address_zip:$('pZip').value||null,
+      purchase_date:$('pPurchDate').value||null,purchase_price:parseFloat($('pPurchPrice').value)||null,
+      current_est_value:parseFloat($('pEstVal').value)||null,property_tax_annual:parseFloat($('pTax').value)||null,
+      mortgage_balance:parseFloat($('pMBal').value)||null,mortgage_monthly:parseFloat($('pMPmt').value)||null,
+      mortgage_lender:$('pMLender').value||null,mortgage_rate:r?r/100:null,
+      mortgage_end_date:$('pMEnd').value||null,hoa_monthly:parseFloat($('pHoa').value)||null,
+      insurance_company:$('pInsComp').value||null,insurance_policy:$('pInsPol').value||null,
+      insurance_annual:parseFloat($('pInsAmt').value)||null,notes:$('pNotes').value||null,
+      tags:propFormTags
+    };
+    if(!payload.nickname){toast('Nickname required','err');return;}
+    const url=editProp?`/properties/${editProp}`:'/properties';
+    await api(url,{method:editProp?'PUT':'POST',body:JSON.stringify(payload)});
+    toast(editProp?'Updated':'Property added');
+    $('propDrawer').classList.remove('open');loadProps();
+  }catch(e){toast(ghErrorMsg(e),'err');}
+  finally{btn.textContent='Save';btn.disabled=false;}
+}
+async function delProp(){
+  if(!await LT.confirm('Remove this property?'))return;
+  await api(`/properties/${editProp}`,{method:'DELETE'});
+  toast('Removed');$('propDrawer').classList.remove('open');loadProps();
+}
+
+// ── VEHICLES ────────────────────────────────────────────────
+async function loadVehs(){
+  const el=$('vehList');if(!el)return;
+  try{
+    const vs=await api('/vehicles');
+    if(!vs.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px">No vehicles yet</div>';return;}
+    const today=new Date().toISOString().slice(0,10);
+    const warn30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+    el.innerHTML=vs.map(v=>{
+      const reg=v.registration_expires, ins=v.inspection_expires;
+      const regPill=reg&&reg<=today?'pill pill-red':reg&&reg<=warn30?'pill pill-amber':'';
+      const insPill=ins&&ins<=today?'pill pill-red':ins&&ins<=warn30?'pill pill-amber':'';
+      return `<div class="veh-card">
+        <div class="card-header" onclick="openVehDrawer(${v.id})">
+          <div class="card-icon" style="background:rgba(99,102,241,.12)">🚗</div>
+          <div style="flex:1;min-width:0">
+            <div class="card-title">${esc(v.nickname)}</div>
+            <div class="card-sub">${[v.year,v.make,v.model].filter(Boolean).map(esc).join(' ')}</div>
+            ${v.odometer?`<div class="card-sub">${v.odometer.toLocaleString()} mi</div>`:''}
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            ${v.current_est_value?`<div style="font-weight:700;color:var(--green);font-size:14px">${fmt$(v.current_est_value)}</div>`:''}
+            ${v.loan_balance?`<div style="font-size:12px;color:var(--red)">${fmt$(v.loan_balance)} owed</div>`:''}
+          </div>
+        </div>
+        ${(regPill||insPill)?`<div style="padding:6px 16px;display:flex;gap:6px;border-top:1px solid var(--border)">
+          ${regPill?`<span class="${regPill}">🏷️ Reg ${reg}</span>`:''}
+          ${insPill?`<span class="${insPill}">🔍 Insp ${ins}</span>`:''}
+        </div>`:''}
+        <div style="padding:8px 16px;border-top:1px solid var(--border)">
+          <button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" onclick="openSvcDrawer(${v.id},'${esc(v.nickname)}')">🔧 Service Log</button>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){el.innerHTML = errorState(e.message, '');}
+}
+
+async function openVehDrawer(id){
+  editVeh=id||null; let v={};
+  if(id){try{const all=await api('/vehicles');v=all.find(x=>x.id===id)||{};}catch(e){}}
+  $('vehDrawerTitle').textContent=id?'Edit Vehicle':'Add Vehicle';
+  $('vNick').value=v.nickname||''; $('vYear').value=v.year||''; $('vMake').value=v.make||'';
+  $('vModel').value=v.model||''; $('vTrim').value=v.trim||''; $('vColor').value=v.color||'';
+  $('vVin').value=v.vin||''; $('vPlate').value=v.license_plate||''; $('vState').value=v.state||'';
+  $('vPurchPrice').value=v.purchase_price||''; $('vEstVal').value=v.current_est_value||'';
+  $('vLoanBal').value=v.loan_balance||''; $('vLoanPmt').value=v.loan_monthly||'';
+  $('vLender').value=v.loan_lender||'';
+  $('vRate').value=v.loan_rate?(v.loan_rate*100).toFixed(3):'';
+  $('vOdo').value=v.odometer||'';
+  $('vRegExp').value=v.registration_expires||''; $('vInspExp').value=v.inspection_expires||'';
+  $('vInsComp').value=v.insurance_company||''; $('vInsPol').value=v.insurance_policy||'';
+  $('vInsAmt').value=v.insurance_annual||''; $('vNotes').value=v.notes||'';
+  $('vDelBtn').style.display=id?'inline-flex':'none';
+  initVehTags(v?.tags||[]);
+  $('vehDrawer').classList.add('open');
+}
+
+async function saveVeh(){
+  const btn=$('vSave');btn.textContent='Saving…';btn.disabled=true;
+  try{
+    const r=parseFloat($('vRate').value);
+    const payload={
+      nickname:$('vNick').value.trim(),year:parseInt($('vYear').value)||null,
+      make:$('vMake').value||null,model:$('vModel').value||null,
+      trim:$('vTrim').value||null,color:$('vColor').value||null,
+      vin:$('vVin').value||null,license_plate:$('vPlate').value||null,state:$('vState').value||null,
+      purchase_price:parseFloat($('vPurchPrice').value)||null,current_est_value:parseFloat($('vEstVal').value)||null,
+      loan_balance:parseFloat($('vLoanBal').value)||null,loan_monthly:parseFloat($('vLoanPmt').value)||null,
+      loan_lender:$('vLender').value||null,loan_rate:r?r/100:null,
+      odometer:parseInt($('vOdo').value)||null,
+      registration_expires:$('vRegExp').value||null,inspection_expires:$('vInspExp').value||null,
+      insurance_company:$('vInsComp').value||null,insurance_policy:$('vInsPol').value||null,
+      insurance_annual:parseFloat($('vInsAmt').value)||null,notes:$('vNotes').value||null,
+      tags:vehFormTags
+    };
+    if(!payload.nickname){toast('Nickname required','err');return;}
+    const url=editVeh?`/vehicles/${editVeh}`:'/vehicles';
+    await api(url,{method:editVeh?'PUT':'POST',body:JSON.stringify(payload)});
+    toast(editVeh?'Updated':'Vehicle added');
+    $('vehDrawer').classList.remove('open');loadVehs();
+  }catch(e){toast(ghErrorMsg(e),'err');}
+  finally{btn.textContent='Save';btn.disabled=false;}
+}
+async function delVeh(){
+  if(!await LT.confirm('Remove this vehicle?'))return;
+  await api(`/vehicles/${editVeh}`,{method:'DELETE'});
+  toast('Removed');$('vehDrawer').classList.remove('open');loadVehs();
+}
+
+// ── SERVICE LOG ──────────────────────────────────────────────
+async function openSvcDrawer(vid,name){
+  svcVehId=vid;
+  $('svcDrawerTitle').textContent=name+' — Service Log';
+  $('sDate').value=new Date().toISOString().slice(0,10);
+  ['sType','sShop','sNotes'].forEach(id=>$(id).value='');
+  ['sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
+  await loadSvcLog();
+  $('svcDrawer').classList.add('open');
+}
+async function loadSvcLog(){
+  const el=$('svcLogList');if(!el)return;
+  try{
+    const rows=await api(`/vehicles/${svcVehId}/service`);
+    if(!rows.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:4px 0 12px">No records yet</div>';return;}
+    el.innerHTML=rows.map(s=>`
+      <div class="svc-row">
+        <div class="svc-dot"></div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(s.service_type)}</div>
+          <div style="font-size:12px;color:var(--text3)">${s.service_date}${s.mileage?' · '+s.mileage.toLocaleString()+' mi':''}${s.cost?' · $'+parseFloat(s.cost).toFixed(2):''}${s.shop?' · '+esc(s.shop):''}</div>
+          ${s.next_due_date?`<div style="font-size:12px;color:var(--accent)">Next: ${s.next_due_date}${s.next_due_miles?' or '+s.next_due_miles.toLocaleString()+' mi':''}</div>`:''}
+        </div>
+        <button onclick="delSvc(${s.id})" style="background:none;border:none;color:var(--text3);font-size:18px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+      </div>`).join('');
+  }catch(e){el.innerHTML = errorState(e.message, '');}
+}
+async function saveSvc(){
+  if(!$('sDate').value||!$('sType').value){toast('Date and type required','err');return;}
+  const payload={
+    service_date:$('sDate').value,service_type:$('sType').value,
+    mileage:parseInt($('sMiles').value)||null,cost:parseFloat($('sCost').value)||null,
+    shop:$('sShop').value||null,notes:$('sNotes').value||null,
+    next_due_date:$('sNextDate').value||null,next_due_miles:parseInt($('sNextMiles').value)||null
+  };
+  await api(`/vehicles/${svcVehId}/service`,{method:'POST',body:JSON.stringify(payload)});
+  toast('Record added');
+  ['sType','sShop','sNotes','sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
+  await loadSvcLog();
+}
+async function delSvc(id){
+  if(!await LT.confirm('Delete this record?'))return;
+  await api(`/vehicles/service/${id}`,{method:'DELETE'});
+  await loadSvcLog();
+}
+
+
+// ── Tags (property) ───────────────────────────────────────────
+let propFormTags = [];
+function renderPropTags() {
+  const wrap=$('propTagsWrap'),input=$('propTagInput'); if(!wrap||!input)return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  propFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{propFormTags=propFormTags.filter(x=>x!==t);renderPropTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addPropTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!propFormTags.includes(t)).forEach(t=>propFormTags.push(t));
+  renderPropTags(); const inp=$('propTagInput'); if(inp)inp.value='';
+}
+function initPropTags(existing){
+  propFormTags=(existing||[]).slice(); renderPropTags();
+  const inp=$('propTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addPropTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&propFormTags.length){propFormTags.pop();renderPropTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addPropTag(inp.value);};
+  GH_TAGS.init({inputId:'propTagInput',wrapId:'propTagsWrap',module:'property',getFormTags:()=>propFormTags,addTag:t=>addPropTag(t),allowCreate:true});
+}
+
+// ── Tags (property) ───────────────────────────────────────────
+let vehFormTags = [];
+function renderVehTags() {
+  const wrap=$('vehTagsWrap'),input=$('vehTagInput'); if(!wrap||!input)return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  vehFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{vehFormTags=vehFormTags.filter(x=>x!==t);renderVehTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addVehTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!vehFormTags.includes(t)).forEach(t=>vehFormTags.push(t));
+  renderVehTags(); const inp=$('vehTagInput'); if(inp)inp.value='';
+}
+function initVehTags(existing){
+  vehFormTags=(existing||[]).slice(); renderVehTags();
+  const inp=$('vehTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addVehTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&vehFormTags.length){vehFormTags.pop();renderVehTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addVehTag(inp.value);};
+  GH_TAGS.init({inputId:'vehTagInput',wrapId:'vehTagsWrap',module:'property',getFormTags:()=>vehFormTags,addTag:t=>addVehTag(t),allowCreate:true});
+}
+
+async function loadPropertyDropdowns(currentPType, currentMCat) {
+  await GH_SELECT.init('pType', 'property_type',                  currentPType ||'Primary Residence', { allowAdd: true });
+  await GH_SELECT.init('mCat',  'property_maintenance_category',  currentMCat  ||'Roof',               { allowAdd: true });
+}
+document.addEventListener('DOMContentLoaded',()=>{ loadProps(); });
+
+// ── MAINTENANCE ───────────────────────────────────────────────
+let _editMaintId = null;
+let _allProps = [];
+
+async function loadMaint(){
+  const el = $('maintList'); if(!el) return;
+  // Populate property selector
+  if(!_allProps.length){
+    try{ _allProps = await api('/properties'); } catch(e){ _allProps=[]; }
+  }
+  const sel = $('maintPropFilter');
+  if(sel && _allProps.length){
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">All properties</option>' +
+      _allProps.map(p=>`<option value="${p.id}">${esc(p.nickname||p.property_type)}</option>`).join('');
+    if(cur) sel.value = cur;
+  }
+
+  const propId = sel?.value || '';
+  el.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  try{
+    // Fetch maintenance for selected property or all
+    let records = [];
+    if(propId){
+      records = await api(`/properties/${propId}/maintenance`);
+    } else {
+      // Fetch for all props
+      const all = await Promise.all((_allProps||[]).map(p=>
+        api(`/properties/${p.id}/maintenance`).then(r=>r.map(x=>({...x,_propName:p.nickname||p.property_type}))).catch(()=>[])
+      ));
+      records = all.flat().sort((a,b)=>b.maint_date.localeCompare(a.maint_date));
+    }
+
+    if(!records.length){
+      el.innerHTML=emptyState(...GH_EMPTY.maintenance);
+      return;
+    }
+
+    const catColor = {Roof:'#5c72fa',HVAC:'#f59e0b',Plumbing:'#06b6d4',Electrical:'#f97316',
+      Landscaping:'#22c55e','Pest Control':'#8b5cf6',Foundation:'#ef4444',General:'#64748b',Other:'#94a3b8'};
+
+    el.innerHTML = records.map(r=>{
+      const col = catColor[r.category]||'#94a3b8';
+      const today = new Date().toISOString().slice(0,10);
+      const warrantyOk = r.warranty_expiry && r.warranty_expiry >= today;
+      const nextDue    = r.next_due_date && r.next_due_date <= today;
+      return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px;cursor:pointer;border-left:3px solid ${col}"
+              onclick="openMaintDrawer(${r.id})">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+              <span style="font-weight:600;font-size:13px">${esc(r.description)}</span>
+              ${nextDue?`<span style="font-size:10px;font-weight:700;background:rgba(245,158,11,.12);color:var(--amber);padding:1px 6px;border-radius:4px">OVERDUE</span>`:''}
+              ${warrantyOk?`<span style="font-size:10px;background:rgba(34,197,94,.1);color:var(--green);padding:1px 6px;border-radius:4px">Warranty</span>`:''}
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
+              <span style="font-weight:600;color:${col}">${esc(r.category)}</span>
+              <span>${r.maint_date}</span>
+              ${r._propName?`<span>📍 ${esc(r._propName)}</span>`:''}
+              ${r.vendor?`<span>🔧 ${esc(r.vendor)}</span>`:''}
+              ${r.next_due_date?`<span>Next: ${r.next_due_date}</span>`:''}
+            </div>
+          </div>
+          ${r.cost?`<div style="font-family:var(--mono);font-weight:700;font-size:13px;color:var(--text);flex-shrink:0">${fmt$(r.cost)}</div>`:''}
+        </div>
+        ${r.notes?`<div style="font-size:12px;color:var(--text2);margin-top:5px;line-height:1.5">${esc(r.notes)}</div>`:''}
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML = errorState(e.message, ''); }
+}
+
+function openMaintDrawer(id){
+  _editMaintId = id||null;
+  $('maintDrawerTitle').textContent = id?'Edit Maintenance':'Add Maintenance Record';
+  $('maintDeleteBtn').style.display = id?'inline-flex':'none';
+
+  // Populate property dropdown
+  const sel=$('mProp');
+  if(_allProps.length){
+    sel.innerHTML=_allProps.map(p=>`<option value="${p.id}">${esc(p.nickname||p.property_type)}</option>`).join('');
+    const filterPropId=$('maintPropFilter')?.value;
+    if(filterPropId) sel.value=filterPropId;
+  }
+
+  if(id){
+    // Find the record — fetch all and locate
+    const propId = $('mProp').value||(_allProps[0]?.id);
+    api(`/properties/${propId}/maintenance`).then(records=>{
+      // Try all props if not found
+      const r=records.find(x=>x.id===id);
+      if(r) populateMaintForm(r);
+      else {
+        // Search across all props
+        Promise.all(_allProps.map(p=>api(`/properties/${p.id}/maintenance`).catch(()=>[]))).then(all=>{
+          const found=all.flat().find(x=>x.id===id);
+          if(found){ $('mProp').value=found.property_id; populateMaintForm(found); }
+        });
+      }
+    }).catch(()=>{});
+  } else {
+    $('mDate').value=new Date().toISOString().slice(0,10);
+    ['mDesc','mCost','mWarranty','mNextDue','mNotes'].forEach(i=>{ if($(i)) $(i).value=''; });
+    $('mCat').value='General';
+    GH_REFS.populateContact('mVendor', null, { type: 'Contractor', placeholder: '— none —' });
+  }
+  $('maintDrawer').classList.add('open');
+}
+
+function populateMaintForm(r){
+  $('mProp').value    = r.property_id;
+  $('mDate').value    = r.maint_date||'';
+  $('mCat').value     = r.category||'General';
+  $('mDesc').value    = r.description||'';
+  $('mCost').value    = r.cost||'';
+  GH_REFS.populateContact('mVendor', r.vendor_contact_id||null, { type: 'Contractor', placeholder: '— none —' });
+  $('mWarranty').value= r.warranty_expiry||'';
+  $('mNextDue').value = r.next_due_date||'';
+  $('mNotes').value   = r.notes||'';
+}
+
+async function saveMaint(){
+  const propId=$('mProp').value;
+  const desc=$('mDesc').value.trim();
+  const date=$('mDate').value;
+  if(!propId||!desc||!date){ toast('Property, date and description required','err'); return; }
+  const btn=$('maintSaveBtn'); btn.textContent='Saving…'; btn.disabled=true;
+  const vendorVal = $('mVendor').value;
+  const body={
+    maint_date:date, category:$('mCat').value, description:desc,
+    cost:parseFloat($('mCost').value)||null,
+    vendor_contact_id: vendorVal ? parseInt(vendorVal) : null,
+    warranty_expiry:$('mWarranty').value||null, next_due_date:$('mNextDue').value||null,
+    notes:$('mNotes').value.trim()||null,
+  };
+  try{
+    if(_editMaintId) await api(`/properties/maintenance/${_editMaintId}`,{method:'PUT',body:JSON.stringify(body)});
+    else             await api(`/properties/${propId}/maintenance`,{method:'POST',body:JSON.stringify(body)});
+    toast(_editMaintId?'Updated':'Record added');
+    $('maintDrawer').classList.remove('open');
+    loadMaint();
+  } catch(e){ toast(e.message||'Save failed','err'); }
+  finally{ btn.textContent='Save'; btn.disabled=false; }
+}
+
+async function deleteMaint(){
+  if(!_editMaintId) return;
+  if(!await LT.confirm('Delete this maintenance record?')) return;
+  await api(`/properties/maintenance/${_editMaintId}`,{method:'DELETE'});
+  toast('Deleted'); $('maintDrawer').classList.remove('open'); loadMaint();
+}
+</script>
+</body>
+</html>

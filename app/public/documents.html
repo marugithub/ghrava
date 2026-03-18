@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Documents — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <script>
+    if (localStorage.getItem('gh_nav_collapsed') === '1') {
+      document.documentElement.classList.add('nav-collapsed-init');
+    }
+  </script>
+  <style>
+    :root { --tab-color: #6366f1; }
+    .doc-card { background:var(--bg2); border-radius:var(--r); margin-bottom:8px; overflow:hidden; cursor:pointer; transition:background .15s; border:1px solid var(--border); }
+    .doc-card:active { background:var(--bg3); }
+    .doc-card-inner { padding:12px 14px; display:flex; align-items:flex-start; gap:10px; }
+    .doc-icon { width:38px; height:38px; border-radius:var(--r); display:flex; align-items:center; justify-content:center; flex-shrink:0; font-size:18px; }
+    .doc-title { font-size:14px; font-weight:700; color:var(--text); line-height:1.3; }
+    .doc-meta { font-size:12px; color:var(--text3); margin-top:3px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .expiry-chip { display:inline-flex; align-items:center; padding:1px 7px; border-radius:99px; font-size:11px; font-weight:600; gap:3px; }
+    .exp-red   { background:rgba(239,68,68,.12); color:var(--red); }
+    .exp-amber { background:var(--amber-bg); color:var(--amber); }
+    .exp-ok    { background:rgba(34,197,94,.1); color:var(--green); }
+    .cat-group-label { font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:12px 16px 6px; display:flex; align-items:center; justify-content:space-between; }
+  </style>
+</head>
+<body class="module-documents">
+<script>window.GH_PAGE = { module: 'documents', title: 'Documents' };</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
+<div id="nav-container"></div>
+
+<div id="app" style="padding-bottom:100px">
+
+  <div style="padding:8px 16px 0">
+    <div class="search-wrap" style="margin-top:0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" id="searchBox" placeholder="Search documents…" oninput="onSearch()" type="search" autocomplete="off">
+    </div>
+  </div>
+
+  <!-- Category tabs — loaded from dropdown_options -->
+  <div class="view-tabs" id="catStrip" style="--tab-color:#6366f1">
+    <button class="view-tab active" data-cat="">All</button>
+  </div>
+
+  <div id="docList" style="padding:0 16px"></div>
+</div>
+
+<button class="fab" onclick="openDocDrawer()">+</button>
+
+<!-- DRAWER -->
+<div class="drawer-overlay" id="docDrawer" onclick="bgClose('docDrawer')">
+  <div class="drawer" style="max-height:92vh;overflow-y:auto">
+    <div class="drawer-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="drawer-title" id="docDrawerTitle" style="margin-bottom:0">Add Document</div>
+      <button onclick="$('docDrawer').classList.remove('open')" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Title <span class="req">*</span></label>
+      <input class="form-input" id="dTitle" placeholder="2024 Tax Return, Home Insurance Policy…">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="dCat"></select>
+      </div>
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Subcategory</label>
+        <select class="form-select" id="dSubcat">
+          <option value="">— none —</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Issuer / Source</label>
+      <input class="form-input" id="dIssuer" placeholder="IRS, State Farm, Employer…">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description / Notes</label>
+      <textarea class="form-textarea" id="dDesc" style="min-height:60px" placeholder="Brief description…"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Issue Date</label>
+        <input class="form-input" type="date" id="dIssueDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Expiry Date</label>
+        <input class="form-input" type="date" id="dExpiry">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Family Member</label>
+      <select class="form-select" id="dMember">
+        <option value="">Whole Family</option>
+      </select>
+    </div>
+
+    <!-- Tags — GH_TAGS pill system, entity_type='document' -->
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="docTagsWrap" onclick="document.getElementById('docTagInput').focus()">
+        <input id="docTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">File Name / Location Note</label>
+      <input class="form-input" id="dFileName" placeholder="tax_2024.pdf, Google Drive/Tax…">
+    </div>
+
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn btn-primary" id="dSave" style="flex:1" onclick="saveDoc()">Save</button>
+      <button class="btn btn-ghost" id="dDelBtn" style="color:var(--red);display:none" onclick="deleteDoc()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/api/v1/documents';
+const $ = id => document.getElementById(id);
+const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+function bgClose(id) { if (event.target === $(id)) $(id).classList.remove('open'); }
+
+let editDocId = null, allDocs = [], filterCat = '', searchQ = '';
+let docFormTags = [];
+
+const CAT_ICONS = { Tax:'📄',Legal:'⚖️',Insurance:'🛡️',Warranty:'🔧',Medical:'🏥',Financial:'💰',Property:'🏠',Vehicle:'🚗',Career:'💼',Other:'📁' };
+const CAT_COLORS = { Tax:'rgba(239,68,68,.12)',Legal:'rgba(99,102,241,.12)',Insurance:'rgba(20,184,166,.12)',Warranty:'rgba(245,158,11,.12)',Medical:'rgba(20,184,166,.12)',Financial:'rgba(34,197,94,.12)',Property:'rgba(59,130,246,.12)',Vehicle:'rgba(99,102,241,.12)',Career:'rgba(249,115,22,.12)',Other:'rgba(148,163,184,.12)' };
+
+// ── Load docs ──────────────────────────────────────────────────
+async function loadDocs() {
+  const el = $('docList'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    const params = new URLSearchParams();
+    if (filterCat) params.set('category', filterCat);
+    if (searchQ)   params.set('q', searchQ);
+    allDocs = await window.api('GET', '/documents/?' + params);
+    renderDocs();
+  } catch(e) { el.innerHTML = errorState(e.message, 'loadDocs()'); }
+}
+
+function renderDocs() {
+  const el = $('docList'); if (!el) return;
+  if (!allDocs.length) { el.innerHTML = emptyState(...GH_EMPTY.documents); return; }
+  const today  = new Date().toISOString().slice(0,10);
+  const warn30 = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
+  const warn90 = new Date(Date.now()+90*864e5).toISOString().slice(0,10);
+  const groups = {};
+  allDocs.forEach(d => { (groups[d.category]=groups[d.category]||[]).push(d); });
+  let html = '';
+  Object.keys(groups).sort().forEach(cat => {
+    const docs = groups[cat];
+    html += `<div class="cat-group-label">${CAT_ICONS[cat]||'📁'} ${esc(cat)} <span>${docs.length}</span></div>`;
+    docs.forEach(d => {
+      const exp = d.expiry_date;
+      let exHtml = '';
+      if (exp) {
+        const cls = exp<today?'exp-red':exp<=warn30?'exp-amber':exp<=warn90?'exp-amber':'exp-ok';
+        const lbl = exp<today?'⚠️ Expired':exp<=warn30?'⏰ Expires '+exp:'📅 '+exp;
+        exHtml = `<span class="expiry-chip ${cls}">${lbl}</span>`;
+      }
+      const tagHtml = (d.tags||[]).length ? d.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return `<span class="tag-chip"${s?` style="${s}"`:''}>${esc(t)}</span>`;}).join('') : '';
+      html += `<div class="doc-card" onclick="openDocDrawer(${d.id})">
+        <div class="doc-card-inner">
+          <div class="doc-icon" style="background:${CAT_COLORS[d.category]||'rgba(148,163,184,.12)'}">${CAT_ICONS[d.category]||'📁'}</div>
+          <div style="flex:1;min-width:0">
+            <div class="doc-title">${esc(d.title)}</div>
+            <div class="doc-meta">${d.subcategory?`<span>${esc(d.subcategory)}</span>`:''} ${d.issuer?`<span style="color:var(--text2)">${esc(d.issuer)}</span>`:''} ${d.family_member?`<span>👤 ${esc(d.family_member)}</span>`:''} ${exHtml}</div>
+            ${d.description?`<div style="font-size:12px;color:var(--text3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.description)}</div>`:''}
+            ${tagHtml?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${tagHtml}</div>`:''}
+            ${d.file_name?`<div style="font-size:11px;color:var(--accent);margin-top:3px;font-family:var(--mono)">📎 ${esc(d.file_name)}</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    });
+  });
+  el.innerHTML = html;
+}
+
+// ── Category strip — dynamic ───────────────────────────────────
+async function loadCatStrip() {
+  const strip = $('catStrip'); if (!strip) return;
+  try {
+    const opts = await window.api('GET', '/settings/dropdowns/document_category');
+    const cats = opts.length ? opts.map(o=>o.value) : ['Tax','Legal','Insurance','Warranty','Medical','Financial','Property','Vehicle','Career','Other'];
+    strip.innerHTML = `<button class="view-tab active" data-cat="">All</button>` +
+      cats.map(c=>`<button class="view-tab" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+  } catch(e) {}
+  strip.querySelectorAll('.view-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      strip.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      filterCat = btn.dataset.cat;
+      loadDocs();
+    });
+  });
+}
+
+// ── Drawer dropdowns — dynamic ─────────────────────────────────
+async function loadDrawerDropdowns() {
+  // GH_SELECT populates from dropdown_options and appends a '＋ Add new…' option
+  await GH_SELECT.init('dCat',    'document_category',    '', { allowAdd: true });
+  await GH_SELECT.init('dSubcat', 'document_subcategory', '', { allowAdd: true, placeholder: '— none —' });
+}
+
+// ── Tags ───────────────────────────────────────────────────────
+function renderDocTags() {
+  const wrap = $('docTagsWrap'), input = $('docTagInput');
+  if (!wrap || !input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  docFormTags.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t) : '';
+    if (cs) chip.style.cssText = cs;
+    chip.innerHTML = `${esc(t)}<span class="tag-chip-remove">&times;</span>`;
+    chip.querySelector('.tag-chip-remove').addEventListener('click', () => { docFormTags=docFormTags.filter(x=>x!==t); renderDocTags(); });
+    wrap.insertBefore(chip, input);
+  });
+}
+function addDocTag(raw) {
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!docFormTags.includes(t)).forEach(t=>docFormTags.push(t));
+  renderDocTags();
+  const inp = $('docTagInput'); if (inp) inp.value = '';
+}
+
+// ── Search ──────────────────────────────────────────────────────
+let searchTimer;
+function onSearch() { searchQ=$('searchBox').value.trim(); clearTimeout(searchTimer); searchTimer=setTimeout(loadDocs,250); }
+
+// ── Drawer ──────────────────────────────────────────────────────
+async function openDocDrawer(id) {
+  editDocId = id||null;
+  const d = id ? (allDocs.find(x=>x.id===id)||{}) : {};
+  $('docDrawerTitle').textContent = id ? 'Edit Document' : 'Add Document';
+  $('dTitle').value     = d.title||'';
+  $('dIssuer').value    = d.issuer||'';
+  $('dDesc').value      = d.description||'';
+  $('dIssueDate').value = d.issue_date||'';
+  $('dExpiry').value    = d.expiry_date||'';
+  $('dFileName').value  = d.file_name||'';
+  $('dDelBtn').style.display = id?'inline-flex':'none';
+
+  await loadDrawerDropdowns();
+  if (d.category) $('dCat').value = d.category;
+  if (d.subcategory) {
+    const sel = $('dSubcat');
+    const exists = Array.from(sel.options).some(o=>o.value===d.subcategory);
+    if (!exists) { const opt=document.createElement('option'); opt.value=opt.textContent=d.subcategory; sel.appendChild(opt); }
+    sel.value = d.subcategory;
+  }
+
+  docFormTags = (d.tags||[]).slice();
+  renderDocTags();
+  await GH_REFS.populateFamily('dMember', d.family_member, { placeholder: 'Whole Family' });
+
+  const inp = $('docTagInput');
+  if (inp) {
+    inp.value = '';
+    inp.onkeydown = e => {
+      if (e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addDocTag(inp.value);}
+      else if(e.key==='Backspace'&&!inp.value&&docFormTags.length){docFormTags.pop();renderDocTags();}
+    };
+    inp.onblur = ()=>{if(inp.value.trim())addDocTag(inp.value);};
+    GH_TAGS.init({inputId:'docTagInput',wrapId:'docTagsWrap',module:'documents',getFormTags:()=>docFormTags,addTag:t=>addDocTag(t),allowCreate:true});
+  }
+
+  $('docDrawer').classList.add('open');
+  setTimeout(()=>$('dTitle').focus(),100);
+}
+
+
+async function saveDoc() {
+  const title=$('dTitle').value.trim();
+  if (!title){toast('Title required','err');return;}
+  const btn=$('dSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    const payload={title,category:$('dCat').value||'Other',subcategory:$('dSubcat').value||null,issuer:$('dIssuer').value||null,description:$('dDesc').value||null,issue_date:$('dIssueDate').value||null,expiry_date:$('dExpiry').value||null,file_name:$('dFileName').value||null,family_member:$('dMember').value||null,tags:docFormTags};
+    if (editDocId) { await window.api('PUT',`/documents/${editDocId}`,payload); toast('Updated'); }
+    else           { await window.api('POST','/documents/',payload); toast('Document saved'); }
+    $('docDrawer').classList.remove('open'); loadDocs();
+  } catch(e){toast(e.message||'Save failed','err');}
+  finally{btn.textContent='Save';btn.disabled=false;}
+}
+
+async function deleteDoc() {
+  if (!await LT.confirm('Remove this document?')) return;
+  try { await window.api('DELETE',`/documents/${editDocId}`); toast('Removed'); $('docDrawer').classList.remove('open'); loadDocs(); }
+  catch(e){toast('Delete failed','err');}
+}
+
+document.addEventListener('DOMContentLoaded', () => { loadCatStrip(); loadDocs(); });
+</script>
+</body>
+</html>

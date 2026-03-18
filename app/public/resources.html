@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f0f4f8">
+<title>Resources — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+:root { --tab-color: #06b6d4; }
+
+/* ── Link type icons & colors ─────────────────────────────── */
+.lt-website { color: #5c72fa; }
+.lt-folder  { color: #f59e0b; }
+.lt-file    { color: #a78bfa; }
+.lt-drive   { color: #22c55e; }
+.lt-network { color: #f97316; }
+.lt-other   { color: #64748b; }
+
+/* ── Filter strip ─────────────────────────────────────────── */
+/* ── Resource card ────────────────────────────────────────── */
+.res-list {
+  padding: 10px 12px 100px;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+@media (min-width: 600px) {
+  .res-list { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 900px) {
+  /* sidebar takes 220px — 2 columns in remaining space */
+  .res-list { grid-template-columns: 1fr 1fr; padding: 10px 16px 60px; gap: 8px; }
+}
+
+.res-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r-lg);
+  padding: 10px 11px 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, transform 0.12s;
+  position: relative;
+  overflow: hidden;
+}
+.res-card:hover { border-color: var(--accent); border-left-color: var(--accent); background: var(--bg3); transform: translateY(-1px); }
+.res-card.is-fav { border-left-color: var(--amber); }
+.res-card.is-fav:hover { border-color: rgba(245,158,11,.4); border-left-color: var(--amber); }
+
+.res-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.res-type-icon {
+  flex-shrink: 0;
+  width: 26px; height: 26px;
+  border-radius: 7px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+}
+.res-type-icon svg { width: 14px; height: 14px; }
+
+.res-meta { flex: 1; min-width: 0; }
+.res-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 2px;
+}
+.res-url {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.res-star {
+  flex-shrink: 0;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text3);
+  cursor: pointer;
+  border-radius: var(--r);
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.res-star:hover { color: var(--amber); }
+.res-star.starred { color: var(--amber); }
+.res-star svg { width: 16px; height: 16px; }
+
+.res-desc {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.4;
+  margin-bottom: 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.res-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: nowrap;
+  overflow: hidden;
+}
+
+.res-cat {
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg4);
+  color: var(--text2);
+  border: 1px solid var(--border2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.res-tag {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(139,92,246,.1);
+  color: #8b5cf6;
+  border: 1px solid rgba(167,139,250,0.2);
+  cursor: pointer;
+  transition: all 0.1s;
+  white-space: nowrap;
+}
+.res-tag:hover { background: rgba(167,139,250,0.2); }
+/* overflow tag count badge */
+.res-tag-more {
+  font-family: var(--mono);
+  font-size: 9px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: var(--bg4);
+  color: var(--text3);
+  border: 1px solid var(--border2);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.res-access {
+  font-size: 10px;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  margin-top: 4px;
+}
+.res-access svg { width: 10px; height: 10px; flex-shrink: 0; }
+
+/* ── Open link button on card ─────────────────────────────── */
+.res-open-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 6px;
+  background: var(--accent-bg);
+  border: 1px solid var(--accent-bd);
+  color: var(--accent);
+  text-decoration: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.res-open-btn:hover { background: rgba(92,114,250,0.25); }
+.res-open-btn svg { width: 11px; height: 11px; }
+
+/* ── Count bar ────────────────────────────────────────────── */
+.count-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 20px 2px;
+}
+.count-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+}
+
+/* ── Import drawer extras ─────────────────────────────────── */
+.import-drop {
+  border: 2px dashed var(--border2);
+  border-radius: var(--r);
+  padding: 28px 16px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-bottom: 14px;
+}
+.import-drop:hover,
+.import-drop.drag-over { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+.import-drop svg { width: 28px; height: 28px; margin: 0 auto 8px; display: block; opacity: 0.5; }
+
+.import-preview {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text2);
+  margin-bottom: 14px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+/* ── Section divider (Favorites / All) ───────────────────── */
+.res-section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text3);
+  padding: 6px 4px 4px;
+}
+
+/* ── Tags input ───────────────────────────────────────────── */
+.tags-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 6px 10px;
+  min-height: 40px;
+  cursor: text;
+  transition: border-color 0.15s;
+}
+.tags-input-wrap:focus-within { border-color: var(--accent); }
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(139,92,246,.1);
+  color: #8b5cf6;
+  border: 1px solid rgba(167,139,250,0.25);
+  font-size: 12px;
+  font-family: var(--mono);
+}
+.tag-chip-remove {
+  cursor: pointer;
+  opacity: 0.6;
+  line-height: 1;
+  font-size: 14px;
+}
+.tag-chip-remove:hover { opacity: 1; }
+
+.tags-text-input {
+  flex: 1;
+  min-width: 80px;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+  padding: 2px 0;
+}
+.tags-text-input::placeholder { color: var(--text3); }
+
+/* ── Header controls row ─────────────────────────────────── */
+.header-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+  align-items: center;
+}
+.header-controls /* ── Shared header controls (from daily-log pattern) ─────── */
+.entry-count-badge {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  padding: 2px 10px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  width: 38px; height: 38px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text3);
+  transition: all 0.15s;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.icon-btn:hover { border-color: var(--border2); color: var(--text); }
+.icon-btn.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+.icon-btn svg { width: 16px; height: 16px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header: search + tag dropdown -->
+  <div style="padding:8px 16px 0;display:flex;gap:8px;align-items:center">
+    <div class="search-wrap" style="margin-top:0;flex:1">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" id="searchInput" type="search" placeholder="Search name, description…" autocomplete="off">
+    </div>
+    <select id="tagSelect" class="form-select" style="flex:0 0 auto;max-width:130px;font-size:12px;padding:6px 28px 6px 10px" onchange="onTagSelect(this.value)">
+      <option value=""> # All Tags</option>
+    </select>
+  </div>
+
+  <!-- Category tab bar — categories only, no tags here -->
+  <div class="view-tabs" id="catStrip" style="--tab-color:#06b6d4">
+    <button class="view-tab active" data-cat="">All</button>
+  </div>
+
+    <!-- Resource list -->
+  <div id="resList" class="res-list">
+    <div class="spinner"><div class="spin"></div>Loading…</div>
+  </div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" title="Add resource">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- ── Add / Edit Drawer ──────────────────────────────────── -->
+<div class="drawer-overlay" id="formDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="formTitle">Add Resource</div>
+
+    <div class="form-group">
+      <label class="form-label">Name <span class="req">*</span></label>
+      <input class="form-input" type="text" id="fName" placeholder="e.g. GitHub, Home NAS, Tax Folder">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">URL / Path</label>
+      <input class="form-input" type="text" id="fUrl"
+        placeholder="https://… or file:/// or \\server\share">
+      <div class="form-hint">Website URL, local folder path, or network share</div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="fLinkType">
+          <option value="website">🌐 Website</option>
+          <option value="folder">📁 Folder</option>
+          <option value="file">📄 File</option>
+          <option value="drive">☁️ Cloud Drive</option>
+          <option value="network">🖧 Network Share</option>
+          <option value="other">📎 Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <input class="form-input" type="text" id="fCategory" placeholder="Finance, Dev, Health…" autocomplete="off" list="catSuggestions">
+        <datalist id="catSuggestions"></datalist>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Description</label>
+      <textarea class="form-textarea" id="fDesc" style="min-height:72px"
+        placeholder="Brief note — what it is, why you use it…"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Access Note</label>
+      <input class="form-input" type="text" id="fAccess"
+        placeholder="e.g. use .edu email, need VPN, login in Bitwarden">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="tagsWrap" onclick="document.getElementById('tagInput').focus()">
+        <input class="tags-text-input" id="tagInput" placeholder="Type tag, press Enter…" autocomplete="off">
+      </div>
+      <div class="form-hint">Press Enter or comma to add a tag</div>
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">⭐ Favorite</span>
+      <label class="toggle">
+        <input type="checkbox" id="fFavorite">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn btn-ghost" id="formCancel">Cancel</button>
+      <button class="btn btn-primary" id="formSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Import CSV Drawer ──────────────────────────────────── -->
+<div class="drawer-overlay" id="importDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Import from CSV</div>
+
+    <p style="font-size:13px;color:var(--text2);margin-bottom:14px;line-height:1.6">
+      Drop a CSV file with columns: <code style="background:var(--bg3);padding:1px 5px;border-radius:4px;font-size:11px">name, url, category, description, access_note, tags</code>.
+      Only <strong>name</strong> is required. Tags column should be comma-separated within quotes.
+    </p>
+
+    <div class="import-drop" id="importDrop" onclick="document.getElementById('csvFile').click()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Click to choose CSV file or drag &amp; drop
+      <input type="file" id="csvFile" accept=".csv" style="display:none">
+    </div>
+
+    <div id="importPreview" style="display:none">
+      <div class="import-preview" id="importPreviewText"></div>
+      <div id="importStatus" style="font-size:13px;color:var(--text2);margin-bottom:14px"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="importCancel">Cancel</button>
+      <button class="btn btn-primary" id="importConfirm" style="display:none">Import</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  window.GH_PAGE = {
+    module: 'resources',
+    title:  'Resources',
+    rightExtra: `
+      <button class="gh-icon-btn" id="favBtn" title="Favorites only">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </button>
+      <button class="gh-icon-btn" id="importBtn" title="Import CSV">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>`,
+  };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script>
+const API = '/api/v1/resources';
+let authToken = LT.authToken;
+let resources = [];
+let allCategories = [];
+let allTags = [];
+let filterCat = '';
+let filterTag = '';
+let filterFav = false;
+let searchQ = '';
+let editingId = null;
+let pendingImport = [];
+let formTags = []; // tags being edited in form
+let searchTimer;
+
+// ── Type config ───────────────────────────────────────────────
+const TYPE_CFG = {
+  website: { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>`, cls: 'lt-website', label: 'Website' },
+  folder:  { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>`, cls: 'lt-folder', label: 'Folder' },
+  file:    { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>`, cls: 'lt-file', label: 'File' },
+  drive:   { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 002 2h16a2 2 0 002-2v-6l-3.45-6.89A2 2 0 0016.76 4H7.24a2 2 0 00-1.79 1.11z"/></svg>`, cls: 'lt-drive', label: 'Cloud Drive' },
+  network: { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2"/><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`, cls: 'lt-network', label: 'Network' },
+  other:   { icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>`, cls: 'lt-other', label: 'Other' },
+};
+function typeCfg(t) { return TYPE_CFG[t] || TYPE_CFG.other; }
+
+// ── Auth wrapper ──────────────────────────────────────────────
+async function apiFetch(method, path, body) {
+  const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` } };
+  if (body !== undefined) opts.body = JSON.stringify(body);
+  const r = await fetch('/api/v1/resources' + path, opts);
+  if (r.status === 401) { if (typeof toast === 'function') toast('Please log in via Settings to make changes', 'err'); throw new Error('Not authenticated'); }
+  if (!r.ok) { const e = await r.json().catch(() => ({ error: 'Error' })); throw new Error(e.error || 'Error'); }
+  return r.json();
+}
+
+// ── Load ──────────────────────────────────────────────────────
+async function load() {
+  const params = new URLSearchParams();
+  if (searchQ) params.set('q', searchQ);
+  if (filterCat) params.set('category', filterCat);
+  if (filterTag) params.set('tag', filterTag);
+  if (filterFav) params.set('favorite', '1');
+  const qs = params.toString();
+
+  try {
+    [resources, allCategories, allTags] = await Promise.all([
+      apiFetch('GET', qs ? `?${qs}` : ''),
+      apiFetch('GET', '/categories'),
+      apiFetch('GET', '/tags'),
+    ]);
+    render();
+    renderCatStrip();
+    renderTagSelect();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// ── Render list ───────────────────────────────────────────────
+function render() {
+  const el = $('resList');
+  const _rc = $('resCount'); if (_rc) _rc.textContent = resources.length;
+
+  if (!resources.length) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">🔗</div>
+      <h3>${searchQ || filterCat || filterTag || filterFav ? 'No matches found' : 'No resources yet'}</h3>
+      <p>${searchQ || filterCat || filterTag || filterFav ? 'Try a different search or filter.' : 'Tap + to add your first resource, or import a CSV.'}</p>
+    </div>`;
+    return;
+  }
+
+  // Split favorites / rest when not filtering by fav
+  const favs = resources.filter(r => r.is_favorite);
+  const rest  = resources.filter(r => !r.is_favorite);
+
+  let html = '';
+  if (favs.length && !filterFav) {
+    html += `<div class="res-section-label">⭐ Favorites</div>`;
+    html += favs.map(resCard).join('');
+    if (rest.length) html += `<div class="res-section-label" style="margin-top:8px">All Resources</div>`;
+  }
+  html += rest.map(resCard).join('');
+  el.innerHTML = html;
+
+  // Wire events
+  el.querySelectorAll('.res-card').forEach(card => {
+    card.addEventListener('click', e => {
+      if (e.target.closest('.res-star') || e.target.closest('.res-open-btn') || e.target.closest('.res-tag')) return;
+      openEdit(+card.dataset.id);
+    });
+  });
+  el.querySelectorAll('.res-star').forEach(btn => {
+    btn.addEventListener('click', e => { e.stopPropagation(); toggleFavorite(+btn.dataset.id); });
+  });
+  el.querySelectorAll('.res-tag[data-tag]').forEach(tag => {
+    tag.addEventListener('click', e => { e.stopPropagation(); setTagFilter(tag.dataset.tag); });
+  });
+}
+
+function resCard(r) {
+  const cfg = typeCfg(r.link_type);
+  const displayUrl = r.url
+    ? r.url.replace(/^https?:\/\//, '').replace(/\/$/, '').substring(0, 60)
+    : '';
+
+  // Max 2 tags shown inline, rest collapsed to "+N"
+  const tags = r.tags || [];
+  const visibleTags = tags.slice(0, 2);
+  const hiddenCount = tags.length - visibleTags.length;
+
+  return `
+  <div class="res-card${r.is_favorite ? ' is-fav' : ''}" data-id="${r.id}">
+    <div class="res-top">
+      <div class="res-type-icon ${cfg.cls}">${cfg.icon}</div>
+      <div class="res-meta">
+        <div class="res-name">${esc(r.name)}</div>
+        ${displayUrl ? `<div class="res-url">${esc(displayUrl)}</div>` : ''}
+      </div>
+      <div class="res-star${r.is_favorite ? ' starred' : ''}" data-id="${r.id}" title="Toggle favorite">
+        <svg viewBox="0 0 24 24" fill="${r.is_favorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+      </div>
+    </div>
+    ${r.description ? `<div class="res-desc">${esc(r.description)}</div>` : ''}
+    <div class="res-footer">
+      ${r.category ? `<span class="res-cat">${esc(r.category)}</span>` : ''}
+      ${visibleTags.map(t => {
+        const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t) : '';
+        return `<span class="res-tag" data-tag="${esc(t)}"${cs ? ` style="${cs}"` : ''}>#${esc(t)}</span>`;
+      }).join('')}
+      ${hiddenCount > 0 ? `<span class="res-tag-more">+${hiddenCount}</span>` : ''}
+      ${r.url ? `<a class="res-open-btn" href="${esc(r.url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Open">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>` : ''}
+    </div>
+    ${r.access_note ? `<div class="res-access"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${esc(r.access_note)}</div>` : ''}
+  </div>`;
+}
+
+// ── Category strip ────────────────────────────────────────────
+function renderCatStrip() {
+  const strip = $('catStrip');
+  // Categories only — no tags in this bar
+  strip.innerHTML = `<button class="view-tab${!filterCat ? ' active' : ''}" data-cat="">All</button>`;
+  allCategories.forEach(c => {
+    const d = document.createElement('button');
+    d.className = `view-tab${filterCat === c.category ? ' active' : ''}`;
+    d.dataset.cat = c.category;
+    d.textContent = c.category;
+    strip.appendChild(d);
+  });
+  strip.querySelectorAll('.view-tab').forEach(p => {
+    p.addEventListener('click', () => {
+      document.querySelectorAll('#catStrip .view-tab').forEach(b => b.classList.remove('active'));
+      p.classList.add('active');
+      filterCat = p.dataset.cat;
+      filterTag = '';
+      // Reset tag dropdown
+      const sel = $('tagSelect');
+      if (sel) sel.value = '';
+      load();
+    });
+  });
+}
+
+// ── Tag select dropdown ──────────────────────────────────────
+function renderTagSelect() {
+  const sel = $('tagSelect');
+  if (!sel) return;
+  sel.innerHTML = '<option value=""> # All Tags</option>' +
+    allTags.map(t => `<option value="${esc(t.tag)}"${filterTag === t.tag ? ' selected' : ''}>#${esc(t.tag)} (${t.count||''})</option>`).join('');
+}
+
+function onTagSelect(tag) {
+  filterTag = tag;
+  filterCat = '';
+  // Reset category bar to All
+  document.querySelectorAll('#catStrip .view-tab').forEach(b => b.classList.remove('active'));
+  const allBtn = document.querySelector('#catStrip .view-tab[data-cat=""]');
+  if (allBtn) allBtn.classList.add('active');
+  load();
+}
+
+function setTagFilter(tag) {
+  filterTag = filterTag === tag ? '' : tag;
+  filterCat = '';
+  load();
+}
+
+// ── Toggle favorite ───────────────────────────────────────────
+async function toggleFavorite(id) {
+  try {
+    await apiFetch('PATCH', `/${id}/favorite`);
+    await load();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// ── Form: tags input ──────────────────────────────────────────
+function renderFormTags() {
+  const wrap = $('tagsWrap');
+  const input = $('tagInput');
+  wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  formTags.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t) : '';
+    if (cs) chip.style.cssText = cs;
+    chip.innerHTML = `${esc(t)}<span class="tag-chip-remove" data-tag="${esc(t)}">&times;</span>`;
+    chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
+      formTags = formTags.filter(x => x !== t);
+      renderFormTags();
+    });
+    wrap.insertBefore(chip, input);
+  });
+}
+
+function addFormTag(raw) {
+  const tags = raw.split(',').map(t => t.trim().toLowerCase()).filter(t => t && !formTags.includes(t));
+  formTags.push(...tags);
+  renderFormTags();
+  $('tagInput').value = '';
+}
+
+$('tagInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    if ($('tagInput').value.trim()) addFormTag($('tagInput').value);
+  } else if (e.key === 'Backspace' && !$('tagInput').value && formTags.length) {
+    formTags.pop();
+    renderFormTags();
+  }
+});
+$('tagInput').addEventListener('blur', () => {
+  if ($('tagInput').value.trim()) addFormTag($('tagInput').value);
+});
+
+// ── Tag suggestions (shared GH_TAGS utility) ──────────────────
+GH_TAGS.init({
+  inputId:     'tagInput',
+  wrapId:      'tagsWrap',
+  module:      'resources',
+  getFormTags: () => formTags,
+  addTag:      (tag) => { addFormTag(tag); },
+  allowCreate: true,
+});
+
+// ── Populate category datalist ────────────────────────────────
+function populateCatSuggestions() {
+  const dl = $('catSuggestions');
+  dl.innerHTML = '';
+  allCategories.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.category;
+    dl.appendChild(o);
+  });
+}
+
+// ── Open add form ─────────────────────────────────────────────
+function openAdd() {
+  editingId = null;
+  formTags = [];
+  $('formTitle').textContent = 'Add Resource';
+  $('fName').value = '';
+  $('fUrl').value = '';
+  $('fLinkType').value = 'website';
+  $('fCategory').value = '';
+  $('fDesc').value = '';
+  $('fAccess').value = '';
+  $('fFavorite').checked = false;
+  renderFormTags();
+  populateCatSuggestions();
+  $('formDrawer').classList.add('open');
+  setTimeout(() => $('fName').focus(), 300);
+}
+
+// ── Open edit form ────────────────────────────────────────────
+function openEdit(id) {
+  const r = resources.find(x => x.id === id);
+  if (!r) return;
+  editingId = id;
+  formTags = [...(r.tags || [])];
+  $('formTitle').textContent = 'Edit Resource';
+  $('fName').value = r.name || '';
+  $('fUrl').value = r.url || '';
+  $('fLinkType').value = r.link_type || 'website';
+  $('fCategory').value = r.category || '';
+  $('fDesc').value = r.description || '';
+  $('fAccess').value = r.access_note || '';
+  $('fFavorite').checked = !!r.is_favorite;
+  renderFormTags();
+  populateCatSuggestions();
+  $('formDrawer').classList.add('open');
+}
+
+// ── Save ──────────────────────────────────────────────────────
+$('formSave').addEventListener('click', async () => {
+  // Flush any pending tag in the input
+  if ($('tagInput').value.trim()) addFormTag($('tagInput').value);
+
+  const name = $('fName').value.trim();
+  if (!name) { toast('Name is required', 'err'); return; }
+
+  const body = {
+    name,
+    url:         $('fUrl').value.trim() || null,
+    link_type:   $('fLinkType').value,
+    category:    $('fCategory').value.trim() || null,
+    description: $('fDesc').value.trim() || null,
+    access_note: $('fAccess').value.trim() || null,
+    is_favorite: $('fFavorite').checked,
+    tags:        formTags,
+  };
+
+  const btn = $('formSave');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    if (editingId) {
+      await apiFetch('PUT', `/${editingId}`, body);
+      toast('Resource updated');
+    } else {
+      await apiFetch('POST', '', body);
+      toast('Resource added');
+    }
+    $('formDrawer').classList.remove('open');
+    await load();
+  } catch (e) { toast(e.message, 'err'); }
+  finally { btn.textContent = 'Save'; btn.disabled = false; }
+});
+
+// Delete button in edit form (only show when editing)
+(function(){ let _d=false; $('formDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('formDrawer')}); $('formDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('formDrawer'))$('formDrawer').classList.remove('open');}); })();
+
+// ── Delete ────────────────────────────────────────────────────
+function deleteResource(id) {
+  const r = resources.find(x => x.id === id);
+  LT.confirm({
+    title: 'Delete resource?',
+    msg: `"${r?.name}" will be removed.`,
+    onConfirm: async () => {
+      try {
+        await apiFetch('DELETE', `/${id}`);
+        $('formDrawer').classList.remove('open');
+        toast('Deleted');
+        await load();
+      } catch (e) { toast(e.message, 'err'); }
+    }
+  });
+}
+
+// Add delete button dynamically when editing
+$('formCancel').addEventListener('click', () => {
+  $('formDrawer').classList.remove('open');
+  // Remove any injected delete button
+  const del = $('formDrawer').querySelector('#formDeleteBtn');
+  if (del) del.remove();
+});
+
+// Inject delete button on edit open
+const origOpenEdit = openEdit;
+window.openEdit = function(id) {
+  origOpenEdit(id);
+  // Remove existing delete btn then re-add
+  const existing = $('formDrawer').querySelector('#formDeleteBtn');
+  if (existing) existing.remove();
+  const btnRow = $('formDrawer').querySelector('.btn-row');
+  const delBtn = document.createElement('button');
+  delBtn.id = 'formDeleteBtn';
+  delBtn.className = 'btn btn-danger';
+  delBtn.textContent = 'Delete';
+  delBtn.addEventListener('click', () => deleteResource(id));
+  btnRow.insertBefore(delBtn, btnRow.firstChild);
+};
+
+// ── Search ────────────────────────────────────────────────────
+// ── Boot: wire up all buttons after DOM (incl. nav.js-injected header) is ready
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const searchEl = $('searchInput');
+  if (searchEl) searchEl.addEventListener('input', () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => { searchQ = $('searchInput').value.trim(); load(); }, 280);
+  });
+
+  // favBtn and importBtn are injected by nav.js into the header
+  const favEl = $('favBtn');
+  if (favEl) favEl.addEventListener('click', () => {
+    filterFav = !filterFav;
+    favEl.classList.toggle('active', filterFav);
+    load();
+  });
+
+  const fabEl = $('fabBtn');
+  if (fabEl) fabEl.addEventListener('click', openAdd);
+
+  const importEl = $('importBtn');
+  if (importEl) importEl.addEventListener('click', () => $('importDrawer').classList.add('open'));
+
+  const cancelEl = $('importCancel');
+  if (cancelEl) cancelEl.addEventListener('click', () => {
+    $('importDrawer').classList.remove('open');
+    resetImport();
+  });
+  onDrawerBg('importDrawer');
+});
+
+function resetImport() {
+  $('csvFile').value = '';
+  pendingImport = [];
+  $('importPreview').style.display = 'none';
+  $('importConfirm').style.display = 'none';
+  $('importPreviewText').textContent = '';
+  $('importStatus').textContent = '';
+}
+
+// Drag & drop on import area
+const drop = $('importDrop');
+drop.addEventListener('dragover', e => { e.preventDefault(); drop.classList.add('drag-over'); });
+drop.addEventListener('dragleave', () => drop.classList.remove('drag-over'));
+drop.addEventListener('drop', e => {
+  e.preventDefault(); drop.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if (f) parseCSV(f);
+});
+$('csvFile').addEventListener('change', e => {
+  if (e.target.files[0]) parseCSV(e.target.files[0]);
+});
+
+function parseCSV(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').map(l => l.trim()).filter(Boolean);
+    if (!lines.length) { toast('Empty file', 'err'); return; }
+
+    // Parse header
+    const header = parseCSVLine(lines[0]).map(h => h.toLowerCase().trim());
+    const nameIdx   = header.findIndex(h => h === 'name' || h === 'resource name');
+    const urlIdx    = header.findIndex(h => h === 'url' || h === 'link' || h === 'access method');
+    const catIdx    = header.findIndex(h => h === 'category');
+    const descIdx   = header.findIndex(h => h === 'description');
+    const accessIdx = header.findIndex(h => h === 'access_note' || h === 'access note');
+    const tagsIdx   = header.findIndex(h => h === 'tags' || h === 'tag');
+
+    if (nameIdx === -1) { toast('CSV must have a "name" column', 'err'); return; }
+
+    pendingImport = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseCSVLine(lines[i]);
+      const name = cols[nameIdx]?.trim();
+      if (!name) continue;
+      pendingImport.push({
+        name,
+        url:         urlIdx >= 0 ? (cols[urlIdx]?.trim() || null) : null,
+        category:    catIdx >= 0 ? (cols[catIdx]?.trim() || null) : null,
+        description: descIdx >= 0 ? (cols[descIdx]?.trim() || null) : null,
+        access_note: accessIdx >= 0 ? (cols[accessIdx]?.trim() || null) : null,
+        link_type:   'website',
+        is_favorite: 0,
+        tags:        tagsIdx >= 0
+          ? (cols[tagsIdx] || '').split(',').map(t => t.trim().toLowerCase()).filter(Boolean)
+          : [],
+      });
+    }
+
+    $('importPreview').style.display = 'block';
+    $('importPreviewText').textContent =
+      pendingImport.slice(0, 5).map(r => `• ${r.name}${r.category ? ` [${r.category}]` : ''}${r.url ? ` — ${r.url}` : ''}`).join('\n')
+      + (pendingImport.length > 5 ? `\n  … and ${pendingImport.length - 5} more` : '');
+    $('importStatus').textContent = `${pendingImport.length} resource${pendingImport.length !== 1 ? 's' : ''} ready to import`;
+    $('importConfirm').style.display = '';
+  };
+  reader.readAsText(file);
+}
+
+function parseCSVLine(line) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuote && line[i+1] === '"') { cur += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (ch === ',' && !inQuote) {
+      result.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+$('importConfirm').addEventListener('click', async () => {
+  if (!pendingImport.length) return;
+  const btn = $('importConfirm');
+  btn.textContent = 'Importing…'; btn.disabled = true;
+  try {
+    const r = await apiFetch('POST', '/import', { rows: pendingImport });
+    toast(`Imported ${r.imported} resource${r.imported !== 1 ? 's' : ''}`);
+    $('importDrawer').classList.remove('open');
+    resetImport();
+    await load();
+  } catch (e) { toast(e.message, 'err'); }
+  finally { btn.textContent = 'Import'; btn.disabled = false; }
+});
+
+// ── Boot ──────────────────────────────────────────────────────
+load();
+</script>
+</body>
+</html>

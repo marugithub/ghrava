@@ -1,0 +1,3106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Finance — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+  <style>
+/* ── HSA summary cards ───────────────────────────────────────── */
+.hsa-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 12px 16px 4px;
+}
+.hsa-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 10px 14px;
+  border-left: 3px solid var(--border2);
+}
+.hsa-card.card-deductible    { border-left-color: var(--amber); }
+.hsa-card.card-contributions { border-left-color: #22c55e; }
+.hsa-card.card-oop           { border-left-color: var(--red); }
+.hsa-card.card-reimbursed    { border-left-color: var(--accent); }
+.hsa-card-label {
+  font-family: var(--mono);
+  font-size: 10px; font-weight: 500;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--text3); margin-bottom: 4px;
+}
+.hsa-card-value {
+  font-family: var(--mono); font-size: 18px; font-weight: 700;
+  color: var(--text); line-height: 1;
+}
+.hsa-card-sub { font-size: 11px; color: var(--text3); margin-top: 3px; }
+.progress-track {
+  height: 5px; background: var(--bg4); border-radius: 3px;
+  overflow: hidden; margin-top: 8px;
+}
+.progress-fill {
+  height: 100%; border-radius: 3px; background: var(--accent);
+  transition: width .4s ease;
+}
+.progress-fill.warn   { background: var(--amber); }
+.progress-fill.danger { background: var(--red); }
+.progress-fill.green  { background: var(--green); }
+
+/* Pool callout */
+.pool-callout {
+  margin: 4px 16px 0;
+  background: rgba(34,197,94,.1); border: 1px solid var(--green-bd);
+  border-radius: var(--r-lg); padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+.pool-callout .pool-label { font-size: 13px; color: var(--text2); font-weight: 600; }
+.pool-callout .pool-amount { font-family: var(--mono); font-size: 26px; font-weight: 700; color: #22c55e; }
+.pool-callout .pool-hint  { font-size: 11px; color: var(--text3); }
+
+/* HSA sub-tabs */
+.hsa-sub-tabs {
+  display: flex; gap: 2px; padding: 2px;
+  background: var(--bg3); border-radius: var(--r);
+  margin: 10px 16px 0;
+}
+.hsa-sub-tab {
+  flex: 1; padding: 6px 4px; border-radius: 5px;
+  font-size: 12px; font-weight: 600; color: var(--text3);
+  cursor: pointer; text-align: center; border: none; background: none;
+  transition: all .15s; -webkit-tap-highlight-color: transparent;
+}
+.hsa-sub-tab.active {
+  background: var(--bg3); color: var(--text); border: 1px solid var(--border2);
+}
+
+/* ── Expense rows ─────────────────────────────────────────────── */
+.expense-row {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 12px 14px;
+  margin-bottom: 6px; display: flex; align-items: flex-start;
+  gap: 12px; cursor: pointer; transition: all .15s; position: relative;
+}
+.expense-row:hover { border-color: var(--border2); background: var(--bg3); }
+.expense-row.reimbursed { opacity: .65; }
+.expense-row.reimbursed::after {
+  content: '✓ REIMB'; position: absolute; top: 8px; right: 10px;
+  font-family: var(--mono); font-size: 9px; font-weight: 600;
+  background: rgba(34,197,94,.1); border: 1px solid var(--green-bd);
+  color: #22c55e; padding: 1px 6px; border-radius: 4px;
+}
+.expense-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 5px; }
+.expense-body { flex: 1; min-width: 0; }
+.expense-title {
+  font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 60px;
+}
+.expense-meta {
+  font-size: 12px; color: var(--text3); display: flex;
+  align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px;
+}
+.expense-amount {
+  font-family: var(--mono); font-size: 15px; font-weight: 700;
+  color: var(--text); flex-shrink: 0; margin-top: 1px;
+}
+
+/* ── Category dot colors ──────────────────────────────────────── */
+.dot-doctor   { background: var(--accent); }
+.dot-hospital { background: var(--red); }
+.dot-pharmacy { background: var(--green); }
+.dot-lab      { background: #8b5cf6; }
+.dot-dental   { background: var(--amber); }
+.dot-vision   { background: #06b6d4; }
+.dot-other    { background: var(--text3); }
+.dot-otc      { background: #f97316; }
+
+/* ── Filter strip ─────────────────────────────────────────────── */
+.filter-strip {
+  display: flex; gap: 8px; padding: 10px 16px 0;
+  overflow-x: auto; scrollbar-width: none;
+}
+.filter-strip::-webkit-scrollbar { display: none; }
+.filter-chip {
+  flex-shrink: 0; padding: 5px 12px; border-radius: 20px;
+  font-size: 12px; font-weight: 600; background: var(--bg3);
+  border: 1px solid var(--border); color: var(--text3); cursor: pointer;
+  transition: all .15s; -webkit-tap-highlight-color: transparent; white-space: nowrap;
+}
+.filter-chip.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+
+/* ── Year selector ─────────────────────────────────────────────── */
+.year-pill {
+  display: flex; align-items: center; gap: 4px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 20px; padding: 4px 12px;
+  font-size: 13px; font-weight: 600; color: var(--text2);
+}
+.year-pill select {
+  background: none; border: none; color: var(--text2);
+  font-size: 13px; font-weight: 600; font-family: var(--mono);
+  cursor: pointer; outline: none; -webkit-appearance: none; padding: 0 2px;
+}
+
+/* ── Reimb list ────────────────────────────────────────────────── */
+.reimb-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 0; border-bottom: 1px solid var(--border);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.reimb-item:last-child { border-bottom: none; }
+.reimb-check {
+  width: 20px; height: 20px; border: 2px solid var(--border2);
+  border-radius: 4px; flex-shrink: 0; display: flex;
+  align-items: center; justify-content: center; transition: all .15s;
+}
+.reimb-check.checked { background: var(--accent); border-color: var(--accent); }
+.reimb-check.checked::after { content: '✓'; color: #fff; font-size: 12px; font-weight: 700; }
+.reimb-label { flex: 1; }
+.reimb-label .r-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.reimb-label .r-sub   { font-size: 11px; color: var(--text3); margin-top: 1px; }
+.reimb-amount { font-family: var(--mono); font-size: 14px; font-weight: 600; color: var(--text2); }
+
+/* HSA list area padding */
+#hsaListArea { padding: 12px 16px 80px; }
+
+/* ── Import panel styles ────────────────────────────── */
+.chip-btn { padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;background:var(--bg3);border:none;color:var(--text3);cursor:pointer;transition:all .15s }
+.chip-btn.active { background:var(--accent);color:#fff }
+.imp-step { margin-bottom:16px }
+.imp-step-label { font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px }
+.imp-dropzone { border:2px dashed var(--border);border-radius:var(--r);padding:32px 16px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg2) }
+.imp-dropzone:hover,.imp-dropzone.drag { border-color:var(--accent);background:rgba(92,114,250,.06) }
+.imp-preview-summary { background:var(--bg2);border-radius:var(--r);padding:10px 14px;font-size:13px }
+.imp-preview-summary b { color:var(--text) }
+.imp-result-box { background:var(--bg2);border-radius:var(--r);padding:20px;text-align:center }
+.imp-result-box .imp-count { font-size:36px;font-weight:700;color:var(--green);font-family:var(--mono) }
+.missing-alert { background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--r);padding:8px 12px;margin-bottom:6px;font-size:13px;display:flex;align-items:center;gap:8px }
+.missing-alert a { color:var(--accent);cursor:pointer;text-decoration:underline;font-size:12px }
+.acct-card { background:var(--bg2);border-radius:var(--r);padding:10px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:opacity .1s }
+.acct-card:active { opacity:.75 }
+.acct-badge { font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;text-transform:uppercase;letter-spacing:.06em }
+.hold-row { display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border);font-size:13px }
+.hold-sym { font-family:var(--mono);font-weight:700;color:var(--text);min-width:64px }
+.hold-name { flex:1;color:var(--text2);font-size:11px;overflow:hidden;text-overflow:ellipsis }
+.hold-val { font-family:var(--mono);font-weight:600;min-width:80px;text-align:right }
+.hold-gl { font-size:11px;min-width:64px;text-align:right;font-family:var(--mono) }
+.hist-row { background:var(--bg2);border-radius:var(--r);padding:9px 12px;margin-bottom:5px;font-size:12px }
+.imp-preview-table { width:100%;border-collapse:collapse;font-size:11px }
+.imp-preview-table th { text-align:left;padding:4px 6px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.06em }
+.imp-preview-table td { padding:4px 6px;border-bottom:1px solid var(--border);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- header injected by nav.js -->
+
+  <!-- ── Top-level Finance tabs ────────────────────────────── -->
+  <div class="view-tabs" style="--tab-color:#22c55e" style="--tab-color:#22c55e" id="finTabs">
+    <button class="view-tab active" onclick="switchFinTab('hsa',this)">HSA</button>
+    <button class="view-tab" onclick="switchFinTab('accounts',this)">Accounts</button>
+    <button class="view-tab" onclick="switchFinTab('transactions',this)">Transactions</button>
+    <button class="view-tab" onclick="switchFinTab('networth',this)">Net Worth</button>
+    <button class="view-tab" onclick="switchFinTab('budgets',this)">Budgets</button>
+    <button class="view-tab" onclick="switchFinTab('giftcards',this)">Gift Cards</button>
+    <button class="view-tab" onclick="switchFinTab('import',this)">Import</button>
+    <button class="view-tab" onclick="switchFinTab('holdings',this)">Holdings</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       HSA TAB — fully live
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel active" id="panel-hsa">
+
+    <!-- Summary cards -->
+    <div class="hsa-grid" id="summaryGrid">
+      <div class="hsa-card"><div class="hsa-card-label">Loading…</div></div>
+      <div class="hsa-card"></div>
+      <div class="hsa-card"></div>
+      <div class="hsa-card"></div>
+    </div>
+
+    <!-- Unreimbursed pool callout -->
+    <div class="pool-callout" id="poolCallout" style="display:none">
+      <div>
+        <div class="pool-label">Unreimbursed Pool — <span id="poolYear"></span></div>
+        <div class="pool-hint">Eligible expenses you can still withdraw tax-free</div>
+      </div>
+      <div>
+        <div class="pool-amount" id="poolAmount">$0</div>
+        <button class="btn btn-ghost" style="padding:4px 12px;font-size:12px;margin-top:6px;width:100%"
+                onclick="openReimburseDrawer()">Reimburse →</button>
+      </div>
+    </div>
+
+    <!-- Multi-year carry-forward pool (hidden when zero) -->
+    <div id="carryPoolWrap" style="display:none;margin:6px 16px 0">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;display:flex;align-items:center;justify-content:space-between">
+        <span>Carry-Forward Pool</span>
+        <span id="carryPoolTotal" style="font-weight:700;color:var(--green);text-transform:none;letter-spacing:0"></span>
+      </div>
+      <div id="carryPoolRows"></div>
+    </div>
+
+    <!-- HSA sub-tabs -->
+    <div class="hsa-sub-tabs" id="hsaSubTabs">
+      <button class="hsa-sub-tab active" onclick="switchHsaView('payments',this)">Expenses</button>
+      <button class="hsa-sub-tab" onclick="switchHsaView('otc',this)">OTC</button>
+      <button class="hsa-sub-tab" onclick="switchHsaView('history',this)">Reimbursed</button>
+      <button class="hsa-sub-tab" onclick="switchHsaView('plan',this)">Plan</button>
+    </div>
+
+    <!-- Filter strip (Expenses only) — loaded dynamically from dropdown_options -->
+    <div class="filter-strip" id="filterStrip">
+      <button class="filter-chip active" onclick="setFilter(this,'')">All</button>
+    </div>
+    <div style="padding:0 16px 4px">
+      <button class="filter-chip" onclick="exportCsv()" style="border-color:var(--border2);color:var(--text2)">↓ CSV</button>
+    </div>
+
+    <!-- List area -->
+    <div id="hsaListArea"></div>
+
+  </div><!-- #panel-hsa -->
+
+  <!-- ══════════════════════════════════════════════════════
+       ACCOUNTS TAB
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-accounts">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Accounts</span>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openAccountDrawer()">+ Add</button>
+    </div>
+
+    <!-- Net Worth summary strip -->
+    <div id="nwStrip" style="display:flex;gap:8px;padding:10px 16px 4px;flex-wrap:wrap">
+      <div class="hsa-card" style="flex:1;min-width:120px">
+        <div class="hsa-card-label">Net Worth</div>
+        <div class="hsa-card-value" id="nwValue">—</div>
+      </div>
+      <div class="hsa-card" style="flex:1;min-width:120px">
+        <div class="hsa-card-label">Assets</div>
+        <div class="hsa-card-value" id="nwAssets" style="color:var(--green)">—</div>
+      </div>
+      <div class="hsa-card" style="flex:1;min-width:120px">
+        <div class="hsa-card-label">Liabilities</div>
+        <div class="hsa-card-value" id="nwLiab" style="color:var(--red)">—</div>
+      </div>
+    </div>
+
+    <div id="accountsList" style="padding:0 16px 80px"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       TRANSACTIONS TAB
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-transactions">
+    <!-- Filters -->
+    <div style="padding:10px 16px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <select class="form-select" id="txAccFilter" style="flex:1;min-width:130px;font-size:13px" onchange="loadTransactions()">
+        <option value="">All accounts</option>
+      </select>
+      <select class="form-select" id="txYearFilter" style="width:90px;font-size:13px" onchange="loadTransactions()">
+      </select>
+      <button class="btn btn-ghost" style="padding:5px 10px;font-size:13px" onclick="openCsvImport()" title="Import CSV">⬆️ CSV</button>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openTxDrawer()">+ Add</button>
+    </div>
+
+    <!-- Summary strip -->
+    <div style="display:flex;gap:8px;padding:8px 16px 4px">
+      <div style="flex:1;background:var(--surface2);border-radius:var(--r);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">Credits</div>
+        <div id="txCredits" style="font-size:15px;font-weight:700;color:var(--green)">—</div>
+      </div>
+      <div style="flex:1;background:var(--surface2);border-radius:var(--r);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">Debits</div>
+        <div id="txDebits" style="font-size:15px;font-weight:700;color:var(--red)">—</div>
+      </div>
+      <div style="flex:1;background:var(--surface2);border-radius:var(--r);padding:8px 10px;text-align:center">
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">Net</div>
+        <div id="txNet" style="font-size:15px;font-weight:700">—</div>
+      </div>
+    </div>
+
+    <div id="txList" style="padding:0 16px 80px"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       BUDGETS TAB (wireframe — build next session)
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-budgets">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:8px">
+        <select id="budgetMonthSel" class="form-select" style="width:auto;padding:4px 8px;font-size:12px" onchange="loadBudgets()"></select>
+        <select id="budgetYearSel" class="form-select" style="width:auto;padding:4px 8px;font-size:12px" onchange="loadBudgets()"></select>
+      </div>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openBudgetDrawer()">+ Budget</button>
+    </div>
+
+    <!-- Summary strip -->
+    <div style="display:flex;gap:8px;padding:8px 16px 4px">
+      <div class="hsa-card" style="flex:1;text-align:center">
+        <div class="hsa-card-label">Budgeted</div>
+        <div id="budTotalLimit" class="hsa-card-value">—</div>
+      </div>
+      <div class="hsa-card" style="flex:1;text-align:center">
+        <div class="hsa-card-label">Spent</div>
+        <div id="budTotalSpent" class="hsa-card-value" style="color:var(--red)">—</div>
+      </div>
+      <div class="hsa-card" style="flex:1;text-align:center">
+        <div class="hsa-card-label">Remaining</div>
+        <div id="budTotalRemaining" class="hsa-card-value">—</div>
+      </div>
+    </div>
+
+    <div id="budgetList" style="padding:4px 16px 0">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+
+    <!-- Unbudgeted spending -->
+    <div id="unbudgetedSection" style="padding:0 16px;display:none">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:12px 0 6px">Unbudgeted Spending</div>
+      <div id="unbudgetedList"></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       NET WORTH TAB
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-networth">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Net Worth</span>
+      <button class="btn btn-ghost" style="padding:5px 14px;font-size:12px" onclick="saveNwSnapshot()">📸 Save Snapshot</button>
+    </div>
+
+    <div style="padding:10px 16px 4px">
+      <div class="hsa-card" style="text-align:center;padding:20px">
+        <div class="hsa-card-label">Current Net Worth</div>
+        <div id="nwBigValue" style="font-size:32px;font-weight:800;letter-spacing:-.02em;margin:6px 0">—</div>
+        <div id="nwBigDate" style="font-size:11px;color:var(--text3)"></div>
+      </div>
+    </div>
+
+    <div style="padding:0 16px 4px;display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div class="hsa-card">
+        <div class="hsa-card-label">Total Assets</div>
+        <div id="nwBigAssets" class="hsa-card-value" style="color:var(--green)">—</div>
+      </div>
+      <div class="hsa-card">
+        <div class="hsa-card-label">Total Liabilities</div>
+        <div id="nwBigLiab" class="hsa-card-value" style="color:var(--red)">—</div>
+      </div>
+    </div>
+
+    <div style="padding:8px 16px 0">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:4px 0 6px">Snapshot History</div>
+      <div id="nwSnapshots" style="padding-bottom:80px">
+        <div class="spinner"><div class="spin"></div>Loading…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       GIFT CARDS TAB
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-giftcards">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Gift Cards</span>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openGcDrawer()">+ Add</button>
+    </div>
+
+    <!-- Expiry alerts -->
+    <div id="gcExpiryAlerts" style="padding:6px 16px 0"></div>
+
+    <!-- Summary -->
+    <div style="padding:8px 16px 4px;display:flex;gap:8px">
+      <div class="hsa-card" style="flex:1;text-align:center">
+        <div class="hsa-card-label">Total Balance</div>
+        <div id="gcTotalBalance" class="hsa-card-value" style="color:var(--green)">—</div>
+      </div>
+      <div class="hsa-card" style="flex:1;text-align:center">
+        <div class="hsa-card-label">Cards</div>
+        <div id="gcCount" class="hsa-card-value">—</div>
+      </div>
+    </div>
+
+    <div id="gcList" style="padding:0 16px 80px"></div>
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════
+       IMPORT PANEL
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-import">
+
+    <!-- Sub-tabs: Import / Accounts / History -->
+    <div style="display:flex;gap:2px;padding:8px 16px 0">
+      <button class="chip-btn active" id="imp-sub-upload"   onclick="impSubTab('upload',this)">Upload Statement</button>
+      <button class="chip-btn"        id="imp-sub-accounts" onclick="impSubTab('accounts',this)">Accounts</button>
+      <button class="chip-btn"        id="imp-sub-history"  onclick="impSubTab('history',this)">History</button>
+    </div>
+
+    <!-- ── Upload Statement ── -->
+    <div id="imp-panel-upload" style="padding:12px 16px 100px">
+
+      <!-- Missing statement alerts -->
+      <div id="impMissingAlerts"></div>
+
+      <!-- Step 1: Pick account -->
+      <div class="imp-step" id="impStep1">
+        <div class="imp-step-label">Step 1 — Select account</div>
+        <select id="impAccountSel" class="form-input" onchange="impAccountChanged()">
+          <option value="">Choose account…</option>
+        </select>
+        <button class="btn" style="margin-top:8px;font-size:12px;padding:5px 12px" onclick="impSubTab('accounts',document.getElementById('imp-sub-accounts'))">
+          + New account
+        </button>
+      </div>
+
+      <!-- Step 2: Upload file -->
+      <div class="imp-step" id="impStep2" style="display:none">
+        <div class="imp-step-label">Step 2 — Upload statement</div>
+        <div id="impDropZone" class="imp-dropzone"
+          onclick="document.getElementById('impFileInput').click()"
+          ondragover="event.preventDefault();this.classList.add('drag')"
+          ondragleave="this.classList.remove('drag')"
+          ondrop="impHandleDrop(event)">
+          <div style="font-size:28px;margin-bottom:6px">📂</div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">Drop file here or tap to browse</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:4px">CSV, Excel (.xlsx), OFX/QFX — any bank format</div>
+        </div>
+        <input type="file" id="impFileInput" accept=".csv,.xlsx,.xls,.ofx,.qfx" style="display:none" onchange="impFileSelected(this.files[0])">
+      </div>
+
+      <!-- Step 3: Preview -->
+      <div class="imp-step" id="impStep3" style="display:none">
+        <div class="imp-step-label">Step 3 — Preview &amp; confirm</div>
+        <div id="impPreviewSummary" class="imp-preview-summary"></div>
+        <div id="impPreviewTable" style="overflow-x:auto;margin-top:8px"></div>
+        <div id="impPreviewPositions" style="margin-top:8px"></div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn" onclick="impReset()">← Back</button>
+          <button class="btn btn-primary" id="impConfirmBtn" onclick="impConfirm()">✓ Import</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Result -->
+      <div class="imp-step" id="impStep4" style="display:none">
+        <div id="impResultBox" class="imp-result-box"></div>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="impReset()">Import another</button>
+      </div>
+
+    </div><!-- imp-panel-upload -->
+
+    <!-- ── Accounts manager ── -->
+    <div id="imp-panel-accounts" style="display:none;padding:8px 16px 100px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Financial Accounts</span>
+        <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openAcctDrawer(null)">+ Add</button>
+      </div>
+      <div id="impAcctList"></div>
+    </div>
+
+    <!-- ── Import history ── -->
+    <div id="imp-panel-history" style="display:none;padding:8px 16px 100px">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Import History</div>
+      <div id="impHistoryList"></div>
+    </div>
+
+  </div><!-- #panel-import -->
+
+  <!-- ══════════════════════════════════════════════════════
+       HOLDINGS PANEL
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-holdings">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Portfolio Holdings</span>
+      <select id="holdingsAcctFilter" class="form-input" style="width:auto;font-size:12px;padding:4px 8px" onchange="loadHoldings()">
+        <option value="">All accounts</option>
+      </select>
+    </div>
+
+    <!-- Summary cards -->
+    <div style="display:flex;gap:8px;padding:8px 16px 4px;overflow-x:auto">
+      <div class="hsa-card" style="min-width:110px;text-align:center">
+        <div class="hsa-card-label">Total Value</div>
+        <div id="holdTotalValue" class="hsa-card-value" style="color:var(--green)">—</div>
+      </div>
+      <div class="hsa-card" style="min-width:110px;text-align:center">
+        <div class="hsa-card-label">Total Cost</div>
+        <div id="holdTotalCost" class="hsa-card-value">—</div>
+      </div>
+      <div class="hsa-card" style="min-width:110px;text-align:center">
+        <div class="hsa-card-label">Gain / Loss</div>
+        <div id="holdGainLoss" class="hsa-card-value">—</div>
+      </div>
+      <div class="hsa-card" style="min-width:110px;text-align:center">
+        <div class="hsa-card-label">Positions</div>
+        <div id="holdCount" class="hsa-card-value">—</div>
+      </div>
+    </div>
+
+    <!-- Account summaries -->
+    <div id="holdAcctSummary" style="padding:0 16px 4px"></div>
+
+    <!-- Holdings table -->
+    <div id="holdingsList" style="padding:0 16px 100px"></div>
+  </div><!-- #panel-holdings -->
+
+
+</div><!-- #app -->
+
+<!-- ── Account Drawer ─────────────────────────────────────── -->
+<div class="drawer-overlay" id="acctDrawer" onclick="onDrawerBg('acctDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="acctDrawerTitle">Add Account</div>
+    <input type="hidden" id="acctId">
+
+    <div class="form-group">
+      <label class="form-label">Nickname <span style="color:var(--red)">*</span></label>
+      <input id="acctNickname" class="form-input" placeholder="e.g. Al Checking, Joint Savings, Costco Visa">
+      <div style="font-size:11px;color:var(--text3);margin-top:3px">This is what shows everywhere — make it friendly</div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Institution <span style="color:var(--red)">*</span></label>
+      <select id="acctInstitution" class="form-input">
+        <option value="">Select…</option>
+        <option>Chase</option><option>Schwab</option><option>Vanguard</option>
+        <option>Bank of America</option><option>Navy Federal</option><option>TSP</option>
+        <option>Discover</option><option>Citi</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Account Type <span style="color:var(--red)">*</span></label>
+        <select id="acctType" class="form-input">
+          <option value="">Select…</option>
+          <option value="checking">Checking</option>
+          <option value="savings">Savings</option>
+          <option value="brokerage">Brokerage</option>
+          <option value="credit_card">Credit Card</option>
+          <option value="tsp">TSP</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Last 4 digits</label>
+        <input id="acctLastFour" class="form-input" placeholder="1234" maxlength="4">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Owner</label>
+        <input id="acctOwner" class="form-input" placeholder="Al, Spouse, Joint…">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Track statements?</label>
+        <select id="acctTrack" class="form-input">
+          <option value="1">Yes — remind me if missing</option>
+          <option value="0">No</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <input id="acctNotes" class="form-input" placeholder="Optional">
+    </div>
+    <div style="display:flex;gap:8px;padding:12px 0 8px">
+      <button class="btn" onclick="closeDrawer('acctDrawer')" style="flex:1">Cancel</button>
+      <button class="btn btn-primary" onclick="saveAcct()" style="flex:2">Save Account</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── FAB ──────────────────────────────────────────────────── -->
+<button class="fab" id="fabBtn" onclick="onFab()" title="Add expense">+</button>
+
+<!-- ════════════════════════════════════════════════════════════
+     DRAWERS
+     ════════════════════════════════════════════════════════════ -->
+
+<!-- Add / Edit Expense Drawer -->
+<div class="drawer-overlay" id="expenseDrawer" onclick="onDrawerBg('expenseDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="expenseDrawerTitle">Add Medical Expense</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date <span class="req">*</span></label>
+        <input class="form-input" type="date" id="fDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Patient</label>
+        <select class="form-select" id="fPatient"><option>Self</option></select>
+      </div>
+    </div>
+
+    <div id="paymentFields">
+      <div class="form-group">
+        <label class="form-label">Provider / Description <span class="req">*</span></label>
+        <input class="form-input" type="text" id="fProvider"
+               placeholder="e.g. Dr. Smith, CVS Pharmacy"
+               list="providerSuggestions" autocomplete="off">
+        <datalist id="providerSuggestions"></datalist>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="fCategory">
+            <option>Doctor</option><option>Hospital</option><option>Pharmacy</option>
+            <option>Lab</option><option>Dental</option><option>Vision</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Payment Type</label>
+          <select class="form-select" id="fPaymentType">
+            <option>Out of Pocket</option><option>Insurance Paid</option><option>HSA Card</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Total Bill ($)</label>
+          <input class="form-input" type="number" step="0.01" min="0" id="fTotalBill"
+                 placeholder="0.00" oninput="calcYouPaid()">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Insurance Paid ($)</label>
+          <input class="form-input" type="number" step="0.01" min="0" id="fInsPaid"
+                 placeholder="0.00" oninput="calcYouPaid()">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">You Paid ($)</label>
+        <input class="form-input" type="number" step="0.01" min="0" id="fYouPaid" placeholder="0.00">
+        <div class="form-hint">Auto-calculated from Total − Insurance. Override if needed.</div>
+      </div>
+    </div>
+
+    <div id="otcFields" style="display:none">
+      <div class="form-group">
+        <label class="form-label">Item Name <span class="req">*</span></label>
+        <input class="form-input" type="text" id="fItemName" placeholder="e.g. Tylenol 500mg 100ct">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="fOtcCategory">
+            <option>OTC Medicine</option><option>Vitamins &amp; Supplements</option>
+            <option>First Aid</option><option>Medical Supplies</option><option>Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Store</label>
+          <input class="form-input" type="text" id="fStore" placeholder="CVS, Walgreens…">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Amount ($)</label>
+          <input class="form-input" type="number" step="0.01" min="0" id="fAmount" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Qty</label>
+          <input class="form-input" type="number" min="1" id="fQty" value="1">
+        </div>
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">HSA Eligible</span>
+      <label class="toggle"><input type="checkbox" id="fEligible" checked><span class="toggle-track"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Receipt Saved</span>
+      <label class="toggle"><input type="checkbox" id="fReceiptSaved"><span class="toggle-track"></span></label>
+    </div>
+    <div class="form-group" id="receiptLocGroup" style="margin-top:10px;display:none">
+      <label class="form-label">Receipt Location</label>
+      <input class="form-input" type="text" id="fReceiptLoc"
+             placeholder="e.g. Google Drive / HSA Receipts / 2026">
+    </div>
+    <div class="form-group" style="margin-top:10px">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="fNotes" rows="2" placeholder="Optional notes…"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeExpenseDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveExpense()">Save</button>
+    </div>
+    <div style="height:4px"></div>
+  </div>
+</div>
+
+<!-- Reimburse Drawer -->
+<div class="drawer-overlay" id="reimburseDrawer" onclick="onDrawerBg('reimburseDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Record Reimbursement</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Reimbursement Date <span class="req">*</span></label>
+        <input class="form-input" type="date" id="rDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Method</label>
+        <select class="form-select" id="rMethod">
+          <option>ACH</option><option>Check</option><option>Debit Card</option><option>Other</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">From Year</label>
+      <select class="form-select" id="rFromYear"></select>
+      <div class="form-hint">Which year's expenses are you reimbursing?</div>
+    </div>
+    <div class="section-label" style="padding:12px 0 8px">Select expenses to reimburse</div>
+    <div id="reimbList" style="margin-bottom:12px">
+      <div class="spinner"><div class="spin"></div> Loading…</div>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border)">
+      <span style="font-size:13px;color:var(--text2);font-weight:600">Selected Total</span>
+      <span style="font-family:var(--mono);font-size:18px;font-weight:700;color:var(--green)" id="rTotal">$0.00</span>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <input class="form-input" type="text" id="rNotes" placeholder="Optional">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeReimburseDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveReimbursement()">Save Reimbursement</button>
+    </div>
+    <div style="height:4px"></div>
+  </div>
+</div>
+
+<!-- Plan Drawer -->
+<div class="drawer-overlay" id="planDrawer" onclick="onDrawerBg('planDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="planDrawerTitle">Plan Info</div>
+    <div class="form-group">
+      <label class="form-label">Plan Year <span class="req">*</span></label>
+      <input class="form-input" type="number" id="pYear" min="2020" max="2040">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Plan Name</label>
+        <input class="form-input" type="text" id="pName" placeholder="e.g. BCBS HDHP Gold">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Insurance Carrier</label>
+        <input class="form-input" type="text" id="pCarrier" placeholder="e.g. BCBS">
+      </div>
+    </div>
+    <div class="section-label" style="padding:12px 0 6px">Deductible</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Individual ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pIndDeduct" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Family ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pFamDeduct" placeholder="0.00">
+      </div>
+    </div>
+    <div class="section-label" style="padding:8px 0 6px">Out-of-Pocket Max</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Individual ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pIndOop" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Family ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pFamOop" placeholder="0.00">
+      </div>
+    </div>
+    <div class="section-label" style="padding:8px 0 6px">HSA Contributions</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Your Contribution ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pSelfContrib" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Employer Contribution ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pEmpContrib" placeholder="0.00">
+      </div>
+    </div>
+    <div class="section-label" style="padding:8px 0 6px">IRS Limits</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Self-Only Limit ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pIrsSelf" placeholder="0.00">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Family Limit ($)</label>
+        <input class="form-input" type="number" step="0.01" id="pIrsFam" placeholder="0.00">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Plan Effective Date</label>
+      <input class="form-input" type="date" id="pEffDate">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="pNotes" rows="2"></textarea>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closePlanDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlan()">Save Plan</button>
+    </div>
+    <div style="height:4px"></div>
+  </div>
+</div>
+
+<!-- ── GH_PAGE ───────────────────────────────────────────────── -->
+<script>
+window.GH_PAGE = {
+  module: 'finance',
+  title:  'Finance',
+  rightExtra: `
+    <div id="yearPillWrap" class="year-pill" style="margin-right:2px">
+      <span>📅</span>
+      <select id="yearSel" onchange="onYearChange()"></select>
+    </div>`,
+};
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script src="/js/lt-shared-data.js"></script>
+<script src="/attachments.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+<script>
+'use strict';
+// ── State ──────────────────────────────────────────────────────
+let hsaYear    = new Date().getFullYear();
+let hsaView    = 'payments';  // payments | otc | history | plan
+let hsaFilter  = '';
+let hsaSummary = {};
+let editingId  = null;
+let editingType = null;  // 'payment' | 'otc' | 'plan'
+let reimbItems = [];
+let selectedReimb = new Set();
+let editingPlanId = null;
+let familyMembers = [];
+let medContacts = [];
+
+// ── Helpers ────────────────────────────────────────────────────
+function fmt$(n) {
+  return '$' + (parseFloat(n)||0).toLocaleString('en-US',
+    { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function catDotClass(cat) {
+  const m = { Doctor:'dot-doctor', Hospital:'dot-hospital', Pharmacy:'dot-pharmacy',
+              Lab:'dot-lab', Dental:'dot-dental', Vision:'dot-vision' };
+  return m[cat] || 'dot-other';
+}
+
+// ── Year selector ──────────────────────────────────────────────
+function initYearSel() {
+  const sel = $('yearSel');
+  if (!sel) return;
+  const now = new Date().getFullYear();
+  for (let y = now + 2; y >= now - 3; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    if (y === hsaYear) o.selected = true;
+    sel.appendChild(o);
+  }
+}
+function onYearChange() {
+  const sel = $('yearSel');
+  if (sel) hsaYear = parseInt(sel.value);
+  loadHsaAll();
+}
+
+// ── Top-level Finance tab switching ───────────────────────────
+function switchFinTab(id, btn) {
+  document.querySelectorAll('#finTabs .view-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#app .view-panel').forEach(p =>
+    p.classList.toggle('active', p.id === 'panel-' + id));
+
+  // Year pill only relevant on HSA tab
+  const pill = $('yearPillWrap');
+  if (pill) pill.style.display = (id === 'hsa') ? 'flex' : 'none';
+
+  // FAB wiring per tab
+  const fab = $('fabBtn');
+  if (id === 'hsa') {
+    fab.style.display = 'flex';
+    updateFabForHsaView(hsaView);
+  } else if (id === 'accounts') {
+    fab.style.display = 'flex'; fab.textContent = '+'; fab.title = 'Add account';
+    loadAccounts(); loadNetWorthCurrent();
+  } else if (id === 'transactions') {
+    fab.style.display = 'flex'; fab.textContent = '+'; fab.title = 'Add transaction';
+    populateTxAccountFilter(); loadTransactions();
+  } else if (id === 'networth') {
+    fab.style.display = 'none';
+    loadNetWorthDetail();
+  } else if (id === 'giftcards') {
+    fab.style.display = 'flex'; fab.textContent = '+'; fab.title = 'Add gift card';
+    loadGiftCards();
+  } else {
+    fab.style.display = 'none';
+  }
+}
+
+// ── HSA sub-tab switching ──────────────────────────────────────
+function switchHsaView(view, btn) {
+  hsaView = view;
+  document.querySelectorAll('#hsaSubTabs .hsa-sub-tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+
+  $('filterStrip').style.display = (view === 'payments') ? 'flex' : 'none';
+  updateFabForHsaView(view);
+  renderHsaView();
+}
+
+function updateFabForHsaView(view) {
+  const fab = $('fabBtn');
+  if (view === 'history') {
+    fab.style.display = 'none';
+  } else {
+    fab.style.display = 'flex';
+    fab.textContent = '+';
+  }
+}
+
+function onFab() {
+  const activePanel = document.querySelector('#app .view-panel.active');
+  const panelId = activePanel ? activePanel.id : 'panel-hsa';
+  if (panelId === 'panel-hsa') {
+    if (hsaView === 'plan') openAddDrawer('plan');
+    else if (hsaView === 'otc') openAddDrawer('otc');
+    else openAddDrawer('payment');
+  } else if (panelId === 'panel-accounts') {
+    openAccountDrawer();
+  } else if (panelId === 'panel-transactions') {
+    openTxDrawer();
+  } else if (panelId === 'panel-giftcards') {
+    openGcDrawer();
+  }
+}
+
+// ── Filter strip ───────────────────────────────────────────────
+function setFilter(btn, val) {
+  hsaFilter = val;
+  document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderPayments();
+}
+
+// ── Load shared data (family + medical contacts) ───────────────
+async function loadSharedData() {
+  familyMembers = await silentGet('/settings/family', []);
+  medContacts   = await silentGet('/settings/contacts?type=Medical', []);
+  // Dynamic HSA category chips from dropdown_options
+  try {
+    const cats = await silentGet('/settings/dropdowns/hsa_category', []);
+    const strip = document.getElementById('filterStrip');
+    if (strip && cats.length) {
+      const existing = strip.querySelector('.filter-chip'); // keep "All"
+      strip.innerHTML = '';
+      strip.appendChild(existing);
+      cats.forEach(cat => {
+        const btn = document.createElement('button');
+        btn.className = 'filter-chip';
+        btn.textContent = cat.label;
+        btn.onclick = () => setFilter(btn, cat.value);
+        strip.appendChild(btn);
+      });
+    }
+  } catch {}
+}
+
+function populateFamilySelect(selectEl, currentVal) {
+  selectEl.innerHTML = '';
+  const members = familyMembers.length ? familyMembers : [{ display_name: 'Self' }];
+  members.forEach(m => {
+    const o = document.createElement('option');
+    o.value = m.display_name; o.textContent = m.display_name;
+    if (m.display_name === (currentVal || 'Self')) o.selected = true;
+    selectEl.appendChild(o);
+  });
+}
+
+function populateProviderDatalist() {
+  const dl = $('providerSuggestions');
+  if (!dl) return;
+  dl.innerHTML = '';
+  medContacts.forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.name;
+    dl.appendChild(o);
+  });
+}
+
+// ── Main HSA load ──────────────────────────────────────────────
+async function loadHsaAll() {
+  await loadHsaSummary();
+  renderHsaView();
+}
+
+async function loadHsaSummary() {
+  try {
+    if (!window.LT?.authToken) {
+      $('summaryGrid').innerHTML = `<div class="hsa-card" style="grid-column:1/-1;text-align:center;padding:20px">
+        <div style="font-size:13px;color:var(--text3);margin-bottom:10px">Please log in to view your HSA data</div>
+        <a href="/settings.html" class="btn btn-primary" style="font-size:13px;padding:7px 16px">Go to Settings →</a>
+      </div>`;
+      return;
+    }
+    hsaSummary = await api('GET', `/hsa/summary?year=${hsaYear}`);
+    renderSummary();
+  } catch (e) {
+    console.error('[HSA summary]', e);
+    const errMsg = e.message === 'Not authenticated'
+      ? 'Session expired. <a href="/settings.html" class="btn btn-primary" style="font-size:12px;padding:4px 12px;margin-left:8px">Log in →</a>'
+      : `Failed to load: ${e.message} <button class="btn" style="font-size:12px;padding:4px 12px;margin-left:8px" onclick="loadHsaAll()">Retry</button>`;
+    const g = $('summaryGrid');
+    if (g) g.innerHTML = `<div class="hsa-card" style="grid-column:1/-1;text-align:center;padding:16px">
+      <div style="font-size:13px;color:var(--red)">${errMsg}</div>
+    </div>`;
+  }
+}
+
+function renderSummary() {
+  const s     = hsaSummary;
+  const plan    = s.plan    || {};
+  const ded     = s.deductible    || {};
+  const oop     = s.oop           || {};
+  const contrib = s.contributions || {};
+  const pool    = s.expenses?.unreimbursed_pool || 0;
+
+  const dedPct   = ded.family   ? Math.min(100, (ded.applied||0)  / ded.family   * 100) : 0;
+  const contPct  = contrib.irs_limit ? Math.min(100, contrib.total / contrib.irs_limit * 100) : 0;
+  const oopFam   = oop.family   || 0;
+  const oopPct   = oopFam ? Math.min(100, (oop.applied||0) / oopFam * 100) : 0;
+
+  $('summaryGrid').innerHTML = `
+    <div class="hsa-card card-deductible">
+      <div class="hsa-card-label">Deductible Used</div>
+      <div class="hsa-card-value">${fmt$(ded.applied)}</div>
+      <div class="hsa-card-sub">Family limit ${fmt$(ded.family||0)}</div>
+      <div class="progress-track"><div class="progress-fill ${dedPct>90?'danger':dedPct>60?'warn':''}" style="width:${dedPct}%"></div></div>
+    </div>
+    <div class="hsa-card card-contributions">
+      <div class="hsa-card-label">HSA Contributions</div>
+      <div class="hsa-card-value">${fmt$(contrib.total)}</div>
+      <div class="hsa-card-sub">IRS limit ${fmt$(contrib.irs_limit)}</div>
+      <div class="progress-track"><div class="progress-fill green" style="width:${contPct}%"></div></div>
+    </div>
+    <div class="hsa-card card-oop">
+      <div class="hsa-card-label">Out-of-Pocket Used</div>
+      <div class="hsa-card-value">${fmt$(oop.applied)}</div>
+      <div class="hsa-card-sub">OOP max ${fmt$(oopFam)}</div>
+      <div class="progress-track"><div class="progress-fill ${oopPct>90?'danger':oopPct>60?'warn':''}" style="width:${oopPct}%"></div></div>
+    </div>
+    <div class="hsa-card card-reimbursed">
+      <div class="hsa-card-label">Total Reimbursed</div>
+      <div class="hsa-card-value">${fmt$(s.total_reimbursed_ytd)}</div>
+      <div class="hsa-card-sub">Eligible spent ${fmt$(s.expenses?.total_eligible||0)}</div>
+    </div>`;
+
+  const poolEl = $('poolCallout');
+  if (pool > 0) {
+    poolEl.style.display = 'flex';
+    $('poolAmount').textContent = fmt$(pool);
+    const poolYearEl = $('poolYear');
+    if (poolYearEl) poolYearEl.textContent = hsaYear;
+  } else {
+    poolEl.style.display = 'none';
+  }
+
+  // Also load multi-year carry-forward pool
+  loadCarryPool();
+}
+
+// ── Multi-year carry-forward pool ──────────────────────────────
+async function loadCarryPool() {
+  try {
+    const data = await api('GET', '/hsa/pool');
+    const wrap = $('carryPoolWrap');
+    const rowsEl = $('carryPoolRows');
+    if (!data.pool?.length || data.total <= 0) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    $('carryPoolTotal').textContent = fmt$(data.total) + ' total';
+    rowsEl.innerHTML = data.pool.map(r => `
+      <div style="display:flex;align-items:center;justify-content:space-between;
+                  background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);
+                  padding:10px 14px;margin-bottom:6px">
+        <div>
+          <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text)">${r.year}</span>
+          <span style="font-size:11px;color:var(--text3);margin-left:8px">unreimbursed</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--green)">${fmt$(r.amount)}</span>
+          <button class="btn btn-ghost" style="padding:3px 10px;font-size:11px"
+                  onclick="openReimburseDrawerYear(${r.year})">Reimburse →</button>
+        </div>
+      </div>`).join('');
+  } catch (e) { console.warn('[carry pool]', e.message); }
+}
+
+async function openReimburseDrawerYear(year) {
+  await openReimburseDrawer();
+  const sel = $('rFromYear');
+  if (sel) { sel.value = year; loadReimbList(); }
+}
+
+function renderHsaView() {
+  if      (hsaView === 'payments') renderPayments();
+  else if (hsaView === 'otc')      renderOtc();
+  else if (hsaView === 'history')  renderHistory();
+  else if (hsaView === 'plan')     renderPlan();
+}
+
+// ── Expense list ───────────────────────────────────────────────
+async function renderPayments() {
+  const area = $('hsaListArea');
+  area.innerHTML = spinner();
+  try {
+    let url = `/hsa/payments?year=${hsaYear}`;
+    if (hsaFilter) url += `&category=${encodeURIComponent(hsaFilter)}`;
+    const rows = await api('GET', url);
+    if (!rows.length) {
+      area.innerHTML = `<div class="empty">
+        <div class="empty-icon">💊</div>
+        <h3>No medical expenses</h3>
+        <p>Tap + to add your first expense for ${hsaYear}.</p></div>`;
+      return;
+    }
+    area.innerHTML = rows.map(r => expenseRowHtml(r, 'payment')).join('');
+  } catch (e) {
+    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${esc(e.message)}</p></div>`;
+  }
+}
+
+// ── OTC list ───────────────────────────────────────────────────
+async function renderOtc() {
+  const area = $('hsaListArea');
+  area.innerHTML = spinner();
+  try {
+    const rows = await api('GET', `/hsa/otc?year=${hsaYear}`);
+    if (!rows.length) {
+      area.innerHTML = `<div class="empty">
+        <div class="empty-icon">🛒</div>
+        <h3>No OTC purchases</h3>
+        <p>Track over-the-counter HSA-eligible purchases.</p></div>`;
+      return;
+    }
+    area.innerHTML = rows.map(r => otcRowHtml(r)).join('');
+  } catch (e) {
+    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${esc(e.message)}</p></div>`;
+  }
+}
+
+// ── Reimbursement history ──────────────────────────────────────
+async function renderHistory() {
+  const area = $('hsaListArea');
+  area.innerHTML = spinner();
+  try {
+    const reimbs = await api('GET', '/hsa/reimbursements');
+    if (!reimbs.length) {
+      area.innerHTML = `<div class="empty">
+        <div class="empty-icon">✅</div>
+        <h3>No reimbursements yet</h3>
+        <p>When you withdraw HSA funds, record them here.</p>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="openReimburseDrawer()">Record Reimbursement</button>
+      </div>`;
+      return;
+    }
+    area.innerHTML = reimbs.map(r => `
+      <div class="expense-row" style="cursor:default">
+        <div class="expense-dot" style="background:var(--green)"></div>
+        <div class="expense-body">
+          <div class="expense-title">Reimbursement — ${esc(r.method||'ACH')}</div>
+          <div class="expense-meta">
+            <span>${formatDate(r.reimbursement_date)}</span>
+            ${r.from_year ? `<span>From ${r.from_year}</span>` : ''}
+            ${r.notes ? `<span>${esc(r.notes)}</span>` : ''}
+          </div>
+        </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div class="expense-amount" style="color:var(--green)">${fmt$(r.total_amount)}</div>
+          <button class="btn btn-ghost" style="padding:3px 10px;font-size:11px"
+                  onclick="deleteReimbursement(${r.id})">Undo</button>
+        </div>
+      </div>`).join('');
+  } catch (e) {
+    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${esc(e.message)}</p></div>`;
+  }
+}
+
+// ── Plan list ──────────────────────────────────────────────────
+async function renderPlan() {
+  const area = $('hsaListArea');
+  area.innerHTML = spinner();
+  try {
+    const plans = await api('GET', '/hsa/plan');
+    if (!plans.length) {
+      area.innerHTML = `<div class="empty">
+        <div class="empty-icon">📋</div>
+        <h3>No plan info</h3>
+        <p>Add your HDHP plan details so HSA calculations work correctly.</p>
+        <button class="btn btn-primary" style="margin-top:12px" onclick="openAddDrawer('plan')">Add Plan Info</button>
+      </div>`;
+      return;
+    }
+    area.innerHTML = plans.map(p => `
+      <div class="expense-row" style="cursor:default">
+        <div class="expense-dot" style="background:var(--accent)"></div>
+        <div class="expense-body">
+          <div class="expense-title">${p.plan_year} — ${esc(p.plan_name||'HDHP Plan')}</div>
+          <div class="expense-meta">
+            <span>${esc(p.insurance_carrier||'—')}</span>
+            <span>Deductible ${fmt$(p.family_deductible||p.individual_deductible||0)}</span>
+            <span>OOP max ${fmt$(p.family_oop_max||p.individual_oop_max||0)}</span>
+          </div>
+          <div class="expense-meta" style="margin-top:4px">
+            <span>HSA ${fmt$((p.hsa_contribution_self||0)+(p.hsa_contribution_employer||0))} / ${fmt$(p.irs_limit_family||p.irs_limit_self_only||0)} IRS limit</span>
+          </div>
+        </div>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px;flex-shrink:0"
+                onclick="editPlan(${p.id})">Edit</button>
+      </div>`).join('');
+  } catch (e) {
+    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${esc(e.message)}</p></div>`;
+  }
+}
+
+// ── Row HTML ───────────────────────────────────────────────────
+function expenseRowHtml(r, type) {
+  const reimb = r.reimbursed ? 'reimbursed' : '';
+  const attIcon = r.receipt_saved ? '📎' : '';
+  return `
+    <div class="expense-row ${reimb}" onclick="editExpense(${r.id},'${type}')">
+      <div class="expense-dot ${catDotClass(r.category)}"></div>
+      <div class="expense-body">
+        <div class="expense-title">${esc(r.provider||'Unknown')}</div>
+        <div class="expense-meta">
+          <span>${formatDate(r.date)}</span>
+          ${r.category ? `<span class="badge badge-grey">${esc(r.category)}</span>` : ''}
+          ${r.patient && r.patient !== 'Self' ? `<span>${esc(r.patient)}</span>` : ''}
+          ${r.hsa_eligible ? '<span class="badge badge-green">HSA✓</span>' : '<span class="badge badge-grey">Not eligible</span>'}
+          ${attIcon}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="expense-amount">${fmt$(r.you_paid)}</div>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;border-radius:4px"
+                  onclick="event.stopPropagation();openReceipt(${r.id},'hsa_payment','${esc(r.provider||'Expense')}')">📎</button>
+          <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;border-radius:4px"
+                  onclick="event.stopPropagation();deleteExpense(${r.id},'${type}')">del</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function otcRowHtml(r) {
+  const reimb = r.reimbursed ? 'reimbursed' : '';
+  return `
+    <div class="expense-row ${reimb}" onclick="editExpense(${r.id},'otc')">
+      <div class="expense-dot dot-otc"></div>
+      <div class="expense-body">
+        <div class="expense-title">${esc(r.item_name)}</div>
+        <div class="expense-meta">
+          <span>${formatDate(r.date)}</span>
+          ${r.otc_category ? `<span class="badge badge-grey">${esc(r.otc_category)}</span>` : ''}
+          ${r.store ? `<span>${esc(r.store)}</span>` : ''}
+          ${r.hsa_eligible ? '<span class="badge badge-green">HSA✓</span>' : ''}
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="expense-amount">${fmt$(r.amount)}</div>
+        <div style="display:flex;gap:4px">
+          <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;border-radius:4px"
+                  onclick="event.stopPropagation();openReceipt(${r.id},'hsa_otc','${esc(r.item_name||'OTC')}')">📎</button>
+          <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;border-radius:4px"
+                  onclick="event.stopPropagation();deleteExpense(${r.id},'otc')">del</button>
+        </div>
+      </div>
+    </div>`;
+}
+
+// ── CSV export ─────────────────────────────────────────────────
+async function exportCsv() {
+  const type = (hsaView === 'otc') ? 'otc' : 'payments';
+  try {
+    // Use raw fetch — CSV endpoint returns text/csv not JSON
+    const r = await fetch(`/api/v1/hsa/${type}/export/csv?year=${hsaYear}`, {
+      headers: { 'Authorization': `Bearer ${LT.authToken}` }
+    });
+    if (!r.ok) { toast('Export failed', 'err'); return; }
+    const blob = await r.blob();
+    const link = document.createElement('a');
+    link.href     = URL.createObjectURL(blob);
+    link.download = `hsa_${type}_${hsaYear}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(link.href);
+    toast(`Exported ${hsaYear} ${type === 'otc' ? 'OTC' : 'expenses'}`);
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+// ── Add / Edit expense drawer ──────────────────────────────────
+function openAddDrawer(type = 'payment') {
+  editingId = null;
+  editingType = type;
+  if (type === 'plan') { openPlanDrawer(); return; }
+
+  $('expenseDrawerTitle').textContent = type === 'otc' ? 'Add OTC Purchase' : 'Add Medical Expense';
+  $('paymentFields').style.display = type === 'otc' ? 'none' : 'block';
+  $('otcFields').style.display     = type === 'otc' ? 'block' : 'none';
+
+  $('fDate').value = new Date().toISOString().slice(0,10);
+  GH_REFS.populateFamily('fPatient', 'Self');
+  populateProviderDatalist();
+
+  if (type === 'payment') {
+    $('fProvider').value = ''; $('fCategory').value = 'Doctor';
+    $('fPaymentType').value = 'Out of Pocket';
+    $('fTotalBill').value = ''; $('fInsPaid').value = ''; $('fYouPaid').value = '';
+  } else {
+    $('fItemName').value = ''; $('fOtcCategory').value = 'OTC Medicine';
+    $('fStore').value = ''; $('fAmount').value = ''; $('fQty').value = 1;
+  }
+  $('fEligible').checked = true;
+  $('fReceiptSaved').checked = false;
+  $('receiptLocGroup').style.display = 'none';
+  $('fReceiptLoc').value = '';
+  $('fNotes').value = '';
+  $('expenseDrawer').classList.add('open');
+}
+
+async function editExpense(id, type) {
+  editingId = id; editingType = type;
+  try {
+    const ep = type === 'otc' ? '/hsa/otc' : '/hsa/payments';
+    const r  = await api('GET', `${ep}/${id}`);
+    if (!r) return;
+
+    $('expenseDrawerTitle').textContent = type === 'otc' ? 'Edit OTC Purchase' : 'Edit Medical Expense';
+    $('paymentFields').style.display = type === 'otc' ? 'none' : 'block';
+    $('otcFields').style.display     = type === 'otc' ? 'block' : 'none';
+    $('fDate').value = r.date || '';
+  GH_REFS.populateFamily('fPatient', r.patient || 'Self');
+    populateProviderDatalist();
+
+    if (type === 'payment') {
+      $('fProvider').value    = r.provider    || '';
+      $('fCategory').value    = r.category    || 'Doctor';
+      $('fPaymentType').value = r.payment_type|| 'Out of Pocket';
+      $('fTotalBill').value   = r.total_bill  || '';
+      $('fInsPaid').value     = r.insurance_paid || '';
+      $('fYouPaid').value     = r.you_paid    || '';
+    } else {
+      $('fItemName').value    = r.item_name   || '';
+      $('fOtcCategory').value = r.otc_category|| 'OTC Medicine';
+      $('fStore').value       = r.store       || '';
+      $('fAmount').value      = r.amount      || '';
+      $('fQty').value         = r.quantity    || 1;
+    }
+    $('fEligible').checked    = !!r.hsa_eligible;
+    $('fReceiptSaved').checked = !!r.receipt_saved;
+    $('receiptLocGroup').style.display = r.receipt_saved ? 'block' : 'none';
+    $('fReceiptLoc').value    = r.receipt_location || '';
+    $('fNotes').value         = r.notes       || '';
+    $('expenseDrawer').classList.add('open');
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+$('fReceiptSaved').addEventListener('change', e => {
+  $('receiptLocGroup').style.display = e.target.checked ? 'block' : 'none';
+});
+
+function calcYouPaid() {
+  const total = parseFloat($('fTotalBill').value)||0;
+  const ins   = parseFloat($('fInsPaid').value)||0;
+  $('fYouPaid').value = Math.max(0, total - ins).toFixed(2);
+}
+
+function closeExpenseDrawer() { $('expenseDrawer').classList.remove('open'); }
+
+async function saveExpense() {
+  const type = editingType;
+  let body;
+  if (type === 'otc') {
+    if (!$('fItemName').value.trim()) { toast('Item name required','err'); return; }
+    body = {
+      date: $('fDate').value,
+      item_name: $('fItemName').value.trim(),
+      otc_category: $('fOtcCategory').value,
+      store: $('fStore').value.trim()||null,
+      amount: parseFloat($('fAmount').value)||0,
+      quantity: parseInt($('fQty').value)||1,
+      hsa_eligible: $('fEligible').checked,
+      receipt_saved: $('fReceiptSaved').checked,
+      receipt_location: $('fReceiptLoc').value.trim()||null,
+      notes: $('fNotes').value.trim()||null,
+      patient: $('fPatient').value,
+    };
+  } else {
+    if (!$('fProvider').value.trim()) { toast('Provider required','err'); return; }
+    body = {
+      date: $('fDate').value,
+      patient: $('fPatient').value,
+      provider: $('fProvider').value.trim(),
+      category: $('fCategory').value,
+      payment_type: $('fPaymentType').value,
+      total_bill: parseFloat($('fTotalBill').value)||0,
+      insurance_paid: parseFloat($('fInsPaid').value)||0,
+      you_paid: parseFloat($('fYouPaid').value)||0,
+      hsa_eligible: $('fEligible').checked,
+      receipt_saved: $('fReceiptSaved').checked,
+      receipt_location: $('fReceiptLoc').value.trim()||null,
+      notes: $('fNotes').value.trim()||null,
+    };
+  }
+  try {
+    const ep = type === 'otc' ? '/hsa/otc' : '/hsa/payments';
+    if (editingId) await api('PUT', `${ep}/${editingId}`, body);
+    else           await api('POST', ep, body);
+    toast(editingId ? 'Updated' : 'Saved');
+    closeExpenseDrawer();
+    loadHsaAll();
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+async function deleteExpense(id, type) {
+  LT.confirm({
+    title: 'Delete expense?',
+    msg: 'This cannot be undone.',
+    confirmLabel: 'Delete',
+    onConfirm: async () => {
+      try {
+        await api('DELETE', `${type === 'otc' ? '/hsa/otc' : '/hsa/payments'}/${id}`);
+        toast('Deleted');
+        loadHsaAll();
+      } catch (e) { toast(e.message, 'err'); }
+    }
+  });
+}
+
+// ── Reimburse drawer ───────────────────────────────────────────
+async function openReimburseDrawer() {
+  selectedReimb.clear();
+  const rFromYear = $('rFromYear');
+  rFromYear.innerHTML = '';
+  const now = new Date().getFullYear();
+  for (let y = now + 2; y >= now - 3; y--) {
+    const o = document.createElement('option');
+    o.value = y; o.textContent = y;
+    if (y === hsaYear) o.selected = true;
+    rFromYear.appendChild(o);
+  }
+  $('rDate').value  = new Date().toISOString().slice(0,10);
+  $('rNotes').value = '';
+  $('rTotal').textContent = '$0.00';
+  $('reimburseDrawer').classList.add('open');
+  await loadReimbList();
+  rFromYear.onchange = loadReimbList;
+}
+
+async function loadReimbList() {
+  const year = $('rFromYear').value;
+  $('reimbList').innerHTML = spinner();
+  try {
+    const data = await api('GET', `/hsa/unreimbursed?year=${year}`);
+    reimbItems = data.combined || [];
+    if (!reimbItems.length) {
+      $('reimbList').innerHTML = '<p style="color:var(--text3);font-size:13px;text-align:center;padding:16px">No unreimbursed eligible expenses for this year.</p>';
+      return;
+    }
+    $('reimbList').innerHTML = reimbItems.map((item, i) => `
+      <div class="reimb-item" onclick="toggleReimbItem(${i})">
+        <div class="reimb-check ${selectedReimb.has(i)?'checked':''}" id="rchk-${i}"></div>
+        <div class="reimb-label">
+          <div class="r-title">${esc(item.label)}</div>
+          <div class="r-sub">${formatDate(item.date)} · ${item.expense_type==='otc'?'OTC':'Medical'}</div>
+        </div>
+        <div class="reimb-amount">${fmt$(item.amount)}</div>
+      </div>`).join('');
+    updateReimbTotal();
+  } catch (e) {
+    $('reimbList').innerHTML = `<p style="color:var(--red)">${esc(e.message)}</p>`;
+  }
+}
+
+function toggleReimbItem(i) {
+  selectedReimb.has(i) ? selectedReimb.delete(i) : selectedReimb.add(i);
+  const chk = $(`rchk-${i}`);
+  if (chk) chk.className = `reimb-check ${selectedReimb.has(i)?'checked':''}`;
+  updateReimbTotal();
+}
+
+function updateReimbTotal() {
+  let total = 0;
+  selectedReimb.forEach(i => { total += reimbItems[i]?.amount || 0; });
+  $('rTotal').textContent = fmt$(total);
+}
+
+function closeReimburseDrawer() { $('reimburseDrawer').classList.remove('open'); }
+
+async function saveReimbursement() {
+  if (!selectedReimb.size) { toast('Select at least one expense','err'); return; }
+  const items = [...selectedReimb].map(i => ({
+    expense_type: reimbItems[i].expense_type,
+    expense_id:   reimbItems[i].id,
+    amount:       reimbItems[i].amount,
+  }));
+  const body = {
+    reimbursement_date: $('rDate').value,
+    total_amount: items.reduce((s,x) => s+x.amount, 0),
+    from_year: parseInt($('rFromYear').value),
+    method: $('rMethod').value,
+    notes: $('rNotes').value.trim()||null,
+    items,
+  };
+  try {
+    await api('POST', '/hsa/reimbursements', body);
+    toast('Reimbursement recorded');
+    closeReimburseDrawer();
+    loadHsaAll();
+  } catch (e) { toast(e.message,'err'); }
+}
+
+async function deleteReimbursement(id) {
+  LT.confirm({
+    title: 'Undo reimbursement?',
+    msg: 'The linked expenses will be marked as unreimbursed again.',
+    confirmLabel: 'Undo',
+    onConfirm: async () => {
+      try {
+        await api('DELETE', `/hsa/reimbursements/${id}`);
+        toast('Reimbursement reversed');
+        loadHsaAll();
+      } catch (e) { toast(e.message,'err'); }
+    }
+  });
+}
+
+// ── Plan drawer ────────────────────────────────────────────────
+function openPlanDrawer(plan) {
+  editingPlanId = plan?.id || null;
+  $('planDrawerTitle').textContent = editingPlanId ? 'Edit Plan Info' : 'Add Plan Info';
+  $('pYear').value        = plan?.plan_year          || hsaYear;
+  $('pName').value        = plan?.plan_name          || '';
+  $('pCarrier').value     = plan?.insurance_carrier  || '';
+  $('pIndDeduct').value   = plan?.individual_deductible || '';
+  $('pFamDeduct').value   = plan?.family_deductible  || '';
+  $('pIndOop').value      = plan?.individual_oop_max || '';
+  $('pFamOop').value      = plan?.family_oop_max     || '';
+  $('pSelfContrib').value = plan?.hsa_contribution_self || '';
+  $('pEmpContrib').value  = plan?.hsa_contribution_employer || '';
+  $('pIrsSelf').value     = plan?.irs_limit_self_only|| '';
+  $('pIrsFam').value      = plan?.irs_limit_family   || '';
+  $('pEffDate').value     = plan?.plan_effective_date|| '';
+  $('pNotes').value       = plan?.notes              || '';
+  $('planDrawer').classList.add('open');
+}
+
+async function editPlan(id) {
+  try {
+    const plans = await api('GET', '/hsa/plan');
+    const p = plans.find(x => x.id === id);
+    if (p) openPlanDrawer(p);
+  } catch (e) { toast(e.message,'err'); }
+}
+
+function closePlanDrawer() { $('planDrawer').classList.remove('open'); }
+
+async function savePlan() {
+  const body = {
+    plan_year:                  parseInt($('pYear').value),
+    plan_name:                  $('pName').value.trim()||null,
+    insurance_carrier:          $('pCarrier').value.trim()||null,
+    individual_deductible:      parseFloat($('pIndDeduct').value)||0,
+    family_deductible:          parseFloat($('pFamDeduct').value)||0,
+    individual_oop_max:         parseFloat($('pIndOop').value)||0,
+    family_oop_max:             parseFloat($('pFamOop').value)||0,
+    hsa_contribution_self:      parseFloat($('pSelfContrib').value)||0,
+    hsa_contribution_employer:  parseFloat($('pEmpContrib').value)||0,
+    irs_limit_self_only:        parseFloat($('pIrsSelf').value)||0,
+    irs_limit_family:           parseFloat($('pIrsFam').value)||0,
+    plan_effective_date:        $('pEffDate').value||null,
+    notes:                      $('pNotes').value.trim()||null,
+  };
+  if (!body.plan_year) { toast('Plan year required','err'); return; }
+  try {
+    if (editingPlanId) await api('PUT', `/hsa/plan/${editingPlanId}`, body);
+    else               await api('POST', '/hsa/plan', body);
+    toast(editingPlanId ? 'Plan updated' : 'Plan saved');
+    closePlanDrawer();
+    loadHsaAll();
+  } catch (e) { toast(e.message,'err'); }
+}
+
+// ── Receipt attachments ────────────────────────────────────────
+function openReceipt(id, entityType, title) {
+  if (typeof AttachmentManager === 'undefined') {
+    toast('Attachment system not loaded', 'err'); return;
+  }
+  // entityType: 'hsa_payment' or 'hsa_otc'
+  // After uploading a receipt, also toggle receipt_saved in the record via the edit drawer
+  AttachmentManager.open(entityType, id, title);
+}
+
+// ── Boot ───────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (typeof AttachmentManager !== 'undefined') AttachmentManager.injectStyles();
+  initYearSel();
+  loadSharedData().then(() => loadHsaAll());
+});
+
+// ════════════════════════════════════════════════════════════
+// ACCOUNTS
+// ════════════════════════════════════════════════════════════
+const ACCT_TYPES = ['Checking','Savings','Credit','Investment','Cash','HSA','Other'];
+let editingAccountId = null;
+
+async function loadAccounts() {
+  const el = $('accountsList'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    const [accounts, nw] = await Promise.all([
+      api('/finance/accounts'), api('/finance/net-worth/current')
+    ]);
+    renderNetWorthStrip(nw);
+    if (!accounts.length) { el.innerHTML = emptyState(...GH_EMPTY.accounts); return; }
+    const grouped = {};
+    accounts.forEach(a => { (grouped[a.type] = grouped[a.type]||[]).push(a); });
+    el.innerHTML = Object.entries(grouped).map(([type, accts]) => `
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:12px 0 6px">${type}</div>
+      ${accts.map(a => accountRowHtml(a)).join('')}
+    `).join('');
+  } catch(e) { el.innerHTML = errorState(e.message, 'loadAccounts()'); }
+}
+
+function accountRowHtml(a) {
+  const bal = parseFloat(a.current_balance)||0;
+  const isLiab = bal < 0;
+  const fmt = v => '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return `<div class="expense-row" onclick="openAccountDrawer(${a.id})" style="cursor:pointer">
+    <div style="flex:1">
+      <div style="font-weight:600;font-size:14px">${esc(a.name)}${a.account_last4?` ···${a.account_last4}`:''}</div>
+      <div style="font-size:12px;color:var(--text3)">${a.institution||''}${a.balance_as_of?' · as of '+a.balance_as_of:''}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-weight:700;color:${isLiab?'var(--red)':'var(--green)'}">${isLiab?'-':''}${fmt(bal)}</div>
+      <div style="font-size:11px;color:var(--text3)">${a.include_net_worth?'in net worth':'excluded'}</div>
+    </div>
+  </div>`;
+}
+
+function renderNetWorthStrip(nw) {
+  const fmt = v => '$' + (v||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+  const nwEl = $('nwValue'); if (nwEl) nwEl.textContent = fmt(nw.net_worth);
+  const asEl = $('nwAssets'); if (asEl) asEl.textContent = fmt(nw.total_assets);
+  const lEl  = $('nwLiab');  if (lEl)  lEl.textContent  = fmt(nw.total_liabilities);
+  nwEl && (nwEl.style.color = nw.net_worth >= 0 ? 'var(--green)' : 'var(--red)');
+}
+
+async function openAccountDrawer(id) {
+  editingAccountId = id || null;
+  let a = {};
+  if (id) { try { const all = await api('/finance/accounts'); a = all.find(x=>x.id===id)||{}; } catch(e){} }
+  $('accDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
+  $('accName').value        = a.name||'';
+  $('accType').value        = a.type||'Checking';
+  $('accInstitution').value = a.institution||'';
+  $('accLast4').value       = a.account_last4||'';
+  $('accBalance').value     = a.current_balance||'';
+  $('accAsOf').value        = a.balance_as_of||new Date().toISOString().slice(0,10);
+  $('accInNw').checked      = a.include_net_worth !== 0;
+  $('accNotes').value       = a.notes||'';
+  $('accountDrawer').classList.add('open');
+}
+
+async function saveAccount() {
+  const btn = $('accSave'); btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    const payload = {
+      name: $('accName').value.trim(), type: $('accType').value,
+      institution: $('accInstitution').value||null, account_last4: $('accLast4').value||null,
+      current_balance: parseFloat($('accBalance').value)||0,
+      balance_as_of: $('accAsOf').value||null,
+      include_net_worth: $('accInNw').checked,
+      notes: $('accNotes').value||null
+    };
+    if (!payload.name) { toast('Name required','err'); return; }
+    const url = editingAccountId ? `/finance/accounts/${editingAccountId}` : '/finance/accounts';
+    const method = editingAccountId ? 'PUT' : 'POST';
+    await api(url, { method, body: JSON.stringify(payload) });
+    toast(editingAccountId ? 'Account updated' : 'Account added');
+    $('accountDrawer').classList.remove('open');
+    loadAccounts();
+  } catch(e) { toast(ghErrorMsg(e),'err'); }
+  finally { btn.textContent = 'Save'; btn.disabled = false; }
+}
+
+async function deleteAccount() {
+  if (!editingAccountId) return;
+  if (!await LT.confirm('Delete this account? Transactions will also be removed.')) return;
+  await api(`/finance/accounts/${editingAccountId}`, { method: 'DELETE' });
+  toast('Account removed'); $('accountDrawer').classList.remove('open'); loadAccounts();
+}
+
+// ════════════════════════════════════════════════════════════
+// TRANSACTIONS
+// ════════════════════════════════════════════════════════════
+let editingTxId = null;
+
+async function populateTxAccountFilter() {
+  try {
+    const accounts = await api('/finance/accounts');
+    const sel = $('txAccFilter');
+    if (!sel) return;
+    sel.innerHTML = '<option value="">All accounts</option>' +
+      accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    // Also populate tx drawer account select
+    const dSel = $('txAccount');
+    if (dSel) dSel.innerHTML = accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
+  } catch(e) {}
+}
+
+async function loadTransactions() {
+  const el = $('txList'); if (!el) return;
+  el.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  try {
+    const acc   = $('txAccFilter')?.value || '';
+    const year  = $('txYearFilter')?.value || new Date().getFullYear();
+    const qs    = `?limit=100${acc?'&account_id='+acc:''}${year?'&year='+year:''}`;
+    const data  = await api('/finance/transactions' + qs);
+    const { transactions: txs, summary } = data;
+
+    // Update summary strip
+    const fmt = v => '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+    $('txCredits').textContent = fmt(summary.total_credits);
+    $('txDebits').textContent  = fmt(summary.total_debits);
+    const netEl = $('txNet');
+    netEl.textContent = (summary.net >= 0 ? '+' : '-') + fmt(summary.net);
+    netEl.style.color = summary.net >= 0 ? 'var(--green)' : 'var(--red)';
+
+    if (!txs.length) { el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px">No transactions</div>'; return; }
+
+    // Group by month
+    const grouped = {};
+    txs.forEach(t => {
+      const m = t.date.slice(0,7);
+      (grouped[m] = grouped[m]||[]).push(t);
+    });
+    el.innerHTML = Object.entries(grouped).map(([month, rows]) => `
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:12px 0 4px">
+        ${new Date(month+'-01').toLocaleDateString('en-US',{month:'long',year:'numeric'})}
+      </div>
+      ${rows.map(t => txRowHtml(t)).join('')}
+    `).join('');
+  } catch(e) { el.innerHTML = errorState(e.message, ''); }
+}
+
+function txRowHtml(t) {
+  const amt = parseFloat(t.amount);
+  const fmt = v => '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  return `<div class="expense-row" onclick="openTxDrawer(${t.id})" style="cursor:pointer">
+    <div style="flex:1">
+      <div style="font-weight:600;font-size:14px">${esc(t.description)}</div>
+      <div style="font-size:12px;color:var(--text3)">${t.account_name}${t.category?' · '+t.category:''}</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-weight:700;color:${amt>=0?'var(--green)':'var(--red)'}">${amt>=0?'+':''}${fmt(amt)}</div>
+      <div style="font-size:11px;color:var(--text3)">${t.date}</div>
+    </div>
+  </div>`;
+}
+
+async function openTxDrawer(id) {
+  editingTxId = id||null;
+  let t = {};
+  if (id) {
+    try {
+      const data = await api('/finance/transactions?limit=200');
+      t = data.transactions.find(x=>x.id===id)||{};
+    } catch(e) {}
+  }
+  $('txDrawerTitle').textContent = id ? 'Edit Transaction' : 'Add Transaction';
+  $('txDate').value        = t.date || new Date().toISOString().slice(0,10);
+  $('txDesc').value        = t.description||'';
+  $('txAmount').value      = t.amount||'';
+  $('txCategory').value    = t.category||'';
+  $('txNotes').value       = t.notes||'';
+  if (t.account_id) $('txAccount').value = t.account_id;
+  $('txDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+  $('txDrawer').classList.add('open');
+}
+
+async function saveTx() {
+  const btn = $('txSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    const payload = {
+      account_id: $('txAccount').value, date: $('txDate').value,
+      description: $('txDesc').value.trim(),
+      amount: parseFloat($('txAmount').value),
+      category: $('txCategory').value||null,
+      notes: $('txNotes').value||null
+    };
+    if (!payload.description || !payload.account_id) { toast('Account and description required','err'); return; }
+    if (isNaN(payload.amount)) { toast('Valid amount required','err'); return; }
+    const url    = editingTxId ? `/finance/transactions/${editingTxId}` : '/finance/transactions';
+    const method = editingTxId ? 'PUT' : 'POST';
+    await api(url, { method, body: JSON.stringify(payload) });
+    toast(editingTxId ? 'Transaction updated' : 'Transaction added');
+    $('txDrawer').classList.remove('open');
+    loadTransactions();
+  } catch(e) { toast(ghErrorMsg(e),'err'); }
+  finally { btn.textContent='Save'; btn.disabled=false; }
+}
+
+async function deleteTx() {
+  if (!editingTxId) return;
+  if (!await LT.confirm('Delete this transaction?')) return;
+  await api(`/finance/transactions/${editingTxId}`, { method: 'DELETE' });
+  toast('Deleted'); $('txDrawer').classList.remove('open'); loadTransactions();
+}
+
+// Populate year filter with last 5 years
+(function initTxYearFilter() {
+  const yr = new Date().getFullYear();
+  const sel = $('txYearFilter');
+  if (!sel) return;
+  sel.innerHTML = Array.from({length:5},(_,i)=>yr-i)
+    .map(y=>`<option value="${y}"${y===yr?' selected':''}>${y}</option>`).join('');
+})();
+
+// ════════════════════════════════════════════════════════════
+// NET WORTH
+// ════════════════════════════════════════════════════════════
+async function loadNetWorthDetail() {
+  const el = $('nwContent');
+  if (el) el.innerHTML = spinnerHtml();
+  try {
+    const [nw, snaps] = await Promise.all([
+      api('/finance/net-worth/current'),
+      api('/finance/net-worth/snapshots')
+    ]);
+    const fmt = v => '$' + Math.abs(v||0).toLocaleString('en-US',{minimumFractionDigits:0});
+    const fmtEl = (id, v, color) => { const el=$id_(id); if(el){el.textContent=fmt(v);if(color)el.style.color=color;} };
+    fmtEl('nwBigValue',  nw.net_worth,  nw.net_worth>=0?'var(--green)':'var(--red)');
+    fmtEl('nwBigAssets', nw.total_assets, 'var(--green)');
+    fmtEl('nwBigLiab',   nw.total_liabilities, 'var(--red)');
+    const dateEl = $id_('nwBigDate');
+    if (dateEl) dateEl.textContent = 'As of ' + nw.as_of;
+
+    const snEl = $id_('nwSnapshots');
+    if (snEl) {
+      if (!snaps.length) { snEl.innerHTML = '<div style="text-align:center;color:var(--text3);padding:24px">No snapshots yet — click Save Snapshot</div>'; return; }
+      snEl.innerHTML = snaps.map(s => {
+        const nwv = parseFloat(s.net_worth)||0;
+        return `<div class="expense-row">
+          <div style="flex:1">
+            <div style="font-weight:600">${s.snapshot_date}</div>
+            ${s.notes?`<div style="font-size:12px;color:var(--text3)">${esc(s.notes)}</div>`:''}
+          </div>
+          <div style="font-weight:700;color:${nwv>=0?'var(--green)':'var(--red)'}">
+            ${nwv>=0?'':'-'}$${Math.abs(nwv).toLocaleString('en-US',{minimumFractionDigits:0})}
+          </div>
+        </div>`;
+      }).join('');
+    }
+  } catch(e) { console.error('NW load error', e); }
+}
+
+// Helper alias to avoid collision with existing $ function
+function $id_(id) { return document.getElementById(id); }
+
+async function loadNetWorthCurrent() {
+  try {
+    const nw = await api('/finance/net-worth/current');
+    renderNetWorthStrip(nw);
+  } catch(e) {}
+}
+
+async function saveNwSnapshot() {
+  await api('/finance/net-worth/snapshot', { method: 'POST', body: JSON.stringify({}) });
+  toast('Snapshot saved');
+  loadNetWorthDetail();
+}
+
+// ════════════════════════════════════════════════════════════
+// GIFT CARDS
+// ════════════════════════════════════════════════════════════
+let editingGcId = null;
+let _gcAllCards = [];
+window._gcDetailId = null;
+
+async function loadGiftCards() {
+  const el = $('gcList'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    _gcAllCards = await api('/finance/gift-cards');
+    const totalBal = _gcAllCards.reduce((s,c) => s + (parseFloat(c.current_balance)||0), 0);
+    const cntEl = $('gcCount'); if(cntEl) cntEl.textContent = _gcAllCards.length;
+    const totEl = $('gcTotalBalance');
+    if (totEl) totEl.textContent = '$' + totalBal.toLocaleString('en-US',{minimumFractionDigits:2});
+    renderGcExpiryAlerts(_gcAllCards);
+    if (!_gcAllCards.length) { el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px">No gift cards — add your first one</div>'; return; }
+    el.innerHTML = _gcAllCards.map(c => gcRowHtml(c)).join('');
+  } catch(e) { el.innerHTML = errorState(e.message, ''); }
+}
+
+function renderGcExpiryAlerts(cards) {
+  const el = $('gcExpiryAlerts'); if (!el) return;
+  const today = new Date();
+  const expiring = cards.filter(c => {
+    if (!c.expiry_date) return false;
+    const d = Math.ceil((new Date(c.expiry_date) - today) / 86400000);
+    return d >= 0 && d <= 30;
+  });
+  const expired = cards.filter(c => {
+    if (!c.expiry_date) return false;
+    return new Date(c.expiry_date) < today;
+  });
+  if (!expiring.length && !expired.length) { el.innerHTML = ''; return; }
+  el.innerHTML = [
+    ...expired.map(c => `<div class="missing-alert" style="background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25)">
+      <span>⛔</span>
+      <span style="flex:1"><b>${esc(c.retailer)}</b> — EXPIRED ${c.expiry_date} · ${fmt$(c.current_balance)} remaining</span>
+      <a onclick="openGcDrawer(${c.id})">Edit</a>
+    </div>`),
+    ...expiring.map(c => {
+      const d = Math.ceil((new Date(c.expiry_date) - today) / 86400000);
+      return `<div class="missing-alert">
+        <span>⚠️</span>
+        <span style="flex:1"><b>${esc(c.retailer)}</b> — expires in <b>${d} day${d===1?'':'s'}</b> · ${fmt$(c.current_balance)} remaining</span>
+        <a onclick="openGcDetail(${c.id})">View</a>
+      </div>`;
+    })
+  ].join('');
+}
+
+// ── Retailer domain map for favicons ──────────────────────────
+const GC_DOMAINS = {
+  'amazon':      'amazon.com',       'amazon fresh': 'amazon.com',
+  'target':      'target.com',       'walmart':       'walmart.com',
+  'best buy':    'bestbuy.com',      'costco':        'costco.com',
+  'home depot':  'homedepot.com',    'lowes':         'lowes.com',  "lowe's": 'lowes.com',
+  'starbucks':   'starbucks.com',    'whole foods':   'wholefoods.com',
+  'sephora':     'sephora.com',      'ulta':          'ulta.com',
+  'gamestop':    'gamestop.com',     'apple':         'apple.com',
+  'nike':        'nike.com',         'gap':           'gap.com',
+  'old navy':    'oldnavy.com',      'tj maxx':       'tjmaxx.com',
+  'nordstrom':   'nordstrom.com',    'macys':         "macys.com",  "macy's": 'macys.com',
+  'cvs':         'cvs.com',          'walgreens':     'walgreens.com',
+  "sam's club":  'samsclub.com',     'dollar general':'dollargeneral.com',
+  "kohl's":      'kohls.com',        'kohls':         'kohls.com',
+  'ebay':        'ebay.com',         'etsy':          'etsy.com',
+  'doordash':    'doordash.com',     'uber eats':     'ubereats.com',
+  'grubhub':     'grubhub.com',      'instacart':     'instacart.com',
+  'google':      'google.com',       'google play':   'play.google.com',
+  'itunes':      'apple.com',        'playstation':   'playstation.com',
+  'xbox':        'xbox.com',         'steam':         'store.steampowered.com',
+  'subway':      'subway.com',       'mcdonalds':     'mcdonalds.com',
+  "mcdonald's":  'mcdonalds.com',    'chipotle':      'chipotle.com',
+  'panera':      'panerabread.com',  'dunkin':        'dunkindonuts.com',
+  'chick-fil-a': 'chick-fil-a.com',  'dominos':       'dominos.com',
+};
+
+function gcFaviconUrl(retailer) {
+  const key = (retailer||'').toLowerCase().trim();
+  const domain = GC_DOMAINS[key];
+  if (!domain) return null;
+  return `https://www.google.com/s2/favicons?domain=${domain}&sz=32`;
+}
+
+function gcFaviconHtml(retailer) {
+  const url = gcFaviconUrl(retailer);
+  if (url) {
+    return `<img src="${url}" width="20" height="20" style="border-radius:4px;object-fit:contain;flex-shrink:0" onerror="this.style.display='none'" alt="">`;
+  }
+  // Fallback: colored circle with first letter
+  const letter = (retailer||'?')[0].toUpperCase();
+  const colors = ['#5c72fa','#22c55e','#f59e0b','#ef4444','#14b8a6','#a78bfa','#ec4899','#06b6d4'];
+  const color  = colors[letter.charCodeAt(0) % colors.length];
+  return `<div style="width:20px;height:20px;border-radius:4px;background:${color};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${letter}</div>`;
+}
+
+function gcWalletBadges(c) {
+  const badges = [];
+  if (c.in_google_pay)  badges.push(`<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(66,133,244,.15);color:#4285f4;letter-spacing:.02em">G Pay</span>`);
+  if (c.in_samsung_pay) badges.push(`<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(20,40,160,.12);color:#1428a0;letter-spacing:.02em">S Pay</span>`);
+  if (c.in_apple_pay)   badges.push(`<span style="font-size:10px;font-weight:700;padding:1px 5px;border-radius:3px;background:rgba(100,100,100,.15);color:var(--text2);letter-spacing:.02em">🍎 Pay</span>`);
+  return badges.join('');
+}
+
+function gcRowHtml(c) {
+  const bal      = parseFloat(c.current_balance) || 0;
+  const today    = new Date();
+  const exp      = c.expiry_date ? new Date(c.expiry_date + 'T00:00:00') : null;
+  const daysLeft = exp ? Math.ceil((exp - today) / 86400000) : null;
+  const isExpired  = daysLeft !== null && daysLeft < 0;
+  const isExpiring = daysLeft !== null && daysLeft >= 0 && daysLeft <= 30;
+  const expColor   = isExpired ? 'var(--red)' : isExpiring ? '#f59e0b' : 'var(--text3)';
+  const wallets    = gcWalletBadges(c);
+
+  return `<div class="expense-row" onclick="openGcDetail(${c.id})" style="cursor:pointer;gap:10px">
+    ${gcFaviconHtml(c.retailer)}
+    <div style="flex:1;min-width:0">
+      <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+        <span style="font-weight:600;font-size:14px">${esc(c.retailer)}</span>
+        ${wallets}
+        ${isExpired  ? `<span style="font-size:10px;font-weight:700;color:var(--red);padding:1px 5px;border-radius:3px;background:rgba(239,68,68,.12)">EXPIRED</span>` : ''}
+        ${isExpiring ? `<span style="font-size:10px;font-weight:700;color:#f59e0b;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.12)">${daysLeft}d left</span>` : ''}
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">
+        ${esc(c.where_stored||'')}${c.card_number ? ' · 📊 barcode' : ''}${exp && !isExpired && !isExpiring ? ` · <span style="color:${expColor}">exp ${c.expiry_date}</span>` : ''}
+      </div>
+    </div>
+    <div style="text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+      <div style="font-weight:700;color:${bal<=0?'var(--text3)':'var(--green)'};font-family:var(--mono)">${fmt$(bal)}</div>
+      <button class="btn" style="padding:2px 10px;font-size:11px"
+        onclick="event.stopPropagation();quickBalanceUpdate(${c.id},${bal})">$ Update</button>
+    </div>
+  </div>`;
+}
+
+async function quickBalanceUpdate(id, currentBal) {
+  const val = prompt('New balance:', currentBal.toFixed(2));
+  if (val === null) return;
+  const parsed = parseFloat(val);
+  if (isNaN(parsed)) { toast('Invalid amount','err'); return; }
+  const h = {'Content-Type':'application/json'};
+  if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
+  await fetch(`/api/v1/finance/gift-cards/${id}/balance`,{method:'PATCH',headers:h,body:JSON.stringify({balance:parsed})});
+  toast('Balance updated'); loadGiftCards();
+}
+
+// ── Card Detail / Barcode view ─────────────────────────────────
+function openGcDetail(id) {
+  const c = _gcAllCards.find(x => x.id === id);
+  if (!c) return;
+  window._gcDetailId = id;
+
+  // Favicon + retailer name
+  const faviconEl = $('gcDetailFavicon');
+  if (faviconEl) faviconEl.innerHTML = gcFaviconHtml(c.retailer);
+  $('gcDetailRetailer').textContent = c.retailer;
+  $('gcDetailBalance').textContent  = fmt$(c.current_balance||0);
+
+  // Wallet badges
+  const walletsEl = $('gcDetailWallets');
+  if (walletsEl) walletsEl.innerHTML = gcWalletBadges(c);
+
+  const today = new Date();
+  const exp   = c.expiry_date ? new Date(c.expiry_date) : null;
+  const daysLeft = exp ? Math.ceil((exp-today)/86400000) : null;
+  const expiryEl = $('gcDetailExpiry');
+  if (exp) {
+    expiryEl.textContent = daysLeft < 0
+      ? `⛔ Expired ${c.expiry_date}`
+      : daysLeft < 30
+        ? `⚠️ Expires in ${daysLeft} days (${c.expiry_date})`
+        : `Expires ${c.expiry_date}`;
+    expiryEl.style.color = daysLeft < 0 ? 'var(--red)' : daysLeft < 30 ? '#f59e0b' : 'var(--text3)';
+  } else {
+    expiryEl.textContent = 'No expiry date';
+    expiryEl.style.color = 'var(--text3)';
+  }
+
+  // Barcode
+  const barcodeWrap = $('gcBarcodeWrap');
+  if (c.card_number) {
+    barcodeWrap.style.display = 'block';
+    $('gcCardNumberDisplay').textContent = c.card_number;
+    try {
+      JsBarcode('#gcBarcodeSvg', c.card_number, {
+        format: 'CODE128', lineColor: '#000',
+        width: 2, height: 60, displayValue: false, margin: 4
+      });
+    } catch(e) {
+      $('gcBarcodeWrap').innerHTML = `<div style="color:#666;font-size:12px">Could not render barcode for: ${esc(c.card_number)}</div>`;
+    }
+  } else {
+    barcodeWrap.style.display = 'none';
+  }
+
+  // PIN
+  const pinRow = $('gcPinRow');
+  if (c.card_pin) {
+    pinRow.style.display = 'block';
+    $('gcDetailPin').textContent = c.card_pin;
+  } else { pinRow.style.display = 'none'; }
+
+  // Notes
+  const notesEl = $('gcDetailNotes');
+  if (c.notes) {
+    notesEl.style.display = 'block';
+    notesEl.textContent = c.notes;
+  } else { notesEl.style.display = 'none'; }
+
+  $('gcDetailWhere').textContent = c.where_stored ? '📍 ' + c.where_stored : '';
+  $('gcDetailInitial').textContent = c.initial_balance ? 'Initial: ' + fmt$(c.initial_balance) : '';
+
+  // Reset balance update form
+  $('gcDetailUpdateBalForm').style.display = 'none';
+  $('gcDetailNewBal').value = '';
+
+  $('gcDetailModal').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeGcDetail() {
+  $('gcDetailModal').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
+function gcCopyNumber() {
+  const num = _gcAllCards.find(x => x.id === window._gcDetailId)?.card_number;
+  if (!num) return;
+  navigator.clipboard?.writeText(num).then(() => toast('Card number copied')).catch(() => {});
+}
+
+function gcDetailUpdateBal() {
+  const form = $('gcDetailUpdateBalForm');
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
+  if (form.style.display === 'block') {
+    const c = _gcAllCards.find(x => x.id === window._gcDetailId);
+    $('gcDetailNewBal').value = c?.current_balance?.toFixed(2) || '';
+    $('gcDetailNewBal').focus();
+  }
+}
+
+async function gcDetailSaveBal() {
+  const id  = window._gcDetailId; if (!id) return;
+  const val = parseFloat($('gcDetailNewBal').value);
+  if (isNaN(val)) { toast('Invalid amount','err'); return; }
+  const h = {'Content-Type':'application/json'};
+  if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
+  await fetch(`/api/v1/finance/gift-cards/${id}/balance`,{method:'PATCH',headers:h,body:JSON.stringify({balance:val})});
+  toast('Balance updated');
+  await loadGiftCards(); // refresh _gcAllCards
+  // Update display
+  const c = _gcAllCards.find(x => x.id === id);
+  if (c) $('gcDetailBalance').textContent = fmt$(c.current_balance||0);
+  $('gcDetailUpdateBalForm').style.display = 'none';
+}
+
+// ── Drawer open/save/delete ────────────────────────────────────
+async function openGcDrawer(id) {
+  editingGcId = id||null;
+  let c = {};
+  if (id) { c = _gcAllCards.find(x=>x.id===id) || {}; }
+  $('gcDrawerTitle').textContent  = id ? 'Edit Gift Card' : 'Add Gift Card';
+  $('gcRetailer').value           = c.retailer||'';
+  $('gcInitBal').value            = c.initial_balance||'';
+  $('gcCurBal').value             = c.current_balance||'';
+  $('gcExpiry').value             = c.expiry_date||'';
+  $('gcWhere').value              = c.where_stored||'Wallet';
+  $('gcNotes').value              = c.notes||'';
+  $('gcCardNumber').value         = c.card_number||'';
+  $('gcCardPin').value            = c.card_pin||'';
+  $('gcGooglePay').checked        = !!c.in_google_pay;
+  $('gcSamsungPay').checked       = !!c.in_samsung_pay;
+  $('gcApplePay').checked         = !!c.in_apple_pay;
+  $('gcDeleteBtn').style.display  = id ? 'inline-flex' : 'none';
+  // Close detail modal if open
+  if ($('gcDetailModal').style.display !== 'none') closeGcDetail();
+  $('gcDrawer').classList.add('open');
+}
+
+async function saveGc() {
+  const btn = $('gcSave'); btn.textContent='Saving…'; btn.disabled=true;
+  try {
+    const init = parseFloat($('gcInitBal').value)||0;
+    const cur  = $('gcCurBal').value ? parseFloat($('gcCurBal').value) : init;
+    const payload = {
+      retailer:        $('gcRetailer').value.trim(),
+      initial_balance: init,
+      current_balance: cur,
+      expiry_date:     $('gcExpiry').value||null,
+      where_stored:    $('gcWhere').value||'Wallet',
+      notes:           $('gcNotes').value||null,
+      card_number:     $('gcCardNumber').value.trim()||null,
+      card_pin:        $('gcCardPin').value.trim()||null,
+      in_google_pay:   $('gcGooglePay').checked  ? 1 : 0,
+      in_samsung_pay:  $('gcSamsungPay').checked ? 1 : 0,
+      in_apple_pay:    $('gcApplePay').checked   ? 1 : 0,
+    };
+    if (!payload.retailer) { toast('Retailer required','err'); return; }
+    const url    = editingGcId ? `/finance/gift-cards/${editingGcId}` : '/finance/gift-cards';
+    const method = editingGcId ? 'PUT' : 'POST';
+    await api(url, { method, body: JSON.stringify(payload) });
+    toast(editingGcId ? 'Updated' : 'Gift card added');
+    $('gcDrawer').classList.remove('open');
+    loadGiftCards();
+  } catch(e) { toast(ghErrorMsg(e),'err'); }
+  finally { btn.textContent='Save'; btn.disabled=false; }
+}
+
+async function deleteGc() {
+  if (!editingGcId) return;
+  if (!await LT.confirm('Remove this gift card?')) return;
+  await api(`/finance/gift-cards/${editingGcId}`, { method: 'DELETE' });
+  toast('Removed'); $('gcDrawer').classList.remove('open'); loadGiftCards();
+}
+</script>
+<!-- ════════════════════════════════════════════════════════════
+     ACCOUNT DRAWER
+     ════════════════════════════════════════════════════════════ -->
+<div class="drawer-overlay" id="accountDrawer" onclick="onDrawerBg('accountDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="accDrawerTitle">Add Account</div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Name <span class="req">*</span></label><input class="form-input" id="accName" placeholder="e.g. Chase Checking"></div>
+      <div class="form-group"><label class="form-label">Type</label>
+        <select class="form-select" id="accType">${ACCT_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Institution</label><input class="form-input" id="accInstitution" placeholder="Chase, Vanguard…"></div>
+      <div class="form-group"><label class="form-label">Last 4</label><input class="form-input" id="accLast4" maxlength="4" placeholder="····"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Balance</label><input class="form-input" type="number" id="accBalance" step="0.01" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">As of</label><input class="form-input" type="date" id="accAsOf"></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0 10px">
+      <input type="checkbox" id="accInNw" checked style="width:16px;height:16px;accent-color:var(--accent)">
+      <label for="accInNw" style="font-size:13px;color:var(--text2)">Include in Net Worth</label>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:60px"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary" id="accSave" style="flex:1" onclick="saveAccount()">Save</button>
+      <button class="btn btn-ghost" id="accDeleteBtn" style="color:var(--red);display:none" onclick="deleteAccount()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     TRANSACTION DRAWER
+     ════════════════════════════════════════════════════════════ -->
+<div class="drawer-overlay" id="txDrawer" onclick="onDrawerBg('txDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="txDrawerTitle">Add Transaction</div>
+    <div class="form-group"><label class="form-label">Account <span class="req">*</span></label>
+      <select class="form-select" id="txAccount"><option value="">Select account…</option></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Date <span class="req">*</span></label><input class="form-input" type="date" id="txDate"></div>
+      <div class="form-group"><label class="form-label">Amount <span class="req">*</span></label>
+        <input class="form-input" type="number" id="txAmount" step="0.01" placeholder="-50.00 or +1200.00">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Description <span class="req">*</span></label><input class="form-input" id="txDesc" placeholder="Merchant or description"></div>
+    <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="txCategory" placeholder="Groceries, Utilities…"></div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="txNotes" style="min-height:60px"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary" id="txSave" style="flex:1" onclick="saveTx()">Save</button>
+      <button class="btn btn-ghost" id="txDeleteBtn" style="color:var(--red);display:none" onclick="deleteTx()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     GIFT CARD DRAWER
+     ════════════════════════════════════════════════════════════ -->
+<!-- ── Gift Card Detail Modal (barcode + screenshot view) ─── -->
+<div id="gcDetailModal" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--bg1);overflow-y:auto">
+  <div style="max-width:420px;margin:0 auto;padding:20px 16px 40px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <button class="btn" onclick="closeGcDetail()" style="padding:6px 14px">← Back</button>
+      <span style="font-size:11px;color:var(--text3)">Tap barcode area to copy number</span>
+    </div>
+
+    <!-- Card face -->\n    <div id="gcDetailCard" style="background:var(--bg2);border-radius:16px;padding:20px;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:4px">
+        <div id="gcDetailFavicon"></div>
+        <div id="gcDetailRetailer" style="font-size:22px;font-weight:800;color:var(--text)"></div>
+      </div>
+      <div id="gcDetailWallets" style="display:flex;gap:6px;justify-content:center;margin-bottom:4px;flex-wrap:wrap"></div>
+      <div id="gcDetailBalance" style="font-size:36px;font-weight:700;color:var(--green);font-family:var(--mono);margin:8px 0"></div>
+      <div id="gcDetailExpiry" style="font-size:12px;color:var(--text3);margin-bottom:16px"></div>
+
+      <!-- Barcode -->
+      <div id="gcBarcodeWrap" style="display:none;background:#fff;border-radius:8px;padding:12px 8px;margin:12px 0;cursor:pointer" onclick="gcCopyNumber()">
+        <svg id="gcBarcodeSvg"></svg>
+        <div id="gcCardNumberDisplay" style="font-family:monospace;font-size:13px;color:#333;margin-top:6px;letter-spacing:.1em"></div>
+      </div>
+
+      <!-- PIN -->
+      <div id="gcPinRow" style="display:none;margin:8px 0">
+        <span style="font-size:12px;color:var(--text3)">PIN: </span>
+        <span id="gcDetailPin" style="font-family:var(--mono);font-size:15px;font-weight:700;color:var(--text);letter-spacing:.15em"></span>
+      </div>
+
+      <!-- Notes -->
+      <div id="gcDetailNotes" style="font-size:13px;color:var(--text2);margin-top:12px;text-align:left;background:var(--bg3);border-radius:8px;padding:10px;display:none"></div>
+
+      <!-- Meta -->
+      <div style="margin-top:16px;font-size:11px;color:var(--text3);display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+        <span id="gcDetailWhere"></span>
+        <span id="gcDetailInitial"></span>
+      </div>
+    </div>
+
+    <!-- Actions below card -->
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn" style="flex:1" onclick="openGcDrawer(window._gcDetailId)">✏️ Edit</button>
+      <button class="btn btn-primary" id="gcDetailUpdateBalBtn" style="flex:1" onclick="gcDetailUpdateBal()">Update Balance</button>
+    </div>
+    <div id="gcDetailUpdateBalForm" style="display:none;margin-top:10px;background:var(--bg2);border-radius:var(--r);padding:12px">
+      <label class="form-label">New Balance</label>
+      <div style="display:flex;gap:8px">
+        <input id="gcDetailNewBal" class="form-input" type="number" step="0.01" placeholder="0.00" style="flex:1">
+        <button class="btn btn-primary" onclick="gcDetailSaveBal()">Save</button>
+      </div>
+    </div>
+
+    <div style="text-align:center;margin-top:20px;font-size:12px;color:var(--text3)">
+      📸 Screenshot this screen to save card details
+    </div>
+  </div>
+</div>
+
+<!-- ── Gift Card Drawer ─────────────────────────────────────── -->
+<div class="drawer-overlay" id="gcDrawer" onclick="onDrawerBg('gcDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="gcDrawerTitle">Add Gift Card</div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Retailer <span class="req">*</span></label><input class="form-input" id="gcRetailer" placeholder="Amazon, Target…"></div>
+      <div class="form-group"><label class="form-label">Stored</label>
+        <select class="form-select" id="gcWhere">
+          <option>Wallet</option><option>Email</option><option>App</option><option>Physical</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Initial $</label><input class="form-input" type="number" id="gcInitBal" step="0.01" placeholder="25.00"></div>
+      <div class="form-group"><label class="form-label">Current $</label><input class="form-input" type="number" id="gcCurBal" step="0.01" placeholder="same as initial"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Expiry Date</label><input class="form-input" type="date" id="gcExpiry"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Card Number</label><input class="form-input" id="gcCardNumber" placeholder="Card number for barcode"></div>
+      <div class="form-group" style="flex:1"><label class="form-label">PIN</label><input class="form-input" id="gcCardPin" placeholder="Optional"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="gcNotes" style="min-height:60px" placeholder="Optional notes"></textarea></div>
+    <div class="form-group">
+      <label class="form-label">Added to digital wallet</label>
+      <div style="display:flex;gap:16px;margin-top:4px">
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="gcGooglePay" style="width:16px;height:16px;accent-color:#4285f4">
+          <span style="color:#4285f4;font-weight:600">G</span> Google Pay
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="gcSamsungPay" style="width:16px;height:16px;accent-color:#1428a0">
+          <span style="color:#1428a0;font-weight:600">S</span> Samsung Pay
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px">
+          <input type="checkbox" id="gcApplePay" style="width:16px;height:16px;accent-color:#555">
+          <span style="font-weight:600">🍎</span> Apple Pay
+        </label>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary" id="gcSave" style="flex:1" onclick="saveGc()">Save</button>
+      <button class="btn btn-ghost" id="gcDeleteBtn" style="color:var(--red);display:none" onclick="deleteGc()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════════════════════════════
+     BUDGET DRAWER
+     ════════════════════════════════════════════════════════════ -->
+<div class="drawer-overlay" id="budgetDrawer" onclick="onDrawerBg('budgetDrawer')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="budDrawerTitle">Add Budget</div>
+    <div class="form-group"><label class="form-label">Category <span class="req">*</span></label>
+      <input class="form-input" id="budCategory" list="budCats" placeholder="Groceries, Dining, Gas…">
+      <datalist id="budCats">
+        <option>Groceries</option><option>Dining Out</option><option>Gas</option>
+        <option>Entertainment</option><option>Clothing</option><option>Healthcare</option>
+        <option>Subscriptions</option><option>Travel</option><option>Home Improvement</option>
+        <option>Personal Care</option><option>Kids</option><option>Pets</option>
+        <option>Utilities</option><option>Insurance</option><option>Miscellaneous</option>
+      </datalist>
+    </div>
+    <div class="form-group"><label class="form-label">Monthly Limit ($) <span class="req">*</span></label>
+      <input class="form-input" type="number" id="budLimit" step="10" placeholder="500">
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label>
+      <input class="form-input" id="budNotes" placeholder="Optional">
+    </div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-primary" id="budSave" style="flex:1" onclick="saveBudget()">Save</button>
+      <button class="btn btn-ghost" id="budDeleteBtn" style="color:var(--red);display:none" onclick="deleteBudget()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── BUDGETS ──────────────────────────────────────────────────
+(function() {
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  let editingBudgetId = null;
+
+  function initBudgetSelectors() {
+    const mo = document.getElementById('budgetMonthSel');
+    const yr = document.getElementById('budgetYearSel');
+    if (!mo || !yr) return;
+    const now = new Date();
+    mo.innerHTML = MONTHS.map((m,i) => `<option value="${i+1}" ${i+1===now.getMonth()+1?'selected':''}>${m}</option>`).join('');
+    for (let y = now.getFullYear(); y >= now.getFullYear()-3; y--) {
+      yr.innerHTML += `<option value="${y}" ${y===now.getFullYear()?'selected':''}>${y}</option>`;
+    }
+  }
+
+  window.loadBudgets = async function() {
+    const el = document.getElementById('budgetList'); if (!el) return;
+    const month = document.getElementById('budgetMonthSel')?.value || (new Date().getMonth()+1);
+    const year  = document.getElementById('budgetYearSel')?.value  || new Date().getFullYear();
+    try {
+      const data = await api(`/finance/budgets?year=${year}&month=${month}`);
+      const { budgets, unbudgeted } = data;
+
+      const totalLimit = budgets.reduce((s,b)=>s+b.monthly_limit,0);
+      const totalSpent = budgets.reduce((s,b)=>s+b.spent,0);
+      const remaining  = totalLimit - totalSpent;
+      document.getElementById('budTotalLimit').textContent = fmt$(totalLimit);
+      document.getElementById('budTotalSpent').textContent = fmt$(totalSpent);
+      const remEl = document.getElementById('budTotalRemaining');
+      remEl.textContent = fmt$(remaining);
+      remEl.style.color = remaining >= 0 ? 'var(--green)' : 'var(--red)';
+
+      if (!budgets.length) {
+        el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px 16px">No budgets set for this year.<br><button class="btn btn-primary" style="margin-top:12px" onclick="openBudgetDrawer()">Add your first budget</button></div>';
+      } else {
+        el.innerHTML = budgets.map(b => {
+          const overBudget = b.pct >= 100;
+          const barColor = b.pct >= 100 ? '#ef4444' : b.pct >= 80 ? '#f59e0b' : '#22c55e';
+          return `<div style="background:var(--bg2);border-radius:var(--r);padding:14px 16px;margin-bottom:8px;cursor:pointer" onclick="openBudgetDrawer(${b.id})">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:14px;font-weight:600;color:var(--text)">${esc(b.category)}</div>
+              <div style="font-size:13px;font-family:var(--mono);color:${overBudget?'#ef4444':'var(--text2)'}">
+                ${fmt$(b.spent)} <span style="color:var(--text3)">/ ${fmt$(b.monthly_limit)}</span>
+              </div>
+            </div>
+            <div style="background:var(--bg3);border-radius:99px;height:6px;overflow:hidden">
+              <div style="height:100%;width:${Math.min(100,b.pct)}%;background:${barColor};border-radius:99px;transition:width .3s"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:5px">
+              <span style="font-size:11px;color:var(--text3)">${b.pct}% used</span>
+              <span style="font-size:11px;color:${overBudget?'#ef4444':b.remaining<0?'#ef4444':'var(--text3)'}">
+                ${overBudget ? '⚠️ ' + fmt$(Math.abs(b.remaining)) + ' over' : fmt$(b.remaining) + ' left'}
+              </span>
+            </div>
+          </div>`;
+        }).join('');
+      }
+
+      // Unbudgeted
+      const ubSec = document.getElementById('unbudgetedSection');
+      const ubList = document.getElementById('unbudgetedList');
+      if (unbudgeted && unbudgeted.length) {
+        ubSec.style.display = 'block';
+        ubList.innerHTML = unbudgeted.map(u =>
+          `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;color:var(--text2)">${esc(u.category)}</span>
+            <span style="font-size:13px;font-family:var(--mono);color:var(--text)">${fmt$(u.spent)}</span>
+          </div>`
+        ).join('');
+      } else {
+        ubSec.style.display = 'none';
+      }
+    } catch(e) { el.innerHTML = errorState(e.message, ''); }
+  };
+
+  window.openBudgetDrawer = async function(id) {
+    editingBudgetId = id || null;
+    let b = {};
+    if (id) {
+      const month = document.getElementById('budgetMonthSel')?.value || (new Date().getMonth()+1);
+      const year  = document.getElementById('budgetYearSel')?.value  || new Date().getFullYear();
+      try {
+        const data = await api(`/finance/budgets?year=${year}&month=${month}`);
+        b = data.budgets.find(x => x.id === id) || {};
+      } catch(e) {}
+    }
+    document.getElementById('budDrawerTitle').textContent = id ? 'Edit Budget' : 'Add Budget';
+    document.getElementById('budCategory').value = b.category || '';
+    document.getElementById('budLimit').value    = b.monthly_limit || '';
+    document.getElementById('budNotes').value    = b.notes || '';
+    document.getElementById('budDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+    document.getElementById('budgetDrawer').classList.add('open');
+  };
+
+  window.saveBudget = async function() {
+    const btn = document.getElementById('budSave');
+    btn.textContent = 'Saving…'; btn.disabled = true;
+    try {
+      const year = document.getElementById('budgetYearSel')?.value || new Date().getFullYear();
+      const payload = {
+        category: document.getElementById('budCategory').value.trim(),
+        monthly_limit: parseFloat(document.getElementById('budLimit').value) || 0,
+        notes: document.getElementById('budNotes').value || null,
+        year
+      };
+      if (!payload.category) { toast('Category required', 'err'); return; }
+      const url = editingBudgetId ? `/finance/budgets/${editingBudgetId}` : '/finance/budgets';
+      await api(url, { method: editingBudgetId ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+      toast(editingBudgetId ? 'Updated' : 'Budget added');
+      document.getElementById('budgetDrawer').classList.remove('open');
+      loadBudgets();
+    } catch(e) { toast(ghErrorMsg(e),'err'); }
+    finally { btn.textContent = 'Save'; btn.disabled = false; }
+  };
+
+  window.deleteBudget = async function() {
+    if (!await LT.confirm('Remove this budget category?')) return;
+    await api(`/finance/budgets/${editingBudgetId}`, { method: 'DELETE' });
+    toast('Removed');
+    document.getElementById('budgetDrawer').classList.remove('open');
+    loadBudgets();
+  };
+
+  // Hook into switchFinTab — call loadBudgets when switching to budgets tab
+  const _origSwitch = window.switchFinTab;
+  window.switchFinTab = function(tab, btn) {
+    if (_origSwitch) _origSwitch(tab, btn);
+    if (tab === 'budgets') loadBudgets();
+  };
+
+  // Init selectors on load
+  document.addEventListener('DOMContentLoaded', initBudgetSelectors);
+})();
+</script>
+
+<!-- CSV IMPORT DRAWER -->
+<div class="drawer-overlay" id="csvDrawer" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="drawer-title" style="margin-bottom:0">Import CSV</div>
+      <button onclick="document.getElementById('csvDrawer').classList.remove('open')" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+    </div>
+    <div style="font-size:13px;color:var(--text3);margin-bottom:12px;line-height:1.6">
+      Paste or upload a CSV with columns: <span style="font-family:var(--mono);color:var(--accent)">date, description, amount, category</span><br>
+      Negative amounts = debits, positive = credits.
+    </div>
+    <div class="form-group"><label class="form-label">Account (optional)</label>
+      <select class="form-select" id="csvAccount">
+        <option value="">No account / unassigned</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Paste CSV rows</label>
+      <textarea class="form-textarea" id="csvPaste" style="min-height:140px;font-family:var(--mono);font-size:12px" placeholder="date,description,amount,category&#10;2025-01-15,Grocery Store,-85.42,Groceries&#10;2025-01-16,Paycheck,2500.00,Income"></textarea>
+    </div>
+    <div id="csvPreview" style="margin-bottom:10px"></div>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-ghost" style="flex:1" onclick="previewCsv()">Preview</button>
+      <button class="btn btn-primary" id="csvImportBtn" style="flex:1" onclick="importCsv()">Import</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── CSV Import ──────────────────────────────────────────────
+function openCsvImport() {
+  // populate account dropdown
+  const sel = document.getElementById('csvAccount');
+  const txSel = document.getElementById('txAccFilter');
+  if (txSel) {
+    sel.innerHTML = '<option value="">No account</option>';
+    [...txSel.options].slice(1).forEach(o => {
+      sel.innerHTML += `<option value="${o.value}">${o.text}</option>`;
+    });
+  }
+  document.getElementById('csvPaste').value = '';
+  document.getElementById('csvPreview').innerHTML = '';
+  document.getElementById('csvDrawer').classList.add('open');
+}
+
+function parseCsvText(text) {
+  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  // Detect header row
+  const first = lines[0].toLowerCase();
+  const hasHeader = first.includes('date') || first.includes('description') || first.includes('amount');
+  const dataLines = hasHeader ? lines.slice(1) : lines;
+
+  return dataLines.map(line => {
+    // Handle quoted fields
+    const parts = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      if (line[i] === '"') { inQ = !inQ; continue; }
+      if (line[i] === ',' && !inQ) { parts.push(cur.trim()); cur = ''; continue; }
+      cur += line[i];
+    }
+    parts.push(cur.trim());
+    return {
+      date: parts[0] || '',
+      description: parts[1] || '',
+      amount: parseFloat((parts[2]||'').replace(/[$,]/g,'')),
+      category: parts[3] || null,
+    };
+  }).filter(r => r.date && !isNaN(r.amount));
+}
+
+function previewCsv() {
+  const rows = parseCsvText(document.getElementById('csvPaste').value);
+  const el = document.getElementById('csvPreview');
+  if (!rows.length) { el.innerHTML = '<div style="color:var(--red);font-size:13px">No valid rows found. Check format.</div>'; return; }
+  const sample = rows.slice(0,5);
+  el.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:6px">${rows.length} rows detected (showing first 5)</div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:1px solid var(--border)">${['Date','Description','Amount','Category'].map(h=>`<th style="text-align:left;padding:4px 6px;color:var(--text3);font-family:var(--mono)">${h}</th>`).join('')}</tr></thead>
+      <tbody>${sample.map(r=>`<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:4px 6px;font-family:var(--mono)">${r.date}</td>
+        <td style="padding:4px 6px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.description||''}</td>
+        <td style="padding:4px 6px;font-family:var(--mono);color:${r.amount<0?'var(--red)':'var(--green)'}">${r.amount.toFixed(2)}</td>
+        <td style="padding:4px 6px">${r.category||'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>`;
+}
+
+async function importCsv() {
+  const rows = parseCsvText(document.getElementById('csvPaste').value);
+  if (!rows.length) { toast('No valid rows found', 'err'); return; }
+  const account_id = document.getElementById('csvAccount').value || null;
+  const btn = document.getElementById('csvImportBtn');
+  btn.textContent = 'Importing…'; btn.disabled = true;
+  try {
+    const h = {'Content-Type':'application/json'};
+    if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
+    const r = await fetch('/api/v1/finance/transactions/import-csv', {
+      method:'POST', headers:h, body: JSON.stringify({ account_id, rows })
+    }).then(r=>r.json());
+    toast(`✓ ${r.imported} transactions imported`);
+    document.getElementById('csvDrawer').classList.remove('open');
+    if (typeof loadTransactions === 'function') loadTransactions();
+  } catch(e) { toast('Import failed', 'err'); }
+  finally { btn.textContent = 'Import'; btn.disabled = false; }
+}
+</script>
+
+<script>
+/* ══════════════════════════════════════════════════════
+   IMPORT MODULE
+   ══════════════════════════════════════════════════════ */
+let _impAccounts = [];
+let _impSelectedAcct = null;
+let _impFile = null;
+let _impPreviewData = null;
+let _editAcctId = null;
+
+function impSubTab(id, btn) {
+  document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  ['upload','accounts','history'].forEach(t => {
+    const el = document.getElementById('imp-panel-' + t);
+    if (el) el.style.display = (t === id ? 'block' : 'none');
+  });
+  if (id === 'accounts') loadImpAccounts();
+  if (id === 'history')  loadImpHistory();
+}
+
+async function loadImpAccountSelect() {
+  try {
+    const data = await api('/api/v1/import/accounts');
+    _impAccounts = Array.isArray(data) ? data : [];
+  } catch { _impAccounts = []; }
+
+  const sel = document.getElementById('impAccountSel');
+  if (sel) {
+    const prev = sel.value;
+    sel.innerHTML = '<option value="">Choose account…</option>' +
+      _impAccounts.map(a =>
+        `<option value="${a.id}">${esc(a.nickname)} — ${esc(a.institution)}</option>`
+      ).join('');
+    if (prev) sel.value = prev;
+  }
+
+  const hf = document.getElementById('holdingsAcctFilter');
+  if (hf) {
+    const prev = hf.value;
+    hf.innerHTML = '<option value="">All accounts</option>' +
+      _impAccounts.filter(a => ['brokerage','tsp'].includes(a.account_type))
+        .map(a => `<option value="${a.id}">${esc(a.nickname)}</option>`).join('');
+    if (prev) hf.value = prev;
+  }
+}
+
+function impAccountChanged() {
+  const v = document.getElementById('impAccountSel').value;
+  _impSelectedAcct = v ? _impAccounts.find(a => a.id == v) : null;
+  document.getElementById('impStep2').style.display = v ? 'block' : 'none';
+  document.getElementById('impStep3').style.display = 'none';
+  document.getElementById('impStep4').style.display = 'none';
+  _impFile = null; _impPreviewData = null;
+}
+
+function impHandleDrop(e) {
+  e.preventDefault();
+  document.getElementById('impDropZone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) impFileSelected(f);
+}
+
+async function impFileSelected(file) {
+  if (!file || !_impSelectedAcct) { toast('Pick an account first', 'err'); return; }
+  _impFile = file;
+  document.getElementById('impStep3').style.display = 'block';
+  document.getElementById('impPreviewSummary').innerHTML = '<div class="spinner"><div class="spin"></div>Parsing…</div>';
+  document.getElementById('impPreviewTable').innerHTML = '';
+  document.getElementById('impPreviewPositions').innerHTML = '';
+
+  const fd = new FormData();
+  fd.append('file', file);
+  fd.append('account_id', _impSelectedAcct.id);
+  try {
+    const h = {};
+    if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const res = await fetch('/api/v1/import/preview', { method:'POST', headers:h, body:fd });
+    _impPreviewData = await res.json();
+    if (_impPreviewData.error) throw new Error(_impPreviewData.error);
+    renderImpPreview(_impPreviewData);
+  } catch(e) {
+    document.getElementById('impPreviewSummary').innerHTML =
+      `<div style="color:var(--red);font-size:13px">⚠ ${esc(e.message)}</div>`;
+  }
+}
+
+function renderImpPreview(d) {
+  const newR = d.newRows || 0;
+  const dupe = d.duplicates || 0;
+  document.getElementById('impPreviewSummary').innerHTML = `
+    <div style="font-weight:600;color:var(--text);margin-bottom:6px">
+      ${esc(_impSelectedAcct?.nickname)} &nbsp;·&nbsp; <span style="color:var(--text3);font-weight:400">${(d.format||'').replace(/_/g,' ')}</span>
+    </div>
+    <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">
+      <span><b style="color:var(--text)">${d.totalRows}</b> rows</span>
+      <span style="color:var(--green)"><b>${newR}</b> new</span>
+      ${dupe?`<span style="color:var(--text3)"><b>${dupe}</b> dupes skipped</span>`:''}
+      ${d.positions?`<span style="color:var(--accent)"><b>${d.positions}</b> positions</span>`:''}
+      ${d.statementDate?`<span style="color:var(--text3)">Date: <b>${d.statementDate}</b></span>`:''}
+    </div>`;
+
+  const rows = d.preview||[];
+  if (rows.length) {
+    document.getElementById('impPreviewTable').innerHTML =
+      `<div style="font-size:11px;color:var(--text3);margin:6px 0 3px">Preview (first ${rows.length}):</div>
+      <table class="imp-preview-table"><thead>
+        <tr><th>Date</th><th>Description</th><th>Amount</th><th>Dupe?</th></tr>
+      </thead><tbody>${rows.map(r=>`
+        <tr style="${r.isDuplicate?'opacity:.35':''}">
+          <td style="font-family:var(--mono)">${r.date||''}</td>
+          <td>${esc(r.description||'')}</td>
+          <td style="font-family:var(--mono);color:${(r.amount||0)<0?'var(--red)':'var(--green)'}">${fmtAmt(r.amount)}</td>
+          <td>${r.isDuplicate?'⚠':'—'}</td>
+        </tr>`).join('')}</tbody></table>`;
+  }
+
+  const pos = d.previewPositions||[];
+  if (pos.length) {
+    document.getElementById('impPreviewPositions').innerHTML =
+      `<div style="font-size:11px;color:var(--text3);margin:8px 0 3px">Holdings:</div>
+      <table class="imp-preview-table"><thead>
+        <tr><th>Symbol</th><th>Name</th><th>Shares</th><th>Price</th><th>Value</th></tr>
+      </thead><tbody>${pos.map(p=>`
+        <tr>
+          <td style="font-family:var(--mono);font-weight:700">${esc(p.symbol)}</td>
+          <td>${esc(p.name||'')}</td>
+          <td style="font-family:var(--mono)">${p.shares!=null?p.shares.toFixed(4):''}</td>
+          <td style="font-family:var(--mono)">${p.price!=null?fmt$(p.price):''}</td>
+          <td style="font-family:var(--mono);color:var(--green)">${p.marketValue!=null?fmt$(p.marketValue):''}</td>
+        </tr>`).join('')}</tbody></table>`;
+  }
+}
+
+async function impConfirm() {
+  if (!_impFile || !_impSelectedAcct) return;
+  const btn = document.getElementById('impConfirmBtn');
+  btn.textContent = 'Importing…'; btn.disabled = true;
+  const fd = new FormData();
+  fd.append('file', _impFile);
+  fd.append('account_id', _impSelectedAcct.id);
+  try {
+    const h = {};
+    if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const res = await fetch('/api/v1/import/confirm', { method:'POST', headers:h, body:fd });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error);
+    document.getElementById('impStep3').style.display = 'none';
+    document.getElementById('impStep4').style.display = 'block';
+    document.getElementById('impResultBox').innerHTML = `
+      <div class="imp-count">${d.inserted}</div>
+      <div style="color:var(--text2);font-size:13px;margin:4px 0 12px">transactions imported</div>
+      <div style="display:flex;gap:12px;justify-content:center;font-size:12px;color:var(--text3);flex-wrap:wrap">
+        ${d.skipped?`<span>⏭ ${d.skipped} skipped</span>`:''}
+        ${d.flagged?`<span style="color:#f59e0b">⚠ ${d.flagged} flagged</span>`:''}
+        ${d.positions?`<span style="color:var(--accent)">📊 ${d.positions} positions</span>`:''}
+      </div>`;
+    toast(`✓ ${d.inserted} transactions imported`);
+    loadImpMissingAlerts();
+  } catch(e) { toast('Import failed: '+e.message,'err'); }
+  finally { btn.textContent='✓ Import'; btn.disabled=false; }
+}
+
+function impReset() {
+  document.getElementById('impStep2').style.display = _impSelectedAcct?'block':'none';
+  document.getElementById('impStep3').style.display = 'none';
+  document.getElementById('impStep4').style.display = 'none';
+  if (document.getElementById('impFileInput')) document.getElementById('impFileInput').value = '';
+  _impFile = null; _impPreviewData = null;
+  loadImpMissingAlerts();
+}
+
+async function loadImpMissingAlerts() {
+  try {
+    const missing = await api('/api/v1/import/missing-statements');
+    const el = document.getElementById('impMissingAlerts');
+    if (!el) return;
+    if (!missing.length) { el.innerHTML=''; return; }
+    el.innerHTML = missing.slice(0,5).map(m=>`
+      <div class="missing-alert">
+        <span>📅</span>
+        <span style="flex:1">Missing: <b>${esc(m.nickname)}</b> — ${esc(m.month_label)}</span>
+        <a onclick="document.getElementById('impAccountSel').value=${m.account_id};impAccountChanged()">Import now →</a>
+      </div>`).join('');
+  } catch {}
+}
+
+async function loadImpAccounts() {
+  try {
+    const accounts = await api('/api/v1/import/accounts');
+    _impAccounts = accounts;
+    const el = document.getElementById('impAcctList');
+    if (!el) return;
+    if (!accounts.length) {
+      el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:32px">No accounts yet.</div>';
+      return;
+    }
+    const typeColors = {checking:'#22c55e',savings:'#14b8a6',brokerage:'#5c72fa',credit_card:'#ef4444',tsp:'#f59e0b',other:'#8fa3bf'};
+    el.innerHTML = accounts.map(a=>`
+      <div class="acct-card" onclick="openAcctDrawer(${a.id})">
+        <span class="acct-badge" style="background:${typeColors[a.account_type]||'#8fa3bf'}22;color:${typeColors[a.account_type]||'#8fa3bf'}">${a.account_type.replace('_',' ')}</span>
+        <div style="flex:1">
+          <div style="font-weight:600;font-size:13px;color:var(--text)">${esc(a.nickname)}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(a.institution)}${a.last_four?' ···'+a.last_four:''}${a.owner?' · '+esc(a.owner):''}</div>
+        </div>
+        <div style="text-align:right;font-size:11px;color:var(--text3)">
+          ${a.import_count||0} import${a.import_count==1?'':'s'}<br>
+          ${a.last_statement_date?a.last_statement_date:'Never'}
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function loadImpHistory() {
+  try {
+    const rows = await api('/api/v1/import/batches');
+    const el = document.getElementById('impHistoryList');
+    if (!el) return;
+    if (!rows.length) {
+      el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:32px">No imports yet.</div>';
+      return;
+    }
+    el.innerHTML = rows.map(r=>`
+      <div class="hist-row">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span style="font-weight:600;color:var(--text)">${esc(r.nickname)}</span>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-family:var(--mono);color:var(--green)">+${r.rows_inserted||0}</span>
+            ${r.rows_skipped?`<span style="color:var(--text3);font-size:11px">⏭${r.rows_skipped}</span>`:''}
+            ${r.rows_flagged?`<span style="color:#f59e0b;font-size:11px">⚠${r.rows_flagged}</span>`:''}
+            <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--red);border-color:var(--red)" onclick="rollbackBatch(${r.id},event)">Undo</button>
+          </div>
+        </div>
+        <div style="margin-top:3px;color:var(--text3)">
+          ${esc(r.filename)} · ${(r.format||'').replace(/_/g,' ')} · ${r.statement_date||'?'} · ${new Date(r.imported_at).toLocaleDateString()}
+        </div>
+      </div>`).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function rollbackBatch(id, e) {
+  e.stopPropagation();
+  if (!await LT.confirm('Undo this import? All its transactions will be removed.')) return;
+  try {
+    await api('/api/v1/import/batches/'+id,'DELETE');
+    toast('Import rolled back');
+    loadImpHistory();
+  } catch(e) { toast('Failed: '+e.message,'err'); }
+}
+
+function openAcctDrawer(id) {
+  _editAcctId = id;
+  document.getElementById('acctDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
+  if (id) {
+    const a = _impAccounts.find(x => x.id==id);
+    if (a) {
+      document.getElementById('acctNickname').value    = a.nickname||'';
+      document.getElementById('acctInstitution').value = a.institution||'';
+      document.getElementById('acctType').value        = a.account_type||'';
+      document.getElementById('acctLastFour').value    = a.last_four||'';
+      document.getElementById('acctOwner').value       = a.owner||'';
+      document.getElementById('acctTrack').value       = a.track_statements??1;
+      document.getElementById('acctNotes').value       = a.notes||'';
+    }
+  } else {
+    ['acctNickname','acctLastFour','acctOwner','acctNotes'].forEach(i=>document.getElementById(i).value='');
+    document.getElementById('acctInstitution').value='';
+    document.getElementById('acctType').value='';
+    document.getElementById('acctTrack').value='1';
+  }
+  document.getElementById('acctDrawer').classList.add('open');
+}
+
+async function saveAcct() {
+  const nickname    = document.getElementById('acctNickname').value.trim();
+  const institution = document.getElementById('acctInstitution').value.trim();
+  const account_type= document.getElementById('acctType').value;
+  if (!nickname)     { toast('Nickname required','err'); return; }
+  if (!institution)  { toast('Institution required','err'); return; }
+  if (!account_type) { toast('Account type required','err'); return; }
+  const body = {
+    nickname, institution, account_type,
+    owner:           document.getElementById('acctOwner').value.trim()||null,
+    last_four:       document.getElementById('acctLastFour').value.trim()||null,
+    notes:           document.getElementById('acctNotes').value.trim()||null,
+    track_statements:parseInt(document.getElementById('acctTrack').value),
+  };
+  try {
+    if (_editAcctId) await api('/api/v1/import/accounts/'+_editAcctId,'PUT',body);
+    else             await api('/api/v1/import/accounts','POST',body);
+    toast(_editAcctId?'Account updated':'Account added');
+    closeDrawer('acctDrawer');
+    loadImpAccounts();
+    loadImpAccountSelect();
+  } catch(e) { toast(e.message||'Save failed','err'); }
+}
+
+async function loadHoldings() {
+  const acctId = document.getElementById('holdingsAcctFilter')?.value||'';
+  const url = '/api/v1/import/holdings'+(acctId?'?account_id='+acctId:'');
+  const data = await api(url).catch(()=>({holdings:[],summary:[]}));
+  const holdings = data.holdings||[];
+  const summary  = data.summary||[];
+
+  const totalVal  = holdings.reduce((s,h)=>s+(h.market_value||0),0);
+  const totalCost = holdings.reduce((s,h)=>s+((h.cost_basis||0)*(h.shares||0)),0);
+  const gl = totalVal - totalCost;
+
+  document.getElementById('holdTotalValue').textContent = fmt$(totalVal);
+  document.getElementById('holdTotalCost').textContent  = totalCost?fmt$(totalCost):'—';
+  document.getElementById('holdGainLoss').textContent   = totalCost?fmt$(gl):'—';
+  document.getElementById('holdGainLoss').style.color   = gl>=0?'var(--green)':'var(--red)';
+  document.getElementById('holdCount').textContent      = holdings.length;
+
+  const acctSummary = document.getElementById('holdAcctSummary');
+  if (summary.length>1) {
+    acctSummary.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0">' +
+      summary.map(s=>`
+        <div style="background:var(--bg2);border-radius:var(--r);padding:5px 10px;font-size:12px;display:flex;gap:6px;align-items:center">
+          <span style="color:var(--text2)">${esc(s.nickname)}</span>
+          <span style="font-family:var(--mono);font-weight:600;color:var(--green)">${fmt$(s.total_value||0)}</span>
+          <span style="color:var(--text3)">${s.positions}p</span>
+        </div>`).join('') + '</div>';
+  } else { acctSummary.innerHTML=''; }
+
+  const listEl = document.getElementById('holdingsList');
+  if (!holdings.length) {
+    listEl.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:40px">No holdings yet.<br>Import a brokerage or TSP statement.</div>';
+    return;
+  }
+
+  const byAcct={};
+  for (const h of holdings) {
+    if (!byAcct[h.account_id]) byAcct[h.account_id]={nickname:h.account_nickname,institution:h.institution,rows:[]};
+    byAcct[h.account_id].rows.push(h);
+  }
+
+  listEl.innerHTML = Object.values(byAcct).map(acct=>{
+    const acctTotal = acct.rows.reduce((s,h)=>s+(h.market_value||0),0);
+    return `<div style="margin-bottom:12px">
+      <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:8px 0 4px;display:flex;justify-content:space-between;border-bottom:1px solid var(--border)">
+        <span>${esc(acct.nickname)} · ${esc(acct.institution)}</span>
+        <span style="color:var(--green)">${fmt$(acctTotal)}</span>
+      </div>
+      ${acct.rows.map(h=>{
+        const cost=( h.cost_basis||0)*(h.shares||0);
+        const gl=cost?(h.market_value||0)-cost:null;
+        const glPct=cost&&gl!==null?(gl/cost*100).toFixed(1)+'%':null;
+        return `<div class="hold-row">
+          <div class="hold-sym">${esc(h.symbol)}</div>
+          <div class="hold-name">
+            <div style="font-size:10px;color:var(--text3)">${(h.asset_type||'').replace('_',' ')}</div>
+            <div>${esc(h.name||'')}</div>
+          </div>
+          <div style="text-align:right;font-size:11px;color:var(--text3);min-width:72px">
+            ${h.shares!=null?h.shares.toFixed(4)+' sh':''}<br>
+            ${h.price!=null?'@ '+fmt$(h.price):''}
+          </div>
+          <div class="hold-val" style="color:var(--green)">${h.market_value!=null?fmt$(h.market_value):'—'}</div>
+          <div class="hold-gl" style="color:${gl===null?'var(--text3)':gl>=0?'var(--green)':'var(--red)'}">
+            ${gl!==null?fmt$(gl):'—'}<br>${glPct||''}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function fmtAmt(n) {
+  if (n==null) return '—';
+  const s=Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return (n<0?'-':'+')+'$'+s;
+}
+
+// Hook into tab switching
+(function(){
+  const _orig=window.switchFinTab;
+  window.switchFinTab=function(tab,btn){
+    if(_orig) _orig(tab,btn);
+    if(tab==='import'){
+      loadImpAccountSelect();
+      loadImpMissingAlerts();
+      impSubTab('upload',document.getElementById('imp-sub-upload'));
+    }
+    if(tab==='holdings'){
+      loadImpAccountSelect();
+      loadHoldings();
+    }
+  };
+})();
+</script>
+
+</body>
+</html>

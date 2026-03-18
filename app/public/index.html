@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Home — Ghrava</title>
+  <meta name="theme-color" content="#f0f4f8">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+  <script>
+    // Shared header config — nav.js reads this before injecting the header
+    window.GH_PAGE = {
+      module:   'home',
+      title:    'Ghrava',
+      noBack:   true,   // home page — no back button
+      // Dashboard gets a custom header via headerExtra (greeting), not the standard title bar
+      noHeader: true,
+    };
+  </script>
+  <style>
+    /* ── Dashboard-specific overrides ───────────────────────── */
+    .dash-header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg2);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .dash-header-row {
+      display: flex; align-items: center;
+      padding: 10px 16px; gap: 10px; min-height: 54px;
+    }
+    .dash-logo {
+      width: 32px; height: 32px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dash-logo svg { width: 100%; height: 100%; color: var(--accent); }
+    .dash-header-title {
+      font-size: 17px; font-weight: 800;
+      letter-spacing: -.02em; flex: 1; color: var(--text);
+    }
+    .dash-header-actions { display: flex; gap: 6px; }
+    /* Hide the custom dash-header on desktop — sidebar has logo there */
+    @media (min-width: 900px) {
+      .dash-header { display: none; }
+    }
+
+    /* Skeleton shimmer */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position:  400px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 6px;
+    }
+
+    /* Log entry widget body */
+    .log-entry-text {
+      font-size: 12px; color: var(--text2);
+      line-height: 1.5; margin-top: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    /* Family avatars */
+    .family-strip {
+      display: flex; gap: 8px; padding: 4px 16px 0;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .family-strip::-webkit-scrollbar { display: none; }
+    .family-avatar {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 5px; flex-shrink: 0; cursor: default;
+    }
+    .family-avatar-circle {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: var(--bg3); border: 2px solid var(--border2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      font-family: var(--mono);
+    }
+    .family-avatar-name {
+      font-size: 10px; color: var(--text3); font-weight: 500;
+      text-align: center; max-width: 48px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    /* Placeholder tile tooltip */
+    .module-tile.placeholder:active::after {
+      content: 'Coming soon';
+      position: absolute; bottom: -28px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg4); border: 1px solid var(--border2);
+      border-radius: 6px; padding: 3px 8px;
+      font-size: 10px; color: var(--text2);
+      white-space: nowrap; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Custom dashboard header (logo + notif + gear) ──────── -->
+  <header class="dash-header">
+    <div class="dash-header-row">
+      <button class="gh-hamburger" aria-label="Menu" onclick="window.GH_NAV && GH_NAV.toggleSidebar()" style="flex-shrink:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="dash-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+          <path d="M50 10 L90 44 L90 90 L10 90 L10 44 Z" stroke="currentColor" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+          <path d="M10 44 L50 10 L90 44" stroke="currentColor" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+          <g transform="translate(50,61)">
+            <path d="M0,-19 C-9,-19 -21,-14 -22,-4 C-23,6 -15,15 -6,17 C-3,18 0,17 0,17 C3,18 6,17 6,17 C15,15 23,6 22,-4 C21,-14 9,-19 0,-19Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/>
+            <line x1="0" y1="-19" x2="0" y2="17" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M-14,-8 C-18,-2 -16,7 -10,11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+            <path d="M14,-8 C18,-2 16,7 10,11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+          </g>
+        </svg>
+      </div>
+      <div class="dash-header-title">Ghrava</div>
+      <div class="dash-header-actions">
+        <button class="gh-icon-btn" id="notifBtn" aria-label="Notifications" onclick="GH_NAV && GH_NAV.toggleNotif()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="gh-notif-badge" style="display:none">0</span>
+        </button>
+        <a href="/settings.html" class="gh-icon-btn" aria-label="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Greeting ────────────────────────────────────────────── -->
+  <div class="dash-greeting">
+    <div class="dash-greeting-date" id="greetDate">—</div>
+    <div class="dash-greeting-name" id="greetName">Loading…</div>
+  </div>
+
+  <!-- ── Family strip ────────────────────────────────────────── -->
+  <div class="family-strip" id="familyStrip"></div>
+
+  <!-- ── Widgets ─────────────────────────────────────────────── -->
+  <div class="widget-grid" id="widgetGrid">
+    <!-- Skeletons while loading -->
+    <div class="widget" style="min-height:96px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+    <div class="widget" style="min-height:96px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+    <div class="widget widget-wide" style="min-height:80px"><div class="skeleton" style="height:14px;width:40%;margin-bottom:8px"></div><div class="skeleton" style="height:12px;width:80%"></div></div>
+  </div>
+
+  <!-- ── All modules ─────────────────────────────────────────── -->
+  <div class="module-section-title">All Modules</div>
+  <div class="module-grid" id="moduleGrid"></div>
+
+</div><!-- #app -->
+
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script>
+(function() {
+  // ── Date/greeting ───────────────────────────────────────────
+  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function greetTime() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  function formatDate(d) {
+    return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+
+  function fmt$(n) {
+    if (n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+    if (n >= 1000)    return '$' + (n/1000).toFixed(1) + 'k';
+    return '$' + Math.round(n).toLocaleString();
+  }
+
+  const now = new Date();
+  document.getElementById('greetDate').textContent = formatDate(now);
+  document.getElementById('greetName').innerHTML = `${greetTime()}, <span>welcome</span>`;
+
+  // ── Module grid ─────────────────────────────────────────────
+  const MODULE_ORDER = [
+    'dailylog','inventory','todos','medical','finance','resources',
+    'property','kids','documents','reports'
+  ];
+
+  function buildModuleGrid() {
+    const grid = document.getElementById('moduleGrid');
+    if (!grid) return;
+    if (!window.GH_NAV) {
+      // GH_NAV not ready yet — retry after a tick
+      setTimeout(buildModuleGrid, 50);
+      return;
+    }
+    const mods = GH_NAV.MODULES;
+    grid.innerHTML = MODULE_ORDER.map(key => {
+      const m = mods[key];
+      if (!m) return '';
+      const isPlaceholder = m.placeholder;
+      const href = isPlaceholder ? null : m.href;
+      const tag  = href ? 'a' : 'div';
+      const hrefAttr = href ? `href="${href}"` : '';
+      return `<${tag} ${hrefAttr} class="module-tile${isPlaceholder?' placeholder':''}"
+               ${isPlaceholder ? 'title="Coming soon"' : ''}
+               data-key="${key}">
+        <div class="module-tile-icon" style="background:${m.bg};color:${m.color}">
+          ${GH_NAV.SVG[m.svgKey] ? `<span style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:${m.color}">${GH_NAV.SVG[m.svgKey]}</span>` : ''}
+        </div>
+        <div class="module-tile-label">${m.label}</div>
+      </${tag}>`;
+    }).join('');
+  }
+
+  // ── Load dashboard data ─────────────────────────────────────
+  async function loadDashboard() {
+    try {
+      const data = await fetch('/api/v1/dashboard').then(r => r.json());
+
+      // Greeting with primary user name
+      const primaryUser = (data.family || []).find(f => f.is_primary_user) || data.family?.[0];
+      if (primaryUser) {
+        document.getElementById('greetName').innerHTML =
+          `${greetTime()}, <span>${primaryUser.display_name.split(' ')[0]}</span>`;
+      } else {
+        document.getElementById('greetName').innerHTML =
+          `${greetTime()}`;
+      }
+
+      // Family strip
+      buildFamilyStrip(data.family || []);
+
+      // Widgets
+      buildWidgets(data);
+
+    } catch (e) {
+      console.error('Dashboard load error:', e);
+      document.getElementById('greetName').textContent = greetTime();
+      buildWidgets(null);
+    }
+  }
+
+  function buildFamilyStrip(family) {
+    const strip = document.getElementById('familyStrip');
+    if (!strip || !family.length) return;
+    strip.innerHTML = family.map(f => {
+      const initials = f.display_name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      return `<div class="family-avatar">
+        <div class="family-avatar-circle">${initials}</div>
+        <div class="family-avatar-name">${f.display_name.split(' ')[0]}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function buildWidgets(d) {
+    const grid = document.getElementById('widgetGrid');
+    if (!grid) return;
+
+    const inv   = d?.inventory      || {};
+    const hsa   = d?.hsa            || {};
+    const log   = d?.daily_log      || {};
+    const med   = d?.medical        || {};
+    const tod   = d?.todos          || {};
+    const gc    = d?.gift_cards     || {};
+    const nw    = d?.net_worth      || {};
+    const certs = d?.certifications || {};
+    const books = d?.books          || {};
+    const prop  = d?.property       || {};
+    const kids  = d?.kids           || {};
+
+    const invAlert  = inv.expired > 0   ? 'overdue' : inv.expiring_soon > 0   ? 'pending' : 'ok';
+    const certAlert = certs.expired > 0 ? 'overdue' : certs.expiring_soon > 0 ? 'pending' : 'ok';
+    const gcAlert   = gc.expiring_soon > 0 ? 'pending' : 'ok';
+    const nwVal     = nw.net_worth ?? null;
+    const nwFmt     = nwVal !== null ? fmt$(Math.abs(nwVal)) : '\u2014';
+    const nwColor   = nwVal === null ? 'var(--text)' : nwVal >= 0 ? '#22c55e' : '#ef4444';
+
+    // Load upcoming calendar events (non-blocking)
+    let calEvts = [];
+    fetch('/api/v1/google/events/upcoming?days=7').then(r=>r.ok?r.json():[]).then(evts => {
+      calEvts = evts;
+      if (evts.length) buildWidgets(d); // re-render if we got events
+    }).catch(()=>{});
+
+    grid.innerHTML = `
+      <a href="/inventory.html" class="widget" style="--w-accent:#f59e0b">
+        <div class="widget-icon-wrap" style="background:rgba(245,158,11,.12);color:#f59e0b">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+        </div>
+        <div class="widget-label">Inventory</div>
+        <div class="widget-value" style="color:#f59e0b">${d ? inv.items ?? '\u2014' : '\u2014'}</div>
+        <div class="widget-sub">${d ? fmt$(inv.est_value||0) + ' est. value' : 'Loading\u2026'}</div>
+        ${d && (inv.expired > 0 || inv.expiring_soon > 0) ? `<div class="widget-alert-row"><span class="status-badge ${invAlert}">${inv.expired > 0 ? inv.expired + ' expired' : inv.expiring_soon + ' expiring'}</span></div>` : ''}
+      </a>
+
+      <a href="/todos.html" class="widget" style="--w-accent:#a78bfa">
+        <div class="widget-icon-wrap" style="background:rgba(167,139,250,.12);color:#a78bfa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+        </div>
+        <div class="widget-label">To Do</div>
+        <div class="widget-value" style="color:${tod.urgent_count > 0 ? '#ef4444' : '#a78bfa'}">${d ? (tod.open_count ?? '\u2014') : '\u2014'}</div>
+        <div class="widget-sub">${d ? tod.due_today + ' today \u00b7 ' + (tod.overdue_count||0) + ' overdue' : 'Loading\u2026'}</div>
+        ${d && tod.urgent_count > 0 ? `<div class="widget-alert-row"><span class="status-badge overdue">${tod.urgent_count} urgent</span></div>` : d && tod.overdue_count > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${tod.overdue_count} overdue</span></div>` : ''}
+      </a>
+
+      <a href="/finance.html" class="widget" style="--w-accent:#22c55e">
+        <div class="widget-icon-wrap" style="background:rgba(34,197,94,.12);color:#22c55e">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        </div>
+        <div class="widget-label">HSA Pool</div>
+        <div class="widget-value" style="color:${hsa.unreimbursed_pool > 0 ? '#22c55e' : 'var(--text)'}">${d ? fmt$(hsa.unreimbursed_pool||0) : '\u2014'}</div>
+        <div class="widget-sub">${d ? 'Unreimbursed ' + (new Date().getFullYear()) : 'Loading\u2026'}</div>
+        ${d && hsa.missing_receipts > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${hsa.missing_receipts} no receipt</span></div>` : ''}
+      </a>
+
+      <a href="/medical.html" class="widget" style="--w-accent:#14b8a6">
+        <div class="widget-icon-wrap" style="background:rgba(20,184,166,.12);color:#14b8a6">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        </div>
+        <div class="widget-label">Medical</div>
+        <div class="widget-value" style="color:#14b8a6">${d ? med.medications ?? '\u2014' : '\u2014'}</div>
+        <div class="widget-sub">${d ? med.conditions + ' conditions \u00b7 ' + med.physicians + ' doctors' : 'Loading\u2026'}</div>
+      </a>
+
+      <a href="/finance.html" class="widget" style="--w-accent:#5c72fa">
+        <div class="widget-icon-wrap" style="background:rgba(92,114,250,.12);color:#5c72fa">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+        </div>
+        <div class="widget-label">Net Worth</div>
+        <div class="widget-value" style="color:${nwColor}">${d ? (nwVal !== null ? (nwVal < 0 ? '-' : '') + nwFmt : '\u2014') : '\u2014'}</div>
+        <div class="widget-sub">${d && nw.assets !== undefined ? fmt$(nw.assets||0) + ' assets' : 'No accounts yet'}</div>
+      </a>
+
+      <a href="/finance.html" class="widget" style="--w-accent:#f97316">
+        <div class="widget-icon-wrap" style="background:rgba(249,115,22,.12);color:#f97316">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+        </div>
+        <div class="widget-label">Gift Cards</div>
+        <div class="widget-value" style="color:#f97316">${d && gc.total_balance !== undefined ? fmt$(gc.total_balance) : '\u2014'}</div>
+        <div class="widget-sub">${d && gc.count !== undefined ? gc.count + ' card' + (gc.count !== 1 ? 's' : '') : 'Loading\u2026'}</div>
+        ${d && gc.expiring_soon > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${gc.expiring_soon} expiring</span></div>` : ''}
+      </a>
+
+      <a href="/career.html" class="widget" style="--w-accent:#f97316">
+        <div class="widget-icon-wrap" style="background:rgba(249,115,22,.12);color:#f97316">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
+        </div>
+        <div class="widget-label">Career</div>
+        <div class="widget-value" style="color:${certs.expired > 0 ? '#ef4444' : '#f97316'}">${d && certs.total !== undefined ? certs.total : '\u2014'}</div>
+        <div class="widget-sub">${d ? 'certifications' : 'Loading\u2026'}</div>
+        ${d && (certs.expiring_soon > 0 || certs.expired > 0) ? `<div class="widget-alert-row"><span class="status-badge ${certAlert}">${certs.expired > 0 ? certs.expired + ' expired' : certs.expiring_soon + ' renew soon'}</span></div>` : ''}
+      </a>
+
+      <a href="/books.html" class="widget" style="--w-accent:#8b5cf6">
+        <div class="widget-icon-wrap" style="background:rgba(139,92,246,.12);color:#8b5cf6">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+        </div>
+        <div class="widget-label">Books</div>
+        <div class="widget-value" style="color:#8b5cf6">${d && books.reading !== undefined ? books.reading : '\u2014'}</div>
+        <div class="widget-sub">${d && books.read_count !== undefined ? 'reading \u00b7 ' + books.read_count + ' read' : 'Loading\u2026'}</div>
+      </a>
+
+      <a href="/kids.html" class="widget" style="--w-accent:#ec4899">
+        <div class="widget-icon-wrap" style="background:rgba(236,72,153,.12);color:#ec4899">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+        </div>
+        <div class="widget-label">Kids</div>
+        <div class="widget-value" style="color:#ec4899">${d && kids.count !== undefined ? kids.count : '\u2014'}</div>
+        <div class="widget-sub">${d && kids.active_activities !== undefined ? kids.active_activities + ' active activit' + (kids.active_activities!==1?'ies':'y') : 'Loading\u2026'}</div>
+      </a>
+
+      <a href="/property.html" class="widget" style="--w-accent:#ef4444">
+        <div class="widget-icon-wrap" style="background:rgba(239,68,68,.12);color:#ef4444">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+        </div>
+        <div class="widget-label">Property</div>
+        <div class="widget-value" style="color:#ef4444">${d && prop.properties !== undefined ? prop.properties + 'p / ' + (prop.vehicles||0) + 'v' : '\u2014'}</div>
+        <div class="widget-sub">${d && prop.total_est_value !== undefined ? fmt$(prop.total_est_value) + ' est. value' : 'Loading\u2026'}</div>
+        ${d && prop.vehicle_alerts > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${prop.vehicle_alerts} reg/insp alert${prop.vehicle_alerts!==1?'s':''}</span></div>` : ''}
+      </a>
+
+      <a href="/daily-log.html" class="widget widget-wide" style="--w-accent:#5c72fa">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div class="widget-icon-wrap" style="background:rgba(92,114,250,.12);color:#5c72fa;flex-shrink:0;margin-bottom:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="widget-label">Latest Log Entry</div>
+            ${d && log.recent ? `
+              <div class="log-entry-text">${escHtml(log.recent.entry_text || '')}</div>
+              <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${log.recent.log_date||''}</span>
+                ${log.recent.follow_up_needed ? '<span class=\"status-badge pending\">Follow-up</span>' : ''}
+                ${log.follow_ups_overdue > 0 ? `<span class="status-badge overdue">${log.follow_ups_overdue} overdue</span>` : ''}
+              </div>
+            ` : d ? '<div class=\"widget-sub\">No entries yet</div>' : '<div class=\"widget-sub\">Loading\u2026</div>'}
+          </div>
+        </div>
+      </a>
+      ${calEvts.length ? `
+      <a href="/calendar.html" class="widget widget-wide" style="--w-accent:#06b6d4">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div class="widget-icon-wrap" style="background:rgba(6,182,212,.12);color:#06b6d4;flex-shrink:0;margin-bottom:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div class="widget-label">Upcoming Events</div>
+            ${calEvts.slice(0,3).map(e => {
+              const dt = new Date(e.start_datetime);
+              const isAllDay = !!e.all_day;
+              const dateStr = isAllDay ? new Date(e.start_datetime+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+              const timeStr = isAllDay ? '' : ' · ' + dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+              return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:5px"><div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + escHtml(e.title) + '</div><div style="font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0">' + dateStr + timeStr + '</div></div>';
+            }).join('')}
+          </div>
+        </div>
+      </a>` : ''}
+      <div id="attentionWidget" class="widget widget-wide" style="--w-accent:#ef4444;display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div class="widget-icon-wrap" style="background:rgba(239,68,68,.12);color:#ef4444;margin-bottom:0;flex-shrink:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="widget-label" style="margin-bottom:0">Needs Attention</div>
+          <span id="attentionCount" class="status-badge overdue" style="margin-left:auto;font-size:11px"></span>
+        </div>
+        <div id="attentionList"></div>
+      </div>
+      <div id="reviewWidget" class="widget widget-wide" style="--w-accent:#f59e0b;display:none">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <div class="widget-icon-wrap" style="background:rgba(245,158,11,.12);color:#f59e0b;margin-bottom:0;flex-shrink:0">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          </div>
+          <div class="widget-label" style="margin-bottom:0">Data Needs Review</div>
+          <span id="reviewCount" class="status-badge" style="margin-left:auto;font-size:11px;background:rgba(245,158,11,.15);color:#f59e0b"></span>
+        </div>
+        <div id="reviewList"></div>
+        <a href="settings.html" style="display:block;margin-top:8px;font-size:12px;color:var(--accent);text-decoration:none">
+          View details in Settings → Data Review →
+        </a>
+      </div>
+    `;
+
+    // Load attention items async — shown only if there are any
+    loadAttention();
+    loadReviewCard();
+  }
+
+  async function loadAttention() {
+    try {
+      const r = await fetch('/api/v1/dashboard/attention');
+      if (!r.ok) return;
+      const data = await r.json();
+      const items = data.items || [];
+      if (!items.length) return;
+
+      const widget = document.getElementById('attentionWidget');
+      const list   = document.getElementById('attentionList');
+      const count  = document.getElementById('attentionCount');
+      if (!widget || !list || !count) return;
+
+      const sevColor = { critical:'var(--red)', overdue:'var(--red)', warning:'var(--amber)' };
+      const sevIcon  = { critical:'🚨', overdue:'⚠️', warning:'🔔' };
+      const modLabel = {
+        todos:'To Do', daily_log:'Daily Log', gift_cards:'Gift Cards',
+        hsa:'HSA', career:'Career', property:'Property',
+      };
+
+      count.textContent = items.length + ' item' + (items.length !== 1 ? 's' : '');
+
+      list.innerHTML = items.slice(0,8).map(item => `
+        <a href="${item.href||'#'}" style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;
+          border-top:1px solid var(--border);text-decoration:none;transition:opacity .12s"
+          onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
+          <span style="font-size:14px;flex-shrink:0;margin-top:1px">${sevIcon[item.severity]||'⚠️'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${escHtml(item.label)}</div>
+            <div style="font-size:12px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(item.detail||'')}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${sevColor[item.severity]||'var(--amber)'}">
+              ${modLabel[item.module]||item.module}
+            </div>
+            ${item.date ? `<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${item.date}</div>` : ''}
+          </div>
+        </a>`).join('');
+
+      widget.style.display = 'block';
+    } catch(e) {}
+  }
+
+  async function loadReviewCard() {
+    try {
+      const d = await fetch('/api/v1/settings/review/summary').then(r => r.json());
+      if (!d.total) return;
+      const widget = document.getElementById('reviewWidget');
+      const list   = document.getElementById('reviewList');
+      const count  = document.getElementById('reviewCount');
+      if (!widget || !list || !count) return;
+      count.textContent = d.total + ' record' + (d.total !== 1 ? 's' : '');
+      list.innerHTML = d.modules.slice(0,5).map(m =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px;color:var(--text2)">${escHtml(m.label)}</span>
+          <span style="font-size:12px;color:var(--amber);font-weight:600">${m.count}</span>
+        </div>`
+      ).join('');
+      widget.style.display = 'block';
+    } catch(e) {}
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Init ────────────────────────────────────────────────────
+  setTimeout(buildModuleGrid, 0);
+  loadDashboard();
+
+})();
+</script>
+</body>
+</html>

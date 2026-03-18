@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f0f4f8">
+<title>Daily Log — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+:root { --tab-color: #5c72fa; }
+    /* ── Entry cards ─────────────────────────────────────────── */
+  /* ── Category color system — consistent across all modules ── */
+  :root {
+    --cat-general-c:    #64748b; --cat-general-bg:    rgba(100,116,139,.12);
+    --cat-investment-c: #6366f1; --cat-investment-bg: rgba(99,102,241,.12);
+    --cat-career-c:     #f97316; --cat-career-bg:     rgba(249,115,22,.12);
+    --cat-finance-c:    #22c55e; --cat-finance-bg:    rgba(34,197,94,.12);
+    --cat-health-c:     #14b8a6; --cat-health-bg:     rgba(20,184,166,.12);
+    --cat-home-c:       #3b82f6; --cat-home-bg:       rgba(59,130,246,.12);
+    --cat-car-c:        #f59e0b; --cat-car-bg:        rgba(245,158,11,.12);
+    --cat-family-c:     #ec4899; --cat-family-bg:     rgba(236,72,153,.12);
+    --cat-medical-c:    #ef4444; --cat-medical-bg:    rgba(239,68,68,.12);
+    --cat-estate-c:     #8b5cf6; --cat-estate-bg:     rgba(139,92,246,.12);
+  }
+
+  /* ── Entry grid — 2 columns ─────────────────────────────── */
+  .entries-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    padding: 0 16px 100px;
+  }
+  @media (max-width: 700px) { .entries-grid { grid-template-columns: 1fr; } }
+
+  /* Date section header spans full grid */
+  .entries-date-header {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--text3);
+    padding: 10px 0 4px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 2px;
+  }
+
+  /* ── Entry card ─────────────────────────────────────────── */
+  .entry-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--entry-cat-color, var(--border2));
+    border-radius: var(--r-lg);
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+  .entry-card:hover {
+    box-shadow: 0 3px 12px rgba(0,0,0,.08);
+    transform: translateY(-1px);
+    border-color: var(--border2);
+    border-left-color: var(--entry-cat-color, var(--accent));
+  }
+  .entry-card.overdue-card  { border-left-color: var(--red) !important; }
+  .entry-card.followup-card { border-left-color: var(--amber) !important; }
+
+  /* ── Category pill (colored background + text) ───────────── */
+  .entry-cat {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 9px;
+    border-radius: 99px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    align-self: flex-start;
+  }
+
+  /* ── Card text ───────────────────────────────────────────── */
+  .entry-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .entry-preview {
+    font-size: 12px;
+    color: var(--text3);
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ── Meta icon row ───────────────────────────────────────── */
+  .entry-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+  }
+  .entry-meta-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    color: var(--text3);
+  }
+  .entry-meta-item.is-overdue { color: var(--red);   font-weight: 600; }
+  .entry-meta-item.is-followup { color: var(--amber); font-weight: 600; }
+
+  /* ── Category color map ─────────────────────────────────── */
+  .cat-General    { background: var(--cat-general-bg);    color: var(--cat-general-c); }
+  .cat-Investment { background: var(--cat-investment-bg); color: var(--cat-investment-c); }
+  .cat-Career     { background: var(--cat-career-bg);     color: var(--cat-career-c); }
+  .cat-Finance    { background: var(--cat-finance-bg);    color: var(--cat-finance-c); }
+  .cat-Health     { background: var(--cat-health-bg);     color: var(--cat-health-c); }
+  .cat-Home       { background: var(--cat-home-bg);       color: var(--cat-home-c); }
+  .cat-Car        { background: var(--cat-car-bg);        color: var(--cat-car-c); }
+  .cat-Family     { background: var(--cat-family-bg);     color: var(--cat-family-c); }
+  .cat-Medical    { background: var(--cat-medical-bg);    color: var(--cat-medical-c); }
+  .cat-Estate     { background: var(--cat-estate-bg);     color: var(--cat-estate-c); }
+
+  /* ── Detail view ─────────────────────────────────────────── */
+  .detail-text {
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    padding: 14px;
+    margin-bottom: 14px;
+  }
+
+  .detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .detail-date {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  /* ── Header controls row ─────────────────────────────────── */
+  .header-controls {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+    align-items: center;
+  }
+
+  .search-wrap { flex: 1; margin-top: 0; }
+
+  .icon-btn {
+    width: 38px; height: 38px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--r);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--text3);
+    transition: all 0.15s;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .icon-btn:hover { border-color: var(--border2); color: var(--text); }
+  .icon-btn.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+  .icon-btn svg { width: 16px; height: 16px; }
+
+  .entry-count-badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    padding: 2px 10px;
+    border-radius: 20px;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body class="module-dailylog">
+<div id="app">
+  <!-- Header -->
+  <!-- Search + controls moved below gh-page-header -->
+  <div style="padding:8px 16px 0;display:flex;align-items:center;gap:8px">
+    <div class="search-wrap" style="flex:1;margin-top:0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" id="searchInput" type="search" placeholder="Search entries…" autocomplete="off">
+    </div>
+    <button class="icon-btn" id="followupBtn" title="Show follow-ups">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    </button>
+    <span class="entry-count-badge" id="entryCount" style="flex-shrink:0">—</span>
+  </div>
+
+  <!-- Finance-style tab bar for categories -->
+  <div class="view-tabs" id="catScroll" style="margin:8px 16px 0">
+    <button class="view-tab active" data-cat="">All</button>
+    <button class="view-tab" data-cat="General">General</button>
+    <button class="view-tab" data-cat="Investment">Investment</button>
+    <button class="view-tab" data-cat="Career">Career</button>
+    <button class="view-tab" data-cat="Finance">Finance</button>
+    <button class="view-tab" data-cat="Health">Health</button>
+    <button class="view-tab" data-cat="Home">Home</button>
+    <button class="view-tab" data-cat="Family">Family</button>
+    <button class="view-tab" data-cat="Medical">Medical</button>
+    <button class="view-tab" data-cat="Car">Car</button>
+    <button class="view-tab" data-cat="Estate">Estate</button>
+  </div>
+
+  <!-- Entry list -->
+  <div id="entriesList">
+    <div class="spinner"><div class="spin"></div>Loading…</div>
+  </div>
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" title="Add entry">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- Add/Edit Drawer -->
+<div class="drawer-overlay" id="formDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="formTitle">New Entry</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Date <span class="req">*</span></label>
+        <input class="form-input" type="date" id="fDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="fCategory"></select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Entry <span class="req">*</span></label>
+      <textarea class="form-textarea" id="fText" style="min-height:130px"
+        placeholder="What happened, what you decided, what to remember…"></textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="dlTagsWrap" onclick="document.getElementById('dlTagInput').focus()">
+        <input class="tags-text-input" id="dlTagInput" placeholder="Type tag, Enter to add…" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">⏰ Follow-up needed</span>
+      <label class="toggle">
+        <input type="checkbox" id="fFollowup">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div id="followupDateWrap" style="display:none;margin-top:10px">
+      <div class="form-group" style="margin-bottom:0">
+        <label class="form-label">Follow-up date</label>
+        <input class="form-input" type="date" id="fFollowupDate">
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="formCancel">Cancel</button>
+      <button class="btn btn-primary" id="formSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Drawer -->
+<div class="drawer-overlay" id="detailDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="detail-meta" id="detailMeta"></div>
+    <div id="detailFollowup" style="display:none;margin-bottom:12px">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span class="badge badge-amber" id="detailFollowupBadge">⏰ Follow-up: <span id="detailFollowupDate"></span></span>
+        <button onclick="markFollowupDone()" style="font-size:11px;padding:2px 8px;border-radius:4px;background:var(--bg2);border:1px solid var(--border);color:var(--text2);cursor:pointer">✓ Done</button>
+      </div>
+    </div>
+    <div class="detail-text" id="detailText"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="detailClose">Close</button>
+      <button class="btn btn-ghost" id="detailEdit">Edit</button>
+      <button class="btn btn-danger" id="detailDelete">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm -->
+<script>
+  window.GH_PAGE = {
+    module: 'dailylog',
+    title:  'Daily Log',
+    headerExtra: `
+      <div style="padding:0 16px 10px" id="ghSearchSlot"></div>
+    `,
+  };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script>
+const API = '/api/v1/daily-log';
+let entries = [], total = 0, editingId = null, deletingId = null;
+let filterCat = '', filterSearch = '', filterFollowup = false;
+let searchTimer;
+let dlFormTags = []; // tags on current log entry form
+
+function today() { return new Date().toISOString().slice(0,10); }
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const t = today(), yest = new Date(); yest.setDate(yest.getDate()-1);
+  if (iso === t) return 'Today';
+  if (iso === yest.toISOString().slice(0,10)) return 'Yesterday';
+  return new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
+}
+
+function fmtTime(dt) {
+  if (!dt) return '';
+  return new Date(dt).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
+}
+
+async function load() {
+  const p = new URLSearchParams({limit:200,offset:0});
+  if (filterSearch) p.set('search', filterSearch);
+  if (filterCat)    p.set('category', filterCat);
+  if (filterFollowup) p.set('follow_up','1');
+  const res = await fetch(`${API}?${p}`);
+  const data = await res.json();
+  entries = data.entries || [];
+  total   = data.total   || 0;
+  render();
+}
+
+// Category → CSS var color mapping
+const CAT_COLOR = {
+  General:    'var(--cat-general-c)',
+  Investment: 'var(--cat-investment-c)',
+  Career:     'var(--cat-career-c)',
+  Finance:    'var(--cat-finance-c)',
+  Health:     'var(--cat-health-c)',
+  Home:       'var(--cat-home-c)',
+  Car:        'var(--cat-car-c)',
+  Family:     'var(--cat-family-c)',
+  Medical:    'var(--cat-medical-c)',
+  Estate:     'var(--cat-estate-c)',
+};
+
+function entryCardHtml(e) {
+  const today = new Date().toISOString().slice(0,10);
+  const isOverdue  = e.follow_up_needed && e.follow_up_date && e.follow_up_date < today;
+  const isFollowUp = e.follow_up_needed && !isOverdue;
+  const catColor   = CAT_COLOR[e.category] || 'var(--cat-general-c)';
+
+  // Split entry_text into title (first line) and preview (rest)
+  const lines    = (e.entry_text||'').split('\n').map(l => l.trim()).filter(Boolean);
+  const title    = lines[0] || '';
+  const preview  = lines.slice(1).join(' ') || '';
+
+  // Meta row icons
+  const metaItems = [];
+  if (isOverdue) {
+    metaItems.push(`<span class="entry-meta-item is-overdue">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Overdue · ${e.follow_up_date}
+    </span>`);
+  } else if (isFollowUp && e.follow_up_date) {
+    metaItems.push(`<span class="entry-meta-item is-followup">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+      Follow-up ${e.follow_up_date}
+    </span>`);
+  } else if (isFollowUp) {
+    metaItems.push(`<span class="entry-meta-item is-followup">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/></svg>
+      Follow-up needed
+    </span>`);
+  }
+  // Time — only shown if no date info, in muted small text
+  if (!e.follow_up_needed) {
+    metaItems.push(`<span class="entry-meta-item">${fmtDate(e.log_date)} · ${fmtTime(e.created_at)}</span>`);
+  }
+
+  const cardClass = isOverdue ? 'overdue-card' : isFollowUp ? 'followup-card' : '';
+
+  return `<div class="entry-card ${cardClass}" data-id="${e.id}"
+    style="--entry-cat-color:${catColor}">
+    <span class="entry-cat cat-${esc(e.category)}">${esc(e.category)}</span>
+    <div class="entry-title">${esc(title)}</div>
+    ${preview ? `<div class="entry-preview">${esc(preview)}</div>` : ''}
+    ${metaItems.length ? `<div class="entry-meta">${metaItems.join('')}</div>` : ''}
+  </div>`;
+}
+
+function render() {
+  const label = (filterSearch||filterCat||filterFollowup) ? `${total} found` : `${total}`;
+  $('entryCount').textContent = label;
+  const el = $('entriesList');
+
+  if (!entries.length) {
+    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>
+      <h3>${filterSearch||filterCat ? 'No entries found' : 'No entries yet'}</h3>
+      <p>Tap + to add your first entry.</p></div>`;
+    return;
+  }
+
+  // Group by date but sort: overdue first globally, then by date desc within groups
+  const today = new Date().toISOString().slice(0,10);
+  const overdue = entries.filter(e => e.follow_up_needed && e.follow_up_date && e.follow_up_date < today);
+  const rest    = entries.filter(e => !(e.follow_up_needed && e.follow_up_date && e.follow_up_date < today));
+
+  let html = '';
+
+  if (overdue.length) {
+    html += `<div class="entries-date-header" style="color:var(--red)">⚠ Overdue follow-ups</div>`;
+    html += overdue.map(e => entryCardHtml(e)).join('');
+  }
+
+  if (rest.length) {
+    const groups = {};
+    rest.forEach(e => { (groups[e.log_date] = groups[e.log_date]||[]).push(e); });
+    Object.entries(groups).forEach(([date, group]) => {
+      html += `<div class="entries-date-header">${fmtDate(date)}</div>`;
+      html += group.map(e => entryCardHtml(e)).join('');
+    });
+  }
+
+  el.className = 'entries-grid';
+  el.innerHTML = html;
+  el.querySelectorAll('.entry-card').forEach(c => {
+    c.addEventListener('click', () => openDetail(+c.dataset.id));
+  });
+}
+
+async function openAdd() {
+  editingId = null;
+  $('formTitle').textContent = 'New Entry';
+  $('fDate').value = today();
+  await GH_SELECT.init('fCategory', 'dailylog_category', 'General', { allowAdd: true });
+  $('fCategory').value = 'General';
+  dlFormTags = []; renderDlTags();
+  $('fText').value = '';
+  $('fFollowup').checked = false;
+  $('fFollowupDate').value = '';
+  $('followupDateWrap').style.display = 'none';
+  $('formDrawer').classList.add('open');
+  setTimeout(() => $('fText').focus(), 300);
+}
+
+async function openEdit(e) {
+  editingId = e.id;
+  $('formTitle').textContent = 'Edit Entry';
+  $('fDate').value = e.log_date;
+  await GH_SELECT.init('fCategory', 'dailylog_category', e.category||'General', { allowAdd: true });
+  $('fCategory').value = e.category;
+  dlFormTags = e.tags || []; renderDlTags();
+  $('fText').value = e.entry_text;
+  $('fFollowup').checked = !!e.follow_up_needed;
+  $('fFollowupDate').value = e.follow_up_date||'';
+  $('followupDateWrap').style.display = e.follow_up_needed ? 'block' : 'none';
+  $('detailDrawer').classList.remove('open');
+  $('formDrawer').classList.add('open');
+}
+
+let _detailEntryId = null;
+
+function openDetail(id) {
+  const e = entries.find(x => x.id===id);
+  if (!e) return;
+  _detailEntryId = id;
+  $('detailMeta').innerHTML = `
+    <span class="entry-cat cat-${e.category}">${e.category}</span>
+    <span class="detail-date">${fmtDate(e.log_date)}</span>`;
+  if (e.follow_up_needed) {
+    const today = new Date().toISOString().slice(0,10);
+    const isOverdue = e.follow_up_date && e.follow_up_date < today;
+    $('detailFollowup').style.display = 'block';
+    $('detailFollowupDate').textContent = e.follow_up_date || 'No date set';
+    const badge = $('detailFollowupBadge');
+    if (badge) {
+      badge.textContent = '';
+      badge.appendChild(document.createTextNode((isOverdue ? '🚨' : '⏰') + ' Follow-up: '));
+      const span = document.createElement('span');
+      span.id = 'detailFollowupDate';
+      span.textContent = e.follow_up_date || 'No date set';
+      badge.appendChild(span);
+      badge.style.background = isOverdue ? 'rgba(239,68,68,.12)' : '';
+      badge.style.borderColor = isOverdue ? 'rgba(239,68,68,.3)' : '';
+      badge.style.color = isOverdue ? 'var(--red)' : '';
+    }
+  } else {
+    $('detailFollowup').style.display = 'none';
+  }
+  $('detailText').textContent = e.entry_text;
+  $('detailEdit').onclick   = () => openEdit(e);
+  $('detailDelete').onclick = () => startDelete(e.id);
+  $('detailDrawer').classList.add('open');
+}
+
+async function markFollowupDone() {
+  if (!_detailEntryId) return;
+  try {
+    const r = await fetch(`/api/v1/daily-log/${_detailEntryId}`, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
+      body: JSON.stringify({ follow_up_needed: 0, follow_up_date: null }),
+    });
+    if (!r.ok) throw new Error();
+    $('detailFollowup').style.display = 'none';
+    toast('Follow-up marked done', 'ok');
+    load();
+  } catch { toast('Could not update', 'err'); }
+}
+
+function startDelete(id) {
+  deletingId = id;
+  $('detailDrawer').classList.remove('open');
+  LT.confirm({ onConfirm: doDelete });
+}
+
+$('fabBtn').addEventListener('click', openAdd);
+$('formCancel').addEventListener('click', () => $('formDrawer').classList.remove('open'));
+$('detailClose').addEventListener('click', () => $('detailDrawer').classList.remove('open'));
+onDrawerBg('formDrawer');
+onDrawerBg('detailDrawer');
+
+$('fFollowup').addEventListener('change', () => {
+  $('followupDateWrap').style.display = $('fFollowup').checked ? 'block' : 'none';
+});
+
+$('formSave').addEventListener('click', async () => {
+  const text = $('fText').value.trim();
+  const date = $('fDate').value;
+  if (!text) { toast('Entry text is required', 'err'); return; }
+  if (!date) { toast('Date is required', 'err'); return; }
+  const btn = $('formSave');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    const url = editingId ? `${API}/${editingId}` : API;
+    const method = editingId ? 'PUT' : 'POST';
+    const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+      log_date: date, category: $('fCategory').value, entry_text: text,
+      follow_up_needed: $('fFollowup').checked,
+      follow_up_date: $('fFollowup').checked ? $('fFollowupDate').value : null,
+      tags: dlFormTags
+    })});
+    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    $('formDrawer').classList.remove('open');
+    toast(editingId ? 'Entry updated' : 'Entry saved');
+    await load(); // auto-refresh
+  } catch(err) { toast(err.message,'err'); }
+  finally { btn.textContent='Save'; btn.disabled=false; }
+});
+
+async function doDelete() {
+  try {
+    await apiDelete(`/daily-log/${deletingId}`);
+    toast('Entry deleted');
+    await load();
+  } catch { toast('Delete failed','err'); }
+  deletingId = null;
+}
+
+$('catScroll').addEventListener('click', e => {
+  const pill = e.target.closest('.view-tab');
+  if (!pill) return;
+  document.querySelectorAll('#catScroll .view-tab').forEach(p=>p.classList.remove('active'));
+  pill.classList.add('active');
+  filterCat = pill.dataset.cat;
+  load();
+});
+
+$('searchInput').addEventListener('input', () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { filterSearch = $('searchInput').value.trim(); load(); }, 280);
+});
+
+// ── Daily Log tag input helpers ──────────────────────────────
+function renderDlTags() {
+  const wrap = document.getElementById('dlTagsWrap');
+  const input = document.getElementById('dlTagInput');
+  if (!wrap || !input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  dlFormTags.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t) : '';
+    if (cs) chip.style.cssText = cs;
+    chip.innerHTML = `${t}<span class="tag-chip-remove">&times;</span>`;
+    chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
+      dlFormTags = dlFormTags.filter(x => x !== t);
+      renderDlTags();
+    });
+    wrap.insertBefore(chip, input);
+  });
+}
+function addDlTag(raw) {
+  raw.split(',').map(t => t.trim().toLowerCase()).filter(t => t && !dlFormTags.includes(t))
+    .forEach(t => dlFormTags.push(t));
+  renderDlTags();
+  const inp = document.getElementById('dlTagInput');
+  if (inp) inp.value = '';
+}
+
+// followupBtn injected by nav.js — must wire after DOM ready
+document.addEventListener('DOMContentLoaded', () => {
+  const fuBtn = $('followupBtn');
+  if (fuBtn) fuBtn.addEventListener('click', () => {
+    filterFollowup = !filterFollowup;
+    fuBtn.classList.toggle('active', filterFollowup);
+    load();
+  });
+
+  // Tag input wiring
+  const dlInput = document.getElementById('dlTagInput');
+  if (dlInput) {
+    dlInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); if (dlInput.value.trim()) addDlTag(dlInput.value); }
+      else if (e.key === 'Backspace' && !dlInput.value && dlFormTags.length) { dlFormTags.pop(); renderDlTags(); }
+    });
+    dlInput.addEventListener('blur', () => { if (dlInput.value.trim()) addDlTag(dlInput.value); });
+    GH_TAGS.init({ inputId:'dlTagInput', wrapId:'dlTagsWrap', module:'dailylog', getFormTags:()=>dlFormTags, addTag: t=>addDlTag(t), allowCreate: true });
+  }
+});
+
+// ── Dynamic category strip + select ─────────────────────────
+const DL_CAT_FALLBACK = ['General','Investment','Career','Finance','Health','Home','Car','Family','Medical','Estate'];
+
+async function renderDlCatStrip() {
+  let cats = DL_CAT_FALLBACK;
+  try {
+    const rows = await fetch('/api/v1/settings/dropdowns/dailylog_category').then(r => r.ok ? r.json() : []);
+    if (rows.length) cats = rows.map(r => r.label);
+  } catch {}
+
+  // Populate filter pills
+  const scroll = document.getElementById('catScroll');
+  if (scroll) {
+    scroll.innerHTML = '<button class="view-tab active" data-cat="">All</button>' +
+      cats.map(c => `<button class="view-tab" data-cat="${c}">${c}</button>`).join('');
+  }
+
+  // Populate form select
+  const sel = document.getElementById('fCategory');
+  if (sel) {
+    const current = sel.value;
+    sel.innerHTML = cats.map(c => `<option value="${c}">${c}</option>`).join('');
+    if (cats.includes(current)) sel.value = current;
+    else sel.value = cats[0];
+  }
+}
+
+
+renderDlCatStrip();
+load();
+</script>
+</body>
+</html>

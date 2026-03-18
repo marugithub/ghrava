@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  ghrava:
+    build: ./app
+    container_name: ghrava
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3001}:${PORT:-3001}"
+    volumes:
+      - ./app:/app                    # mount code — restart picks up changes, no rebuild needed
+      - /app/node_modules             # keep node_modules inside container, not overwritten by mount
+      - ./data:/app/data
+      - ./.env:/app/.env:ro
+      # ── Attachments — files uploaded via app land here on NAS ─────
+      # Windows: \\soninas\Backups\MyAppAttachments\
+      - /share/Backups/MyAppAttachments:/app/attachments
+      # ── Backups — manual DB backups written here ──────────────────
+      # Windows: \\soninas\Backups\XPS - My Documents\AllDocuments\_SaveForever\MyAppBackups\
+      - /share/Backups/XPS - My Documents/AllDocuments/_SaveForever/MyAppBackups:/app/backups
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production

@@ -1,0 +1,28 @@
+# Dependencies — never commit, always npm install inside Docker
+app/node_modules/
+
+# Database — live data, never in git
+data/
+app/data/
+
+# Uploaded files and attachments — on NAS, not in git
+app/attachments/
+app/backups/
+
+# Environment secrets
+.env
+.env.secrets
+app/.env
+
+# Logs
+logs/
+app/logs/
+
+# QR codes — generated on deploy, not source
+app/public/qr/
+
+# Windows thumbnail cache
+Thumbs.db
+
+# macOS
+.DS_Store

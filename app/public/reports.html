@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Reports — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+.rpt-period-bar{display:flex;gap:6px;padding:10px 16px 6px;align-items:center;flex-wrap:wrap}
+.rpt-period-bar select{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--r);padding:6px 10px;font-size:13px;outline:none}
+.rpt-period-bar select:focus{border-color:var(--accent)}
+.quick-pill{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--text3);-webkit-tap-highlight-color:transparent;white-space:nowrap}
+.quick-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+.summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 16px}
+.sum-card{background:var(--bg2);border-radius:var(--r);padding:10px 12px;text-align:center}
+.sum-val{font-size:17px;font-weight:800;letter-spacing:-.02em}
+.sum-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
+.section-hdr{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:14px 16px 8px}
+.cat-row{display:flex;align-items:center;gap:8px;padding:6px 16px}
+.cat-bar-wrap{flex:1;background:var(--bg2);border-radius:99px;height:6px;overflow:hidden}
+.cat-bar{height:6px;border-radius:99px;transition:width .4s ease}
+.cat-name{font-size:13px;color:var(--text);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
+.cat-amt{font-size:13px;font-family:var(--mono);color:var(--text2);width:70px;text-align:right;flex-shrink:0}
+.chart-wrap{padding:0 16px 8px;overflow-x:auto}
+.chart-wrap svg{overflow:visible;display:block}
+.delta-badge{font-size:11px;font-weight:600;padding:1px 6px;border-radius:99px}
+.delta-up{background:rgba(34,197,94,.12);color:#22c55e}
+.delta-dn{background:rgba(239,68,68,.12);color:#ef4444}
+.account-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px}
+.expense-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border)}
+</style>
+</head>
+<body>
+<script>
+window.GH_PAGE = { module: 'reports', title: 'Reports' };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<div id="nav-container"></div>
+
+<div id="app" style="padding-bottom:40px">
+
+  <div class="view-tabs" id="rptTabs" style="--tab-color:#64748b">
+    <button class="view-tab active" data-tab="spending" onclick="switchRpt('spending',this)">Spending</button>
+    <button class="view-tab" data-tab="health"   onclick="switchRpt('health',this)">Health</button>
+    <button class="view-tab" data-tab="networth" onclick="switchRpt('networth',this)">Net Worth</button>
+    <button class="view-tab" data-tab="annual"   onclick="switchRpt('annual',this)">Annual</button>
+  </div>
+
+  <!-- ── SPENDING ─────────────────────────────────────────── -->
+  <div class="view-panel active" id="panel-spending">
+    <div class="rpt-period-bar">
+      <select id="spYearSel" onchange="loadSpending()"></select>
+      <select id="spMonthSel" onchange="loadSpending()">
+        <option value="">Full Year</option>
+        <option value="1">January</option><option value="2">February</option><option value="3">March</option>
+        <option value="4">April</option><option value="5">May</option><option value="6">June</option>
+        <option value="7">July</option><option value="8">August</option><option value="9">September</option>
+        <option value="10">October</option><option value="11">November</option><option value="12">December</option>
+      </select>
+    </div>
+    <div class="summary-strip" id="spSummary">
+      <div class="sum-card"><div class="sum-val" id="spTotalSpent">—</div><div class="sum-lbl">Spent</div></div>
+      <div class="sum-card"><div class="sum-val" id="spTotalIncome" style="color:var(--green)">—</div><div class="sum-lbl">Income</div></div>
+      <div class="sum-card"><div class="sum-val" id="spTxCount">—</div><div class="sum-lbl">Transactions</div></div>
+    </div>
+    <div class="section-hdr">Spending by Category</div>
+    <div id="spCatList"></div>
+    <div class="section-hdr" style="margin-top:8px">Month over Month</div>
+    <div class="chart-wrap"><canvas id="momChart" height="160"></canvas></div>
+  </div>
+
+  <!-- ── HEALTH ─────────────────────────────────────────── -->
+  <div class="view-panel" id="panel-health">
+    <div class="rpt-period-bar">
+      <select id="hlYearSel" onchange="loadHealth()"></select>
+    </div>
+    <div class="summary-strip" id="hlSummary">
+      <div class="sum-card"><div class="sum-val" id="hlEligible">—</div><div class="sum-lbl">HSA Eligible</div></div>
+      <div class="sum-card"><div class="sum-val" id="hlReimbursed" style="color:var(--green)">—</div><div class="sum-lbl">Reimbursed</div></div>
+      <div class="sum-card"><div class="sum-val" id="hlPool" style="color:var(--amber)">—</div><div class="sum-lbl">Pool</div></div>
+    </div>
+    <div class="section-hdr">HSA Monthly Spend</div>
+    <div class="chart-wrap"><canvas id="hsaChart" height="120"></canvas></div>
+    <div class="section-hdr">Spending by Category</div>
+    <div id="hlCatList"></div>
+    <div class="section-hdr">Visits by Family Member</div>
+    <div id="hlVisits"></div>
+  </div>
+
+  <!-- ── NET WORTH ─────────────────────────────────────────── -->
+  <div class="view-panel" id="panel-networth">
+    <div id="nwSummary" style="padding:10px 16px 0"></div>
+    <div class="section-hdr">Accounts</div>
+    <div id="nwAccounts" style="padding:0 16px 16px"></div>
+    <div class="section-hdr">Historical Snapshots</div>
+    <div class="chart-wrap"><canvas id="nwChart" height="160"></canvas></div>
+    <div id="nwSnapshotList" style="padding:0 16px;margin-top:8px"></div>
+  </div>
+
+  <!-- ── ANNUAL ─────────────────────────────────────────── -->
+  <div class="view-panel" id="panel-annual">
+    <div class="rpt-period-bar">
+      <select id="annYearSel" onchange="loadAnnual()"></select>
+    </div>
+    <div id="annSummary" style="padding:0 16px 8px"></div>
+    <div class="section-hdr">Top Spending Categories</div>
+    <div id="annCats"></div>
+    <div class="section-hdr">10 Biggest Expenses</div>
+    <div id="annExpenses" style="padding:0 16px"></div>
+  </div>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const fmt$ = n => '$' + Math.abs(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+const fmt$2 = n => '$' + Math.abs(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+
+function authH() {
+  const h = {'Content-Type':'application/json'};
+  if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
+  return h;
+}
+async function api(path) {
+  const r = await fetch('/api/v1/finance/reports' + path, {headers: authH()});
+  if (!r.ok) throw new Error('API error');
+  return r.json();
+}
+
+const COLORS = ['#5c72fa','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6'];
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+let activeTab = 'spending';
+
+function switchRpt(tab, btn) {
+  activeTab = tab;
+  document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  $('panel-' + tab).classList.add('active');
+  loadTab(tab);
+}
+
+function loadTab(tab) {
+  if (tab === 'spending') loadSpending();
+  else if (tab === 'health') loadHealth();
+  else if (tab === 'networth') loadNetWorth();
+  else if (tab === 'annual') loadAnnual();
+}
+
+// ── Year select helpers ───────────────────────────────────
+function populateYears(selId, selected) {
+  const sel = $(selId); if (!sel) return;
+  const now = new Date().getFullYear();
+  sel.innerHTML = '';
+  for (let y = now; y >= now - 5; y--) {
+    const opt = document.createElement('option');
+    opt.value = y; opt.textContent = y;
+    if (y === selected) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+// Set current month as default
+function setCurrentMonth() {
+  const sel = $('spMonthSel'); if (!sel) return;
+  // default to full year view
+}
+
+// ── Canvas bar chart helper ───────────────────────────────
+function drawBarChart(canvasId, labels, datasets, opts = {}) {
+  const canvas = $(canvasId); if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth - 32;
+  canvas.width  = W * dpr;
+  canvas.height = canvas.height * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = (canvas.height/dpr) + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const w = W, h = canvas.height / dpr;
+
+  const pad = { l: 44, r: 8, t: 12, b: 28 };
+  const plotW = w - pad.l - pad.r;
+  const plotH = h - pad.t - pad.b;
+  const n = labels.length;
+  const groupW = plotW / n;
+  const barW = Math.min(groupW * 0.6 / datasets.length, 20);
+  const gap = barW * 0.3;
+
+  // Max value
+  let maxVal = 0;
+  datasets.forEach(ds => ds.data.forEach(v => { if (v > maxVal) maxVal = v; }));
+  if (maxVal === 0) maxVal = 1;
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,.06)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= 4; i++) {
+    const y = pad.t + plotH - (i / 4) * plotH;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(148,163,184,.5)';
+    ctx.font = `${Math.round(9 * dpr) / dpr}px system-ui`;
+    ctx.textAlign = 'right';
+    ctx.fillText(fmt$(maxVal * i / 4), pad.l - 4, y + 3);
+  }
+
+  // Bars
+  labels.forEach((lbl, i) => {
+    const cx = pad.l + i * groupW + groupW / 2;
+    const totalBarW = datasets.length * barW + (datasets.length - 1) * gap;
+    const startX = cx - totalBarW / 2;
+
+    datasets.forEach((ds, di) => {
+      const val = ds.data[i] || 0;
+      const bh = (val / maxVal) * plotH;
+      const bx = startX + di * (barW + gap);
+      const by = pad.t + plotH - bh;
+      ctx.fillStyle = ds.color;
+      ctx.beginPath();
+      const r = Math.min(3, barW/2);
+      ctx.moveTo(bx + r, by);
+      ctx.lineTo(bx + barW - r, by);
+      ctx.quadraticCurveTo(bx + barW, by, bx + barW, by + r);
+      ctx.lineTo(bx + barW, by + bh);
+      ctx.lineTo(bx, by + bh);
+      ctx.lineTo(bx, by + r);
+      ctx.quadraticCurveTo(bx, by, bx + r, by);
+      ctx.closePath();
+      ctx.fill();
+    });
+
+    // X labels
+    ctx.fillStyle = 'rgba(148,163,184,.7)';
+    ctx.font = `${Math.round(9 * dpr) / dpr}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(lbl, cx, pad.t + plotH + 14);
+  });
+
+  // Legend
+  if (datasets.length > 1) {
+    let lx = pad.l;
+    datasets.forEach(ds => {
+      ctx.fillStyle = ds.color;
+      ctx.fillRect(lx, 2, 8, 8);
+      ctx.fillStyle = 'rgba(148,163,184,.8)';
+      ctx.font = `${Math.round(10 * dpr) / dpr}px system-ui`;
+      ctx.textAlign = 'left';
+      ctx.fillText(ds.label, lx + 11, 10);
+      lx += ctx.measureText(ds.label).width + 28;
+    });
+  }
+}
+
+// ── SPENDING TAB ─────────────────────────────────────────────
+async function loadSpending() {
+  const year  = $('spYearSel')?.value  || new Date().getFullYear();
+  const month = $('spMonthSel')?.value || '';
+
+  try {
+    const [cat, monthly] = await Promise.all([
+      api(`/spending-by-category?year=${year}${month?'&month='+month:''}`),
+      api(`/monthly-totals?year=${year}`)
+    ]);
+
+    // Summary strip
+    $('spTotalSpent').textContent  = fmt$(cat.totals?.total_spent);
+    $('spTotalIncome').textContent = fmt$(cat.totals?.total_income);
+    $('spTxCount').textContent     = cat.totals?.tx_count || 0;
+
+    // Category bars
+    const maxSpent = cat.categories[0]?.spent || 1;
+    $('spCatList').innerHTML = cat.categories.slice(0,12).map((c, i) => `
+      <div class="cat-row">
+        <div class="cat-name" style="color:${COLORS[i%COLORS.length]}">${esc(c.category)}</div>
+        <div class="cat-bar-wrap">
+          <div class="cat-bar" style="width:${Math.round(c.spent/maxSpent*100)}%;background:${COLORS[i%COLORS.length]}"></div>
+        </div>
+        <div class="cat-amt">${fmt$(c.spent)}</div>
+      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No transactions found</div>';
+
+    // Month-over-month chart
+    drawBarChart('momChart', MONTHS,
+      [
+        { label: year + ' Spent',  color: '#ef4444', data: monthly.months.map(m => m.spent) },
+        { label: year + ' Income', color: '#22c55e', data: monthly.months.map(m => m.income) },
+        { label: (year-1)+' Spent', color: 'rgba(99,102,241,.4)', data: monthly.months.map(m => m.prev_spent) },
+      ]
+    );
+  } catch(e) {
+    $('spCatList').innerHTML = errorState(e.message, 'loadSpending()');
+  }
+}
+
+// ── HEALTH TAB ───────────────────────────────────────────────
+async function loadHealth() {
+  const year = $('hlYearSel')?.value || new Date().getFullYear();
+  try {
+    const d = await api(`/hsa-summary?year=${year}`);
+
+    $('hlEligible').textContent   = fmt$(d.pool?.total_eligible);
+    $('hlReimbursed').textContent = fmt$(d.pool?.reimbursed);
+    $('hlPool').textContent       = fmt$(d.pool?.unreimbursed);
+
+    // HSA monthly chart
+    drawBarChart('hsaChart', MONTHS,
+      [{ label: 'HSA Spend', color: '#5c72fa', data: d.by_month.map(m=>m.amount) }]
+    );
+
+    // By category
+    const maxAmt = d.by_category[0]?.amount || 1;
+    $('hlCatList').innerHTML = d.by_category.map((c,i) => `
+      <div class="cat-row">
+        <div class="cat-name" style="color:${COLORS[i%COLORS.length]}">${esc(c.category)}</div>
+        <div class="cat-bar-wrap">
+          <div class="cat-bar" style="width:${Math.round(c.amount/maxAmt*100)}%;background:${COLORS[i%COLORS.length]}"></div>
+        </div>
+        <div class="cat-amt">${fmt$(c.amount)}</div>
+      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No HSA data</div>';
+
+    // Visits
+    $('hlVisits').innerHTML = d.visits_by_patient.length
+      ? '<div style="padding:0 16px">' + d.visits_by_patient.map(v => `
+          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:14px;color:var(--text)">👤 ${esc(v.patient)}</span>
+            <span style="font-family:var(--mono);font-size:13px;color:var(--accent)">${v.visits} visit${v.visits!==1?'s':''}</span>
+          </div>`).join('') + '</div>'
+      : '<div style="color:var(--text3);padding:16px;text-align:center">No visit data</div>';
+  } catch(e) {
+    $('hlCatList').innerHTML = errorState(e.message, 'loadHealth()');
+  }
+}
+
+// ── NET WORTH TAB ────────────────────────────────────────────
+async function loadNetWorth() {
+  try {
+    const d = await api('/net-worth-trend');
+    const nw = d.current.net_worth;
+    const positive = nw >= 0;
+
+    $('nwSummary').innerHTML = `
+      <div style="background:var(--bg2);border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:16px">
+        <div>
+          <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Current Net Worth</div>
+          <div style="font-size:28px;font-weight:800;letter-spacing:-.03em;color:${positive?'var(--green)':'var(--red)'};margin-top:4px">${positive?'+':''}${fmt$(nw)}</div>
+        </div>
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
+            <span>Assets</span><span style="color:var(--green);font-weight:600">${fmt$(d.current.assets)}</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-top:4px">
+            <span>Liabilities</span><span style="color:var(--red);font-weight:600">${fmt$(d.current.liabilities)}</span>
+          </div>
+        </div>
+      </div>`;
+
+    // Accounts
+    const assets = d.accounts.filter(a => a.current_balance >= 0);
+    const liabs  = d.accounts.filter(a => a.current_balance < 0);
+    $('nwAccounts').innerHTML = [...assets, ...liabs].map(a => `
+      <div class="account-row">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(a.name)}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(a.account_type)}${a.include_net_worth?'':' · excluded'}</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${a.current_balance>=0?'var(--green)':'var(--red)'}">
+          ${a.current_balance>=0?'+':''}${fmt$(a.current_balance)}
+        </div>
+      </div>`).join('') || '<div style="color:var(--text3);text-align:center;padding:16px">No accounts</div>';
+
+    // Historical chart
+    if (d.snapshots.length > 1) {
+      drawBarChart('nwChart', d.snapshots.map(s=>s.snapshot_date.slice(0,7)),
+        [{ label: 'Net Worth', color: '#5c72fa', data: d.snapshots.map(s=>Math.max(0,s.net_worth)) }]);
+    } else {
+      $('nwChart').style.display = 'none';
+      $('nwSnapshotList').innerHTML = '<div style="color:var(--text3);text-align:center;padding:16px;font-size:13px">No historical snapshots yet.<br>Take a snapshot monthly to track trends.</div>';
+    }
+  } catch(e) {
+    $('nwSummary').innerHTML = errorState(e.message, 'loadNetWorth()');
+  }
+}
+
+// ── ANNUAL TAB ───────────────────────────────────────────────
+async function loadAnnual() {
+  const year = $('annYearSel')?.value || new Date().getFullYear();
+  try {
+    const d = await api(`/annual-summary?year=${year}`);
+    const cur = d.current || {}, prev = d.previous || {};
+
+    const delta = (cur.total_spent||0) - (prev.total_spent||0);
+    const deltaHtml = prev.total_spent
+      ? `<span class="delta-badge ${delta>0?'delta-dn':'delta-up'}">${delta>0?'▲':'▼'} ${fmt$(Math.abs(delta))} vs ${year-1}</span>` : '';
+
+    $('annSummary').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+        <div class="sum-card" style="text-align:left">
+          <div class="sum-lbl">Total Spent</div>
+          <div class="sum-val" style="color:var(--red)">${fmt$(cur.total_spent)}</div>
+          <div style="margin-top:4px">${deltaHtml}</div>
+        </div>
+        <div class="sum-card" style="text-align:left">
+          <div class="sum-lbl">Total Income</div>
+          <div class="sum-val" style="color:var(--green)">${fmt$(cur.total_income)}</div>
+        </div>
+        <div class="sum-card" style="text-align:left">
+          <div class="sum-lbl">Transactions</div>
+          <div class="sum-val">${cur.tx_count||0}</div>
+        </div>
+        <div class="sum-card" style="text-align:left">
+          <div class="sum-lbl">Net</div>
+          <div class="sum-val" style="color:${((cur.total_income||0)-(cur.total_spent||0))>=0?'var(--green)':'var(--red)'}">
+            ${fmt$((cur.total_income||0)-(cur.total_spent||0))}
+          </div>
+        </div>
+      </div>`;
+
+    const maxCat = d.top_categories[0]?.spent || 1;
+    $('annCats').innerHTML = d.top_categories.map((c,i) => `
+      <div class="cat-row">
+        <div class="cat-name" style="color:${COLORS[i]}">${esc(c.category)}</div>
+        <div class="cat-bar-wrap">
+          <div class="cat-bar" style="width:${Math.round(c.spent/maxCat*100)}%;background:${COLORS[i]}"></div>
+        </div>
+        <div class="cat-amt">${fmt$(c.spent)}</div>
+      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No data</div>';
+
+    $('annExpenses').innerHTML = d.biggest_expenses.map(e => `
+      <div class="expense-row">
+        <div style="min-width:0;flex:1">
+          <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.description)}</div>
+          <div style="font-size:11px;color:var(--text3)">${e.date} · ${esc(e.category||'Uncategorized')}</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--red);margin-left:8px;flex-shrink:0">${fmt$2(e.amount)}</div>
+      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No expenses</div>';
+  } catch(e) {
+    $('annSummary').innerHTML = errorState(e.message, 'loadAnnual()');
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────
+function init() {
+  const now = new Date().getFullYear();
+  populateYears('spYearSel',  now);
+  populateYears('hlYearSel',  now);
+  populateYears('annYearSel', now);
+  // Default month select to full year
+  loadSpending();
+}
+
+// Wait for auth
+if (window.LT?.ready) { LT.ready(() => init()); }
+else { document.addEventListener('DOMContentLoaded', () => setTimeout(init, 200)); }
+</script>
+</body>
+</html>

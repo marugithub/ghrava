@@ -1,0 +1,1135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f0f4f8">
+<title>To Do — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+:root { --tab-color: #a78bfa; }
+
+/* ── Stats bar ───────────────────────────────────────────────── */
+.stat-chip.total   .stat-chip-val { color: var(--accent); }
+.stat-chip.auto    .stat-chip-val { color: #8b5cf6; }
+
+/* ── Filter strip ────────────────────────────────────────────── */
+.filter-scroll {
+  display: flex;
+  gap: 6px;
+  padding: 10px 20px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.filter-scroll::-webkit-scrollbar { display: none; }
+.filter-pill {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-pill:hover { border-color: var(--border2); color: var(--text2); }
+.filter-pill.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+
+/* ── Section divider ─────────────────────────────────────────── */
+.todo-section-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px 6px;
+}
+.todo-section-title {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.todo-section-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+}
+.todo-section-line {
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ── 2-column todo grid ─────────────────────────────────────── */
+.todo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 16px 100px;
+}
+@media (max-width: 700px) { .todo-grid { grid-template-columns: 1fr; } }
+
+/* Section header spans full width */
+.todo-section-head { grid-column: 1 / -1; }
+
+/* ── Bulk action bar ─────────────────────────────────────────── */
+.bulk-bar {
+  display: none;
+  position: sticky;
+  top: 54px;
+  z-index: 90;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 16px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.bulk-bar.visible { display: flex; }
+.bulk-bar-btn {
+  background: rgba(255,255,255,.18);
+  border: none;
+  border-radius: var(--r);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background .12s;
+}
+.bulk-bar-btn:hover { background: rgba(255,255,255,.3); }
+.bulk-bar-btn.danger { background: rgba(239,68,68,.4); }
+
+/* ── Todo item card ──────────────────────────────────────────── */
+.todo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 11px 12px;
+  cursor: pointer;
+  transition: all .15s;
+  position: relative;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+.todo-item.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.todo-item:hover { border-color: var(--border2); background: var(--bg3); }
+.todo-item.done-item { opacity: .5; }
+.todo-item.done-item .todo-title,
+.todo-item.done-item .td-name { text-decoration: line-through; color: var(--text3); }
+
+/* Left priority stripe */
+.todo-item::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+.todo-item.prio-urgent::before  { background: var(--red); }
+.todo-item.prio-high::before    { background: var(--amber); }
+.todo-item.prio-medium::before  { background: var(--accent); }
+.todo-item.prio-low::before     { background: var(--text3); }
+
+/* AUTO badge now rendered inline in .td-title-row via .td-auto-badge */
+
+/* Checkbox */
+.todo-check {
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--border2);
+  border-radius: 6px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.todo-check:hover { border-color: #22c55e; }
+.todo-check.checked {
+  background: var(--green);
+  border-color: #22c55e;
+}
+.todo-check.checked::after {
+  content: '';
+  display: block;
+  width: 5px; height: 9px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg) translateY(-1px);
+}
+
+/* Content */
+.todo-body { flex: 1; min-width: 0; }
+
+/* ── Title row: icons + name ─────────────────────────────────── */
+.td-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+/* Status icon badges */
+.td-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.td-icon img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+  mix-blend-mode: normal;
+}
+.td-icon-overdue  { background: rgba(239,68,68,.12); }
+.td-icon-followup { background: rgba(59,130,246,.12); }
+.td-icon-recurring{ background: rgba(249,115,22,.12); }
+.td-icon-important{ background: rgba(239,68,68,.15); }
+
+/* Task name */
+.td-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* AUTO badge — shown in title row when no status icons */
+.td-auto-badge {
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: #8b5cf6;
+  background: rgba(139,92,246,.1);
+  border: 1px solid rgba(167,139,250,.2);
+  border-radius: 4px;
+  padding: 2px 5px;
+  flex-shrink: 0;
+}
+
+.todo-notes {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.5;
+  margin-bottom: 5px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ── Meta row: date + source ─────────────────────────────────── */
+.td-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Due date */
+.td-due {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.td-due svg { width: 10px; height: 10px; flex-shrink: 0; }
+.td-due.due-overdue { color: var(--red); }
+.td-due.due-soon    { color: var(--amber); }
+.td-due.due-ok      { color: var(--text3); }
+
+/* Source link */
+.td-source {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  text-decoration: none;
+}
+.td-source:hover { text-decoration: underline; }
+.td-source svg { width: 9px; height: 9px; }
+
+/* Keep old .todo-meta alias for compat */
+.todo-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+/* Category pill */
+.todo-cat {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  padding: 3px 9px;
+  border-radius: 99px;
+  white-space: nowrap;
+}
+.cat-General    { background: rgba(100,116,139,.12); color: #64748b; }
+.cat-Investment { background: rgba(99,102,241,.12);  color: #6366f1; }
+.cat-Career,
+.cat-Work       { background: rgba(249,115,22,.12);  color: #f97316; }
+.cat-Finance    { background: rgba(34,197,94,.12);   color: #22c55e; }
+.cat-Health     { background: rgba(20,184,166,.12);  color: #14b8a6; }
+.cat-HSA        { background: rgba(34,197,94,.12);   color: #22c55e; }
+.cat-Medical    { background: rgba(239,68,68,.12);   color: #ef4444; }
+.cat-Home       { background: rgba(59,130,246,.12);  color: #3b82f6; }
+.cat-Car        { background: rgba(245,158,11,.12);  color: #f59e0b; }
+.cat-Family     { background: rgba(236,72,153,.12);  color: #ec4899; }
+.cat-Estate,
+.cat-Security   { background: rgba(139,92,246,.12);  color: #8b5cf6; }
+.cat-Inventory  { background: rgba(245,158,11,.12);  color: #f59e0b; }
+.cat-Personal   { background: rgba(99,102,241,.12);  color: #6366f1; }
+.cat-Kids       { background: rgba(236,72,153,.12);  color: #ec4899; }
+
+/* Due date */
+.todo-due {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 500;
+}
+.due-overdue { color: var(--red); }
+.due-soon    { color: var(--amber); }
+.due-ok      { color: var(--text3); }
+
+/* Source link */
+.todo-source {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+.todo-source svg { width: 9px; height: 9px; }
+
+/* ── Dismiss button (inline on each card) ───────────────────── */
+.todo-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.todo-act-btn {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.todo-act-btn:hover { background: var(--bg4); border-color: var(--border2); color: var(--text); }
+.todo-act-btn.dismiss:hover { border-color: rgba(239,68,68,.3); color: var(--red); }
+.todo-act-btn.complete-btn:hover { border-color: #22c55e; color: #22c55e; background: rgba(34,197,94,.08); }
+.todo-act-btn svg { width: 14px; height: 14px; }
+
+/* ── Empty state ─────────────────────────────────────────────── */
+.todos-empty {
+  text-align: center;
+  padding: 52px 24px;
+}
+.todos-empty-icon {
+  font-size: 48px;
+  margin-bottom: 14px;
+  opacity: .6;
+}
+.todos-empty-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text2);
+  margin-bottom: 6px;
+  letter-spacing: -.01em;
+}
+.todos-empty-sub {
+  font-size: 13px;
+  color: var(--text3);
+  line-height: 1.6;
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+/* ── Done section toggle ─────────────────────────────────────── */
+.show-done-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 20px;
+  padding: 8px 0;
+  background: none;
+  border: none;
+  color: var(--text3);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--mono);
+  cursor: pointer;
+  letter-spacing: .04em;
+  -webkit-tap-highlight-color: transparent;
+}
+.show-done-btn:hover { color: var(--text2); }
+.show-done-btn svg { width: 14px; height: 14px; }
+
+
+/* ── Complete button accent ───────────────────────────────────── */
+.todo-act-btn.complete-btn { color: #22c55e; }
+.todo-act-btn.complete-btn:hover { background: rgba(34,197,94,.12); border-color: #22c55e; }
+
+/* ── Category pill colors ─────────────────────────────────────── */
+:root {
+  --cat-general-c:    #64748b; --cat-general-bg:    rgba(100,116,139,.12);
+  --cat-investment-c: #6366f1; --cat-investment-bg: rgba(99,102,241,.12);
+  --cat-career-c:     #f97316; --cat-career-bg:     rgba(249,115,22,.12);
+  --cat-finance-c:    #22c55e; --cat-finance-bg:    rgba(34,197,94,.12);
+  --cat-health-c:     #14b8a6; --cat-health-bg:     rgba(20,184,166,.12);
+  --cat-home-c:       #3b82f6; --cat-home-bg:       rgba(59,130,246,.12);
+  --cat-car-c:        #f59e0b; --cat-car-bg:        rgba(245,158,11,.12);
+  --cat-family-c:     #ec4899; --cat-family-bg:     rgba(236,72,153,.12);
+  --cat-medical-c:    #ef4444; --cat-medical-bg:    rgba(239,68,68,.12);
+  --cat-estate-c:     #8b5cf6; --cat-estate-bg:     rgba(139,92,246,.12);
+  --cat-work-c:       #f97316; --cat-work-bg:       rgba(249,115,22,.12);
+  --cat-hsa-c:        #22c55e; --cat-hsa-bg:        rgba(34,197,94,.12);
+  --cat-personal-c:   #6366f1; --cat-personal-bg:   rgba(99,102,241,.12);
+}
+.todo-cat {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.cat-General    { background: var(--cat-general-bg);    color: var(--cat-general-c); }
+.cat-Investment { background: var(--cat-investment-bg); color: var(--cat-investment-c); }
+.cat-Career, .cat-Work { background: var(--cat-career-bg); color: var(--cat-career-c); }
+.cat-Finance, .cat-HSA { background: var(--cat-finance-bg); color: var(--cat-finance-c); }
+.cat-Health, .cat-Medical { background: var(--cat-health-bg); color: var(--cat-health-c); }
+.cat-Home       { background: var(--cat-home-bg);       color: var(--cat-home-c); }
+.cat-Car        { background: var(--cat-car-bg);        color: var(--cat-car-c); }
+.cat-Family     { background: var(--cat-family-bg);     color: var(--cat-family-c); }
+.cat-Estate     { background: var(--cat-estate-bg);     color: var(--cat-estate-c); }
+.cat-Personal   { background: var(--cat-personal-bg);   color: var(--cat-personal-c); }
+.cat-Kids       { background: var(--cat-family-bg);     color: var(--cat-family-c); }
+.cat-Inventory  { background: var(--cat-home-bg);       color: var(--cat-home-c); }
+
+/* ── Bulk action bar ─────────────────────────────────────────── */
+.bulk-bar {
+  display: none; position: sticky; top: 54px; z-index: 90;
+  background: var(--accent); color: #fff;
+  padding: 8px 16px; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 600;
+}
+.bulk-bar.visible { display: flex; }
+.bulk-bar-btn {
+  background: rgba(255,255,255,.18); border: none; border-radius: var(--r);
+  color: #fff; font-size: 12px; font-weight: 600; padding: 4px 12px; cursor: pointer; transition: background .12s;
+}
+.bulk-bar-btn:hover { background: rgba(255,255,255,.3); }
+.bulk-bar-btn.danger { background: rgba(239,68,68,.4); }
+
+/* ── 2-col grid ──────────────────────────────────────────────── */
+.todo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 16px 4px;
+}
+@media (max-width: 700px) { .todo-grid { grid-template-columns: 1fr; } }
+.todo-item { margin: 0; } /* grid handles spacing */
+.todo-item.selected { border-color: var(--accent) !important; background: var(--accent-bg); }
+#todoList { padding-top: 0; padding-bottom: 100px; }
+
+
+/* ── Tab count badges ────────────────────────────────────────── */
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--bg3);
+  font-size: 10px;
+  font-weight: 700;
+  margin-left: 3px;
+  vertical-align: middle;
+}
+.tab-count:empty { display: none; }
+
+</style>
+</head>
+<body class="module-todos">
+<div id="app">
+
+  <!-- Primary filter tabs — status modes -->
+  <div class="view-tabs" id="statsRow" style="--tab-color:#a78bfa">
+    <button class="view-tab active" data-filter="">All <span id="statTotal" class="tab-count"></span></button>
+    <button class="view-tab" data-filter="urgent">Urgent <span id="statUrgent" class="tab-count" style="color:var(--red)"></span></button>
+    <button class="view-tab" data-filter="overdue">Overdue <span id="statOverdue" class="tab-count" style="color:var(--amber)"></span></button>
+    <button class="view-tab" data-filter="auto">Auto <span id="statAuto" class="tab-count"></span></button>
+    <button class="view-tab" data-filter="done">Done <span id="statDone" class="tab-count" style="color:#22c55e"></span></button>
+  </div>
+
+  <!-- Category sub-filter — populated dynamically -->
+  <div class="view-tabs" id="filterStrip" style="overflow-x:auto;scrollbar-width:none;margin-top:0;background:transparent;border-bottom:1px solid var(--border)">
+    <button class="view-tab active" data-cat="" style="font-size:11px;padding:5px 10px">All</button>
+  </div>
+
+
+  <!-- List -->
+  <div id="bulkBar" class="bulk-bar">
+    <span id="bulkCount">0 selected</span>
+    <button class="bulk-bar-btn" onclick="bulkComplete()">✓ Complete</button>
+    <button class="bulk-bar-btn" onclick="bulkSnooze()">⏰ Snooze 1d</button>
+    <button class="bulk-bar-btn danger" onclick="bulkDelete()">Delete</button>
+    <button class="bulk-bar-btn" style="margin-left:auto" onclick="clearSelection()">✕ Cancel</button>
+  </div>
+  <div id="todoList">
+    <div class="spinner"><div class="spin"></div>Loading…</div>
+  </div>
+
+</div>
+
+<!-- FAB -->
+<button class="fab" id="fabBtn" title="Add to-do">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+    <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+  </svg>
+</button>
+
+<!-- Add/Edit Drawer -->
+<div class="drawer-overlay" id="formDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="drawerTitle">New To-Do</div>
+
+    <div class="form-group">
+      <label class="form-label">Title <span class="req">*</span></label>
+      <input class="form-input" id="fTitle" placeholder="What needs to be done?">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="fNotes" style="min-height:80px" placeholder="Optional details…"></textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Priority</label>
+        <select class="form-select" id="fPriority">
+          <option value="urgent">🔴 Urgent</option>
+          <option value="high">🟡 High</option>
+          <option value="medium" selected>🔵 Medium</option>
+          <option value="low">⚪ Low</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select" id="fCategory"></select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Due date</label>
+        <input class="form-input" type="date" id="fDue">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Remind me</label>
+        <input class="form-input" type="date" id="fReminder">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Repeat</label>
+      <select class="form-select" id="fRecurrence">
+        <option value="">No repeat</option>
+        <option value="daily">Daily</option>
+        <option value="weekly">Weekly</option>
+        <option value="monthly">Monthly</option>
+        <option value="yearly">Yearly</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="todoTagsWrap" onclick="document.getElementById('todoTagInput').focus()">
+        <input id="todoTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="formCancel">Cancel</button>
+      <button class="btn btn-primary" id="formSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Detail Drawer -->
+<div class="drawer-overlay" id="detailDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<script>
+  window.GH_PAGE = { module: 'todos', title: 'To Do' };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script>
+const API = '/api/v1/todos';
+let todos = [], stats = {}, editingId = null;
+let filterCat = '', filterMode = ''; // mode: '' | 'urgent' | 'overdue' | 'auto' | 'done'
+let showDone = false;
+
+// ── Source deep-link map ──────────────────────────────────────
+const SOURCE_LINKS = {
+  hsa_payment:    (id) => ({ href: '/hsa.html',       label: 'View HSA expense',     icon: '❤️' }),
+  hsa_otc:        (id) => ({ href: '/hsa.html',       label: 'View OTC expense',     icon: '💊' }),
+  item:           (id) => ({ href: `/inventory.html?open=ITM-${String(id).padStart(4,'0')}`, label: 'View in Inventory', icon: '📦' }),
+  daily_log:      (id) => ({ href: '/daily-log.html', label: 'View log entry',       icon: '📋' }),
+  med_medication: (id) => ({ href: '/medical.html',   label: 'View medication',      icon: '💊' }),
+};
+
+function sourceLink(todo) {
+  if (!todo.auto_source_type || !todo.auto_source_id) return null;
+  const fn = SOURCE_LINKS[todo.auto_source_type];
+  return fn ? fn(todo.auto_source_id) : null;
+}
+
+// ── Date helpers ──────────────────────────────────────────────
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function fmtDate(iso) {
+  if (!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]} ${+d}`;
+}
+function dueClass(iso) {
+  if (!iso) return '';
+  const t = todayStr();
+  if (iso < t) return 'due-overdue';
+  const diff = (new Date(iso) - new Date(t)) / 86400000;
+  return diff <= 7 ? 'due-soon' : 'due-ok';
+}
+function dueLabel(iso) {
+  if (!iso) return '';
+  const t = todayStr();
+  if (iso < t) {
+    const days = Math.ceil((new Date(t) - new Date(iso)) / 86400000);
+    return `${days}d overdue`;
+  }
+  const diff = Math.ceil((new Date(iso) - new Date(t)) / 86400000);
+  if (diff === 0) return 'Today';
+  if (diff === 1) return 'Tomorrow';
+  if (diff <= 7)  return `${diff}d`;
+  return fmtDate(iso);
+}
+
+// ── Load & render ─────────────────────────────────────────────
+async function load() {
+  const p = new URLSearchParams({ limit: 300 });
+
+  if (filterMode === 'done') {
+    p.set('status', 'done');
+  } else {
+    // default: open + in_progress handled by API
+    if (filterMode === 'urgent')  p.set('priority', 'urgent');
+    if (filterMode === 'auto')    p.set('auto', '1');
+    if (filterMode === 'overdue') { /* filter client-side */ }
+  }
+  if (filterCat) p.set('category', filterCat);
+
+  try {
+    const data = await fetch(`${API}?${p}`).then(r => r.json());
+    todos  = data.todos  || [];
+    stats  = data.stats  || {};
+
+    // Client-side overdue filter
+    if (filterMode === 'overdue') {
+      todos = todos.filter(t => t.due_date && t.due_date < todayStr());
+    }
+
+    updateStats(data.stats);
+    render();
+  } catch(e) {
+    $('todoList').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><h3>Load failed</h3><p>${e.message}</p></div>`;
+  }
+}
+
+function updateStats(s) {
+  if (!s) return;
+  $('statTotal').textContent  = s.open_count   ?? '—';
+  $('statUrgent').textContent = s.urgent_count ?? '—';
+  $('statOverdue').textContent= s.overdue_count?? '—';
+  $('statAuto').textContent   = s.auto_count   ?? '—';
+  $('statDone').textContent   = s.done_week    ?? '—';
+}
+
+function render() {
+  const list = $('todoList');
+  if (!todos.length) {
+    if (filterMode === 'done') {
+      list.innerHTML = `<div class="todos-empty">
+        <div class="todos-empty-icon">✅</div>
+        <div class="todos-empty-title">Nothing completed yet</div>
+        <div class="todos-empty-sub">Completed items from the last 7 days show here.</div>
+      </div>`;
+    } else {
+      list.innerHTML = `<div class="todos-empty">
+        <div class="todos-empty-icon">🎉</div>
+        <div class="todos-empty-title">All clear</div>
+        <div class="todos-empty-sub">No open to-dos${filterCat ? ' in ' + filterCat : ''}. Tap + to add one.</div>
+      </div>`;
+    }
+    return;
+  }
+
+  // Group by priority for open, or flat for done
+  if (filterMode === 'done') {
+    list.innerHTML = sectionHTML('Recently Done', todos.filter(t => t.status === 'done' || t.status === 'dismissed'), true);
+    return;
+  }
+
+  const prios = [
+    { key: 'urgent', label: 'Urgent', items: todos.filter(t => t.priority === 'urgent') },
+    { key: 'high',   label: 'High',   items: todos.filter(t => t.priority === 'high') },
+    { key: 'medium', label: 'Medium', items: todos.filter(t => t.priority === 'medium') },
+    { key: 'low',    label: 'Low',    items: todos.filter(t => t.priority === 'low') },
+  ].filter(p => p.items.length);
+
+  list.innerHTML = prios.map(p =>
+    sectionHTML(p.label, p.items, false)
+  ).join('');
+
+  list.className = 'todo-grid';
+  wireItems();
+}
+
+function sectionHTML(label, items, isDone) {
+  const prioColors = { urgent:'var(--red)', high:'var(--amber)', medium:'var(--accent)', low:'var(--text3)', 'Recently Done':'var(--green)' };
+  const col = prioColors[label] || 'var(--text3)';
+  return `
+    <div class="todo-section-head" style="border-left: 3px solid ${col}; padding-left: 8px; margin: 12px 16px 6px;">
+      <span class="todo-section-title" style="color:${col}">${label}</span>
+      <span class="todo-section-count">${items.length}</span>
+      <span class="todo-section-line"></span>
+    </div>
+    <div class="todo-grid">
+      ${items.map(t => todoHTML(t, isDone)).join('')}
+    </div>
+  `;
+}
+
+function todoHTML(t, isDone) {
+  const sl = sourceLink(t);
+  const isChecked = t.status === 'done' || t.status === 'dismissed';
+  const isOverdue  = t.due_date && t.due_date < todayStr();
+  const isFollowUp = t.auto_source_type === 'daily_log';
+  const isRecurring = !!t.recurrence_rule;
+
+  // Status icon badges (shown left of title)
+  const icons = [];
+  if (t.priority === 'urgent') icons.push(`<span class="td-icon td-icon-important" title="Urgent"><img src="/icons/important.png" alt="urgent"></span>`);
+  if (isOverdue)   icons.push(`<span class="td-icon td-icon-overdue" title="Overdue"><img src="/icons/overdue.png" alt="overdue"></span>`);
+  if (isFollowUp)  icons.push(`<span class="td-icon td-icon-followup" title="Follow-up"><img src="/icons/followup.png" alt="follow-up"></span>`);
+  if (isRecurring) icons.push(`<span class="td-icon td-icon-recurring" title="Recurring"><img src="/icons/recurring.png" alt="recurring"></span>`);
+
+  // Due date meta
+  const dueHtml = t.due_date ? `
+    <span class="td-due ${dueClass(t.due_date)}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      ${isOverdue ? `Due ${fmtDate(t.due_date)} · ${dueLabel(t.due_date)}` : dueLabel(t.due_date)}
+    </span>` : '';
+
+  // Source link
+  const sourceHtml = sl ? `
+    <a class="td-source" href="${sl.href}" onclick="event.stopPropagation()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      ${sl.label}
+    </a>` : '';
+
+  // AUTO badge (only when no status icons — avoids clutter)
+  const autoBadge = t.is_auto && icons.length === 0
+    ? `<span class="td-auto-badge">AUTO</span>` : '';
+
+  return `<div class="todo-item prio-${t.priority}${t.is_auto?' is-auto':''}${isDone?' done-item':''}"
+               data-id="${t.id}" role="button" tabindex="0">
+    <div class="todo-check${isChecked?' checked':''}" data-check="${t.id}" onclick="event.stopPropagation(); toggleDone(${t.id}, ${isChecked?0:1})"></div>
+    <div class="todo-body">
+      <div class="td-title-row">
+        ${icons.join('')}
+        <span class="td-name">${esc(t.title)}</span>
+        ${autoBadge}
+      </div>
+      ${t.notes ? `<div class="todo-notes">${esc(t.notes)}</div>` : ''}
+      <div class="td-meta">
+        <span class="todo-cat cat-${t.category||'General'}">${t.category||'General'}</span>
+        ${dueHtml}
+        ${sourceHtml}
+      </div>
+    </div>
+    <div class="todo-actions" onclick="event.stopPropagation()">
+      ${!isDone ? `<button class="todo-act-btn complete-btn" title="Mark complete" onclick="toggleDone(${t.id}, 1)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </button>` : ''}
+      ${!isDone ? `<button class="todo-act-btn" title="Snooze 1 day" onclick="snooze(${t.id})">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      </button>` : ''}
+      ${!t.is_auto && !isDone ? `<button class="todo-act-btn" title="Edit" onclick="openEdit(${t.id})">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      </button>` : ''}
+    </div>
+  </div>`;
+}
+
+// ── Multi-select state ────────────────────────────────────────
+let selectedIds = new Set();
+
+// ── Multi-select state ────────────────────────────────────────
+const selected = new Set();
+
+function toggleSelect(id, el) {
+  if (selected.has(id)) { selected.delete(id); el.classList.remove('selected'); }
+  else { selected.add(id); el.classList.add('selected'); }
+  updateBulkBar();
+}
+function updateBulkBar() {
+  const bar = $('bulkBar'); if (!bar) return;
+  if (selected.size > 0) { bar.classList.add('visible'); $('bulkCount').textContent = selected.size + ' selected'; }
+  else { bar.classList.remove('visible'); }
+}
+function clearSelection() {
+  selected.clear();
+  document.querySelectorAll('.todo-item.selected').forEach(el => el.classList.remove('selected'));
+  updateBulkBar();
+}
+async function bulkComplete() {
+  if (!selected.size) return;
+  await Promise.all([...selected].map(id => apiPatch(`/todos/${id}/status`, {status:'done'}).catch(()=>{})));
+  toast(`✓ ${selected.size} completed`); clearSelection(); await load();
+}
+async function bulkSnooze() {
+  if (!selected.size) return;
+  const d = new Date(); d.setDate(d.getDate()+1);
+  const due = d.toISOString().slice(0,10);
+  await Promise.all([...selected].map(id => apiPut(`/todos/${id}`, {due_date:due}).catch(()=>{})));
+  toast(`⏰ ${selected.size} snoozed`); clearSelection(); await load();
+}
+async function bulkDelete() {
+  if (!selected.size) return;
+  if (!await LT.confirm(`Delete ${selected.size} todo${selected.size>1?'s':''}?`)) return;
+  await Promise.all([...selected].map(id => apiDelete(`/todos/${id}`).catch(()=>{})));
+  toast(`Deleted ${selected.size}`); clearSelection(); await load();
+}
+
+function wireItems() {
+  $('todoList').querySelectorAll('.todo-item').forEach(el => {
+    const id = +el.dataset.id;
+    // Long-press or Ctrl/Cmd+click enters multi-select mode
+    let pressTimer;
+    el.addEventListener('pointerdown', () => { pressTimer = setTimeout(() => toggleSelect(id, el), 500); });
+    el.addEventListener('pointerup',   () => clearTimeout(pressTimer));
+    el.addEventListener('pointermove', () => clearTimeout(pressTimer));
+    el.addEventListener('click', e => {
+      if (e.ctrlKey || e.metaKey) { toggleSelect(id, el); return; }
+      if (selected.size > 0) { toggleSelect(id, el); return; }
+      openDetail(id);
+    });
+    el.addEventListener('keydown', e => { if (e.key === 'Enter') openDetail(id); });
+  });
+}
+
+// ── Actions ───────────────────────────────────────────────────
+async function toggleDone(id, markDone) {
+  try {
+    await apiPatch(`/todos/${id}/status`, { status: markDone ? 'done' : 'open' });
+    toast(markDone ? '✓ Done' : 'Reopened');
+    await load();
+  } catch { toast('Failed', 'err'); }
+}
+
+async function dismiss(id) {
+  try {
+    await apiPatch(`/todos/${id}/status`, { status: 'dismissed' });
+    toast('Dismissed');
+    await load();
+  } catch { toast('Failed', 'err'); }
+}
+
+async function deleteTodo(id) {
+  LT.confirm({
+    title: 'Delete to-do?',
+    msg: 'This cannot be undone.',
+    confirmLabel: 'Delete',
+    onConfirm: async () => {
+      try {
+        await apiDelete(`/todos/${id}`);
+        toast('Deleted');
+        await load();
+      } catch { toast('Delete failed', 'err'); }
+    }
+  });
+}
+
+// ── Detail ────────────────────────────────────────────────────
+function openDetail(id) {
+  const t = todos.find(x => x.id === id);
+  if (!t) return;
+  const sl = sourceLink(t);
+  const isDone = t.status === 'done' || t.status === 'dismissed';
+
+  $('detailContent').innerHTML = `
+    <div class="detail-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      <span class="todo-cat cat-${t.category}">${t.category}</span>
+      <span class="badge ${t.priority === 'urgent' ? 'badge-red' : t.priority === 'high' ? 'badge-amber' : 'badge-blue'}">${t.priority}</span>
+      ${t.is_auto ? `<span class="badge badge-purple">Auto-generated</span>` : ''}
+      ${t.due_date ? `<span class="todo-due ${dueClass(t.due_date)}" style="font-size:12px">${dueLabel(t.due_date)} · ${t.due_date}</span>` : ''}
+    </div>
+    <div style="font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:12px;line-height:1.4">${esc(t.title)}</div>
+    ${t.notes ? `<div style="font-size:14px;color:var(--text2);line-height:1.7;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:14px">${esc(t.notes)}</div>` : ''}
+    ${t.reminder_date ? `<div style="font-size:12px;color:var(--text3);margin-bottom:14px">🔔 Reminder: ${fmtDate(t.reminder_date)}</div>` : ''}
+    ${sl ? `<a class="btn btn-ghost btn-full" href="${sl.href}" style="margin-bottom:8px;text-decoration:none">
+      ${sl.icon} ${sl.label}
+    </a>` : ''}
+    <div class="btn-row">
+      <button class="btn btn-ghost" id="detailClose">Close</button>
+      ${!isDone ? `<button class="btn btn-primary" onclick="toggleDone(${t.id}, 1); $('detailDrawer').classList.remove('open')">Mark Done</button>` : `<button class="btn btn-ghost" onclick="toggleDone(${t.id}, 0); $('detailDrawer').classList.remove('open')">Reopen</button>`}
+      ${!t.is_auto ? `<button class="btn btn-ghost" onclick="openEdit(${t.id}); $('detailDrawer').classList.remove('open')">Edit</button>` : ''}
+    </div>
+  `;
+  document.getElementById('detailClose').addEventListener('click', () => $('detailDrawer').classList.remove('open'));
+  $('detailDrawer').classList.add('open');
+}
+
+// ── Form ──────────────────────────────────────────────────────
+async function openAdd() {
+  editingId = null;
+  $('drawerTitle').textContent = 'New To-Do';
+  $('fTitle').value = '';
+  $('fNotes').value = '';
+  $('fPriority').value = 'medium';
+  await GH_SELECT.init('fCategory', 'todo_category', filterCat||'General', { allowAdd: true });
+  $('fCategory').value = filterCat || 'General';
+  $('fDue').value = '';
+  $('fReminder').value = '';
+  $('fRecurrence').value = '';
+  initTodoTags([]);
+  $('formDrawer').classList.add('open');
+  setTimeout(() => $('fTitle').focus(), 300);
+}
+
+async function openEdit(id) {
+  const t = todos.find(x => x.id === id);
+  if (!t || t.is_auto) return;
+  editingId = id;
+  $('drawerTitle').textContent = 'Edit To-Do';
+  $('fTitle').value       = t.title || '';
+  $('fNotes').value       = t.notes || '';
+  $('fPriority').value    = t.priority || 'medium';
+  await GH_SELECT.init('fCategory', 'todo_category', t.category||'General', { allowAdd: true });
+  $('fCategory').value    = t.category || 'General';
+  $('fDue').value         = t.due_date || '';
+  $('fReminder').value    = t.reminder_date || '';
+  $('fRecurrence').value  = t.recurrence || '';
+  initTodoTags(t.tags||[]);
+  $('formDrawer').classList.add('open');
+}
+
+$('fabBtn').addEventListener('click', openAdd);
+$('formCancel').addEventListener('click', () => $('formDrawer').classList.remove('open'));
+onDrawerBg('formDrawer');
+onDrawerBg('detailDrawer');
+
+$('formSave').addEventListener('click', async () => {
+  const title = $('fTitle').value.trim();
+  if (!title) { toast('Title is required', 'err'); return; }
+  const btn = $('formSave');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    const body = {
+      title,
+      notes:      $('fNotes').value.trim() || null,
+      priority:   $('fPriority').value,
+      category:   $('fCategory').value,
+      due_date:   $('fDue').value || null,
+      reminder_date: $('fReminder').value || null,
+      recurrence: $('fRecurrence').value || null,
+      tags: todoFormTags,
+    };
+    const url    = editingId ? `${API}/${editingId}` : API;
+    const method = editingId ? 'PUT' : 'POST';
+    const r = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+    $('formDrawer').classList.remove('open');
+    toast(editingId ? 'Updated' : 'To-do added');
+    await load();
+  } catch(e) { toast(e.message, 'err'); }
+  finally { btn.textContent = 'Save'; btn.disabled = false; }
+});
+
+// ── Stat chips ────────────────────────────────────────────────
+document.getElementById('statsRow').addEventListener('click', e => {
+  const chip = e.target.closest('.view-tab[data-filter]');
+  if (!chip) return;
+  document.querySelectorAll('#statsRow .view-tab').forEach(c => c.classList.remove('active'));
+  chip.classList.add('active');
+  filterMode = chip.dataset.filter;
+  filterCat = ''; // reset category when switching mode
+  document.querySelectorAll('#filterStrip .view-tab').forEach(b => b.classList.remove('active'));
+  const allCat = document.querySelector('#filterStrip .view-tab[data-cat=""]');
+  if (allCat) allCat.classList.add('active');
+  load();
+});
+
+// ── Category filter pills ─────────────────────────────────────
+document.getElementById('filterStrip').addEventListener('click', e => {
+  const pill = e.target.closest('.view-tab[data-cat]');
+  if (!pill) return;
+  document.querySelectorAll('#filterStrip .view-tab').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  filterCat = pill.dataset.cat;
+  load();
+});
+
+async function loadCategoryPills() {
+  const DEFAULT_CATS = ['HSA','Medical','Inventory','Finance','General','Home','Car','Health'];
+  try {
+    const opts = await fetch('/api/v1/settings/dropdowns/todo_category').then(r => r.ok ? r.json() : []);
+    const cats = opts.length ? opts.map(o => o.value) : DEFAULT_CATS;
+    const strip = document.getElementById('filterStrip');
+    const existing = strip.innerHTML; // keep 'All' pill
+    cats.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'view-tab';
+      btn.dataset.cat = cat;
+      btn.textContent = cat;
+      strip.appendChild(btn);
+    });
+  } catch(e) {
+    // fallback: inject defaults
+    const cats = ['HSA','Medical','Inventory','Finance','General','Home','Car','Health'];
+    const strip = document.getElementById('filterStrip');
+    cats.forEach(cat => {
+      const btn = document.createElement('button');
+      btn.className = 'view-tab';
+      btn.dataset.cat = cat;
+      btn.textContent = cat;
+      strip.appendChild(btn);
+    });
+  }
+}
+
+// ── Snooze ────────────────────────────────────────────────────
+async function snooze(id) {
+  try {
+    await apiPatch(`/todos/${id}/snooze`, { days: 1 });
+    toast('Snoozed 1 day');
+    await load();
+  } catch { toast('Failed', 'err'); }
+}
+
+// Long-press to enter bulk select mode
+let longPressTimer = null;
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('todoList').addEventListener('touchstart', e => {
+    const item = e.target.closest('.todo-item');
+    if (!item) return;
+    longPressTimer = setTimeout(() => {
+      navigator.vibrate && navigator.vibrate(30);
+      toggleSelect(+item.dataset.id);
+    }, 500);
+  }, { passive: true });
+  document.getElementById('todoList').addEventListener('touchend', () => {
+    clearTimeout(longPressTimer);
+  });
+});
+
+// ── Init ─────────────────────────────────────────────────────
+loadCategoryPills();
+load();
+
+// ── Tags (todos) ───────────────────────────────────────────────
+let todoFormTags = [];
+function renderTodoTags() {
+  const wrap=$('todoTagsWrap'), input=$('todoTagInput'); if(!wrap||!input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  todoFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{todoFormTags=todoFormTags.filter(x=>x!==t);renderTodoTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addTodoTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!todoFormTags.includes(t)).forEach(t=>todoFormTags.push(t));
+  renderTodoTags(); const inp=$('todoTagInput'); if(inp)inp.value='';
+}
+function initTodoTags(existing){
+  todoFormTags=(existing||[]).slice(); renderTodoTags();
+  const inp=$('todoTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addTodoTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&todoFormTags.length){todoFormTags.pop();renderTodoTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addTodoTag(inp.value);};
+  GH_TAGS.init({inputId:'todoTagInput',wrapId:'todoTagsWrap',module:'todos',getFormTags:()=>todoFormTags,addTag:t=>addTodoTag(t),allowCreate:true});
+}
+
+</script>
+</body>
+</html>

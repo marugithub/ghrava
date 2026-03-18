@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Calendar — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+/* ── Month grid ──────────────────────────────────────────── */
+.cal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px 6px; gap: 8px;
+}
+.cal-month-label {
+  font-size: 18px; font-weight: 800; letter-spacing: -.02em;
+  flex: 1; text-align: center;
+}
+.cal-nav-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--bg2); border: 1px solid var(--border);
+  color: var(--text); cursor: pointer; display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-nav-btn:active { background: var(--bg3); }
+.cal-dow-row {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  padding: 0 8px; margin-bottom: 2px;
+}
+.cal-dow { text-align: center; font-size: 10px; font-family: var(--mono);
+  text-transform: uppercase; color: var(--text3); padding: 4px 0; }
+.cal-grid {
+  display: grid; grid-template-columns: repeat(7,1fr);
+  padding: 0 8px; gap: 2px;
+}
+.cal-day {
+  aspect-ratio: 1; border-radius: 6px; padding: 4px;
+  display: flex; flex-direction: column; align-items: center;
+  cursor: pointer; position: relative; min-height: 40px;
+  -webkit-tap-highlight-color: transparent;
+}
+.cal-day:hover { background: var(--bg2); }
+.cal-day.other-month .cal-day-num { color: var(--text3); opacity: .4; }
+.cal-day.today .cal-day-num {
+  background: var(--accent); color: #fff;
+  width: 24px; height: 24px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+}
+.cal-day.selected { background: var(--bg2); }
+.cal-day-num { font-size: 12px; font-weight: 600; color: var(--text);
+  width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; }
+.cal-dots { display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; margin-top: 2px; }
+.cal-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+
+/* ── Event list ──────────────────────────────────────────── */
+.evt-section-hdr {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--text3); padding: 12px 16px 6px;
+}
+.evt-card {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.evt-card:hover { background: var(--bg2); }
+.evt-date-col {
+  width: 40px; flex-shrink: 0; text-align: center;
+}
+.evt-day-num { font-size: 18px; font-weight: 800; line-height: 1; color: var(--text); }
+.evt-day-name { font-size: 10px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; }
+.evt-bar { width: 3px; border-radius: 2px; align-self: stretch; flex-shrink: 0; min-height: 36px; }
+.evt-body { flex: 1; min-width: 0; }
+.evt-title { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.evt-meta  { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.evt-source-badge {
+  font-size: 9px; font-family: var(--mono); padding: 1px 5px; border-radius: 4px;
+  background: var(--bg2); color: var(--text3); flex-shrink: 0; align-self: center;
+}
+
+/* ── Sync banner ─────────────────────────────────────────── */
+.sync-banner {
+  margin: 10px 16px; padding: 10px 14px; border-radius: var(--r);
+  background: var(--bg2); border: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; font-size: 13px;
+}
+.sync-banner-icon { font-size: 20px; flex-shrink: 0; }
+.sync-banner-body { flex: 1; }
+.sync-banner-title { font-weight: 600; color: var(--text); }
+.sync-banner-sub   { color: var(--text3); font-size: 12px; margin-top: 1px; }
+.sync-btn { padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 600;
+  background: var(--accent); color: #fff; border: none; cursor: pointer;
+  white-space: nowrap; flex-shrink: 0; }
+.sync-btn:disabled { opacity: .5; cursor: default; }
+</style>
+</head>
+<body>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<div id="nav-container"></div>
+
+<div id="app" style="padding-bottom: 80px">
+
+  <div class="view-tabs">
+    <button class="view-tab active" onclick="setView('month',this)">Month</button>
+    <button class="view-tab" onclick="setView('upcoming',this)">Upcoming</button>
+    <button class="view-tab" onclick="setView('all',this)">All Events</button>
+  </div>
+
+  <!-- ── Sync banner (shows if Google not connected) ── -->
+  <div id="syncBanner"></div>
+
+  <!-- ── Month view ── -->
+  <div id="panel-month" class="view-panel active">
+    <div class="cal-header">
+      <button class="cal-nav-btn" onclick="navMonth(-1)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="cal-month-label" id="monthLabel"></div>
+      <button class="cal-nav-btn" onclick="navMonth(1)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div class="cal-dow-row">
+      <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
+      <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div>
+      <div class="cal-dow">Sat</div>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <!-- Day detail list below grid -->
+    <div id="dayDetail" style="margin-top:8px"></div>
+  </div>
+
+  <!-- ── Upcoming view ── -->
+  <div id="panel-upcoming" class="view-panel">
+    <div id="upcomingList"></div>
+  </div>
+
+  <!-- ── All Events view ── -->
+  <div id="panel-all" class="view-panel">
+    <div id="allList"></div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab" id="fabBtn" title="Add event">+</button>
+</div>
+
+<!-- ── Add / Edit Drawer ── -->
+<div class="drawer-overlay" id="evtDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="evtDrawerTitle">Add Event</div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">Title *</label>
+        <input class="form-input" id="fTitle" placeholder="Event title" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Date *</label>
+        <input class="form-input" type="date" id="fDate">
+      </div>
+      <div class="form-group" id="timeWrap">
+        <label class="form-label">Time</label>
+        <div style="display:flex;gap:8px">
+          <input class="form-input" type="time" id="fStartTime" style="flex:1">
+          <input class="form-input" type="time" id="fEndTime" style="flex:1" placeholder="End time">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+          <input type="checkbox" id="fAllDay" onchange="toggleAllDay()"> All day
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Location</label>
+        <input class="form-input" id="fLocation" placeholder="Location (optional)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-input" id="fNotes" rows="2" placeholder="Notes (optional)" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Family Member</label>
+        <select class="form-input" id="fFamilyMember">
+          <option value="">Anyone</option>
+        </select>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" id="evtCancel">Cancel</button>
+      <button class="btn btn-primary" id="evtSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Detail Drawer ── -->
+<div class="drawer-overlay" id="detailDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div id="detailContent" style="padding:16px 20px 24px"></div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" id="detailClose">Close</button>
+      <button class="btn btn-ghost" id="detailEdit" style="display:none">Edit</button>
+      <button class="btn btn-danger" id="detailDelete" style="display:none">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+window.GH_PAGE = { key: 'calendar', title: 'Calendar' };
+
+const API = '/api/v1/google';
+const $ = id => document.getElementById(id);
+const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+
+const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const EVT_COLORS = ['#5c72fa','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316'];
+
+let curYear  = new Date().getFullYear();
+let curMonth = new Date().getMonth(); // 0-indexed
+let allEvents = []; // cached events for current view
+let selectedDate = null;
+let editingId = null;
+let calendarColorMap = {}; // calendarId → color
+
+// ── View switching ────────────────────────────────────────────
+function setView(v, btn) {
+  document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  $('panel-' + v).classList.add('active');
+  if (v === 'month')    renderMonth();
+  if (v === 'upcoming') loadUpcoming();
+  if (v === 'all')      loadAll();
+}
+
+// ── Month navigation ──────────────────────────────────────────
+function navMonth(dir) {
+  curMonth += dir;
+  if (curMonth > 11) { curMonth = 0; curYear++; }
+  if (curMonth < 0)  { curMonth = 11; curYear--; }
+  renderMonth();
+}
+
+async function renderMonth() {
+  $('monthLabel').textContent = `${MONTH_NAMES[curMonth]} ${curYear}`;
+
+  // Fetch events for this month ±1 week for context
+  const from = new Date(curYear, curMonth, 1).toISOString().slice(0,10);
+  const to   = new Date(curYear, curMonth + 1, 0).toISOString().slice(0,10);
+  try {
+    const evts = await fetch(`${API}/events?from=${from}&to=${to}&limit=500`).then(r=>r.ok?r.json():[]);
+    allEvents = evts;
+  } catch { allEvents = []; }
+
+  // Build calendar grid
+  const firstDay = new Date(curYear, curMonth, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(curYear, curMonth + 1, 0).getDate();
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0,10);
+
+  // Build event lookup by date
+  const evtByDate = {};
+  allEvents.forEach(e => {
+    const d = e.start_datetime.slice(0,10);
+    if (!evtByDate[d]) evtByDate[d] = [];
+    evtByDate[d].push(e);
+  });
+
+  let html = '';
+  // Leading empty cells
+  for (let i = 0; i < firstDay; i++) html += '<div class="cal-day other-month"><div class="cal-day-num"></div></div>';
+
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${curYear}-${String(curMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const isToday = dateStr === todayStr;
+    const isSel   = dateStr === selectedDate;
+    const dayEvts = evtByDate[dateStr] || [];
+    const dots = dayEvts.slice(0,3).map(e => {
+      const color = calendarColorMap[e.calendar_id] || EVT_COLORS[0];
+      return `<div class="cal-dot" style="background:${color}"></div>`;
+    }).join('');
+    html += `<div class="cal-day${isToday?' today':''}${isSel?' selected':''}" onclick="selectDay('${dateStr}')">
+      <div class="cal-day-num">${d}</div>
+      <div class="cal-dots">${dots}</div>
+    </div>`;
+  }
+  $('calGrid').innerHTML = html;
+
+  // Show today's events by default
+  if (!selectedDate) selectDay(todayStr);
+  else renderDayDetail(selectedDate);
+}
+
+function selectDay(dateStr) {
+  selectedDate = dateStr;
+  // Update selected cell
+  $('calGrid').querySelectorAll('.cal-day').forEach(c => c.classList.remove('selected'));
+  const allCells = $('calGrid').querySelectorAll('.cal-day:not(.other-month)');
+  const day = parseInt(dateStr.split('-')[2]);
+  if (allCells[day-1]) allCells[day-1].classList.add('selected');
+  renderDayDetail(dateStr);
+}
+
+function renderDayDetail(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const dayEvts = allEvents.filter(e => e.start_datetime.slice(0,10) === dateStr);
+  const label = d.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+
+  if (!dayEvts.length) {
+    $('dayDetail').innerHTML = `<div class="evt-section-hdr">${label}</div>
+      <div style="padding:12px 16px;color:var(--text3);font-size:13px">No events — tap + to add one</div>`;
+    return;
+  }
+  $('dayDetail').innerHTML = `<div class="evt-section-hdr">${label}</div>` +
+    dayEvts.map(e => eventCard(e)).join('');
+  $('dayDetail').querySelectorAll('.evt-card').forEach(c => {
+    c.addEventListener('click', () => openDetail(c.dataset.id));
+  });
+}
+
+// ── Upcoming view ─────────────────────────────────────────────
+async function loadUpcoming() {
+  $('upcomingList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">Loading…</div>';
+  try {
+    const evts = await fetch(`${API}/events/upcoming?days=30`).then(r=>r.ok?r.json():[]);
+    if (!evts.length) {
+      $('upcomingList').innerHTML = '<div style="padding:32px;text-align:center"><div style="font-size:32px;margin-bottom:8px">📅</div><div style="color:var(--text3)">No upcoming events in the next 30 days</div></div>';
+      return;
+    }
+    renderEventGroups('upcomingList', evts, 'Next 30 Days');
+  } catch(e) {
+    $('upcomingList').innerHTML = errorState(e.message, '');
+  }
+}
+
+async function loadAll() {
+  $('allList').innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">Loading…</div>';
+  try {
+    const evts = await fetch(`${API}/events?limit=500`).then(r=>r.ok?r.json():[]);
+    if (!evts.length) {
+      $('allList').innerHTML = '<div style="padding:32px;text-align:center"><div style="font-size:32px;margin-bottom:8px">📅</div><div style="color:var(--text3)">No events yet</div></div>';
+      return;
+    }
+    renderEventGroups('allList', evts, 'All Events');
+  } catch { $('allList').innerHTML = errorState(e.message, ''); }
+}
+
+function renderEventGroups(containerId, evts, title) {
+  // Group by month
+  const groups = {};
+  evts.forEach(e => {
+    const key = e.start_datetime.slice(0,7); // YYYY-MM
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(e);
+  });
+  const el = $(containerId);
+  el.innerHTML = Object.entries(groups).map(([key, group]) => {
+    const [y, m] = key.split('-');
+    return `<div class="evt-section-hdr">${MONTH_NAMES[+m-1]} ${y}</div>` +
+      group.map(e => eventCard(e)).join('');
+  }).join('');
+  el.querySelectorAll('.evt-card').forEach(c => {
+    c.addEventListener('click', () => openDetail(c.dataset.id));
+  });
+}
+
+function eventCard(e) {
+  const startDate = new Date(e.start_datetime);
+  const day  = e.all_day ? e.start_datetime.slice(8,10) : startDate.getDate();
+  const dow  = e.all_day ? DOW[new Date(e.start_datetime+'T00:00:00').getDay()] : DOW[startDate.getDay()];
+  const timeStr = e.all_day ? 'All day' : startDate.toLocaleTimeString('en-US', {hour:'numeric',minute:'2-digit'});
+  const color = calendarColorMap[e.calendar_id] || EVT_COLORS[0];
+  const isLocal = e.source === 'local';
+  return `<div class="evt-card" data-id="${esc(e.id)}">
+    <div class="evt-date-col">
+      <div class="evt-day-num">${day}</div>
+      <div class="evt-day-name">${dow}</div>
+    </div>
+    <div class="evt-bar" style="background:${color}"></div>
+    <div class="evt-body">
+      <div class="evt-title">${esc(e.title)}</div>
+      <div class="evt-meta">${timeStr}${e.location?' · '+esc(e.location):''}${e.family_member?' · 👤 '+esc(e.family_member):''}</div>
+    </div>
+    ${isLocal ? '' : '<div class="evt-source-badge">Google</div>'}
+  </div>`;
+}
+
+// ── Detail drawer ─────────────────────────────────────────────
+let _detailEvt = null;
+function openDetail(id) {
+  const e = [...allEvents].find(x => x.id === id);
+  // Fallback: fetch from all panels
+  if (!e) return;
+  _detailEvt = e;
+  const isLocal = e.source === 'local';
+  const startDate = new Date(e.start_datetime);
+  const timeStr = e.all_day ? 'All day' : startDate.toLocaleString('en-US', {weekday:'long',month:'long',day:'numeric',hour:'numeric',minute:'2-digit'});
+  const color = calendarColorMap[e.calendar_id] || EVT_COLORS[0];
+
+  $('detailContent').innerHTML = `
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:16px">
+      <div style="width:4px;min-height:50px;border-radius:2px;background:${color};flex-shrink:0"></div>
+      <div>
+        <div style="font-size:19px;font-weight:800;color:var(--text);line-height:1.2">${esc(e.title)}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px">${timeStr}</div>
+      </div>
+    </div>
+    ${e.location?`<div style="font-size:13px;color:var(--text2);margin-bottom:10px">📍 ${esc(e.location)}</div>`:''}
+    ${e.description?`<div style="font-size:14px;color:var(--text2);line-height:1.5;margin-bottom:10px">${esc(e.description)}</div>`:''}
+    ${e.family_member?`<div style="font-size:13px;color:var(--text3)">👤 ${esc(e.family_member)}</div>`:''}
+    ${e.html_link?`<a href="${esc(e.html_link)}" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;display:inline-block;margin-top:8px">Open in Google Calendar ↗</a>`:''}
+    ${!isLocal?`<div style="font-size:11px;color:var(--text3);margin-top:12px">Synced from Google</div>`:''}
+  `;
+  $('detailEdit').style.display   = isLocal ? 'inline-flex' : 'none';
+  $('detailDelete').style.display = isLocal ? 'inline-flex' : 'none';
+  $('detailEdit').onclick   = () => { $('detailDrawer').classList.remove('open'); openEvtDrawer(e); };
+  $('detailDelete').onclick = () => deleteEvt(e.id);
+  $('detailDrawer').classList.add('open');
+}
+
+async function deleteEvt(id) {
+  if (!await LT.confirm({ message: 'Delete this event?' })) return;
+  try {
+    await fetch(`${API}/events/${encodeURIComponent(id)}`, {
+      method:'DELETE', headers:{'Authorization':'Bearer '+LT.authToken}
+    });
+    $('detailDrawer').classList.remove('open');
+    toast('Deleted', 'ok');
+    refreshAll();
+  } catch { toast('Failed to delete', 'err'); }
+}
+
+// ── Add/Edit drawer ───────────────────────────────────────────
+function openEvtDrawer(evt) {
+  editingId = evt?.id || null;
+  $('evtDrawerTitle').textContent = editingId ? 'Edit Event' : 'Add Event';
+  $('fTitle').value    = evt?.title || '';
+  $('fDate').value     = evt?.start_datetime?.slice(0,10) || new Date().toISOString().slice(0,10);
+  $('fAllDay').checked = !!(evt?.all_day);
+  $('fLocation').value = evt?.location || '';
+  $('fNotes').value    = evt?.description || '';
+  $('fFamilyMember').value = evt?.family_member || '';
+
+  if (evt && !evt.all_day && evt.start_datetime?.length > 10) {
+    $('fStartTime').value = evt.start_datetime.slice(11,16);
+    $('fEndTime').value   = evt.end_datetime?.slice(11,16) || '';
+  } else {
+    $('fStartTime').value = '';
+    $('fEndTime').value   = '';
+  }
+  toggleAllDay();
+  $('evtDrawer').classList.add('open');
+  setTimeout(() => $('fTitle').focus(), 300);
+}
+
+function toggleAllDay() {
+  $('timeWrap').style.display = $('fAllDay').checked ? 'none' : 'block';
+}
+
+$('evtCancel').addEventListener('click', () => $('evtDrawer').classList.remove('open'));
+$('detailClose').addEventListener('click', () => $('detailDrawer').classList.remove('open'));
+$('fabBtn').addEventListener('click', () => openEvtDrawer(null));
+
+$('evtSave').addEventListener('click', async () => {
+  const title = $('fTitle').value.trim();
+  const date  = $('fDate').value;
+  if (!title) { toast('Title is required', 'err'); return; }
+  if (!date)  { toast('Date is required', 'err'); return; }
+
+  const allDay = $('fAllDay').checked;
+  const startTime = $('fStartTime').value;
+  const endTime   = $('fEndTime').value;
+  const start_datetime = allDay ? date : (startTime ? `${date}T${startTime}:00` : date);
+  const end_datetime   = allDay ? null : (endTime ? `${date}T${endTime}:00` : null);
+
+  const body = {
+    title, start_datetime, end_datetime, all_day: allDay ? 1 : 0,
+    location: $('fLocation').value.trim() || null,
+    description: $('fNotes').value.trim() || null,
+    family_member: $('fFamilyMember').value || null,
+  };
+
+  $('evtSave').disabled = true; $('evtSave').textContent = 'Saving…';
+  try {
+    const url    = editingId ? `${API}/events/${encodeURIComponent(editingId)}` : `${API}/events`;
+    const method = editingId ? 'PUT' : 'POST';
+    const r = await fetch(url, {
+      method, headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error(await r.text());
+    $('evtDrawer').classList.remove('open');
+    toast(editingId ? 'Event updated' : 'Event added', 'ok');
+    refreshAll();
+  } catch(e) { toast(ghErrorMsg(e),'err'); }
+  finally { $('evtSave').disabled = false; $('evtSave').textContent = 'Save'; }
+});
+
+// ── Google sync banner ────────────────────────────────────────
+async function loadSyncBanner() {
+  try {
+    const s = await fetch(`${API}/status`).then(r=>r.ok?r.json():null);
+    if (!s) return;
+    if (s.connected) {
+      const lastSync = s.services.calendar.last_sync;
+      const ago = lastSync ? timeSince(lastSync) : 'never';
+      $('syncBanner').innerHTML = `
+        <div class="sync-banner">
+          <div class="sync-banner-icon">🔄</div>
+          <div class="sync-banner-body">
+            <div class="sync-banner-title">Google Calendar</div>
+            <div class="sync-banner-sub">${s.services.calendar.event_count} events · Last sync ${ago}</div>
+          </div>
+          <button class="sync-btn" id="syncNowBtn" onclick="syncNow()">Sync</button>
+        </div>`;
+    } else if (s.configured) {
+      $('syncBanner').innerHTML = `
+        <div class="sync-banner">
+          <div class="sync-banner-icon">🔗</div>
+          <div class="sync-banner-body">
+            <div class="sync-banner-title">Connect Google Calendar</div>
+            <div class="sync-banner-sub">Credentials saved — authorize to start syncing</div>
+          </div>
+          <button class="sync-btn" onclick="startOAuth()">Connect</button>
+        </div>`;
+    } else {
+      $('syncBanner').innerHTML = `
+        <div class="sync-banner">
+          <div class="sync-banner-icon">📅</div>
+          <div class="sync-banner-body">
+            <div class="sync-banner-title">Add Google Calendar</div>
+            <div class="sync-banner-sub">Configure in Settings → Google Services</div>
+          </div>
+          <button class="sync-btn" onclick="location.href='/settings.html'">Setup</button>
+        </div>`;
+    }
+    // Load calendar color map
+    const cals = await fetch(`${API}/calendars`).then(r=>r.ok?r.json():[]);
+    cals.forEach((c,i) => { calendarColorMap[c.id] = c.color_hex || EVT_COLORS[i % EVT_COLORS.length]; });
+  } catch {}
+}
+
+async function syncNow() {
+  const btn = $('syncNowBtn'); if (!btn) return;
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  try {
+    const r = await fetch(`${API}/sync/calendar`, {
+      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken}
+    });
+    const d = await r.json();
+    if (r.ok) { toast(`Synced ${d.synced} events`, 'ok'); refreshAll(); }
+    else toast(d.error || 'Sync failed', 'err');
+  } catch { toast('Sync failed', 'err'); }
+  finally { btn.disabled = false; btn.textContent = 'Sync'; loadSyncBanner(); }
+}
+
+async function startOAuth() {
+  try {
+    const r = await fetch(`${API}/oauth/start`, { headers:{'Authorization':'Bearer '+LT.authToken} });
+    const d = await r.json();
+    if (d.auth_url) window.location.href = d.auth_url;
+    else toast(d.error || 'Failed to start OAuth', 'err');
+  } catch { toast('Failed', 'err'); }
+}
+
+function timeSince(isoStr) {
+  const s = Math.floor((Date.now() - new Date(isoStr).getTime()) / 1000);
+  if (s < 60)  return 'just now';
+  if (s < 3600) return `${Math.floor(s/60)}m ago`;
+  if (s < 86400) return `${Math.floor(s/3600)}h ago`;
+  return `${Math.floor(s/86400)}d ago`;
+}
+
+function refreshAll() {
+  const activeTab = document.querySelector('.view-tab.active');
+  const view = activeTab?.onclick?.toString().match(/'(\w+)'/)?.[1];
+  if (view === 'month') renderMonth();
+  else if (view === 'upcoming') loadUpcoming();
+  else if (view === 'all') loadAll();
+  else renderMonth();
+}
+
+// ── Load family members for form ──────────────────────────────
+async function loadFamilyOpts() {
+  try {
+    const fam = await fetch('/api/v1/settings/family').then(r=>r.ok?r.json():[]);
+    const sel = $('fFamilyMember');
+    fam.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.name; opt.textContent = f.name;
+      sel.appendChild(opt);
+    });
+  } catch {}
+}
+
+// ── Handle OAuth return ───────────────────────────────────────
+function checkOAuthReturn() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('google_connected') === '1') {
+    toast('Google Calendar connected! Syncing…', 'ok');
+    history.replaceState({}, '', '/calendar.html');
+    setTimeout(() => syncNow(), 1000);
+  } else if (params.get('google_error')) {
+    toast('Google auth error: ' + params.get('google_error'), 'err');
+    history.replaceState({}, '', '/calendar.html');
+  }
+}
+
+// ── Init ─────────────────────────────────────────────────────
+function toast(msg, type) { if (window.LT?.toast) LT.toast(msg, type); }
+
+document.addEventListener('DOMContentLoaded', () => {
+  checkOAuthReturn();
+  loadSyncBanner();
+  loadFamilyOpts();
+  renderMonth();
+});
+</script>
+</body>
+</html>

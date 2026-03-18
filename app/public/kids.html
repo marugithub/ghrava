@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Kids — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') === '1') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+<style>
+.kid-card { margin:10px 16px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--border);overflow:hidden; }
+.kid-card-header { display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent; }
+.kid-avatar { width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0; }
+.kid-name { font-size:17px;font-weight:700;color:var(--text); }
+.kid-meta { font-size:13px;color:var(--text3);margin-top:2px; }
+.kid-stats { display:flex;gap:16px;padding:0 16px 14px; }
+.kid-stat { text-align:center; }
+.kid-stat-val { font-size:18px;font-weight:800;color:var(--accent); }
+.kid-stat-lbl { font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase; }
+.detail-section-label { font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:14px 16px 6px; }
+.info-row { display:flex;justify-content:space-between;align-items:flex-start;padding:8px 16px;border-bottom:1px solid var(--border);gap:12px; }
+.info-row:last-child { border-bottom:none; }
+.info-label { font-size:13px;color:var(--text3);flex-shrink:0; }
+.info-value { font-size:13px;color:var(--text);text-align:right;flex:1; }
+.activity-row { display:flex;align-items:flex-start;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border); }
+.activity-row:last-child { border-bottom:none; }
+.activity-icon { width:36px;height:36px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px; }
+.activity-name { font-size:14px;font-weight:600;color:var(--text); }
+.activity-meta { font-size:12px;color:var(--text3);margin-top:2px; }
+.activity-inactive { opacity:.45; }
+.note-row { padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent; }
+.note-row:last-child { border-bottom:none; }
+.note-row:hover { background:var(--bg); }
+.note-header { display:flex;justify-content:space-between;align-items:baseline;gap:8px; }
+.note-title { font-size:13px;font-weight:600;color:var(--text); }
+.note-date { font-size:11px;color:var(--text3);font-family:var(--mono);flex-shrink:0; }
+.note-body { font-size:13px;color:var(--text2);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
+.note-cat-badge { font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg2);color:var(--text3);font-family:var(--mono); }
+</style>
+</head>
+<body>
+<script>
+window.GH_PAGE = { module: 'kids', title: 'Kids' };
+</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<div id="nav-container"></div>
+
+<div id="app" style="padding-bottom:80px">
+
+  <!-- Child selector tabs — populated dynamically from kids in DB -->
+  <div class="view-tabs" id="kidsTabs" style="--tab-color:#ec4899">
+    <div class="view-tab active" style="color:var(--text3);font-style:italic;pointer-events:none">Loading…</div>
+  </div>
+
+  <!-- Per-child section header with edit button -->
+  <div id="kidSectionHeader" style="display:none;padding:8px 16px 0;display:flex;align-items:center;justify-content:space-between">
+    <div id="detailKidName" style="font-size:15px;font-weight:600;color:var(--text3)"></div>
+    <button onclick="editCurrentKid()" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;display:flex;align-items:center;gap:4px;font-size:12px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4H4a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+      Edit
+    </button>
+  </div>
+
+  <!-- Content sub-tabs (profile / activities / notes) -->
+  <div class="view-tabs" id="kidDetailTabs" style="--tab-color:#ec4899;display:none">
+    <button class="view-tab active" onclick="setDetailTab('profile',this)">Profile</button>
+    <button class="view-tab" onclick="setDetailTab('activities',this)">Activities</button>
+    <button class="view-tab" onclick="setDetailTab('notes',this)">Notes</button>
+  </div>
+
+  <div id="kidDetailView">
+    <div id="dtab-profile" class="view-panel active"><div id="kidProfileContent"></div></div>
+    <div id="dtab-activities" class="view-panel">
+      <div id="kidActivitiesContent"></div>
+      <button class="fab" id="actFab" onclick="openActivityDrawer()" style="display:none">+</button>
+    </div>
+    <div id="dtab-notes" class="view-panel">
+      <div id="kidNotesContent"></div>
+      <button class="fab" id="noteFab" onclick="openNoteDrawer()" style="display:none">+</button>
+    </div>
+  </div>
+
+  <button class="fab" id="mainFab" onclick="openKidDrawer()">+</button>
+</div>
+
+<!-- Kid Drawer -->
+<div class="drawer-overlay" id="kidDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="kidDrawerTitle">Add Child</div>
+    <div class="drawer-body">
+      <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="kfName" placeholder="e.g. Emma" autocomplete="off"></div>
+      <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" type="date" id="kfDob"></div>
+      <div class="form-group"><label class="form-label">Grade</label><input class="form-input" id="kfGrade" placeholder="e.g. 3rd Grade, Pre-K"></div>
+      <div class="form-group"><label class="form-label">Teacher</label><input class="form-input" id="kfTeacher" placeholder="Homeroom teacher name"></div>
+      <div class="form-group"><label class="form-label">Homeroom / Class</label><input class="form-input" id="kfHomeroom" placeholder="e.g. Room 12"></div>
+      <div class="form-group"><label class="form-label">Allergies</label><input class="form-input" id="kfAllergies" placeholder="e.g. Peanuts, Penicillin"></div>
+      <div class="form-group"><label class="form-label">Medications Note</label><textarea class="form-input" id="kfMeds" rows="2" style="resize:vertical"></textarea></div>
+      <div class="form-group"><label class="form-label">Emergency Note</label><textarea class="form-input" id="kfEmergency" rows="2" style="resize:vertical"></textarea></div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="kfNotes" rows="2" style="resize:vertical"></textarea></div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" id="kidCancel">Cancel</button>
+      <button class="btn btn-danger" id="kidDelete" style="display:none">Delete</button>
+      <button class="btn btn-primary" id="kidSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Activity Drawer -->
+<div class="drawer-overlay" id="actDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="actDrawerTitle">Add Activity</div>
+    <div class="drawer-body">
+      <div class="form-group"><label class="form-label">Activity Name *</label><input class="form-input" id="afName" placeholder="e.g. Soccer, Piano, Chess Club" autocomplete="off"></div>
+      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="afCategory"></select></div>
+      <div class="form-group"><label class="form-label">Day(s) of Week</label><input class="form-input" id="afDays" placeholder="e.g. Mon, Wed, Fri"></div>
+      <div class="form-group"><label class="form-label">Time</label><div style="display:flex;gap:8px"><input class="form-input" type="time" id="afStart" style="flex:1"><input class="form-input" type="time" id="afEnd" style="flex:1"></div></div>
+      <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="afLocation" placeholder="Location or address"></div>
+      <div class="form-group"><label class="form-label">Season</label><select class="form-input" id="afSeason"><option value="">—</option><option value="Year-round">Year-round</option><option value="Fall">Fall</option><option value="Spring">Spring</option><option value="Summer">Summer</option><option value="Winter">Winter</option></select></div>
+      <div class="form-group"><label class="form-label">Monthly Cost</label><input class="form-input" type="number" id="afCost" placeholder="0.00" step="0.01" min="0"></div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="afNotes" rows="2" style="resize:vertical"></textarea></div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" id="actCancel">Cancel</button>
+      <button class="btn btn-danger" id="actDelete" style="display:none">Delete</button>
+      <button class="btn btn-primary" id="actSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note Drawer -->
+<div class="drawer-overlay" id="noteDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="noteDrawerTitle">Add Note</div>
+    <div class="drawer-body">
+      <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="nfDate"></div>
+      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="nfCategory"></select></div>
+      <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="nfTitle" placeholder="Optional title"></div>
+      <div class="form-group"><label class="form-label">Note *</label><textarea class="form-input" id="nfBody" rows="4" placeholder="What happened? What to remember?" style="resize:vertical"></textarea></div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" id="noteCancel">Cancel</button>
+      <button class="btn btn-danger" id="noteDelete" style="display:none">Delete</button>
+      <button class="btn btn-primary" id="noteSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const API='/api/v1/kids';
+const $=id=>document.getElementById(id);
+const esc=s=>s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):'';
+const fmt$=n=>n!=null?'$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0}):'';
+const ACT_ICONS={Sports:'🏅',Music:'🎵',Arts:'🎨',Academic:'📚',Social:'👫',Other:'🎯'};
+const NOTE_COLORS={Medical:'var(--red)',School:'var(--accent)',Milestone:'var(--green)',Behavior:'var(--amber)',General:'var(--text3)'};
+let _kids=[],_currentKid=null,_editingKidId=null,_editingActId=null,_editingNoteId=null;
+
+async function loadKids(){
+  try{
+    _kids=await fetch(API).then(r=>r.ok?r.json():[]);
+    renderKidsTabs();
+    // Auto-select first child
+    if(_kids.length) openKidDetail(_kids[0].id);
+  }catch(e){
+    $('kidsTabs').innerHTML = errorState(e.message, 'loadKids()');
+  }
+}
+
+function renderKidsTabs(){
+  const tabs = $('kidsTabs');
+  if(!_kids.length){
+    tabs.innerHTML=emptyState(...GH_EMPTY.kids);
+    return;
+  }
+  tabs.innerHTML = _kids.map((k,i)=>`
+    <button class="view-tab${i===0?' active':''}" data-kid-id="${k.id}" onclick="openKidDetail(${k.id})">
+      ${esc(k.display_name)}
+    </button>`).join('');
+}
+
+function kidCard(k){
+  const initial=k.display_name[0].toUpperCase();
+  const ageLine=[k.age!=null?k.age+' yrs':'',k.grade||''].filter(Boolean).join(' · ');
+  return `<div class="kid-card"><div class="kid-card-header" id="kid-${k.id}"><div class="kid-avatar">${esc(initial)}</div><div style="flex:1"><div class="kid-name">${esc(k.display_name)}</div><div class="kid-meta">${esc(ageLine)||'No age/grade set'}</div>${k.allergies?`<div style="font-size:11px;color:var(--red);margin-top:2px">⚠ ${esc(k.allergies)}</div>`:''}</div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div><div class="kid-stats"><div class="kid-stat"><div class="kid-stat-val">${k.activity_count||0}</div><div class="kid-stat-lbl">Activities</div></div><div class="kid-stat"><div class="kid-stat-val">${k.note_count||0}</div><div class="kid-stat-lbl">Notes</div></div>${k.school_name?`<div class="kid-stat" style="text-align:left;flex:1"><div style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(k.school_name)}</div><div class="kid-stat-lbl">School</div></div>`:''}</div></div>`;
+}
+
+async function openKidDetail(id){
+  try{
+    // Update active tab
+    document.querySelectorAll('#kidsTabs .view-tab').forEach(b=>{
+      b.classList.toggle('active', +b.dataset.kidId === id);
+    });
+
+    _currentKid=await fetch(`${API}/${id}`).then(r=>r.json());
+
+    // Show detail area
+    $('kidSectionHeader').style.display='flex';
+    $('kidDetailTabs').style.display='flex';
+    $('kidDetailView').style.display='block';
+    $('mainFab').style.display='none';
+    $('actFab').style.display='none';
+    $('noteFab').style.display='none';
+
+    // Reset sub-tabs to Profile
+    document.querySelectorAll('#kidDetailTabs .view-tab').forEach((b,i)=>b.classList.toggle('active',i===0));
+    document.querySelectorAll('#kidDetailView .view-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
+
+    renderProfile();
+  }catch(e){toast(ghErrorMsg(e),'err');}
+}
+
+function setDetailTab(tab,btn){
+  document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#kidDetailView .view-panel').forEach(p=>p.classList.remove('active'));
+  if(btn)btn.classList.add('active');
+  $('dtab-'+tab).classList.add('active');
+  $('actFab').style.display=tab==='activities'?'':'none';
+  $('noteFab').style.display=tab==='notes'?'':'none';
+  if(tab==='activities')renderActivities();
+  if(tab==='notes')renderNotes();
+}
+
+function renderProfile(){
+  const k=_currentKid;if(!k)return;
+  const dob=k.date_of_birth?new Date(k.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):'—';
+  const rows=[['Date of Birth',dob+(k.age!=null?` (age ${k.age})`:' ')],['Grade',k.grade||'—'],['School',k.school_name||'—'],['Teacher',k.teacher_name||'—'],['Homeroom',k.homeroom||'—']];
+  const alerts=[['Allergies',k.allergies,'var(--red)'],['Medications',k.medications_note,'var(--amber)'],['Emergency Note',k.emergency_note,'var(--red)']].filter(r=>r[1]);
+  let html='<div class="detail-section-label" style="padding-top:8px">Info</div><div class="card card-static" style="margin:0 16px;padding:0">';
+  html+=rows.map(r=>`<div class="info-row"><span class="info-label">${r[0]}</span><span class="info-value">${esc(r[1])}</span></div>`).join('');
+  html+='</div>';
+  if(alerts.length){html+='<div class="detail-section-label">Health & Safety</div>';alerts.forEach(([l,v,c])=>{html+=`<div style="margin:0 16px 8px;padding:10px 14px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--border)"><div style="font-size:11px;color:${c};font-family:var(--mono);font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em">${l}</div><div style="font-size:14px;color:var(--text);line-height:1.5">${esc(v)}</div></div>`;});}
+  if(k.notes){html+=`<div class="detail-section-label">Notes</div><div style="margin:0 16px 16px;font-size:14px;color:var(--text2);line-height:1.6">${esc(k.notes)}</div>`;}
+  if(k.medical_visits?.length){html+='<div class="detail-section-label">Recent Medical Visits</div><div class="card card-static" style="margin:0 16px;padding:0">';k.medical_visits.forEach(v=>{html+=`<div class="info-row"><span class="info-label" style="font-family:var(--mono);font-size:11px">${v.visit_date||''}</span><span class="info-value">${esc(v.visit_type||'')}${v.doctor_name?' · '+esc(v.doctor_name):''}</span></div>`;});html+='</div>';}
+  $('kidProfileContent').innerHTML=html;
+}
+
+function renderActivities(){
+  const acts=_currentKid?.activities||[];
+  if(!acts.length){$('kidActivitiesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">🏅</div><div style="color:var(--text3);font-size:14px">No activities yet — tap + to add one</div></div>';return;}
+  const active=acts.filter(a=>a.is_active),inactive=acts.filter(a=>!a.is_active);
+  let html='';
+  if(active.length){html+='<div class="detail-section-label" style="padding-top:8px">Active</div><div class="card card-static" style="margin:0 16px;padding:0">'+active.map(a=>actRow(a)).join('')+'</div>';}
+  if(inactive.length){html+='<div class="detail-section-label">Past / Inactive</div><div class="card card-static" style="margin:0 16px;padding:0">'+inactive.map(a=>actRow(a,true)).join('')+'</div>';}
+  $('kidActivitiesContent').innerHTML=html;
+  $('kidActivitiesContent').querySelectorAll('[data-aid]').forEach(el=>el.addEventListener('click',()=>openActivityDrawer(parseInt(el.dataset.aid))));
+}
+
+function actRow(a,inactive){
+  const icon=ACT_ICONS[a.category]||'🎯';
+  const tline=[a.day_of_week,a.start_time?a.start_time.slice(0,5)+(a.end_time?'–'+a.end_time.slice(0,5):''):''].filter(Boolean).join(' · ');
+  const cost=a.cost_per_month?fmt$(a.cost_per_month)+'/mo':'';
+  return `<div class="activity-row${inactive?' activity-inactive':''}" data-aid="${a.id}" style="cursor:pointer"><div class="activity-icon" style="background:var(--bg2)">${icon}</div><div style="flex:1"><div class="activity-name">${esc(a.name)}</div><div class="activity-meta">${[a.category,tline,a.location,cost].filter(Boolean).join(' · ')}</div></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>`;
+}
+
+function renderNotes(){
+  const notes=_currentKid?.notes||[];
+  if(!notes.length){$('kidNotesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">📝</div><div style="color:var(--text3);font-size:14px">No notes yet — tap + to add one</div></div>';return;}
+  $('kidNotesContent').innerHTML='<div class="card card-static" style="margin:8px 16px;padding:0">'+notes.map(n=>{
+    const color=NOTE_COLORS[n.category]||'var(--text3)';
+    return `<div class="note-row" data-nid="${n.id}"><div class="note-header"><span class="note-title">${esc(n.title||n.body.slice(0,40))}</span><span class="note-date">${n.note_date||''}</span></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span class="note-cat-badge" style="border:1px solid ${color};color:${color}">${n.category}</span>${n.title?`<span class="note-body" style="margin-top:0">${esc(n.body.slice(0,80))}</span>`:''}</div></div>`;
+  }).join('')+'</div>';
+  $('kidNotesContent').querySelectorAll('[data-nid]').forEach(el=>el.addEventListener('click',()=>openNoteDrawer(parseInt(el.dataset.nid))));
+}
+
+function openKidDrawer(kid){
+  _editingKidId=kid?.id||null;
+  $('kidDrawerTitle').textContent=_editingKidId?'Edit Child':'Add Child';
+  $('kfName').value=kid?.display_name||'';$('kfDob').value=kid?.date_of_birth||'';$('kfGrade').value=kid?.grade||'';
+  $('kfTeacher').value=kid?.teacher_name||'';$('kfHomeroom').value=kid?.homeroom||'';$('kfAllergies').value=kid?.allergies||'';
+  $('kfMeds').value=kid?.medications_note||'';$('kfEmergency').value=kid?.emergency_note||'';$('kfNotes').value=kid?.notes||'';
+  $('kidDelete').style.display=_editingKidId?'inline-flex':'none';
+  $('kidDrawer').classList.add('open');setTimeout(()=>$('kfName').focus(),300);
+}
+
+function editCurrentKid(){openKidDrawer(_currentKid);}
+
+$('kidCancel').addEventListener('click',()=>$('kidDrawer').classList.remove('open'));
+$('kidDelete').addEventListener('click',async()=>{
+  if(!await LT.confirm({message:`Remove ${_currentKid?.display_name}? All activities and notes will be deleted.`}))return;
+  await fetch(`${API}/${_editingKidId}`,{method:'DELETE',headers:{'Authorization':'Bearer '+LT.authToken}});
+  $('kidDrawer').classList.remove('open');toast('Removed','ok');showList();
+});
+$('kidSave').addEventListener('click',async()=>{
+  const name=$('kfName').value.trim();if(!name){toast('Name is required','err');return;}
+  $('kidSave').disabled=true;$('kidSave').textContent='Saving…';
+  const body={display_name:name,date_of_birth:$('kfDob').value||null,grade:$('kfGrade').value.trim()||null,teacher_name:$('kfTeacher').value.trim()||null,homeroom:$('kfHomeroom').value.trim()||null,allergies:$('kfAllergies').value.trim()||null,medications_note:$('kfMeds').value.trim()||null,emergency_note:$('kfEmergency').value.trim()||null,notes:$('kfNotes').value.trim()||null};
+  try{
+    const r=await fetch(_editingKidId?`${API}/${_editingKidId}`:API,{method:_editingKidId?'PUT':'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error(await r.text());
+    const saved=await r.json();
+    $('kidDrawer').classList.remove('open');toast(_editingKidId?'Saved':'Child added','ok');
+    if(_currentKid){_currentKid=await fetch(`${API}/${saved.id}`).then(r=>r.json());renderProfile();$('detailKidName').textContent=_currentKid.display_name;}
+    else loadKids();
+  }catch{toast(ghErrorMsg(e),'err');}
+  finally{$('kidSave').disabled=false;$('kidSave').textContent='Save';}
+});
+
+async function openActivityDrawer(aid){
+  const act=aid?_currentKid?.activities?.find(a=>a.id===aid):null;
+  _editingActId=act?.id||null;
+  $('actDrawerTitle').textContent=_editingActId?'Edit Activity':'Add Activity';
+  $('afName').value=act?.name||'';$('afCategory').value=act?.category||'Sports';$('afDays').value=act?.day_of_week||'';
+  $('afStart').value=act?.start_time||'';$('afEnd').value=act?.end_time||'';$('afLocation').value=act?.location||'';
+  $('afSeason').value=act?.season||'';$('afCost').value=act?.cost_per_month||'';$('afNotes').value=act?.notes||'';
+  $('actDelete').style.display=_editingActId?'inline-flex':'none';
+  initActTags(act?.tags||[]);
+  await loadKidsDropdowns(act?.category||'Sports', null);
+  $('actDrawer').classList.add('open');setTimeout(()=>$('afName').focus(),300);
+}
+$('actCancel').addEventListener('click',()=>$('actDrawer').classList.remove('open'));
+$('actDelete').addEventListener('click',async()=>{
+  if(!await LT.confirm({message:'Delete this activity?'}))return;
+  await fetch(`${API}/${_currentKid.id}/activities/${_editingActId}`,{method:'DELETE',headers:{'Authorization':'Bearer '+LT.authToken}});
+  $('actDrawer').classList.remove('open');toast('Deleted','ok');
+  _currentKid=await fetch(`${API}/${_currentKid.id}`).then(r=>r.json());renderActivities();
+});
+$('actSave').addEventListener('click',async()=>{
+  const name=$('afName').value.trim();if(!name){toast('Name required','err');return;}
+  $('actSave').disabled=true;$('actSave').textContent='Saving…';
+  const body={name,category:$('afCategory').value,day_of_week:$('afDays').value.trim()||null,start_time:$('afStart').value||null,end_time:$('afEnd').value||null,location:$('afLocation').value.trim()||null,season:$('afSeason').value||null,cost_per_month:parseFloat($('afCost').value)||null,notes:$('afNotes').value.trim()||null,tags:actFormTags};
+  try{
+    const r=await fetch(_editingActId?`${API}/${_currentKid.id}/activities/${_editingActId}`:`${API}/${_currentKid.id}/activities`,{method:_editingActId?'PUT':'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error();
+    $('actDrawer').classList.remove('open');toast('Saved','ok');
+    _currentKid=await fetch(`${API}/${_currentKid.id}`).then(r=>r.json());renderActivities();
+  }catch{toast(ghErrorMsg(e),'err');}
+  finally{$('actSave').disabled=false;$('actSave').textContent='Save';}
+});
+
+async function openNoteDrawer(nid){
+  const note=nid?_currentKid?.notes?.find(n=>n.id===nid):null;
+  _editingNoteId=note?.id||null;
+  $('noteDrawerTitle').textContent=_editingNoteId?'Edit Note':'Add Note';
+  $('nfDate').value=note?.note_date||new Date().toISOString().slice(0,10);
+  $('nfCategory').value=note?.category||'General';$('nfTitle').value=note?.title||'';$('nfBody').value=note?.body||'';
+  $('noteDelete').style.display=_editingNoteId?'inline-flex':'none';
+  initNoteTags(note?.tags||[]);
+  await loadKidsDropdowns();
+  $('noteDrawer').classList.add('open');setTimeout(()=>$('nfBody').focus(),300);
+}
+$('noteCancel').addEventListener('click',()=>$('noteDrawer').classList.remove('open'));
+$('noteDelete').addEventListener('click',async()=>{
+  if(!await LT.confirm({message:'Delete this note?'}))return;
+  await fetch(`${API}/${_currentKid.id}/notes/${_editingNoteId}`,{method:'DELETE',headers:{'Authorization':'Bearer '+LT.authToken}});
+  $('noteDrawer').classList.remove('open');toast('Deleted','ok');
+  _currentKid=await fetch(`${API}/${_currentKid.id}`).then(r=>r.json());renderNotes();
+});
+$('noteSave').addEventListener('click',async()=>{
+  const body=$('nfBody').value.trim();if(!body){toast('Note text required','err');return;}
+  $('noteSave').disabled=true;$('noteSave').textContent='Saving…';
+  const payload={note_date:$('nfDate').value,category:$('nfCategory').value,title:$('nfTitle').value.trim()||null,body,tags:noteFormTags};
+  try{
+    const r=await fetch(_editingNoteId?`${API}/${_currentKid.id}/notes/${_editingNoteId}`:`${API}/${_currentKid.id}/notes`,{method:_editingNoteId?'PUT':'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},body:JSON.stringify(payload)});
+    if(!r.ok)throw new Error();
+    $('noteDrawer').classList.remove('open');toast('Saved','ok');
+    _currentKid=await fetch(`${API}/${_currentKid.id}`).then(r=>r.json());renderNotes();
+  }catch{toast(ghErrorMsg(e),'err');}
+  finally{$('noteSave').disabled=false;$('noteSave').textContent='Save';}
+});
+
+function toast(msg,type){if(window.LT?.toast)LT.toast(msg,type);}
+
+// ── Tags (kids) ───────────────────────────────────────────
+let actFormTags = [];
+function renderActTags() {
+  const wrap=$('actTagsWrap'),input=$('actTagInput'); if(!wrap||!input)return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  actFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{actFormTags=actFormTags.filter(x=>x!==t);renderActTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addActTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!actFormTags.includes(t)).forEach(t=>actFormTags.push(t));
+  renderActTags(); const inp=$('actTagInput'); if(inp)inp.value='';
+}
+function initActTags(existing){
+  actFormTags=(existing||[]).slice(); renderActTags();
+  const inp=$('actTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addActTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&actFormTags.length){actFormTags.pop();renderActTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addActTag(inp.value);};
+  GH_TAGS.init({inputId:'actTagInput',wrapId:'actTagsWrap',module:'kids',getFormTags:()=>actFormTags,addTag:t=>addActTag(t),allowCreate:true});
+}
+
+// ── Tags (kids) ───────────────────────────────────────────
+let noteFormTags = [];
+function renderNoteTags() {
+  const wrap=$('noteTagsWrap'),input=$('noteTagInput'); if(!wrap||!input)return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  noteFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{noteFormTags=noteFormTags.filter(x=>x!==t);renderNoteTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addNoteTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!noteFormTags.includes(t)).forEach(t=>noteFormTags.push(t));
+  renderNoteTags(); const inp=$('noteTagInput'); if(inp)inp.value='';
+}
+function initNoteTags(existing){
+  noteFormTags=(existing||[]).slice(); renderNoteTags();
+  const inp=$('noteTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addNoteTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&noteFormTags.length){noteFormTags.pop();renderNoteTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addNoteTag(inp.value);};
+  GH_TAGS.init({inputId:'noteTagInput',wrapId:'noteTagsWrap',module:'kids',getFormTags:()=>noteFormTags,addTag:t=>addNoteTag(t),allowCreate:true});
+}
+
+async function loadKidsDropdowns(currentActCat, currentNoteCat) {
+  if (document.getElementById('afCategory')) {
+    await GH_SELECT.init('afCategory', 'kids_activity_category', currentActCat  ||'Sports',  { allowAdd: true });
+  }
+  if (document.getElementById('nfCategory')) {
+    await GH_SELECT.init('nfCategory', 'kids_note_category',     currentNoteCat ||'General',  { allowAdd: true });
+  }
+}
+document.addEventListener('DOMContentLoaded',()=>loadKids());
+</script>
+</body>
+</html>

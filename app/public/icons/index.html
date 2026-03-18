@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ghrava Icon System</title>
+<link rel="stylesheet" href="icons.css">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #080c14;
+  color: #e2e8f0;
+  font-family: -apple-system, 'Inter', sans-serif;
+  padding: 32px 24px;
+  min-height: 100vh;
+}
+h1 { font-size: 18px; font-weight: 700; margin-bottom: 6px; color: #f1f5f9; }
+.sub { font-size: 12px; color: #475569; font-family: monospace; margin-bottom: 32px; }
+
+h2 {
+  font-size: 11px; font-weight: 700; letter-spacing: .12em;
+  text-transform: uppercase; color: #475569;
+  margin: 32px 0 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #1e2a3a;
+}
+
+/* Size reference row */
+.size-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.size-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.size-label {
+  font-size: 10px; font-family: monospace; color: #475569;
+}
+
+/* Module icons grid */
+.mod-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.mod-card {
+  background: #0d1520;
+  border: 1px solid #1e2a3a;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.mod-name {
+  font-size: 12px; font-weight: 600; color: #94a3b8;
+  font-family: monospace;
+}
+
+/* Status icons row */
+.status-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.status-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #0d1520;
+  border: 1px solid #1e2a3a;
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+.status-label { font-size: 13px; color: #94a3b8; }
+
+/* Contextual examples */
+.example-card {
+  background: #0d1520;
+  border: 1px solid #1e2a3a;
+  border-radius: 12px;
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.ex-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.ex-row:last-child { margin-bottom: 0; }
+.ex-title { font-size: 14px; font-weight: 600; color: #f1f5f9; }
+.ex-sub   { font-size: 12px; color: #64748b; }
+.ex-meta  { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+
+/* Sidebar example */
+.sidebar-ex {
+  background: #0a0f1a;
+  border: 1px solid #1e2a3a;
+  border-radius: 12px;
+  padding: 12px 0;
+  width: 220px;
+}
+.sidebar-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 16px; cursor: pointer;
+  transition: background .12s;
+}
+.sidebar-item:hover { background: #111c2a; }
+.sidebar-item.active { background: rgba(92,114,250,.1); }
+.sidebar-item-label { font-size: 14px; font-weight: 500; color: #94a3b8; }
+.sidebar-item.active .sidebar-item-label { color: #818cf8; }
+</style>
+</head>
+<body>
+
+<h1>Ghrava Icon System</h1>
+<div class="sub">public/icons/ · use class gh-icon + size modifier</div>
+
+<!-- ── SIZE SCALE ── -->
+<h2>Size Scale</h2>
+<div class="size-row">
+  <div class="size-cell">
+    <div class="gh-icon-wrap status-overdue gh-icon-xs">
+      <img class="gh-icon gh-icon-xs" src="overdue.png" alt="">
+    </div>
+    <span class="size-label">xs · 16px<br>inline badge</span>
+  </div>
+  <div class="size-cell">
+    <div class="gh-icon-wrap status-overdue gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="overdue.png" alt="">
+    </div>
+    <span class="size-label">sm · 20px<br>card title</span>
+  </div>
+  <div class="size-cell">
+    <div class="gh-icon-wrap mod-dailylog gh-icon-md">
+      <img class="gh-icon gh-icon-md" src="daily-log.png" alt="">
+    </div>
+    <span class="size-label">md · 28px<br>list / sidebar</span>
+  </div>
+  <div class="size-cell">
+    <div class="gh-icon-wrap mod-medical gh-icon-lg">
+      <img class="gh-icon gh-icon-lg" src="medical.png" alt="">
+    </div>
+    <span class="size-label">lg · 40px<br>section header</span>
+  </div>
+  <div class="size-cell">
+    <div class="gh-icon-wrap mod-inventory gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="inventory.png" alt="">
+    </div>
+    <span class="size-label">xl · 56px<br>page header</span>
+  </div>
+  <div class="size-cell">
+    <div class="gh-icon-wrap mod-resources gh-icon-2xl">
+      <img class="gh-icon gh-icon-2xl" src="resources.png" alt="">
+    </div>
+    <span class="size-label">2xl · 80px<br>empty state</span>
+  </div>
+</div>
+
+<!-- ── MODULE ICONS ── -->
+<h2>Module Icons</h2>
+<div class="mod-grid">
+  <div class="mod-card">
+    <div class="gh-icon-wrap mod-dailylog gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="daily-log.png" alt="Daily Log">
+    </div>
+    <span class="mod-name">daily-log.png</span>
+  </div>
+  <div class="mod-card">
+    <div class="gh-icon-wrap mod-vehicles gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="vehicles.png" alt="Vehicles">
+    </div>
+    <span class="mod-name">vehicles.png</span>
+  </div>
+  <div class="mod-card">
+    <div class="gh-icon-wrap mod-medical gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="medical.png" alt="Medical">
+    </div>
+    <span class="mod-name">medical.png</span>
+  </div>
+  <div class="mod-card">
+    <div class="gh-icon-wrap mod-hsa gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="hsa.png" alt="HSA">
+    </div>
+    <span class="mod-name">hsa.png</span>
+  </div>
+  <div class="mod-card">
+    <div class="gh-icon-wrap mod-inventory gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="inventory.png" alt="Inventory">
+    </div>
+    <span class="mod-name">inventory.png</span>
+  </div>
+  <div class="mod-card">
+    <div class="gh-icon-wrap mod-resources gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="resources.png" alt="Resources">
+    </div>
+    <span class="mod-name">resources.png</span>
+  </div>
+  <div class="mod-card">
+    <div class="gh-icon-wrap" style="background:rgba(167,139,250,.12)" class="gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="todos.png" alt="Todos">
+    </div>
+    <span class="mod-name">todos.png</span>
+  </div>
+  <div class="mod-card">
+    <div class="gh-icon-wrap" style="background:rgba(34,197,94,.12);width:72px;height:72px;border-radius:16px;display:inline-flex;align-items:center;justify-content:center">
+      <img class="gh-icon gh-icon-xl" src="finance.png" alt="Finance">
+    </div>
+    <span class="mod-name">finance.png</span>
+  </div>
+</div>
+
+<!-- ── STATUS ICONS ── -->
+<h2>Status / Alert Icons</h2>
+<div class="status-row">
+  <div class="status-cell">
+    <div class="gh-icon-wrap status-overdue gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="overdue.png" alt="overdue">
+    </div>
+    <span class="status-label">overdue.png</span>
+  </div>
+  <div class="status-cell">
+    <div class="gh-icon-wrap status-important gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="important.png" alt="important">
+    </div>
+    <span class="status-label">important.png</span>
+  </div>
+  <div class="status-cell">
+    <div class="gh-icon-wrap status-followup gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="followup.png" alt="follow-up">
+    </div>
+    <span class="status-label">followup.png</span>
+  </div>
+  <div class="status-cell">
+    <div class="gh-icon-wrap status-recurring gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="recurring.png" alt="recurring">
+    </div>
+    <span class="status-label">recurring.png</span>
+  </div>
+</div>
+
+<!-- ── CONTEXTUAL EXAMPLES ── -->
+<h2>In Context — Todo Card (sm · 20px)</h2>
+<div class="example-card">
+  <!-- Overdue follow-up — both icons -->
+  <div class="ex-row">
+    <div class="gh-icon-wrap status-overdue gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="overdue.png" alt="overdue">
+    </div>
+    <div class="gh-icon-wrap status-followup gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="followup.png" alt="follow-up">
+    </div>
+    <div>
+      <div class="ex-title">Check the stock prices for Netflix</div>
+      <div class="ex-meta">
+        <span style="font-size:11px;color:#ef4444;font-family:monospace">Due Feb 28 · 6d overdue</span>
+        <span style="font-size:11px;color:#818cf8">↗ View log entry</span>
+      </div>
+    </div>
+  </div>
+  <!-- Important only -->
+  <div class="ex-row">
+    <div class="gh-icon-wrap status-important gh-icon-sm">
+      <img class="gh-icon gh-icon-sm" src="important.png" alt="important">
+    </div>
+    <div>
+      <div class="ex-title">Add receipt: CVS Pharmacy ($48.50)</div>
+      <div class="ex-meta">
+        <span style="font-size:11px;color:#ef4444;font-family:monospace">Due Feb 15 · 19d overdue</span>
+        <span style="font-size:11px;color:#818cf8">↗ View HSA payment</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h2>In Context — Sidebar Nav (md · 28px)</h2>
+<div class="sidebar-ex">
+  <div class="sidebar-item active">
+    <div class="gh-icon-wrap mod-dailylog gh-icon-md">
+      <img class="gh-icon gh-icon-md" src="daily-log.png" alt="">
+    </div>
+    <span class="sidebar-item-label">Daily Log</span>
+  </div>
+  <div class="sidebar-item">
+    <div class="gh-icon-wrap mod-medical gh-icon-md">
+      <img class="gh-icon gh-icon-md" src="medical.png" alt="">
+    </div>
+    <span class="sidebar-item-label">Medical</span>
+  </div>
+  <div class="sidebar-item">
+    <div class="gh-icon-wrap mod-inventory gh-icon-md">
+      <img class="gh-icon gh-icon-md" src="inventory.png" alt="">
+    </div>
+    <span class="sidebar-item-label">Inventory</span>
+  </div>
+  <div class="sidebar-item">
+    <div class="gh-icon-wrap mod-vehicles gh-icon-md">
+      <img class="gh-icon gh-icon-md" src="vehicles.png" alt="">
+    </div>
+    <span class="sidebar-item-label">Vehicles</span>
+  </div>
+  <div class="sidebar-item">
+    <div class="gh-icon-wrap mod-hsa gh-icon-md">
+      <img class="gh-icon gh-icon-md" src="hsa.png" alt="">
+    </div>
+    <span class="sidebar-item-label">HSA / Finance</span>
+  </div>
+  <div class="sidebar-item">
+    <div class="gh-icon-wrap mod-resources gh-icon-md">
+      <img class="gh-icon gh-icon-md" src="resources.png" alt="">
+    </div>
+    <span class="sidebar-item-label">Resources</span>
+  </div>
+</div>
+
+<h2>In Context — Page Header (xl · 56px)</h2>
+<div class="example-card">
+  <div class="ex-row">
+    <div class="gh-icon-wrap mod-medical gh-icon-xl">
+      <img class="gh-icon gh-icon-xl" src="medical.png" alt="">
+    </div>
+    <div>
+      <div style="font-size:22px;font-weight:700;color:#f1f5f9;letter-spacing:-.02em">Medical</div>
+      <div style="font-size:13px;color:#475569;margin-top:3px">Medications, visits, conditions</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

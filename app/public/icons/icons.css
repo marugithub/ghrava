@@ -1,0 +1,73 @@
+/**
+ * icons.css — Ghrava icon system
+ * 
+ * All icons are PNG with black backgrounds from the source images.
+ * Use mix-blend-mode: screen or multiply to visually remove dark backgrounds
+ * depending on context (dark vs light surfaces).
+ *
+ * SIZE SYSTEM — use the right class for the context:
+ *
+ *   .gh-icon-xs    — 16px  inline next to single-line text (badges, tags, table cells)
+ *   .gh-icon-sm    — 20px  inline next to card title text
+ *   .gh-icon-md    — 28px  list rows, nav sidebar items
+ *   .gh-icon-lg    — 40px  section headers, page subtitles
+ *   .gh-icon-xl    — 56px  module hero / own page header
+ *   .gh-icon-2xl   — 80px  splash / empty state
+ *
+ * USAGE:
+ *   <img class="gh-icon gh-icon-sm" src="/icons/overdue.png" alt="overdue">
+ *   <img class="gh-icon gh-icon-md" src="/icons/daily-log.png" alt="Daily Log">
+ */
+
+/* ── Base ──────────────────────────────────────────────────── */
+.gh-icon {
+  display: inline-block;
+  flex-shrink: 0;
+  object-fit: contain;
+  /* Remove black background on dark surfaces */
+  mix-blend-mode: screen;
+}
+
+/* On light surfaces (e.g. white cards) swap to multiply */
+.gh-icon.on-light {
+  mix-blend-mode: multiply;
+}
+
+/* ── Sizes ─────────────────────────────────────────────────── */
+.gh-icon-xs   { width: 16px;  height: 16px;  }   /* inline badge / tag */
+.gh-icon-sm   { width: 20px;  height: 20px;  }   /* todo card title row */
+.gh-icon-md   { width: 28px;  height: 28px;  }   /* list row / sidebar */
+.gh-icon-lg   { width: 40px;  height: 40px;  }   /* section header */
+.gh-icon-xl   { width: 56px;  height: 56px;  }   /* page header */
+.gh-icon-2xl  { width: 80px;  height: 80px;  }   /* empty state / splash */
+
+/* ── Rounded container (optional) ─────────────────────────── */
+/* Wrap in .gh-icon-wrap to get a tinted rounded square background */
+.gh-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.06);
+  flex-shrink: 0;
+}
+.gh-icon-wrap.gh-icon-xs  { width: 24px;  height: 24px;  border-radius: 6px; }
+.gh-icon-wrap.gh-icon-sm  { width: 30px;  height: 30px;  border-radius: 7px; }
+.gh-icon-wrap.gh-icon-md  { width: 40px;  height: 40px;  border-radius: 10px; }
+.gh-icon-wrap.gh-icon-lg  { width: 54px;  height: 54px;  border-radius: 13px; }
+.gh-icon-wrap.gh-icon-xl  { width: 72px;  height: 72px;  border-radius: 16px; }
+.gh-icon-wrap.gh-icon-2xl { width: 100px; height: 100px; border-radius: 22px; }
+
+/* Module-specific tints for the wrap */
+.gh-icon-wrap.mod-dailylog  { background: rgba(99,179,237,0.12); }
+.gh-icon-wrap.mod-vehicles  { background: rgba(52,211,153,0.12); }
+.gh-icon-wrap.mod-medical   { background: rgba(92,114,250,0.12); }
+.gh-icon-wrap.mod-hsa       { background: rgba(245,158,11,0.12); }
+.gh-icon-wrap.mod-inventory { background: rgba(249,115,22,0.12); }
+.gh-icon-wrap.mod-resources { background: rgba(99,60,180,0.12);  }
+
+/* Status icon tints */
+.gh-icon-wrap.status-overdue   { background: rgba(239,68,68,0.12);  }
+.gh-icon-wrap.status-important { background: rgba(239,17,85,0.12);  }
+.gh-icon-wrap.status-followup  { background: rgba(59,130,246,0.12); }
+.gh-icon-wrap.status-recurring { background: rgba(249,115,22,0.12); }
