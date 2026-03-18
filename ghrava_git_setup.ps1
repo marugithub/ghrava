@@ -18,6 +18,12 @@ git checkout -b $Branch
 git config user.email "ghrava@local"
 git config user.name  "Ghrava"
 
+# Disable SSL verification (NAS git does not trust public CA certs)
+git config http.sslVerify false
+
+# Keep LF line endings — prevents CRLF warnings on Windows
+git config core.autocrlf false
+
 # Store credentials so future pulls don't prompt
 git config credential.helper store
 git remote remove origin 2>$null

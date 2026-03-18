@@ -1,0 +1,11 @@
+# Force LF line endings for all text files — prevents CRLF warnings on Windows
+* text=auto eol=lf
+
+# Explicitly binary — never touch line endings
+*.db    binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.zip   binary

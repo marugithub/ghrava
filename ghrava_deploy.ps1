@@ -67,6 +67,12 @@ if (Test-Path $pkgPath) {
     $oldPkgHash = (Get-FileHash $pkgPath -Algorithm MD5).Hash
 }
 
+# Ensure SSL verify is off (NAS git does not trust public CA certs)
+git config http.sslVerify false
+
+# Keep LF line endings -- prevents CRLF warnings on Windows
+git config core.autocrlf false
+
 $gitOut = git pull origin $Branch 2>&1
 Write-Info $gitOut
 L "git pull: $gitOut"
