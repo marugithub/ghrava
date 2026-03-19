@@ -450,6 +450,35 @@
 }
 .mini-drawer.open { display:block; animation:fadein .15s ease; }
 
+/* ── Room tiles ───────────────────────────────────────────────── */
+.room-tile-grid {
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+@media(max-width:500px){ .room-tile-grid { grid-template-columns:repeat(2,1fr); } }
+.room-tile {
+  position:relative; display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:6px; padding:14px 8px 10px;
+  background:var(--bg3); border:1px solid var(--border);
+  border-radius:var(--r); cursor:pointer;
+  transition:all .15s; text-align:center;
+  -webkit-tap-highlight-color:transparent;
+}
+.room-tile:hover { border-color:var(--accent-bd); background:var(--accent-bg); }
+.room-tile:hover .room-tile-icon { color:var(--accent); }
+.room-tile-badge {
+  position:absolute; top:-7px; right:-7px;
+  min-width:20px; height:20px; padding:0 5px;
+  border-radius:10px; background:var(--bg); border:2px solid var(--border);
+  color:var(--text2); font-size:10px; font-weight:700;
+  display:flex; align-items:center; justify-content:center;
+  font-family:var(--mono); line-height:1;
+}
+.room-tile-icon { color:var(--text3); transition:color .15s; }
+.room-tile-name { font-size:12px; font-weight:600; color:var(--text2); line-height:1.2; }
+
 /* ── Add menu modal ──────────────────────────────────────────── */
 .add-modal-overlay {
   position:fixed; inset:0; z-index:900;
@@ -549,37 +578,45 @@
 
 <!-- Browse view -->
 <div id="browseView">
-  <!-- View switcher: shown only when inside a location/container with items -->
-  <!-- Context + Rooms filter strips -->
-  <!-- Inventory tab bar: biz filter + rooms (rooms populated dynamically) -->
-  <div class="view-tabs" id="bizToggleRow" style="--tab-color:#f59e0b;margin:8px 16px 0;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none">
-    <button class="view-tab active" id="bizAll"      onclick="setBizFilter('all')">All</button>
-    <button class="view-tab"        id="bizHome"     onclick="setBizFilter('home')">Home</button>
-    <button class="view-tab"        id="bizBusiness" onclick="setBizFilter('business')">Business</button>
+  <!-- View mode toggle: All Items | Rooms -->
+  <div style="display:flex;gap:6px;padding:10px 16px 0;align-items:center">
+    <button class="view-tab active" id="modeAllItems" onclick="setModeFilter('items')">All Items</button>
+    <button class="view-tab"        id="modeRooms"    onclick="setModeFilter('rooms')">Rooms</button>
+    <div style="flex:1"></div>
+    <!-- Biz filter — only shown in All Items mode -->
+    <span id="bizToggleInline" style="display:flex;gap:4px">
+      <button class="view-tab active" id="bizAll"      onclick="setBizFilter('all')" style="font-size:12px;padding:4px 10px">All</button>
+      <button class="view-tab"        id="bizHome"     onclick="setBizFilter('home')" style="font-size:12px;padding:4px 10px">Home</button>
+      <button class="view-tab"        id="bizBusiness" onclick="setBizFilter('business')" style="font-size:12px;padding:4px 10px">Business</button>
+    </span>
   </div>
-  <!-- Rooms row populated by loadRooms() - shows as second tab row -->
-  <div id="roomsRow" style="display:flex;gap:6px;padding:4px 16px 0;overflow-x:auto;scrollbar-width:none"></div>
-  <div class="view-switcher" id="viewSwitcher" style="display:none">
-    <button class="vsw-btn active" id="vswList" title="List view" onclick="setItemView('list')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-    </button>
-    <button class="vsw-btn" id="vswGrid" title="Grid view" onclick="setItemView('grid')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-    </button>
-    <button class="vsw-btn" id="vswCompact" title="Compact view" onclick="setItemView('compact')">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-    </button>
-  </div>
-  <div id="bcBar" class="bc" style="display:none"></div>
-  <!-- Category filter — populated dynamically from dropdown_options -->
-  <div class="chip-scroll" id="catChips" style="display:none">
-    <div class="chip active" data-cat="">All</div>
-  </div>
-  <div id="archiveToggleRow" style="padding:8px 20px 0;display:none">
-    <button class="archive-toggle" id="archiveToggle"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> Archived</button>
-  </div>
-  <div id="browseContent" style="padding:8px 20px 0">
-    <div class="spinner"><div class="spin"></div>Loading…</div>
+
+  <!-- Rooms tile grid — shown in Rooms mode -->
+  <div id="roomTileGrid" style="display:none;padding:10px 16px 0"></div>
+
+  <!-- Everything below only shown in All Items mode -->
+  <div id="allItemsContent">
+    <div class="view-switcher" id="viewSwitcher" style="display:none">
+      <button class="vsw-btn active" id="vswList" title="List view" onclick="setItemView('list')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+      </button>
+      <button class="vsw-btn" id="vswGrid" title="Grid view" onclick="setItemView('grid')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+      </button>
+      <button class="vsw-btn" id="vswCompact" title="Compact view" onclick="setItemView('compact')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+    <div id="bcBar" class="bc" style="display:none"></div>
+    <div class="chip-scroll" id="catChips" style="display:none">
+      <div class="chip active" data-cat="">All</div>
+    </div>
+    <div id="archiveToggleRow" style="padding:8px 20px 0;display:none">
+      <button class="archive-toggle" id="archiveToggle"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg> Archived</button>
+    </div>
+    <div id="browseContent" style="padding:8px 20px 0">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
   </div>
 </div>
 
@@ -1248,6 +1285,31 @@ const CAT_CONFIG = {
 };
 
 const LOC_ICONS = { house:'🏠', room:'🚪', garage:'🏗️', attic:'📦', basement:'⬇️', storage_unit:'🗄️', shed:'🏚️', office:'💼', other:'📍' };
+
+// SVG icons for room type tiles
+const LOC_SVG = {
+  house:        `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
+  room:         `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 3v18M3 9h6"/></svg>`,
+  garage:       `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="1"/><path d="M2 7l10-4 10 4"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/></svg>`,
+  attic:        `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l10-8 10 8"/><rect x="6" y="12" width="12" height="9" rx="1"/><path d="M10 21v-5h4v5"/></svg>`,
+  basement:     `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="18" height="11" rx="1"/><path d="M3 10l9-7 9 7"/><line x1="12" y1="10" x2="12" y2="21"/></svg>`,
+  storage_unit: `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="1"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="2" y1="14" x2="22" y2="14"/><line x1="12" y1="4" x2="12" y2="20"/></svg>`,
+  shed:         `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8v9a1 1 0 01-1 1H4a1 1 0 01-1-1z"/><path d="M9 21v-6h6v6"/></svg>`,
+  office:       `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="1"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`,
+  other:        `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="9"/></svg>`,
+};
+
+let invMode = 'items'; // 'items' | 'rooms'
+
+function setModeFilter(mode) {
+  invMode = mode;
+  $('modeAllItems').classList.toggle('active', mode === 'items');
+  $('modeRooms').classList.toggle('active', mode === 'rooms');
+  $('bizToggleInline').style.display = mode === 'items' ? 'flex' : 'none';
+  $('roomTileGrid').style.display    = mode === 'rooms' ? 'block' : 'none';
+  $('allItemsContent').style.display = mode === 'items' ? 'block' : 'none';
+  if (mode === 'rooms') renderRoomTiles();
+}
 const CTN_ICONS = { movable:'📦', fixed:'🗄️', shelf:'📚', drawer:'🗃️', closet:'🚪', other:'📦' };
 const MAINT_COLORS = { repair:'#ef4444', service:'#5c72fa', inspection:'#f59e0b', cleaning:'#22c55e', upgrade:'#a78bfa', replacement:'#f97316', other:'#64748b' };
 const EVENT_COLORS = { created:'#22c55e', moved:'#5c72fa', field_updated:'#94a3b8', photo_added:'#a78bfa', photo_removed:'#ef4444', document_added:'#f59e0b', archived:'#f97316', unarchived:'#22c55e', sold:'#10b981', quantity_changed:'#5c72fa', maintenance_logged:'#f59e0b', condition_changed:'#ec4899' };
@@ -1533,9 +1595,6 @@ function goHome() {
   $('archiveToggle').textContent='📦 Show Archived';
   ['bizAll','bizHome','bizBusiness'].forEach(id=>{const el=$(id);if(el)el.classList.remove('active');});
   const allBtn=$('bizAll');if(allBtn)allBtn.classList.add('active');
-  // Reset room tab to All Rooms
-  const row=$('roomsRow');
-  if(row) { row.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active')); row.querySelector('.view-tab')?.classList.add('active'); }
   renderBrowse();
 }
 
@@ -1549,27 +1608,55 @@ function setBizFilter(mode) {
 
 let roomFilter = ''; // location id or ''
 async function loadRooms() {
-  const row = $('roomsRow'); if (!row) return;
   try {
     const locs = await fetch('/api/v1/inventory/locations').then(r=>r.ok?r.json():[]);
-    // Store locs for name lookup in setRoomFilter
     window._roomLocs = locs;
-    if (!locs.length) { row.innerHTML=''; return; }
-    row.innerHTML = `<button class="view-tab${!roomFilter?' active':''}" onclick="setRoomFilter('',this)">All Rooms</button>` +
-      locs.map(l => `<button class="view-tab${roomFilter===String(l.id)?' active':''}" onclick="setRoomFilter('${l.id}',this,'${esc(l.name)}')">${esc(l.name)}</button>`).join('');
-  } catch(e) { row.innerHTML=''; }
+  } catch(e) { window._roomLocs = []; }
+}
+
+async function renderRoomTiles() {
+  const grid = $('roomTileGrid');
+  if (!grid) return;
+  grid.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+
+  const locs = window._roomLocs || [];
+  if (!locs.length) {
+    grid.innerHTML = '<div class="empty"><h3>No locations yet</h3><p>Add a location to get started.</p></div>';
+    return;
+  }
+
+  let counts = {};
+  try {
+    const items = await fetch('/api/v1/inventory/items').then(r=>r.ok?r.json():[]);
+    items.forEach(i => {
+      if (i.parent_type === 'location') counts[i.parent_id] = (counts[i.parent_id]||0) + 1;
+    });
+  } catch(e) {}
+
+  grid.innerHTML = `<div class="room-tile-grid">` +
+    locs.map(l => {
+      const count = counts[l.id] || 0;
+      const svg   = LOC_SVG[l.location_type] || LOC_SVG.other;
+      return `
+        <button class="room-tile" onclick="drillIntoRoom(${l.id},'${esc(l.name)}')">
+          <div class="room-tile-badge">${count > 99 ? '99+' : count}</div>
+          <div class="room-tile-icon">${svg}</div>
+          <div class="room-tile-name">${esc(l.name)}</div>
+        </button>`;
+    }).join('') +
+  `</div>`;
+}
+
+function drillIntoRoom(id, name) {
+  setModeFilter('items');
+  stack = [{ type:'location', id: +id, name }];
+  renderBrowse();
 }
 
 function setRoomFilter(id, btn, name) {
-  roomFilter = id ? String(id) : '';
-  const row = $('roomsRow');
-  if (row) row.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
-  if (btn) btn.classList.add('active');
   if (id) {
-    // Drill into the selected room
     stack = [{ type:'location', id: +id, name: name || id }];
   } else {
-    // All Rooms — go back to root
     stack = [];
   }
   renderBrowse();
