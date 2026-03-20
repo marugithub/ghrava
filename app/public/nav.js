@@ -124,7 +124,7 @@
         <a href="/index.html" onclick="if(location.pathname==='/'||location.pathname==='/index.html'){event.preventDefault();window.scrollTo({top:0,behavior:'smooth'});}" style="display:flex;align-items:center;justify-content:center;text-decoration:none;gap:8px;width:100%;padding:2px 0">
           <span class="side-nav-logo-icon" style="display:none;width:28px;height:28px;flex-shrink:0;color:var(--accent)">${icon('home',22)}</span>
           <span class="side-nav-logo-text" style="display:flex;align-items:center">
-            <img src="/icons/logo.png" style="height:88px;object-fit:contain" alt="Ghrava">
+            <img src="/icons/logo.png" style="height:60px;object-fit:contain" alt="Ghrava">
           </span>
         </a>
       </div>`;

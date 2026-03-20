@@ -134,7 +134,9 @@ html, body {
 }
 
 .side-nav-logo {
-  padding: 20px 16px 18px;
+  padding: 10px 16px;
+  height: 80px;
+  box-sizing: border-box;
   border-bottom: 1px solid var(--border);
   margin-bottom: 4px;
   display: flex;
@@ -1007,7 +1009,7 @@ html, body {
   align-items: center;
   gap: 10px;
   padding: 11px 16px;
-  min-height: 54px;
+  min-height: 80px;
 }
 
 .gh-header-back {
@@ -1111,7 +1113,7 @@ html, body {
 
 /* Desktop: tighter header */
 @media (min-width: 900px) {
-  .gh-header-row { padding: 10px 24px; }
+  .gh-header-row { padding: 12px 24px; min-height: 80px; }
   .gh-header-title { font-size: 16px; }
   .gh-header-back--desktop { display: flex; } /* show home button on desktop */
 }
