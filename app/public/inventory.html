@@ -450,6 +450,64 @@
 }
 .mini-drawer.open { display:block; animation:fadein .15s ease; }
 
+/* ── All Items grid ───────────────────────────────────────────── */
+.all-items-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  padding: 10px 0 4px;
+}
+@media (min-width: 600px)  { .all-items-grid { grid-template-columns: repeat(3, 1fr); } }
+
+.ai-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all .15s;
+  display: flex;
+  flex-direction: column;
+}
+.ai-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.ai-card-thumb {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  display: block;
+  flex-shrink: 0;
+}
+.ai-card-placeholder {
+  width: 100%;
+  aspect-ratio: 4/3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+  flex-shrink: 0;
+}
+.ai-card-body {
+  padding: 8px 10px 10px;
+}
+.ai-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ai-card-loc {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Room tiles ───────────────────────────────────────────────── */
 .room-tile-grid {
   display:grid;
@@ -1698,23 +1756,31 @@ async function renderAllItemsFlat(el) {
 
     if (!items.length) { el.innerHTML = emptyState(...GH_EMPTY.items); return; }
 
-    // Show view switcher
     const vsw = $('viewSwitcher');
-    if (vsw) vsw.style.display = 'flex';
+    if (vsw) vsw.style.display = 'none'; // grid is fixed in All Items mode
 
     const total      = items.length;
     const totalPages = Math.ceil(total / ALL_ITEMS_PAGE_SIZE);
     allItemsPage     = Math.max(0, Math.min(allItemsPage, totalPages - 1));
     const page       = items.slice(allItemsPage * ALL_ITEMS_PAGE_SIZE, (allItemsPage + 1) * ALL_ITEMS_PAGE_SIZE);
 
-    let listHtml;
-    if (itemView === 'grid') {
-      listHtml = `<div class="inv-grid">${page.map(i => renderItemGridCard(i)).join('')}</div>`;
-    } else if (itemView === 'compact') {
-      listHtml = `<div>${page.map(i => renderItemCompactCard(i)).join('')}</div>`;
-    } else {
-      listHtml = page.map(i => renderItemCard(i)).join('');
-    }
+    const cardsHtml = page.map(item => {
+      const cfg      = catCfg(item.category);
+      const thumbSrc = item.primary_photo_id
+        ? `/api/v1/attachments/thumb/${item.primary_photo_id}`
+        : null;
+      const loc = item.location_path || '';
+      return `<div class="ai-card" data-item="${item.id}">
+        ${thumbSrc
+          ? `<img class="ai-card-thumb" src="${thumbSrc}" alt="${esc(item.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : ''}
+        <div class="ai-card-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
+        <div class="ai-card-body">
+          <div class="ai-card-name">${esc(item.name)}</div>
+          ${loc ? `<div class="ai-card-loc">📍 ${esc(loc)}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
 
     const pagerHtml = totalPages > 1 ? `
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:16px 0 8px;font-size:13px;color:var(--text3)">
@@ -1723,7 +1789,12 @@ async function renderAllItemsFlat(el) {
         <button onclick="changeAllItemsPage(1)" style="padding:5px 14px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;${allItemsPage===totalPages-1?'opacity:.4;pointer-events:none':''}">Next &rarr;</button>
       </div>` : `<div style="text-align:center;padding:12px 0 4px;font-size:12px;color:var(--text4)">${total} items</div>`;
 
-    el.innerHTML = listHtml + pagerHtml;
+    el.innerHTML = `<div class="all-items-grid">${cardsHtml}</div>` + pagerHtml;
+
+    // Wire card clicks
+    el.querySelectorAll('.ai-card').forEach(card => {
+      card.addEventListener('click', () => openItemDrawer(+card.dataset.item));
+    });
   } catch(e) {
     el.innerHTML = errorState('Could not load items', renderBrowse);
   }
