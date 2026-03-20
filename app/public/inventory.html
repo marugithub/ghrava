@@ -460,16 +460,34 @@
 
 .ai-card {
   background: var(--bg2);
-  border: 1.5px solid var(--border2);
+  border: 1.5px solid var(--border3);
   border-radius: var(--r-lg);
   overflow: hidden;
   cursor: pointer;
   transition: all .15s;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
+  box-shadow: 0 2px 6px rgba(0,0,0,.09);
+  position: relative;
 }
-.ai-card:hover { border-color: var(--accent-bd); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.12); }
+.ai-card:hover { border-color: var(--accent-bd); transform: translateY(-1px); box-shadow: 0 5px 16px rgba(0,0,0,.14); }
+.ai-qty-badge {
+  position: absolute;
+  top: 7px; right: 7px;
+  min-width: 22px; height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: #22c55e;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-shadow: 0 1px 4px rgba(0,0,0,.2);
+  pointer-events: none;
+}
 .ai-card-thumb {
   width: 100%;
   aspect-ratio: 4/3;
@@ -1813,6 +1831,7 @@ async function renderAllItemsFlat(el) {
         : null;
       const loc = item.location_path || '';
       return `<div class="ai-card" data-item="${item.id}">
+        ${(item.quantity > 1) ? `<div class="ai-qty-badge">${item.quantity}</div>` : ''}
         ${thumbSrc
           ? `<img class="ai-card-thumb" src="${thumbSrc}" alt="${esc(item.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
           : ''}
