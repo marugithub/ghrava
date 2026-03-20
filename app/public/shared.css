@@ -133,9 +133,13 @@ html, body {
   opacity: 1;
 }
 
+:root {
+  --nav-header-h: 80px;
+}
+
 .side-nav-logo {
   padding: 10px 16px;
-  height: 80px;
+  height: var(--nav-header-h);
   box-sizing: border-box;
   border-bottom: 1px solid var(--border);
   margin-bottom: 4px;
@@ -143,6 +147,7 @@ html, body {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  overflow: hidden;
 }
 
 .side-nav-wordmark {
@@ -1009,7 +1014,9 @@ html, body {
   align-items: center;
   gap: 10px;
   padding: 11px 16px;
-  min-height: 80px;
+  height: var(--nav-header-h);
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .gh-header-back {
@@ -1113,7 +1120,7 @@ html, body {
 
 /* Desktop: tighter header */
 @media (min-width: 900px) {
-  .gh-header-row { padding: 12px 24px; min-height: 80px; }
+  .gh-header-row { padding: 12px 24px; height: var(--nav-header-h); box-sizing: border-box; }
   .gh-header-title { font-size: 16px; }
   .gh-header-back--desktop { display: flex; } /* show home button on desktop */
 }
