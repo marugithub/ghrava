@@ -134,7 +134,7 @@ html, body {
 }
 
 .side-nav-logo {
-  padding: 14px 16px 14px;
+  padding: 20px 16px 18px;
   border-bottom: 1px solid var(--border);
   margin-bottom: 4px;
   display: flex;
@@ -1384,7 +1384,8 @@ html, body {
 
   --field-bg: #eff3f6;
 
-  /* Page header */
+  /* Page header — match page background instead of hardcoded dark */
+  .gh-page-header { background: rgba(240,244,248,0.96); }
 
   /* Sidebar — white with visible shadow so it stands out from #f0f4f8 page bg */
   .side-nav { background: #ffffff; border-right: 1px solid var(--border); box-shadow: 2px 0 10px rgba(0,0,0,0.07); }

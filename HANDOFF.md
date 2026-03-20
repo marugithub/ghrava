@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.059
+**Last updated:** v202603.060
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
