@@ -1456,24 +1456,31 @@ let aiCols = parseInt(localStorage.getItem('inv_cols')) || (window.innerWidth >=
 // Filter fields config for inventory
 const INV_FILTER_FIELDS = [];  // populated after locations load
 
-function initInvView() {
-  // Populated after page loads so location options are available
+async function initInvView() {
   const locOptions = (window._roomLocs||[]).map(l => ({ value: l.id, label: l.name }));
+  let catOptions = [];
+  try {
+    const cats = await fetch('/api/v1/settings/dropdowns/inventory_category').then(r=>r.ok?r.json():[]);
+    catOptions = cats.map(c => ({ value: c.value||c.label, label: c.label }));
+  } catch(e) {}
+
   GH_VIEW.init('invViewToolbar', 'inv', state => {
     aiView = state.view;
     aiCols = state.cols;
+    window._invFilters = state.filters || {};
     allItemsPage = 0;
     renderBrowse();
   }, {
     defaultView: 'grid',
     filterFields: [
-      { key: 'location_id', type: 'select',  label: 'Location / Room', options: locOptions },
-      { key: 'category',    type: 'select',  label: 'Category',        options: [] },  // populated below
-      { key: 'brand',       type: 'text',    label: 'Brand',           placeholder: 'e.g. Sony, Apple…' },
-      { key: 'has_photo',   type: 'toggle',  label: 'Has Photo',       options: [{label:'Any',value:''},{label:'Yes',value:'1'},{label:'No',value:'0'}] },
-      { key: 'tags',        type: 'tags',    label: 'Tags' },
+      { key: 'location_id', type: 'select', label: 'Location / Room', options: locOptions },
+      { key: 'category',    type: 'select', label: 'Category',        options: catOptions },
+      { key: 'brand',       type: 'text',   label: 'Brand',           placeholder: 'e.g. Sony, Apple…' },
+      { key: 'has_photo',   type: 'toggle', label: 'Has Photo',       options: [{label:'Any',value:''},{label:'Yes',value:'1'},{label:'No',value:'0'}] },
+      { key: 'tags',        type: 'tags',   label: 'Tags' },
     ]
   });
+  window._invFilters = {};
 }
 
 function setModeFilter(mode) {
@@ -1867,8 +1874,30 @@ async function renderBrowse() {
 async function renderAllItemsFlat(el) {
   try {
     const bizQ = bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':'';
-    const items = await fetch(`${API}/items?${bizQ}`).then(r=>r.ok?r.json():[]);
+    let items = await fetch(`${API}/items?${bizQ}`).then(r=>r.ok?r.json():[]);
     items.sort((a,b) => b.id - a.id);
+
+    // Apply search text
+    const searchQ = ($('invSearch')?.value || '').trim().toLowerCase();
+    if (searchQ.length >= 2) {
+      items = items.filter(i =>
+        (i.name||'').toLowerCase().includes(searchQ) ||
+        (i.brand||'').toLowerCase().includes(searchQ) ||
+        (i.model_number||'').toLowerCase().includes(searchQ) ||
+        (i.description||'').toLowerCase().includes(searchQ) ||
+        (i.location_path||'').toLowerCase().includes(searchQ)
+      );
+    }
+
+    // Apply advanced filters
+    const f = window._invFilters || {};
+    if (f.location_id) items = items.filter(i => String(i.parent_id) === String(f.location_id) && i.parent_type === 'location');
+    if (f.category)    items = items.filter(i => (i.category||'').toLowerCase() === f.category.toLowerCase());
+    if (f.brand)       items = items.filter(i => (i.brand||'').toLowerCase().includes(f.brand.toLowerCase()));
+    if (f.has_photo === '1') items = items.filter(i => i.primary_photo_id);
+    if (f.has_photo === '0') items = items.filter(i => !i.primary_photo_id);
+    if (f.tags && f.tags.length) items = items.filter(i => f.tags.every(t => (i.tags||[]).map(x=>x.toLowerCase()).includes(t.toLowerCase())));
+
     if (!items.length) { el.innerHTML = emptyState(...GH_EMPTY.items); return; }
     const vsw = $('viewSwitcher'); if (vsw) vsw.style.display = 'none';
     const total = items.length;
@@ -2153,6 +2182,12 @@ function wireSearch() {
   inp.addEventListener('input', ()=>{
     clearTimeout(searchTimer);
     const q = inp.value.trim();
+    // In All Items mode — filter inline, don't switch to search view
+    if (invMode === 'items' && !stack.length) {
+      allItemsPage = 0;
+      searchTimer = setTimeout(() => renderBrowse(), 280);
+      return;
+    }
     if (!q) { setView('browse'); return; }
     setView('search');
     searchTimer = setTimeout(()=>doSearch(q), 280);
