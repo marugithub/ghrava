@@ -525,26 +525,76 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Column picker chips */
-.ai-col-picker {
+/* Column picker and view toggle now in GH_VIEW (lt-core.js) */
+
+/* ── List card (horizontal compact row) ────────────────────── */
+.ai-list-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--ai-cols, 1), 1fr);
+  gap: 6px;
+  padding: 10px 0 4px;
+}
+.ai-list-card {
+  background: var(--bg2);
+  border: 1.5px solid var(--border3);
+  border-radius: var(--r);
+  cursor: pointer;
+  transition: all .15s;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 10px;
+  padding: 8px 10px 8px 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  position: relative;
+  min-height: 68px;
 }
-.ai-col-btn {
-  width: 28px; height: 24px;
+.ai-list-card:hover { border-color: var(--accent-bd); background: var(--accent-bg); box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+.ai-list-thumb {
+  width: 52px; height: 52px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.ai-list-placeholder {
+  width: 52px; height: 52px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  border: 1px solid var(--border);
+}
+.ai-list-body { flex: 1; min-width: 0; }
+.ai-list-name {
+  font-size: 13px; font-weight: 600; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ai-list-loc {
+  font-size: 11px; color: var(--text3); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ai-list-qty {
+  min-width: 22px; height: 22px; padding: 0 6px;
+  border-radius: 11px; background: #22c55e; color: #fff;
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ── View toggle icons ─────────────────────────────────────── */
+.ai-view-btn {
+  width: 30px; height: 28px;
   border-radius: 6px;
   border: 1px solid var(--border);
   background: var(--bg3);
   color: var(--text3);
-  font-size: 11px; font-weight: 700;
   cursor: pointer; transition: all .15s;
   display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
 }
-.ai-col-btn.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
-.ai-col-btn:hover:not(.active) { border-color: var(--border2); color: var(--text2); }
-
-/* ── Room tiles ───────────────────────────────────────────────── */
+.ai-view-btn.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+.ai-view-btn:hover:not(.active) { border-color: var(--border2); color: var(--text2); }
+.ai-view-sep { width: 1px; height: 20px; background: var(--border2); margin: 0 4px; }
 .room-tile-grid {
   display:grid;
   grid-template-columns:repeat(4,1fr);
@@ -677,15 +727,9 @@
     <button class="view-tab active" id="modeAllItems" onclick="setModeFilter('items')">All Items</button>
     <button class="view-tab"        id="modeRooms"    onclick="setModeFilter('rooms')">Rooms</button>
     <div style="flex:1"></div>
-    <!-- Column picker — only shown in All Items mode -->
-    <div class="ai-col-picker" id="aiColPicker">
-      <span style="font-size:11px;color:var(--text3);margin-right:2px">Cols</span>
-      <button class="ai-col-btn" onclick="setAiCols(2)">2</button>
-      <button class="ai-col-btn" onclick="setAiCols(3)">3</button>
-      <button class="ai-col-btn" onclick="setAiCols(4)">4</button>
-      <button class="ai-col-btn" onclick="setAiCols(5)">5</button>
-    </div>
-    <!-- Biz filter — only shown in All Items mode -->
+    <!-- GH_VIEW toolbar — only in All Items mode -->
+    <div id="invViewToolbar" style="display:flex;align-items:center"></div>
+    <!-- Biz filter -->
     <span id="bizToggleInline" style="display:flex;gap:4px">
       <button class="view-tab active" id="bizAll"      onclick="setBizFilter('all')" style="font-size:12px;padding:4px 10px">All</button>
       <button class="view-tab"        id="bizHome"     onclick="setBizFilter('home')" style="font-size:12px;padding:4px 10px">Home</button>
@@ -1405,19 +1449,31 @@ let invMode = 'items'; // 'items' | 'rooms'
 let allItemsPage = 0;
 const ALL_ITEMS_PAGE_SIZE = 12;
 
-// Column count — persisted, default 2 mobile / 3 desktop
-let aiCols = parseInt(localStorage.getItem('inv_ai_cols')) || (window.innerWidth >= 600 ? 3 : 2);
+// GH_VIEW state — populated by GH_VIEW.init()
+let aiView = localStorage.getItem('inv_view') || 'grid';
+let aiCols = parseInt(localStorage.getItem('inv_cols')) || (window.innerWidth >= 600 ? 3 : 2);
 
-function setAiCols(n) {
-  aiCols = n;
-  localStorage.setItem('inv_ai_cols', n);
-  document.querySelectorAll('.ai-col-btn').forEach(b => b.classList.toggle('active', +b.textContent === n));
-  const grid = document.querySelector('.all-items-grid');
-  if (grid) grid.style.setProperty('--ai-cols', n);
-}
+// Filter fields config for inventory
+const INV_FILTER_FIELDS = [];  // populated after locations load
 
-function initAiColPicker() {
-  document.querySelectorAll('.ai-col-btn').forEach(b => b.classList.toggle('active', +b.textContent === aiCols));
+function initInvView() {
+  // Populated after page loads so location options are available
+  const locOptions = (window._roomLocs||[]).map(l => ({ value: l.id, label: l.name }));
+  GH_VIEW.init('invViewToolbar', 'inv', state => {
+    aiView = state.view;
+    aiCols = state.cols;
+    allItemsPage = 0;
+    renderBrowse();
+  }, {
+    defaultView: 'grid',
+    filterFields: [
+      { key: 'location_id', type: 'select',  label: 'Location / Room', options: locOptions },
+      { key: 'category',    type: 'select',  label: 'Category',        options: [] },  // populated below
+      { key: 'brand',       type: 'text',    label: 'Brand',           placeholder: 'e.g. Sony, Apple…' },
+      { key: 'has_photo',   type: 'toggle',  label: 'Has Photo',       options: [{label:'Any',value:''},{label:'Yes',value:'1'},{label:'No',value:'0'}] },
+      { key: 'tags',        type: 'tags',    label: 'Tags' },
+    ]
+  });
 }
 
 function setModeFilter(mode) {
@@ -1425,10 +1481,10 @@ function setModeFilter(mode) {
   allItemsPage = 0;
   $('modeAllItems').classList.toggle('active', mode === 'items');
   $('modeRooms').classList.toggle('active', mode === 'rooms');
-  $('bizToggleInline').style.display = mode === 'items' ? 'flex' : 'none';
-  $('aiColPicker').style.display     = mode === 'items' ? 'flex' : 'none';
-  $('roomTileGrid').style.display    = mode === 'rooms' ? 'block' : 'none';
-  $('allItemsContent').style.display = mode === 'items' ? 'block' : 'none';
+  $('bizToggleInline').style.display   = mode === 'items' ? 'flex' : 'none';
+  $('invViewToolbar').style.display    = mode === 'items' ? 'flex' : 'none';
+  $('roomTileGrid').style.display      = mode === 'rooms' ? 'block' : 'none';
+  $('allItemsContent').style.display   = mode === 'items' ? 'block' : 'none';
   if (mode === 'rooms') renderRoomTiles();
 }
 const CTN_ICONS = { movable:'📦', fixed:'🗄️', shelf:'📚', drawer:'🗃️', closet:'🚪', other:'📦' };
@@ -1812,53 +1868,58 @@ async function renderAllItemsFlat(el) {
   try {
     const bizQ = bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':'';
     const items = await fetch(`${API}/items?${bizQ}`).then(r=>r.ok?r.json():[]);
-    items.sort((a,b) => b.id - a.id); // newest first
-
+    items.sort((a,b) => b.id - a.id);
     if (!items.length) { el.innerHTML = emptyState(...GH_EMPTY.items); return; }
-
-    const vsw = $('viewSwitcher');
-    if (vsw) vsw.style.display = 'none'; // grid is fixed in All Items mode
-
-    const total      = items.length;
+    const vsw = $('viewSwitcher'); if (vsw) vsw.style.display = 'none';
+    const total = items.length;
     const totalPages = Math.ceil(total / ALL_ITEMS_PAGE_SIZE);
-    allItemsPage     = Math.max(0, Math.min(allItemsPage, totalPages - 1));
-    const page       = items.slice(allItemsPage * ALL_ITEMS_PAGE_SIZE, (allItemsPage + 1) * ALL_ITEMS_PAGE_SIZE);
-
-    const cardsHtml = page.map(item => {
-      const cfg      = catCfg(item.category);
-      const thumbSrc = item.primary_photo_id
-        ? `/api/v1/attachments/thumb/${item.primary_photo_id}`
-        : null;
-      const loc = item.location_path || '';
-      return `<div class="ai-card" data-item="${item.id}">
-        ${(item.quantity > 1) ? `<div class="ai-qty-badge">${item.quantity}</div>` : ''}
-        ${thumbSrc
-          ? `<img class="ai-card-thumb" src="${thumbSrc}" alt="${esc(item.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
-          : ''}
-        <div class="ai-card-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
-        <div class="ai-card-body">
-          <div class="ai-card-name">${esc(item.name)}</div>
-          ${loc ? `<div class="ai-card-loc">📍 ${esc(loc)}</div>` : ''}
-        </div>
-      </div>`;
-    }).join('');
-
+    allItemsPage = Math.max(0, Math.min(allItemsPage, totalPages - 1));
+    const page = items.slice(allItemsPage * ALL_ITEMS_PAGE_SIZE, (allItemsPage + 1) * ALL_ITEMS_PAGE_SIZE);
+    let cardsHtml, wrapClass;
+    if (aiView === 'list') {
+      wrapClass = 'ai-list-grid';
+      cardsHtml = page.map(item => {
+        const cfg = catCfg(item.category);
+        const thumbSrc = item.primary_photo_id ? `/api/v1/attachments/thumb/${item.primary_photo_id}` : null;
+        const loc = item.location_path || '';
+        return `<div class="ai-list-card" data-item="${item.id}">
+          ${thumbSrc ? `<img class="ai-list-thumb" src="${thumbSrc}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+          <div class="ai-list-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
+          <div class="ai-list-body">
+            <div class="ai-list-name">${esc(item.name)}</div>
+            ${loc ? `<div class="ai-list-loc">ð ${esc(loc)}</div>` : ''}
+          </div>
+          ${item.quantity > 1 ? `<div class="ai-list-qty">${item.quantity}</div>` : ''}
+        </div>`;
+      }).join('');
+    } else {
+      wrapClass = 'all-items-grid';
+      cardsHtml = page.map(item => {
+        const cfg = catCfg(item.category);
+        const thumbSrc = item.primary_photo_id ? `/api/v1/attachments/thumb/${item.primary_photo_id}` : null;
+        const loc = item.location_path || '';
+        return `<div class="ai-card" data-item="${item.id}">
+          ${item.quantity > 1 ? `<div class="ai-qty-badge">${item.quantity}</div>` : ''}
+          ${thumbSrc ? `<img class="ai-card-thumb" src="${thumbSrc}" alt="${esc(item.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+          <div class="ai-card-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
+          <div class="ai-card-body">
+            <div class="ai-card-name">${esc(item.name)}</div>
+            ${loc ? `<div class="ai-card-loc">ð ${esc(loc)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    }
     const pagerHtml = totalPages > 1 ? `
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;padding:16px 0 8px;font-size:13px;color:var(--text3)">
         <button onclick="changeAllItemsPage(-1)" style="padding:5px 14px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;${allItemsPage===0?'opacity:.4;pointer-events:none':''}">&larr; Prev</button>
-        <span>${allItemsPage+1} of ${totalPages} &nbsp;·&nbsp; ${total} items</span>
-        <button onclick="changeAllItemsPage(1)" style="padding:5px 14px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;${allItemsPage===totalPages-1?'opacity:.4;pointer-events:none':''}">Next &rarr;</button>
+        <span>${allItemsPage+1} of ${totalPages} · ${total} items</span>
+        <button onclick="changeAllItemsPage(1)" style="padding:5px 14px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;${allItemsPage===totalPages-1?'opacity:.4;pointer-events:none':''}>Next &rarr;</button>
       </div>` : `<div style="text-align:center;padding:12px 0 4px;font-size:12px;color:var(--text4)">${total} items</div>`;
-
-    el.innerHTML = `<div class="all-items-grid" style="--ai-cols:${aiCols}">${cardsHtml}</div>` + pagerHtml;
-
-    // Wire card clicks
-    el.querySelectorAll('.ai-card').forEach(card => {
-      card.addEventListener('click', () => openItemDrawer(+card.dataset.item));
+    el.innerHTML = `<div class="${wrapClass}" style="--ai-cols:${aiCols}">${cardsHtml}</div>` + pagerHtml;
+    el.querySelectorAll('.ai-card,.ai-list-card').forEach(c => {
+      c.addEventListener('click', () => openItemDrawer(+c.dataset.item));
     });
-  } catch(e) {
-    el.innerHTML = errorState('Could not load items', renderBrowse);
-  }
+  } catch(e) { el.innerHTML = errorState('Could not load items', renderBrowse); }
 }
 
 function changeAllItemsPage(dir) {
@@ -3293,8 +3354,7 @@ document.addEventListener('DOMContentLoaded', () => {
   wireSearch();
   applyViewSwitcherState();
   loadCategoryChips();
-  loadRooms();
-  initAiColPicker();
+  loadRooms().then(() => initInvView());
   if (window.LT && LT.authToken) loadSharedData();
   loadStats();
   renderBrowse().then(() => {

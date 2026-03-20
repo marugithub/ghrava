@@ -1034,3 +1034,272 @@ window.GH_INFO = (function () {
   return { wire, messages: MESSAGES };
 })();
 
+// ══════════════════════════════════════════════════════════════
+// GH_VIEW — Shared grid/list view toggle + column picker
+//
+// Usage:
+//   GH_VIEW.init('myContainerId', 'inv', callback);
+//
+// Renders into the given container:
+//   [⊞ grid] [☰ list] | Cols 2 3 4 5 | Sort ↕ | Advanced Filters ⧉
+//
+// storagePrefix is used for localStorage keys:
+//   {prefix}_view  — 'grid' or 'list'
+//   {prefix}_cols  — 2, 3, 4, or 5
+//
+// callback(state) is called whenever view, cols, or filters change.
+// state = { view, cols, filters }
+// ══════════════════════════════════════════════════════════════
+window.GH_VIEW = (function() {
+
+  const _CSS_ID = 'gh-view-styles';
+
+  function _injectStyles() {
+    if (document.getElementById(_CSS_ID)) return;
+    const s = document.createElement('style');
+    s.id = _CSS_ID;
+    s.textContent = `
+.gh-view-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.gh-view-btn{width:30px;height:28px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.gh-view-btn.active{background:var(--accent-bg);border-color:var(--accent-bd);color:var(--accent)}
+.gh-view-btn:hover:not(.active){border-color:var(--border2);color:var(--text2)}
+.gh-view-sep{width:1px;height:20px;background:var(--border2);flex-shrink:0;margin:0 2px}
+.gh-col-btn{width:26px;height:24px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.gh-col-btn.active{background:var(--accent-bg);border-color:var(--accent-bd);color:var(--accent)}
+.gh-col-btn:hover:not(.active){border-color:var(--border2);color:var(--text2)}
+.gh-view-text-btn{height:28px;padding:0 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg3);color:var(--text3);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:5px;white-space:nowrap;font-family:var(--sans)}
+.gh-view-text-btn:hover{border-color:var(--border2);color:var(--text2)}
+.gh-view-text-btn.has-filters{border-color:var(--accent-bd);color:var(--accent);background:var(--accent-bg)}
+.gh-filter-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:none}
+.gh-view-text-btn.has-filters .gh-filter-dot{display:block}
+.gh-adv-drawer{position:fixed;inset:0;z-index:800;display:none}
+.gh-adv-drawer.open{display:flex}
+.gh-adv-scrim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.gh-adv-panel{position:absolute;bottom:0;left:0;right:0;background:var(--bg2);border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:88vh;display:flex;flex-direction:column;animation:slideup .24s cubic-bezier(.32,.72,0,1)}
+.gh-adv-handle{width:36px;height:4px;border-radius:2px;background:var(--border2);margin:10px auto 0}
+.gh-adv-header{padding:12px 20px 8px;border-bottom:1px solid var(--border)}
+.gh-adv-title{font-size:17px;font-weight:700;color:var(--text)}
+.gh-adv-body{overflow-y:auto;padding:16px 20px;flex:1;display:flex;flex-direction:column;gap:18px}
+.gh-adv-section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px}
+.gh-adv-footer{padding:12px 20px 20px;border-top:1px solid var(--border);display:flex;gap:8px}
+.gh-adv-reset{flex:1;padding:11px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.gh-adv-reset:hover{background:var(--bg3)}
+.gh-adv-apply{flex:2;padding:11px;border-radius:var(--r);border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:opacity .15s}
+.gh-adv-apply:hover{opacity:.9}
+.gh-tag-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 10px;border-radius:20px;background:var(--accent-bg);border:1px solid var(--accent-bd);color:var(--accent);font-size:12px;font-weight:600;cursor:pointer}
+.gh-tag-pill svg{opacity:.7}
+    `;
+    document.head.appendChild(s);
+  }
+
+  // ── Instance registry (one per page) ─────────────────────────
+  const _instances = {};
+
+  function init(containerId, storagePrefix, callback, options = {}) {
+    _injectStyles();
+
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const view = localStorage.getItem(storagePrefix + '_view') || options.defaultView || 'grid';
+    const cols = parseInt(localStorage.getItem(storagePrefix + '_cols')) || (window.innerWidth >= 600 ? 3 : 2);
+
+    const state = { view, cols, filters: {} };
+
+    // ── Build toolbar HTML ────────────────────────────────────
+    container.innerHTML = `
+      <div class="gh-view-toolbar">
+        <button class="gh-view-btn${view==='grid'?' active':''}" id="${storagePrefix}-vgrid" title="Grid view">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>
+        </button>
+        <button class="gh-view-btn${view==='list'?' active':''}" id="${storagePrefix}-vlist" title="List view">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="3" rx="1"/><rect x="1" y="5.5" width="12" height="3" rx="1"/><rect x="1" y="10" width="12" height="3" rx="1"/></svg>
+        </button>
+        <div class="gh-view-sep"></div>
+        <span style="font-size:11px;color:var(--text3)">Cols</span>
+        ${[2,3,4,5].map(n=>`<button class="gh-col-btn${n===cols?' active':''}" data-cols="${n}">${n}</button>`).join('')}
+        <div class="gh-view-sep"></div>
+        <button class="gh-view-text-btn" id="${storagePrefix}-sort">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Sort
+        </button>
+        <button class="gh-view-text-btn" id="${storagePrefix}-filter">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          Advanced Filters
+          <span class="gh-filter-dot"></span>
+        </button>
+      </div>
+    `;
+
+    // ── Wire toggle buttons ───────────────────────────────────
+    container.querySelector(`#${storagePrefix}-vgrid`).addEventListener('click', () => _setView('grid'));
+    container.querySelector(`#${storagePrefix}-vlist`).addEventListener('click', () => _setView('list'));
+    container.querySelectorAll('.gh-col-btn').forEach(b => {
+      b.addEventListener('click', () => _setCols(+b.dataset.cols));
+    });
+
+    // ── Filter button — opens drawer ──────────────────────────
+    container.querySelector(`#${storagePrefix}-filter`).addEventListener('click', () => {
+      _openFilterDrawer(storagePrefix, state, callback, options.filterFields);
+    });
+
+    function _setView(v) {
+      state.view = v;
+      localStorage.setItem(storagePrefix + '_view', v);
+      container.querySelectorAll('.gh-view-btn').forEach(b => b.classList.remove('active'));
+      container.querySelector(`#${storagePrefix}-v${v}`).classList.add('active');
+      callback && callback({ ...state });
+    }
+
+    function _setCols(n) {
+      state.cols = n;
+      localStorage.setItem(storagePrefix + '_cols', n);
+      container.querySelectorAll('.gh-col-btn').forEach(b => b.classList.toggle('active', +b.dataset.cols === n));
+      callback && callback({ ...state });
+    }
+
+    _instances[storagePrefix] = { state, container, storagePrefix, callback, options };
+    return { getState: () => ({ ...state }) };
+  }
+
+  // ── Advanced Filter Drawer ────────────────────────────────────
+  function _openFilterDrawer(prefix, state, callback, fields = []) {
+    document.getElementById('gh-adv-drawer')?.remove();
+
+    const drawer = document.createElement('div');
+    drawer.id = 'gh-adv-drawer';
+    drawer.className = 'gh-adv-drawer open';
+
+    // Build filter fields HTML
+    const fieldsHtml = fields.map(f => _buildField(f, state.filters)).join('');
+
+    drawer.innerHTML = `
+      <div class="gh-adv-scrim"></div>
+      <div class="gh-adv-panel">
+        <div class="gh-adv-handle"></div>
+        <div class="gh-adv-header">
+          <div class="gh-adv-title">Advanced Filters</div>
+        </div>
+        <div class="gh-adv-body">${fieldsHtml}</div>
+        <div class="gh-adv-footer">
+          <button class="gh-adv-reset" id="gh-adv-reset">Reset All</button>
+          <button class="gh-adv-apply" id="gh-adv-apply">Apply</button>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(drawer);
+
+    // Scrim close
+    drawer.querySelector('.gh-adv-scrim').addEventListener('click', () => drawer.remove());
+
+    // Reset
+    drawer.querySelector('#gh-adv-reset').addEventListener('click', () => {
+      state.filters = {};
+      drawer.remove();
+      _updateFilterBtn(prefix);
+      callback && callback({ ...state });
+    });
+
+    // Apply
+    drawer.querySelector('#gh-adv-apply').addEventListener('click', () => {
+      state.filters = _readFilters(drawer, fields);
+      drawer.remove();
+      _updateFilterBtn(prefix);
+      callback && callback({ ...state });
+    });
+  }
+
+  function _buildField(field, currentFilters) {
+    const val = currentFilters[field.key] || '';
+    switch(field.type) {
+      case 'select':
+        return `<div>
+          <div class="gh-adv-section-label">${field.label}</div>
+          <select data-key="${field.key}" style="width:100%;padding:9px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:14px;font-family:var(--sans)">
+            <option value="">— Any —</option>
+            ${(field.options||[]).map(o=>`<option value="${o.value||o}"${val===String(o.value||o)?' selected':''}>${o.label||o}</option>`).join('')}
+          </select>
+        </div>`;
+      case 'text':
+        return `<div>
+          <div class="gh-adv-section-label">${field.label}</div>
+          <input data-key="${field.key}" type="text" value="${esc(val)}" placeholder="${field.placeholder||''}"
+            style="width:100%;padding:9px 12px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);color:var(--text);font-size:14px;font-family:var(--sans);box-sizing:border-box">
+        </div>`;
+      case 'toggle':
+        return `<div>
+          <div class="gh-adv-section-label">${field.label}</div>
+          <div style="display:flex;gap:6px">
+            ${(field.options||[{label:'Any',value:''},{label:'Yes',value:'1'},{label:'No',value:'0'}]).map(o=>`
+              <button data-key="${field.key}" data-val="${o.value}"
+                class="gh-col-btn${val===String(o.value)?' active':''}"
+                style="width:auto;padding:0 12px;font-size:12px"
+                onclick="this.closest('[data-key]')?.querySelectorAll('[data-val]')?.forEach(b=>b.classList.remove('active'));this.classList.add('active')">
+                ${o.label}
+              </button>`).join('')}
+          </div>
+        </div>`;
+      case 'tags':
+        return `<div>
+          <div class="gh-adv-section-label">${field.label}</div>
+          <div id="gh-adv-tags-wrap" style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg3);min-height:38px">
+            ${(val&&Array.isArray(val)?val:[]).map(t=>`<span class="gh-tag-pill" data-tag="${esc(t)}">${esc(t)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></span>`).join('')}
+            <input id="gh-adv-tag-input" type="text" placeholder="Add tag…" style="border:none;background:transparent;outline:none;font-size:13px;color:var(--text);min-width:80px;font-family:var(--sans)">
+          </div>
+        </div>`;
+      default: return '';
+    }
+  }
+
+  function _readFilters(drawer, fields) {
+    const out = {};
+    fields.forEach(f => {
+      if (f.type === 'tags') {
+        const pills = [...drawer.querySelectorAll('.gh-tag-pill[data-tag]')].map(p=>p.dataset.tag);
+        if (pills.length) out[f.key] = pills;
+      } else if (f.type === 'toggle') {
+        const active = drawer.querySelector(`button[data-key="${f.key}"].active`);
+        if (active && active.dataset.val !== '') out[f.key] = active.dataset.val;
+      } else {
+        const el = drawer.querySelector(`[data-key="${f.key}"]`);
+        if (el && el.value) out[f.key] = el.value;
+      }
+    });
+    return out;
+  }
+
+  function _updateFilterBtn(prefix) {
+    const inst = _instances[prefix];
+    if (!inst) return;
+    const btn = inst.container.querySelector(`#${prefix}-filter`);
+    if (!btn) return;
+    const hasFilters = Object.keys(inst.state.filters).length > 0;
+    btn.classList.toggle('has-filters', hasFilters);
+  }
+
+  // Wire tag input — Enter/comma to add
+  document.addEventListener('keydown', e => {
+    if (e.target.id !== 'gh-adv-tag-input') return;
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      const val = e.target.value.trim().replace(/,$/, '');
+      if (!val) return;
+      const wrap = document.getElementById('gh-adv-tags-wrap');
+      const pill = document.createElement('span');
+      pill.className = 'gh-tag-pill';
+      pill.dataset.tag = val;
+      pill.innerHTML = `${esc(val)}<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+      pill.addEventListener('click', () => pill.remove());
+      wrap.insertBefore(pill, e.target);
+      e.target.value = '';
+    }
+  });
+
+  document.addEventListener('click', e => {
+    const pill = e.target.closest('.gh-tag-pill');
+    if (pill && document.getElementById('gh-adv-tags-wrap')?.contains(pill)) pill.remove();
+  });
+
+  return { init };
+})();
