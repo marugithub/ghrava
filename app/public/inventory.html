@@ -453,23 +453,23 @@
 /* ── All Items grid ───────────────────────────────────────────── */
 .all-items-grid {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(var(--ai-cols, 2), 1fr);
   gap: 10px;
   padding: 10px 0 4px;
 }
-@media (min-width: 600px)  { .all-items-grid { grid-template-columns: repeat(3, 1fr); } }
 
 .ai-card {
   background: var(--bg2);
-  border: 1px solid var(--border);
+  border: 1.5px solid var(--border2);
   border-radius: var(--r-lg);
   overflow: hidden;
   cursor: pointer;
   transition: all .15s;
   display: flex;
   flex-direction: column;
+  box-shadow: 0 1px 4px rgba(0,0,0,.06);
 }
-.ai-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.ai-card:hover { border-color: var(--accent-bd); transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,.12); }
 .ai-card-thumb {
   width: 100%;
   aspect-ratio: 4/3;
@@ -507,6 +507,24 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Column picker chips */
+.ai-col-picker {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.ai-col-btn {
+  width: 28px; height: 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  color: var(--text3);
+  font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all .15s;
+  display: flex; align-items: center; justify-content: center;
+}
+.ai-col-btn.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+.ai-col-btn:hover:not(.active) { border-color: var(--border2); color: var(--text2); }
 
 /* ── Room tiles ───────────────────────────────────────────────── */
 .room-tile-grid {
@@ -641,6 +659,14 @@
     <button class="view-tab active" id="modeAllItems" onclick="setModeFilter('items')">All Items</button>
     <button class="view-tab"        id="modeRooms"    onclick="setModeFilter('rooms')">Rooms</button>
     <div style="flex:1"></div>
+    <!-- Column picker — only shown in All Items mode -->
+    <div class="ai-col-picker" id="aiColPicker">
+      <span style="font-size:11px;color:var(--text3);margin-right:2px">Cols</span>
+      <button class="ai-col-btn" onclick="setAiCols(2)">2</button>
+      <button class="ai-col-btn" onclick="setAiCols(3)">3</button>
+      <button class="ai-col-btn" onclick="setAiCols(4)">4</button>
+      <button class="ai-col-btn" onclick="setAiCols(5)">5</button>
+    </div>
     <!-- Biz filter — only shown in All Items mode -->
     <span id="bizToggleInline" style="display:flex;gap:4px">
       <button class="view-tab active" id="bizAll"      onclick="setBizFilter('all')" style="font-size:12px;padding:4px 10px">All</button>
@@ -1359,7 +1385,22 @@ const LOC_SVG = {
 
 let invMode = 'items'; // 'items' | 'rooms'
 let allItemsPage = 0;
-const ALL_ITEMS_PAGE_SIZE = 25;
+const ALL_ITEMS_PAGE_SIZE = 12;
+
+// Column count — persisted, default 2 mobile / 3 desktop
+let aiCols = parseInt(localStorage.getItem('inv_ai_cols')) || (window.innerWidth >= 600 ? 3 : 2);
+
+function setAiCols(n) {
+  aiCols = n;
+  localStorage.setItem('inv_ai_cols', n);
+  document.querySelectorAll('.ai-col-btn').forEach(b => b.classList.toggle('active', +b.textContent === n));
+  const grid = document.querySelector('.all-items-grid');
+  if (grid) grid.style.setProperty('--ai-cols', n);
+}
+
+function initAiColPicker() {
+  document.querySelectorAll('.ai-col-btn').forEach(b => b.classList.toggle('active', +b.textContent === aiCols));
+}
 
 function setModeFilter(mode) {
   invMode = mode;
@@ -1367,6 +1408,7 @@ function setModeFilter(mode) {
   $('modeAllItems').classList.toggle('active', mode === 'items');
   $('modeRooms').classList.toggle('active', mode === 'rooms');
   $('bizToggleInline').style.display = mode === 'items' ? 'flex' : 'none';
+  $('aiColPicker').style.display     = mode === 'items' ? 'flex' : 'none';
   $('roomTileGrid').style.display    = mode === 'rooms' ? 'block' : 'none';
   $('allItemsContent').style.display = mode === 'items' ? 'block' : 'none';
   if (mode === 'rooms') renderRoomTiles();
@@ -1789,7 +1831,7 @@ async function renderAllItemsFlat(el) {
         <button onclick="changeAllItemsPage(1)" style="padding:5px 14px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:13px;${allItemsPage===totalPages-1?'opacity:.4;pointer-events:none':''}">Next &rarr;</button>
       </div>` : `<div style="text-align:center;padding:12px 0 4px;font-size:12px;color:var(--text4)">${total} items</div>`;
 
-    el.innerHTML = `<div class="all-items-grid">${cardsHtml}</div>` + pagerHtml;
+    el.innerHTML = `<div class="all-items-grid" style="--ai-cols:${aiCols}">${cardsHtml}</div>` + pagerHtml;
 
     // Wire card clicks
     el.querySelectorAll('.ai-card').forEach(card => {
@@ -3233,6 +3275,7 @@ document.addEventListener('DOMContentLoaded', () => {
   applyViewSwitcherState();
   loadCategoryChips();
   loadRooms();
+  initAiColPicker();
   if (window.LT && LT.authToken) loadSharedData();
   loadStats();
   renderBrowse().then(() => {
