@@ -29,6 +29,7 @@
 }
 .book-card:hover { border-color:var(--border2);box-shadow:0 2px 8px rgba(0,0,0,.06); }
 .book-spine { width:4px;border-radius:2px;flex-shrink:0;align-self:stretch;background:var(--accent); }
+.book-cover-thumb { width:44px;height:60px;object-fit:cover;border-radius:3px;border:1px solid var(--border);flex-shrink:0; }
 .book-body { flex:1;min-width:0; }
 .book-title { font-size:14px;font-weight:700;color:var(--text);margin-bottom:2px; }
 .book-author { font-size:12px;color:var(--text3);margin-bottom:6px; }
@@ -59,6 +60,7 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
 <script src="/js/lt-shared-data.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js" crossorigin="anonymous"></script>
 <div id="nav-container"></div>
 
 <div id="app">
@@ -97,7 +99,7 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 </div><!-- #app -->
 
 <!-- FAB -->
-<button class="fab" id="fabBtn" onclick="openBookDrawer()" title="Add book">+</button>
+<button class="fab" id="fabBtn" onclick="openAddMenu()" title="Add book">+</button>
 
 <!-- ════════════════════════════════════════════════════════════
      BOOK DRAWER
@@ -109,6 +111,7 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 
     <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-input" id="bkTitle"></div>
     <div class="form-group"><label class="form-label">Author</label><input class="form-input" id="bkAuthor"></div>
+    <div class="form-group"><label class="form-label">ISBN</label><input class="form-input" id="bkIsbn" placeholder="e.g. 9780743273565" style="font-family:var(--mono)"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Genre</label><select class="form-select" id="bkGenre"></select></div>
       <div class="form-group"><label class="form-label">Format</label>
@@ -143,6 +146,7 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
     <div class="form-group"><label class="form-label">Notes / Highlights</label><textarea class="form-textarea" id="bkNotes" style="min-height:80px"></textarea></div>
 
     <div style="display:flex;gap:8px;margin-top:8px">
+    <div id="bookFamilyWrap" style="margin-bottom:12px"></div>
     <div class="form-group">
       <label class="form-label">Tags</label>
       <div class="tags-input-wrap" id="bookTagsWrap" onclick="document.getElementById('bookTagInput').focus()">
@@ -243,8 +247,15 @@ function bookCardHtml(b) {
   const statusClass = {'Currently Reading':'badge-reading','Read':'badge-read','Want to Read':'badge-want'}[b.status]||'badge-want';
   const stars = b.rating ? Array.from({length:5},(_,i)=>`<span class="star${i<b.rating?' lit':''}">★</span>`).join('') : '';
   const spine = FORMAT_COLOR[b.format]||'var(--accent)';
+  const coverSrc = b.primary_photo_id
+    ? `/api/v1/attachments/thumb/${b.primary_photo_id}`
+    : null;
+
   return `<div class="book-card" onclick="openBookDrawer(${b.id})">
-    <div class="book-spine" style="background:${spine}"></div>
+    ${coverSrc
+      ? `<img src="${coverSrc}" class="book-cover-thumb" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`
+      : ''}
+    <div class="book-spine" style="background:${spine};${coverSrc?'display:none':''}"></div>
     <div class="book-body">
       <div class="book-title">${esc(b.title)}</div>
       ${b.author?`<div class="book-author">${esc(b.author)}${b.genre?' · '+esc(b.genre):''}</div>`:''}
@@ -275,6 +286,7 @@ async function openBookDrawer(id) {
   const b = id ? (_allBooks.find(x=>x.id===id)||{}) : {};
   $('bkTitle').value    = b.title||'';
   $('bkAuthor').value   = b.author||'';
+  $('bkIsbn').value     = b.isbn||'';
   await GH_SELECT.init('bkGenre', 'book_genre', b.genre||'', { allowAdd: true, placeholder: '— select genre —' });
   $('bkFormat').value   = b.format||'Physical';
   $('bkStatus').value   = b.status||'Want to Read';
@@ -284,6 +296,7 @@ async function openBookDrawer(id) {
   currentRating = b.rating||0;
   setRating(currentRating);
   initBookTags(b.tags||[]);
+  GH_FAMILY.init('bookFamilyWrap', b.family_members||[]);
   $('bookDrawer').classList.add('open');
 }
 
@@ -299,10 +312,23 @@ async function saveBook() {
     date_finished:$('bkFinished').value||null,
     notes:$('bkNotes').value.trim()||null,
     tags:bookFormTags,
+    family_member_ids: GH_FAMILY.getIds('bookFamilyWrap'),
+    isbn: $('bkIsbn').value.trim()||null,
+    cover_url: window._bkPendingCoverUrl || null,
   };
+  const pendingCover = window._bkPendingCoverUrl || null;
+  window._bkPendingCoverUrl = null;
   try {
-    if(editingBookId) await api(`/${editingBookId}`,'PUT',body);
-    else              await api('/','POST',body);
+    let saved;
+    if(editingBookId) saved = await api(`/${editingBookId}`,'PUT',body);
+    else              saved = await api('/','POST',body);
+    // Download and store cover as attachment if we have a pending URL
+    const bookId = saved?.id || editingBookId;
+    if (pendingCover && bookId && !editingBookId) {
+      try {
+        await api(`/${bookId}/fetch-cover`, 'POST', { url: pendingCover });
+      } catch(e) { console.warn('Cover fetch failed:', e.message); }
+    }
     toast(editingBookId?'Updated':'Book added');
     $('bookDrawer').classList.remove('open');
     loadBooks(); loadStats();
@@ -347,6 +373,325 @@ document.addEventListener('DOMContentLoaded', ()=>{
   loadBooks();
   loadStats();
 });
+
+// ══════════════════════════════════════════════════════════════
+// ADD MENU MODAL
+// ══════════════════════════════════════════════════════════════
+function openAddMenu() {
+  $('bookAddMenu').classList.add('open');
+}
+function closeAddMenu() {
+  $('bookAddMenu').classList.remove('open');
+}
+</script>
+
+<!-- ── Add Menu Modal ─────────────────────────────────────────── -->
+<div class="add-modal-overlay" id="bookAddMenu" onclick="if(event.target===this)closeAddMenu()">
+  <div class="add-modal">
+    <div class="add-modal-header">
+      <div>
+        <h2>Add Book</h2>
+        <p>Scan the barcode or add manually</p>
+      </div>
+      <button class="add-modal-close" onclick="closeAddMenu()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="add-modal-body">
+      <!-- Scan ISBN -->
+      <button class="add-card add-card-scan" id="menuScanIsbn">
+        <div class="add-card-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 9V5a2 2 0 012-2h4M3 15v4a2 2 0 002 2h4M15 3h4a2 2 0 012 2v4M15 21h4a2 2 0 002-2v-4"/>
+            <line x1="7" y1="7" x2="7" y2="17"/><line x1="10" y1="7" x2="10" y2="17"/>
+            <line x1="13" y1="7" x2="13" y2="12"/><line x1="16" y1="7" x2="16" y2="17"/>
+            <line x1="19" y1="7" x2="19" y2="12"/>
+          </svg>
+        </div>
+        <div class="add-card-label">Scan ISBN</div>
+        <div class="add-card-sub">Use camera to scan barcode</div>
+      </button>
+      <!-- Add Manually -->
+      <button class="add-card" id="menuAddManual">
+        <div class="add-card-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+          </svg>
+        </div>
+        <div class="add-card-label">Add Manually</div>
+        <div class="add-card-sub">Type in book details</div>
+      </button>
+    </div>
+    <div class="add-modal-footer">
+      <button class="add-modal-cancel" onclick="closeAddMenu()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Scanner Overlay ────────────────────────────────────────── -->
+<div class="scanner-overlay" id="bkScannerOverlay">
+  <div class="scanner-ui">
+    <div class="scanner-header">
+      <span style="font-size:15px;font-weight:700;color:#fff">Scan ISBN Barcode</span>
+      <button onclick="closeBkScanner()" style="background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:18px;display:flex;align-items:center;justify-content:center">×</button>
+    </div>
+    <video id="bkScannerVideo" autoplay playsinline style="width:100%;border-radius:8px;max-width:400px;margin:12px 0"></video>
+    <p style="color:rgba(255,255,255,.7);font-size:13px;text-align:center">Point camera at the ISBN barcode on the back cover</p>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// BOOK ADD MENU WIRING
+// ══════════════════════════════════════════════════════════════
+$('menuScanIsbn').addEventListener('click', () => {
+  closeAddMenu();
+  startIsbnScan();
+});
+$('menuAddManual').addEventListener('click', () => {
+  closeAddMenu();
+  openBookDrawer();
+});
+
+// ══════════════════════════════════════════════════════════════
+// ISBN SCANNER
+// ══════════════════════════════════════════════════════════════
+let _bkScanStream = null;
+let _bkScannerActive = false;
+let _bkCodeReader = null;
+
+async function startIsbnScan() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    toast('Camera not available — HTTPS required', 'err'); return;
+  }
+  try {
+    _bkScanStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
+    });
+    const video = $('bkScannerVideo');
+    video.srcObject = _bkScanStream;
+    await video.play();
+    $('bkScannerOverlay').classList.add('open');
+    _bkScannerActive = true;
+
+    if (typeof BarcodeDetector !== 'undefined') {
+      _bkScanWithNative(video);
+    } else if (typeof ZXing !== 'undefined') {
+      _bkScanWithZXing();
+    } else {
+      closeBkScanner();
+      toast('Barcode scanning not supported on this browser', 'err');
+    }
+  } catch(err) {
+    closeBkScanner();
+    if (err.name === 'NotAllowedError') toast('Camera permission denied', 'err');
+    else if (err.name === 'NotFoundError') toast('No camera found', 'err');
+    else toast('Camera error: ' + err.message, 'err');
+  }
+}
+
+async function _bkScanWithNative(video) {
+  const wantFormats = ['ean_13','ean_8','upc_a','isbn'];
+  let formats = wantFormats;
+  try {
+    const supported = await BarcodeDetector.getSupportedFormats();
+    const filtered = wantFormats.filter(f => supported.includes(f));
+    if (filtered.length) formats = filtered;
+  } catch {}
+  const detector = new BarcodeDetector({ formats });
+  const poll = async () => {
+    if (!_bkScannerActive) return;
+    try {
+      const results = await detector.detect(video);
+      if (results.length && _bkScannerActive) {
+        _bkScannerActive = false;
+        closeBkScanner();
+        lookupIsbn(results[0].rawValue);
+        return;
+      }
+    } catch {}
+    if (_bkScannerActive) requestAnimationFrame(poll);
+  };
+  requestAnimationFrame(poll);
+}
+
+async function _bkScanWithZXing() {
+  let hints = null;
+  try {
+    if (ZXing.BarcodeFormat && ZXing.DecodeHintType) {
+      hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8, ZXing.BarcodeFormat.UPC_A,
+      ]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    }
+  } catch {}
+  _bkCodeReader = new ZXing.BrowserMultiFormatReader(hints);
+  let deviceId = null;
+  try {
+    const devices = await _bkCodeReader.listVideoInputDevices();
+    const back = devices.find(d => /back|rear|environment/i.test(d.label));
+    deviceId = back?.deviceId || devices[0]?.deviceId || null;
+  } catch {}
+  await _bkCodeReader.decodeFromVideoDevice(deviceId, 'bkScannerVideo', result => {
+    if (result && _bkScannerActive) {
+      _bkScannerActive = false;
+      closeBkScanner();
+      lookupIsbn(result.getText());
+    }
+  });
+}
+
+function closeBkScanner() {
+  _bkScannerActive = false;
+  if (_bkScanStream) { _bkScanStream.getTracks().forEach(t => t.stop()); _bkScanStream = null; }
+  const video = $('bkScannerVideo');
+  if (video) video.srcObject = null;
+  _bkCodeReader?.reset();
+  $('bkScannerOverlay').classList.remove('open');
+}
+
+// ══════════════════════════════════════════════════════════════
+// ISBN LOOKUP — Open Library first, Google Books fallback
+// ══════════════════════════════════════════════════════════════
+async function lookupIsbn(isbn) {
+  toast('Looking up ISBN ' + isbn + '…');
+  let bookData = null;
+
+  // 1. Try Open Library
+  try {
+    const r = await fetch(`https://openlibrary.org/api/books?bibkeys=ISBN:${isbn}&jscmd=data&format=json`);
+    const d = await r.json();
+    const key = `ISBN:${isbn}`;
+    if (d[key]) {
+      const b = d[key];
+      bookData = {
+        isbn,
+        title:     b.title || '',
+        author:    (b.authors||[]).map(a=>a.name).join(', '),
+        cover_url: b.cover?.large || b.cover?.medium || b.cover?.small || null,
+        genre:     (b.subjects||[])[0]?.name || '',
+        source:    'Open Library',
+      };
+    }
+  } catch {}
+
+  // 2. Fallback: Google Books (if API key configured)
+  if (!bookData) {
+    try {
+      const cfgR = await fetch('/api/v1/settings/config/google_books_api_key');
+      const cfg  = cfgR.ok ? await cfgR.json() : null;
+      const key  = cfg?.value;
+      if (key) {
+        const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&key=${key}`);
+        const d = await r.json();
+        const item = d.items?.[0]?.volumeInfo;
+        if (item) {
+          bookData = {
+            isbn,
+            title:     item.title || '',
+            author:    (item.authors||[]).join(', '),
+            cover_url: item.imageLinks?.thumbnail?.replace('http://','https://') || null,
+            genre:     (item.categories||[])[0] || '',
+            source:    'Google Books',
+          };
+        }
+      }
+    } catch {}
+  }
+
+  if (!bookData) {
+    toast('Book not found for ISBN ' + isbn, 'err');
+    openBookDrawer(); // open blank drawer so user can enter manually
+    return;
+  }
+
+  showIsbnConfirmPanel(bookData);
+}
+
+function showIsbnConfirmPanel(b) {
+  // Open drawer first so confirm panel renders inside it
+  openBookDrawer();
+
+  const coverHtml = b.cover_url
+    ? `<img src="${b.cover_url}" style="width:60px;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border);flex-shrink:0" onerror="this.style.display='none'">`
+    : `<div style="width:60px;height:80px;border-radius:4px;border:1px solid var(--border);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">📚</div>`;
+
+  const panel = document.createElement('div');
+  panel.id = 'isbnConfirmPanel';
+  panel.style.cssText = 'background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r-lg);padding:14px;margin-bottom:12px';
+  panel.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:12px;font-family:var(--mono);color:var(--accent);letter-spacing:.06em;text-transform:uppercase">📚 ${esc(b.source)}</span>
+      <span style="font-size:11px;color:var(--text3)">Review before applying</span>
+    </div>
+    <div style="display:flex;gap:12px;margin-bottom:12px">
+      ${coverHtml}
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3">${esc(b.title)}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(b.author)}</div>
+        <div style="font-size:11px;color:var(--text4);margin-top:2px;font-family:var(--mono)">${esc(b.isbn)}</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Title</div>
+        <input class="form-input" id="ic_title" value="${esc(b.title)}" style="font-size:13px;padding:8px 10px">
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Author</div>
+        <input class="form-input" id="ic_author" value="${esc(b.author)}" style="font-size:13px;padding:8px 10px">
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Genre</div>
+        <input class="form-input" id="ic_genre" value="${esc(b.genre)}" style="font-size:13px;padding:8px 10px">
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">ISBN</div>
+        <input class="form-input" id="ic_isbn" value="${esc(b.isbn)}" style="font-size:13px;padding:8px 10px;font-family:var(--mono)">
+      </div>
+    </div>
+    <input type="hidden" id="ic_cover_url" value="${esc(b.cover_url||'')}">
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" style="flex:1;padding:9px" onclick="applyIsbnFields()">Apply to Form</button>
+      <button class="btn btn-ghost" style="padding:9px 14px" onclick="document.getElementById('isbnConfirmPanel')?.remove()">Dismiss</button>
+    </div>`;
+
+  // Insert at top of drawer
+  const drawerContent = document.querySelector('#bookDrawer .drawer');
+  const handle = drawerContent.querySelector('.drawer-handle');
+  handle.insertAdjacentElement('afterend', panel);
+}
+
+async function applyIsbnFields() {
+  const title    = $('ic_title')?.value?.trim() || '';
+  const author   = $('ic_author')?.value?.trim() || '';
+  const genre    = $('ic_genre')?.value?.trim() || '';
+  const isbn     = $('ic_isbn')?.value?.trim() || '';
+  const coverUrl = $('ic_cover_url')?.value?.trim() || '';
+
+  if (title)  $('bkTitle').value  = title;
+  if (author) $('bkAuthor').value = author;
+  if (isbn)   $('bkIsbn').value   = isbn;
+
+  // Apply genre via GH_SELECT
+  if (genre) {
+    await GH_SELECT.init('bkGenre', 'book_genre', genre, { allowAdd: true, placeholder: '— select genre —' });
+  }
+
+  // Download cover and store as attachment after save — store URL for now
+  if (coverUrl) {
+    window._bkPendingCoverUrl = coverUrl;
+  }
+
+  $('isbnConfirmPanel')?.remove();
+  toast('Fields applied — review and save');
+}
+
+// ══════════════════════════════════════════════════════════════
+// SETTINGS — Google Books API Key config endpoint
+// ══════════════════════════════════════════════════════════════
+// Exposed via GET /api/v1/settings/config/:key  (already in settings routes)
 </script>
 </body>
 </html>

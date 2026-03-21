@@ -34,6 +34,7 @@ const { requireAuth } = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 
 
 
@@ -134,7 +135,7 @@ function createRenewalTodo(certId, name, expiryDate) {
 pub.get('/jobs', (req, res) => {
   try {
     const rows = db.prepare('SELECT * FROM career_jobs ORDER BY is_current DESC, start_date DESC').all();
-    res.json(rows.map(r => withTagNames(r, 'career_job')));
+    res.json(rows.map(r => withFamilyMembers(withTagNames(r, 'career_job'), 'career_job')));
   } catch (e) { serverError(res, e); }
 });
 
@@ -150,6 +151,7 @@ auth.post('/jobs', (req, res) => {
            d.start_date||null, d.end_date||null,
            d.location||null, d.description||null, d.is_current?1:0);
     if (d.tags) saveTagsByName(r.lastInsertRowid, 'career_job', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'career_job', d.family_member_ids);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -168,6 +170,7 @@ auth.put('/jobs/:id', (req, res) => {
            d.start_date||null, d.end_date||null, d.location||null, d.description||null,
            d.is_current?1:0, req.params.id);
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'career_job', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'career_job', d.family_member_ids);
     clearReview('career_jobs', req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
@@ -175,6 +178,7 @@ auth.put('/jobs/:id', (req, res) => {
 
 auth.delete('/jobs/:id', (req, res) => {
   try {
+    clearFamilyMembers(req.params.id, 'career_job');
     clearTags(req.params.id, 'career_job');
     db.prepare('DELETE FROM career_jobs WHERE id=?').run(req.params.id);
     res.json({ ok: true });
@@ -293,6 +297,7 @@ auth.post('/goals', (req, res) => {
       VALUES (?,?,?,?,?)
     `).run(d.title.trim(), d.category||'General', d.target_date||null,
            d.status||'active', d.notes||null);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'career_goal', d.family_member_ids);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch(e) { serverError(res, e); }
 });
@@ -305,6 +310,7 @@ auth.put('/goals/:id', (req, res) => {
         updated_at=CURRENT_TIMESTAMP WHERE id=?
     `).run(d.title, d.category||'General', d.target_date||null,
            d.status||'active', d.notes||null, req.params.id);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'career_goal', d.family_member_ids);
     clearReview('career_goals', req.params.id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
@@ -312,6 +318,7 @@ auth.put('/goals/:id', (req, res) => {
 
 auth.delete('/goals/:id', (req, res) => {
   try {
+    clearFamilyMembers(req.params.id, 'career_goal');
     db.prepare('DELETE FROM career_goals WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }

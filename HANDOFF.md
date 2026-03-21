@@ -228,6 +228,16 @@ ghrava_clean/
    Affected areas to check: property.html (uses its own `api()` local function), inventory.html,
    finance.html, any module with inline fetch calls.
 
+2. **Family members on records** — junction table pattern, same as tags/taggables. Full plan confirmed:
+   - **Migration 042** — `record_family_members` table (id, entity_type, entity_id, family_member_id, created_at) with indexes on (entity_type, entity_id) and (family_member_id)
+   - **`shared/familyMembers.js`** — `saveFamilyMembers(entityId, entityType, ids[])`, `getFamilyMembers(entityId, entityType)`, `withFamilyMembers(record, entityType)` — same pattern as shared/tags.js
+   - **`GH_FAMILY` in lt-core.js** — pill input fetching from `/api/v1/settings/family`, same UX as GH_TAGS. `GH_FAMILY.init(containerId)`, `GH_FAMILY.save(entityType, entityId, ids[])`, `GH_FAMILY.get(entityType, entityId)`
+   - **Entity types to wire** (confirmed): `book`, `document`, `resource`, `todo`, `hsa_payment`, `finance_account`, `finance_transaction`, `career_job`, `career_goal`, `kid_activity`, `kid_note`, `contact`
+   - **Excluded** (deliberate): `med_visit`/`med_medication`/`med_condition` — patient field handles it; `daily_log` — personal, not needed
+   - **Advanced Filters** — family member multi-select added to all relevant modules via GH_VIEW filterFields
+   - **Reports dependency** — "everything about Risha" report queries `record_family_members` for most modules + Medical's `patient` field separately. Both sources needed for complete picture.
+   - **Daily Log** — existing single `family_id` field stays as-is, not migrated to junction table
+
 2. **Deploy zip — fix packaging** — zip currently creates `ghrava/` at root level instead of files
    at root. Fix: `cd /home/claude/ghrava_fixed && zip -r Ghrava_DEPLOY.zip ghrava/ --exclude ...`
    is wrong. Correct pattern: `cd /home/claude/ghrava_fixed/ghrava && zip -r ../Ghrava_DEPLOY.zip *`
@@ -277,6 +287,12 @@ ghrava_clean/
 10. **Finance budget vs actual visual** — no design yet
 11. **Calendar module** — remove or keep for Google Calendar sync only
 12. **Google Site data import** — household data at private Google Site; export via Google Takeout
+13. **Data quality / completeness checker** — a view (likely in Settings → Diagnostics, or a per-module filter) that surfaces records with missing important fields. Different from the Orphan Check (which is structural integrity). This is about completeness: items with no location, contacts with no phone, medications with no dosage, etc. Fields that matter will vary per module. Design TBD.
+14. **Reports module** — not yet built. Two distinct types:
+    - **Live/interactive reports** — connected to live data. Records are clickable links. Two sub-modes: (a) view mode — open record, breadcrumb back to report; (b) data entry mode — report surfaces incomplete/missing records, user fills in data and returns for the next. Data quality checker (#13) feeds into this.
+    - **Printable/exportable reports** — static PDF or print-friendly snapshot for record keeping. Finance statements, medical summaries, inventory lists, etc. Printed output must contain enough identifying info (names, dates, item_ref/record IDs) that you can search for the record in the app later. QR codes on printouts as deep-links back to records is an option.
+    - Design questions to resolve: central Reports page with module filter vs per-module reports; fixed templates vs user-configurable field selection; which modules need reports first (Finance and Medical are highest priority for record keeping).
+    - Settings → Diagnostics and Logs may move under an Admin section separate from user-facing Reports.
 
 ---
 

@@ -25,6 +25,7 @@ const { serverError, notFound }            = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
 const { saveTagsByName, getTagNames,
         withTagNames, clearTags }          = require('../../shared/tags');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 
 // ── Helpers ───────────────────────────────────────────────────
 // Age is computed on every read so it stays current without DB updates.
@@ -67,10 +68,10 @@ router.get('/:id', (req, res) => {
     // Attach related records inline so the UI needs only one request
     kid.activities = db.prepare(
       'SELECT * FROM kid_activities WHERE kid_id=? ORDER BY is_active DESC, day_of_week, start_time'
-    ).all(kid.id).map(a => withTagNames(a, 'kid_activity'));
+    ).all(kid.id).map(a => withFamilyMembers(withTagNames(a, 'kid_activity'), 'kid_activity'));
     kid.notes = db.prepare(
       'SELECT * FROM kid_notes WHERE kid_id=? ORDER BY note_date DESC, id DESC LIMIT 20'
-    ).all(kid.id).map(n => withTagNames(n, 'kid_note'));
+    ).all(kid.id).map(n => withFamilyMembers(withTagNames(n, 'kid_note'), 'kid_note'));
     try {
       kid.medical_visits = db.prepare(
         'SELECT * FROM med_visit_notes WHERE patient = ? ORDER BY visit_date DESC LIMIT 5'
@@ -145,10 +146,11 @@ router.post('/:id/activities', requireAuth, (req, res) => {
            start_time||null, end_time||null, location||null, contact_id||null,
            cost_per_month||null, season||null, start_date||null, end_date||null, notes||null);
     if (tags) saveTagsByName(r.lastInsertRowid, 'kid_activity', tags);
-    res.status(201).json(withTagNames(
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'kid_activity', req.body.family_member_ids);
+    res.status(201).json(withFamilyMembers(withTagNames(
       db.prepare('SELECT * FROM kid_activities WHERE id=?').get(r.lastInsertRowid),
       'kid_activity'
-    ));
+    ), 'kid_activity'));
   } catch(e) { serverError(res, e); }
 });
 
@@ -168,13 +170,15 @@ router.put('/:id/activities/:aid', requireAuth, (req, res) => {
            start_date??act.start_date, end_date??act.end_date, notes??act.notes,
            is_active!=null?+is_active:act.is_active, act.id);
     if (tags !== undefined) saveTagsByName(act.id, 'kid_activity', tags);
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(act.id, 'kid_activity', req.body.family_member_ids);
     clearReview('kid_activities', act.id);
-    res.json(withTagNames(db.prepare('SELECT * FROM kid_activities WHERE id=?').get(act.id), 'kid_activity'));
+    res.json(withFamilyMembers(withTagNames(db.prepare('SELECT * FROM kid_activities WHERE id=?').get(act.id), 'kid_activity'), 'kid_activity'));
   } catch(e) { serverError(res, e); }
 });
 
 router.delete('/:id/activities/:aid', requireAuth, (req, res) => {
   try {
+    clearFamilyMembers(req.params.aid, 'kid_activity');
     clearTags(req.params.aid, 'kid_activity');
     db.prepare('DELETE FROM kid_activities WHERE id=? AND kid_id=?').run(req.params.aid, req.params.id);
     res.json({ ok: true });
@@ -186,7 +190,7 @@ router.get('/:id/notes', (req, res) => {
   try {
     res.json(db.prepare(
       'SELECT * FROM kid_notes WHERE kid_id=? ORDER BY note_date DESC, id DESC'
-    ).all(req.params.id).map(n => withTagNames(n, 'kid_note')));
+    ).all(req.params.id).map(n => withFamilyMembers(withTagNames(n, 'kid_note'), 'kid_note')));
   } catch(e) { serverError(res, e); }
 });
 
@@ -200,10 +204,11 @@ router.post('/:id/notes', requireAuth, (req, res) => {
     `).run(req.params.id, note_date||new Date().toISOString().slice(0,10),
            category||'General', title||null, body.trim());
     if (tags) saveTagsByName(r.lastInsertRowid, 'kid_note', tags);
-    res.status(201).json(withTagNames(
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'kid_note', req.body.family_member_ids);
+    res.status(201).json(withFamilyMembers(withTagNames(
       db.prepare('SELECT * FROM kid_notes WHERE id=?').get(r.lastInsertRowid),
       'kid_note'
-    ));
+    ), 'kid_note'));
   } catch(e) { serverError(res, e); }
 });
 

@@ -210,6 +210,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <div style="display:flex;gap:8px">
           <div class="form-group">
       <label class="form-label">Tags</label>
+      <div id="jobFamilyWrap" style="margin-bottom:12px"></div>
       <div class="tags-input-wrap" id="jobTagsWrap" onclick="document.getElementById('jobTagInput').focus()">
         <input id="jobTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
       </div>
@@ -315,6 +316,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
       <textarea class="form-textarea" id="goalNotes" style="min-height:80px"></textarea>
     </div>
     <div style="display:flex;gap:8px;margin-top:4px">
+      <div id="goalFamilyWrap" style="margin-bottom:12px"></div>
       <button class="btn btn-primary" id="goalSaveBtn" style="flex:1" onclick="saveGoal()">Save</button>
       <button class="btn btn-ghost" id="goalDeleteBtn" style="color:var(--red);display:none" onclick="deleteGoal()">Delete</button>
     </div>
@@ -462,6 +464,7 @@ async function openJobDrawer(id) {
   $('jobIsCurrent').checked = !!j.is_current;
   $('jobDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   initJobTags(j?.tags||[]);
+  GH_FAMILY.init('jobFamilyWrap', j.family_members||[]);
   await loadCareerDropdowns();
   $('jobDrawer').classList.add('open');
 }
@@ -473,7 +476,8 @@ async function saveJob() {
       employment_type:$('jobType').value, start_date:$('jobStart').value||null,
       end_date:$('jobEnd').value||null, location:$('jobLocation').value||null,
       description:$('jobDesc').value||null, is_current:$('jobIsCurrent').checked,
-      tags: jobFormTags };
+      tags: jobFormTags,
+      family_member_ids: GH_FAMILY.getIds('jobFamilyWrap') };
     if (!payload.company || !payload.title) { toast('Company and title required','err'); return; }
     const url = editingJobId ? `/jobs/${editingJobId}` : '/jobs';
     await api(url, { method: editingJobId?'PUT':'POST', body: JSON.stringify(payload) });
@@ -672,6 +676,11 @@ function openGoalDrawer(id) {
     $('goalCategory').value = 'Short-term';
     $('goalStatus').value   = 'active';
   }
+  api(`${API}/goals`).then(goals => {
+    const g2 = goals.find(x => x.id === id);
+    if (g2) GH_FAMILY.init('goalFamilyWrap', g2.family_members||[]);
+  });
+  if (!id) GH_FAMILY.init('goalFamilyWrap', []);
   $('goalDrawer').classList.add('open');
 }
 
@@ -685,6 +694,7 @@ async function saveGoal() {
     status:      $('goalStatus').value,
     target_date: $('goalTargetDate').value || null,
     notes:       $('goalNotes').value.trim() || null,
+    family_member_ids: GH_FAMILY.getIds('goalFamilyWrap'),
   };
   try {
     if (_editGoalId) await api(`${API}/goals/${_editGoalId}`, 'PUT', body);

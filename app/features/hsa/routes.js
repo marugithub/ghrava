@@ -12,6 +12,7 @@ const router      = express.Router();
 const db          = require('../../db/db');
 const { requireAuth }        = require('../auth/middleware');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 const { clearReview } = require('../../shared/needs-review');
 
 // ══════════════════════════════════════════════════════════════
@@ -132,6 +133,7 @@ router.post('/plan', (req, res) => {
       d.irs_limit_self_only||0,   d.irs_limit_family||0,
       d.plan_effective_date||null, d.notes||null
     );
+    saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -262,6 +264,7 @@ router.post('/payments', (req, res) => {
       d.receipt_saved ? 1 : 0, d.receipt_location||null,
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null
     );
+    saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -293,6 +296,7 @@ router.put('/payments/:id', (req, res) => {
 // DELETE /api/v1/hsa/payments/:id
 router.delete('/payments/:id', (req, res) => {
   try {
+    clearFamilyMembers(req.params.id, 'hsa_payment');
     db.prepare('DELETE FROM hsa_payments WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
@@ -357,6 +361,7 @@ router.post('/otc', (req, res) => {
       d.receipt_saved ? 1 : 0, d.receipt_location||null,
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null
     );
+    saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });

@@ -116,6 +116,7 @@
     <!-- Tags — GH_TAGS pill system, entity_type='document' -->
     <div class="form-group">
       <label class="form-label">Tags</label>
+      <div id="docFamilyWrap" style="margin-bottom:12px"></div>
       <div class="tags-input-wrap" id="docTagsWrap" onclick="document.getElementById('docTagInput').focus()">
         <input id="docTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
       </div>
@@ -282,6 +283,7 @@ async function openDocDrawer(id) {
     };
     inp.onblur = ()=>{if(inp.value.trim())addDocTag(inp.value);};
     GH_TAGS.init({inputId:'docTagInput',wrapId:'docTagsWrap',module:'documents',getFormTags:()=>docFormTags,addTag:t=>addDocTag(t),allowCreate:true});
+  GH_FAMILY.init('docFamilyWrap', d.family_members||[]);
   }
 
   $('docDrawer').classList.add('open');
@@ -294,7 +296,7 @@ async function saveDoc() {
   if (!title){toast('Title required','err');return;}
   const btn=$('dSave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const payload={title,category:$('dCat').value||'Other',subcategory:$('dSubcat').value||null,issuer:$('dIssuer').value||null,description:$('dDesc').value||null,issue_date:$('dIssueDate').value||null,expiry_date:$('dExpiry').value||null,file_name:$('dFileName').value||null,family_member:$('dMember').value||null,tags:docFormTags};
+    const payload={title,category:$('dCat').value||'Other',subcategory:$('dSubcat').value||null,issuer:$('dIssuer').value||null,description:$('dDesc').value||null,issue_date:$('dIssueDate').value||null,expiry_date:$('dExpiry').value||null,file_name:$('dFileName').value||null,family_member:$('dMember').value||null,tags:docFormTags,family_member_ids:GH_FAMILY.getIds('docFamilyWrap')};
     if (editDocId) { await window.api('PUT',`/documents/${editDocId}`,payload); toast('Updated'); }
     else           { await window.api('POST','/documents/',payload); toast('Document saved'); }
     $('docDrawer').classList.remove('open'); loadDocs();

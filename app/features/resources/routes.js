@@ -9,6 +9,7 @@ const router  = express.Router();
 const { requireAuth } = require('../auth/middleware');
 const db = require('../../db/db');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
 
@@ -27,6 +28,7 @@ function attachTags(resource) {
     ORDER BY t.name
   `).all(resource.id);
   resource.tags = rows.map(r => r.name);
+  resource.family_members = getFamilyMembers(resource.id, 'resource');
   return resource;
 }
 
@@ -116,6 +118,7 @@ router.post('/', (req, res) => {
            link_type||'website', category?.trim()||null,
            access_note?.trim()||null, is_favorite?1:0);
     saveTagsByName(r.lastInsertRowid, 'resource', tags || []);
+    if (body.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'resource', body.family_member_ids);
     res.status(201).json(attachTags(db.prepare('SELECT * FROM resources WHERE id=?').get(r.lastInsertRowid)));
   } catch (err) { serverError(res, err); }
 });
@@ -135,6 +138,7 @@ router.put('/:id', (req, res) => {
            link_type||'website', category?.trim()||null,
            access_note?.trim()||null, is_favorite?1:0, req.params.id);
     saveTagsByName(req.params.id, 'resource', tags || []);
+    if (body.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'resource', body.family_member_ids);
     clearReview('resources', req.params.id);
     res.json(attachTags(db.prepare('SELECT * FROM resources WHERE id=?').get(req.params.id)));
   } catch (err) { serverError(res, err); }
@@ -159,6 +163,7 @@ router.patch('/:id/favorite', (req, res) => {
 router.delete('/:id', (req, res) => {
   try {
     if (!db.prepare('SELECT id FROM resources WHERE id=?').get(req.params.id)) return notFound(res, 'Resource');
+    clearFamilyMembers(req.params.id, 'resource');
     clearTags(req.params.id, 'resource');  // replaces raw taggables DELETE
     db.prepare('DELETE FROM resources WHERE id=?').run(req.params.id);
     res.json({ ok: true });

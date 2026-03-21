@@ -35,6 +35,7 @@ const router  = express.Router();
 const db      = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 
 // ── All finance routes require auth ──────────────────────────
 router.use(requireAuth);
@@ -202,6 +203,7 @@ router.post('/accounts', (req, res) => {
       d.notes||null,
       parseInt(d.sort_order)||0
     );
+    saveFamilyMembers(r.lastInsertRowid, 'finance_account', d.family_member_ids || []);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -211,6 +213,7 @@ router.put('/accounts/:id', (req, res) => {
     const d   = req.body;
     const existing = db.prepare('SELECT * FROM finance_accounts WHERE id=?').get(req.params.id);
     if (!existing) return notFound(res, 'Account');
+    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'finance_account', d.family_member_ids);
     db.prepare(`
       UPDATE finance_accounts SET
         name=?, type=?, institution=?, account_last4=?,
@@ -310,6 +313,7 @@ router.post('/transactions', (req, res) => {
       parseFloat(d.amount), d.category||null, d.notes||null,
       d.is_reconciled ? 1 : 0
     );
+    saveFamilyMembers(r.lastInsertRowid, 'finance_transaction', d.family_member_ids || []);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -341,6 +345,7 @@ router.delete('/transactions/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT id FROM finance_transactions WHERE id=?').get(req.params.id);
     if (!existing) return notFound(res, 'Transaction');
+    clearFamilyMembers(req.params.id, 'finance_transaction');
     db.prepare('DELETE FROM finance_transactions WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }

@@ -25,6 +25,7 @@ const { requireAuth }                      = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
+const { saveFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 
 
 // ── GET / ─────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ router.get('/', (req, res) => {
       p.push(like, like, like, like, like);
     }
     sql += ' ORDER BY category, expiry_date ASC NULLS LAST, title COLLATE NOCASE';
-    const docs = db.prepare(sql).all(...p).map(r => withTagNames(r, 'document'));
+    const docs = db.prepare(sql).all(...p).map(r => withFamilyMembers(withTagNames(r, 'document'), 'document'));
     res.json(docs);
   } catch (e) { serverError(res, e); }
 });
@@ -60,7 +61,7 @@ router.get('/expiring', (req, res) => {
         AND expiry_date >= date('now')
         AND expiry_date <= date('now','+90 days')
       ORDER BY expiry_date ASC
-    `).all().map(r => withTagNames(r, 'document'));
+    `).all().map(r => withFamilyMembers(withTagNames(r, 'document'), 'document'));
     res.json(rows);
   } catch (e) { serverError(res, e); }
 });
@@ -92,6 +93,7 @@ router.post('/', requireAuth, (req, res) => {
            d.family_member||null);
     const newId = r.lastInsertRowid;
     if (d.tags && d.tags.length) saveTagsByName(newId, 'document', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(newId, 'document', d.family_member_ids);
     res.status(201).json(withTagNames(db.prepare('SELECT * FROM documents WHERE id=?', 'document').get(newId)));
   } catch (e) { serverError(res, e); }
 });
@@ -115,6 +117,7 @@ router.put('/:id', requireAuth, (req, res) => {
            d.expiry_date||null, d.family_member||null,
            req.params.id);
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'document', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'document', d.family_member_ids);
     clearReview('documents', req.params.id);
     res.json(withTagNames(db.prepare('SELECT * FROM documents WHERE id=?', 'document').get(req.params.id)));
   } catch (e) { serverError(res, e); }
@@ -124,6 +127,7 @@ router.put('/:id', requireAuth, (req, res) => {
 // ── Soft-delete (sets is_active=0, clears tags) ────────────────
 router.delete('/:id', requireAuth, (req, res) => {
   try {
+    clearFamilyMembers(req.params.id, 'document');
     clearTags(req.params.id, 'document');
     db.prepare('UPDATE documents SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(req.params.id);
     res.json({ ok: true });

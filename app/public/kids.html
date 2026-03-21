@@ -134,6 +134,7 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
       <div class="form-group"><label class="form-label">Monthly Cost</label><input class="form-input" type="number" id="afCost" placeholder="0.00" step="0.01" min="0"></div>
       <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="afNotes" rows="2" style="resize:vertical"></textarea></div>
     </div>
+    <div id="actFamilyWrap" style="margin:8px 0 4px"></div>
     <div class="drawer-footer">
       <button class="btn btn-ghost" id="actCancel">Cancel</button>
       <button class="btn btn-danger" id="actDelete" style="display:none">Delete</button>
@@ -153,6 +154,7 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
       <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="nfTitle" placeholder="Optional title"></div>
       <div class="form-group"><label class="form-label">Note *</label><textarea class="form-input" id="nfBody" rows="4" placeholder="What happened? What to remember?" style="resize:vertical"></textarea></div>
     </div>
+    <div id="noteFamilyWrap" style="margin:8px 0 4px"></div>
     <div class="drawer-footer">
       <button class="btn btn-ghost" id="noteCancel">Cancel</button>
       <button class="btn btn-danger" id="noteDelete" style="display:none">Delete</button>
@@ -319,6 +321,7 @@ async function openActivityDrawer(aid){
   $('afSeason').value=act?.season||'';$('afCost').value=act?.cost_per_month||'';$('afNotes').value=act?.notes||'';
   $('actDelete').style.display=_editingActId?'inline-flex':'none';
   initActTags(act?.tags||[]);
+  GH_FAMILY.init('actFamilyWrap', act?.family_members||[]);
   await loadKidsDropdowns(act?.category||'Sports', null);
   $('actDrawer').classList.add('open');setTimeout(()=>$('afName').focus(),300);
 }
@@ -332,7 +335,7 @@ $('actDelete').addEventListener('click',async()=>{
 $('actSave').addEventListener('click',async()=>{
   const name=$('afName').value.trim();if(!name){toast('Name required','err');return;}
   $('actSave').disabled=true;$('actSave').textContent='Saving…';
-  const body={name,category:$('afCategory').value,day_of_week:$('afDays').value.trim()||null,start_time:$('afStart').value||null,end_time:$('afEnd').value||null,location:$('afLocation').value.trim()||null,season:$('afSeason').value||null,cost_per_month:parseFloat($('afCost').value)||null,notes:$('afNotes').value.trim()||null,tags:actFormTags};
+  const body={name,category:$('afCategory').value,day_of_week:$('afDays').value.trim()||null,start_time:$('afStart').value||null,end_time:$('afEnd').value||null,location:$('afLocation').value.trim()||null,season:$('afSeason').value||null,cost_per_month:parseFloat($('afCost').value)||null,notes:$('afNotes').value.trim()||null,tags:actFormTags,family_member_ids:GH_FAMILY.getIds('actFamilyWrap')};
   try{
     const r=await fetch(_editingActId?`${API}/${_currentKid.id}/activities/${_editingActId}`:`${API}/${_currentKid.id}/activities`,{method:_editingActId?'PUT':'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},body:JSON.stringify(body)});
     if(!r.ok)throw new Error();
@@ -350,6 +353,7 @@ async function openNoteDrawer(nid){
   $('nfCategory').value=note?.category||'General';$('nfTitle').value=note?.title||'';$('nfBody').value=note?.body||'';
   $('noteDelete').style.display=_editingNoteId?'inline-flex':'none';
   initNoteTags(note?.tags||[]);
+  GH_FAMILY.init('noteFamilyWrap', note?.family_members||[]);
   await loadKidsDropdowns();
   $('noteDrawer').classList.add('open');setTimeout(()=>$('nfBody').focus(),300);
 }
@@ -363,7 +367,7 @@ $('noteDelete').addEventListener('click',async()=>{
 $('noteSave').addEventListener('click',async()=>{
   const body=$('nfBody').value.trim();if(!body){toast('Note text required','err');return;}
   $('noteSave').disabled=true;$('noteSave').textContent='Saving…';
-  const payload={note_date:$('nfDate').value,category:$('nfCategory').value,title:$('nfTitle').value.trim()||null,body,tags:noteFormTags};
+  const payload={note_date:$('nfDate').value,category:$('nfCategory').value,title:$('nfTitle').value.trim()||null,body,tags:noteFormTags,family_member_ids:GH_FAMILY.getIds('noteFamilyWrap')};
   try{
     const r=await fetch(_editingNoteId?`${API}/${_currentKid.id}/notes/${_editingNoteId}`:`${API}/${_currentKid.id}/notes`,{method:_editingNoteId?'PUT':'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},body:JSON.stringify(payload)});
     if(!r.ok)throw new Error();

@@ -634,6 +634,20 @@
         <button class="btn btn-primary btn-full" style="margin-top:10px" onclick="saveGoogleCredentials()">Save Credentials</button>
       </div>
 
+      <!-- API Keys -->
+      <div class="section-label">API Keys</div>
+      <div style="padding:0 20px">
+        <div class="card card-static">
+          <div class="form-group">
+            <label class="form-label">Google Books API Key</label>
+            <input class="form-input" id="googleBooksApiKey" type="password" placeholder="Paste API key…" autocomplete="off">
+            <div class="form-hint">Used as fallback when scanning book ISBNs. Open Library is tried first — this key is only needed if Open Library doesn't find the book. Get a free key at <a href="https://console.cloud.google.com/" target="_blank" style="color:var(--accent)">Google Cloud Console ↗</a></div>
+          </div>
+          <button class="btn btn-primary btn-full" onclick="saveGoogleBooksKey()">Save Key</button>
+          <div id="googleBooksKeyResult" style="display:none;margin-top:8px;font-size:13px"></div>
+        </div>
+      </div>
+
       <!-- Sync settings -->
       <div class="section-label">Sync Settings</div>
       <div style="padding:0 20px">
@@ -977,6 +991,7 @@
     </div>
     <div id="ctExtension"></div>
     <div class="btn-row">
+      <div id="contactFamilyWrap" style="margin-bottom:12px"></div>
       <button class="btn btn-ghost" id="contactCancel">Cancel</button>
       <button class="btn btn-primary" id="contactSave">Save</button>
     </div>
@@ -1206,6 +1221,7 @@ const PANEL_LOADERS = {
 
 // ── Google Services Panel ────────────────────────────────────
 async function loadGooglePanel() {
+  loadGoogleBooksKey();
   // Update redirect URI hint
   const baseUrl = document.getElementById('infraBaseUrl')?.value || window.location.origin;
   const rUri = document.getElementById('googleRedirectUri');
@@ -1311,6 +1327,36 @@ async function saveGoogleCredentials() {
     document.getElementById('googleClientSecret').value = '';
     loadGooglePanel();
   } catch(e) { toast('Failed to save: ' + e.message, 'err'); }
+}
+
+async function saveGoogleBooksKey() {
+  const key = document.getElementById('googleBooksApiKey')?.value.trim();
+  const res = document.getElementById('googleBooksKeyResult');
+  try {
+    const r = await fetch('/api/v1/settings/config/google_books_api_key', {
+      method: 'PUT',
+      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
+      body: JSON.stringify({ value: key }),
+    });
+    if (!r.ok) throw new Error('Save failed');
+    res.textContent = key ? '✓ API key saved' : '✓ Key cleared';
+    res.style.color = 'var(--green)';
+    res.style.display = 'block';
+    document.getElementById('googleBooksApiKey').value = '';
+    setTimeout(() => { res.style.display = 'none'; }, 3000);
+  } catch(e) { toast('Failed to save key', 'err'); }
+}
+
+async function loadGoogleBooksKey() {
+  try {
+    const r = await fetch('/api/v1/settings/config/google_books_api_key', {
+      headers: {'Authorization':'Bearer '+LT.authToken}
+    });
+    if (!r.ok) return;
+    const d = await r.json();
+    const input = document.getElementById('googleBooksApiKey');
+    if (input && d.value) input.placeholder = '••••••••••••••••••••••••••• (set)';
+  } catch {}
 }
 
 async function saveGooglePrefs() {
@@ -2311,6 +2357,7 @@ function openContactDrawer(contact=null, presetType=null) {
     updateExtensionFields(contact?.contact_type || presetType || '');
     GH_SELECT.init('ct_specialty', 'contact_specialty', contact?.specialty||null, { placeholder: '— select —' });
     if (contact) _fillExtFields(contact);
+    GH_FAMILY.init('contactFamilyWrap', contact?.family_members||[]);
     $('contactDrawer').classList.add('open');
     setTimeout(()=>$('ct_name').focus(), 300);
   } catch(err) {
@@ -2358,6 +2405,7 @@ $('contactSave').addEventListener('click', async () => {
       address_state:     $('ct_state').value.trim().toUpperCase()||null,
       address_zip:       $('ct_zip').value.trim()||null,
       notes:             $('ct_notes').value||null,
+      family_member_ids: GH_FAMILY.getIds('contactFamilyWrap'),
       // Type-specific flat fields
       patients_seen:         $('ct_patients_seen')?.value||null,
       accepts_insurance:     $('ct_accepts_ins')?.value||null,

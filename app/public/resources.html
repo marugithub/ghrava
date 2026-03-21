@@ -419,6 +419,7 @@
 
     <div class="form-group">
       <label class="form-label">Tags</label>
+      <div id="resFamilyWrap" style="margin-bottom:12px"></div>
       <div class="tags-input-wrap" id="tagsWrap" onclick="document.getElementById('tagInput').focus()">
         <input class="tags-text-input" id="tagInput" placeholder="Type tag, press Enter…" autocomplete="off">
       </div>
@@ -754,6 +755,7 @@ function openAdd() {
   $('fAccess').value = '';
   $('fFavorite').checked = false;
   renderFormTags();
+  GH_FAMILY.init('resFamilyWrap', []);
   populateCatSuggestions();
   $('formDrawer').classList.add('open');
   setTimeout(() => $('fName').focus(), 300);
@@ -774,6 +776,7 @@ function openEdit(id) {
   $('fAccess').value = r.access_note || '';
   $('fFavorite').checked = !!r.is_favorite;
   renderFormTags();
+  GH_FAMILY.init('resFamilyWrap', r.family_members||[]);
   populateCatSuggestions();
   $('formDrawer').classList.add('open');
 }
@@ -795,6 +798,7 @@ $('formSave').addEventListener('click', async () => {
     access_note: $('fAccess').value.trim() || null,
     is_favorite: $('fFavorite').checked,
     tags:        formTags,
+    family_member_ids: GH_FAMILY.getIds('resFamilyWrap'),
   };
 
   const btn = $('formSave');

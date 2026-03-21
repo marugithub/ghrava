@@ -737,6 +737,7 @@
     <div class="form-group" style="margin-top:10px">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="fNotes" rows="2" placeholder="Optional notes…"></textarea>
+      <div id="hsaFamilyWrap" style="margin-top:10px"></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeExpenseDrawer()">Cancel</button>
@@ -1391,6 +1392,7 @@ function openAddDrawer(type = 'payment') {
   $('receiptLocGroup').style.display = 'none';
   $('fReceiptLoc').value = '';
   $('fNotes').value = '';
+  GH_FAMILY.init('hsaFamilyWrap', []);
   $('expenseDrawer').classList.add('open');
 }
 
@@ -1427,6 +1429,7 @@ async function editExpense(id, type) {
     $('receiptLocGroup').style.display = r.receipt_saved ? 'block' : 'none';
     $('fReceiptLoc').value    = r.receipt_location || '';
     $('fNotes').value         = r.notes       || '';
+    GH_FAMILY.init('hsaFamilyWrap', r.family_members||[]);
     $('expenseDrawer').classList.add('open');
   } catch (e) { toast(e.message, 'err'); }
 }
@@ -1476,6 +1479,7 @@ async function saveExpense() {
       receipt_saved: $('fReceiptSaved').checked,
       receipt_location: $('fReceiptLoc').value.trim()||null,
       notes: $('fNotes').value.trim()||null,
+      family_member_ids: GH_FAMILY.getIds('hsaFamilyWrap'),
     };
   }
   try {
@@ -1735,6 +1739,7 @@ async function openAccountDrawer(id) {
   $('accAsOf').value        = a.balance_as_of||new Date().toISOString().slice(0,10);
   $('accInNw').checked      = a.include_net_worth !== 0;
   $('accNotes').value       = a.notes||'';
+  GH_FAMILY.init('accFamilyWrap', a.family_members||[]);
   $('accountDrawer').classList.add('open');
 }
 
@@ -1747,7 +1752,8 @@ async function saveAccount() {
       current_balance: parseFloat($('accBalance').value)||0,
       balance_as_of: $('accAsOf').value||null,
       include_net_worth: $('accInNw').checked,
-      notes: $('accNotes').value||null
+      notes: $('accNotes').value||null,
+      family_member_ids: GH_FAMILY.getIds('accFamilyWrap')
     };
     if (!payload.name) { toast('Name required','err'); return; }
     const url = editingAccountId ? `/finance/accounts/${editingAccountId}` : '/finance/accounts';
@@ -1852,6 +1858,7 @@ async function openTxDrawer(id) {
   $('txNotes').value       = t.notes||'';
   if (t.account_id) $('txAccount').value = t.account_id;
   $('txDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+  GH_FAMILY.init('txFamilyWrap', t.family_members||[]);
   $('txDrawer').classList.add('open');
 }
 
@@ -1863,7 +1870,8 @@ async function saveTx() {
       description: $('txDesc').value.trim(),
       amount: parseFloat($('txAmount').value),
       category: $('txCategory').value||null,
-      notes: $('txNotes').value||null
+      notes: $('txNotes').value||null,
+      family_member_ids: GH_FAMILY.getIds('txFamilyWrap')
     };
     if (!payload.description || !payload.account_id) { toast('Account and description required','err'); return; }
     if (isNaN(payload.amount)) { toast('Valid amount required','err'); return; }
@@ -2290,6 +2298,7 @@ async function deleteGc() {
       <label for="accInNw" style="font-size:13px;color:var(--text2)">Include in Net Worth</label>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:60px"></textarea></div>
+    <div id="accFamilyWrap" style="margin-bottom:12px"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary" id="accSave" style="flex:1" onclick="saveAccount()">Save</button>
       <button class="btn btn-ghost" id="accDeleteBtn" style="color:var(--red);display:none" onclick="deleteAccount()">Delete</button>
@@ -2316,6 +2325,7 @@ async function deleteGc() {
     <div class="form-group"><label class="form-label">Description <span class="req">*</span></label><input class="form-input" id="txDesc" placeholder="Merchant or description"></div>
     <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="txCategory" placeholder="Groceries, Utilities…"></div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="txNotes" style="min-height:60px"></textarea></div>
+    <div id="txFamilyWrap" style="margin-bottom:12px"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary" id="txSave" style="flex:1" onclick="saveTx()">Save</button>
       <button class="btn btn-ghost" id="txDeleteBtn" style="color:var(--red);display:none" onclick="deleteTx()">Delete</button>

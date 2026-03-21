@@ -19,6 +19,7 @@ const { requireAuth } = require('../auth/middleware');
 const router  = express.Router();
 const db      = require('../../db/db');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 
 
 const { badRequest, notFound, serverError } = require('../../shared/errors');
@@ -327,7 +328,7 @@ router.get('/', (req, res) => {
       FROM todos
     `).get();
 
-    res.json({ todos: todos.map(t => (withTagNames(t, 'todo'))), stats });
+    res.json({ todos: todos.map(t => withFamilyMembers(withTagNames(t, 'todo'), 'todo')), stats });
   } catch (e) { serverError(res, e); }
 });
 
@@ -373,7 +374,8 @@ router.post('/', (req, res) => {
     );
     const newId = info.lastInsertRowid;
     if (tags && tags.length) saveTagsByName(newId, 'todo', tags);
-    res.status(201).json(withTagNames(db.prepare('SELECT * FROM todos WHERE id=?').get(newId), 'todo'));
+    if (body.family_member_ids !== undefined) saveFamilyMembers(newId, 'todo', body.family_member_ids);
+    res.status(201).json(withFamilyMembers(withTagNames(db.prepare('SELECT * FROM todos WHERE id=?').get(newId), 'todo'), 'todo'));
   } catch (e) { serverError(res, e); }
 });
 
@@ -402,7 +404,8 @@ router.put('/:id', (req, res) => {
     );
     if (body.tags !== undefined) saveTagsByName(req.params.id, 'todo', body.tags);
     clearReview('todos', req.params.id);
-    res.json(withTagNames(db.prepare('SELECT * FROM todos WHERE id=?').get(req.params.id), 'todo'));
+    if (body.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'todo', body.family_member_ids);
+    res.json(withFamilyMembers(withTagNames(db.prepare('SELECT * FROM todos WHERE id=?').get(req.params.id), 'todo'), 'todo'));
   } catch (e) { serverError(res, e); }
 });
 
@@ -485,6 +488,7 @@ router.delete('/:id', (req, res) => {
     const todo = db.prepare('SELECT * FROM todos WHERE id=?').get(req.params.id);
     if (!todo) return notFound(res, 'Todo');
     if (todo.is_auto) return badRequest(res, 'Use PATCH /status = dismissed for auto todos.');
+    clearFamilyMembers(req.params.id, 'todo');
     clearTags(req.params.id, 'todo');
     db.prepare('DELETE FROM todos WHERE id=?').run(req.params.id);
     res.json({ deleted: true });

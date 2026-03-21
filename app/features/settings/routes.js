@@ -7,6 +7,7 @@ const router  = express.Router();
 const { requireAuth } = require('../auth/middleware');
 const db = require('../../db/db');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 const { getReviewSummary, getTotalFlaggedCount, checkAndCompleteTodo } = require('../../shared/needs-review');
 const { runDataCleanup } = require('../../shared/data-cleanup');
 
@@ -185,7 +186,8 @@ router.post('/contacts', (req, res) => {
       d.principal_name||null, d.grade_range||null, d.enrolled_kids||null,
       d.institution_type||null, d.rep_name||null, d.account_types_served||null
     );
-    res.status(201).json(db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid));
+    if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'contact', d.family_member_ids);
+    res.status(201).json(withFamilyMembers(db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid), 'contact'));
   } catch (err) { serverError(res, err); }
 });
 
@@ -214,14 +216,16 @@ router.put('/contacts/:id', (req, res) => {
       d.institution_type||null, d.rep_name||null, d.account_types_served||null,
       req.params.id
     );
+    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'contact', d.family_member_ids);
     const contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(req.params.id);
     if (!contact) return notFound(res, 'Contact');
-    res.json(contact);
+    res.json(withFamilyMembers(contact, 'contact'));
   } catch (err) { serverError(res, err); }
 });
 
 router.delete('/contacts/:id', (req, res) => {
   try {
+    clearFamilyMembers(req.params.id, 'contact');
     db.prepare('DELETE FROM contacts WHERE id=?').run(req.params.id);
     res.json({ deleted: true });
   } catch (err) { serverError(res, err); }
@@ -342,6 +346,14 @@ router.put('/config/:key', (req, res) => {
     const { value } = req.body;
     db.prepare('INSERT OR REPLACE INTO app_config (key,value) VALUES (?,?)').run(req.params.key, value);
     res.json({ key: req.params.key, value });
+  } catch (err) { serverError(res, err); }
+});
+
+router.get('/config/:key', (req, res) => {
+  try {
+    const row = db.prepare("SELECT key,value FROM app_config WHERE key=? AND key != 'app_password_hash'").get(req.params.key);
+    if (!row) return res.json({ key: req.params.key, value: null });
+    res.json(row);
   } catch (err) { serverError(res, err); }
 });
 

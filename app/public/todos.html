@@ -604,6 +604,7 @@
 
     <div class="form-group">
       <label class="form-label">Tags</label>
+      <div id="todoFamilyWrap" style="margin-bottom:12px"></div>
       <div class="tags-input-wrap" id="todoTagsWrap" onclick="document.getElementById('todoTagInput').focus()">
         <input id="todoTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
       </div>
@@ -1008,6 +1009,7 @@ $('formSave').addEventListener('click', async () => {
       reminder_date: $('fReminder').value || null,
       recurrence: $('fRecurrence').value || null,
       tags: todoFormTags,
+      family_member_ids: GH_FAMILY.getIds('todoFamilyWrap'),
     };
     const url    = editingId ? `${API}/${editingId}` : API;
     const method = editingId ? 'PUT' : 'POST';
@@ -1128,6 +1130,7 @@ function initTodoTags(existing){
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addTodoTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&todoFormTags.length){todoFormTags.pop();renderTodoTags();}};
   inp.onblur=()=>{if(inp.value.trim())addTodoTag(inp.value);};
   GH_TAGS.init({inputId:'todoTagInput',wrapId:'todoTagsWrap',module:'todos',getFormTags:()=>todoFormTags,addTag:t=>addTodoTag(t),allowCreate:true});
+  GH_FAMILY.init('todoFamilyWrap', t?.family_members||[]);
 }
 
 </script>

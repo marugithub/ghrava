@@ -1303,3 +1303,186 @@ window.GH_VIEW = (function() {
 
   return { init };
 })();
+// ══════════════════════════════════════════════════════════════
+// GH_FAMILY — Family member pill input for any form
+//
+// Usage:
+//   <!-- In your form drawer HTML: -->
+//   <div id="myFamilyWrap"></div>
+//
+//   // In your openDrawer function (after setting field values):
+//   GH_FAMILY.init('myFamilyWrap', currentRecord?.family_members || []);
+//
+//   // In your save function (include in POST/PUT body):
+//   family_member_ids: GH_FAMILY.getIds('myFamilyWrap')
+//
+// The container renders a label + pill list + autocomplete input.
+// Existing pills are pre-populated from the passed family_members array.
+// ══════════════════════════════════════════════════════════════
+window.GH_FAMILY = (function() {
+
+  const CSS_ID = 'gh-family-styles';
+
+  function _injectStyles() {
+    if (document.getElementById(CSS_ID)) return;
+    const s = document.createElement('style');
+    s.id = CSS_ID;
+    s.textContent = `
+.gh-fam-wrap { position: relative; }
+.gh-fam-label { font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px;display:block; }
+.gh-fam-field {
+  display:flex;flex-wrap:wrap;gap:5px;align-items:center;
+  padding:6px 8px;border-radius:var(--r);border:1px solid var(--border2);
+  background:var(--bg3);min-height:36px;cursor:text;
+}
+.gh-fam-field:focus-within { border-color:var(--accent); }
+.gh-fam-pill {
+  display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px 2px 10px;border-radius:20px;
+  background:var(--accent-bg);border:1px solid var(--accent-bd);
+  color:var(--accent);font-size:12px;font-weight:600;
+  white-space:nowrap;
+}
+.gh-fam-pill-x {
+  width:14px;height:14px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;opacity:.6;background:none;border:none;color:inherit;
+  padding:0;font-size:12px;line-height:1;
+}
+.gh-fam-pill-x:hover { opacity:1; }
+.gh-fam-input {
+  border:none;background:transparent;outline:none;
+  font-size:13px;color:var(--text);font-family:var(--sans);
+  min-width:80px;flex:1;
+}
+.gh-fam-dropdown {
+  position:absolute;top:calc(100% + 4px);left:0;right:0;
+  background:var(--bg2);border:1px solid var(--border2);
+  border-radius:var(--r);box-shadow:0 8px 24px rgba(0,0,0,.15);
+  z-index:9999;max-height:200px;overflow-y:auto;display:none;
+}
+.gh-fam-dropdown.open { display:block; }
+.gh-fam-opt {
+  padding:8px 12px;cursor:pointer;font-size:13px;color:var(--text2);
+  display:flex;align-items:center;gap:8px;
+}
+.gh-fam-opt:hover,.gh-fam-opt.focused { background:var(--accent-bg);color:var(--accent); }
+.gh-fam-opt-avatar {
+  width:24px;height:24px;border-radius:50%;
+  background:var(--accent-bg);border:1px solid var(--accent-bd);
+  display:flex;align-items:center;justify-content:center;
+  font-size:11px;font-weight:700;color:var(--accent);flex-shrink:0;
+}
+    `;
+    document.head.appendChild(s);
+  }
+
+  let _allMembers = null;
+
+  async function _loadMembers() {
+    if (_allMembers) return _allMembers;
+    try {
+      _allMembers = await fetch('/api/v1/settings/family').then(r => r.ok ? r.json() : []);
+    } catch(e) { _allMembers = []; }
+    return _allMembers;
+  }
+
+  /**
+   * init — render the family member pill input into a container.
+   * @param {string} containerId  — ID of the wrapper element
+   * @param {Array}  existing     — existing family_members from the record [{id, display_name}]
+   */
+  async function init(containerId, existing = []) {
+    _injectStyles();
+    const container = document.getElementById(containerId);
+    if (!container) return;
+
+    const members = await _loadMembers();
+    const selected = new Map(); // id → display_name
+    (existing || []).forEach(m => {
+      if (m && m.id) selected.set(m.id, m.display_name || m.name || '');
+    });
+
+    function render() {
+      const pills = [...selected.entries()].map(([id, name]) => `
+        <span class="gh-fam-pill" data-fam-id="${id}">
+          ${esc(name)}
+          <button class="gh-fam-pill-x" data-remove="${id}" type="button">×</button>
+        </span>`).join('');
+
+      container.innerHTML = `
+        <div class="gh-fam-wrap">
+          <span class="gh-fam-label">Family Members</span>
+          <div class="gh-fam-field" id="${containerId}-field">
+            ${pills}
+            <input class="gh-fam-input" id="${containerId}-input" type="text"
+              placeholder="${selected.size ? '' : 'Add family member…'}" autocomplete="off">
+          </div>
+          <div class="gh-fam-dropdown" id="${containerId}-dropdown"></div>
+        </div>`;
+
+      // Wire pill removes
+      container.querySelectorAll('.gh-fam-pill-x').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          selected.delete(+btn.dataset.remove);
+          render();
+          document.getElementById(containerId + '-input')?.focus();
+        });
+      });
+
+      // Wire input
+      const input = document.getElementById(containerId + '-input');
+      const dropdown = document.getElementById(containerId + '-dropdown');
+      if (!input) return;
+
+      input.addEventListener('input', () => {
+        const q = input.value.trim().toLowerCase();
+        const opts = members.filter(m => !selected.has(m.id) &&
+          (m.display_name || '').toLowerCase().includes(q));
+        if (!opts.length || !q) { dropdown.classList.remove('open'); return; }
+        dropdown.innerHTML = opts.map(m => `
+          <div class="gh-fam-opt" data-id="${m.id}" data-name="${esc(m.display_name)}">
+            <div class="gh-fam-opt-avatar">${(m.display_name||'?')[0].toUpperCase()}</div>
+            ${esc(m.display_name)}${m.relationship ? `<span style="font-size:11px;color:var(--text3);margin-left:4px">${esc(m.relationship)}</span>` : ''}
+          </div>`).join('');
+        dropdown.classList.add('open');
+      });
+
+      dropdown.addEventListener('click', e => {
+        const opt = e.target.closest('.gh-fam-opt');
+        if (!opt) return;
+        selected.set(+opt.dataset.id, opt.dataset.name);
+        input.value = '';
+        dropdown.classList.remove('open');
+        render();
+        document.getElementById(containerId + '-input')?.focus();
+      });
+
+      // Close dropdown on outside click
+      document.addEventListener('click', e => {
+        if (!container.contains(e.target)) dropdown.classList.remove('open');
+      }, { once: false });
+
+      // Focus field when clicking wrapper
+      document.getElementById(containerId + '-field')?.addEventListener('click', () => {
+        document.getElementById(containerId + '-input')?.focus();
+      });
+    }
+
+    render();
+  }
+
+  /**
+   * getIds — return array of selected family member IDs.
+   * @param {string} containerId
+   * @returns {number[]}
+   */
+  function getIds(containerId) {
+    return [...document.querySelectorAll(`#${containerId} .gh-fam-pill[data-fam-id]`)]
+      .map(p => +p.dataset.famId)
+      .filter(Boolean);
+  }
+
+  return { init, getIds };
+})();
