@@ -29,6 +29,65 @@
     .exp-amber { background:var(--amber-bg); color:var(--amber); }
     .exp-ok    { background:rgba(34,197,94,.1); color:var(--green); }
     .cat-group-label { font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:var(--text3); padding:12px 16px 6px; display:flex; align-items:center; justify-content:space-between; }
+
+    /* ── Document modal ─────────────────────────────────────── */
+    .doc-modal-overlay {
+      position: fixed; inset: 0; z-index: 300;
+      background: rgba(0,0,0,0.55);
+      backdrop-filter: blur(4px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .doc-modal-overlay.open { display: flex; animation: fadein .2s ease; }
+    .doc-modal {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      width: 100%;
+      max-width: 580px;
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+      overflow: hidden;
+    }
+    .doc-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px 14px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .doc-modal-x {
+      width: 30px; height: 30px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text3);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .doc-modal-x:hover { background: var(--bg3); color: var(--text); }
+    .doc-modal-body {
+      overflow-y: auto;
+      padding: 16px 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+    .doc-modal-footer {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 20px 16px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
   </style>
 </head>
 <body class="module-documents">
@@ -58,81 +117,92 @@
 
 <button class="fab" onclick="openDocDrawer()">+</button>
 
-<!-- DRAWER -->
-<div class="drawer-overlay" id="docDrawer" onclick="bgClose('docDrawer')">
-  <div class="drawer" style="max-height:92vh;overflow-y:auto">
-    <div class="drawer-handle"></div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div class="drawer-title" id="docDrawerTitle" style="margin-bottom:0">Add Document</div>
-      <button onclick="$('docDrawer').classList.remove('open')" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;padding:0 4px;line-height:1">×</button>
+<!-- DOCUMENT MODAL -->
+<div class="doc-modal-overlay" id="docDrawer" onclick="if(event.target===this)closeDocModal()">
+  <div class="doc-modal">
+    <!-- Header -->
+    <div class="doc-modal-header">
+      <div class="drawer-title" id="docDrawerTitle" style="margin:0;font-size:18px">Add Document</div>
+      <button onclick="closeDocModal()" class="doc-modal-x" title="Cancel">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
 
-    <div class="form-group">
-      <label class="form-label">Title <span class="req">*</span></label>
-      <input class="form-input" id="dTitle" placeholder="2024 Tax Return, Home Insurance Policy…">
-    </div>
+    <!-- Body -->
+    <div class="doc-modal-body">
 
-    <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Category</label>
-        <select class="form-select" id="dCat"></select>
+        <label class="form-label">Title <span class="req">*</span></label>
+        <input class="form-input" id="dTitle" placeholder="2024 Tax Return, Home Insurance Policy…">
       </div>
-      <div class="form-group" style="flex:2">
-        <label class="form-label">Subcategory</label>
-        <select class="form-select" id="dSubcat">
-          <option value="">— none —</option>
-        </select>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Category</label>
+          <select class="form-select" id="dCat"></select>
+        </div>
+        <div class="form-group" style="flex:2">
+          <label class="form-label">Subcategory</label>
+          <select class="form-select" id="dSubcat"><option value="">— none —</option></select>
+        </div>
       </div>
-    </div>
 
-    <div class="form-group">
-      <label class="form-label">Issuer / Source</label>
-      <input class="form-input" id="dIssuer" placeholder="IRS, State Farm, Employer…">
-    </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Issuer / Source</label>
+          <input class="form-input" id="dIssuer" placeholder="IRS, State Farm…">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Primary Person</label>
+          <select class="form-select" id="dMember">
+            <option value="">Whole Family</option>
+          </select>
+        </div>
+      </div>
 
-    <div class="form-group">
-      <label class="form-label">Description / Notes</label>
-      <textarea class="form-textarea" id="dDesc" style="min-height:60px" placeholder="Brief description…"></textarea>
-    </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Issue Date</label>
+          <input class="form-input" type="date" id="dIssueDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Expiry Date</label>
+          <input class="form-input" type="date" id="dExpiry">
+        </div>
+      </div>
 
-    <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Issue Date</label>
-        <input class="form-input" type="date" id="dIssueDate">
+        <label class="form-label">Description / Notes</label>
+        <textarea class="form-textarea" id="dDesc" rows="2" style="min-height:52px;resize:none" placeholder="Brief description…"></textarea>
       </div>
+
       <div class="form-group">
-        <label class="form-label">Expiry Date</label>
-        <input class="form-input" type="date" id="dExpiry">
+        <label class="form-label">File Name / Location Note</label>
+        <input class="form-input" id="dFileName" placeholder="tax_2024.pdf, Google Drive/Tax…">
       </div>
-    </div>
 
-    <div class="form-group">
-      <label class="form-label">Family Member</label>
-      <select class="form-select" id="dMember">
-        <option value="">Whole Family</option>
-      </select>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Family Members</label>
-      <div id="docFamilyWrap"></div>
-    </div>
-
-    <div class="form-group">
-      <label class="form-label">Tags</label>
-      <div class="tags-input-wrap" id="docTagsWrap" onclick="document.getElementById('docTagInput').focus()">
-        <input id="docTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Tags</label>
+          <div class="tags-input-wrap" id="docTagsWrap" onclick="document.getElementById('docTagInput').focus()">
+            <input id="docTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Family Members</label>
+          <div id="docFamilyWrap"></div>
+        </div>
       </div>
+
     </div>
 
-    <div class="form-group">
-      <label class="form-label">File Name / Location Note</label>
-      <input class="form-input" id="dFileName" placeholder="tax_2024.pdf, Google Drive/Tax…">
-    </div>
-
-    <div class="btn-row" style="margin-top:8px">
-      <button class="btn btn-primary" id="dSave" style="flex:1" onclick="saveDoc()">Save</button>
-      <button class="btn btn-ghost" id="dDelBtn" style="color:var(--red);display:none" onclick="deleteDoc()">Delete</button>
+    <!-- Footer -->
+    <div class="doc-modal-footer">
+      <button class="btn btn-ghost" onclick="closeDocModal()">Cancel</button>
+      <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
+        <button class="btn btn-ghost" id="dDelBtn" style="color:var(--red);display:none" onclick="deleteDoc()">Delete</button>
+        <button class="btn btn-primary" id="dSave" onclick="saveDoc()">Save</button>
+      </div>
     </div>
   </div>
 </div>
@@ -142,6 +212,7 @@ const API = '/api/v1/documents';
 const $ = id => document.getElementById(id);
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 function bgClose(id) { if (event.target === $(id)) $(id).classList.remove('open'); }
+function closeDocModal() { $('docDrawer').classList.remove('open'); }
 
 let editDocId = null, allDocs = [], filterCat = '', searchQ = '';
 let docFormTags = [];
