@@ -227,7 +227,7 @@ async function openKidDetail(id){
 }
 
 function setDetailTab(tab,btn){
-  document.querySelectorAll('.view-tab').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('#kidDetailTabs .view-tab').forEach(b=>b.classList.remove('active'));
   document.querySelectorAll('#kidDetailView .view-panel').forEach(p=>p.classList.remove('active'));
   if(btn)btn.classList.add('active');
   $('dtab-'+tab).classList.add('active');
