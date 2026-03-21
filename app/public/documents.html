@@ -359,7 +359,7 @@ async function openDocDrawer(id) {
     };
     inp.onblur = ()=>{if(inp.value.trim())addDocTag(inp.value);};
     GH_TAGS.init({inputId:'docTagInput',wrapId:'docTagsWrap',module:'documents',getFormTags:()=>docFormTags,addTag:t=>addDocTag(t),allowCreate:true});
-  GH_FAMILY.init('docFamilyWrap', d.family_members||[]);
+  GH_FAMILY.init('docFamilyWrap', d.family_members||[], { showLabel: false });
   }
 
   $('docDrawer').classList.add('open');

@@ -1392,11 +1392,12 @@ window.GH_FAMILY = (function() {
    * @param {string} containerId  — ID of the wrapper element
    * @param {Array}  existing     — existing family_members from the record [{id, display_name}]
    */
-  async function init(containerId, existing = []) {
+  async function init(containerId, existing = [], options = {}) {
     _injectStyles();
     const container = document.getElementById(containerId);
     if (!container) return;
 
+    const showLabel = options.showLabel !== false; // default true
     const members = await _loadMembers();
     const selected = new Map(); // id → display_name
     (existing || []).forEach(m => {
@@ -1412,7 +1413,7 @@ window.GH_FAMILY = (function() {
 
       container.innerHTML = `
         <div class="gh-fam-wrap">
-          <span class="gh-fam-label">Family Members</span>
+          ${showLabel ? '<span class="gh-fam-label">Family Members</span>' : ''}
           <div class="gh-fam-field" id="${containerId}-field">
             ${pills}
             <input class="gh-fam-input" id="${containerId}-input" type="text"
