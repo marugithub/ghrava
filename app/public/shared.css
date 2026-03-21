@@ -1961,3 +1961,126 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   .drawer .drawer-title { font-size: 15px; margin-bottom: 10px; }
 }
 
+
+/* ══════════════════════════════════════════════════════════════
+   Add Menu Modal — shared across Inventory, Books, and future modules
+   ══════════════════════════════════════════════════════════════ */
+.add-modal-overlay {
+  position:fixed; inset:0; z-index:900;
+  background:rgba(0,0,0,0.45); backdrop-filter:blur(6px);
+  display:none; align-items:center; justify-content:center; padding:16px;
+}
+.add-modal-overlay.open { display:flex; }
+.add-modal {
+  width:100%; max-width:420px;
+  background:var(--bg2); border:1px solid var(--border);
+  border-radius:20px; overflow:hidden;
+  box-shadow:0 24px 64px rgba(0,0,0,.22);
+  animation:slideup .22s cubic-bezier(.32,.72,0,1);
+}
+.add-modal-header {
+  padding:24px 24px 12px;
+  display:flex; align-items:flex-start; justify-content:space-between;
+}
+.add-modal-header h2 { font-size:20px; font-weight:700; color:var(--text); line-height:1.2; }
+.add-modal-header p  { font-size:13px; color:var(--text3); margin-top:3px; }
+.add-modal-close {
+  width:32px; height:32px; border-radius:50%; border:none;
+  background:transparent; color:var(--text3); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  flex-shrink:0; transition:background .15s;
+}
+.add-modal-close:hover { background:var(--bg3); color:var(--text); }
+.add-modal-body { padding:8px 16px 16px; display:flex; flex-direction:column; gap:8px; }
+.add-card {
+  width:100%; display:flex; align-items:center; gap:14px;
+  padding:14px 16px; border-radius:var(--r);
+  border:1px solid var(--border); background:var(--bg3);
+  cursor:pointer; text-align:left; transition:all .15s;
+  -webkit-tap-highlight-color:transparent;
+}
+.add-card:hover { border-color:var(--accent-bd); background:var(--accent-bg); }
+.add-card:hover .add-card-arrow { color:var(--accent); transform:translateX(3px); }
+.add-card:hover .add-card-icon  { transform:scale(1.08); }
+.add-card-icon {
+  width:46px; height:46px; border-radius:12px; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  background:var(--bg4); color:var(--text2);
+  transition:transform .15s;
+}
+.add-card-label { font-size:15px; font-weight:700; color:var(--text); line-height:1.2; }
+.add-card-sub   { font-size:12px; color:var(--text3); margin-top:2px; }
+.add-card-arrow { color:var(--text4); transition:all .15s; flex-shrink:0; }
+.add-card.add-card-scan {
+  border:1.5px dashed var(--accent-bd); background:var(--accent-bg);
+}
+.add-card.add-card-scan .add-card-icon {
+  background:var(--accent); color:#fff;
+}
+.add-card.add-card-scan .add-card-label { color:var(--accent); }
+.add-card.add-card-scan:hover { border-style:solid; }
+.add-modal-footer { padding:0 16px 20px; }
+.add-modal-cancel {
+  width:100%; padding:12px; border-radius:var(--r);
+  border:1px solid transparent; background:transparent;
+  color:var(--text3); font-family:var(--sans); font-size:14px;
+  font-weight:600; cursor:pointer; transition:all .15s;
+}
+.add-modal-cancel:hover { background:var(--bg3); border-color:var(--border); color:var(--text2); }
+
+/* Scanner overlay — shared */
+.scanner-overlay {
+  position:fixed; inset:0; z-index:600; background:#000;
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+}
+.scanner-overlay.open { display:flex; }
+.scanner-ui { width:100%; max-width:420px; padding:20px; display:flex; flex-direction:column; align-items:center; }
+.scanner-header { width:100%; display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+
+/* ── Tag input — shared across all modules ─────────────────── */
+.tags-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 6px 10px;
+  min-height: 40px;
+  cursor: text;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+.tags-input-wrap:focus-within { border-color: var(--accent); }
+.tags-input {
+  flex: 1;
+  min-width: 80px;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--sans);
+}
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(139,92,246,.1);
+  color: #8b5cf6;
+  border: 1px solid rgba(167,139,250,0.25);
+  font-size: 12px;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+.tag-chip-remove {
+  cursor: pointer;
+  opacity: 0.6;
+  line-height: 1;
+  font-size: 14px;
+}
+.tag-chip-remove:hover { opacity: 1; }

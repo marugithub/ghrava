@@ -442,13 +442,17 @@ function closeAddMenu() {
 
 <script>
 // ══════════════════════════════════════════════════════════════
-// BOOK ADD MENU WIRING
+// BOOK ADD MENU + ISBN SCANNER
 // ══════════════════════════════════════════════════════════════
-$('menuScanIsbn').addEventListener('click', () => {
+// $ is defined in the first script block as a module-scoped const.
+// Re-declare here so this block has its own reference.
+const _$ = id => document.getElementById(id);
+
+_$('menuScanIsbn').addEventListener('click', () => {
   closeAddMenu();
   startIsbnScan();
 });
-$('menuAddManual').addEventListener('click', () => {
+_$('menuAddManual').addEventListener('click', () => {
   closeAddMenu();
   openBookDrawer();
 });
@@ -468,10 +472,10 @@ async function startIsbnScan() {
     _bkScanStream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }
     });
-    const video = $('bkScannerVideo');
+    const video = _$('bkScannerVideo');
     video.srcObject = _bkScanStream;
     await video.play();
-    $('bkScannerOverlay').classList.add('open');
+    _$('bkScannerOverlay').classList.add('open');
     _bkScannerActive = true;
 
     if (typeof BarcodeDetector !== 'undefined') {
@@ -545,10 +549,10 @@ async function _bkScanWithZXing() {
 function closeBkScanner() {
   _bkScannerActive = false;
   if (_bkScanStream) { _bkScanStream.getTracks().forEach(t => t.stop()); _bkScanStream = null; }
-  const video = $('bkScannerVideo');
+  const video = _$('bkScannerVideo');
   if (video) video.srcObject = null;
   _bkCodeReader?.reset();
-  $('bkScannerOverlay').classList.remove('open');
+  _$('bkScannerOverlay').classList.remove('open');
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -664,15 +668,15 @@ function showIsbnConfirmPanel(b) {
 }
 
 async function applyIsbnFields() {
-  const title    = $('ic_title')?.value?.trim() || '';
-  const author   = $('ic_author')?.value?.trim() || '';
-  const genre    = $('ic_genre')?.value?.trim() || '';
-  const isbn     = $('ic_isbn')?.value?.trim() || '';
-  const coverUrl = $('ic_cover_url')?.value?.trim() || '';
+  const title    = _$('ic_title')?.value?.trim() || '';
+  const author   = _$('ic_author')?.value?.trim() || '';
+  const genre    = _$('ic_genre')?.value?.trim() || '';
+  const isbn     = _$('ic_isbn')?.value?.trim() || '';
+  const coverUrl = _$('ic_cover_url')?.value?.trim() || '';
 
-  if (title)  $('bkTitle').value  = title;
-  if (author) $('bkAuthor').value = author;
-  if (isbn)   $('bkIsbn').value   = isbn;
+  if (title)  _$('bkTitle').value  = title;
+  if (author) _$('bkAuthor').value = author;
+  if (isbn)   _$('bkIsbn').value   = isbn;
 
   // Apply genre via GH_SELECT
   if (genre) {
@@ -684,7 +688,7 @@ async function applyIsbnFields() {
     window._bkPendingCoverUrl = coverUrl;
   }
 
-  $('isbnConfirmPanel')?.remove();
+  _$('isbnConfirmPanel')?.remove();
   toast('Fields applied — review and save');
 }
 
