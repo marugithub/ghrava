@@ -38,6 +38,7 @@
     inventory: { href:'/inventory.html',  label:'Inventory', color:'#f59e0b', bg:'rgba(245,158,11,.12)',   svgKey:'inventory' },
     medical:   { href:'/medical.html',    label:'Medical',   color:'#14b8a6', bg:'rgba(20,184,166,.12)',   svgKey:'medical' },
     finance:   { href:'/finance.html',    label:'Finance',   color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance' },
+    trading:   { href:'/trading.html',    label:'↗ Terminal', color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance', newTab: true },
     resources: { href:'/resources.html',  label:'Resources', color:'#64748b', bg:'rgba(100,116,139,.12)', svgKey:'resources' },
     todos:     { href:'/todos.html',      label:'To Do',     color:'#a78bfa', bg:'rgba(167,139,250,.12)', svgKey:'todos' },
     settings:  { href:'/settings.html',   label:'Settings',  color:'#8fa3bf', bg:'rgba(143,163,191,.1)',   svgKey:'settings' },
@@ -56,7 +57,7 @@
 
   const SIDEBAR_SECTIONS = [
     { label: 'Daily',     keys: ['dailylog', 'todos'] },
-    { label: 'Finance',   keys: ['finance', 'reports'] },
+    { label: 'Finance',   keys: ['finance', 'trading', 'reports'] },
     { label: 'Household', keys: ['inventory', 'medical', 'kids', 'property', 'documents'] },
     { label: 'Personal',  keys: ['career', 'books', 'resources'] },
   ];
@@ -137,6 +138,7 @@
           const active = isActive(m.href);
           const isTodos = k === 'todos';
           return `<a href="${m.href}"
+            ${m.newTab ? 'target="_blank" rel="noopener"' : ''}
             class="side-nav-item${active ? ' active' : ''}"
             data-label="${m.label}"
             style="${active ? `color:${m.color}` : ''}">

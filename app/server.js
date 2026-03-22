@@ -8,7 +8,8 @@ const VERSION  = fs.readFileSync(path.join(__dirname, 'version.txt'), 'utf8').tr
 
 // ── Auto-backup DB before every startup ───────────────────────
 // Runs BEFORE migrations so there's always a pre-deploy snapshot.
-// Saved to /app/backups/auto_YYYYMMDD_HHmm.db (NAS-mapped volume).
+// Saved to /app/backups/auto_YYYYMMDD_HHmm.db
+// Windows path: Z:\backups\ghrava\
 // Keeps the last 30 auto-backups; older ones are pruned automatically.
 (function autoBackupOnStartup() {
   try {
@@ -111,6 +112,7 @@ app.use('/api/v1/import',        require('./features/import/routes'));
 app.use('/api/v1/documents',     require('./features/documents/routes'));
 app.use('/api/v1/google',        require('./features/google/routes'));
 app.use('/api/v1/kids',          require('./features/kids/routes'));
+app.use('/api/v1/trading',       require('./features/trading/routes'));
 
 // ── App info (public — no auth) ────────────────────────────────
 app.get('/api/v1/app/info', (req, res) => {

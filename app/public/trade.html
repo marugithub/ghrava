@@ -1,0 +1,1415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Trade Terminal — Ghrava</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #060b14; color: #ccd9f0; font-family: "Courier New", monospace; font-size: 12px; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b1221; }
+    ::-webkit-scrollbar-thumb { background: #1e2d45; border-radius: 3px; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    select option { background: #060b14; }
+    a { color: #00aaff; }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useRef } = React;
+
+// ═══════════════════════════════════════════════════════════════
+// THEME
+// ═══════════════════════════════════════════════════════════════
+const C = {
+  bg:'#060b14', surface:'#0b1221', panel:'#0e1628',
+  border:'#172035', border2:'#1e2d45',
+  blue:'#00aaff', green:'#00e676', red:'#ff3d5a',
+  amber:'#ffb300', purple:'#bb86fc',
+  text:'#ccd9f0', muted:'#445570', dimmed:'#2a3d5a',
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PROVIDERS
+// ═══════════════════════════════════════════════════════════════
+const PROVIDERS = {
+  gemini:       { name:'Gemini 2.0 Flash',  badge:'FREE',         color: C.green,  docsUrl:'https://aistudio.google.com/app/apikey',          note:'1,500 free requests/day — no credit card' },
+  deepseek:     { name:'DeepSeek V3',       badge:'~$0.00006/req', color: C.blue,   docsUrl:'https://platform.deepseek.com/api_keys',          note:'Extremely cheap, strong financial reasoning' },
+  openai:       { name:'GPT-4o Mini',       badge:'~$0.00010/req', color: C.amber,  docsUrl:'https://platform.openai.com/api-keys',            note:'Reliable, widely supported' },
+  claudeHaiku:  { name:'Claude Haiku',      badge:'~$0.00015/req', color: C.purple, docsUrl:'https://console.anthropic.com/settings/keys',     note:'Fast, good JSON output' },
+  claudeSonnet: { name:'Claude Sonnet 4.6', badge:'~$0.00080/req', color: C.purple, docsUrl:'https://console.anthropic.com/settings/keys',     note:'Highest quality analysis' },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MOCK DATA
+// ═══════════════════════════════════════════════════════════════
+const MOCK_QUOTES = {
+  AAPL: { price:211.45, chg: 2.31, pct: 1.10, vol:'52.3M', h:213.20, l:209.10, mktcap:'3.24T', sector:'Technology' },
+  SPY:  { price:512.30, chg:-1.20, pct:-0.23, vol:'88.1M', h:514.50, l:510.20, mktcap:'ETF',   sector:'ETF' },
+  NVDA: { price:875.40, chg:18.50, pct: 2.16, vol:'41.2M', h:882.00, l:860.10, mktcap:'2.15T', sector:'Technology' },
+  TSLA: { price:248.75, chg:-5.30, pct:-2.09, vol:'95.4M', h:255.00, l:246.30, mktcap:'793B',  sector:'Consumer' },
+  QQQ:  { price:432.10, chg: 0.85, pct: 0.20, vol:'33.7M', h:434.20, l:430.50, mktcap:'ETF',   sector:'ETF' },
+  MSFT: { price:412.30, chg: 3.10, pct: 0.76, vol:'19.8M', h:415.00, l:410.20, mktcap:'3.06T', sector:'Technology' },
+  AMZN: { price:192.45, chg:-0.95, pct:-0.49, vol:'28.4M', h:194.20, l:191.30, mktcap:'2.03T', sector:'Consumer' },
+  META: { price:528.60, chg: 7.20, pct: 1.38, vol:'15.2M', h:532.00, l:521.40, mktcap:'1.35T', sector:'Technology' },
+  GOOGL:{ price:168.90, chg: 1.05, pct: 0.63, vol:'22.1M', h:170.20, l:167.50, mktcap:'2.09T', sector:'Technology' },
+  JPM:  { price:198.30, chg:-0.70, pct:-0.35, vol:'11.4M', h:200.10, l:197.40, mktcap:'572B',  sector:'Finance' },
+};
+
+const MOCK_NEWS = [
+  { title:'Fed holds rates steady; signals 2 cuts possible as inflation cools to 2.4%', source:'Reuters', time:'1h ago', sentiment:'Bullish', ticker:'SPY' },
+  { title:'NVIDIA posts record data center revenue, raises FY guidance on AI chip demand', source:'Bloomberg', time:'2h ago', sentiment:'Bullish', ticker:'NVDA' },
+  { title:'Apple faces €500M EU antitrust fine over App Store payment restrictions', source:'FT', time:'3h ago', sentiment:'Bearish', ticker:'AAPL' },
+  { title:'Tesla deliveries miss estimates for third consecutive quarter', source:'WSJ', time:'4h ago', sentiment:'Bearish', ticker:'TSLA' },
+  { title:'Meta AI assistant surpasses 500M active users ahead of OpenAI and Google', source:'CNBC', time:'5h ago', sentiment:'Bullish', ticker:'META' },
+  { title:'Microsoft Azure cloud grows 31% YoY, beats consensus estimates', source:'Reuters', time:'6h ago', sentiment:'Bullish', ticker:'MSFT' },
+  { title:'Options market pricing elevated VIX spike ahead of Thursday CPI print', source:"Barron's", time:'7h ago', sentiment:'Neutral', ticker:'SPY' },
+  { title:'Amazon Web Services margin expands to 38%; analysts raise price targets', source:'Bloomberg', time:'8h ago', sentiment:'Bullish', ticker:'AMZN' },
+];
+
+const DEFAULTS = {
+  settings: { provider:'gemini', apiKeys:{}, avKey:'', demoMode:true },
+  watchlist: ['AAPL','SPY','NVDA','TSLA','QQQ','META','MSFT'],
+  portfolio: [],
+  analysisHistory: [],
+};
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+const fmtP   = n => n != null ? `$${parseFloat(n).toFixed(2)}` : '—';
+const fmtPct = n => n != null ? `${n>=0?'+':''}${parseFloat(n).toFixed(2)}%` : '—';
+const fmtNum = n => n != null ? parseFloat(n).toFixed(2) : '—';
+const pColor = n => n >= 0 ? C.green : C.red;
+const sleep  = ms => new Promise(r => setTimeout(r, ms));
+const nowISO = () => new Date().toISOString();
+const nowDisplay = () => new Date().toLocaleString('en-US', { dateStyle:'full', timeStyle:'medium' });
+
+// ═══════════════════════════════════════════════════════════════
+// BACKEND API
+// ═══════════════════════════════════════════════════════════════
+const API = '/api/v1/trading';
+
+async function loadData() {
+  const r = await fetch(`${API}/data`);
+  if (!r.ok) return JSON.parse(JSON.stringify(DEFAULTS));
+  return r.json();
+}
+
+async function persistData(data) {
+  try {
+    await fetch(`${API}/data`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(data),
+    });
+  } catch {}
+}
+
+async function persistReport(type, title, ticker, data) {
+  const r = await fetch(`${API}/reports`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ type, title, ticker, data }),
+  });
+  return r.json();
+}
+
+async function loadReports() {
+  const r = await fetch(`${API}/reports`);
+  return r.ok ? r.json() : [];
+}
+
+async function loadReport(filename) {
+  const r = await fetch(`${API}/reports/${encodeURIComponent(filename)}`);
+  return r.ok ? r.json() : null;
+}
+
+async function deleteReport(filename) {
+  await fetch(`${API}/reports/${encodeURIComponent(filename)}`, { method:'DELETE' });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AI PROVIDERS
+// ═══════════════════════════════════════════════════════════════
+async function callProvider(prompt, provider, apiKeys) {
+  const key = (apiKeys || {})[provider] || '';
+
+  if (provider === 'gemini') {
+    if (!key) throw new Error('Gemini API key not set — go to Settings');
+    const res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) }
+    );
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.candidates[0].content.parts[0].text;
+  }
+
+  if (provider === 'deepseek') {
+    if (!key) throw new Error('DeepSeek API key not set — go to Settings');
+    const res = await fetch('https://api.deepseek.com/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+      body: JSON.stringify({ model:'deepseek-chat', max_tokens:1000,
+        messages:[{ role:'user', content: prompt }] }),
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message || JSON.stringify(d.error));
+    return d.choices[0].message.content;
+  }
+
+  if (provider === 'openai') {
+    if (!key) throw new Error('OpenAI API key not set — go to Settings');
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${key}`},
+      body: JSON.stringify({ model:'gpt-4o-mini', max_tokens:1000,
+        messages:[{ role:'user', content: prompt }] }),
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.choices[0].message.content;
+  }
+
+  if (provider === 'claudeHaiku' || provider === 'claudeSonnet') {
+    if (!key) throw new Error('Anthropic API key not set — go to Settings');
+    const model = provider === 'claudeHaiku' ? 'claude-haiku-4-5-20251001' : 'claude-sonnet-4-6';
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': key,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true',
+      },
+      body: JSON.stringify({ model, max_tokens:1000,
+        messages:[{ role:'user', content: prompt }] }),
+    });
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+    return d.content[0].text;
+  }
+
+  throw new Error(`Unknown provider: ${provider}`);
+}
+
+async function analyzeStock({ symbol, quote, timeframe, context='', settings }) {
+  const { provider='gemini', apiKeys={} } = settings || {};
+  const qStr = quote
+    ? `Price: $${quote.price} | Change: ${quote.chg>=0?'+':''}${parseFloat(quote.chg).toFixed(2)} (${parseFloat(quote.pct).toFixed(2)}%) | Day Range: $${quote.l}–$${quote.h}`
+    : `No live quote — use general market knowledge for ${symbol}.`;
+
+  const prompt = `You are a seasoned professional stock and options trader with 20 years experience.
+Analyze ${symbol} for a ${timeframe} trade.
+Today: ${new Date().toDateString()}
+Market data: ${qStr}
+${context ? `Context: ${context}` : ''}
+
+Return ONLY valid JSON (no markdown, no explanation outside JSON):
+{
+  "action": "BUY",
+  "confidence": 7,
+  "entry_price": 0,
+  "entry_note": "brief timing note",
+  "target_price": 0,
+  "stop_loss": 0,
+  "timeframe": "specific window e.g. 2-3 weeks",
+  "risk_reward": "2.5:1",
+  "thesis": "2-3 sentences on why",
+  "technicals": "key setup",
+  "key_risks": ["risk1","risk2"],
+  "options_play": "specific contract or null",
+  "catalysts": ["upcoming catalyst"],
+  "sentiment": "bullish"
+}
+action must be one of: BUY, SELL, HOLD, AVOID
+sentiment must be one of: bullish, bearish, neutral`;
+
+  const text = await callProvider(prompt, provider, apiKeys);
+  const clean = text.replace(/```json|```/g,'').trim();
+  const result = JSON.parse(clean);
+  result._provider = PROVIDERS[provider]?.name || provider;
+  result._date = nowISO();
+  return result;
+}
+
+async function avFetchQuote(symbol, apiKey) {
+  try {
+    const r = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`);
+    const d = await r.json();
+    const q = d['Global Quote'];
+    if (!q || !q['05. price']) return null;
+    return {
+      price: parseFloat(q['05. price']),
+      chg:   parseFloat(q['09. change']),
+      pct:   parseFloat(q['10. change percent']),
+      vol:   q['06. volume'],
+      h:     parseFloat(q['03. high']),
+      l:     parseFloat(q['04. low']),
+    };
+  } catch { return null; }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI PRIMITIVES
+// ═══════════════════════════════════════════════════════════════
+const Panel = ({ children, style }) => (
+  <div style={{ background:C.panel, border:`1px solid ${C.border}`, borderRadius:3, padding:14, ...style }}>
+    {children}
+  </div>
+);
+const PanelTitle = ({ children }) => (
+  <div style={{ color:C.blue, fontWeight:'bold', fontSize:11, letterSpacing:2, marginBottom:12 }}>▸ {children}</div>
+);
+const Tag = ({ children, color=C.blue }) => (
+  <span style={{ background:color+'22', color, border:`1px solid ${color}55`, borderRadius:2,
+    padding:'2px 7px', fontSize:10, fontWeight:'bold', letterSpacing:1, whiteSpace:'nowrap' }}>
+    {children}
+  </span>
+);
+const Btn = ({ children, onClick, color=C.blue, small, disabled }) => {
+  const [hov, setHov] = useState(false);
+  return (
+    <button onClick={onClick} disabled={disabled}
+      onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
+      style={{ background: hov ? color+'35' : color+'18', color: disabled ? C.muted : color,
+        border:`1px solid ${disabled?C.muted:color}55`, borderRadius:3,
+        padding: small ? '3px 9px' : '6px 14px', cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: small ? 10 : 11, fontFamily:'"Courier New",monospace', fontWeight:'bold',
+        letterSpacing:1, transition:'background 0.15s', whiteSpace:'nowrap' }}>
+      {children}
+    </button>
+  );
+};
+const Inp = ({ value, onChange, placeholder, style, onKeyDown, type='text' }) => (
+  <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+    type={type} onKeyDown={onKeyDown}
+    style={{ background:C.bg, border:`1px solid ${C.border2}`, color:C.text,
+      padding:'6px 10px', borderRadius:3, fontFamily:'"Courier New",monospace',
+      fontSize:12, outline:'none', ...style }} />
+);
+const Sel = ({ value, onChange, options, style }) => (
+  <select value={value} onChange={e=>onChange(e.target.value)}
+    style={{ background:C.bg, border:`1px solid ${C.border2}`, color:C.text,
+      padding:'6px 10px', borderRadius:3, fontFamily:'"Courier New",monospace',
+      fontSize:11, cursor:'pointer', outline:'none', ...style }}>
+    {options.map(o => <option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
+  </select>
+);
+const Spinner = ({ text='Loading…' }) => (
+  <div style={{ color:C.blue, textAlign:'center', padding:40 }}>
+    <div style={{ fontSize:22, animation:'spin 1s linear infinite', display:'inline-block' }}>⟳</div>
+    <div style={{ marginTop:8 }}>{text}</div>
+  </div>
+);
+
+// ═══════════════════════════════════════════════════════════════
+// AI RESULT CARD
+// ═══════════════════════════════════════════════════════════════
+const AIResultCard = ({ result, symbol }) => {
+  if (!result) return <div style={{ color:C.red }}>Analysis failed. Check your API key in Settings.</div>;
+  const ac = result.action==='BUY' ? C.green : result.action==='SELL'||result.action==='AVOID' ? C.red : C.amber;
+  const conf = result.confidence || 5;
+  const cc = conf>=7 ? C.green : conf>=5 ? C.amber : C.red;
+  return (
+    <div>
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+        <span style={{ color:C.text, fontWeight:'bold', fontSize:15 }}>{symbol}</span>
+        <Tag color={ac}>{result.action}</Tag>
+        <Tag color={cc}>CONF {conf}/10</Tag>
+        <Tag color={C.blue}>R/R {result.risk_reward}</Tag>
+        <Tag color={C.purple}>⏱ {result.timeframe}</Tag>
+        {result._provider && <Tag color={C.muted}>{result._provider}</Tag>}
+        {result._date && <span style={{ color:C.dimmed, fontSize:9 }}>{new Date(result._date).toLocaleString()}</span>}
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:12 }}>
+        {[['ENTRY', result.entry_price, C.blue, result.entry_note],
+          ['TARGET', result.target_price, C.green, null],
+          ['STOP LOSS', result.stop_loss, C.red, null]
+        ].map(([label, val, color, note]) => (
+          <div key={label} style={{ background:color+'12', border:`1px solid ${color}44`, borderRadius:3, padding:10, textAlign:'center' }}>
+            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:4 }}>{label}</div>
+            <div style={{ color, fontWeight:'bold', fontSize:18 }}>{fmtP(val)}</div>
+            {note && <div style={{ color:C.muted, fontSize:9, marginTop:3 }}>{note}</div>}
+          </div>
+        ))}
+      </div>
+      <div style={{ color:C.text, lineHeight:1.7, marginBottom:8 }}>{result.thesis}</div>
+      {result.technicals && <div style={{ color:C.amber, fontSize:11, marginBottom:8 }}>📐 {result.technicals}</div>}
+      {result.options_play && result.options_play !== 'null' && (
+        <div style={{ background:C.blue+'12', border:`1px solid ${C.blue}33`, borderRadius:3, padding:'8px 12px', marginBottom:8 }}>
+          <span style={{ color:C.blue, fontWeight:'bold', fontSize:10, letterSpacing:1 }}>OPTIONS PLAY  </span>
+          <span style={{ color:C.text, fontSize:11 }}>{result.options_play}</span>
+        </div>
+      )}
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
+        {result.catalysts?.length > 0 && (
+          <div>
+            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:5 }}>CATALYSTS</div>
+            {result.catalysts.map((c,i) => <div key={i} style={{ color:C.green, fontSize:11, marginBottom:2 }}>▸ {c}</div>)}
+          </div>
+        )}
+        {result.key_risks?.length > 0 && (
+          <div>
+            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:5 }}>KEY RISKS</div>
+            {result.key_risks.map((r,i) => <div key={i} style={{ color:C.red, fontSize:11, marginBottom:2 }}>⚠ {r}</div>)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// WATCHLIST TAB
+// ═══════════════════════════════════════════════════════════════
+const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
+  const { watchlist=[], settings={} } = data;
+  const [newTick, setNewTick] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [aiSymbol, setAiSymbol] = useState(null);
+  const [aiTf, setAiTf] = useState('swing (2–4 weeks)');
+  const [aiResult, setAiResult] = useState(null);
+  const [aiErr, setAiErr] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const TFS = ['day trade (today)','swing (1–2 weeks)','swing (2–4 weeks)','medium term (1–3 months)','long term (6+ months)'];
+
+  const refresh = async () => {
+    if (settings.demoMode) { setQuotes(MOCK_QUOTES); return; }
+    if (!settings.avKey) { alert('Add Alpha Vantage key in Settings for live prices'); return; }
+    setBusy(true);
+    const updated = {};
+    for (const sym of watchlist) {
+      const q = await avFetchQuote(sym, settings.avKey);
+      if (q) updated[sym] = q;
+      await sleep(1300);
+    }
+    setQuotes(prev => ({ ...prev, ...updated }));
+    setBusy(false);
+  };
+
+  const add = () => {
+    const s = newTick.toUpperCase().trim();
+    if (s && !watchlist.includes(s)) {
+      const wl = [...watchlist, s];
+      update({ watchlist: wl });
+      if (settings.demoMode && MOCK_QUOTES[s]) setQuotes(p => ({ ...p, [s]: MOCK_QUOTES[s] }));
+    }
+    setNewTick('');
+  };
+
+  const remove = s => update({ watchlist: watchlist.filter(x => x !== s) });
+
+  const analyze = async sym => {
+    setAiSymbol(sym); setAiLoading(true); setAiResult(null); setAiErr('');
+    try {
+      const q = quotes[sym] || MOCK_QUOTES[sym];
+      const r = await analyzeStock({ symbol:sym, quote:q, timeframe:aiTf, settings });
+      setAiResult(r);
+      const hist = [{ sym, tf:aiTf, action:r.action, confidence:r.confidence,
+        entry:r.entry_price, target:r.target_price, stop:r.stop_loss,
+        date:r._date, provider:r._provider }, ...(data.analysisHistory||[])].slice(0,50);
+      update({ analysisHistory: hist });
+    } catch(e) { setAiErr(e.message); }
+    setAiLoading(false);
+  };
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 380px', gap:14 }}>
+      <Panel>
+        <PanelTitle>WATCHLIST</PanelTitle>
+        <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', alignItems:'center' }}>
+          <Inp value={newTick} onChange={setNewTick} placeholder="Add symbol…" style={{ width:130 }}
+            onKeyDown={e=>e.key==='Enter'&&add()} />
+          <Btn onClick={add}>+ ADD</Btn>
+          <Btn onClick={refresh} color={C.amber} disabled={busy}>{busy?'⟳ FETCHING…':'⟳ REFRESH'}</Btn>
+          {settings.demoMode && <Tag color={C.amber}>DEMO — SIMULATED PRICES</Tag>}
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
+          gap:8, padding:'6px 10px', color:C.muted, fontSize:10, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
+          {['SYMBOL','PRICE','CHANGE','CHG%','HIGH','LOW',''].map(h=><span key={h}>{h}</span>)}
+        </div>
+        {watchlist.map(sym => {
+          const q = quotes[sym]; const up = (q?.chg??0)>=0; const nd = !q?.price;
+          return (
+            <div key={sym} style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
+              alignItems:'center', gap:8, padding:'8px 10px', borderBottom:`1px solid ${C.border}22`,
+              borderLeft:`3px solid ${nd?C.muted:up?C.green:C.red}`, background:C.bg }}>
+              <span style={{ color:C.text, fontWeight:'bold' }}>{sym}</span>
+              <span style={{ color:C.text }}>{nd?'—':fmtP(q.price)}</span>
+              <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':`${up?'+':''}${fmtNum(q.chg)}`}</span>
+              <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':fmtPct(q.pct)}</span>
+              <span style={{ color:C.muted, fontSize:11 }}>{q?.h?fmtP(q.h):'—'}</span>
+              <span style={{ color:C.muted, fontSize:11 }}>{q?.l?fmtP(q.l):'—'}</span>
+              <div style={{ display:'flex', gap:5, justifyContent:'flex-end' }}>
+                <Btn small color={C.blue} onClick={()=>analyze(sym)}>AI ▶</Btn>
+                <Btn small color={C.red} onClick={()=>remove(sym)}>✕</Btn>
+              </div>
+            </div>
+          );
+        })}
+        {watchlist.length===0 && <div style={{ color:C.muted, textAlign:'center', padding:30 }}>Watchlist empty.</div>}
+      </Panel>
+
+      <Panel>
+        <PanelTitle>AI QUICK ANALYSIS</PanelTitle>
+        <div style={{ color:C.muted, fontSize:11, marginBottom:8 }}>
+          Click <span style={{ color:C.blue }}>AI ▶</span> on any row. Provider: <span style={{ color:C.green }}>{PROVIDERS[settings.provider]?.name||settings.provider}</span>
+        </div>
+        <Sel value={aiTf} onChange={setAiTf} options={TFS.map(t=>({value:t,label:t}))} style={{ width:'100%', marginBottom:10 }} />
+        {aiLoading && <Spinner text={`Analyzing ${aiSymbol}…`} />}
+        {aiErr && <div style={{ color:C.red, fontSize:11 }}>⚠ {aiErr}</div>}
+        {!aiLoading && !aiErr && aiResult && <AIResultCard result={aiResult} symbol={aiSymbol} />}
+        {!aiLoading && !aiResult && !aiErr && (
+          <div style={{ color:C.dimmed, fontSize:11, textAlign:'center', paddingTop:20 }}>
+            Select a stock and click AI ▶ to get entry/exit signals
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// AI ANALYST TAB
+// ═══════════════════════════════════════════════════════════════
+const AIAnalystTab = ({ data, update, quotes }) => {
+  const { settings={}, analysisHistory=[] } = data;
+  const [sym, setSym] = useState('');
+  const [tf, setTf] = useState('swing (2–4 weeks)');
+  const [ctx, setCtx] = useState('');
+  const [result, setResult] = useState(null);
+  const [err, setErr] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const TFS = [
+    { value:'day trade (same day, in and out)', label:'📈 Day Trade' },
+    { value:'swing (1–2 weeks)', label:'🔄 Swing 1–2 wks' },
+    { value:'swing (2–4 weeks)', label:'🔄 Swing 2–4 wks' },
+    { value:'medium term (1–3 months)', label:'📅 Medium 1–3 mo' },
+    { value:'long term (6–12 months)', label:'🎯 Long 6–12 mo' },
+  ];
+
+  const run = async () => {
+    const s = sym.toUpperCase().trim();
+    if (!s) return;
+    setLoading(true); setResult(null); setErr(''); setSaved(false);
+    try {
+      const q = quotes[s] || MOCK_QUOTES[s];
+      const r = await analyzeStock({ symbol:s, quote:q, timeframe:tf, context:ctx, settings });
+      setResult({ ...r, _sym:s });
+      const hist = [{ sym:s, tf, action:r.action, confidence:r.confidence,
+        entry:r.entry_price, target:r.target_price, stop:r.stop_loss,
+        date:r._date, provider:r._provider }, ...analysisHistory].slice(0,50);
+      update({ analysisHistory: hist });
+    } catch(e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  const saveReport = async () => {
+    if (!result) return;
+    setSaving(true);
+    const title = `${result._sym} ${result.action} — ${tf}`;
+    await persistReport('AI Analysis', title, result._sym, { symbol:result._sym, timeframe:tf, context:ctx, result });
+    setSaving(false); setSaved(true);
+    setTimeout(()=>setSaved(false), 3000);
+  };
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 260px', gap:14 }}>
+      <div>
+        <Panel style={{ marginBottom:12 }}>
+          <PanelTitle>AI ANALYST — ENTRY & EXIT SIGNALS</PanelTitle>
+          <div style={{ color:C.muted, fontSize:10, marginBottom:8 }}>
+            Provider: <span style={{ color:PROVIDERS[settings.provider]?.color||C.blue }}>{PROVIDERS[settings.provider]?.name||settings.provider}</span>
+            &nbsp;·&nbsp;<span style={{ color:PROVIDERS[settings.provider]?.free?C.green:C.amber }}>{PROVIDERS[settings.provider]?.badge}</span>
+          </div>
+          <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+            <Inp value={sym} onChange={setSym} placeholder="Ticker e.g. NVDA" style={{ width:140 }} onKeyDown={e=>e.key==='Enter'&&run()} />
+            <Sel value={tf} onChange={setTf} options={TFS} style={{ minWidth:160 }} />
+            <Btn onClick={run} color={C.green} disabled={loading}>{loading?'⟳ ANALYZING…':'▶ RUN ANALYSIS'}</Btn>
+          </div>
+          <textarea value={ctx} onChange={e=>setCtx(e.target.value)}
+            placeholder="Optional context: 'earnings next week', 'I own 50 shares at $190', 'bearish on tech', etc."
+            style={{ width:'100%', background:C.bg, border:`1px solid ${C.border2}`, color:C.text,
+              padding:'8px 10px', borderRadius:3, fontFamily:'"Courier New",monospace',
+              fontSize:11, resize:'vertical', minHeight:50, outline:'none' }} />
+        </Panel>
+        {loading && <Panel><Spinner text={`${PROVIDERS[settings.provider]?.name||'AI'} analyzing ${sym.toUpperCase()||'…'}`} /></Panel>}
+        {err && <Panel><div style={{ color:C.red }}>⚠ {err}</div></Panel>}
+        {!loading && result && (
+          <Panel>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+              <div style={{ color:C.muted, fontSize:10 }}>Generated: {result._date ? new Date(result._date).toLocaleString() : '—'}</div>
+              <div style={{ display:'flex', gap:8 }}>
+                {saved && <Tag color={C.green}>✓ SAVED</Tag>}
+                <Btn small color={C.amber} onClick={saveReport} disabled={saving}>
+                  {saving?'SAVING…':'💾 SAVE REPORT'}
+                </Btn>
+              </div>
+            </div>
+            <AIResultCard result={result} symbol={result._sym} />
+          </Panel>
+        )}
+      </div>
+      <div>
+        <Panel>
+          <PanelTitle>ANALYSIS HISTORY</PanelTitle>
+          <div style={{ color:C.dimmed, fontSize:9, marginBottom:10 }}>Last 50 • auto-saved</div>
+          {analysisHistory.length===0
+            ? <div style={{ color:C.muted, fontSize:11 }}>No analyses yet.</div>
+            : analysisHistory.map((h,i) => {
+              const ac = h.action==='BUY'?C.green:h.action==='SELL'?C.red:C.amber;
+              return (
+                <div key={i} style={{ borderBottom:`1px solid ${C.border}`, paddingBottom:8, marginBottom:8 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+                    <span style={{ color:C.text, fontWeight:'bold' }}>{h.sym}</span>
+                    <Tag color={ac}>{h.action}</Tag>
+                  </div>
+                  <div style={{ color:C.muted, fontSize:10, display:'flex', gap:8, flexWrap:'wrap' }}>
+                    <span>In {fmtP(h.entry)}</span><span>→ {fmtP(h.target)}</span><span>Stop {fmtP(h.stop)}</span>
+                  </div>
+                  {h.date && <div style={{ color:C.dimmed, fontSize:9, marginTop:2 }}>{new Date(h.date).toLocaleString()}</div>}
+                </div>
+              );
+            })
+          }
+        </Panel>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PORTFOLIO TAB
+// ═══════════════════════════════════════════════════════════════
+const PortfolioTab = ({ data, update, quotes }) => {
+  const { portfolio=[], settings={} } = data;
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ symbol:'', shares:'', cost:'', type:'stock', notes:'' });
+  const [analyzing, setAnalyzing] = useState(null);
+  const [posResult, setPosResult] = useState({});
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  const getPrice = p => quotes[p.symbol]?.price ?? p.cost;
+  const totalCost  = portfolio.reduce((a,p) => a + p.shares*p.cost, 0);
+  const totalValue = portfolio.reduce((a,p) => a + p.shares*getPrice(p), 0);
+  const totalPnl   = totalValue - totalCost;
+  const totalPct   = totalCost>0 ? (totalPnl/totalCost)*100 : 0;
+
+  const add = () => {
+    const s = form.symbol.toUpperCase().trim();
+    if (!s||!form.shares||!form.cost) return;
+    const pos = { id:Date.now(), symbol:s, shares:parseFloat(form.shares), cost:parseFloat(form.cost), type:form.type, notes:form.notes, addedAt:nowISO() };
+    update({ portfolio:[...portfolio, pos] });
+    setForm({ symbol:'', shares:'', cost:'', type:'stock', notes:'' });
+    setShowForm(false);
+  };
+
+  const remove = id => update({ portfolio: portfolio.filter(p=>p.id!==id) });
+
+  const analyzePos = async pos => {
+    setAnalyzing(pos.id);
+    const q = quotes[pos.symbol]||MOCK_QUOTES[pos.symbol];
+    const ctx = `I own ${pos.shares} shares at avg cost $${pos.cost}. Current P&L: ${fmtPct(((getPrice(pos)-pos.cost)/pos.cost)*100)}.`;
+    try {
+      const r = await analyzeStock({ symbol:pos.symbol, quote:q, timeframe:'medium to long term', context:ctx, settings });
+      setPosResult(prev=>({...prev,[pos.id]:r}));
+    } catch(e) { alert(e.message); }
+    setAnalyzing(null);
+  };
+
+  const saveReport = async () => {
+    setSaving(true);
+    const reportData = {
+      summary: { totalValue, totalCost, totalPnl, totalPct },
+      positions: portfolio.map(p => {
+        const curr=getPrice(p), val=p.shares*curr, cost=p.shares*p.cost;
+        return { ...p, currentPrice:curr, marketValue:val, pnl:val-cost, pnlPct:cost>0?(val-cost)/cost*100:0 };
+      }),
+      generatedAt: nowISO(),
+    };
+    await persistReport('Portfolio Snapshot', `Portfolio Snapshot — ${new Date().toLocaleDateString()}`, null, reportData);
+    setSaving(false); setSaved(true);
+    setTimeout(()=>setSaved(false),3000);
+  };
+
+  return (
+    <div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:14 }}>
+        {[['PORTFOLIO VALUE',`$${totalValue.toFixed(2)}`,C.text],
+          ['TOTAL COST',`$${totalCost.toFixed(2)}`,C.muted],
+          ['TOTAL P&L',`${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(2)}`,pColor(totalPnl)],
+          ['RETURN',fmtPct(totalPct),pColor(totalPct)],
+        ].map(([label,val,color])=>(
+          <Panel key={label} style={{ textAlign:'center' }}>
+            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:6 }}>{label}</div>
+            <div style={{ color, fontSize:20, fontWeight:'bold' }}>{val}</div>
+          </Panel>
+        ))}
+      </div>
+      <div style={{ display:'flex', gap:8, marginBottom:12 }}>
+        <Btn onClick={()=>setShowForm(!showForm)}>+ ADD POSITION</Btn>
+        {saved && <Tag color={C.green}>✓ REPORT SAVED</Tag>}
+        <Btn onClick={saveReport} color={C.amber} disabled={saving||portfolio.length===0}>
+          {saving?'SAVING…':'💾 SAVE SNAPSHOT'}
+        </Btn>
+      </div>
+      {showForm && (
+        <Panel style={{ marginBottom:14 }}>
+          <PanelTitle>NEW POSITION</PanelTitle>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-end' }}>
+            {[['SYMBOL','symbol','AAPL',90,null],['SHARES','shares','100',90,'number'],['AVG COST ($)','cost','185.00',100,'number']].map(([lbl,fld,ph,w,t])=>(
+              <div key={fld}>
+                <div style={{ color:C.muted, fontSize:10, marginBottom:4 }}>{lbl}</div>
+                <Inp value={form[fld]} onChange={v=>setForm(f=>({...f,[fld]:v}))} placeholder={ph} style={{ width:w }} type={t||'text'} />
+              </div>
+            ))}
+            <div>
+              <div style={{ color:C.muted, fontSize:10, marginBottom:4 }}>TYPE</div>
+              <Sel value={form.type} onChange={v=>setForm(f=>({...f,type:v}))} options={['stock','etf','option']} style={{ width:90 }} />
+            </div>
+            <div>
+              <div style={{ color:C.muted, fontSize:10, marginBottom:4 }}>NOTES</div>
+              <Inp value={form.notes} onChange={v=>setForm(f=>({...f,notes:v}))} placeholder="Optional" style={{ width:180 }} />
+            </div>
+            <Btn onClick={add} color={C.green}>ADD</Btn>
+          </div>
+        </Panel>
+      )}
+      <Panel style={{ overflowX:'auto' }}>
+        {portfolio.length===0
+          ? <div style={{ color:C.muted, textAlign:'center', padding:40 }}>No positions yet.</div>
+          : <>
+            <div style={{ display:'grid', gridTemplateColumns:'80px 55px 70px 75px 80px 90px 90px 75px 1fr',
+              gap:8, padding:'6px 10px', color:C.muted, fontSize:9, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
+              {['SYMBOL','TYPE','SHARES','AVG COST','CUR PRICE','MKT VALUE','P&L','RETURN',''].map(h=><span key={h}>{h}</span>)}
+            </div>
+            {portfolio.map(p => {
+              const curr=getPrice(p), val=p.shares*curr, cost=p.shares*p.cost, pnl=val-cost, pct=cost>0?(pnl/cost)*100:0, r=posResult[p.id];
+              return (
+                <div key={p.id}>
+                  <div style={{ display:'grid', gridTemplateColumns:'80px 55px 70px 75px 80px 90px 90px 75px 1fr',
+                    gap:8, padding:'9px 10px', borderBottom:`1px solid ${C.border}22`, alignItems:'center' }}>
+                    <span style={{ color:C.text, fontWeight:'bold' }}>{p.symbol}</span>
+                    <Tag color={C.muted}>{p.type.toUpperCase()}</Tag>
+                    <span style={{ color:C.text }}>{p.shares}</span>
+                    <span style={{ color:C.text }}>{fmtP(p.cost)}</span>
+                    <span style={{ color:C.text }}>{fmtP(curr)}</span>
+                    <span style={{ color:C.text }}>${val.toFixed(2)}</span>
+                    <span style={{ color:pColor(pnl) }}>{pnl>=0?'+':''}${Math.abs(pnl).toFixed(2)}</span>
+                    <span style={{ color:pColor(pct) }}>{fmtPct(pct)}</span>
+                    <div style={{ display:'flex', gap:5 }}>
+                      <Btn small color={C.blue} onClick={()=>analyzePos(p)} disabled={analyzing===p.id}>{analyzing===p.id?'⟳':'AI ▶'}</Btn>
+                      <Btn small color={C.red} onClick={()=>remove(p.id)}>✕</Btn>
+                    </div>
+                  </div>
+                  {r && <div style={{ padding:'10px 10px 10px 20px', background:C.bg+'aa', borderBottom:`1px solid ${C.border}22` }}><AIResultCard result={r} symbol={p.symbol} /></div>}
+                </div>
+              );
+            })}
+          </>
+        }
+      </Panel>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// OPTIONS TAB
+// ═══════════════════════════════════════════════════════════════
+const OptionsTab = ({ data, quotes }) => {
+  const { settings={} } = data;
+  const [symbol, setSymbol] = useState('AAPL');
+  const [expiry, setExpiry] = useState('');
+  const [optType, setOptType] = useState('call');
+  const [aiResult, setAiResult] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiErr, setAiErr] = useState('');
+
+  const q  = quotes[symbol] || MOCK_QUOTES[symbol] || {};
+  const sp = q.price || 200;
+  const getExpiries = () => {
+    const dates=[]; const d=new Date();
+    while(dates.length<4){ d.setDate(d.getDate()+1); if(d.getDay()===5) dates.push(d.toISOString().slice(0,10)); }
+    return dates;
+  };
+  const expiries = getExpiries();
+  const selExp = expiry || expiries[1];
+  const base = Math.round(sp/5)*5;
+  const strikes = Array.from({length:13},(_,i)=>base+(i-6)*5);
+  const mockOpt = strike => {
+    const diff=optType==='call'?sp-strike:strike-sp;
+    const intrinsic=Math.max(0,diff);
+    const tv=Math.max(0.4,2.5+Math.random()*2-Math.abs(diff)*0.05);
+    const raw=optType==='call'?0.5+(diff/sp)*1.8:-0.5-(diff/sp)*1.8;
+    return {
+      premium:(intrinsic+tv).toFixed(2), iv:(22+Math.random()*18).toFixed(1),
+      delta:Math.min(0.99,Math.max(0.01,raw)).toFixed(2),
+      gamma:(0.01+Math.random()*0.03).toFixed(4), theta:-(0.02+Math.random()*0.08).toFixed(4),
+      vol:Math.floor(Math.random()*8000+200), oi:Math.floor(Math.random()*30000+1000),
+      itm:diff>0,
+    };
+  };
+  const getAI = async () => {
+    setAiLoading(true); setAiResult(null); setAiErr('');
+    try {
+      const r = await analyzeStock({ symbol, quote:q, timeframe:`options expiring ${selExp}`,
+        context:`Underlying: $${sp}. Looking for options strategy expiring ${selExp}.`, settings });
+      setAiResult(r);
+    } catch(e) { setAiErr(e.message); }
+    setAiLoading(false);
+  };
+  const ac = optType==='call'?C.green:C.red;
+  return (
+    <div>
+      <div style={{ display:'flex', gap:8, marginBottom:14, alignItems:'center', flexWrap:'wrap' }}>
+        <Inp value={symbol} onChange={v=>setSymbol(v.toUpperCase())} placeholder="Symbol" style={{ width:90 }} />
+        <Sel value={selExp} onChange={setExpiry} options={expiries.map(e=>({value:e,label:e}))} />
+        <div style={{ display:'flex', gap:4 }}>
+          {['call','put'].map(t=>(
+            <Btn key={t} color={optType===t?(t==='call'?C.green:C.red):C.muted} onClick={()=>setOptType(t)}>{t.toUpperCase()}S</Btn>
+          ))}
+        </div>
+        <Btn color={C.blue} onClick={getAI} disabled={aiLoading}>{aiLoading?'⟳ ANALYZING…':'🤖 AI OPTIONS STRATEGY'}</Btn>
+        <Tag color={C.muted}>UNDERLYING {fmtP(sp)} · SIMULATED CHAIN</Tag>
+      </div>
+      {aiLoading && <Panel style={{ marginBottom:14 }}><Spinner text="Generating options strategy…" /></Panel>}
+      {aiErr && <Panel style={{ marginBottom:14 }}><div style={{ color:C.red }}>⚠ {aiErr}</div></Panel>}
+      {!aiLoading && aiResult && <Panel style={{ marginBottom:14 }}><PanelTitle>AI OPTIONS RECOMMENDATION — {symbol}</PanelTitle><AIResultCard result={aiResult} symbol={symbol} /></Panel>}
+      <Panel style={{ overflowX:'auto' }}>
+        <PanelTitle>{symbol} · {selExp} · {optType.toUpperCase()}S</PanelTitle>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+          <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
+            {['ITM','STRIKE','LAST $','IV %','DELTA','GAMMA','THETA','VOLUME','OPEN INT'].map(h=>(
+              <th key={h} style={{ textAlign:'left', padding:'6px 10px', fontWeight:'normal', letterSpacing:1 }}>{h}</th>
+            ))}
+          </tr></thead>
+          <tbody>{strikes.map(strike=>{
+            const o=mockOpt(strike);
+            return (<tr key={strike} style={{ borderBottom:`1px solid ${C.border}18`, background:o.itm?ac+'0a':'transparent' }}>
+              <td style={{ padding:'7px 10px' }}>{o.itm?<Tag color={ac}>ITM</Tag>:<span style={{ color:C.muted,fontSize:10 }}>OTM</span>}</td>
+              <td style={{ padding:'7px 10px', color:C.text, fontWeight:'bold' }}>${strike.toFixed(2)}</td>
+              <td style={{ padding:'7px 10px', color:C.text }}>${o.premium}</td>
+              <td style={{ padding:'7px 10px', color:C.amber }}>{o.iv}%</td>
+              <td style={{ padding:'7px 10px', color:ac }}>{o.delta}</td>
+              <td style={{ padding:'7px 10px', color:C.muted }}>{o.gamma}</td>
+              <td style={{ padding:'7px 10px', color:C.red }}>{o.theta}</td>
+              <td style={{ padding:'7px 10px', color:C.text }}>{o.vol.toLocaleString()}</td>
+              <td style={{ padding:'7px 10px', color:C.muted }}>{o.oi.toLocaleString()}</td>
+            </tr>);
+          })}</tbody>
+        </table>
+      </Panel>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// NEWS TAB
+// ═══════════════════════════════════════════════════════════════
+const NewsTab = ({ data, quotes }) => {
+  const { settings={}, watchlist=[] } = data;
+  const [news, setNews] = useState(MOCK_NEWS);
+  const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState('ALL');
+  const [analyzing, setAnalyzing] = useState(null);
+  const [newsAI, setNewsAI] = useState({});
+
+  const sentColor = s => { const l=(s||'').toLowerCase(); return l.includes('bull')||l.includes('pos')?C.green:l.includes('bear')||l.includes('neg')?C.red:C.amber; };
+
+  const refresh = async () => {
+    if (!settings.avKey) { setNews(MOCK_NEWS); return; }
+    setLoading(true);
+    try {
+      const t = watchlist.slice(0,5).join(',');
+      const r = await fetch(`https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${t}&limit=20&apikey=${settings.avKey}`);
+      const d = await r.json();
+      if (d.feed) setNews(d.feed.map(item=>({ title:item.title, source:item.source, time:item.time_published?.slice(0,8)||'—', sentiment:item.overall_sentiment_label||'Neutral', ticker:item.ticker_sentiment?.[0]?.ticker||'' })));
+    } catch {}
+    setLoading(false);
+  };
+
+  const askAI = async (item, idx) => {
+    setAnalyzing(idx);
+    const sym = item.ticker || watchlist[0] || 'SPY';
+    const q = quotes[sym]||MOCK_QUOTES[sym];
+    try {
+      const r = await analyzeStock({ symbol:sym, quote:q, timeframe:'swing (1–2 weeks)',
+        context:`News: "${item.title}" — how does this affect ${sym}?`, settings });
+      setNewsAI(p=>({...p,[idx]:r}));
+    } catch(e) { alert(e.message); }
+    setAnalyzing(null);
+  };
+
+  const filtered = filter==='ALL' ? news : news.filter(n =>
+    filter==='Bullish' ? sentColor(n.sentiment)===C.green :
+    filter==='Bearish' ? sentColor(n.sentiment)===C.red : sentColor(n.sentiment)===C.amber
+  );
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+        <Btn onClick={refresh} color={C.amber} disabled={loading}>{loading?'⟳ LOADING…':'⟳ REFRESH'}</Btn>
+        {['ALL','Bullish','Bearish','Neutral'].map(f=>(
+          <Btn key={f} small color={filter===f?C.blue:C.muted} onClick={()=>setFilter(f)}>{f.toUpperCase()}</Btn>
+        ))}
+        {!settings.avKey && <Tag color={C.amber}>Add AV key in Settings for live news</Tag>}
+      </div>
+      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+        {filtered.map((item,i)=>(
+          <Panel key={i} style={{ borderLeft:`3px solid ${sentColor(item.sentiment)}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'flex-start' }}>
+              <div style={{ flex:1 }}>
+                <div style={{ color:C.text, marginBottom:5, lineHeight:1.5 }}>{item.title}</div>
+                <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                  <span style={{ color:C.muted, fontSize:10 }}>{item.source}</span>
+                  <span style={{ color:C.dimmed }}>·</span>
+                  <span style={{ color:C.muted, fontSize:10 }}>{item.time}</span>
+                  {item.ticker && <Tag color={C.blue}>{item.ticker}</Tag>}
+                </div>
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:5, alignItems:'flex-end' }}>
+                <Tag color={sentColor(item.sentiment)}>{(item.sentiment||'').toUpperCase()}</Tag>
+                <Btn small color={C.blue} onClick={()=>askAI(item,i)} disabled={analyzing===i}>{analyzing===i?'⟳':'AI IMPACT'}</Btn>
+              </div>
+            </div>
+            {newsAI[i] && <div style={{ marginTop:10, borderTop:`1px solid ${C.border}`, paddingTop:10 }}><AIResultCard result={newsAI[i]} symbol={item.ticker||''} /></div>}
+          </Panel>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SCREENER TAB
+// ═══════════════════════════════════════════════════════════════
+const ScreenerTab = ({ data, update, quotes }) => {
+  const { watchlist=[], settings={} } = data;
+  const [sector, setSector] = useState('ALL');
+  const [sortBy, setSortBy] = useState('pct');
+  const [sortDir, setSortDir] = useState('desc');
+  const [minChg, setMinChg] = useState('');
+  const [maxChg, setMaxChg] = useState('');
+  const [aiPicks, setAiPicks] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiErr, setAiErr] = useState('');
+
+  const all = Object.entries(MOCK_QUOTES).map(([sym,q])=>({sym,...q}));
+  const sectors = ['ALL',...new Set(all.map(s=>s.sector))];
+  let filtered = all;
+  if (sector!=='ALL') filtered=filtered.filter(s=>s.sector===sector);
+  if (minChg!=='') filtered=filtered.filter(s=>s.pct>=parseFloat(minChg));
+  if (maxChg!=='') filtered=filtered.filter(s=>s.pct<=parseFloat(maxChg));
+  filtered=[...filtered].sort((a,b)=>sortDir==='desc'?b[sortBy]-a[sortBy]:a[sortBy]-b[sortBy]);
+
+  const toggleSort = col => { if(sortBy===col) setSortDir(d=>d==='desc'?'asc':'desc'); else {setSortBy(col);setSortDir('desc');} };
+
+  const aiScreen = async () => {
+    setAiLoading(true); setAiPicks(null); setAiErr('');
+    const prompt = `You are a professional stock screener. Today: ${new Date().toDateString()}.
+Identify 3 high-conviction trading opportunities across different timeframes.
+Return ONLY valid JSON:
+{"picks":[{"symbol":"...","name":"...","type":"Day Trade|Swing Trade|Long Term","entry":0,"target":0,"stop":0,"thesis":"...","confidence":0}],"market_outlook":"..."}`;
+    try {
+      const text = await callProvider(prompt, settings.provider||'gemini', settings.apiKeys||{});
+      setAiPicks(JSON.parse(text.replace(/```json|```/g,'').trim()));
+    } catch(e) { setAiErr(e.message); }
+    setAiLoading(false);
+  };
+
+  const S = ({ col }) => sortBy===col?(sortDir==='desc'?' ▼':' ▲'):'';
+  return (
+    <div>
+      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+        <Sel value={sector} onChange={setSector} options={sectors.map(s=>({value:s,label:s}))} />
+        <Inp value={minChg} onChange={setMinChg} placeholder="Min chg%" style={{ width:80 }} type="number" />
+        <Inp value={maxChg} onChange={setMaxChg} placeholder="Max chg%" style={{ width:80 }} type="number" />
+        <Btn color={C.purple} onClick={aiScreen} disabled={aiLoading}>{aiLoading?'⟳ SCANNING…':'🤖 AI TOP PICKS'}</Btn>
+      </div>
+      {aiLoading && <Panel style={{ marginBottom:14 }}><Spinner text="Scanning market for top picks…" /></Panel>}
+      {aiErr && <Panel style={{ marginBottom:14 }}><div style={{ color:C.red }}>⚠ {aiErr}</div></Panel>}
+      {aiPicks && (
+        <Panel style={{ marginBottom:14 }}>
+          <PanelTitle>AI TOP PICKS — {new Date().toLocaleDateString()}</PanelTitle>
+          {aiPicks.market_outlook && <div style={{ color:C.amber, fontSize:11, marginBottom:12 }}>📊 {aiPicks.market_outlook}</div>}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:10 }}>
+            {aiPicks.picks?.map((p,i)=>(
+              <div key={i} style={{ background:C.bg, border:`1px solid ${C.border2}`, borderRadius:3, padding:12 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
+                  <span style={{ color:C.text, fontWeight:'bold', fontSize:14 }}>{p.symbol}</span>
+                  <Tag color={C.green}>{p.type}</Tag>
+                </div>
+                <div style={{ color:C.muted, fontSize:10, marginBottom:8 }}>{p.name}</div>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:5, marginBottom:8 }}>
+                  {[['ENTRY',p.entry,C.blue],['TARGET',p.target,C.green],['STOP',p.stop,C.red]].map(([l,v,c])=>(
+                    <div key={l} style={{ textAlign:'center', background:c+'15', borderRadius:2, padding:'4px 6px' }}>
+                      <div style={{ color:C.muted, fontSize:9 }}>{l}</div>
+                      <div style={{ color:c, fontWeight:'bold' }}>{fmtP(v)}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ color:C.text, fontSize:11, lineHeight:1.5, marginBottom:8 }}>{p.thesis}</div>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <Tag color={p.confidence>=7?C.green:C.amber}>CONF {p.confidence}/10</Tag>
+                  <Btn small color={C.blue} onClick={()=>{ if(!watchlist.includes(p.symbol)) update({watchlist:[...watchlist,p.symbol]}); }}>+ WATCHLIST</Btn>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Panel>
+      )}
+      <Panel style={{ overflowX:'auto' }}>
+        <PanelTitle>MARKET SCREENER — {filtered.length} RESULTS</PanelTitle>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+          <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
+            {[['SYMBOL','sym'],['SECTOR','sector'],['PRICE','price'],['CHG','chg'],['CHG %','pct'],['VOLUME','vol'],['MKT CAP','mktcap'],['',null]].map(([label,col])=>(
+              <th key={label} onClick={col?()=>toggleSort(col):undefined}
+                style={{ textAlign:'left', padding:'6px 10px', fontWeight:'normal', cursor:col?'pointer':'default', letterSpacing:1 }}>
+                {label}{col&&<S col={col} />}
+              </th>
+            ))}
+          </tr></thead>
+          <tbody>{filtered.map(s=>(
+            <tr key={s.sym} style={{ borderBottom:`1px solid ${C.border}18` }}>
+              <td style={{ padding:'8px 10px', color:C.text, fontWeight:'bold' }}>{s.sym}</td>
+              <td style={{ padding:'8px 10px' }}><Tag color={C.muted}>{s.sector}</Tag></td>
+              <td style={{ padding:'8px 10px', color:C.text }}>{fmtP(s.price)}</td>
+              <td style={{ padding:'8px 10px', color:pColor(s.chg) }}>{s.chg>=0?'+':''}{fmtNum(s.chg)}</td>
+              <td style={{ padding:'8px 10px', color:pColor(s.pct) }}>{fmtPct(s.pct)}</td>
+              <td style={{ padding:'8px 10px', color:C.muted }}>{s.vol}</td>
+              <td style={{ padding:'8px 10px', color:C.muted }}>{s.mktcap}</td>
+              <td style={{ padding:'8px 10px' }}><Btn small color={C.blue} onClick={()=>{ if(!watchlist.includes(s.sym)) update({watchlist:[...watchlist,s.sym]}); }}>+ WATCH</Btn></td>
+            </tr>
+          ))}</tbody>
+        </table>
+      </Panel>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// REPORTS TAB
+// ═══════════════════════════════════════════════════════════════
+const ReportsTab = () => {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  const refresh = async () => {
+    setLoading(true);
+    const list = await loadReports();
+    setReports(list);
+    setLoading(false);
+  };
+
+  useEffect(()=>{ refresh(); }, []);
+
+  const viewReport = async (filename) => {
+    setSelected(filename); setDetailLoading(true); setDetail(null);
+    const r = await loadReport(filename);
+    setDetail(r); setDetailLoading(false);
+  };
+
+  const del = async (filename) => {
+    if (!confirm('Delete this report?')) return;
+    await deleteReport(filename);
+    if (selected===filename) { setSelected(null); setDetail(null); }
+    refresh();
+  };
+
+  const typeColor = t => t==='Portfolio Snapshot'?C.green:t==='AI Analysis'?C.blue:C.purple;
+
+  const renderDetail = d => {
+    if (!d) return null;
+    const { type, title, date, dateDisplay, data:rd } = d;
+    if (type==='Portfolio Snapshot' && rd) {
+      const { summary, positions=[] } = rd;
+      return (
+        <div>
+          <div style={{ color:C.muted, fontSize:10, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:14 }}>
+            {[['PORTFOLIO VALUE',`$${(summary?.totalValue||0).toFixed(2)}`,C.text],
+              ['TOTAL COST',`$${(summary?.totalCost||0).toFixed(2)}`,C.muted],
+              ['TOTAL P&L',`${(summary?.totalPnl||0)>=0?'+':''}$${Math.abs(summary?.totalPnl||0).toFixed(2)}`,pColor(summary?.totalPnl||0)],
+              ['RETURN',fmtPct(summary?.totalPct||0),pColor(summary?.totalPct||0)],
+            ].map(([l,v,c])=>(
+              <div key={l} style={{ background:c+'12', border:`1px solid ${c}33`, borderRadius:3, padding:'8px 12px' }}>
+                <div style={{ color:C.muted, fontSize:9, letterSpacing:2 }}>{l}</div>
+                <div style={{ color:c, fontWeight:'bold', fontSize:16, marginTop:3 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+          <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:8 }}>POSITIONS AT SNAPSHOT</div>
+          {positions.map((p,i)=>(
+            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:`1px solid ${C.border}22`, flexWrap:'wrap', gap:8 }}>
+              <span style={{ color:C.text, fontWeight:'bold', width:60 }}>{p.symbol}</span>
+              <span style={{ color:C.muted, fontSize:11 }}>{p.shares} @ {fmtP(p.cost)}</span>
+              <span style={{ color:C.text }}>{fmtP(p.currentPrice)}</span>
+              <span style={{ color:pColor(p.pnl) }}>{p.pnl>=0?'+':''}${Math.abs(p.pnl||0).toFixed(2)} ({fmtPct(p.pnlPct)})</span>
+            </div>
+          ))}
+        </div>
+      );
+    }
+    if (type==='AI Analysis' && rd) {
+      return (
+        <div>
+          <div style={{ color:C.muted, fontSize:10, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
+          <div style={{ color:C.muted, fontSize:10, marginBottom:12 }}>Timeframe: {rd.timeframe} {rd.context ? `· Context: ${rd.context}` : ''}</div>
+          <AIResultCard result={rd.result} symbol={rd.symbol} />
+        </div>
+      );
+    }
+    return <pre style={{ color:C.text, fontSize:10, whiteSpace:'pre-wrap' }}>{JSON.stringify(rd,null,2)}</pre>;
+  };
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'300px 1fr', gap:14 }}>
+      <div>
+        <Panel>
+          <PanelTitle>SAVED REPORTS</PanelTitle>
+          <div style={{ marginBottom:10 }}>
+            <Btn onClick={refresh} color={C.amber} small>{loading?'⟳ LOADING…':'⟳ REFRESH'}</Btn>
+          </div>
+          <div style={{ color:C.dimmed, fontSize:9, marginBottom:10 }}>All reports saved with full date/time. Stored on NAS — never lost.</div>
+          {loading && <Spinner text="Loading reports…" />}
+          {!loading && reports.length===0 && (
+            <div style={{ color:C.muted, fontSize:11 }}>No reports yet. Save an AI analysis or portfolio snapshot.</div>
+          )}
+          {reports.map(r=>(
+            <div key={r.filename} onClick={()=>viewReport(r.filename)}
+              style={{ padding:'9px 10px', borderBottom:`1px solid ${C.border}22`, cursor:'pointer',
+                background:selected===r.filename?C.border:'transparent',
+                borderLeft:`3px solid ${typeColor(r.type)}`, marginBottom:2 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:3 }}>
+                <Tag color={typeColor(r.type)}>{r.type}</Tag>
+                {r.ticker && <Tag color={C.blue}>{r.ticker}</Tag>}
+                <Btn small color={C.red} onClick={e=>{e.stopPropagation();del(r.filename);}}>✕</Btn>
+              </div>
+              <div style={{ color:C.text, fontSize:11, marginBottom:3 }}>{r.title}</div>
+              <div style={{ color:C.dimmed, fontSize:9 }}>{r.date ? new Date(r.date).toLocaleString() : '—'}</div>
+            </div>
+          ))}
+        </Panel>
+      </div>
+      <Panel>
+        {!selected && <div style={{ color:C.muted, textAlign:'center', paddingTop:60 }}>Select a report to view</div>}
+        {detailLoading && <Spinner text="Loading report…" />}
+        {detail && !detailLoading && (
+          <>
+            <div style={{ marginBottom:14, paddingBottom:12, borderBottom:`1px solid ${C.border}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:8 }}>
+                <div>
+                  <div style={{ color:C.text, fontWeight:'bold', fontSize:14, marginBottom:4 }}>{detail.title}</div>
+                  <Tag color={typeColor(detail.type)}>{detail.type}</Tag>
+                </div>
+                <div style={{ color:C.muted, fontSize:10, textAlign:'right' }}>
+                  <div>{detail.dateDisplay || (detail.date ? new Date(detail.date).toLocaleString() : '—')}</div>
+                  <div style={{ color:C.dimmed, fontSize:9, marginTop:3 }}>{detail.filename}</div>
+                </div>
+              </div>
+            </div>
+            {renderDetail(detail)}
+          </>
+        )}
+      </Panel>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SETTINGS TAB
+// ═══════════════════════════════════════════════════════════════
+const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
+  const { settings={} } = data;
+  const [local, setLocal] = useState({ ...settings });
+  const [showKeys, setShowKeys] = useState({});
+  const [testing, setTesting] = useState(null);
+  const [testResult, setTestResult] = useState({});
+
+  const setKey = (provider, val) => setLocal(l=>({ ...l, apiKeys:{ ...(l.apiKeys||{}), [provider]:val } }));
+
+  const save = () => {
+    update({ settings: local });
+    setSaveMsg('✓ Settings saved to NAS — loaded automatically on next open.');
+    setTimeout(()=>setSaveMsg(''),4000);
+  };
+
+  const testAV = async () => {
+    const k = (local.avKey||'').trim();
+    if (!k) { setTestResult(r=>({...r,av:'No key entered'})); return; }
+    setTesting('av');
+    try {
+      const r = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=SPY&apikey=${k}`);
+      const d = await r.json();
+      if (d['Global Quote']?.['05. price']) setTestResult(r=>({...r,av:`✓ Connected — SPY $${parseFloat(d['Global Quote']['05. price']).toFixed(2)}`}));
+      else if (d.Note||d.Information) setTestResult(r=>({...r,av:'⚠ Rate limit — key is valid, try again in 1 min'}));
+      else setTestResult(r=>({...r,av:'✕ Invalid key or no data returned'}));
+    } catch { setTestResult(r=>({...r,av:'✕ Network error'})); }
+    setTesting(null);
+  };
+
+  const InfoBox = ({ title, children, color=C.blue }) => (
+    <div style={{ background:color+'10', border:`1px solid ${color}33`, borderRadius:3, padding:12, marginBottom:10 }}>
+      <div style={{ color, fontWeight:'bold', fontSize:10, letterSpacing:2, marginBottom:6 }}>ℹ {title}</div>
+      {children}
+    </div>
+  );
+
+  return (
+    <div style={{ maxWidth:820, margin:'0 auto' }}>
+      {saveMsg && <div style={{ background:C.green+'18', border:`1px solid ${C.green}44`, borderRadius:3, padding:'8px 14px', marginBottom:14, color:C.green, fontSize:11 }}>{saveMsg}</div>}
+
+      {/* AI PROVIDER */}
+      <Panel style={{ marginBottom:14 }}>
+        <PanelTitle>AI PROVIDER — ANALYSIS ENGINE</PanelTitle>
+        <InfoBox title="COST GUIDE" color={C.amber}>
+          <div style={{ color:C.text, fontSize:11, lineHeight:1.8 }}>
+            Each "AI ▶" click = one API request. At ~10 analyses/day:<br/>
+            <span style={{ color:C.green }}>Gemini Flash free tier</span> = $0/month (1,500/day free) ·
+            DeepSeek = ~$0.002/day · OpenAI = ~$0.003/day · Claude Haiku = ~$0.005/day · Claude Sonnet = ~$0.024/day
+          </div>
+        </InfoBox>
+        <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>SELECT DEFAULT PROVIDER</div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:8, marginBottom:14 }}>
+          {Object.entries(PROVIDERS).map(([id,p])=>(
+            <div key={id} onClick={()=>setLocal(l=>({...l,provider:id}))}
+              style={{ padding:12, borderRadius:3, cursor:'pointer',
+                background:local.provider===id?p.color+'18':C.bg,
+                border:`2px solid ${local.provider===id?p.color:C.border}` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+                <span style={{ color:p.color, fontWeight:'bold', fontSize:11 }}>{p.name}</span>
+                <Tag color={p.color}>{p.badge}</Tag>
+              </div>
+              <div style={{ color:C.muted, fontSize:10 }}>{p.note}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* API Key inputs for each provider */}
+        <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>API KEYS</div>
+        {Object.entries(PROVIDERS).map(([id,p])=>(
+          <div key={id} style={{ marginBottom:12 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
+              <span style={{ color:p.color, fontSize:11, fontWeight:'bold' }}>{p.name}</span>
+              <a href={p.docsUrl} target="_blank" rel="noreferrer" style={{ color:C.blue, fontSize:10 }}>↗ Get key</a>
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <Inp
+                value={showKeys[id] ? ((local.apiKeys||{})[id]||'') : ((local.apiKeys||{})[id]||'').replace(/./g,'•')}
+                onChange={v=>setKey(id,v)}
+                placeholder={`Paste ${p.name} API key…`}
+                style={{ flex:1 }}
+              />
+              <Btn small color={C.muted} onClick={()=>setShowKeys(s=>({...s,[id]:!s[id]}))}>{showKeys[id]?'HIDE':'SHOW'}</Btn>
+            </div>
+          </div>
+        ))}
+      </Panel>
+
+      {/* ALPHA VANTAGE */}
+      <Panel style={{ marginBottom:14 }}>
+        <PanelTitle>ALPHA VANTAGE — LIVE PRICE DATA (FREE)</PanelTitle>
+        <InfoBox title="WHAT IT PROVIDES">
+          <div style={{ color:C.text, fontSize:11, lineHeight:1.8 }}>Real-time & delayed stock/ETF quotes · Historical data · Technical indicators (RSI, MACD) · News sentiment · 25 calls/day free · <a href="https://www.alphavantage.co/support/#api-key" target="_blank">alphavantage.co/support/#api-key</a></div>
+        </InfoBox>
+        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
+          <Inp
+            value={showKeys.av ? (local.avKey||'') : (local.avKey||'').replace(/./g,'•')}
+            onChange={v=>setLocal(l=>({...l,avKey:v}))}
+            placeholder="Alpha Vantage API key…"
+            style={{ flex:1, minWidth:200 }}
+          />
+          <Btn small color={C.muted} onClick={()=>setShowKeys(s=>({...s,av:!s.av}))}>{showKeys.av?'HIDE':'SHOW'}</Btn>
+          <Btn onClick={testAV} color={C.amber} disabled={testing==='av'}>{testing==='av'?'⟳ TESTING…':'⚡ TEST'}</Btn>
+        </div>
+        {testResult.av && <div style={{ color:testResult.av.startsWith('✓')?C.green:C.red, fontSize:11 }}>{testResult.av}</div>}
+      </Panel>
+
+      {/* DATA MODE */}
+      <Panel style={{ marginBottom:14 }}>
+        <PanelTitle>DATA MODE</PanelTitle>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+          {[['demoMode',true,'🧪 DEMO MODE',C.amber,'Simulated prices. AI analysis still uses real API. No AV key needed.'],
+            ['demoMode',false,'📡 LIVE DATA',C.green,'Real prices via Alpha Vantage. Requires AV key above.']
+          ].map(([field,val,label,color,desc])=>(
+            <div key={label} onClick={()=>setLocal(l=>({...l,[field]:val}))}
+              style={{ padding:14, borderRadius:3, cursor:'pointer',
+                background:local[field]===val?color+'18':C.bg, border:`2px solid ${local[field]===val?color:C.border}` }}>
+              <div style={{ color, fontWeight:'bold', marginBottom:4 }}>{label}</div>
+              <div style={{ color:C.muted, fontSize:11 }}>{desc}</div>
+            </div>
+          ))}
+        </div>
+      </Panel>
+
+      {/* STORAGE INFO */}
+      <Panel style={{ marginBottom:14 }}>
+        <PanelTitle>DATA STORAGE</PanelTitle>
+        <InfoBox title="WHERE YOUR DATA LIVES" color={C.green}>
+          <div style={{ color:C.text, fontSize:11, lineHeight:1.8 }}>
+            All data is stored on your QNAP NAS in Ghrava's data directory — never in the browser.<br/>
+            <span style={{ color:C.green }}>· Settings & API keys:</span> <code style={{ color:C.blue }}>/app/data/trading.json</code><br/>
+            <span style={{ color:C.green }}>· Watchlist & portfolio:</span> same file, auto-saved on every change<br/>
+            <span style={{ color:C.green }}>· Reports:</span> <code style={{ color:C.blue }}>/app/data/trading-reports/YYYY-MM-DD_HHmm_type.json</code><br/>
+            Backed up by Ghrava's existing backup system automatically.
+          </div>
+        </InfoBox>
+      </Panel>
+
+      <Panel style={{ marginBottom:14 }}>
+        <PanelTitle>DISCLAIMER</PanelTitle>
+        <div style={{ color:C.muted, fontSize:11, lineHeight:1.9 }}>
+          This tool is for <strong style={{ color:C.text }}>informational and educational purposes only</strong>. AI-generated signals are not guaranteed and should never be your sole basis for a real trade. <span style={{ color:C.red }}>Options trading involves significant risk and is not suitable for all investors.</span>
+        </div>
+      </Panel>
+
+      <div style={{ textAlign:'right' }}>
+        <Btn onClick={save} color={C.green}>💾 SAVE ALL SETTINGS</Btn>
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// TICKER TAPE
+// ═══════════════════════════════════════════════════════════════
+const TickerTape = ({ quotes }) => {
+  const items = Object.entries(quotes).slice(0,10);
+  if (!items.length) return null;
+  return (
+    <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'4px 16px', overflowX:'auto', whiteSpace:'nowrap' }}>
+      {items.map(([sym,q])=>(
+        <span key={sym} style={{ marginRight:24, fontSize:11 }}>
+          <span style={{ color:C.muted }}>{sym} </span>
+          <span style={{ color:C.text }}>{fmtP(q.price)} </span>
+          <span style={{ color:pColor(q.pct) }}>{fmtPct(q.pct)}</span>
+        </span>
+      ))}
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// APP ROOT
+// ═══════════════════════════════════════════════════════════════
+function App() {
+  const [appData, setAppData] = useState(null);
+  const [quotes, setQuotes]   = useState({});
+  const [activeTab, setTab]   = useState('watchlist');
+  const [saveMsg, setSaveMsg] = useState('');
+  const saveTimer = useRef(null);
+
+  // Load all data from Ghrava backend on mount
+  useEffect(()=>{
+    loadData().then(d => {
+      setAppData(d);
+      if (d.settings?.demoMode) setQuotes(MOCK_QUOTES);
+    });
+  }, []);
+
+  // Debounced auto-save to backend on every data change
+  const update = useCallback((patch) => {
+    setAppData(prev => {
+      const next = { ...prev, ...patch };
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      saveTimer.current = setTimeout(() => persistData(next), 600);
+      return next;
+    });
+  }, []);
+
+  const TABS = [
+    { id:'watchlist', label:'📊 WATCHLIST' },
+    { id:'screener',  label:'🔍 SCREENER' },
+    { id:'ai',        label:'🤖 AI ANALYST' },
+    { id:'portfolio', label:'💼 PORTFOLIO' },
+    { id:'options',   label:'⚙ OPTIONS' },
+    { id:'news',      label:'📰 NEWS' },
+    { id:'reports',   label:'📁 REPORTS' },
+    { id:'settings',  label:'⚙ SETTINGS' },
+  ];
+
+  if (!appData) return (
+    <div style={{ background:C.bg, minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}>
+      <Spinner text="Loading Trade Terminal from Ghrava…" />
+    </div>
+  );
+
+  const settings = appData.settings || {};
+  const prov = PROVIDERS[settings.provider];
+
+  return (
+    <div style={{ background:C.bg, color:C.text, minHeight:'100vh', fontFamily:'"Courier New",monospace', fontSize:12, display:'flex', flexDirection:'column' }}>
+      {/* Top bar */}
+      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'0 16px', display:'flex', alignItems:'center', gap:12, height:40, flexShrink:0, flexWrap:'wrap' }}>
+        <span style={{ color:C.blue, fontWeight:'bold', letterSpacing:3, fontSize:13 }}>▸ TRADE TERMINAL</span>
+        {prov && <Tag color={prov.color}>{prov.name}</Tag>}
+        {settings.demoMode && <Tag color={C.amber}>DEMO MODE</Tag>}
+        {!settings.demoMode && settings.avKey && <Tag color={C.green}>LIVE DATA</Tag>}
+        <div style={{ marginLeft:'auto', display:'flex', gap:16 }}>
+          {['SPY','QQQ','NVDA'].map(s=>{ const q=quotes[s]; if(!q) return null; return (
+            <span key={s} style={{ fontSize:11 }}>
+              <span style={{ color:C.muted }}>{s} </span>
+              <span style={{ color:C.text }}>{fmtP(q.price)} </span>
+              <span style={{ color:pColor(q.pct) }}>{fmtPct(q.pct)}</span>
+            </span>
+          ); })}
+        </div>
+      </div>
+
+      {/* Ticker tape */}
+      <TickerTape quotes={quotes} />
+
+      {/* Tabs */}
+      <div style={{ background:C.surface, borderBottom:`2px solid ${C.border}`, padding:'0 16px', display:'flex', gap:0, flexShrink:0, overflowX:'auto' }}>
+        {TABS.map(t=>(
+          <button key={t.id} onClick={()=>setTab(t.id)} style={{
+            background:'transparent', border:'none',
+            borderBottom:`2px solid ${activeTab===t.id?(t.id==='settings'||t.id==='reports'?C.amber:C.blue):'transparent'}`,
+            color:activeTab===t.id?(t.id==='settings'||t.id==='reports'?C.amber:C.blue):C.muted,
+            padding:'10px 14px', cursor:'pointer', fontFamily:'"Courier New",monospace',
+            fontSize:11, fontWeight:activeTab===t.id?'bold':'normal', letterSpacing:1, whiteSpace:'nowrap',
+          }}>{t.label}</button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ flex:1, padding:16, overflowY:'auto' }}>
+        {activeTab==='watchlist' && <WatchlistTab data={appData} update={update} quotes={quotes} setQuotes={setQuotes} />}
+        {activeTab==='screener'  && <ScreenerTab  data={appData} update={update} quotes={quotes} />}
+        {activeTab==='ai'        && <AIAnalystTab data={appData} update={update} quotes={quotes} />}
+        {activeTab==='portfolio' && <PortfolioTab data={appData} update={update} quotes={quotes} />}
+        {activeTab==='options'   && <OptionsTab   data={appData} quotes={quotes} />}
+        {activeTab==='news'      && <NewsTab       data={appData} quotes={quotes} />}
+        {activeTab==='reports'   && <ReportsTab />}
+        {activeTab==='settings'  && <SettingsTab  data={appData} update={update} setSaveMsg={setSaveMsg} saveMsg={saveMsg} />}
+      </div>
+
+      {/* Footer */}
+      <div style={{ background:C.surface, borderTop:`1px solid ${C.border}`, padding:'4px 16px', fontSize:9, color:C.dimmed, letterSpacing:1 }}>
+        ⚠ FOR INFORMATIONAL PURPOSES ONLY · NOT FINANCIAL ADVICE · DATA STORED ON YOUR QNAP NAS · NEVER CACHED IN BROWSER
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
