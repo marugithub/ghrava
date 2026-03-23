@@ -12,7 +12,6 @@ const express      = require('express');
 const router       = express.Router();
 const fs           = require('fs');
 const path         = require('path');
-const { requireAuth }            = require('../auth/middleware');
 const { serverError, badRequest } = require('../../shared/errors');
 
 const DATA_DIR    = path.join(__dirname, '../../data');
@@ -81,8 +80,6 @@ router.get('/reports/:filename', (req, res) => {
 });
 
 // ── WRITES (require auth) ────────────────────────────────────────
-
-router.use(requireAuth);
 
 // POST save all trading data (full replace of mutable fields)
 router.post('/data', (req, res) => {

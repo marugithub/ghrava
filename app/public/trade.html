@@ -74,11 +74,51 @@ const MOCK_NEWS = [
 ];
 
 const DEFAULTS = {
-  settings: { provider:'gemini', apiKeys:{}, avKey:'', demoMode:true },
+  settings: {
+    provider:'gemini', apiKeys:{}, avKey:'', demoMode:true,
+    appearance: { fontSize:13, fontFamily:'courier', bgTheme:'dark' }
+  },
   watchlist: ['AAPL','SPY','NVDA','TSLA','QQQ','META','MSFT'],
   portfolio: [],
   analysisHistory: [],
 };
+
+// ═══════════════════════════════════════════════════════════════
+// APPEARANCE THEMES
+// ═══════════════════════════════════════════════════════════════
+const FONT_FAMILIES = {
+  courier:  { label:'Courier New (default)',  css:'"Courier New", Courier, monospace' },
+  verdana:  { label:'Verdana (easy to read)', css:'Verdana, Geneva, sans-serif' },
+  georgia:  { label:'Georgia (warm serif)',   css:'Georgia, "Times New Roman", serif' },
+  tahoma:   { label:'Tahoma (clean & clear)', css:'Tahoma, Arial, sans-serif' },
+  trebuchet:{ label:'Trebuchet (modern)',      css:'"Trebuchet MS", Arial, sans-serif' },
+};
+
+const BG_THEMES = {
+  dark:      { label:'Deep Space (default)', bg:'#060b14', surface:'#0b1221', panel:'#0e1628', border:'#172035', border2:'#1e2d45', text:'#ccd9f0', muted:'#445570', dimmed:'#2a3d5a' },
+  darker:    { label:'Pure Black',           bg:'#000000', surface:'#0a0a0a', panel:'#111111', border:'#222222', border2:'#333333', text:'#e0e0e0', muted:'#555555', dimmed:'#333333' },
+  navy:      { label:'Navy Blue',            bg:'#0a0e1a', surface:'#111827', panel:'#1a2235', border:'#243047', border2:'#2d3d57', text:'#d4e4ff', muted:'#4a6080', dimmed:'#2a3a50' },
+  charcoal:  { label:'Charcoal (softer)',    bg:'#1a1a1a', surface:'#222222', panel:'#2a2a2a', border:'#383838', border2:'#444444', text:'#e8e8e8', muted:'#888888', dimmed:'#555555' },
+  midnight:  { label:'Midnight Green',       bg:'#051510', surface:'#0a1f18', panel:'#0e2820', border:'#163525', border2:'#1e4530', text:'#c8ead8', muted:'#3a6050', dimmed:'#1e3528' },
+  dusk:      { label:'Warm Dusk',            bg:'#1a1208', surface:'#221a0a', panel:'#2a200e', border:'#3a2e18', border2:'#4a3c24', text:'#f0ddb0', muted:'#7a6040', dimmed:'#3a2e18' },
+  white:     { label:'Bright White',         bg:'#ffffff', surface:'#f0f2f5', panel:'#e8ecf2', border:'#d0d8e8', border2:'#b8c4d8', text:'#1a2035', muted:'#6070a0', dimmed:'#a0b0c8' },
+};
+
+function applyAppearance(app) {
+  const a = app?.settings?.appearance || {};
+  const fontSize   = a.fontSize   || 13;
+  const fontFamily = FONT_FAMILIES[a.fontFamily||'courier']?.css || FONT_FAMILIES.courier.css;
+  const theme      = BG_THEMES[a.bgTheme||'dark'] || BG_THEMES.dark;
+  Object.assign(C, theme);
+  // Use zoom so ALL text (including hardcoded small labels) scales proportionally
+  const zoom = fontSize / 13;
+  const root = document.getElementById('root');
+  if (root) root.style.zoom = zoom;
+  document.body.style.background = theme.bg;
+  document.body.style.color      = theme.text;
+  document.body.style.fontFamily = fontFamily;
+  return { fontSize, fontFamily, theme, zoom };
+}
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -1147,6 +1187,7 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
 
   const save = () => {
     update({ settings: local });
+    applyAppearance({ settings: local });
     setSaveMsg('✓ Settings saved to NAS — loaded automatically on next open.');
     setTimeout(()=>setSaveMsg(''),4000);
   };
@@ -1259,6 +1300,84 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
         </div>
       </Panel>
 
+      {/* APPEARANCE */}
+      <Panel style={{ marginBottom:14 }}>
+        <PanelTitle>APPEARANCE — FONT & COLOURS</PanelTitle>
+        <div style={{ color:C.muted, fontSize:11, marginBottom:14 }}>Changes apply instantly. Saved to NAS with all other settings.</div>
+
+        {/* Font size */}
+        <div style={{ marginBottom:18 }}>
+          <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>FONT SIZE</div>
+          <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
+            <input type="range" min="10" max="20" step="1"
+              value={local.appearance?.fontSize||13}
+              onChange={e => {
+                const v = parseInt(e.target.value);
+                setLocal(l=>({...l, appearance:{...(l.appearance||{}), fontSize:v}}));
+                const root = document.getElementById('root');
+                if (root) root.style.zoom = v / 13;
+              }}
+              style={{ width:200, accentColor:C.blue, cursor:'pointer' }}
+            />
+            <span style={{ color:C.text, fontWeight:'bold', fontSize:16, minWidth:50 }}>
+              {local.appearance?.fontSize||13}px
+            </span>
+            <div style={{ display:'flex', gap:6 }}>
+              {[10,12,13,15,17,20].map(s=>(
+                <Btn key={s} small
+                  color={(local.appearance?.fontSize||13)===s ? C.blue : C.muted}
+                  onClick={()=>{ setLocal(l=>({...l,appearance:{...(l.appearance||{}),fontSize:s}})); const root=document.getElementById('root'); if(root) root.style.zoom=s/13; }}>
+                  {s}
+                </Btn>
+              ))}
+            </div>
+          </div>
+          <div style={{ color:C.dimmed, fontSize:10, marginTop:6 }}>
+            Recommended: 13–15 for desktop · 15–17 for tablet · 17–20 for large screen / easier reading
+          </div>
+        </div>
+
+        {/* Font family */}
+        <div style={{ marginBottom:18 }}>
+          <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>FONT FAMILY</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:8 }}>
+            {Object.entries(FONT_FAMILIES).map(([id,f])=>(
+              <div key={id} onClick={()=>{ setLocal(l=>({...l,appearance:{...(l.appearance||{}),fontFamily:id}})); document.body.style.fontFamily=f.css; const root=document.getElementById('root'); if(root) root.style.fontFamily=f.css; }}
+                style={{ padding:'10px 14px', borderRadius:3, cursor:'pointer',
+                  background:(local.appearance?.fontFamily||'courier')===id ? C.blue+'18' : C.bg,
+                  border:`2px solid ${(local.appearance?.fontFamily||'courier')===id ? C.blue : C.border}` }}>
+                <div style={{ fontFamily:f.css, color:C.text, fontSize:(local.appearance?.fontSize||13)+2, marginBottom:4 }}>AAPL +2.31%</div>
+                <div style={{ color:C.muted, fontSize:10 }}>{f.label}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Background theme */}
+        <div style={{ marginBottom:10 }}>
+          <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>BACKGROUND THEME</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:8 }}>
+            {Object.entries(BG_THEMES).map(([id,t])=>(
+              <div key={id} onClick={()=>{ setLocal(l=>({...l,appearance:{...(l.appearance||{}),bgTheme:id}})); Object.assign(C,t); document.body.style.background=t.bg; document.body.style.color=t.text; }}
+                style={{ padding:'12px 14px', borderRadius:3, cursor:'pointer',
+                  background:t.bg, border:`2px solid ${(local.appearance?.bgTheme||'dark')===id ? C.blue : t.border}` }}>
+                <div style={{ display:'flex', gap:6, marginBottom:6 }}>
+                  {[t.bg, t.surface, t.panel, t.border2].map((col,i)=>(
+                    <div key={i} style={{ width:16, height:16, borderRadius:3, background:col, border:'1px solid '+t.border2 }} />
+                  ))}
+                </div>
+                <div style={{ color:t.text, fontSize:11, fontWeight:'bold', marginBottom:2 }}>{t.label}</div>
+                <div style={{ display:'flex', gap:6, marginTop:4 }}>
+                  <span style={{ color:C.green, fontSize:10 }}>+2.3%</span>
+                  <span style={{ color:C.red, fontSize:10 }}>-1.1%</span>
+                  <span style={{ color:C.blue, fontSize:10 }}>$211</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Panel>
+
       {/* STORAGE INFO */}
       <Panel style={{ marginBottom:14 }}>
         <PanelTitle>DATA STORAGE</PanelTitle>
@@ -1320,6 +1439,7 @@ function App() {
   useEffect(()=>{
     loadData().then(d => {
       setAppData(d);
+      applyAppearance(d);
       if (d.settings?.demoMode) setQuotes(MOCK_QUOTES);
     });
   }, []);
@@ -1353,9 +1473,11 @@ function App() {
 
   const settings = appData.settings || {};
   const prov = PROVIDERS[settings.provider];
+  const app = settings.appearance || {};
+  const rootFont = FONT_FAMILIES[app.fontFamily||'courier']?.css || FONT_FAMILIES.courier.css;
 
   return (
-    <div style={{ background:C.bg, color:C.text, minHeight:'100vh', fontFamily:'"Courier New",monospace', fontSize:12, display:'flex', flexDirection:'column' }}>
+    <div style={{ background:C.bg, color:C.text, minHeight:'100vh', fontFamily:rootFont, display:'flex', flexDirection:'column' }}>
       {/* Top bar */}
       <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'0 16px', display:'flex', alignItems:'center', gap:12, height:40, flexShrink:0, flexWrap:'wrap' }}>
         <span style={{ color:C.blue, fontWeight:'bold', letterSpacing:3, fontSize:13 }}>▸ TRADE TERMINAL</span>
