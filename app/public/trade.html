@@ -8,15 +8,19 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #060b14; color: #ccd9f0; font-family: "Courier New", monospace; font-size: 12px; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    body { background: #060b14; color: #dde8f8; font-family: 'Inter', system-ui, sans-serif; font-size: 13px; line-height: 1.5; }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-track { background: #0b1221; }
-    ::-webkit-scrollbar-thumb { background: #1e2d45; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb { background: #2a3d5a; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a5070; }
     @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-    select option { background: #060b14; }
-    a { color: #00aaff; }
+    select option { background: #0e1628; }
+    a { color: #38bdf8; }
+    input[type=range] { accent-color: #38bdf8; }
   </style>
 </head>
 <body>
@@ -28,22 +32,28 @@ const { useState, useEffect, useCallback, useRef } = React;
 // THEME
 // ═══════════════════════════════════════════════════════════════
 const C = {
-  bg:'#060b14', surface:'#0b1221', panel:'#0e1628',
-  border:'#172035', border2:'#1e2d45',
-  blue:'#00aaff', green:'#00e676', red:'#ff3d5a',
-  amber:'#ffb300', purple:'#bb86fc',
-  text:'#ccd9f0', muted:'#445570', dimmed:'#2a3d5a',
+  bg:'#060b14', surface:'#0c1424', panel:'#111d2e',
+  border:'#1e3050', border2:'#273d5e',
+  blue:'#38bdf8', green:'#4ade80', red:'#f87171',
+  amber:'#fbbf24', purple:'#c084fc',
+  text:'#dde8f8', muted:'#7a94bb', dimmed:'#3a5070',
 };
 
 // ═══════════════════════════════════════════════════════════════
 // PROVIDERS
 // ═══════════════════════════════════════════════════════════════
 const PROVIDERS = {
-  gemini:       { name:'Gemini 2.0 Flash',  badge:'FREE',         color: C.green,  docsUrl:'https://aistudio.google.com/app/apikey',          note:'1,500 free requests/day — no credit card' },
+  gemini:       { name:'Gemini 2.5 Flash',  badge:'FREE',         color: C.green,  docsUrl:'https://aistudio.google.com/app/apikey',          note:'1,500 free requests/day — no credit card' },
   deepseek:     { name:'DeepSeek V3',       badge:'~$0.00006/req', color: C.blue,   docsUrl:'https://platform.deepseek.com/api_keys',          note:'Extremely cheap, strong financial reasoning' },
   openai:       { name:'GPT-4o Mini',       badge:'~$0.00010/req', color: C.amber,  docsUrl:'https://platform.openai.com/api-keys',            note:'Reliable, widely supported' },
   claudeHaiku:  { name:'Claude Haiku',      badge:'~$0.00015/req', color: C.purple, docsUrl:'https://console.anthropic.com/settings/keys',     note:'Fast, good JSON output' },
   claudeSonnet: { name:'Claude Sonnet 4.6', badge:'~$0.00080/req', color: C.purple, docsUrl:'https://console.anthropic.com/settings/keys',     note:'Highest quality analysis' },
+};
+
+const MARKET_PROVIDERS = {
+  yahoo:   { name:'Yahoo Finance', badge:'FREE · NO KEY',       color:C.green,  note:'Real-time via Ghrava proxy. Best default.' },
+  finnhub: { name:'Finnhub',       badge:'FREE · EMAIL SIGNUP', color:C.blue,   note:'60 req/min. Real-time US quotes + news. No CC.' },
+  av:      { name:'Alpha Vantage', badge:'25 CALLS/DAY FREE',   color:C.amber,  note:'15-min delayed. Also powers news sentiment.' },
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -75,8 +85,10 @@ const MOCK_NEWS = [
 
 const DEFAULTS = {
   settings: {
-    provider:'gemini', apiKeys:{}, avKey:'', demoMode:true,
-    appearance: { fontSize:13, fontFamily:'courier', bgTheme:'dark' }
+    provider:'gemini', apiKeys:{}, avKey:'',
+    marketProvider:'yahoo', tradierKey:'', tradierSandbox:true, finnhubKey:'',
+    demoMode:true,
+    appearance: { fontSize:14, fontFamily:'inter', bgTheme:'dark' }
   },
   watchlist: ['AAPL','SPY','NVDA','TSLA','QQQ','META','MSFT'],
   portfolio: [],
@@ -87,27 +99,29 @@ const DEFAULTS = {
 // APPEARANCE THEMES
 // ═══════════════════════════════════════════════════════════════
 const FONT_FAMILIES = {
-  courier:  { label:'Courier New (default)',  css:'"Courier New", Courier, monospace' },
-  verdana:  { label:'Verdana (easy to read)', css:'Verdana, Geneva, sans-serif' },
-  georgia:  { label:'Georgia (warm serif)',   css:'Georgia, "Times New Roman", serif' },
-  tahoma:   { label:'Tahoma (clean & clear)', css:'Tahoma, Arial, sans-serif' },
-  trebuchet:{ label:'Trebuchet (modern)',      css:'"Trebuchet MS", Arial, sans-serif' },
+  inter:    { label:'Inter (default — clean & modern)', css:"'Inter', system-ui, sans-serif" },
+  jetbrains:{ label:'JetBrains Mono (crisp & clear)',   css:"'JetBrains Mono', 'Courier New', monospace" },
+  verdana:  { label:'Verdana (easy to read)',            css:'Verdana, Geneva, sans-serif' },
+  georgia:  { label:'Georgia (warm serif)',              css:'Georgia, "Times New Roman", serif' },
+  tahoma:   { label:'Tahoma (clean & wide)',             css:'Tahoma, Arial, sans-serif' },
+  trebuchet:{ label:'Trebuchet MS (rounded)',            css:'"Trebuchet MS", Arial, sans-serif' },
 };
 
 const BG_THEMES = {
-  dark:      { label:'Deep Space (default)', bg:'#060b14', surface:'#0b1221', panel:'#0e1628', border:'#172035', border2:'#1e2d45', text:'#ccd9f0', muted:'#445570', dimmed:'#2a3d5a' },
-  darker:    { label:'Pure Black',           bg:'#000000', surface:'#0a0a0a', panel:'#111111', border:'#222222', border2:'#333333', text:'#e0e0e0', muted:'#555555', dimmed:'#333333' },
-  navy:      { label:'Navy Blue',            bg:'#0a0e1a', surface:'#111827', panel:'#1a2235', border:'#243047', border2:'#2d3d57', text:'#d4e4ff', muted:'#4a6080', dimmed:'#2a3a50' },
-  charcoal:  { label:'Charcoal (softer)',    bg:'#1a1a1a', surface:'#222222', panel:'#2a2a2a', border:'#383838', border2:'#444444', text:'#e8e8e8', muted:'#888888', dimmed:'#555555' },
-  midnight:  { label:'Midnight Green',       bg:'#051510', surface:'#0a1f18', panel:'#0e2820', border:'#163525', border2:'#1e4530', text:'#c8ead8', muted:'#3a6050', dimmed:'#1e3528' },
-  dusk:      { label:'Warm Dusk',            bg:'#1a1208', surface:'#221a0a', panel:'#2a200e', border:'#3a2e18', border2:'#4a3c24', text:'#f0ddb0', muted:'#7a6040', dimmed:'#3a2e18' },
-  white:     { label:'Bright White',         bg:'#ffffff', surface:'#f0f2f5', panel:'#e8ecf2', border:'#d0d8e8', border2:'#b8c4d8', text:'#1a2035', muted:'#6070a0', dimmed:'#a0b0c8' },
+  dark:      { label:'Deep Space (default)', bg:'#060b14', surface:'#0c1424', panel:'#111d2e', border:'#1e3050', border2:'#273d5e', text:'#dde8f8', muted:'#7a94bb', dimmed:'#3a5070' },
+  darker:    { label:'Pure Black',           bg:'#000000', surface:'#0d0d0d', panel:'#161616', border:'#2a2a2a', border2:'#383838', text:'#eeeeee', muted:'#888888', dimmed:'#444444' },
+  navy:      { label:'Navy Blue',            bg:'#060d1f', surface:'#0d1a33', panel:'#132240', border:'#1e3560', border2:'#284878', text:'#ccdeff', muted:'#6080aa', dimmed:'#2a3f60' },
+  charcoal:  { label:'Charcoal',             bg:'#161618', surface:'#1e2022', panel:'#26292c', border:'#363a3e', border2:'#454a4f', text:'#eaeef2', muted:'#8a9099', dimmed:'#505560' },
+  midnight:  { label:'Midnight Green',       bg:'#040f0a', surface:'#091a12', panel:'#0e2218', border:'#163525', border2:'#1e4830', text:'#c0ecd4', muted:'#4a8060', dimmed:'#1e4030' },
+  dusk:      { label:'Warm Dusk',            bg:'#130f06', surface:'#1e1808', panel:'#26200c', border:'#3c3010', border2:'#4e3e18', text:'#f2e4b8', muted:'#9a7c40', dimmed:'#4a3a18' },
+  white:     { label:'Bright White',         bg:'#f8fafc', surface:'#edf2f7', panel:'#ffffff',  border:'#cbd5e0', border2:'#a0aec0', text:'#1a202c', muted:'#4a5568', dimmed:'#a0aec0' },
+  slate:     { label:'Slate Grey',           bg:'#0f172a', surface:'#1e293b', panel:'#273548', border:'#334155', border2:'#475569', text:'#e2e8f0', muted:'#94a3b8', dimmed:'#475569' },
 };
 
 function applyAppearance(app) {
   const a = app?.settings?.appearance || {};
   const fontSize   = a.fontSize   || 13;
-  const fontFamily = FONT_FAMILIES[a.fontFamily||'courier']?.css || FONT_FAMILIES.courier.css;
+  const fontFamily = FONT_FAMILIES[a.fontFamily]?.css || FONT_FAMILIES['inter']?.css || "'Inter', system-ui, sans-serif";
   const theme      = BG_THEMES[a.bgTheme||'dark'] || BG_THEMES.dark;
   Object.assign(C, theme);
   // Use zoom so ALL text (including hardcoded small labels) scales proportionally
@@ -184,7 +198,7 @@ async function callProvider(prompt, provider, apiKeys) {
   if (provider === 'gemini') {
     if (!key) throw new Error('Gemini API key not set — go to Settings');
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) }
     );
@@ -281,37 +295,136 @@ sentiment must be one of: bullish, bearish, neutral`;
   return result;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MARKET DATA — MULTI-PROVIDER WITH FALLBACK CHAIN
+// ═══════════════════════════════════════════════════════════════
+
+// Error categories for clear user messages
+const ERR = {
+  RATE_LIMIT:   'rate_limit',
+  BAD_KEY:      'bad_key',
+  NO_DATA:      'no_data',
+  NETWORK:      'network',
+  FREE_EXPIRED: 'free_expired',
+};
+
+function classifyError(text) {
+  const t = (text||'').toLowerCase();
+  if (t.includes('rate limit') || t.includes('too many') || t.includes('429') || t.includes('quota')) return ERR.RATE_LIMIT;
+  if (t.includes('invalid') && (t.includes('key') || t.includes('token') || t.includes('api'))) return ERR.BAD_KEY;
+  if (t.includes('premium') || t.includes('subscription') || t.includes('upgrade') || t.includes('limit: 0')) return ERR.FREE_EXPIRED;
+  if (t.includes('network') || t.includes('fetch') || t.includes('failed')) return ERR.NETWORK;
+  return ERR.NO_DATA;
+}
+
+const ERR_MSG = {
+  [ERR.RATE_LIMIT]:   'Rate limit hit — too many requests',
+  [ERR.BAD_KEY]:      'Invalid API key — check Settings',
+  [ERR.FREE_EXPIRED]: 'Free tier quota reached for today',
+  [ERR.NETWORK]:      'Network error — check your connection',
+  [ERR.NO_DATA]:      'No data returned for this symbol',
+};
+
+// ─── Individual provider fetchers ────────────────────────────────
+
+async function _fetchYahoo(symbol) {
+  const r = await fetch(`/api/v1/trading/market/quote/${symbol.toUpperCase()}`);
+  const d = await r.json();
+  if (!r.ok) throw Object.assign(new Error(d.error||'Yahoo proxy failed'), { errType: classifyError(d.detail||d.error||'') });
+  if (!d.price) throw Object.assign(new Error('No price data'), { errType: ERR.NO_DATA });
+  return { ...d, _source: 'Yahoo Finance' };
+}
+
+async function _fetchFinnhub(symbol, key) {
+  if (!key) throw Object.assign(new Error('No Finnhub key'), { errType: ERR.BAD_KEY });
+  const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=${symbol.toUpperCase()}&token=${key}`);
+  const d = await r.json();
+  if (d.error) throw Object.assign(new Error(d.error), { errType: classifyError(d.error) });
+  if (!d.c || d.c === 0) throw Object.assign(new Error('No data for symbol'), { errType: ERR.NO_DATA });
+  const chg = d.d ?? (d.c - d.pc);
+  const pct = d.dp ?? (d.pc > 0 ? (chg/d.pc)*100 : 0);
+  return { price:parseFloat(d.c), chg:parseFloat(chg), pct:parseFloat(pct),
+    h:parseFloat(d.h), l:parseFloat(d.l), vol:'—', _source:'Finnhub' };
+}
+
+async function _fetchAV(symbol, key) {
+  if (!key) throw Object.assign(new Error('No Alpha Vantage key'), { errType: ERR.BAD_KEY });
+  const r = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${key}`);
+  const d = await r.json();
+  if (d.Note || d.Information) {
+    const errType = (d.Note||d.Information||'').toLowerCase().includes('premium') ? ERR.FREE_EXPIRED : ERR.RATE_LIMIT;
+    throw Object.assign(new Error(d.Note||d.Information), { errType });
+  }
+  const q = d['Global Quote'];
+  if (!q || !q['05. price']) throw Object.assign(new Error('No data'), { errType: ERR.NO_DATA });
+  return { price:parseFloat(q['05. price']), chg:parseFloat(q['09. change']),
+    pct:parseFloat(q['10. change percent']), vol:q['06. volume'],
+    h:parseFloat(q['03. high']), l:parseFloat(q['04. low']), _source:'Alpha Vantage' };
+}
+
+// ─── Fallback chain ───────────────────────────────────────────────
+// Returns { quote, source, warnings }
+// warnings = array of { provider, reason } for each failed attempt
+async function fetchQuote(symbol, settings) {
+  const s = settings || {};
+  const primary   = s.marketProvider || 'yahoo';
+  const warnings  = [];
+
+  // Build ordered provider list: primary first, then fallbacks
+  const allProviders = ['yahoo', 'finnhub', 'av'];
+  const ordered = [primary, ...allProviders.filter(p => p !== primary)];
+
+  for (const provider of ordered) {
+    try {
+      let q = null;
+      if (provider === 'yahoo')   q = await _fetchYahoo(symbol);
+      if (provider === 'finnhub') q = await _fetchFinnhub(symbol, s.finnhubKey);
+      if (provider === 'av')      q = await _fetchAV(symbol, s.avKey);
+      if (q) return { quote: q, source: q._source, warnings };
+    } catch (e) {
+      const reason = ERR_MSG[e.errType] || e.message || 'Unknown error';
+      warnings.push({ provider: providerLabel(provider), reason });
+      // Don't try providers with no key configured
+      if (e.errType === ERR.BAD_KEY) continue;
+    }
+  }
+  return { quote: null, source: null, warnings };
+}
+
+// Simple version for backward compat — returns quote or null
+async function fetchQuoteSimple(symbol, settings) {
+  const { quote } = await fetchQuote(symbol, settings);
+  return quote;
+}
+
+function providerLabel(p) {
+  return p==='yahoo'?'Yahoo Finance':p==='finnhub'?'Finnhub':p==='av'?'Alpha Vantage':p;
+}
+
+// Keep avFetchQuote for news tab
 async function avFetchQuote(symbol, apiKey) {
-  try {
-    const r = await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`);
-    const d = await r.json();
-    const q = d['Global Quote'];
-    if (!q || !q['05. price']) return null;
-    return {
-      price: parseFloat(q['05. price']),
-      chg:   parseFloat(q['09. change']),
-      pct:   parseFloat(q['10. change percent']),
-      vol:   q['06. volume'],
-      h:     parseFloat(q['03. high']),
-      l:     parseFloat(q['04. low']),
-    };
-  } catch { return null; }
+  try { return await _fetchAV(symbol, apiKey); } catch { return null; }
 }
 
 // ═══════════════════════════════════════════════════════════════
 // UI PRIMITIVES
 // ═══════════════════════════════════════════════════════════════
 const Panel = ({ children, style }) => (
-  <div style={{ background:C.panel, border:`1px solid ${C.border}`, borderRadius:3, padding:14, ...style }}>
+  <div style={{ background:C.panel, border:`1px solid ${C.border}`, borderRadius:8,
+    padding:16, boxShadow:`0 2px 8px rgba(0,0,0,0.35)`, ...style }}>
     {children}
   </div>
 );
 const PanelTitle = ({ children }) => (
-  <div style={{ color:C.blue, fontWeight:'bold', fontSize:11, letterSpacing:2, marginBottom:12 }}>▸ {children}</div>
+  <div style={{ color:C.blue, fontWeight:700, fontSize:13, letterSpacing:1,
+    marginBottom:14, paddingBottom:10, borderBottom:`1px solid ${C.border}`,
+    display:'flex', alignItems:'center', gap:8 }}>
+    <span style={{ color:C.blue, fontSize:16 }}>▸</span> {children}
+  </div>
 );
 const Tag = ({ children, color=C.blue }) => (
-  <span style={{ background:color+'22', color, border:`1px solid ${color}55`, borderRadius:2,
-    padding:'2px 7px', fontSize:10, fontWeight:'bold', letterSpacing:1, whiteSpace:'nowrap' }}>
+  <span style={{ background:color+'28', color, border:`1px solid ${color}66`, borderRadius:5,
+    padding:'3px 9px', fontSize:13, fontWeight:600, letterSpacing:0.3, whiteSpace:'nowrap' }}>
     {children}
   </span>
 );
@@ -320,11 +433,13 @@ const Btn = ({ children, onClick, color=C.blue, small, disabled }) => {
   return (
     <button onClick={onClick} disabled={disabled}
       onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)}
-      style={{ background: hov ? color+'35' : color+'18', color: disabled ? C.muted : color,
-        border:`1px solid ${disabled?C.muted:color}55`, borderRadius:3,
-        padding: small ? '3px 9px' : '6px 14px', cursor: disabled ? 'not-allowed' : 'pointer',
-        fontSize: small ? 10 : 11, fontFamily:'"Courier New",monospace', fontWeight:'bold',
-        letterSpacing:1, transition:'background 0.15s', whiteSpace:'nowrap' }}>
+      style={{ background: disabled ? C.dimmed : hov ? color+'50' : color+'30',
+        color: disabled ? C.muted : color,
+        border:`1.5px solid ${disabled?C.dimmed:color}`,
+        borderRadius:6, padding: small ? '4px 11px' : '7px 16px',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        fontSize: small ? 11 : 12, fontFamily:"inherit", fontWeight:600,
+        letterSpacing:0.3, transition:'all 0.15s', whiteSpace:'nowrap' }}>
       {children}
     </button>
   );
@@ -332,24 +447,66 @@ const Btn = ({ children, onClick, color=C.blue, small, disabled }) => {
 const Inp = ({ value, onChange, placeholder, style, onKeyDown, type='text' }) => (
   <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
     type={type} onKeyDown={onKeyDown}
-    style={{ background:C.bg, border:`1px solid ${C.border2}`, color:C.text,
-      padding:'6px 10px', borderRadius:3, fontFamily:'"Courier New",monospace',
-      fontSize:12, outline:'none', ...style }} />
+    style={{ background:C.bg, border:`1.5px solid ${C.border2}`, color:C.text,
+      padding:'7px 12px', borderRadius:6, fontFamily:'inherit',
+      fontSize:13, outline:'none', transition:'border-color 0.15s',
+      '::placeholder':{ color:C.dimmed }, ...style }} />
 );
 const Sel = ({ value, onChange, options, style }) => (
   <select value={value} onChange={e=>onChange(e.target.value)}
-    style={{ background:C.bg, border:`1px solid ${C.border2}`, color:C.text,
-      padding:'6px 10px', borderRadius:3, fontFamily:'"Courier New",monospace',
-      fontSize:11, cursor:'pointer', outline:'none', ...style }}>
+    style={{ background:C.panel, border:`1.5px solid ${C.border2}`, color:C.text,
+      padding:'7px 12px', borderRadius:6, fontFamily:'inherit',
+      fontSize:13, cursor:'pointer', outline:'none', ...style }}>
     {options.map(o => <option key={o.value??o} value={o.value??o}>{o.label??o}</option>)}
   </select>
 );
 const Spinner = ({ text='Loading…' }) => (
-  <div style={{ color:C.blue, textAlign:'center', padding:40 }}>
-    <div style={{ fontSize:22, animation:'spin 1s linear infinite', display:'inline-block' }}>⟳</div>
-    <div style={{ marginTop:8 }}>{text}</div>
+  <div style={{ color:C.blue, textAlign:'center', padding:48 }}>
+    <div style={{ fontSize:28, animation:'spin 1s linear infinite', display:'inline-block', marginBottom:12 }}>⟳</div>
+    <div style={{ fontSize:14, color:C.muted }}>{text}</div>
   </div>
 );
+
+// Shows which provider succeeded + any fallback warnings
+const DataSourceBadge = ({ source, warnings=[] }) => {
+  const [open, setOpen] = useState(false);
+  if (!source && warnings.length === 0) return null;
+  const hasFallback = warnings.length > 0;
+  return (
+    <div style={{ display:'inline-flex', alignItems:'center', gap:6 }}>
+      {source && (
+        <span onClick={()=>hasFallback&&setOpen(o=>!o)}
+          style={{ display:'inline-flex', alignItems:'center', gap:5,
+            background: hasFallback ? C.amber+'20' : C.green+'20',
+            border:`1px solid ${hasFallback?C.amber:C.green}44`,
+            borderRadius:6, padding:'3px 9px', fontSize:11, fontWeight:600,
+            cursor: hasFallback ? 'pointer' : 'default',
+            color: hasFallback ? C.amber : C.green }}>
+          {hasFallback ? '⚠' : '✓'} {source}
+          {hasFallback && <span style={{ fontSize:10 }}>▾</span>}
+        </span>
+      )}
+      {!source && warnings.length > 0 && (
+        <span style={{ color:C.red, fontSize:11, fontWeight:600 }}>✕ All providers failed</span>
+      )}
+      {open && hasFallback && (
+        <div style={{ position:'absolute', top:'100%', left:0, zIndex:50, marginTop:4,
+          background:C.panel, border:`1px solid ${C.border}`, borderRadius:8,
+          padding:12, minWidth:280, boxShadow:'0 4px 16px rgba(0,0,0,0.4)' }}>
+          <div style={{ color:C.muted, fontSize:11, marginBottom:8, fontWeight:600 }}>FALLBACK CHAIN</div>
+          {warnings.map((w,i)=>(
+            <div key={i} style={{ display:'flex', gap:8, marginBottom:6, fontSize:12 }}>
+              <span style={{ color:C.red, fontWeight:600, flexShrink:0 }}>✕ {w.provider}</span>
+              <span style={{ color:C.muted }}>{w.reason}</span>
+            </div>
+          ))}
+          <div style={{ borderTop:`1px solid ${C.border}`, marginTop:8, paddingTop:8,
+            color:C.green, fontSize:12 }}>✓ Using {source} as fallback</div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ═══════════════════════════════════════════════════════════════
 // AI RESULT CARD
@@ -368,39 +525,39 @@ const AIResultCard = ({ result, symbol }) => {
         <Tag color={C.blue}>R/R {result.risk_reward}</Tag>
         <Tag color={C.purple}>⏱ {result.timeframe}</Tag>
         {result._provider && <Tag color={C.muted}>{result._provider}</Tag>}
-        {result._date && <span style={{ color:C.dimmed, fontSize:9 }}>{new Date(result._date).toLocaleString()}</span>}
+        {result._date && <span style={{ color:C.dimmed, fontSize:13 }}>{new Date(result._date).toLocaleString()}</span>}
       </div>
       <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:12 }}>
         {[['ENTRY', result.entry_price, C.blue, result.entry_note],
           ['TARGET', result.target_price, C.green, null],
           ['STOP LOSS', result.stop_loss, C.red, null]
         ].map(([label, val, color, note]) => (
-          <div key={label} style={{ background:color+'12', border:`1px solid ${color}44`, borderRadius:3, padding:10, textAlign:'center' }}>
-            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:4 }}>{label}</div>
-            <div style={{ color, fontWeight:'bold', fontSize:18 }}>{fmtP(val)}</div>
-            {note && <div style={{ color:C.muted, fontSize:9, marginTop:3 }}>{note}</div>}
+          <div key={label} style={{ background:color+'12', border:`1px solid ${color}44`, borderRadius:3, padding:14, textAlign:'center' }}>
+            <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:4 }}>{label}</div>
+            <div style={{ color, fontWeight:700, fontSize:22 }}>{fmtP(val)}</div>
+            {note && <div style={{ color:C.muted, fontSize:13, marginTop:3 }}>{note}</div>}
           </div>
         ))}
       </div>
       <div style={{ color:C.text, lineHeight:1.7, marginBottom:8 }}>{result.thesis}</div>
-      {result.technicals && <div style={{ color:C.amber, fontSize:11, marginBottom:8 }}>📐 {result.technicals}</div>}
+      {result.technicals && <div style={{ color:C.amber, fontSize:13, marginBottom:8 }}>📐 {result.technicals}</div>}
       {result.options_play && result.options_play !== 'null' && (
         <div style={{ background:C.blue+'12', border:`1px solid ${C.blue}33`, borderRadius:3, padding:'8px 12px', marginBottom:8 }}>
-          <span style={{ color:C.blue, fontWeight:'bold', fontSize:10, letterSpacing:1 }}>OPTIONS PLAY  </span>
-          <span style={{ color:C.text, fontSize:11 }}>{result.options_play}</span>
+          <span style={{ color:C.blue, fontWeight:'bold', fontSize:13, letterSpacing:1 }}>OPTIONS PLAY  </span>
+          <span style={{ color:C.text, fontSize:13 }}>{result.options_play}</span>
         </div>
       )}
       <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
         {result.catalysts?.length > 0 && (
           <div>
-            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:5 }}>CATALYSTS</div>
-            {result.catalysts.map((c,i) => <div key={i} style={{ color:C.green, fontSize:11, marginBottom:2 }}>▸ {c}</div>)}
+            <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:5 }}>CATALYSTS</div>
+            {result.catalysts.map((c,i) => <div key={i} style={{ color:C.green, fontSize:13, marginBottom:2 }}>▸ {c}</div>)}
           </div>
         )}
         {result.key_risks?.length > 0 && (
           <div>
-            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:5 }}>KEY RISKS</div>
-            {result.key_risks.map((r,i) => <div key={i} style={{ color:C.red, fontSize:11, marginBottom:2 }}>⚠ {r}</div>)}
+            <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:5 }}>KEY RISKS</div>
+            {result.key_risks.map((r,i) => <div key={i} style={{ color:C.red, fontSize:13, marginBottom:2 }}>⚠ {r}</div>)}
           </div>
         )}
       </div>
@@ -423,17 +580,21 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
 
   const TFS = ['day trade (today)','swing (1–2 weeks)','swing (2–4 weeks)','medium term (1–3 months)','long term (6+ months)'];
 
+  const [fetchStatus, setFetchStatus] = useState(null); // { source, warnings }
+
   const refresh = async () => {
     if (settings.demoMode) { setQuotes(MOCK_QUOTES); return; }
-    if (!settings.avKey) { alert('Add Alpha Vantage key in Settings for live prices'); return; }
-    setBusy(true);
+    setBusy(true); setFetchStatus(null);
     const updated = {};
+    let lastStatus = null;
     for (const sym of watchlist) {
-      const q = await avFetchQuote(sym, settings.avKey);
-      if (q) updated[sym] = q;
-      await sleep(1300);
+      const res = await fetchQuote(sym, settings);
+      if (res.quote) updated[sym] = res.quote;
+      lastStatus = { source: res.source, warnings: res.warnings };
+      await sleep(300);
     }
     setQuotes(prev => ({ ...prev, ...updated }));
+    setFetchStatus(lastStatus);
     setBusy(false);
   };
 
@@ -475,7 +636,7 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
           {settings.demoMode && <Tag color={C.amber}>DEMO — SIMULATED PRICES</Tag>}
         </div>
         <div style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
-          gap:8, padding:'6px 10px', color:C.muted, fontSize:10, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
+          gap:8, padding:'6px 10px', color:C.muted, fontSize:13, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
           {['SYMBOL','PRICE','CHANGE','CHG%','HIGH','LOW',''].map(h=><span key={h}>{h}</span>)}
         </div>
         {watchlist.map(sym => {
@@ -483,13 +644,13 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
           return (
             <div key={sym} style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
               alignItems:'center', gap:8, padding:'8px 10px', borderBottom:`1px solid ${C.border}22`,
-              borderLeft:`3px solid ${nd?C.muted:up?C.green:C.red}`, background:C.bg }}>
+              borderLeft:`4px solid ${nd?C.muted:up?C.green:C.red}`, background:C.bg, borderRadius:'0 6px 6px 0' }}>
               <span style={{ color:C.text, fontWeight:'bold' }}>{sym}</span>
               <span style={{ color:C.text }}>{nd?'—':fmtP(q.price)}</span>
               <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':`${up?'+':''}${fmtNum(q.chg)}`}</span>
               <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':fmtPct(q.pct)}</span>
-              <span style={{ color:C.muted, fontSize:11 }}>{q?.h?fmtP(q.h):'—'}</span>
-              <span style={{ color:C.muted, fontSize:11 }}>{q?.l?fmtP(q.l):'—'}</span>
+              <span style={{ color:C.muted, fontSize:13 }}>{q?.h?fmtP(q.h):'—'}</span>
+              <span style={{ color:C.muted, fontSize:13 }}>{q?.l?fmtP(q.l):'—'}</span>
               <div style={{ display:'flex', gap:5, justifyContent:'flex-end' }}>
                 <Btn small color={C.blue} onClick={()=>analyze(sym)}>AI ▶</Btn>
                 <Btn small color={C.red} onClick={()=>remove(sym)}>✕</Btn>
@@ -502,15 +663,15 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
 
       <Panel>
         <PanelTitle>AI QUICK ANALYSIS</PanelTitle>
-        <div style={{ color:C.muted, fontSize:11, marginBottom:8 }}>
+        <div style={{ color:C.muted, fontSize:13, marginBottom:8 }}>
           Click <span style={{ color:C.blue }}>AI ▶</span> on any row. Provider: <span style={{ color:C.green }}>{PROVIDERS[settings.provider]?.name||settings.provider}</span>
         </div>
         <Sel value={aiTf} onChange={setAiTf} options={TFS.map(t=>({value:t,label:t}))} style={{ width:'100%', marginBottom:10 }} />
         {aiLoading && <Spinner text={`Analyzing ${aiSymbol}…`} />}
-        {aiErr && <div style={{ color:C.red, fontSize:11 }}>⚠ {aiErr}</div>}
+        {aiErr && <div style={{ color:C.red, fontSize:13 }}>⚠ {aiErr}</div>}
         {!aiLoading && !aiErr && aiResult && <AIResultCard result={aiResult} symbol={aiSymbol} />}
         {!aiLoading && !aiResult && !aiErr && (
-          <div style={{ color:C.dimmed, fontSize:11, textAlign:'center', paddingTop:20 }}>
+          <div style={{ color:C.dimmed, fontSize:13, textAlign:'center', paddingTop:20 }}>
             Select a stock and click AI ▶ to get entry/exit signals
           </div>
         )}
@@ -546,7 +707,7 @@ const AIAnalystTab = ({ data, update, quotes }) => {
     if (!s) return;
     setLoading(true); setResult(null); setErr(''); setSaved(false);
     try {
-      const q = quotes[s] || MOCK_QUOTES[s];
+      let q = quotes[s] || MOCK_QUOTES[s]; if (!q && !settings?.demoMode) { const res = await fetchQuote(s, settings); q = res?.quote; }
       const r = await analyzeStock({ symbol:s, quote:q, timeframe:tf, context:ctx, settings });
       setResult({ ...r, _sym:s });
       const hist = [{ sym:s, tf, action:r.action, confidence:r.confidence,
@@ -571,7 +732,7 @@ const AIAnalystTab = ({ data, update, quotes }) => {
       <div>
         <Panel style={{ marginBottom:12 }}>
           <PanelTitle>AI ANALYST — ENTRY & EXIT SIGNALS</PanelTitle>
-          <div style={{ color:C.muted, fontSize:10, marginBottom:8 }}>
+          <div style={{ color:C.muted, fontSize:13, marginBottom:8 }}>
             Provider: <span style={{ color:PROVIDERS[settings.provider]?.color||C.blue }}>{PROVIDERS[settings.provider]?.name||settings.provider}</span>
             &nbsp;·&nbsp;<span style={{ color:PROVIDERS[settings.provider]?.free?C.green:C.amber }}>{PROVIDERS[settings.provider]?.badge}</span>
           </div>
@@ -584,14 +745,14 @@ const AIAnalystTab = ({ data, update, quotes }) => {
             placeholder="Optional context: 'earnings next week', 'I own 50 shares at $190', 'bearish on tech', etc."
             style={{ width:'100%', background:C.bg, border:`1px solid ${C.border2}`, color:C.text,
               padding:'8px 10px', borderRadius:3, fontFamily:'"Courier New",monospace',
-              fontSize:11, resize:'vertical', minHeight:50, outline:'none' }} />
+              fontSize:13, resize:'vertical', minHeight:50, outline:'none' }} />
         </Panel>
         {loading && <Panel><Spinner text={`${PROVIDERS[settings.provider]?.name||'AI'} analyzing ${sym.toUpperCase()||'…'}`} /></Panel>}
         {err && <Panel><div style={{ color:C.red }}>⚠ {err}</div></Panel>}
         {!loading && result && (
           <Panel>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
-              <div style={{ color:C.muted, fontSize:10 }}>Generated: {result._date ? new Date(result._date).toLocaleString() : '—'}</div>
+              <div style={{ color:C.muted, fontSize:13 }}>Generated: {result._date ? new Date(result._date).toLocaleString() : '—'}</div>
               <div style={{ display:'flex', gap:8 }}>
                 {saved && <Tag color={C.green}>✓ SAVED</Tag>}
                 <Btn small color={C.amber} onClick={saveReport} disabled={saving}>
@@ -606,9 +767,9 @@ const AIAnalystTab = ({ data, update, quotes }) => {
       <div>
         <Panel>
           <PanelTitle>ANALYSIS HISTORY</PanelTitle>
-          <div style={{ color:C.dimmed, fontSize:9, marginBottom:10 }}>Last 50 • auto-saved</div>
+          <div style={{ color:C.dimmed, fontSize:13, marginBottom:10 }}>Last 50 • auto-saved</div>
           {analysisHistory.length===0
-            ? <div style={{ color:C.muted, fontSize:11 }}>No analyses yet.</div>
+            ? <div style={{ color:C.muted, fontSize:13 }}>No analyses yet.</div>
             : analysisHistory.map((h,i) => {
               const ac = h.action==='BUY'?C.green:h.action==='SELL'?C.red:C.amber;
               return (
@@ -617,10 +778,10 @@ const AIAnalystTab = ({ data, update, quotes }) => {
                     <span style={{ color:C.text, fontWeight:'bold' }}>{h.sym}</span>
                     <Tag color={ac}>{h.action}</Tag>
                   </div>
-                  <div style={{ color:C.muted, fontSize:10, display:'flex', gap:8, flexWrap:'wrap' }}>
+                  <div style={{ color:C.muted, fontSize:13, display:'flex', gap:8, flexWrap:'wrap' }}>
                     <span>In {fmtP(h.entry)}</span><span>→ {fmtP(h.target)}</span><span>Stop {fmtP(h.stop)}</span>
                   </div>
-                  {h.date && <div style={{ color:C.dimmed, fontSize:9, marginTop:2 }}>{new Date(h.date).toLocaleString()}</div>}
+                  {h.date && <div style={{ color:C.dimmed, fontSize:13, marginTop:2 }}>{new Date(h.date).toLocaleString()}</div>}
                 </div>
               );
             })
@@ -695,7 +856,7 @@ const PortfolioTab = ({ data, update, quotes }) => {
           ['RETURN',fmtPct(totalPct),pColor(totalPct)],
         ].map(([label,val,color])=>(
           <Panel key={label} style={{ textAlign:'center' }}>
-            <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:6 }}>{label}</div>
+            <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:6 }}>{label}</div>
             <div style={{ color, fontSize:20, fontWeight:'bold' }}>{val}</div>
           </Panel>
         ))}
@@ -713,16 +874,16 @@ const PortfolioTab = ({ data, update, quotes }) => {
           <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-end' }}>
             {[['SYMBOL','symbol','AAPL',90,null],['SHARES','shares','100',90,'number'],['AVG COST ($)','cost','185.00',100,'number']].map(([lbl,fld,ph,w,t])=>(
               <div key={fld}>
-                <div style={{ color:C.muted, fontSize:10, marginBottom:4 }}>{lbl}</div>
+                <div style={{ color:C.muted, fontSize:13, marginBottom:4 }}>{lbl}</div>
                 <Inp value={form[fld]} onChange={v=>setForm(f=>({...f,[fld]:v}))} placeholder={ph} style={{ width:w }} type={t||'text'} />
               </div>
             ))}
             <div>
-              <div style={{ color:C.muted, fontSize:10, marginBottom:4 }}>TYPE</div>
+              <div style={{ color:C.muted, fontSize:13, marginBottom:4 }}>TYPE</div>
               <Sel value={form.type} onChange={v=>setForm(f=>({...f,type:v}))} options={['stock','etf','option']} style={{ width:90 }} />
             </div>
             <div>
-              <div style={{ color:C.muted, fontSize:10, marginBottom:4 }}>NOTES</div>
+              <div style={{ color:C.muted, fontSize:13, marginBottom:4 }}>NOTES</div>
               <Inp value={form.notes} onChange={v=>setForm(f=>({...f,notes:v}))} placeholder="Optional" style={{ width:180 }} />
             </div>
             <Btn onClick={add} color={C.green}>ADD</Btn>
@@ -734,7 +895,7 @@ const PortfolioTab = ({ data, update, quotes }) => {
           ? <div style={{ color:C.muted, textAlign:'center', padding:40 }}>No positions yet.</div>
           : <>
             <div style={{ display:'grid', gridTemplateColumns:'80px 55px 70px 75px 80px 90px 90px 75px 1fr',
-              gap:8, padding:'6px 10px', color:C.muted, fontSize:9, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
+              gap:8, padding:'6px 10px', color:C.muted, fontSize:13, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
               {['SYMBOL','TYPE','SHARES','AVG COST','CUR PRICE','MKT VALUE','P&L','RETURN',''].map(h=><span key={h}>{h}</span>)}
             </div>
             {portfolio.map(p => {
@@ -831,7 +992,7 @@ const OptionsTab = ({ data, quotes }) => {
       {!aiLoading && aiResult && <Panel style={{ marginBottom:14 }}><PanelTitle>AI OPTIONS RECOMMENDATION — {symbol}</PanelTitle><AIResultCard result={aiResult} symbol={symbol} /></Panel>}
       <Panel style={{ overflowX:'auto' }}>
         <PanelTitle>{symbol} · {selExp} · {optType.toUpperCase()}S</PanelTitle>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
             {['ITM','STRIKE','LAST $','IV %','DELTA','GAMMA','THETA','VOLUME','OPEN INT'].map(h=>(
               <th key={h} style={{ textAlign:'left', padding:'6px 10px', fontWeight:'normal', letterSpacing:1 }}>{h}</th>
@@ -840,7 +1001,7 @@ const OptionsTab = ({ data, quotes }) => {
           <tbody>{strikes.map(strike=>{
             const o=mockOpt(strike);
             return (<tr key={strike} style={{ borderBottom:`1px solid ${C.border}18`, background:o.itm?ac+'0a':'transparent' }}>
-              <td style={{ padding:'7px 10px' }}>{o.itm?<Tag color={ac}>ITM</Tag>:<span style={{ color:C.muted,fontSize:10 }}>OTM</span>}</td>
+              <td style={{ padding:'7px 10px' }}>{o.itm?<Tag color={ac}>ITM</Tag>:<span style={{ color:C.muted,fontSize:13 }}>OTM</span>}</td>
               <td style={{ padding:'7px 10px', color:C.text, fontWeight:'bold' }}>${strike.toFixed(2)}</td>
               <td style={{ padding:'7px 10px', color:C.text }}>${o.premium}</td>
               <td style={{ padding:'7px 10px', color:C.amber }}>{o.iv}%</td>
@@ -915,9 +1076,9 @@ const NewsTab = ({ data, quotes }) => {
               <div style={{ flex:1 }}>
                 <div style={{ color:C.text, marginBottom:5, lineHeight:1.5 }}>{item.title}</div>
                 <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                  <span style={{ color:C.muted, fontSize:10 }}>{item.source}</span>
+                  <span style={{ color:C.muted, fontSize:13 }}>{item.source}</span>
                   <span style={{ color:C.dimmed }}>·</span>
-                  <span style={{ color:C.muted, fontSize:10 }}>{item.time}</span>
+                  <span style={{ color:C.muted, fontSize:13 }}>{item.time}</span>
                   {item.ticker && <Tag color={C.blue}>{item.ticker}</Tag>}
                 </div>
               </div>
@@ -985,7 +1146,7 @@ Return ONLY valid JSON:
       {aiPicks && (
         <Panel style={{ marginBottom:14 }}>
           <PanelTitle>AI TOP PICKS — {new Date().toLocaleDateString()}</PanelTitle>
-          {aiPicks.market_outlook && <div style={{ color:C.amber, fontSize:11, marginBottom:12 }}>📊 {aiPicks.market_outlook}</div>}
+          {aiPicks.market_outlook && <div style={{ color:C.amber, fontSize:13, marginBottom:12 }}>📊 {aiPicks.market_outlook}</div>}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:10 }}>
             {aiPicks.picks?.map((p,i)=>(
               <div key={i} style={{ background:C.bg, border:`1px solid ${C.border2}`, borderRadius:3, padding:12 }}>
@@ -993,16 +1154,16 @@ Return ONLY valid JSON:
                   <span style={{ color:C.text, fontWeight:'bold', fontSize:14 }}>{p.symbol}</span>
                   <Tag color={C.green}>{p.type}</Tag>
                 </div>
-                <div style={{ color:C.muted, fontSize:10, marginBottom:8 }}>{p.name}</div>
+                <div style={{ color:C.muted, fontSize:13, marginBottom:8 }}>{p.name}</div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:5, marginBottom:8 }}>
                   {[['ENTRY',p.entry,C.blue],['TARGET',p.target,C.green],['STOP',p.stop,C.red]].map(([l,v,c])=>(
                     <div key={l} style={{ textAlign:'center', background:c+'15', borderRadius:2, padding:'4px 6px' }}>
-                      <div style={{ color:C.muted, fontSize:9 }}>{l}</div>
+                      <div style={{ color:C.muted, fontSize:13 }}>{l}</div>
                       <div style={{ color:c, fontWeight:'bold' }}>{fmtP(v)}</div>
                     </div>
                   ))}
                 </div>
-                <div style={{ color:C.text, fontSize:11, lineHeight:1.5, marginBottom:8 }}>{p.thesis}</div>
+                <div style={{ color:C.text, fontSize:13, lineHeight:1.5, marginBottom:8 }}>{p.thesis}</div>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
                   <Tag color={p.confidence>=7?C.green:C.amber}>CONF {p.confidence}/10</Tag>
                   <Btn small color={C.blue} onClick={()=>{ if(!watchlist.includes(p.symbol)) update({watchlist:[...watchlist,p.symbol]}); }}>+ WATCHLIST</Btn>
@@ -1014,7 +1175,7 @@ Return ONLY valid JSON:
       )}
       <Panel style={{ overflowX:'auto' }}>
         <PanelTitle>MARKET SCREENER — {filtered.length} RESULTS</PanelTitle>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
             {[['SYMBOL','sym'],['SECTOR','sector'],['PRICE','price'],['CHG','chg'],['CHG %','pct'],['VOLUME','vol'],['MKT CAP','mktcap'],['',null]].map(([label,col])=>(
               <th key={label} onClick={col?()=>toggleSort(col):undefined}
@@ -1082,7 +1243,7 @@ const ReportsTab = () => {
       const { summary, positions=[] } = rd;
       return (
         <div>
-          <div style={{ color:C.muted, fontSize:10, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
+          <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:14 }}>
             {[['PORTFOLIO VALUE',`$${(summary?.totalValue||0).toFixed(2)}`,C.text],
               ['TOTAL COST',`$${(summary?.totalCost||0).toFixed(2)}`,C.muted],
@@ -1090,16 +1251,16 @@ const ReportsTab = () => {
               ['RETURN',fmtPct(summary?.totalPct||0),pColor(summary?.totalPct||0)],
             ].map(([l,v,c])=>(
               <div key={l} style={{ background:c+'12', border:`1px solid ${c}33`, borderRadius:3, padding:'8px 12px' }}>
-                <div style={{ color:C.muted, fontSize:9, letterSpacing:2 }}>{l}</div>
+                <div style={{ color:C.muted, fontSize:13, letterSpacing:2 }}>{l}</div>
                 <div style={{ color:c, fontWeight:'bold', fontSize:16, marginTop:3 }}>{v}</div>
               </div>
             ))}
           </div>
-          <div style={{ color:C.muted, fontSize:9, letterSpacing:2, marginBottom:8 }}>POSITIONS AT SNAPSHOT</div>
+          <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:8 }}>POSITIONS AT SNAPSHOT</div>
           {positions.map((p,i)=>(
             <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:`1px solid ${C.border}22`, flexWrap:'wrap', gap:8 }}>
               <span style={{ color:C.text, fontWeight:'bold', width:60 }}>{p.symbol}</span>
-              <span style={{ color:C.muted, fontSize:11 }}>{p.shares} @ {fmtP(p.cost)}</span>
+              <span style={{ color:C.muted, fontSize:13 }}>{p.shares} @ {fmtP(p.cost)}</span>
               <span style={{ color:C.text }}>{fmtP(p.currentPrice)}</span>
               <span style={{ color:pColor(p.pnl) }}>{p.pnl>=0?'+':''}${Math.abs(p.pnl||0).toFixed(2)} ({fmtPct(p.pnlPct)})</span>
             </div>
@@ -1110,13 +1271,13 @@ const ReportsTab = () => {
     if (type==='AI Analysis' && rd) {
       return (
         <div>
-          <div style={{ color:C.muted, fontSize:10, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
-          <div style={{ color:C.muted, fontSize:10, marginBottom:12 }}>Timeframe: {rd.timeframe} {rd.context ? `· Context: ${rd.context}` : ''}</div>
+          <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
+          <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>Timeframe: {rd.timeframe} {rd.context ? `· Context: ${rd.context}` : ''}</div>
           <AIResultCard result={rd.result} symbol={rd.symbol} />
         </div>
       );
     }
-    return <pre style={{ color:C.text, fontSize:10, whiteSpace:'pre-wrap' }}>{JSON.stringify(rd,null,2)}</pre>;
+    return <pre style={{ color:C.text, fontSize:13, whiteSpace:'pre-wrap' }}>{JSON.stringify(rd,null,2)}</pre>;
   };
 
   return (
@@ -1127,10 +1288,10 @@ const ReportsTab = () => {
           <div style={{ marginBottom:10 }}>
             <Btn onClick={refresh} color={C.amber} small>{loading?'⟳ LOADING…':'⟳ REFRESH'}</Btn>
           </div>
-          <div style={{ color:C.dimmed, fontSize:9, marginBottom:10 }}>All reports saved with full date/time. Stored on NAS — never lost.</div>
+          <div style={{ color:C.dimmed, fontSize:13, marginBottom:10 }}>All reports saved with full date/time. Stored on NAS — never lost.</div>
           {loading && <Spinner text="Loading reports…" />}
           {!loading && reports.length===0 && (
-            <div style={{ color:C.muted, fontSize:11 }}>No reports yet. Save an AI analysis or portfolio snapshot.</div>
+            <div style={{ color:C.muted, fontSize:13 }}>No reports yet. Save an AI analysis or portfolio snapshot.</div>
           )}
           {reports.map(r=>(
             <div key={r.filename} onClick={()=>viewReport(r.filename)}
@@ -1142,8 +1303,8 @@ const ReportsTab = () => {
                 {r.ticker && <Tag color={C.blue}>{r.ticker}</Tag>}
                 <Btn small color={C.red} onClick={e=>{e.stopPropagation();del(r.filename);}}>✕</Btn>
               </div>
-              <div style={{ color:C.text, fontSize:11, marginBottom:3 }}>{r.title}</div>
-              <div style={{ color:C.dimmed, fontSize:9 }}>{r.date ? new Date(r.date).toLocaleString() : '—'}</div>
+              <div style={{ color:C.text, fontSize:13, marginBottom:3 }}>{r.title}</div>
+              <div style={{ color:C.dimmed, fontSize:13 }}>{r.date ? new Date(r.date).toLocaleString() : '—'}</div>
             </div>
           ))}
         </Panel>
@@ -1159,9 +1320,9 @@ const ReportsTab = () => {
                   <div style={{ color:C.text, fontWeight:'bold', fontSize:14, marginBottom:4 }}>{detail.title}</div>
                   <Tag color={typeColor(detail.type)}>{detail.type}</Tag>
                 </div>
-                <div style={{ color:C.muted, fontSize:10, textAlign:'right' }}>
+                <div style={{ color:C.muted, fontSize:13, textAlign:'right' }}>
                   <div>{detail.dateDisplay || (detail.date ? new Date(detail.date).toLocaleString() : '—')}</div>
-                  <div style={{ color:C.dimmed, fontSize:9, marginTop:3 }}>{detail.filename}</div>
+                  <div style={{ color:C.dimmed, fontSize:13, marginTop:3 }}>{detail.filename}</div>
                 </div>
               </div>
             </div>
@@ -1208,26 +1369,26 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
 
   const InfoBox = ({ title, children, color=C.blue }) => (
     <div style={{ background:color+'10', border:`1px solid ${color}33`, borderRadius:3, padding:12, marginBottom:10 }}>
-      <div style={{ color, fontWeight:'bold', fontSize:10, letterSpacing:2, marginBottom:6 }}>ℹ {title}</div>
+      <div style={{ color, fontWeight:'bold', fontSize:13, letterSpacing:2, marginBottom:6 }}>ℹ {title}</div>
       {children}
     </div>
   );
 
   return (
     <div style={{ maxWidth:820, margin:'0 auto' }}>
-      {saveMsg && <div style={{ background:C.green+'18', border:`1px solid ${C.green}44`, borderRadius:3, padding:'8px 14px', marginBottom:14, color:C.green, fontSize:11 }}>{saveMsg}</div>}
+      {saveMsg && <div style={{ background:C.green+'18', border:`1px solid ${C.green}44`, borderRadius:3, padding:'8px 14px', marginBottom:14, color:C.green, fontSize:13 }}>{saveMsg}</div>}
 
       {/* AI PROVIDER */}
       <Panel style={{ marginBottom:14 }}>
         <PanelTitle>AI PROVIDER — ANALYSIS ENGINE</PanelTitle>
         <InfoBox title="COST GUIDE" color={C.amber}>
-          <div style={{ color:C.text, fontSize:11, lineHeight:1.8 }}>
+          <div style={{ color:C.text, fontSize:13, lineHeight:1.8 }}>
             Each "AI ▶" click = one API request. At ~10 analyses/day:<br/>
             <span style={{ color:C.green }}>Gemini Flash free tier</span> = $0/month (1,500/day free) ·
             DeepSeek = ~$0.002/day · OpenAI = ~$0.003/day · Claude Haiku = ~$0.005/day · Claude Sonnet = ~$0.024/day
           </div>
         </InfoBox>
-        <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>SELECT DEFAULT PROVIDER</div>
+        <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:10 }}>SELECT DEFAULT PROVIDER</div>
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:8, marginBottom:14 }}>
           {Object.entries(PROVIDERS).map(([id,p])=>(
             <div key={id} onClick={()=>setLocal(l=>({...l,provider:id}))}
@@ -1235,21 +1396,21 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
                 background:local.provider===id?p.color+'18':C.bg,
                 border:`2px solid ${local.provider===id?p.color:C.border}` }}>
               <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-                <span style={{ color:p.color, fontWeight:'bold', fontSize:11 }}>{p.name}</span>
+                <span style={{ color:p.color, fontWeight:'bold', fontSize:13 }}>{p.name}</span>
                 <Tag color={p.color}>{p.badge}</Tag>
               </div>
-              <div style={{ color:C.muted, fontSize:10 }}>{p.note}</div>
+              <div style={{ color:C.muted, fontSize:13 }}>{p.note}</div>
             </div>
           ))}
         </div>
 
         {/* API Key inputs for each provider */}
-        <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>API KEYS</div>
+        <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:10 }}>API KEYS</div>
         {Object.entries(PROVIDERS).map(([id,p])=>(
           <div key={id} style={{ marginBottom:12 }}>
             <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4 }}>
-              <span style={{ color:p.color, fontSize:11, fontWeight:'bold' }}>{p.name}</span>
-              <a href={p.docsUrl} target="_blank" rel="noreferrer" style={{ color:C.blue, fontSize:10 }}>↗ Get key</a>
+              <span style={{ color:p.color, fontSize:13, fontWeight:'bold' }}>{p.name}</span>
+              <a href={p.docsUrl} target="_blank" rel="noreferrer" style={{ color:C.blue, fontSize:13 }}>↗ Get key</a>
             </div>
             <div style={{ display:'flex', gap:8 }}>
               <Inp
@@ -1264,50 +1425,144 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
         ))}
       </Panel>
 
-      {/* ALPHA VANTAGE */}
+      {/* MARKET DATA */}
       <Panel style={{ marginBottom:14 }}>
-        <PanelTitle>ALPHA VANTAGE — LIVE PRICE DATA (FREE)</PanelTitle>
-        <InfoBox title="WHAT IT PROVIDES">
-          <div style={{ color:C.text, fontSize:11, lineHeight:1.8 }}>Real-time & delayed stock/ETF quotes · Historical data · Technical indicators (RSI, MACD) · News sentiment · 25 calls/day free · <a href="https://www.alphavantage.co/support/#api-key" target="_blank">alphavantage.co/support/#api-key</a></div>
-        </InfoBox>
-        <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:6, flexWrap:'wrap' }}>
-          <Inp
-            value={showKeys.av ? (local.avKey||'') : (local.avKey||'').replace(/./g,'•')}
-            onChange={v=>setLocal(l=>({...l,avKey:v}))}
-            placeholder="Alpha Vantage API key…"
-            style={{ flex:1, minWidth:200 }}
-          />
-          <Btn small color={C.muted} onClick={()=>setShowKeys(s=>({...s,av:!s.av}))}>{showKeys.av?'HIDE':'SHOW'}</Btn>
-          <Btn onClick={testAV} color={C.amber} disabled={testing==='av'}>{testing==='av'?'⟳ TESTING…':'⚡ TEST'}</Btn>
-        </div>
-        {testResult.av && <div style={{ color:testResult.av.startsWith('✓')?C.green:C.red, fontSize:11 }}>{testResult.av}</div>}
-      </Panel>
+        <PanelTitle>MARKET DATA — LIVE PRICES</PanelTitle>
 
-      {/* DATA MODE */}
-      <Panel style={{ marginBottom:14 }}>
-        <PanelTitle>DATA MODE</PanelTitle>
-        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
-          {[['demoMode',true,'🧪 DEMO MODE',C.amber,'Simulated prices. AI analysis still uses real API. No AV key needed.'],
-            ['demoMode',false,'📡 LIVE DATA',C.green,'Real prices via Alpha Vantage. Requires AV key above.']
+        <InfoBox title="HOW FALLBACK WORKS" color={C.blue}>
+          <div style={{ color:C.text, fontSize:12, lineHeight:1.8 }}>
+            When your primary provider fails, the terminal automatically tries the next one in order.
+            A badge on the watchlist shows which provider is active and why any fallbacks were triggered.
+            <br/>
+            <span style={{ color:C.green }}>Order: Yahoo Finance → Finnhub → Alpha Vantage</span>
+          </div>
+        </InfoBox>
+
+        {/* Demo/Live toggle */}
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:14 }}>
+          {[['demoMode',true,'🧪 Demo',C.amber,'Simulated prices. AI still works. No keys needed.'],
+            ['demoMode',false,'📡 Live',C.green,'Real prices from your configured providers.']
           ].map(([field,val,label,color,desc])=>(
             <div key={label} onClick={()=>setLocal(l=>({...l,[field]:val}))}
-              style={{ padding:14, borderRadius:3, cursor:'pointer',
-                background:local[field]===val?color+'18':C.bg, border:`2px solid ${local[field]===val?color:C.border}` }}>
-              <div style={{ color, fontWeight:'bold', marginBottom:4 }}>{label}</div>
-              <div style={{ color:C.muted, fontSize:11 }}>{desc}</div>
+              style={{ padding:12, borderRadius:8, cursor:'pointer',
+                background:local[field]===val?color+'22':C.bg+'88',
+                border:`2px solid ${local[field]===val?color:C.border}` }}>
+              <div style={{ color, fontWeight:700, fontSize:13, marginBottom:3 }}>{label}</div>
+              <div style={{ color:C.muted, fontSize:12 }}>{desc}</div>
             </div>
           ))}
         </div>
+
+        <div style={{ color:C.muted, fontSize:12, letterSpacing:1, marginBottom:10, fontWeight:600 }}>SELECT PRIMARY PROVIDER</div>
+
+        {Object.entries(MARKET_PROVIDERS).map(([id, mp]) => {
+          const isSelected = (local.marketProvider||'yahoo') === id;
+          return (
+            <div key={id} onClick={()=>setLocal(l=>({...l,marketProvider:id}))}
+              style={{ border:`2px solid ${isSelected?mp.color:C.border}`, borderRadius:10,
+                padding:14, marginBottom:10, cursor:'pointer',
+                background: isSelected ? mp.color+'0f' : C.bg }}>
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:6, flexWrap:'wrap', gap:6 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ fontWeight:700, color:C.text, fontSize:14 }}>{mp.name}</span>
+                  {isSelected && <span style={{ color:mp.color, fontSize:11, fontWeight:600 }}>● PRIMARY</span>}
+                </div>
+                <Tag color={mp.color}>{mp.badge}</Tag>
+              </div>
+              <div style={{ color:C.muted, fontSize:12, marginBottom: isSelected ? 12 : 0 }}>{mp.note}</div>
+
+              {/* Yahoo — just a test button */}
+              {isSelected && id==='yahoo' && (
+                <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                  <Btn small color={C.green} onClick={async e=>{ e.stopPropagation();
+                    setTesting('yahoo');
+                    try {
+                      const r = await fetch('/api/v1/trading/market/quote/SPY');
+                      const d = await r.json();
+                      setTestResult(t=>({...t, yahoo: d?.price ? `✓ SPY $${parseFloat(d.price).toFixed(2)} via proxy` : '⚠ Proxy reachable but no data'}));
+                    } catch(err) { setTestResult(t=>({...t, yahoo:'✕ Proxy unreachable — is Ghrava running?'})); }
+                    setTesting(null);
+                  }} disabled={testing==='yahoo'}>{testing==='yahoo'?'⟳ Testing…':'⚡ Test Proxy'}</Btn>
+                  {testResult.yahoo && <span style={{ color:testResult.yahoo.startsWith('✓')?C.green:C.red, fontSize:12 }}>{testResult.yahoo}</span>}
+                  <a href="https://finance.yahoo.com" target="_blank" style={{ fontSize:11, color:C.blue }}>↗ finance.yahoo.com</a>
+                </div>
+              )}
+
+              {/* Finnhub — key input + test */}
+              {isSelected && id==='finnhub' && (
+                <div>
+                  <div style={{ color:C.muted, fontSize:11, marginBottom:8, lineHeight:1.6 }}>
+                    Get a free key at <a href="https://finnhub.io/register" target="_blank" style={{ color:C.blue }}>finnhub.io/register</a> — email only, no credit card.
+                    Free tier: 60 calls/min, real-time US stocks, company news.
+                  </div>
+                  <div style={{ display:'flex', gap:8, marginBottom:6, flexWrap:'wrap' }}>
+                    <Inp value={showKeys.finnhub?(local.finnhubKey||''):(local.finnhubKey||'').replace(/./g,'•')}
+                      onChange={v=>setLocal(l=>({...l,finnhubKey:v}))}
+                      placeholder="Finnhub API key…" style={{ flex:1, minWidth:180 }} />
+                    <Btn small color={C.muted} onClick={()=>setShowKeys(s=>({...s,finnhub:!s.finnhub}))}>{showKeys.finnhub?'HIDE':'SHOW'}</Btn>
+                    <Btn small color={C.amber} onClick={async e=>{ e.stopPropagation();
+                      const k=(local.finnhubKey||'').trim();
+                      if(!k){setTestResult(t=>({...t,finnhub:'⚠ No key entered'}));return;}
+                      setTesting('finnhub');
+                      try {
+                        const r = await fetch(`https://finnhub.io/api/v1/quote?symbol=SPY&token=${k}`);
+                        const d = await r.json();
+                        if(d.error) setTestResult(t=>({...t,finnhub:`✕ ${d.error}`}));
+                        else if(d.c) setTestResult(t=>({...t,finnhub:`✓ SPY $${parseFloat(d.c).toFixed(2)} — key valid`}));
+                        else setTestResult(t=>({...t,finnhub:'⚠ Connected but no data'}));
+                      } catch(err){setTestResult(t=>({...t,finnhub:'✕ '+err.message}));}
+                      setTesting(null);
+                    }} disabled={testing==='finnhub'}>{testing==='finnhub'?'⟳':'⚡ Test'}</Btn>
+                  </div>
+                  {testResult.finnhub && <div style={{ color:testResult.finnhub.startsWith('✓')?C.green:C.red, fontSize:12 }}>{testResult.finnhub}</div>}
+                </div>
+              )}
+
+              {/* Alpha Vantage — key input + test */}
+              {isSelected && id==='av' && (
+                <div>
+                  <div style={{ color:C.muted, fontSize:11, marginBottom:8, lineHeight:1.6 }}>
+                    Free key at <a href="https://www.alphavantage.co/support/#api-key" target="_blank" style={{ color:C.blue }}>alphavantage.co</a> — no credit card.
+                    25 calls/day free. Also used for News tab sentiment regardless of primary provider.
+                  </div>
+                  <div style={{ display:'flex', gap:8, marginBottom:6, flexWrap:'wrap' }}>
+                    <Inp value={showKeys.av?(local.avKey||''):(local.avKey||'').replace(/./g,'•')}
+                      onChange={v=>setLocal(l=>({...l,avKey:v}))} placeholder="Alpha Vantage API key…" style={{ flex:1, minWidth:180 }} />
+                    <Btn small color={C.muted} onClick={()=>setShowKeys(s=>({...s,av:!s.av}))}>{showKeys.av?'HIDE':'SHOW'}</Btn>
+                    <Btn small color={C.amber} onClick={testAV} disabled={testing==='av'}>{testing==='av'?'⟳':'⚡ Test'}</Btn>
+                  </div>
+                  {testResult.av && <div style={{ color:testResult.av.startsWith('✓')?C.green:C.red, fontSize:12 }}>{testResult.av}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Alpha Vantage key always visible for news — even if not primary */}
+        {(local.marketProvider||'yahoo') !== 'av' && (
+          <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:12 }}>
+            <div style={{ color:C.muted, fontSize:12, fontWeight:600, marginBottom:6 }}>
+              📰 Alpha Vantage key — for News tab sentiment (optional, any provider)
+            </div>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              <Inp value={showKeys.av?(local.avKey||''):(local.avKey||'').replace(/./g,'•')}
+                onChange={v=>setLocal(l=>({...l,avKey:v}))} placeholder="Alpha Vantage API key (for news)…" style={{ flex:1, minWidth:180 }} />
+              <Btn small color={C.muted} onClick={()=>setShowKeys(s=>({...s,av:!s.av}))}>{showKeys.av?'HIDE':'SHOW'}</Btn>
+              <Btn small color={C.amber} onClick={testAV} disabled={testing==='av'}>{testing==='av'?'⟳':'⚡ Test'}</Btn>
+            </div>
+            {testResult.av && <div style={{ color:testResult.av.startsWith('✓')?C.green:C.red, fontSize:12, marginTop:6 }}>{testResult.av}</div>}
+          </div>
+        )}
       </Panel>
 
-      {/* APPEARANCE */}
+      {/* APPEARANCE */}      {/* APPEARANCE */}
       <Panel style={{ marginBottom:14 }}>
         <PanelTitle>APPEARANCE — FONT & COLOURS</PanelTitle>
-        <div style={{ color:C.muted, fontSize:11, marginBottom:14 }}>Changes apply instantly. Saved to NAS with all other settings.</div>
+        <div style={{ color:C.muted, fontSize:13, marginBottom:14 }}>Changes apply instantly. Saved to NAS with all other settings.</div>
 
         {/* Font size */}
         <div style={{ marginBottom:18 }}>
-          <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>FONT SIZE</div>
+          <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:10 }}>FONT SIZE</div>
           <div style={{ display:'flex', alignItems:'center', gap:16, flexWrap:'wrap' }}>
             <input type="range" min="10" max="20" step="1"
               value={local.appearance?.fontSize||13}
@@ -1332,22 +1587,22 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
               ))}
             </div>
           </div>
-          <div style={{ color:C.dimmed, fontSize:10, marginTop:6 }}>
+          <div style={{ color:C.dimmed, fontSize:13, marginTop:6 }}>
             Recommended: 13–15 for desktop · 15–17 for tablet · 17–20 for large screen / easier reading
           </div>
         </div>
 
         {/* Font family */}
         <div style={{ marginBottom:18 }}>
-          <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>FONT FAMILY</div>
+          <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:10 }}>FONT FAMILY</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(220px,1fr))', gap:8 }}>
             {Object.entries(FONT_FAMILIES).map(([id,f])=>(
               <div key={id} onClick={()=>{ setLocal(l=>({...l,appearance:{...(l.appearance||{}),fontFamily:id}})); document.body.style.fontFamily=f.css; const root=document.getElementById('root'); if(root) root.style.fontFamily=f.css; }}
                 style={{ padding:'10px 14px', borderRadius:3, cursor:'pointer',
-                  background:(local.appearance?.fontFamily||'courier')===id ? C.blue+'18' : C.bg,
-                  border:`2px solid ${(local.appearance?.fontFamily||'courier')===id ? C.blue : C.border}` }}>
+                  background:(local.appearance?.fontFamily||'inter')===id ? C.blue+'18' : C.bg,
+                  border:`2px solid ${(local.appearance?.fontFamily||'inter')===id ? C.blue : C.border}` }}>
                 <div style={{ fontFamily:f.css, color:C.text, fontSize:(local.appearance?.fontSize||13)+2, marginBottom:4 }}>AAPL +2.31%</div>
-                <div style={{ color:C.muted, fontSize:10 }}>{f.label}</div>
+                <div style={{ color:C.muted, fontSize:13 }}>{f.label}</div>
               </div>
             ))}
           </div>
@@ -1355,7 +1610,7 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
 
         {/* Background theme */}
         <div style={{ marginBottom:10 }}>
-          <div style={{ color:C.muted, fontSize:10, letterSpacing:2, marginBottom:10 }}>BACKGROUND THEME</div>
+          <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:10 }}>BACKGROUND THEME</div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(180px,1fr))', gap:8 }}>
             {Object.entries(BG_THEMES).map(([id,t])=>(
               <div key={id} onClick={()=>{ setLocal(l=>({...l,appearance:{...(l.appearance||{}),bgTheme:id}})); Object.assign(C,t); document.body.style.background=t.bg; document.body.style.color=t.text; }}
@@ -1366,11 +1621,11 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
                     <div key={i} style={{ width:16, height:16, borderRadius:3, background:col, border:'1px solid '+t.border2 }} />
                   ))}
                 </div>
-                <div style={{ color:t.text, fontSize:11, fontWeight:'bold', marginBottom:2 }}>{t.label}</div>
+                <div style={{ color:t.text, fontSize:13, fontWeight:'bold', marginBottom:2 }}>{t.label}</div>
                 <div style={{ display:'flex', gap:6, marginTop:4 }}>
-                  <span style={{ color:C.green, fontSize:10 }}>+2.3%</span>
-                  <span style={{ color:C.red, fontSize:10 }}>-1.1%</span>
-                  <span style={{ color:C.blue, fontSize:10 }}>$211</span>
+                  <span style={{ color:C.green, fontSize:13 }}>+2.3%</span>
+                  <span style={{ color:C.red, fontSize:13 }}>-1.1%</span>
+                  <span style={{ color:C.blue, fontSize:13 }}>$211</span>
                 </div>
               </div>
             ))}
@@ -1382,7 +1637,7 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
       <Panel style={{ marginBottom:14 }}>
         <PanelTitle>DATA STORAGE</PanelTitle>
         <InfoBox title="WHERE YOUR DATA LIVES" color={C.green}>
-          <div style={{ color:C.text, fontSize:11, lineHeight:1.8 }}>
+          <div style={{ color:C.text, fontSize:13, lineHeight:1.8 }}>
             All data is stored on your QNAP NAS in Ghrava's data directory — never in the browser.<br/>
             <span style={{ color:C.green }}>· Settings & API keys:</span> <code style={{ color:C.blue }}>/app/data/trading.json</code><br/>
             <span style={{ color:C.green }}>· Watchlist & portfolio:</span> same file, auto-saved on every change<br/>
@@ -1394,7 +1649,7 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
 
       <Panel style={{ marginBottom:14 }}>
         <PanelTitle>DISCLAIMER</PanelTitle>
-        <div style={{ color:C.muted, fontSize:11, lineHeight:1.9 }}>
+        <div style={{ color:C.muted, fontSize:13, lineHeight:1.9 }}>
           This tool is for <strong style={{ color:C.text }}>informational and educational purposes only</strong>. AI-generated signals are not guaranteed and should never be your sole basis for a real trade. <span style={{ color:C.red }}>Options trading involves significant risk and is not suitable for all investors.</span>
         </div>
       </Panel>
@@ -1402,6 +1657,131 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
       <div style={{ textAlign:'right' }}>
         <Btn onClick={save} color={C.green}>💾 SAVE ALL SETTINGS</Btn>
       </div>
+    </div>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// QUICK SEARCH — lookup any ticker without saving
+// ═══════════════════════════════════════════════════════════════
+const QuickSearch = ({ data, quotes }) => {
+  const { settings={} } = data;
+  const [sym, setSym] = useState('');
+  const [open, setOpen] = useState(false);
+  const [quote, setQuote] = useState(null);
+  const [aiResult, setAiResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [fetchStatus, setFetchStatus] = useState(null);
+  const ref = useRef(null);
+  const TFS = ['day trade','swing (1–2 weeks)','swing (2–4 weeks)','medium term','long term'];
+  const [tf, setTf] = useState('swing (2–4 weeks)');
+
+  useEffect(() => {
+    const handler = e => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const lookup = async () => {
+    const s = sym.toUpperCase().trim();
+    if (!s) return;
+    setLoading(true); setOpen(true); setQuote(null); setAiResult(null); setErr('');
+    try {
+      let q = quotes[s] || MOCK_QUOTES[s] || null;
+      if (!q) {
+        const res = await fetchQuote(s, settings);
+        q = res.quote;
+        if (res.warnings.length > 0 || res.source) setFetchStatus({ source: res.source, warnings: res.warnings });
+      }
+      setQuote(q);
+    } catch(e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  const runAI = async () => {
+    const s = sym.toUpperCase().trim();
+    setAiLoading(true); setAiResult(null);
+    try {
+      const r = await analyzeStock({ symbol:s, quote, timeframe:tf, settings });
+      setAiResult(r);
+    } catch(e) { setErr(e.message); }
+    setAiLoading(false);
+  };
+
+  const up = (quote?.chg??0) >= 0;
+
+  return (
+    <div ref={ref} style={{ position:'relative' }}>
+      <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+        <div style={{ position:'relative' }}>
+          <Inp value={sym} onChange={v=>setSym(v.toUpperCase())} placeholder="🔍 Quick lookup…"
+            style={{ width:170, paddingRight:36, background:C.bg+'cc', borderColor:C.border }}
+            onKeyDown={e=>e.key==='Enter'&&lookup()} />
+          {sym && (
+            <span onClick={()=>{setSym('');setOpen(false);}}
+              style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)',
+                color:C.muted, cursor:'pointer', fontSize:16, lineHeight:1 }}>×</span>
+          )}
+        </div>
+        <Btn onClick={lookup} small color={C.blue} disabled={loading}>
+          {loading ? '⟳' : 'GO'}
+        </Btn>
+      </div>
+
+      {open && (
+        <div style={{ position:'absolute', top:'calc(100% + 8px)', right:0, zIndex:1000, width:420,
+          background:C.panel, border:`1.5px solid ${C.border2}`, borderRadius:10,
+          boxShadow:'0 8px 32px rgba(0,0,0,0.6)', padding:16 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
+            <span style={{ color:C.text, fontWeight:700, fontSize:16 }}>{sym.toUpperCase()}</span>
+            <span onClick={()=>setOpen(false)} style={{ color:C.muted, cursor:'pointer', fontSize:20 }}>×</span>
+          </div>
+
+          {loading && <Spinner text="Fetching quote…" />}
+          {err && <div style={{ color:C.red, fontSize:13 }}>⚠ {err}</div>}
+
+          {quote && !loading && (
+            <div style={{ marginBottom:14 }}>
+              <div style={{ display:'flex', alignItems:'baseline', gap:12, marginBottom:8 }}>
+                <span style={{ color:C.text, fontWeight:700, fontSize:26 }}>${parseFloat(quote.price).toFixed(2)}</span>
+                <span style={{ color:up?C.green:C.red, fontWeight:600, fontSize:15 }}>
+                  {up?'+':''}{parseFloat(quote.chg).toFixed(2)} ({parseFloat(quote.pct).toFixed(2)}%)
+                </span>
+              </div>
+              <div style={{ display:'flex', gap:16, color:C.muted, fontSize:12 }}>
+                <span>H: <span style={{ color:C.text }}>${parseFloat(quote.h).toFixed(2)}</span></span>
+                <span>L: <span style={{ color:C.text }}>${parseFloat(quote.l).toFixed(2)}</span></span>
+                {quote.vol && <span>Vol: <span style={{ color:C.text }}>{quote.vol}</span></span>}
+              </div>
+            </div>
+          )}
+
+          {!loading && (
+            <div>
+              <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+                <Sel value={tf} onChange={setTf} options={TFS.map(t=>({value:t,label:t}))} style={{ flex:1, fontSize:12 }} />
+                <Btn onClick={runAI} color={C.green} disabled={aiLoading} small>
+                  {aiLoading?'⟳ Analyzing…':'🤖 AI Analysis'}
+                </Btn>
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+                <div style={{ color:C.dimmed, fontSize:11 }}>Not saved to watchlist · temporary lookup only</div>
+                {fetchStatus && <div style={{ position:'relative' }}><DataSourceBadge source={fetchStatus.source} warnings={fetchStatus.warnings} /></div>}
+              </div>
+            </div>
+          )}
+
+          {aiLoading && <div style={{ marginTop:12 }}><Spinner text="Analyzing…" /></div>}
+          {aiResult && !aiLoading && (
+            <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+              <AIResultCard result={aiResult} symbol={sym.toUpperCase()} />
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -1415,7 +1795,7 @@ const TickerTape = ({ quotes }) => {
   return (
     <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'4px 16px', overflowX:'auto', whiteSpace:'nowrap' }}>
       {items.map(([sym,q])=>(
-        <span key={sym} style={{ marginRight:24, fontSize:11 }}>
+        <span key={sym} style={{ marginRight:24, fontSize:13 }}>
           <span style={{ color:C.muted }}>{sym} </span>
           <span style={{ color:C.text }}>{fmtP(q.price)} </span>
           <span style={{ color:pColor(q.pct) }}>{fmtPct(q.pct)}</span>
@@ -1474,19 +1854,23 @@ function App() {
   const settings = appData.settings || {};
   const prov = PROVIDERS[settings.provider];
   const app = settings.appearance || {};
-  const rootFont = FONT_FAMILIES[app.fontFamily||'courier']?.css || FONT_FAMILIES.courier.css;
+  const rootFont = FONT_FAMILIES[app.fontFamily]?.css || FONT_FAMILIES['inter']?.css || "'Inter', system-ui, sans-serif";
 
   return (
     <div style={{ background:C.bg, color:C.text, minHeight:'100vh', fontFamily:rootFont, display:'flex', flexDirection:'column' }}>
       {/* Top bar */}
-      <div style={{ background:C.surface, borderBottom:`1px solid ${C.border}`, padding:'0 16px', display:'flex', alignItems:'center', gap:12, height:40, flexShrink:0, flexWrap:'wrap' }}>
-        <span style={{ color:C.blue, fontWeight:'bold', letterSpacing:3, fontSize:13 }}>▸ TRADE TERMINAL</span>
+      <div style={{ background:C.surface, borderBottom:`1.5px solid ${C.border}`, padding:'0 20px', display:'flex', alignItems:'center', gap:14, height:50, flexShrink:0, flexWrap:'wrap' }}>
+        <span style={{ color:C.blue, fontWeight:700, letterSpacing:1.5, fontSize:16 }}>▸ Trade Terminal</span>
         {prov && <Tag color={prov.color}>{prov.name}</Tag>}
         {settings.demoMode && <Tag color={C.amber}>DEMO MODE</Tag>}
-        {!settings.demoMode && settings.avKey && <Tag color={C.green}>LIVE DATA</Tag>}
+        {!settings.demoMode && (
+          <Tag color={C.green}>
+            {settings.marketProvider==='tradier'?'📡 TRADIER':settings.marketProvider==='av'?'📡 ALPHA VANTAGE':'📡 YAHOO FINANCE'}
+          </Tag>
+        )}
         <div style={{ marginLeft:'auto', display:'flex', gap:16 }}>
           {['SPY','QQQ','NVDA'].map(s=>{ const q=quotes[s]; if(!q) return null; return (
-            <span key={s} style={{ fontSize:11 }}>
+            <span key={s} style={{ fontSize:13 }}>
               <span style={{ color:C.muted }}>{s} </span>
               <span style={{ color:C.text }}>{fmtP(q.price)} </span>
               <span style={{ color:pColor(q.pct) }}>{fmtPct(q.pct)}</span>
@@ -1506,13 +1890,13 @@ function App() {
             borderBottom:`2px solid ${activeTab===t.id?(t.id==='settings'||t.id==='reports'?C.amber:C.blue):'transparent'}`,
             color:activeTab===t.id?(t.id==='settings'||t.id==='reports'?C.amber:C.blue):C.muted,
             padding:'10px 14px', cursor:'pointer', fontFamily:'"Courier New",monospace',
-            fontSize:11, fontWeight:activeTab===t.id?'bold':'normal', letterSpacing:1, whiteSpace:'nowrap',
+            fontSize:13, fontWeight:activeTab===t.id?'bold':'normal', letterSpacing:1, whiteSpace:'nowrap',
           }}>{t.label}</button>
         ))}
       </div>
 
       {/* Content */}
-      <div style={{ flex:1, padding:16, overflowY:'auto' }}>
+      <div style={{ flex:1, padding:20, overflowY:'auto', background:C.bg }}>
         {activeTab==='watchlist' && <WatchlistTab data={appData} update={update} quotes={quotes} setQuotes={setQuotes} />}
         {activeTab==='screener'  && <ScreenerTab  data={appData} update={update} quotes={quotes} />}
         {activeTab==='ai'        && <AIAnalystTab data={appData} update={update} quotes={quotes} />}
@@ -1524,7 +1908,7 @@ function App() {
       </div>
 
       {/* Footer */}
-      <div style={{ background:C.surface, borderTop:`1px solid ${C.border}`, padding:'4px 16px', fontSize:9, color:C.dimmed, letterSpacing:1 }}>
+      <div style={{ background:C.surface, borderTop:`1px solid ${C.border}`, padding:'4px 16px', fontSize:13, color:C.dimmed, letterSpacing:1 }}>
         ⚠ FOR INFORMATIONAL PURPOSES ONLY · NOT FINANCIAL ADVICE · DATA STORED ON YOUR QNAP NAS · NEVER CACHED IN BROWSER
       </div>
     </div>

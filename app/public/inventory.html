@@ -1946,7 +1946,7 @@ async function renderAllItemsFlat(el) {
       </div>` : `<div style="text-align:center;padding:12px 0 4px;font-size:12px;color:var(--text4)">${total} items</div>`;
     el.innerHTML = `<div class="${wrapClass}" style="--ai-cols:${aiCols}">${cardsHtml}</div>` + pagerHtml;
     el.querySelectorAll('.ai-card,.ai-list-card').forEach(c => {
-      c.addEventListener('click', () => openItemDrawer(+c.dataset.item));
+      c.addEventListener('click', () => openDetail(+c.dataset.item));
     });
   } catch(e) { el.innerHTML = errorState('Could not load items', renderBrowse); }
 }

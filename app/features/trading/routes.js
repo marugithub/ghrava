@@ -12,6 +12,7 @@ const express      = require('express');
 const router       = express.Router();
 const fs           = require('fs');
 const path         = require('path');
+const { requireAuth }            = require('../auth/middleware');
 const { serverError, badRequest } = require('../../shared/errors');
 
 const DATA_DIR    = path.join(__dirname, '../../data');
@@ -79,7 +80,61 @@ router.get('/reports/:filename', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// GET live quote via Yahoo Finance (proxy — avoids browser CORS)
+router.get('/market/quote/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.^-]/g, '');
+  if (!symbol) return res.status(400).json({ error: 'Invalid symbol' });
+  try {
+    const https = require('https');
+    const url   = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`;
+    const data  = await new Promise((resolve, reject) => {
+      const options = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0',
+          'Accept': 'application/json',
+        }
+      };
+      https.get(url, options, r => {
+        let body = '';
+        r.on('data', c => body += c);
+        r.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch { reject(new Error('JSON parse failed')); }
+        });
+      }).on('error', reject);
+    });
+
+    const result = data?.chart?.result?.[0];
+    if (!result) return res.status(404).json({ error: 'Symbol not found' });
+
+    const meta  = result.meta;
+    const price = meta.regularMarketPrice;
+    const prev  = meta.previousClose || meta.chartPreviousClose || price;
+    const chg   = price - prev;
+    const pct   = prev > 0 ? (chg / prev) * 100 : 0;
+
+    res.json({
+      symbol,
+      price:  parseFloat(price.toFixed(4)),
+      chg:    parseFloat(chg.toFixed(4)),
+      pct:    parseFloat(pct.toFixed(4)),
+      h:      parseFloat((meta.regularMarketDayHigh || price).toFixed(4)),
+      l:      parseFloat((meta.regularMarketDayLow  || price).toFixed(4)),
+      vol:    meta.regularMarketVolume ? String(meta.regularMarketVolume) : '—',
+      prev:   parseFloat(prev.toFixed(4)),
+      currency: meta.currency || 'USD',
+      exchange: meta.exchangeName || '',
+      _source: 'yahoo',
+      _ts: new Date().toISOString(),
+    });
+  } catch (e) {
+    res.status(502).json({ error: 'Yahoo Finance fetch failed', detail: e.message });
+  }
+});
+
 // ── WRITES (require auth) ────────────────────────────────────────
+
+router.use(requireAuth);
 
 // POST save all trading data (full replace of mutable fields)
 router.post('/data', (req, res) => {
