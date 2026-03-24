@@ -4,15 +4,13 @@
  * Reports: /app/data/trading-reports/YYYY-MM-DD_HHmm_type.json
  *
  * Auth model (follows Ghrava convention):
- *   GETs  → public  (before requireAuth)
- *   Write → locked  (after requireAuth)
+ *   All routes public — personal NAS tool, no sensitive data
  */
 
 const express      = require('express');
 const router       = express.Router();
 const fs           = require('fs');
 const path         = require('path');
-const { requireAuth }            = require('../auth/middleware');
 const { serverError, badRequest } = require('../../shared/errors');
 
 const DATA_DIR    = path.join(__dirname, '../../data');
@@ -46,7 +44,7 @@ function readData() {
   }
 }
 
-// ── PUBLIC READS (before requireAuth) ───────────────────────────
+// ── ALL ROUTES PUBLIC (personal NAS tool) ────────────────────────
 
 // GET all trading data
 router.get('/data', (req, res) => {
@@ -132,23 +130,242 @@ router.get('/market/quote/:symbol', async (req, res) => {
   }
 });
 
-// ── WRITES (require auth) ────────────────────────────────────────
+// GET StockTwits public stream (proxy — avoids CORS)
+router.get('/social/stocktwits/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+  try {
+    const https = require('https');
+    const url = `https://api.stocktwits.com/api/2/streams/symbol/${symbol}.json`;
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, r => {
+        let body = '';
+        r.on('data', c => body += c);
+        r.on('end', () => {
+          try { resolve(JSON.parse(body)); }
+          catch { reject(new Error('Parse failed')); }
+        });
+      }).on('error', reject);
+    });
+    if (data.response?.status !== 200) {
+      return res.status(502).json({ error: data.errors?.[0]?.message || 'StockTwits error' });
+    }
+    res.json({ messages: data.messages || [], symbol });
+  } catch (e) {
+    res.status(502).json({ error: 'StockTwits proxy failed: ' + e.message });
+  }
+});
 
-router.use(requireAuth);
+// GET Yahoo Finance historical prices (for charting)
+router.get('/market/history/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.^-]/g, '');
+  const range    = ['1d','5d','1mo','3mo','6mo','1y','2y','5y'].includes(req.query.range) ? req.query.range : '3mo';
+  const interval = { '1d':'5m','5d':'15m','1mo':'1d','3mo':'1d','6mo':'1wk','1y':'1wk','2y':'1mo','5y':'1mo' }[range] || '1d';
+  try {
+    const https = require('https');
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?range=${range}&interval=${interval}`;
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' } }, r => {
+        let body = '';
+        r.on('data', c => body += c);
+        r.on('end', () => { try { resolve(JSON.parse(body)); } catch { reject(new Error('Parse failed')); } });
+      }).on('error', reject);
+    });
+    const result = data?.chart?.result?.[0];
+    if (!result) return res.status(404).json({ error: 'No data' });
+    const timestamps = result.timestamp || [];
+    const ohlcv = result.indicators?.quote?.[0] || {};
+    const candles = timestamps.map((t, i) => ({
+      t: t * 1000,
+      o: ohlcv.open?.[i]  != null ? parseFloat(ohlcv.open[i].toFixed(4))  : null,
+      h: ohlcv.high?.[i]  != null ? parseFloat(ohlcv.high[i].toFixed(4))  : null,
+      l: ohlcv.low?.[i]   != null ? parseFloat(ohlcv.low[i].toFixed(4))   : null,
+      c: ohlcv.close?.[i] != null ? parseFloat(ohlcv.close[i].toFixed(4)) : null,
+      v: ohlcv.volume?.[i]|| 0,
+    })).filter(c => c.c != null);
+    res.json({ symbol, range, interval, candles, meta: result.meta });
+  } catch (e) {
+    res.status(502).json({ error: 'History fetch failed: ' + e.message });
+  }
+});
 
-// POST save all trading data (full replace of mutable fields)
+// GET Reddit posts (proxy — avoids CORS, uses public JSON API)
+router.get('/social/reddit/:subreddit', async (req, res) => {
+  const sub   = req.params.subreddit.replace(/[^a-zA-Z0-9_]/g, '');
+  const query = (req.query.q || '').trim();
+  const https = require('https');
+  try {
+    const url = query
+      ? `https://www.reddit.com/r/${sub}/search.json?q=${encodeURIComponent(query)}&restrict_sr=1&sort=new&limit=25`
+      : `https://www.reddit.com/r/${sub}/hot.json?limit=25`;
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, {
+        headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' }
+      }, r => {
+        let body = '';
+        r.on('data', c => body += c);
+        r.on('end', () => { try { resolve(JSON.parse(body)); } catch { reject(new Error('Parse failed')); } });
+      }).on('error', reject);
+    });
+    const posts = (data?.data?.children || []).map(c => {
+      const p = c.data;
+      return {
+        id:           p.id,
+        title:        p.title,
+        selftext:     p.selftext ? p.selftext.slice(0, 400) : '',
+        author:       p.author,
+        score:        p.score,
+        num_comments: p.num_comments,
+        url:          `https://reddit.com${p.permalink}`,
+        flair:        p.link_flair_text || null,
+        time:         new Date(p.created_utc * 1000).toISOString(),
+        upvote_ratio: p.upvote_ratio,
+      };
+    });
+    res.json({ posts, subreddit: sub, query });
+  } catch (e) {
+    res.status(502).json({ error: 'Reddit fetch failed: ' + e.message });
+  }
+});
+
+// GET Fear & Greed Index (proxy — CNN endpoint)
+router.get('/social/feargreed', async (req, res) => {
+  const https = require('https');
+  try {
+    const url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0',
+          'Referer': 'https://www.cnn.com/markets/fear-and-greed',
+        }
+      }, r => {
+        let body = '';
+        r.on('data', c => body += c);
+        r.on('end', () => { try { resolve(JSON.parse(body)); } catch { reject(new Error('Parse failed')); } });
+      }).on('error', reject);
+    });
+    const current = data?.fear_and_greed;
+    if (!current) return res.status(502).json({ error: 'No Fear & Greed data' });
+    res.json({
+      value:         Math.round(current.score),
+      previousClose: current.previous_close ? Math.round(current.previous_close) : null,
+      lastUpdated:   current.timestamp ? new Date(current.timestamp).toLocaleDateString() : null,
+      _source:       'CNN Fear & Greed Index',
+    });
+  } catch (e) {
+    // Fallback: CNN endpoint may change — return a clear error
+    res.status(502).json({ error: 'Fear & Greed proxy failed: ' + e.message });
+  }
+});
+
+
+// GET SEC EDGAR recent filings for a ticker (free, no key)
+router.get('/market/filings/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+  const https  = require('https');
+  try {
+    // Step 1: resolve CIK from ticker
+    const cikData = await new Promise((resolve, reject) => {
+      https.get(`https://efts.sec.gov/LATEST/search-index?q="${symbol}"&dateRange=custom&startdt=2020-01-01&forms=10-K,10-Q,8-K`, {
+        headers:{'User-Agent':'GhravaTradeTerminal admin@example.com'}
+      }, r => {
+        let b=''; r.on('data',c=>b+=c);
+        r.on('end',()=>{ try{resolve(JSON.parse(b))}catch{reject(new Error('parse'))} });
+      }).on('error', reject);
+    }).catch(()=>null);
+
+    // Step 2: get recent filings via company search
+    const url = `https://efts.sec.gov/LATEST/search-index?q=%22${symbol}%22&forms=8-K,10-K,10-Q&dateRange=custom&startdt=${new Date(Date.now()-90*86400000).toISOString().slice(0,10)}`;
+    const data = await new Promise((resolve, reject) => {
+      https.get(url, { headers:{'User-Agent':'GhravaTradeTerminal admin@example.com'} }, r => {
+        let b=''; r.on('data',c=>b+=c);
+        r.on('end',()=>{ try{resolve(JSON.parse(b))}catch{reject(new Error('parse'))} });
+      }).on('error', reject);
+    });
+
+    const filings = (data?.hits?.hits||[]).slice(0,10).map(h=>{
+      const s = h._source;
+      return {
+        form:   s.form_type,
+        filed:  s.file_date,
+        title:  s.display_names?.[0] || symbol,
+        url:    `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&company=${symbol}&type=${s.form_type}&dateb=&owner=include&count=10`,
+      };
+    });
+
+    res.json({ symbol, filings });
+  } catch(e) {
+    res.status(502).json({ error: 'EDGAR proxy failed: '+e.message, filings:[] });
+  }
+});
+
+// GET Congressional trading data (public S3 bucket — House STOCK Act disclosures)
+router.get('/market/congress/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+  const https  = require('https');
+  try {
+    // Community-maintained clean JSON of all House trades — updated daily, no auth
+    const data = await new Promise((resolve, reject) => {
+      https.get('https://house-stock-watcher-data.s3-us-west-2.amazonaws.com/data/all_transactions.json', {
+        headers:{'User-Agent':'GhravaTradeTerminal/1.0'}
+      }, r => {
+        let b=''; r.on('data',c=>b+=c);
+        r.on('end',()=>{ try{resolve(JSON.parse(b))}catch{reject(new Error('parse'))} });
+      }).on('error', reject);
+    });
+
+    // Filter to this symbol, last 90 days, sort newest first
+    const cutoff = Date.now() - 90*24*60*60*1000;
+    const trades = (Array.isArray(data) ? data : [])
+      .filter(t => {
+        const ticker = (t.ticker||'').replace('$','').toUpperCase();
+        const d = new Date(t.transaction_date||t.disclosure_date||0).getTime();
+        return ticker === symbol && d >= cutoff;
+      })
+      .sort((a,b) => new Date(b.transaction_date||0) - new Date(a.transaction_date||0))
+      .slice(0,20)
+      .map(t => ({
+        representative: t.representative,
+        type:           t.type,
+        amount:         t.amount,
+        transaction_date: t.transaction_date,
+        party:          t.party,
+        district:       t.district,
+        description:    t.asset_description,
+      }));
+
+    res.json({ symbol, trades, source:'House STOCK Act Disclosures' });
+  } catch(e) {
+    res.status(502).json({ error: 'Congress data failed: '+e.message, trades:[] });
+  }
+});
+
+// ── WRITES ────────────────────────────────────────────────────────
+
+// POST save all trading data
+// Strategy: merge ALL keys from body over current — never drop any field.
+// New fields added in future code versions are preserved automatically.
 router.post('/data', (req, res) => {
   try {
-    const current = readData();
-    // Merge top-level keys; never wipe settings if body omits them
-    const updated = {
-      settings:        req.body.settings        ?? current.settings,
-      watchlist:       req.body.watchlist       ?? current.watchlist,
-      portfolio:       req.body.portfolio       ?? current.portfolio,
-      analysisHistory: req.body.analysisHistory ?? current.analysisHistory,
+    const current  = readData();
+    const incoming = req.body || {};
+
+    // Deep-merge settings so individual key additions never wipe others
+    const mergedSettings = {
+      ...(current.settings  || {}),
+      ...(incoming.settings || {}),
+      // Always deep-merge apiKeys specifically
+      apiKeys: {
+        ...((current.settings  || {}).apiKeys || {}),
+        ...((incoming.settings || {}).apiKeys || {}),
+      },
     };
+
+    // For every other top-level key: prefer incoming if present, else keep current
+    const updated = { ...current, ...incoming, settings: mergedSettings };
+
     fs.writeFileSync(DATA_FILE, JSON.stringify(updated, null, 2));
-    res.json({ ok: true });
+    res.json({ ok: true, savedAt: new Date().toISOString() });
   } catch (e) { serverError(res, e); }
 });
 

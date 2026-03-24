@@ -43,7 +43,7 @@ const C = {
 // PROVIDERS
 // ═══════════════════════════════════════════════════════════════
 const PROVIDERS = {
-  gemini:       { name:'Gemini 2.5 Flash',  badge:'FREE',         color: C.green,  docsUrl:'https://aistudio.google.com/app/apikey',          note:'1,500 free requests/day — no credit card' },
+  gemini:       { name:'Gemini 2.5 Flash-Lite', badge:'FREE · 1000/day',         color: C.green,  docsUrl:'https://aistudio.google.com/app/apikey',          note:'1,500 free requests/day — no credit card' },
   deepseek:     { name:'DeepSeek V3',       badge:'~$0.00006/req', color: C.blue,   docsUrl:'https://platform.deepseek.com/api_keys',          note:'Extremely cheap, strong financial reasoning' },
   openai:       { name:'GPT-4o Mini',       badge:'~$0.00010/req', color: C.amber,  docsUrl:'https://platform.openai.com/api-keys',            note:'Reliable, widely supported' },
   claudeHaiku:  { name:'Claude Haiku',      badge:'~$0.00015/req', color: C.purple, docsUrl:'https://console.anthropic.com/settings/keys',     note:'Fast, good JSON output' },
@@ -88,12 +88,39 @@ const DEFAULTS = {
     provider:'gemini', apiKeys:{}, avKey:'',
     marketProvider:'yahoo', tradierKey:'', tradierSandbox:true, finnhubKey:'',
     demoMode:true,
-    appearance: { fontSize:14, fontFamily:'inter', bgTheme:'dark' }
+    appearance: { fontSize:14, fontFamily:'inter', bgTheme:'dark' },
+    socialLinks: {
+      redditSubs: ['wallstreetbets','stocks','investing','options','stockmarket','SecurityAnalysis'],
+      xLinks: [
+        { id:'x1', label:'$TICKER cashtag',       url:'https://x.com/search?q=%24{TICKER}&f=live',   desc:'Replace {TICKER} with symbol', enabled:true  },
+        { id:'x2', label:'#stockmarket live',      url:'https://x.com/search?q=%23stockmarket&f=live', desc:'Market discussion',            enabled:true  },
+        { id:'x3', label:'#optionsflow',           url:'https://x.com/search?q=%23optionsflow&f=live', desc:'Options flow feed',            enabled:true  },
+        { id:'x4', label:'@unusual_whales',        url:'https://x.com/unusual_whales',                 desc:'Options & dark pool alerts',   enabled:true  },
+        { id:'x5', label:'@DeItaone',              url:'https://x.com/DeItaone',                       desc:'Breaking market alerts',       enabled:true  },
+        { id:'x6', label:'@zerohedge',             url:'https://x.com/zerohedge',                      desc:'Market commentary',            enabled:false },
+      ],
+      moreLinks: [
+        { id:'m1', label:'Unusual Whales',   url:'https://unusualwhales.com',                           desc:'Options flow & dark pool',    enabled:true  },
+        { id:'m2', label:'Finviz',           url:'https://finviz.com',                                  desc:'Heat maps & screener',        enabled:true  },
+        { id:'m3', label:'TradingView',      url:'https://www.tradingview.com/chart/?symbol={TICKER}',  desc:'Live charts — replaces {TICKER}', enabled:true },
+        { id:'m4', label:'Barchart',         url:'https://www.barchart.com/stocks/quotes/{TICKER}',     desc:'Options & technicals',        enabled:true  },
+        { id:'m5', label:'Seeking Alpha',    url:'https://seekingalpha.com/symbol/{TICKER}',            desc:'Analysis & news',             enabled:true  },
+        { id:'m6', label:'MarketWatch',      url:'https://www.marketwatch.com/investing/stock/{TICKER}',desc:'News & data',                 enabled:true  },
+        { id:'m7', label:'EDGAR Filings',    url:'https://www.sec.gov/cgi-bin/browse-edgar?company={TICKER}&action=getcompany', desc:'SEC filings', enabled:true },
+        { id:'m8', label:'Quiver Quant',     url:'https://www.quiverquant.com/stock/{TICKER}',          desc:'Congress & insider trades',   enabled:true  },
+      ],
+    },
   },
   watchlist: ['AAPL','SPY','NVDA','TSLA','QQQ','META','MSFT'],
   portfolio: [],
   analysisHistory: [],
+  screenerHistory: [],
 };
+
+// Helper: resolve {TICKER} placeholder in URLs
+function resolveUrl(url, ticker) {
+  return (url||'').replace(/\{TICKER\}/g, (ticker||'').toUpperCase());
+}
 
 // ═══════════════════════════════════════════════════════════════
 // APPEARANCE THEMES
@@ -158,12 +185,17 @@ async function loadData() {
 
 async function persistData(data) {
   try {
-    await fetch(`${API}/data`, {
+    const r = await fetch(`${API}/data`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(data),
     });
-  } catch {}
+    if (!r.ok) {
+      console.error('[Trade Terminal] Save failed:', r.status, await r.text());
+    }
+  } catch(e) {
+    console.error('[Trade Terminal] Save error:', e.message);
+  }
 }
 
 async function persistReport(type, title, ticker, data) {
@@ -172,6 +204,9 @@ async function persistReport(type, title, ticker, data) {
     headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ type, title, ticker, data }),
   });
+  if (r.status === 401) throw new Error('Not authorised — Ghrava session may have expired. Open Ghrava and log in, then try again.');
+  if (r.status === 404) throw new Error('Report route not found — make sure trading_routes.js is updated and Ghrava restarted.');
+  if (!r.ok) throw new Error(`Server error ${r.status} — check Ghrava logs.`);
   return r.json();
 }
 
@@ -198,9 +233,12 @@ async function callProvider(prompt, provider, apiKeys) {
   if (provider === 'gemini') {
     if (!key) throw new Error('Gemini API key not set — go to Settings');
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${key}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key=${key}`,
       { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ contents:[{ parts:[{ text: prompt }] }] }) }
+        body: JSON.stringify({
+          contents:[{ parts:[{ text: prompt }] }],
+          generationConfig: { thinkingConfig: { thinkingBudget: 0 } }
+        }) }
     );
     const d = await res.json();
     if (d.error) throw new Error(d.error.message);
@@ -255,37 +293,74 @@ async function callProvider(prompt, provider, apiKeys) {
   throw new Error(`Unknown provider: ${provider}`);
 }
 
-async function analyzeStock({ symbol, quote, timeframe, context='', settings }) {
+async function analyzeStock({ symbol, quote, timeframe, context='', settings, enrichment=null }) {
   const { provider='gemini', apiKeys={} } = settings || {};
   const qStr = quote
-    ? `Price: $${quote.price} | Change: ${quote.chg>=0?'+':''}${parseFloat(quote.chg).toFixed(2)} (${parseFloat(quote.pct).toFixed(2)}%) | Day Range: $${quote.l}–$${quote.h}`
+    ? `Price: $${parseFloat(quote.price).toFixed(2)} | Change: ${quote.chg>=0?'+':''}${parseFloat(quote.chg).toFixed(2)} (${parseFloat(quote.pct).toFixed(2)}%) | Day Range: $${parseFloat(quote.l||0).toFixed(2)}–$${parseFloat(quote.h||0).toFixed(2)}`
     : `No live quote — use general market knowledge for ${symbol}.`;
+
+  // Build enrichment block from all available data
+  let enrichBlock = '';
+  if (enrichment) {
+    const e = enrichment;
+    const lines = [];
+    if (e.fundamentals) {
+      const f = e.fundamentals;
+      lines.push(`Fundamentals: P/E ${f.pe||'N/A'} | P/B ${f.pb||'N/A'} | Mkt Cap ${f.marketCap||'N/A'} | Beta ${f.beta||'N/A'} | EPS ${f.epsAnnual||'N/A'} | Div Yield ${f.divYield||'N/A'} | 52W Range $${f.w52Low||'?'}–$${f.w52High||'?'} | Industry: ${f.industry||'N/A'}`);
+    }
+    if (e.earnings) {
+      lines.push(`Next Earnings: ${e.earnings.date} (${e.earnings.timing||'?'}) | EPS Est: ${e.earnings.epsEstimate||'N/A'} | Rev Est: ${e.earnings.revenueEstimate ? '$'+parseFloat(e.earnings.revenueEstimate/1e9).toFixed(2)+'B' : 'N/A'}`);
+    }
+    if (e.insiders && e.insiders.length > 0) {
+      const recent = e.insiders.slice(0,3).map(i=>`${i.name||'Executive'} ${i.transactionType||'traded'} ${i.share?.toLocaleString()||'?'} shares @ $${i.transactionPrice||'?'} on ${i.transactionDate||'?'}`).join('; ');
+      lines.push(`Recent Insider Activity: ${recent}`);
+    }
+    if (e.congressTrades && e.congressTrades.length > 0) {
+      const ct = e.congressTrades.slice(0,3).map(t=>`${t.representative||t.senator||'Congress member'} ${t.type||'traded'} $${t.amount||'?'} on ${t.transaction_date||t.date||'?'}`).join('; ');
+      lines.push(`Congressional Trading: ${ct}`);
+    }
+    if (e.analystRec) {
+      const r = e.analystRec;
+      lines.push(`Analyst Consensus: ${r.strongBuy||0} Strong Buy | ${r.buy||0} Buy | ${r.hold||0} Hold | ${r.sell||0} Sell | ${r.strongSell||0} Strong Sell`);
+    }
+    if (e.shortInterest) {
+      lines.push(`Short Interest: ${e.shortInterest}`);
+    }
+    if (e.recentFilings && e.recentFilings.length > 0) {
+      lines.push(`Recent SEC Filings: ${e.recentFilings.slice(0,3).map(f=>f.form+' ('+f.filed+')').join(', ')}`);
+    }
+    if (lines.length > 0) enrichBlock = '
+' + lines.join('
+');
+  }
 
   const prompt = `You are a seasoned professional stock and options trader with 20 years experience.
 Analyze ${symbol} for a ${timeframe} trade.
 Today: ${new Date().toDateString()}
-Market data: ${qStr}
-${context ? `Context: ${context}` : ''}
+Price data: ${qStr}${enrichBlock}
+${context ? `Additional context: ${context}` : ''}
 
-Return ONLY valid JSON (no markdown, no explanation outside JSON):
+Using ALL the data above, provide a specific, data-driven analysis.
+Reference specific numbers (P/E, insider activity, congressional trades, earnings dates) in your thesis.
+Return ONLY valid JSON:
 {
   "action": "BUY",
   "confidence": 7,
   "entry_price": 0,
-  "entry_note": "brief timing note",
+  "entry_note": "specific price level or condition to enter",
   "target_price": 0,
   "stop_loss": 0,
   "timeframe": "specific window e.g. 2-3 weeks",
   "risk_reward": "2.5:1",
-  "thesis": "2-3 sentences on why",
-  "technicals": "key setup",
+  "thesis": "2-3 sentences referencing specific data points from above",
+  "technicals": "key technical setup",
   "key_risks": ["risk1","risk2"],
-  "options_play": "specific contract or null",
-  "catalysts": ["upcoming catalyst"],
+  "options_play": "specific contract if applicable, else null",
+  "catalysts": ["upcoming catalyst with date if known"],
   "sentiment": "bullish"
 }
-action must be one of: BUY, SELL, HOLD, AVOID
-sentiment must be one of: bullish, bearish, neutral`;
+action: BUY | SELL | HOLD | AVOID
+sentiment: bullish | bearish | neutral`;
 
   const text = await callProvider(prompt, provider, apiKeys);
   const clean = text.replace(/```json|```/g,'').trim();
@@ -403,7 +478,32 @@ function providerLabel(p) {
 
 // Keep avFetchQuote for news tab
 async function avFetchQuote(symbol, apiKey) {
-  try { return await _fetchAV(symbol, apiKey); } catch { return null; }
+  try { return await _fetchAV(symbol, apiKey); } catch(e) { return null; }
+}
+
+// Fetch company fundamentals from Finnhub (free)
+async function fetchFundamentals(symbol, apiKey) {
+  if (!apiKey) return null;
+  try {
+    const [profile, metrics] = await Promise.all([
+      fetch(`https://finnhub.io/api/v1/stock/profile2?symbol=${symbol}&token=${apiKey}`).then(r=>r.json()),
+      fetch(`https://finnhub.io/api/v1/stock/metric?symbol=${symbol}&metric=all&token=${apiKey}`).then(r=>r.json()),
+    ]);
+    const m = metrics?.metric || {};
+    return {
+      name:        profile?.name || symbol,
+      industry:    profile?.finnhubIndustry || '—',
+      country:     profile?.country || '—',
+      marketCap:   profile?.marketCapitalization ? `$${(profile.marketCapitalization/1000).toFixed(1)}B` : '—',
+      pe:          m.peBasicExclExtraTTM ? m.peBasicExclExtraTTM.toFixed(1) : '—',
+      pb:          m.pbAnnual ? m.pbAnnual.toFixed(2) : '—',
+      w52High:     m['52WeekHigh'] ? `$${m['52WeekHigh'].toFixed(2)}` : '—',
+      w52Low:      m['52WeekLow']  ? `$${m['52WeekLow'].toFixed(2)}`  : '—',
+      divYield:    m.dividendYieldIndicatedAnnual ? `${m.dividendYieldIndicatedAnnual.toFixed(2)}%` : '—',
+      beta:        m.beta ? m.beta.toFixed(2) : '—',
+      epsAnnual:   m.epsAnnual ? `$${m.epsAnnual.toFixed(2)}` : '—',
+    };
+  } catch(e) { return null; }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -511,7 +611,7 @@ const DataSourceBadge = ({ source, warnings=[] }) => {
 // ═══════════════════════════════════════════════════════════════
 // AI RESULT CARD
 // ═══════════════════════════════════════════════════════════════
-const AIResultCard = ({ result, symbol }) => {
+const AIResultCard = ({ result, symbol, fundamentals=null, enrichment=null }) => {
   if (!result) return <div style={{ color:C.red }}>Analysis failed. Check your API key in Settings.</div>;
   const ac = result.action==='BUY' ? C.green : result.action==='SELL'||result.action==='AVOID' ? C.red : C.amber;
   const conf = result.confidence || 5;
@@ -561,6 +661,116 @@ const AIResultCard = ({ result, symbol }) => {
           </div>
         )}
       </div>
+
+      {fundamentals && (
+        <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
+          <div style={{ color:C.muted, fontSize:11, letterSpacing:1, marginBottom:8, fontWeight:600 }}>COMPANY FUNDAMENTALS</div>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))', gap:6 }}>
+            {[
+              ['Name',       fundamentals.name,     C.text],
+              ['Industry',   fundamentals.industry, C.muted],
+              ['Mkt Cap',    fundamentals.marketCap,C.text],
+              ['P/E Ratio',  fundamentals.pe,       C.blue],
+              ['P/B Ratio',  fundamentals.pb,       C.blue],
+              ['52W High',   fundamentals.w52High,  C.green],
+              ['52W Low',    fundamentals.w52Low,   C.red],
+              ['Div Yield',  fundamentals.divYield, C.amber],
+              ['Beta',       fundamentals.beta,     C.purple],
+              ['EPS (Ann)',  fundamentals.epsAnnual,C.text],
+            ].map(([label,val,color])=>(
+              <div key={label} style={{ background:C.bg, borderRadius:6, padding:'7px 10px', border:`1px solid ${C.border}` }}>
+                <div style={{ color:C.muted, fontSize:10, marginBottom:3 }}>{label}</div>
+                <div style={{ color, fontWeight:600, fontSize:12, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{val||'—'}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Insider Transactions */}
+      {enrichment?.insiders?.length > 0 && (
+        <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
+          <div style={{ color:C.muted, fontSize:11, letterSpacing:1, marginBottom:8, fontWeight:600 }}>🔍 RECENT INSIDER ACTIVITY</div>
+          {enrichment.insiders.slice(0,4).map((ins,i)=>{
+            const isBuy = (ins.transactionType||'').toLowerCase().includes('buy')||(ins.change||0)>0;
+            return (
+              <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0',
+                borderBottom:`1px solid ${C.border}22`, fontSize:12, flexWrap:'wrap', gap:6 }}>
+                <span style={{ color:C.text, fontWeight:500 }}>{ins.name||'Executive'}</span>
+                <div style={{ display:'flex', gap:8 }}>
+                  <Tag color={isBuy?C.green:C.red}>{isBuy?'BUY':'SELL'}</Tag>
+                  <span style={{ color:C.muted }}>{ins.share?.toLocaleString()||'?'} shares</span>
+                  <span style={{ color:C.dimmed }}>{ins.transactionDate||ins.filingDate||'?'}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Congressional Trading */}
+      {enrichment?.congressTrades?.length > 0 && (
+        <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
+          <div style={{ color:C.amber, fontSize:11, letterSpacing:1, marginBottom:8, fontWeight:600 }}>🏛 CONGRESSIONAL TRADES (last 90 days)</div>
+          {enrichment.congressTrades.slice(0,4).map((t,i)=>{
+            const isBuy = (t.type||'').toLowerCase().includes('purchase')||(t.type||'').toLowerCase().includes('buy');
+            return (
+              <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0',
+                borderBottom:`1px solid ${C.border}22`, fontSize:12, flexWrap:'wrap', gap:6 }}>
+                <span style={{ color:C.text, fontWeight:500 }}>{t.representative||'Member'}</span>
+                <div style={{ display:'flex', gap:8 }}>
+                  <Tag color={isBuy?C.green:C.red}>{t.type||'trade'}</Tag>
+                  <span style={{ color:C.muted }}>{t.amount||'?'}</span>
+                  <span style={{ color:C.dimmed }}>{t.transaction_date||'?'}</span>
+                </div>
+              </div>
+            );
+          })}
+          <div style={{ color:C.dimmed, fontSize:10, marginTop:6 }}>Source: House STOCK Act Disclosures</div>
+        </div>
+      )}
+
+      {/* Analyst Recommendations */}
+      {enrichment?.analystRec && (
+        <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
+          <div style={{ color:C.muted, fontSize:11, letterSpacing:1, marginBottom:8, fontWeight:600 }}>📈 ANALYST CONSENSUS</div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
+            {[
+              ['Strong Buy',  enrichment.analystRec.strongBuy,  C.green],
+              ['Buy',         enrichment.analystRec.buy,        '#86efac'],
+              ['Hold',        enrichment.analystRec.hold,        C.amber],
+              ['Sell',        enrichment.analystRec.sell,        C.red],
+              ['Strong Sell', enrichment.analystRec.strongSell, '#dc2626'],
+            ].filter(([,v])=>v>0).map(([label,val,color])=>(
+              <div key={label} style={{ background:color+'20', border:`1px solid ${color}44`,
+                borderRadius:6, padding:'4px 10px', textAlign:'center' }}>
+                <div style={{ color, fontWeight:700, fontSize:14 }}>{val}</div>
+                <div style={{ color:C.muted, fontSize:10 }}>{label}</div>
+              </div>
+            ))}
+            {enrichment.analystRec.period && (
+              <span style={{ color:C.dimmed, fontSize:10 }}>as of {enrichment.analystRec.period}</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Recent SEC Filings */}
+      {enrichment?.recentFilings?.length > 0 && (
+        <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:10 }}>
+          <div style={{ color:C.muted, fontSize:11, letterSpacing:1, marginBottom:8, fontWeight:600 }}>📋 RECENT SEC FILINGS</div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {enrichment.recentFilings.slice(0,5).map((f,i)=>(
+              <a key={i} href={f.url} target="_blank" rel="noreferrer"
+                style={{ textDecoration:'none' }}>
+                <Tag color={f.form==='8-K'?C.red:f.form==='10-K'?C.blue:C.muted}>
+                  {f.form} · {f.filed?.slice(0,10)||'?'}
+                </Tag>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -683,6 +893,150 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
 // ═══════════════════════════════════════════════════════════════
 // AI ANALYST TAB
 // ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// PRICE CHART
+// ═══════════════════════════════════════════════════════════════
+const PriceChart = ({ symbol }) => {
+  const [range, setRange] = useState('3mo');
+  const [candles, setCandles] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+
+  const RANGES = ['1wk','1mo','3mo','6mo','1y','2y'];
+
+  const fetchAndDraw = async (sym, rng) => {
+    if (!sym) return;
+    setLoading(true); setErr('');
+    try {
+      const r = await fetch(`/api/v1/trading/market/history/${sym}?range=${rng}`);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      setCandles(d.candles || []);
+    } catch(e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  useEffect(() => { if (symbol) fetchAndDraw(symbol, range); }, [symbol]);
+
+  useEffect(() => {
+    if (!candles.length || !canvasRef.current) return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    const closes = candles.map(c => c.c);
+    const labels  = candles.map(c => {
+      const d = new Date(c.t);
+      return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
+    });
+
+    // Colour: green if end > start, red if not
+    const lineColor = closes[closes.length-1] >= closes[0] ? '#4ade80' : '#f87171';
+    const fillColor = closes[closes.length-1] >= closes[0] ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
+
+    // Load Chart.js dynamically if not already loaded
+    const draw = () => {
+      const ctx = canvasRef.current.getContext('2d');
+      chartRef.current = new window.Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets:[{
+            data: closes,
+            borderColor: lineColor,
+            backgroundColor: fillColor,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            tension: 0.3,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 400 },
+          interaction: { mode:'index', intersect:false },
+          plugins: {
+            legend: { display:false },
+            tooltip: {
+              backgroundColor: C.panel,
+              borderColor: C.border,
+              borderWidth: 1,
+              titleColor: C.muted,
+              bodyColor: C.text,
+              callbacks: {
+                label: ctx => ` $${parseFloat(ctx.raw).toFixed(2)}`,
+              }
+            },
+          },
+          scales: {
+            x: {
+              grid: { color: C.border+'44', drawTicks:false },
+              ticks: { color: C.muted, maxTicksLimit: 8, font:{ size:11 } },
+            },
+            y: {
+              position: 'right',
+              grid: { color: C.border+'44', drawTicks:false },
+              ticks: { color: C.muted, font:{ size:11 },
+                callback: v => '$'+parseFloat(v).toFixed(0) },
+            }
+          },
+        }
+      });
+    };
+
+    if (window.Chart) {
+      draw();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+      script.onload = draw;
+      document.head.appendChild(script);
+    }
+
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [candles]);
+
+  const pct = candles.length >= 2
+    ? ((candles[candles.length-1].c - candles[0].c) / candles[0].c * 100).toFixed(2)
+    : null;
+
+  return (
+    <Panel>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <PanelTitle>{symbol} PRICE CHART</PanelTitle>
+          {pct !== null && (
+            <span style={{ color:parseFloat(pct)>=0?C.green:C.red, fontWeight:600, fontSize:13 }}>
+              {parseFloat(pct)>=0?'+':''}{pct}%
+            </span>
+          )}
+        </div>
+        <div style={{ display:'flex', gap:4 }}>
+          {RANGES.map(r => (
+            <button key={r} onClick={()=>{ setRange(r); fetchAndDraw(symbol, r); }}
+              style={{ background: range===r ? C.blue+'30' : 'transparent',
+                color: range===r ? C.blue : C.muted,
+                border: `1px solid ${range===r ? C.blue : C.border}`,
+                borderRadius:5, padding:'3px 9px', cursor:'pointer',
+                fontFamily:'inherit', fontSize:11, fontWeight: range===r ? 600 : 400 }}>
+              {r}
+            </button>
+          ))}
+        </div>
+      </div>
+      {loading && <div style={{ height:200, display:'flex', alignItems:'center', justifyContent:'center' }}><Spinner text="Loading chart…" /></div>}
+      {err && <div style={{ color:C.red, fontSize:12 }}>⚠ Chart: {err} — check Yahoo Finance proxy route in Ghrava</div>}
+      {!loading && !err && candles.length > 0 && (
+        <div style={{ height:220, position:'relative' }}>
+          <canvas ref={canvasRef} />
+        </div>
+      )}
+    </Panel>
+  );
+};
+
 const AIAnalystTab = ({ data, update, quotes }) => {
   const { settings={}, analysisHistory=[] } = data;
   const [sym, setSym] = useState('');
@@ -708,8 +1062,12 @@ const AIAnalystTab = ({ data, update, quotes }) => {
     setLoading(true); setResult(null); setErr(''); setSaved(false);
     try {
       let q = quotes[s] || MOCK_QUOTES[s]; if (!q && !settings?.demoMode) { const res = await fetchQuote(s, settings); q = res?.quote; }
-      const r = await analyzeStock({ symbol:s, quote:q, timeframe:tf, context:ctx, settings });
-      setResult({ ...r, _sym:s });
+      const [r, fund] = await Promise.all([
+        analyzeStock({ symbol:s, quote:q, timeframe:tf, context:ctx, settings }),
+        settings.finnhubKey ? fetchFundamentals(s, settings.finnhubKey) : Promise.resolve(null),
+      ]);
+      setFundamentals(fund);
+      setResult({ ...r, _sym:s, _enrichmentJson: JSON.stringify(enrichment) });
       const hist = [{ sym:s, tf, action:r.action, confidence:r.confidence,
         entry:r.entry_price, target:r.target_price, stop:r.stop_loss,
         date:r._date, provider:r._provider }, ...analysisHistory].slice(0,50);
@@ -718,13 +1076,17 @@ const AIAnalystTab = ({ data, update, quotes }) => {
     setLoading(false);
   };
 
+  const [saveErr, setSaveErr] = useState('');
   const saveReport = async () => {
     if (!result) return;
-    setSaving(true);
-    const title = `${result._sym} ${result.action} — ${tf}`;
-    await persistReport('AI Analysis', title, result._sym, { symbol:result._sym, timeframe:tf, context:ctx, result });
-    setSaving(false); setSaved(true);
-    setTimeout(()=>setSaved(false), 3000);
+    setSaving(true); setSaveErr('');
+    try {
+      const title = `${result._sym} ${result.action} — ${tf}`;
+      await persistReport('AI Analysis', title, result._sym, { symbol:result._sym, timeframe:tf, context:ctx, result });
+      setSaved(true);
+      setTimeout(()=>setSaved(false), 3000);
+    } catch(e) { setSaveErr(e.message); }
+    setSaving(false);
   };
 
   return (
@@ -749,7 +1111,11 @@ const AIAnalystTab = ({ data, update, quotes }) => {
         </Panel>
         {loading && <Panel><Spinner text={`${PROVIDERS[settings.provider]?.name||'AI'} analyzing ${sym.toUpperCase()||'…'}`} /></Panel>}
         {err && <Panel><div style={{ color:C.red }}>⚠ {err}</div></Panel>}
-        {!loading && result && (
+        {!loading && result && (() => {
+          let resultEnrichment = null;
+          try { resultEnrichment = JSON.parse(result._enrichmentJson||'null'); } catch(e) {}
+          return (
+          <>
           <Panel>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
               <div style={{ color:C.muted, fontSize:13 }}>Generated: {result._date ? new Date(result._date).toLocaleString() : '—'}</div>
@@ -760,9 +1126,12 @@ const AIAnalystTab = ({ data, update, quotes }) => {
                 </Btn>
               </div>
             </div>
-            <AIResultCard result={result} symbol={result._sym} />
+            <AIResultCard result={result} symbol={result._sym} fundamentals={fundamentals} enrichment={resultEnrichment} />
           </Panel>
-        )}
+          <PriceChart symbol={result._sym} />
+        </>
+          );
+        })()}
       </div>
       <div>
         <Panel>
@@ -832,19 +1201,23 @@ const PortfolioTab = ({ data, update, quotes }) => {
     setAnalyzing(null);
   };
 
+  const [saveErr, setSaveErr] = useState('');
   const saveReport = async () => {
-    setSaving(true);
-    const reportData = {
-      summary: { totalValue, totalCost, totalPnl, totalPct },
-      positions: portfolio.map(p => {
-        const curr=getPrice(p), val=p.shares*curr, cost=p.shares*p.cost;
-        return { ...p, currentPrice:curr, marketValue:val, pnl:val-cost, pnlPct:cost>0?(val-cost)/cost*100:0 };
-      }),
-      generatedAt: nowISO(),
-    };
-    await persistReport('Portfolio Snapshot', `Portfolio Snapshot — ${new Date().toLocaleDateString()}`, null, reportData);
-    setSaving(false); setSaved(true);
-    setTimeout(()=>setSaved(false),3000);
+    setSaving(true); setSaveErr('');
+    try {
+      const reportData = {
+        summary: { totalValue, totalCost, totalPnl, totalPct },
+        positions: portfolio.map(p => {
+          const curr=getPrice(p), val=p.shares*curr, cost=p.shares*p.cost;
+          return { ...p, currentPrice:curr, marketValue:val, pnl:val-cost, pnlPct:cost>0?(val-cost)/cost*100:0 };
+        }),
+        generatedAt: nowISO(),
+      };
+      await persistReport('Portfolio Snapshot', `Portfolio Snapshot — ${new Date().toLocaleDateString()}`, null, reportData);
+      setSaved(true);
+      setTimeout(()=>setSaved(false),3000);
+    } catch(e) { setSaveErr(e.message); }
+    setSaving(false);
   };
 
   return (
@@ -864,6 +1237,7 @@ const PortfolioTab = ({ data, update, quotes }) => {
       <div style={{ display:'flex', gap:8, marginBottom:12 }}>
         <Btn onClick={()=>setShowForm(!showForm)}>+ ADD POSITION</Btn>
         {saved && <Tag color={C.green}>✓ REPORT SAVED</Tag>}
+        {saveErr && <span style={{ color:C.red, fontSize:11, maxWidth:300 }}>⚠ {saveErr}</span>}
         <Btn onClick={saveReport} color={C.amber} disabled={saving||portfolio.length===0}>
           {saving?'SAVING…':'💾 SAVE SNAPSHOT'}
         </Btn>
@@ -1023,24 +1397,46 @@ const OptionsTab = ({ data, quotes }) => {
 // ═══════════════════════════════════════════════════════════════
 const NewsTab = ({ data, quotes }) => {
   const { settings={}, watchlist=[] } = data;
+  const [activeSubTab, setSubTab] = useState('news');
   const [news, setNews] = useState(MOCK_NEWS);
-  const [loading, setLoading] = useState(false);
+  const [newsLoading, setNewsLoading] = useState(false);
   const [filter, setFilter] = useState('ALL');
   const [analyzing, setAnalyzing] = useState(null);
   const [newsAI, setNewsAI] = useState({});
+  // StockTwits
+  const [stSym, setStSym] = useState('');
+  const [stPosts, setStPosts] = useState([]);
+  const [stLoading, setStLoading] = useState(false);
+  const [stErr, setStErr] = useState('');
 
   const sentColor = s => { const l=(s||'').toLowerCase(); return l.includes('bull')||l.includes('pos')?C.green:l.includes('bear')||l.includes('neg')?C.red:C.amber; };
 
-  const refresh = async () => {
+  const refreshNews = async () => {
     if (!settings.avKey) { setNews(MOCK_NEWS); return; }
-    setLoading(true);
+    setNewsLoading(true);
     try {
       const t = watchlist.slice(0,5).join(',');
       const r = await fetch(`https://www.alphavantage.co/query?function=NEWS_SENTIMENT&tickers=${t}&limit=20&apikey=${settings.avKey}`);
       const d = await r.json();
-      if (d.feed) setNews(d.feed.map(item=>({ title:item.title, source:item.source, time:item.time_published?.slice(0,8)||'—', sentiment:item.overall_sentiment_label||'Neutral', ticker:item.ticker_sentiment?.[0]?.ticker||'' })));
-    } catch {}
-    setLoading(false);
+      if (d.feed) setNews(d.feed.map(item=>({ title:item.title, source:item.source,
+        time:item.time_published?.slice(0,8)||'—', sentiment:item.overall_sentiment_label||'Neutral',
+        ticker:item.ticker_sentiment?.[0]?.ticker||'' })));
+    } catch(e) {}
+    setNewsLoading(false);
+  };
+
+  const fetchStockTwits = async () => {
+    const sym = stSym.toUpperCase().trim() || watchlist[0] || 'SPY';
+    if (!sym) return;
+    setStLoading(true); setStErr(''); setStPosts([]);
+    try {
+      const r = await fetch(`/api/v1/trading/social/stocktwits/${sym}`);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      setStPosts(d.messages || []);
+      if (!stSym && watchlist[0]) setStSym(watchlist[0]);
+    } catch(e) { setStErr(e.message); }
+    setStLoading(false);
   };
 
   const askAI = async (item, idx) => {
@@ -1048,7 +1444,7 @@ const NewsTab = ({ data, quotes }) => {
     const sym = item.ticker || watchlist[0] || 'SPY';
     const q = quotes[sym]||MOCK_QUOTES[sym];
     try {
-      const r = await analyzeStock({ symbol:sym, quote:q, timeframe:'swing (1–2 weeks)',
+      const r = await analyzeStock({ symbol:sym, quote:q, timeframe:'swing (1-2 weeks)',
         context:`News: "${item.title}" — how does this affect ${sym}?`, settings });
       setNewsAI(p=>({...p,[idx]:r}));
     } catch(e) { alert(e.message); }
@@ -1060,37 +1456,138 @@ const NewsTab = ({ data, quotes }) => {
     filter==='Bearish' ? sentColor(n.sentiment)===C.red : sentColor(n.sentiment)===C.amber
   );
 
+  const bullish = stPosts.filter(p=>p.entities?.sentiment?.basic==='Bullish').length;
+  const bearish = stPosts.filter(p=>p.entities?.sentiment?.basic==='Bearish').length;
+  const stTotal = bullish + bearish;
+
+  const SubTab = ({ id, label }) => (
+    <button onClick={()=>setSubTab(id)} style={{
+      background:'transparent', border:'none',
+      borderBottom:`2px solid ${activeSubTab===id?C.blue:'transparent'}`,
+      color:activeSubTab===id?C.blue:C.muted, padding:'8px 16px',
+      cursor:'pointer', fontFamily:'inherit', fontSize:13, fontWeight:activeSubTab===id?600:400,
+    }}>{label}</button>
+  );
+
   return (
     <div>
-      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
-        <Btn onClick={refresh} color={C.amber} disabled={loading}>{loading?'⟳ LOADING…':'⟳ REFRESH'}</Btn>
-        {['ALL','Bullish','Bearish','Neutral'].map(f=>(
-          <Btn key={f} small color={filter===f?C.blue:C.muted} onClick={()=>setFilter(f)}>{f.toUpperCase()}</Btn>
-        ))}
-        {!settings.avKey && <Tag color={C.amber}>Add AV key in Settings for live news</Tag>}
+      {/* Sub-tabs */}
+      <div style={{ display:'flex', borderBottom:`1px solid ${C.border}`, marginBottom:14 }}>
+        <SubTab id="news" label="📰 Market News" />
+        <SubTab id="social" label="💬 StockTwits" />
       </div>
-      <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-        {filtered.map((item,i)=>(
-          <Panel key={i} style={{ borderLeft:`3px solid ${sentColor(item.sentiment)}` }}>
-            <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'flex-start' }}>
-              <div style={{ flex:1 }}>
-                <div style={{ color:C.text, marginBottom:5, lineHeight:1.5 }}>{item.title}</div>
-                <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
-                  <span style={{ color:C.muted, fontSize:13 }}>{item.source}</span>
-                  <span style={{ color:C.dimmed }}>·</span>
-                  <span style={{ color:C.muted, fontSize:13 }}>{item.time}</span>
-                  {item.ticker && <Tag color={C.blue}>{item.ticker}</Tag>}
+
+      {/* NEWS sub-tab */}
+      {activeSubTab==='news' && (
+        <div>
+          <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
+            <Btn onClick={refreshNews} color={C.amber} disabled={newsLoading}>{newsLoading?'⟳ LOADING…':'⟳ REFRESH'}</Btn>
+            {['ALL','Bullish','Bearish','Neutral'].map(f=>(
+              <Btn key={f} small color={filter===f?C.blue:C.muted} onClick={()=>setFilter(f)}>{f.toUpperCase()}</Btn>
+            ))}
+            {!settings.avKey && <Tag color={C.amber}>Add AV key in Settings for live news</Tag>}
+          </div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            {filtered.map((item,i)=>(
+              <Panel key={i} style={{ borderLeft:`3px solid ${sentColor(item.sentiment)}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', gap:12, alignItems:'flex-start' }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ color:C.text, marginBottom:5, lineHeight:1.5 }}>{item.title}</div>
+                    <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                      <span style={{ color:C.muted, fontSize:12 }}>{item.source}</span>
+                      <span style={{ color:C.dimmed }}>·</span>
+                      <span style={{ color:C.muted, fontSize:12 }}>{item.time}</span>
+                      {item.ticker && <Tag color={C.blue}>{item.ticker}</Tag>}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', flexDirection:'column', gap:5, alignItems:'flex-end' }}>
+                    <Tag color={sentColor(item.sentiment)}>{(item.sentiment||'').toUpperCase()}</Tag>
+                    <Btn small color={C.blue} onClick={()=>askAI(item,i)} disabled={analyzing===i}>{analyzing===i?'⟳':'AI IMPACT'}</Btn>
+                  </div>
+                </div>
+                {newsAI[i] && <div style={{ marginTop:10, borderTop:`1px solid ${C.border}`, paddingTop:10 }}><AIResultCard result={newsAI[i]} symbol={item.ticker||''} /></div>}
+              </Panel>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* STOCKTWITS sub-tab */}
+      {activeSubTab==='social' && (
+        <div>
+          <Panel style={{ marginBottom:14 }}>
+            <PanelTitle>STOCKTWITS — SOCIAL SENTIMENT</PanelTitle>
+            <div style={{ color:C.muted, fontSize:12, marginBottom:12 }}>
+              Real-time trader posts and sentiment from StockTwits. No account needed — public stream.
+            </div>
+            <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap', alignItems:'center' }}>
+              <Inp value={stSym} onChange={v=>setStSym(v.toUpperCase())}
+                placeholder="Ticker e.g. AAPL, TSLA…"
+                style={{ width:160 }} onKeyDown={e=>e.key==='Enter'&&fetchStockTwits()} />
+              <Btn onClick={fetchStockTwits} color={C.blue} disabled={stLoading}>
+                {stLoading?'⟳ LOADING…':'📡 FETCH STREAM'}
+              </Btn>
+              {watchlist.slice(0,5).map(sym=>(
+                <Btn key={sym} small color={stSym===sym?C.blue:C.muted}
+                  onClick={()=>{ setStSym(sym); }}>
+                  {sym}
+                </Btn>
+              ))}
+            </div>
+            {stErr && <div style={{ color:C.red, fontSize:12 }}>⚠ {stErr}</div>}
+
+            {/* Sentiment bar */}
+            {stTotal > 0 && (
+              <div style={{ marginBottom:12 }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6, fontSize:12 }}>
+                  <span style={{ color:C.green, fontWeight:600 }}>🐂 Bullish {bullish} ({Math.round(bullish/stTotal*100)}%)</span>
+                  <span style={{ color:C.muted }}>{stTotal} tagged posts</span>
+                  <span style={{ color:C.red, fontWeight:600 }}>{Math.round(bearish/stTotal*100)}% Bearish {bearish} 🐻</span>
+                </div>
+                <div style={{ height:8, borderRadius:4, background:C.border, overflow:'hidden' }}>
+                  <div style={{ height:'100%', width:`${Math.round(bullish/stTotal*100)}%`,
+                    background:`linear-gradient(90deg, ${C.green}, ${C.green}aa)`, transition:'width 0.5s' }} />
                 </div>
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:5, alignItems:'flex-end' }}>
-                <Tag color={sentColor(item.sentiment)}>{(item.sentiment||'').toUpperCase()}</Tag>
-                <Btn small color={C.blue} onClick={()=>askAI(item,i)} disabled={analyzing===i}>{analyzing===i?'⟳':'AI IMPACT'}</Btn>
-              </div>
-            </div>
-            {newsAI[i] && <div style={{ marginTop:10, borderTop:`1px solid ${C.border}`, paddingTop:10 }}><AIResultCard result={newsAI[i]} symbol={item.ticker||''} /></div>}
+            )}
           </Panel>
-        ))}
-      </div>
+
+          {stLoading && <Spinner text={`Loading ${stSym} stream…`} />}
+
+          {stPosts.length > 0 && !stLoading && (
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {stPosts.map((post,i) => {
+                const sent = post.entities?.sentiment?.basic;
+                const sc = sent==='Bullish'?C.green:sent==='Bearish'?C.red:C.muted;
+                return (
+                  <Panel key={i} style={{ borderLeft:`3px solid ${sc}` }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:10 }}>
+                      <div style={{ flex:1 }}>
+                        <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6 }}>
+                          <span style={{ color:C.blue, fontWeight:600, fontSize:13 }}>@{post.user?.username}</span>
+                          {post.user?.official && <Tag color={C.amber}>OFFICIAL</Tag>}
+                          {sent && <Tag color={sc}>{sent.toUpperCase()}</Tag>}
+                        </div>
+                        <div style={{ color:C.text, lineHeight:1.6, fontSize:13 }}>{post.body}</div>
+                        <div style={{ color:C.dimmed, fontSize:11, marginTop:6 }}>
+                          {post.created_at ? new Date(post.created_at).toLocaleString() : ''}
+                          {post.likes?.total > 0 && <span style={{ marginLeft:10 }}>♥ {post.likes.total}</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </Panel>
+                );
+              })}
+            </div>
+          )}
+
+          {stPosts.length === 0 && !stLoading && !stErr && (
+            <div style={{ color:C.muted, textAlign:'center', padding:40, fontSize:13 }}>
+              Enter a ticker and click Fetch Stream to see trader sentiment
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -1100,111 +1597,804 @@ const NewsTab = ({ data, quotes }) => {
 // ═══════════════════════════════════════════════════════════════
 const ScreenerTab = ({ data, update, quotes }) => {
   const { watchlist=[], settings={} } = data;
-  const [sector, setSector] = useState('ALL');
-  const [sortBy, setSortBy] = useState('pct');
-  const [sortDir, setSortDir] = useState('desc');
-  const [minChg, setMinChg] = useState('');
-  const [maxChg, setMaxChg] = useState('');
+  const screenerHistory = data.screenerHistory || [];
+
+  const [searchSym, setSearchSym] = useState('');
+  const [searchQuote, setSearchQuote] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchErr, setSearchErr] = useState('');
+  const [searchAI, setSearchAI] = useState(null);
+  const [searchAILoading, setSearchAILoading] = useState(false);
+  const [searchTf, setSearchTf] = useState('swing (2-4 weeks)');
   const [aiPicks, setAiPicks] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiErr, setAiErr] = useState('');
+  const [sector, setSector] = useState('ALL');
+  const [sortBy, setSortBy] = useState('pct');
+  const [sortDir, setSortDir] = useState('desc');
 
-  const all = Object.entries(MOCK_QUOTES).map(([sym,q])=>({sym,...q}));
-  const sectors = ['ALL',...new Set(all.map(s=>s.sector))];
-  let filtered = all;
-  if (sector!=='ALL') filtered=filtered.filter(s=>s.sector===sector);
-  if (minChg!=='') filtered=filtered.filter(s=>s.pct>=parseFloat(minChg));
-  if (maxChg!=='') filtered=filtered.filter(s=>s.pct<=parseFloat(maxChg));
-  filtered=[...filtered].sort((a,b)=>sortDir==='desc'?b[sortBy]-a[sortBy]:a[sortBy]-b[sortBy]);
+  const TFS = ['day trade (today)','swing (1-2 weeks)','swing (2-4 weeks)','medium term (1-3 months)','long term (6+ months)'];
 
-  const toggleSort = col => { if(sortBy===col) setSortDir(d=>d==='desc'?'asc':'desc'); else {setSortBy(col);setSortDir('desc');} };
+  const searchTicker = async () => {
+    const sym = searchSym.toUpperCase().trim();
+    if (!sym) return;
+    setSearchLoading(true); setSearchQuote(null); setSearchAI(null); setSearchErr('');
+    try {
+      const res = await fetchQuote(sym, settings);
+      if (res.quote) setSearchQuote({ ...res.quote, sym });
+      else setSearchErr(`No price data for ${sym}. Try a different symbol.`);
+    } catch(e) { setSearchErr(e.message); }
+    setSearchLoading(false);
+  };
+
+  const runSearchAI = async () => {
+    const sym = searchSym.toUpperCase().trim();
+    setSearchAILoading(true); setSearchAI(null); setSearchErr('');
+    try {
+      const r = await analyzeStock({ symbol:sym, quote:searchQuote, timeframe:searchTf, settings });
+      setSearchAI(r);
+      const entry = { sym, tf:searchTf, date:nowISO(), action:r.action, confidence:r.confidence,
+        entry:r.entry_price, target:r.target_price, stop:r.stop_loss, provider:r._provider,
+        quote: searchQuote ? { price:searchQuote.price, pct:searchQuote.pct } : null };
+      update({ screenerHistory: [entry, ...screenerHistory].slice(0,100) });
+    } catch(e) { setSearchErr(e.message); }
+    setSearchAILoading(false);
+  };
 
   const aiScreen = async () => {
     setAiLoading(true); setAiPicks(null); setAiErr('');
     const prompt = `You are a professional stock screener. Today: ${new Date().toDateString()}.
-Identify 3 high-conviction trading opportunities across different timeframes.
+Identify 5 high-conviction trading opportunities across different timeframes and sectors.
 Return ONLY valid JSON:
-{"picks":[{"symbol":"...","name":"...","type":"Day Trade|Swing Trade|Long Term","entry":0,"target":0,"stop":0,"thesis":"...","confidence":0}],"market_outlook":"..."}`;
+{"picks":[{"symbol":"...","name":"...","sector":"...","type":"Day Trade|Swing Trade|Long Term","entry":0,"target":0,"stop":0,"thesis":"...","technicals":"...","confidence":0}],"market_outlook":"...","sector_leaders":["..."]}`;
     try {
       const text = await callProvider(prompt, settings.provider||'gemini', settings.apiKeys||{});
-      setAiPicks(JSON.parse(text.replace(/```json|```/g,'').trim()));
+      const picks = JSON.parse(text.replace(/```json|```/g,'').trim());
+      setAiPicks(picks);
+      if (picks.picks?.length) {
+        const entries = picks.picks.map(p => ({ sym:p.symbol, tf:p.type, date:nowISO(),
+          action:'BUY', confidence:p.confidence, entry:p.entry, target:p.target, stop:p.stop,
+          provider:'AI Top Picks', quote:null }));
+        update({ screenerHistory: [...entries, ...screenerHistory].slice(0,100) });
+      }
     } catch(e) { setAiErr(e.message); }
     setAiLoading(false);
   };
 
-  const S = ({ col }) => sortBy===col?(sortDir==='desc'?' ▼':' ▲'):'';
+  const all = Object.entries(MOCK_QUOTES).map(([sym,q])=>({sym,...q}));
+  const sectors = ['ALL',...new Set(all.map(s=>s.sector))];
+  let filtered = sector==='ALL'?all:all.filter(s=>s.sector===sector);
+  filtered = [...filtered].sort((a,b)=>sortDir==='desc'?b[sortBy]-a[sortBy]:a[sortBy]-b[sortBy]);
+  const toggleSort = col => { if(sortBy===col) setSortDir(d=>d==='desc'?'asc':'desc'); else {setSortBy(col);setSortDir('desc');} };
+  const SortArrow = ({ col }) => sortBy===col?(sortDir==='desc'?' ▼':' ▲'):'';
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 280px', gap:14 }}>
+      <div>
+        {/* Ticker search panel */}
+        <Panel style={{ marginBottom:14 }}>
+          <PanelTitle>SCREEN ANY TICKER</PanelTitle>
+          <div style={{ color:C.muted, fontSize:12, marginBottom:12 }}>
+            Look up any stock or ETF. Results saved to history — nothing added to watchlist or portfolio unless you choose.
+          </div>
+          <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap', alignItems:'center' }}>
+            <Inp value={searchSym} onChange={v=>setSearchSym(v.toUpperCase())}
+              placeholder="Any ticker — MSFT, AMD, PLTR, VOO…"
+              style={{ flex:1, minWidth:160 }} onKeyDown={e=>e.key==='Enter'&&searchTicker()} />
+            <Btn onClick={searchTicker} color={C.blue} disabled={searchLoading||!searchSym.trim()}>
+              {searchLoading?'⟳':'🔍 LOOK UP'}
+            </Btn>
+            <Btn color={C.purple} onClick={aiScreen} disabled={aiLoading}>
+              {aiLoading?'⟳ SCANNING…':'🤖 AI TOP PICKS'}
+            </Btn>
+          </div>
+          {(searchErr||aiErr) && <div style={{ color:C.red, fontSize:12, marginBottom:10 }}>⚠ {searchErr||aiErr}</div>}
+
+          {searchQuote && !searchLoading && (
+            <div style={{ background:C.bg, border:`1px solid ${C.border2}`, borderRadius:8, padding:14, marginBottom:10 }}>
+              <div style={{ display:'flex', alignItems:'baseline', gap:14, marginBottom:8, flexWrap:'wrap' }}>
+                <span style={{ color:C.text, fontWeight:700, fontSize:22 }}>{searchQuote.sym}</span>
+                <span style={{ color:C.text, fontWeight:700, fontSize:22 }}>{fmtP(searchQuote.price)}</span>
+                <span style={{ color:pColor(searchQuote.pct), fontWeight:600, fontSize:15 }}>
+                  {searchQuote.chg>=0?'+':''}{fmtNum(searchQuote.chg)} ({fmtPct(searchQuote.pct)})
+                </span>
+                {searchQuote._source && <Tag color={C.green}>{searchQuote._source}</Tag>}
+              </div>
+              <div style={{ display:'flex', gap:16, color:C.muted, fontSize:12, marginBottom:12 }}>
+                <span>H: <span style={{ color:C.text }}>{fmtP(searchQuote.h)}</span></span>
+                <span>L: <span style={{ color:C.text }}>{fmtP(searchQuote.l)}</span></span>
+                {searchQuote.vol&&searchQuote.vol!=='—'&&<span>Vol: <span style={{ color:C.text }}>{searchQuote.vol}</span></span>}
+              </div>
+              <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+                <Sel value={searchTf} onChange={setSearchTf} options={TFS.map(t=>({value:t,label:t}))} style={{ flex:1, minWidth:160 }} />
+                <Btn onClick={runSearchAI} color={C.green} disabled={searchAILoading}>
+                  {searchAILoading?'⟳ ANALYZING…':'🤖 AI ANALYSIS'}
+                </Btn>
+                <Btn small color={C.blue} onClick={()=>{ if(!watchlist.includes(searchQuote.sym)) update({watchlist:[...watchlist,searchQuote.sym]}); }}>
+                  + WATCHLIST
+                </Btn>
+              </div>
+            </div>
+          )}
+          {searchAILoading && <Spinner text={`Analyzing ${searchSym}…`} />}
+          {searchAI && !searchAILoading && (
+            <div style={{ marginTop:10, borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+              <AIResultCard result={searchAI} symbol={searchSym} />
+            </div>
+          )}
+        </Panel>
+
+        {/* AI Top Picks */}
+        {aiLoading && <Panel style={{ marginBottom:14 }}><Spinner text="AI scanning market for top picks…" /></Panel>}
+        {aiPicks && (
+          <Panel style={{ marginBottom:14 }}>
+            <PanelTitle>AI TOP PICKS — {new Date().toLocaleDateString()}</PanelTitle>
+            {aiPicks.market_outlook && <div style={{ color:C.amber, fontSize:12, marginBottom:10, lineHeight:1.6 }}>📊 {aiPicks.market_outlook}</div>}
+            {aiPicks.sector_leaders?.length>0 && (
+              <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:12 }}>
+                <span style={{ color:C.muted, fontSize:11 }}>Leaders:</span>
+                {aiPicks.sector_leaders.map((s,i)=><Tag key={i} color={C.blue}>{s}</Tag>)}
+              </div>
+            )}
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(230px,1fr))', gap:10 }}>
+              {aiPicks.picks?.map((p,i)=>(
+                <div key={i} style={{ background:C.bg, border:`1px solid ${C.border2}`, borderRadius:8, padding:12 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', marginBottom:4, flexWrap:'wrap', gap:4 }}>
+                    <span style={{ color:C.text, fontWeight:700, fontSize:15 }}>{p.symbol}</span>
+                    <Tag color={C.green}>{p.type}</Tag>
+                  </div>
+                  <div style={{ color:C.muted, fontSize:11, marginBottom:8 }}>{p.name} {p.sector&&`· ${p.sector}`}</div>
+                  <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:4, marginBottom:8 }}>
+                    {[['ENTRY',p.entry,C.blue],['TARGET',p.target,C.green],['STOP',p.stop,C.red]].map(([l,v,c])=>(
+                      <div key={l} style={{ textAlign:'center', background:c+'15', borderRadius:5, padding:'5px 4px' }}>
+                        <div style={{ color:C.muted, fontSize:10 }}>{l}</div>
+                        <div style={{ color:c, fontWeight:700, fontSize:13 }}>{fmtP(v)}</div>
+                      </div>
+                    ))}
+                  </div>
+                  {p.technicals && <div style={{ color:C.amber, fontSize:11, marginBottom:5 }}>📐 {p.technicals}</div>}
+                  <div style={{ color:C.text, fontSize:11, lineHeight:1.5, marginBottom:8 }}>{p.thesis}</div>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', flexWrap:'wrap', gap:4 }}>
+                    <Tag color={p.confidence>=7?C.green:C.amber}>CONF {p.confidence}/10</Tag>
+                    <div style={{ display:'flex', gap:4 }}>
+                      <Btn small color={C.purple} onClick={()=>{ setSearchSym(p.symbol); setSearchQuote(null); setSearchAI(null); }}>🔍 Screen</Btn>
+                      <Btn small color={C.blue} onClick={()=>{ if(!watchlist.includes(p.symbol)) update({watchlist:[...watchlist,p.symbol]}); }}>+ Watch</Btn>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+        )}
+
+        {/* Reference table */}
+        <Panel style={{ overflowX:'auto' }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, flexWrap:'wrap', gap:8 }}>
+            <PanelTitle>REFERENCE — SAMPLE TICKERS</PanelTitle>
+            <Sel value={sector} onChange={setSector} options={sectors.map(s=>({value:s,label:s}))} />
+          </div>
+          <div style={{ color:C.dimmed, fontSize:11, marginBottom:8 }}>Click any row to load into search above · Simulated prices for reference</div>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+            <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
+              {[['SYMBOL','sym'],['SECTOR','sector'],['PRICE','price'],['CHG','chg'],['CHG %','pct'],['VOLUME','vol'],['',null]].map(([l,c])=>(
+                <th key={l} onClick={c?()=>toggleSort(c):undefined}
+                  style={{ textAlign:'left', padding:'5px 8px', fontWeight:600, cursor:c?'pointer':'default',
+                    color:sortBy===c?C.blue:C.muted, fontSize:11, letterSpacing:0.3 }}>
+                  {l}{c&&<SortArrow col={c} />}
+                </th>
+              ))}
+            </tr></thead>
+            <tbody>{filtered.map(s=>(
+              <tr key={s.sym} style={{ borderBottom:`1px solid ${C.border}18`, cursor:'pointer' }}
+                onClick={()=>setSearchSym(s.sym)}>
+                <td style={{ padding:'7px 8px', color:C.text, fontWeight:700 }}>{s.sym}</td>
+                <td style={{ padding:'7px 8px' }}><Tag color={C.muted}>{s.sector}</Tag></td>
+                <td style={{ padding:'7px 8px', color:C.text }}>{fmtP(s.price)}</td>
+                <td style={{ padding:'7px 8px', color:pColor(s.chg) }}>{s.chg>=0?'+':''}{fmtNum(s.chg)}</td>
+                <td style={{ padding:'7px 8px', color:pColor(s.pct) }}>{fmtPct(s.pct)}</td>
+                <td style={{ padding:'7px 8px', color:C.muted }}>{s.vol}</td>
+                <td style={{ padding:'7px 8px' }}>
+                  <Btn small color={C.blue} onClick={e=>{ e.stopPropagation(); setSearchSym(s.sym); setTimeout(searchTicker,50); }}>Screen</Btn>
+                </td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </Panel>
+      </div>
+
+      {/* Right: History */}
+      <div>
+        <Panel>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+            <PanelTitle>HISTORY</PanelTitle>
+            {screenerHistory.length>0 && <Btn small color={C.red} onClick={()=>{ if(confirm('Clear history?')) update({screenerHistory:[]}); }}>Clear</Btn>}
+          </div>
+          <div style={{ color:C.dimmed, fontSize:11, marginBottom:10 }}>Last 100 · auto-saved to NAS · click to re-screen</div>
+          {screenerHistory.length===0 && <div style={{ color:C.muted, fontSize:12 }}>No history yet. Screen a ticker above.</div>}
+          {screenerHistory.map((h,i)=>{
+            const ac=h.action==='BUY'?C.green:h.action==='SELL'?C.red:C.amber;
+            return (
+              <div key={i} style={{ borderBottom:`1px solid ${C.border}`, paddingBottom:8, marginBottom:8, cursor:'pointer' }}
+                onClick={()=>{ setSearchSym(h.sym); setSearchQuote(null); setSearchAI(null); }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:2, flexWrap:'wrap', gap:3 }}>
+                  <span style={{ color:C.text, fontWeight:700 }}>{h.sym}</span>
+                  <div style={{ display:'flex', gap:3 }}>
+                    <Tag color={ac}>{h.action}</Tag>
+                    {h.confidence && <Tag color={h.confidence>=7?C.green:C.amber}>{h.confidence}/10</Tag>}
+                  </div>
+                </div>
+                {h.quote && <div style={{ color:pColor(h.quote.pct), fontSize:11 }}>{fmtP(h.quote.price)} {fmtPct(h.quote.pct)}</div>}
+                <div style={{ color:C.muted, fontSize:11 }}>
+                  {h.entry?`In ${fmtP(h.entry)}`:''}{h.target?` → ${fmtP(h.target)}`:''}{h.stop?` Stop ${fmtP(h.stop)}`:''}
+                </div>
+                <div style={{ color:C.dimmed, fontSize:10, marginTop:2 }}>{h.tf} · {h.date?new Date(h.date).toLocaleDateString():''}</div>
+              </div>
+            );
+          })}
+        </Panel>
+      </div>
+    </div>
+  );
+};
+
+// REPORTS TAB
+
+// ═══════════════════════════════════════════════════════════════
+// EARNINGS CALENDAR TAB
+// ═══════════════════════════════════════════════════════════════
+const EarningsTab = ({ data, quotes }) => {
+  const { settings={}, watchlist=[] } = data;
+  const [earnings, setEarnings] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+  const [view, setView] = useState('upcoming'); // upcoming | watchlist
+  const [analyzing, setAnalyzing] = useState(null);
+  const [earningsAI, setEarningsAI] = useState({});
+
+  const today = new Date();
+  const fmtDate = d => d.toISOString().slice(0,10);
+  const in30 = new Date(today); in30.setDate(in30.getDate()+30);
+
+  const fetchEarnings = async () => {
+    if (!settings.finnhubKey) {
+      setErr('Finnhub key required for earnings data. Add it in Settings → Market Data.');
+      return;
+    }
+    setLoading(true); setErr(''); setEarnings([]);
+    try {
+      const from = fmtDate(today);
+      const to   = fmtDate(in30);
+      const syms = view==='watchlist' ? watchlist.join(',') : '';
+      const url  = syms
+        ? `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&symbol=${syms}&token=${settings.finnhubKey}`
+        : `https://finnhub.io/api/v1/calendar/earnings?from=${from}&to=${to}&token=${settings.finnhubKey}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      const list = (d.earningsCalendar||[])
+        .filter(e=>e.symbol&&e.date)
+        .sort((a,b)=>a.date.localeCompare(b.date));
+      setEarnings(list);
+    } catch(e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  const analyzeEarnings = async (e) => {
+    setAnalyzing(e.symbol);
+    const q = quotes[e.symbol]||MOCK_QUOTES[e.symbol];
+    const ctx = `Earnings date: ${e.date}. EPS estimate: ${e.epsEstimate??'N/A'}. Revenue estimate: ${e.revenueEstimate??'N/A'}. How to play this earnings event?`;
+    try {
+      const r = await analyzeStock({ symbol:e.symbol, quote:q, timeframe:'earnings play', context:ctx, settings });
+      setEarningsAI(p=>({...p,[e.symbol]:r}));
+    } catch(err) { alert(err.message); }
+    setAnalyzing(null);
+  };
+
+  const daysUntil = dateStr => {
+    const diff = new Date(dateStr) - today;
+    const d = Math.ceil(diff / (1000*60*60*24));
+    return d <= 0 ? 'Today' : d === 1 ? 'Tomorrow' : `In ${d} days`;
+  };
+
+  const urgencyColor = dateStr => {
+    const d = Math.ceil((new Date(dateStr) - today) / (1000*60*60*24));
+    return d <= 1 ? C.red : d <= 7 ? C.amber : C.green;
+  };
+
   return (
     <div>
-      <div style={{ display:'flex', gap:8, marginBottom:14, flexWrap:'wrap', alignItems:'center' }}>
-        <Sel value={sector} onChange={setSector} options={sectors.map(s=>({value:s,label:s}))} />
-        <Inp value={minChg} onChange={setMinChg} placeholder="Min chg%" style={{ width:80 }} type="number" />
-        <Inp value={maxChg} onChange={setMaxChg} placeholder="Max chg%" style={{ width:80 }} type="number" />
-        <Btn color={C.purple} onClick={aiScreen} disabled={aiLoading}>{aiLoading?'⟳ SCANNING…':'🤖 AI TOP PICKS'}</Btn>
-      </div>
-      {aiLoading && <Panel style={{ marginBottom:14 }}><Spinner text="Scanning market for top picks…" /></Panel>}
-      {aiErr && <Panel style={{ marginBottom:14 }}><div style={{ color:C.red }}>⚠ {aiErr}</div></Panel>}
-      {aiPicks && (
-        <Panel style={{ marginBottom:14 }}>
-          <PanelTitle>AI TOP PICKS — {new Date().toLocaleDateString()}</PanelTitle>
-          {aiPicks.market_outlook && <div style={{ color:C.amber, fontSize:13, marginBottom:12 }}>📊 {aiPicks.market_outlook}</div>}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:10 }}>
-            {aiPicks.picks?.map((p,i)=>(
-              <div key={i} style={{ background:C.bg, border:`1px solid ${C.border2}`, borderRadius:3, padding:12 }}>
-                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:6 }}>
-                  <span style={{ color:C.text, fontWeight:'bold', fontSize:14 }}>{p.symbol}</span>
-                  <Tag color={C.green}>{p.type}</Tag>
-                </div>
-                <div style={{ color:C.muted, fontSize:13, marginBottom:8 }}>{p.name}</div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:5, marginBottom:8 }}>
-                  {[['ENTRY',p.entry,C.blue],['TARGET',p.target,C.green],['STOP',p.stop,C.red]].map(([l,v,c])=>(
-                    <div key={l} style={{ textAlign:'center', background:c+'15', borderRadius:2, padding:'4px 6px' }}>
-                      <div style={{ color:C.muted, fontSize:13 }}>{l}</div>
-                      <div style={{ color:c, fontWeight:'bold' }}>{fmtP(v)}</div>
-                    </div>
-                  ))}
-                </div>
-                <div style={{ color:C.text, fontSize:13, lineHeight:1.5, marginBottom:8 }}>{p.thesis}</div>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <Tag color={p.confidence>=7?C.green:C.amber}>CONF {p.confidence}/10</Tag>
-                  <Btn small color={C.blue} onClick={()=>{ if(!watchlist.includes(p.symbol)) update({watchlist:[...watchlist,p.symbol]}); }}>+ WATCHLIST</Btn>
-                </div>
-              </div>
+      <Panel style={{ marginBottom:14 }}>
+        <PanelTitle>EARNINGS CALENDAR</PanelTitle>
+        <div style={{ color:C.muted, fontSize:12, marginBottom:12 }}>
+          Upcoming earnings reports — next 30 days. Requires Finnhub free key.
+          {!settings.finnhubKey && <span style={{ color:C.amber }}> · Add Finnhub key in Settings → Market Data</span>}
+        </div>
+        <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
+          <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}` }}>
+            {[['upcoming','All Upcoming'],['watchlist','My Watchlist']].map(([id,label])=>(
+              <button key={id} onClick={()=>setView(id)} style={{
+                background:view===id?C.blue:'transparent', color:view===id?'white':C.muted,
+                border:'none', padding:'7px 14px', cursor:'pointer', fontFamily:'inherit', fontSize:12, fontWeight:600,
+              }}>{label}</button>
             ))}
           </div>
-        </Panel>
-      )}
-      <Panel style={{ overflowX:'auto' }}>
-        <PanelTitle>MARKET SCREENER — {filtered.length} RESULTS</PanelTitle>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-          <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
-            {[['SYMBOL','sym'],['SECTOR','sector'],['PRICE','price'],['CHG','chg'],['CHG %','pct'],['VOLUME','vol'],['MKT CAP','mktcap'],['',null]].map(([label,col])=>(
-              <th key={label} onClick={col?()=>toggleSort(col):undefined}
-                style={{ textAlign:'left', padding:'6px 10px', fontWeight:'normal', cursor:col?'pointer':'default', letterSpacing:1 }}>
-                {label}{col&&<S col={col} />}
-              </th>
-            ))}
-          </tr></thead>
-          <tbody>{filtered.map(s=>(
-            <tr key={s.sym} style={{ borderBottom:`1px solid ${C.border}18` }}>
-              <td style={{ padding:'8px 10px', color:C.text, fontWeight:'bold' }}>{s.sym}</td>
-              <td style={{ padding:'8px 10px' }}><Tag color={C.muted}>{s.sector}</Tag></td>
-              <td style={{ padding:'8px 10px', color:C.text }}>{fmtP(s.price)}</td>
-              <td style={{ padding:'8px 10px', color:pColor(s.chg) }}>{s.chg>=0?'+':''}{fmtNum(s.chg)}</td>
-              <td style={{ padding:'8px 10px', color:pColor(s.pct) }}>{fmtPct(s.pct)}</td>
-              <td style={{ padding:'8px 10px', color:C.muted }}>{s.vol}</td>
-              <td style={{ padding:'8px 10px', color:C.muted }}>{s.mktcap}</td>
-              <td style={{ padding:'8px 10px' }}><Btn small color={C.blue} onClick={()=>{ if(!watchlist.includes(s.sym)) update({watchlist:[...watchlist,s.sym]}); }}>+ WATCH</Btn></td>
-            </tr>
-          ))}</tbody>
-        </table>
+          <Btn onClick={fetchEarnings} color={C.blue} disabled={loading}>
+            {loading?'⟳ LOADING…':'📅 FETCH EARNINGS'}
+          </Btn>
+        </div>
+        {err && <div style={{ color:C.red, fontSize:12, marginTop:8 }}>⚠ {err}</div>}
       </Panel>
+
+      {loading && <Spinner text="Fetching earnings calendar…" />}
+
+      {!loading && earnings.length === 0 && !err && (
+        <div style={{ color:C.muted, textAlign:'center', padding:40, fontSize:13 }}>
+          Click Fetch Earnings to load upcoming reports
+        </div>
+      )}
+
+      {earnings.length > 0 && (
+        <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+          {earnings.map((e,i) => {
+            const uc = urgencyColor(e.date);
+            const ai = earningsAI[e.symbol];
+            return (
+              <Panel key={i} style={{ borderLeft:`4px solid ${uc}` }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10 }}>
+                  <div style={{ flex:1 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:6, flexWrap:'wrap' }}>
+                      <span style={{ color:C.text, fontWeight:700, fontSize:16 }}>{e.symbol}</span>
+                      <Tag color={uc}>{daysUntil(e.date)}</Tag>
+                      {e.hour === 'bmo' && <Tag color={C.muted}>PRE-MARKET</Tag>}
+                      {e.hour === 'amc' && <Tag color={C.muted}>AFTER-HOURS</Tag>}
+                    </div>
+                    <div style={{ display:'flex', gap:20, fontSize:12, color:C.muted, flexWrap:'wrap' }}>
+                      <span>📅 {e.date}</span>
+                      {e.epsEstimate != null && <span>EPS Est: <span style={{ color:C.text }}>{e.epsEstimate}</span></span>}
+                      {e.epsPrior != null && <span>Prior EPS: <span style={{ color:C.text }}>{e.epsPrior}</span></span>}
+                      {e.revenueEstimate != null && <span>Rev Est: <span style={{ color:C.text }}>${(e.revenueEstimate/1e9).toFixed(2)}B</span></span>}
+                    </div>
+                    {quotes[e.symbol] && (
+                      <div style={{ marginTop:6, fontSize:12 }}>
+                        <span style={{ color:C.text }}>{fmtP(quotes[e.symbol].price)}</span>
+                        <span style={{ color:pColor(quotes[e.symbol].pct), marginLeft:8 }}>{fmtPct(quotes[e.symbol].pct)}</span>
+                      </div>
+                    )}
+                  </div>
+                  <Btn small color={C.purple} onClick={()=>analyzeEarnings(e)} disabled={analyzing===e.symbol}>
+                    {analyzing===e.symbol?'⟳':'🤖 EARNINGS PLAY'}
+                  </Btn>
+                </div>
+                {ai && (
+                  <div style={{ marginTop:12, borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+                    <AIResultCard result={ai} symbol={e.symbol} />
+                  </div>
+                )}
+              </Panel>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };
 
 // ═══════════════════════════════════════════════════════════════
-// REPORTS TAB
+
+
 // ═══════════════════════════════════════════════════════════════
+// CONGRESS PANEL — reusable, used in Social tab
+// ═══════════════════════════════════════════════════════════════
+const CongressPanel = ({ watchlist=[] }) => {
+  const [trades, setTrades]   = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr]         = useState('');
+  const [sym, setSym]         = useState('');
+
+  const loadCongress = async (s) => {
+    const ticker = (s||sym||'').toUpperCase().trim();
+    if (!ticker) {
+      // Load recent trades for all watchlist tickers
+      setLoading(true); setErr(''); setTrades([]);
+      try {
+        const results = await Promise.all(
+          (watchlist.slice(0,5)||['SPY']).map(t =>
+            fetch(`/api/v1/trading/market/congress/${t}`)
+              .then(r=>r.ok?r.json():null).catch(()=>null)
+          )
+        );
+        const all = results.flatMap(r=>r?.trades||[])
+          .sort((a,b)=>new Date(b.transaction_date||0)-new Date(a.transaction_date||0));
+        setTrades(all);
+      } catch(e) { setErr(e.message); }
+      setLoading(false);
+      return;
+    }
+    setLoading(true); setErr(''); setTrades([]);
+    try {
+      const r = await fetch(`/api/v1/trading/market/congress/${ticker}`);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      setTrades(d.trades||[]);
+    } catch(e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  useEffect(()=>{ if (watchlist.length) loadCongress(''); }, []);
+
+  const partyColor = p => (p||'').toUpperCase()==='D'?C.blue:(p||'').toUpperCase()==='R'?C.red:C.muted;
+
+  return (
+    <div>
+      <div style={{ display:'flex', gap:6, marginBottom:8, flexWrap:'wrap' }}>
+        <Inp value={sym} onChange={setSym} placeholder="Ticker or blank for watchlist…"
+          style={{ flex:1 }} onKeyDown={e=>e.key==='Enter'&&loadCongress(sym)} />
+        <Btn small color={C.blue} onClick={()=>loadCongress(sym)} disabled={loading}>
+          {loading?'⟳':'GO'}
+        </Btn>
+      </div>
+      {err && <div style={{ color:C.red, fontSize:11, marginBottom:6 }}>⚠ {err}</div>}
+      {loading && <Spinner text="Loading Congress trades…" />}
+      {!loading && trades.length===0 && !err && (
+        <div style={{ color:C.muted, fontSize:12, textAlign:'center', padding:16 }}>
+          No congressional trades found in last 90 days
+        </div>
+      )}
+      <div style={{ maxHeight:340, overflowY:'auto' }}>
+        {trades.map((t,i)=>{
+          const isBuy=(t.type||'').toLowerCase().includes('purchase')||(t.type||'').toLowerCase().includes('buy');
+          return (
+            <div key={i} style={{ padding:'8px 0', borderBottom:`1px solid ${C.border}22` }}>
+              <div style={{ display:'flex', justifyContent:'space-between', marginBottom:3, flexWrap:'wrap', gap:4 }}>
+                <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                  <span style={{ color:partyColor(t.party), fontSize:11, fontWeight:700 }}>
+                    {t.party||'?'}
+                  </span>
+                  <span style={{ color:C.text, fontSize:12, fontWeight:600 }}>{t.representative||'Member'}</span>
+                </div>
+                <Tag color={isBuy?C.green:C.red}>{isBuy?'PURCHASE':'SALE'}</Tag>
+              </div>
+              <div style={{ display:'flex', gap:10, fontSize:11, color:C.muted, flexWrap:'wrap' }}>
+                <span style={{ color:C.blue, fontWeight:600 }}>{t.description||'Stock'}</span>
+                <span>{t.amount||'Amount N/A'}</span>
+                <span style={{ color:C.dimmed }}>{t.transaction_date||'?'}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div style={{ color:C.dimmed, fontSize:10, marginTop:6 }}>
+        Source: House STOCK Act disclosures · up to 45-day filing lag
+      </div>
+    </div>
+  );
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SOCIAL TAB
+// ═══════════════════════════════════════════════════════════════
+const SocialTab = ({ data, quotes }) => {
+  const { settings={}, watchlist=[] } = data;
+  const defaultSym = watchlist[0] || 'SPY';
+
+  // ── StockTwits state ──────────────────────────────────────────
+  const [stSym, setStSym]         = useState(defaultSym);
+  const [stPosts, setStPosts]     = useState([]);
+  const [stLoading, setStLoading] = useState(false);
+  const [stErr, setStErr]         = useState('');
+
+  // ── Reddit state ──────────────────────────────────────────────
+  const [rdSub, setRdSub]         = useState('wallstreetbets');
+  const [rdSym, setRdSym]         = useState(defaultSym);
+  const [rdPosts, setRdPosts]     = useState([]);
+  const [rdLoading, setRdLoading] = useState(false);
+  const [rdErr, setRdErr]         = useState('');
+
+  // ── Fear & Greed state ────────────────────────────────────────
+  const [fg, setFg]               = useState(null);
+  const [fgLoading, setFgLoading] = useState(false);
+
+  // ── Fetch StockTwits via Ghrava proxy ─────────────────────────
+  const fetchST = async (sym) => {
+    const s = (sym||stSym).toUpperCase().trim();
+    if (!s) return;
+    setStSym(s); setStLoading(true); setStErr(''); setStPosts([]);
+    try {
+      const r = await fetch(`/api/v1/trading/social/stocktwits/${s}`);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      setStPosts(d.messages || []);
+    } catch(e) { setStErr(e.message); }
+    setStLoading(false);
+  };
+
+  // ── Fetch Reddit via public JSON (no auth) ────────────────────
+  const SUBS = (settings?.socialLinks?.redditSubs || DEFAULTS.settings.socialLinks.redditSubs);
+  const fetchReddit = async (sub, sym) => {
+    const s   = (sym||rdSym).toUpperCase().trim() || '';
+    const sub2 = sub||rdSub;
+    setRdSub(sub2); if (s) setRdSym(s);
+    setRdLoading(true); setRdErr(''); setRdPosts([]);
+    try {
+      const query = s ? `${s}` : '';
+      const url   = query
+        ? `/api/v1/trading/social/reddit/${sub2}?q=${encodeURIComponent(query)}`
+        : `/api/v1/trading/social/reddit/${sub2}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      setRdPosts(d.posts || []);
+    } catch(e) { setRdErr(e.message); }
+    setRdLoading(false);
+  };
+
+  // ── Fear & Greed via Ghrava proxy ─────────────────────────────
+  const fetchFG = async () => {
+    setFgLoading(true);
+    try {
+      const r = await fetch('/api/v1/trading/social/feargreed');
+      const d = await r.json();
+      if (!d.error) setFg(d);
+    } catch(e) {}
+    setFgLoading(false);
+  };
+
+  useEffect(() => {
+    fetchST(defaultSym);
+    fetchReddit('wallstreetbets', defaultSym);
+    fetchFG();
+  }, []);
+
+  // ── Sentiment helpers ─────────────────────────────────────────
+  const stBull = stPosts.filter(p=>p.entities?.sentiment?.basic==='Bullish').length;
+  const stBear = stPosts.filter(p=>p.entities?.sentiment?.basic==='Bearish').length;
+  const stTotal = stBull + stBear;
+
+  const fgColor = v => v>=75?C.green:v>=55?'#86efac':v>=45?C.amber:v>=25?C.red:'#dc2626';
+  const fgLabel = v => v>=75?'Extreme Greed':v>=55?'Greed':v>=45?'Neutral':v>=25?'Fear':'Extreme Fear';
+
+  // ── Shared sub-input bar ──────────────────────────────────────
+  const SymBar = ({ value, onChange, onGo, placeholder, loading, extra }) => (
+    <div style={{ display:'flex', gap:6, marginBottom:10, flexWrap:'wrap', alignItems:'center' }}>
+      <Inp value={value} onChange={onChange}
+        placeholder={placeholder} style={{ width:120 }}
+        onKeyDown={e=>e.key==='Enter'&&onGo()} />
+      <Btn small color={C.blue} onClick={onGo} disabled={loading}>
+        {loading?'⟳':'GO'}
+      </Btn>
+      {extra}
+    </div>
+  );
+
+  // ── Shared post card ──────────────────────────────────────────
+  const PostCard = ({ title, body, author, time, url, score, comments, sentColor, sentiment, tag }) => (
+    <div style={{ padding:'10px 0', borderBottom:`1px solid ${C.border}22` }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', gap:8, marginBottom:4 }}>
+        <div style={{ flex:1, minWidth:0 }}>
+          {tag && <Tag color={tag.color} style={{ marginBottom:4 }}>{tag.label}</Tag>}
+          {url
+            ? <a href={url} target="_blank" rel="noreferrer"
+                style={{ color:C.text, fontWeight:600, fontSize:13, lineHeight:1.4,
+                  textDecoration:'none', display:'block', marginBottom:3 }}>
+                {title}
+              </a>
+            : <div style={{ color:C.text, fontWeight:600, fontSize:13, lineHeight:1.4, marginBottom:3 }}>{title}</div>
+          }
+          {body && <div style={{ color:C.muted, fontSize:12, lineHeight:1.5, marginTop:3,
+            overflow:'hidden', display:'-webkit-box', WebkitLineClamp:3, WebkitBoxOrient:'vertical' }}>
+            {body}
+          </div>}
+        </div>
+        {sentiment && <Tag color={sentColor}>{sentiment}</Tag>}
+      </div>
+      <div style={{ display:'flex', gap:12, color:C.dimmed, fontSize:11, marginTop:4, flexWrap:'wrap' }}>
+        {author && <span>@{author}</span>}
+        {score != null && <span>▲ {typeof score==='number'?score.toLocaleString():score}</span>}
+        {comments != null && <span>💬 {comments}</span>}
+        {time && <span>{typeof time==='string'&&time.length>20 ? new Date(time).toLocaleString() : time}</span>}
+      </div>
+    </div>
+  );
+
+  return (
+    <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 280px', gap:14, alignItems:'start' }}>
+
+      {/* ── COLUMN 1: StockTwits ─────────────────────────────── */}
+      <Panel>
+        <PanelTitle>💬 STOCKTWITS</PanelTitle>
+
+        {/* Symbol bar + watchlist quick picks */}
+        <SymBar value={stSym} onChange={setStSym} onGo={()=>fetchST(stSym)}
+          placeholder="Ticker…" loading={stLoading}
+          extra={
+            <div style={{ display:'flex', gap:4, flexWrap:'wrap' }}>
+              {watchlist.slice(0,5).map(s=>(
+                <Btn key={s} small color={stSym===s?C.blue:C.muted} onClick={()=>fetchST(s)}>{s}</Btn>
+              ))}
+            </div>
+          }
+        />
+
+        {/* Sentiment bar */}
+        {stTotal > 0 && (
+          <div style={{ marginBottom:12 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, marginBottom:5 }}>
+              <span style={{ color:C.green, fontWeight:600 }}>🐂 {stBull} Bullish ({Math.round(stBull/stTotal*100)}%)</span>
+              <span style={{ color:C.muted }}>{stTotal} tagged</span>
+              <span style={{ color:C.red, fontWeight:600 }}>{Math.round(stBear/stTotal*100)}% Bearish {stBear} 🐻</span>
+            </div>
+            <div style={{ height:7, borderRadius:4, background:C.border, overflow:'hidden' }}>
+              <div style={{ height:'100%', borderRadius:4,
+                width:`${stTotal>0?Math.round(stBull/stTotal*100):50}%`,
+                background:`linear-gradient(90deg,${C.green},${C.green}99)`,
+                transition:'width 0.6s' }} />
+            </div>
+          </div>
+        )}
+
+        {stErr && <div style={{ color:C.red, fontSize:12, marginBottom:8 }}>⚠ {stErr}</div>}
+        {stLoading && <Spinner text={`Loading ${stSym}…`} />}
+
+        <div style={{ maxHeight:600, overflowY:'auto' }}>
+          {stPosts.length===0 && !stLoading && !stErr && (
+            <div style={{ color:C.muted, fontSize:12, textAlign:'center', padding:30 }}>Enter a ticker and press GO</div>
+          )}
+          {stPosts.map((p,i) => {
+            const sent = p.entities?.sentiment?.basic;
+            const sc   = sent==='Bullish'?C.green:sent==='Bearish'?C.red:C.muted;
+            return (
+              <PostCard key={i}
+                title={p.body} body={null}
+                author={p.user?.username}
+                time={p.created_at}
+                url={`https://stocktwits.com/${p.user?.username}/message/${p.id}`}
+                score={p.likes?.total||null}
+                sentColor={sc} sentiment={sent}
+              />
+            );
+          })}
+        </div>
+      </Panel>
+
+      {/* ── COLUMN 2: Reddit ─────────────────────────────────── */}
+      <Panel>
+        <PanelTitle>🟠 REDDIT</PanelTitle>
+
+        {/* Subreddit selector */}
+        <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginBottom:8 }}>
+          {SUBS.map(s=>(
+            <Btn key={s} small color={rdSub===s?C.blue:C.muted}
+              onClick={()=>fetchReddit(s, rdSym)}>r/{s}</Btn>
+          ))}
+        </div>
+
+        <SymBar value={rdSym} onChange={setRdSym} onGo={()=>fetchReddit(rdSub,rdSym)}
+          placeholder="Search ticker…" loading={rdLoading} />
+
+        {rdErr && <div style={{ color:C.red, fontSize:12, marginBottom:8 }}>⚠ {rdErr}</div>}
+        {rdLoading && <Spinner text={`Loading r/${rdSub}…`} />}
+
+        <div style={{ maxHeight:640, overflowY:'auto' }}>
+          {rdPosts.length===0 && !rdLoading && !rdErr && (
+            <div style={{ color:C.muted, fontSize:12, textAlign:'center', padding:30 }}>
+              Select a subreddit or search a ticker
+            </div>
+          )}
+          {rdPosts.map((p,i)=>(
+            <PostCard key={i}
+              title={p.title} body={p.selftext}
+              author={p.author} time={p.time}
+              url={p.url}
+              score={p.score} comments={p.num_comments}
+              tag={p.flair ? { label:p.flair, color:C.purple } : null}
+            />
+          ))}
+        </div>
+      </Panel>
+
+      {/* ── COLUMN 3: Pulse (Fear & Greed + X links + RSS) ──── */}
+      <div style={{ display:'flex', flexDirection:'column', gap:14 }}>
+
+        {/* Fear & Greed */}
+        <Panel>
+          <PanelTitle>🌡 MARKET PULSE</PanelTitle>
+          {fgLoading && <Spinner text="Loading…" />}
+          {fg && (
+            <div style={{ textAlign:'center', padding:'10px 0' }}>
+              <div style={{ fontSize:48, fontWeight:700, color:fgColor(fg.value), marginBottom:4 }}>
+                {fg.value}
+              </div>
+              <div style={{ fontSize:15, fontWeight:600, color:fgColor(fg.value), marginBottom:8 }}>
+                {fgLabel(fg.value)}
+              </div>
+              <div style={{ height:10, borderRadius:5, background:`linear-gradient(90deg,${C.red},${C.amber},${C.green})`,
+                position:'relative', marginBottom:10 }}>
+                <div style={{ position:'absolute', top:'50%', transform:'translate(-50%,-50%)',
+                  left:`${fg.value}%`, width:14, height:14, borderRadius:'50%',
+                  background:'white', border:`2px solid ${C.panel}`, boxShadow:'0 1px 4px rgba(0,0,0,0.5)' }} />
+              </div>
+              {fg.previousClose != null && (
+                <div style={{ color:C.muted, fontSize:11 }}>
+                  Prev close: <span style={{ color:fgColor(fg.previousClose) }}>{fg.previousClose} — {fgLabel(fg.previousClose)}</span>
+                </div>
+              )}
+              <div style={{ color:C.dimmed, fontSize:10, marginTop:6 }}>
+                CNN Fear & Greed Index · Updated {fg.lastUpdated||'today'}
+              </div>
+            </div>
+          )}
+          {!fgLoading && !fg && (
+            <div style={{ textAlign:'center', padding:'16px 0' }}>
+              <Btn small color={C.amber} onClick={fetchFG}>⟳ LOAD</Btn>
+              <div style={{ color:C.dimmed, fontSize:11, marginTop:8 }}>
+                Requires Ghrava proxy route
+              </div>
+            </div>
+          )}
+        </Panel>
+
+        {/* X / Twitter — data-driven from Settings */}
+        <Panel>
+          <PanelTitle>✖ X / TWITTER</PanelTitle>
+          <div style={{ color:C.muted, fontSize:12, marginBottom:12, lineHeight:1.7 }}>
+            X has no free API. Links open live feeds in a new tab.
+            <span style={{ color:C.blue, cursor:'pointer', marginLeft:8 }}
+              onClick={()=>window.dispatchEvent(new CustomEvent('gotoSettings',{detail:'social'}))}>
+              ✏ Edit in Settings ↗
+            </span>
+          </div>
+          {(settings?.socialLinks?.xLinks || DEFAULTS.settings.socialLinks.xLinks)
+            .filter(l=>l.enabled!==false)
+            .map((item,i)=>(
+              <a key={item.id||i} href={resolveUrl(item.url, defaultSym)} target="_blank" rel="noreferrer"
+                style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                  padding:'8px 0', borderBottom:`1px solid ${C.border}22`,
+                  textDecoration:'none' }}>
+                <div>
+                  <div style={{ color:C.text, fontSize:13 }}>{item.label}</div>
+                  {item.desc && <div style={{ color:C.dimmed, fontSize:11 }}>{item.desc}</div>}
+                </div>
+                <span style={{ color:C.blue, fontSize:11 }}>↗</span>
+              </a>
+            ))
+          }
+        </Panel>
+
+        {/* Congressional trading quick feed */}
+        <Panel style={{ marginBottom:14 }}>
+          <PanelTitle>🏛 CONGRESS TRADES</PanelTitle>
+          <CongressPanel watchlist={data.watchlist||[]} />
+        </Panel>
+
+        {/* More Sources — data-driven from Settings */}
+        <Panel>
+          <PanelTitle>🔗 MORE SOURCES</PanelTitle>
+          {(settings?.socialLinks?.moreLinks || DEFAULTS.settings.socialLinks.moreLinks)
+            .filter(l=>l.enabled!==false)
+            .map((item,i)=>(
+              <a key={item.id||i} href={resolveUrl(item.url, defaultSym)} target="_blank" rel="noreferrer"
+                style={{ display:'block', padding:'8px 0', borderBottom:`1px solid ${C.border}22`, textDecoration:'none' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                  <span style={{ color:C.text, fontSize:13, fontWeight:500 }}>{item.label}</span>
+                  <span style={{ color:C.blue, fontSize:11 }}>↗</span>
+                </div>
+                <div style={{ color:C.dimmed, fontSize:11, marginTop:2 }}>{item.desc}</div>
+              </a>
+            ))
+          }
+          <div style={{ marginTop:10 }}>
+            <span style={{ color:C.blue, fontSize:11, cursor:'pointer' }}
+              onClick={()=>window.dispatchEvent(new CustomEvent('gotoSettings',{detail:'social'}))}>
+              ✏ Add / edit sources in Settings ↗
+            </span>
+          </div>
+        </Panel>
+      </div>
+
+    </div>
+  );
+};
+
 const ReportsTab = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1334,12 +2524,105 @@ const ReportsTab = () => {
   );
 };
 
+
+// ── Social link management helpers (used only in SettingsTab) ────
+const SocialLinkAdder = ({ placeholder, onAdd }) => {
+  const [val, setVal] = useState('');
+  return (
+    <div style={{ display:'flex', gap:6 }}>
+      <Inp value={val} onChange={setVal} placeholder={placeholder}
+        style={{ flex:1 }} onKeyDown={e=>e.key==='Enter'&&(onAdd(val),setVal(''))} />
+      <Btn small color={C.green} onClick={()=>{ onAdd(val); setVal(''); }} disabled={!val.trim()}>+ ADD</Btn>
+    </div>
+  );
+};
+
+const SocialLinkList = ({ items, onChange, placeholder }) => {
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ label:'', url:'', desc:'' });
+
+  const toggle = (id) => onChange(items.map(i => i.id===id ? {...i, enabled:!i.enabled} : i));
+  const remove = (id) => onChange(items.filter(i => i.id!==id));
+  const add = () => {
+    if (!form.label.trim() || !form.url.trim()) return;
+    const newItem = { id:'u'+Date.now(), label:form.label.trim(), url:form.url.trim(), desc:form.desc.trim(), enabled:true };
+    onChange([...items, newItem]);
+    setForm({ label:'', url:'', desc:'' }); setAdding(false);
+  };
+
+  return (
+    <div>
+      {items.map(item=>(
+        <div key={item.id} style={{ display:'flex', alignItems:'center', gap:8, padding:'6px 0',
+          borderBottom:`1px solid ${C.border}22`, flexWrap:'wrap' }}>
+          <button onClick={()=>toggle(item.id)} style={{ background:'transparent', border:'none',
+            cursor:'pointer', fontSize:16, padding:0, flexShrink:0 }}>
+            {item.enabled!==false ? '✅' : '⬜'}
+          </button>
+          <div style={{ flex:1, minWidth:0 }}>
+            <div style={{ color:item.enabled!==false?C.text:C.muted, fontSize:12, fontWeight:500 }}>{item.label}</div>
+            <div style={{ color:C.dimmed, fontSize:10, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{item.url}</div>
+          </div>
+          <button onClick={()=>remove(item.id)} style={{ background:'transparent', border:'none',
+            color:C.red, cursor:'pointer', fontSize:16, fontWeight:700, padding:'0 4px', flexShrink:0 }}>×</button>
+        </div>
+      ))}
+      {!adding ? (
+        <Btn small color={C.blue} onClick={()=>setAdding(true)} style={{ marginTop:8 }}>+ ADD LINK</Btn>
+      ) : (
+        <div style={{ background:C.bg, border:`1px solid ${C.border2}`, borderRadius:8, padding:12, marginTop:8 }}>
+          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+            <Inp value={form.label} onChange={v=>setForm(f=>({...f,label:v}))} placeholder="Label e.g. My Analyst" />
+            <Inp value={form.url} onChange={v=>setForm(f=>({...f,url:v}))} placeholder={placeholder} />
+            <Inp value={form.desc} onChange={v=>setForm(f=>({...f,desc:v}))} placeholder="Short description (optional)" />
+            <div style={{ display:'flex', gap:6 }}>
+              <Btn small color={C.green} onClick={add} disabled={!form.label.trim()||!form.url.trim()}>ADD</Btn>
+              <Btn small color={C.muted} onClick={()=>setAdding(false)}>CANCEL</Btn>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════
 const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
   const { settings={} } = data;
-  const [local, setLocal] = useState({ ...settings });
+  const [local, setLocal] = useState({
+    // Full defaults first — ensures every field exists even if JSON predates it
+    provider:       'gemini',
+    marketProvider: 'yahoo',
+    avKey:          '',
+    finnhubKey:     '',
+    tradierKey:     '',
+    tradierSandbox: true,
+    demoMode:       true,
+    appearance: { fontSize:14, fontFamily:'inter', bgTheme:'dark' },
+    apiKeys: { gemini:'', deepseek:'', openai:'', claudeHaiku:'', claudeSonnet:'' },
+    // Now overlay with whatever is actually saved — preserves all real values
+    ...settings,
+    // Deep merge apiKeys separately so neither side loses keys
+    apiKeys: {
+      gemini:'', deepseek:'', openai:'', claudeHaiku:'', claudeSonnet:'',
+      ...(settings.apiKeys||{}),
+    },
+    // Appearance deep merge too
+    appearance: {
+      fontSize:14, fontFamily:'inter', bgTheme:'dark',
+      ...(settings.appearance||{}),
+    },
+    // Social links deep merge
+    socialLinks: {
+      ...DEFAULTS.settings.socialLinks,
+      ...(settings.socialLinks||{}),
+      redditSubs: (settings.socialLinks?.redditSubs || DEFAULTS.settings.socialLinks.redditSubs),
+      xLinks:     (settings.socialLinks?.xLinks     || DEFAULTS.settings.socialLinks.xLinks),
+      moreLinks:  (settings.socialLinks?.moreLinks  || DEFAULTS.settings.socialLinks.moreLinks),
+    },
+  });
   const [showKeys, setShowKeys] = useState({});
   const [testing, setTesting] = useState(null);
   const [testResult, setTestResult] = useState({});
@@ -1347,8 +2630,13 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
   const setKey = (provider, val) => setLocal(l=>({ ...l, apiKeys:{ ...(l.apiKeys||{}), [provider]:val } }));
 
   const save = () => {
-    update({ settings: local });
-    applyAppearance({ settings: local });
+    // Deep merge apiKeys so adding a new key never wipes others
+    const merged = {
+      ...local,
+      apiKeys: { ...(data.settings?.apiKeys||{}), ...(local.apiKeys||{}) },
+    };
+    update({ settings: merged });
+    applyAppearance({ settings: merged });
     setSaveMsg('✓ Settings saved to NAS — loaded automatically on next open.');
     setTimeout(()=>setSaveMsg(''),4000);
   };
@@ -1363,7 +2651,7 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
       if (d['Global Quote']?.['05. price']) setTestResult(r=>({...r,av:`✓ Connected — SPY $${parseFloat(d['Global Quote']['05. price']).toFixed(2)}`}));
       else if (d.Note||d.Information) setTestResult(r=>({...r,av:'⚠ Rate limit — key is valid, try again in 1 min'}));
       else setTestResult(r=>({...r,av:'✕ Invalid key or no data returned'}));
-    } catch { setTestResult(r=>({...r,av:'✕ Network error'})); }
+    } catch(e) { setTestResult(r=>({...r,av:'✕ Network error'})); }
     setTesting(null);
   };
 
@@ -1647,6 +2935,62 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
         </InfoBox>
       </Panel>
 
+      {/* SOCIAL & LINKS SETTINGS */}
+      <Panel style={{ marginBottom:14 }} id="settings-social">
+        <PanelTitle>SOCIAL & EXTERNAL LINKS</PanelTitle>
+        <div style={{ color:C.muted, fontSize:12, marginBottom:14, lineHeight:1.7 }}>
+          Manage Reddit subreddits, X/Twitter feeds, and external links shown in the Social tab.
+          Use <code style={{ color:C.blue }}>{`{TICKER}`}</code> in URLs — it gets replaced with the active symbol.
+        </div>
+
+        {/* Reddit Subreddits */}
+        <div style={{ marginBottom:18 }}>
+          <div style={{ color:C.muted, fontSize:12, fontWeight:600, letterSpacing:1, marginBottom:10 }}>REDDIT SUBREDDITS</div>
+          <div style={{ display:'flex', flexWrap:'wrap', gap:6, marginBottom:8 }}>
+            {(local.socialLinks?.redditSubs||DEFAULTS.settings.socialLinks.redditSubs).map((sub,i)=>(
+              <div key={i} style={{ display:'flex', alignItems:'center', gap:0,
+                background:C.bg, border:`1px solid ${C.border2}`, borderRadius:6, overflow:'hidden' }}>
+                <span style={{ color:C.text, fontSize:12, padding:'4px 10px' }}>r/{sub}</span>
+                <button onClick={()=>{
+                  const subs = (local.socialLinks?.redditSubs||[...DEFAULTS.settings.socialLinks.redditSubs]).filter((_,j)=>j!==i);
+                  setLocal(l=>({...l, socialLinks:{...(l.socialLinks||{}), redditSubs:subs}}));
+                }} style={{ background:'transparent', border:'none', color:C.red, cursor:'pointer',
+                  padding:'4px 8px', fontSize:13, fontWeight:700 }}>×</button>
+              </div>
+            ))}
+          </div>
+          <SocialLinkAdder
+            placeholder="Add subreddit name (without r/)…"
+            onAdd={val=>{
+              const clean = val.replace(/^r\//,'').trim();
+              if (!clean) return;
+              const subs = [...(local.socialLinks?.redditSubs||DEFAULTS.settings.socialLinks.redditSubs), clean];
+              setLocal(l=>({...l, socialLinks:{...(l.socialLinks||{}), redditSubs:subs}}));
+            }}
+          />
+        </div>
+
+        {/* X / Twitter Links */}
+        <div style={{ marginBottom:18 }}>
+          <div style={{ color:C.muted, fontSize:12, fontWeight:600, letterSpacing:1, marginBottom:10 }}>X / TWITTER LINKS</div>
+          <SocialLinkList
+            items={local.socialLinks?.xLinks||DEFAULTS.settings.socialLinks.xLinks}
+            onChange={items=>setLocal(l=>({...l, socialLinks:{...(l.socialLinks||{}), xLinks:items}}))}
+            placeholder="https://x.com/..."
+          />
+        </div>
+
+        {/* More Sources Links */}
+        <div style={{ marginBottom:10 }}>
+          <div style={{ color:C.muted, fontSize:12, fontWeight:600, letterSpacing:1, marginBottom:10 }}>MORE SOURCES / EXTERNAL LINKS</div>
+          <SocialLinkList
+            items={local.socialLinks?.moreLinks||DEFAULTS.settings.socialLinks.moreLinks}
+            onChange={items=>setLocal(l=>({...l, socialLinks:{...(l.socialLinks||{}), moreLinks:items}}))}
+            placeholder="https://..."
+          />
+        </div>
+      </Panel>
+
       <Panel style={{ marginBottom:14 }}>
         <PanelTitle>DISCLAIMER</PanelTitle>
         <div style={{ color:C.muted, fontSize:13, lineHeight:1.9 }}>
@@ -1822,6 +3166,10 @@ function App() {
       applyAppearance(d);
       if (d.settings?.demoMode) setQuotes(MOCK_QUOTES);
     });
+    // Allow Social tab to link to Settings via custom event
+    const handler = () => setTab('settings');
+    window.addEventListener('gotoSettings', handler);
+    return () => window.removeEventListener('gotoSettings', handler);
   }, []);
 
   // Debounced auto-save to backend on every data change
@@ -1841,6 +3189,8 @@ function App() {
     { id:'portfolio', label:'💼 PORTFOLIO' },
     { id:'options',   label:'⚙ OPTIONS' },
     { id:'news',      label:'📰 NEWS' },
+    { id:'earnings',  label:'📅 EARNINGS' },
+    { id:'social',    label:'🌐 SOCIAL' },
     { id:'reports',   label:'📁 REPORTS' },
     { id:'settings',  label:'⚙ SETTINGS' },
   ];
@@ -1860,7 +3210,14 @@ function App() {
     <div style={{ background:C.bg, color:C.text, minHeight:'100vh', fontFamily:rootFont, display:'flex', flexDirection:'column' }}>
       {/* Top bar */}
       <div style={{ background:C.surface, borderBottom:`1.5px solid ${C.border}`, padding:'0 20px', display:'flex', alignItems:'center', gap:14, height:50, flexShrink:0, flexWrap:'wrap' }}>
-        <span style={{ color:C.blue, fontWeight:700, letterSpacing:1.5, fontSize:16 }}>▸ Trade Terminal</span>
+        <a href="/" title="Back to Ghrava" style={{
+          color:C.blue, fontWeight:700, letterSpacing:1.5, fontSize:16,
+          textDecoration:'none', display:'flex', alignItems:'center', gap:6,
+          transition:'opacity 0.15s', cursor:'pointer'
+        }} onMouseEnter={e=>e.currentTarget.style.opacity=0.75}
+           onMouseLeave={e=>e.currentTarget.style.opacity=1}>
+          ▸ Trade Terminal <span style={{ fontSize:11, color:C.muted, fontWeight:400 }}>⌂</span>
+        </a>
         {prov && <Tag color={prov.color}>{prov.name}</Tag>}
         {settings.demoMode && <Tag color={C.amber}>DEMO MODE</Tag>}
         {!settings.demoMode && (
@@ -1887,9 +3244,9 @@ function App() {
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
             background:'transparent', border:'none',
-            borderBottom:`2px solid ${activeTab===t.id?(t.id==='settings'||t.id==='reports'?C.amber:C.blue):'transparent'}`,
-            color:activeTab===t.id?(t.id==='settings'||t.id==='reports'?C.amber:C.blue):C.muted,
-            padding:'10px 14px', cursor:'pointer', fontFamily:'"Courier New",monospace',
+            borderBottom:`2px solid ${activeTab===t.id?(t.id==='settings'||t.id==='reports'||t.id==='earnings'?C.amber:C.blue):'transparent'}`,
+            color:activeTab===t.id?(t.id==='settings'||t.id==='reports'||t.id==='earnings'?C.amber:C.blue):C.muted,
+            padding:'10px 14px', cursor:'pointer', fontFamily:'inherit',
             fontSize:13, fontWeight:activeTab===t.id?'bold':'normal', letterSpacing:1, whiteSpace:'nowrap',
           }}>{t.label}</button>
         ))}
@@ -1903,6 +3260,8 @@ function App() {
         {activeTab==='portfolio' && <PortfolioTab data={appData} update={update} quotes={quotes} />}
         {activeTab==='options'   && <OptionsTab   data={appData} quotes={quotes} />}
         {activeTab==='news'      && <NewsTab       data={appData} quotes={quotes} />}
+        {activeTab==='earnings'  && <EarningsTab data={appData} quotes={quotes} />}
+        {activeTab==='social'    && <SocialTab data={appData} quotes={quotes} />}
         {activeTab==='reports'   && <ReportsTab />}
         {activeTab==='settings'  && <SettingsTab  data={appData} update={update} setSaveMsg={setSaveMsg} saveMsg={saveMsg} />}
       </div>
