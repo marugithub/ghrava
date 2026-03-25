@@ -75,6 +75,7 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <button class="view-tab"        data-tab="networth"   onclick="switchRpt('networth',this)">Net Worth</button>
     <button class="view-tab"        data-tab="annual"     onclick="switchRpt('annual',this)">Annual</button>
     <button class="view-tab"        data-tab="summary"    onclick="switchRpt('summary',this)">Summary</button>
+    <button class="view-tab"        data-tab="people"     onclick="switchRpt('people',this)">People</button>
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
     <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
@@ -146,6 +147,13 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
   <!-- Summary Panel -->
   <div class="view-panel" id="panel-summary">
     <div id="summaryContent" style="padding:0 16px 80px">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
+  <!-- People Panel -->
+  <div class="view-panel" id="panel-people">
+    <div id="peopleContent" style="padding:0 16px 80px">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
   </div>
@@ -286,6 +294,7 @@ function loadTab(tab) {
   else if (tab === 'networth') loadNetWorth();
   else if (tab === 'annual') loadAnnual();
   else if (tab === 'summary') loadSummary();
+  else if (tab === 'people') loadPeople();
   else if (tab === 'quality') loadQuality();
   else if (tab === 'system') loadSystem();
   else if (tab === 'tools') rpt_loadTools();
@@ -578,6 +587,164 @@ async function loadAnnual() {
       </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No expenses</div>';
   } catch(e) {
     $('annSummary').innerHTML = errorState(e.message, 'loadAnnual()');
+  }
+}
+
+// ── People ────────────────────────────────────────────────────
+let _peopleSelected = null;
+
+async function loadPeople() {
+  const el = $('peopleContent'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    const members = await fetch('/api/v1/settings/family').then(r => r.json());
+    if (!members.length) {
+      el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">No family members found</div>';
+      return;
+    }
+    // Build member picker + content area
+    const pills = members.map(m => `
+      <button class="people-pill${_peopleSelected===m.id?' active':''}"
+        data-mid="${m.id}" onclick="selectPerson(${m.id})"
+        style="padding:7px 16px;border-radius:99px;border:1px solid var(--border);
+          background:${_peopleSelected===m.id?'var(--accent)':'var(--bg2)'};
+          color:${_peopleSelected===m.id?'#fff':'var(--text2)'};
+          font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
+        ${esc(m.display_name)}
+        ${m.relationship ? `<span style="font-size:10px;opacity:.7;margin-left:4px">${esc(m.relationship)}</span>` : ''}
+      </button>`).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;gap:8px;padding:12px 0 8px;overflow-x:auto;scrollbar-width:none">${pills}</div>
+      <div id="personReport"></div>`;
+
+    // Auto-select first non-primary or first overall
+    if (!_peopleSelected) {
+      const first = members.find(m => !m.is_primary_user) || members[0];
+      _peopleSelected = first.id;
+      selectPerson(first.id);
+    } else {
+      selectPerson(_peopleSelected);
+    }
+  } catch(e) {
+    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
+  }
+}
+
+async function selectPerson(memberId) {
+  _peopleSelected = memberId;
+  // Update pill styles
+  document.querySelectorAll('.people-pill').forEach(b => {
+    const active = +b.dataset.mid === memberId;
+    b.style.background = active ? 'var(--accent)' : 'var(--bg2)';
+    b.style.color       = active ? '#fff' : 'var(--text2)';
+    b.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
+  });
+  const el = $('personReport'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    const d = await fetch(`/api/v1/settings/family/${memberId}/report`).then(r => r.json());
+    const m = d.member;
+    const s = d.summary;
+
+    const age = m.date_of_birth
+      ? Math.floor((Date.now() - new Date(m.date_of_birth)) / (365.25*24*3600*1000)) + ' yrs'
+      : null;
+
+    // Summary strip
+    const statCards = [
+      ['Open todos',      s.todos_open,    s.todos_overdue > 0 ? '#ef4444' : 'var(--text)'],
+      ['Overdue',         s.todos_overdue, s.todos_overdue > 0 ? '#ef4444' : 'var(--text3)'],
+      ['Documents',       s.documents,     'var(--text)'],
+      ['Books',           s.books,         'var(--text)'],
+      ['Active meds',     s.medications_active, s.medications_active > 0 ? '#f59e0b' : 'var(--text)'],
+      ['Conditions',      s.conditions_active,  s.conditions_active  > 0 ? '#f59e0b' : 'var(--text)'],
+      ['Medical visits',  s.medical_visits,'var(--text)'],
+      ['HSA unreimbursed',s.hsa_unreimbursed > 0 ? fmt$(s.hsa_unreimbursed) : '$0', s.hsa_unreimbursed > 0 ? '#22c55e' : 'var(--text3)'],
+    ].map(([lbl, val, col]) => `
+      <div class="sys-count-cell">
+        <div class="sys-count-val" style="color:${col}">${val ?? '—'}</div>
+        <div class="sys-count-lbl">${lbl}</div>
+      </div>`).join('');
+
+    // Section renderer
+    const section = (title, items, rowFn, emptyMsg) => items.length
+      ? `<div class="section-hdr">${title} <span style="color:var(--text3);font-weight:400">(${items.length})</span></div>
+         <div class="sys-card">${items.map(rowFn).join('')}</div>`
+      : `<div class="section-hdr">${title}</div>
+         <div style="font-size:13px;color:var(--text3);padding:8px 0 12px">${emptyMsg}</div>`;
+
+    const sysRow = (left, right, color) => `
+      <div class="sys-row">
+        <span class="sys-label">${left}</span>
+        <span class="sys-val" style="color:${color||''}">${right||'—'}</span>
+      </div>`;
+
+    // Todos section
+    const openTodos = d.todos.filter(t => t.status==='open'||t.status==='in_progress');
+    const doneTodos = d.todos.filter(t => t.status==='done'||t.status==='dismissed');
+    const todosHtml = d.todos.length ? `
+      <div class="section-hdr">Todos <span style="color:var(--text3);font-weight:400">(${d.todos.length})</span></div>
+      <div class="sys-card">
+        ${openTodos.map(t => sysRow(
+          `<a href="/todos.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(t.title)}</a>`,
+          t.due_date ? t.due_date : t.priority,
+          t.due_date && t.due_date < new Date().toISOString().slice(0,10) ? '#ef4444' : ''
+        )).join('')}
+        ${doneTodos.length ? `<div class="sys-row"><span class="sys-label" style="color:var(--text3)">${doneTodos.length} completed</span></div>` : ''}
+      </div>` : '';
+
+    // Medical section
+    const medHtml = (d.medical.visits.length || d.medical.medications.length || d.medical.conditions.length) ? `
+      <div class="section-hdr">Medical</div>
+      <div class="sys-card">
+        ${d.medical.conditions.map(c => sysRow(
+          `<a href="/medical.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(c.condition_name)}</a>`,
+          c.status, c.status==='Active' ? '#f59e0b' : 'var(--text3)'
+        )).join('')}
+        ${d.medical.medications.map(m => sysRow(
+          `<a href="/medical.html" target="_blank" style="color:var(--text);text-decoration:none">💊 ${esc(m.name)}</a>`,
+          `${m.dosage||''} ${m.status}`.trim(), m.status==='Active' ? 'var(--text)' : 'var(--text3)'
+        )).join('')}
+        ${d.medical.visits.slice(0,5).map(v => sysRow(
+          `<a href="/medical.html" target="_blank" style="color:var(--text);text-decoration:none">🏥 ${esc(v.reason||'Visit')}</a>`,
+          v.visit_date, ''
+        )).join('')}
+        ${d.medical.visits.length > 5 ? `<div class="sys-row"><span class="sys-label" style="color:var(--text3)">+ ${d.medical.visits.length-5} more visits</span></div>` : ''}
+      </div>` : '';
+
+    el.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin:8px 0 12px">
+        <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(m.display_name)}</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:2px">
+          ${[m.relationship, age, m.full_legal_name].filter(Boolean).map(esc).join(' · ')}
+        </div>
+      </div>
+      <div class="sys-counts-grid" style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:12px">${statCards}</div>
+      ${todosHtml}
+      ${section('Documents', d.documents, doc =>
+        sysRow(`<a href="/documents.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(doc.title)}</a>`,
+          doc.expiry_date || doc.category, doc.expiry_date && doc.expiry_date < new Date().toISOString().slice(0,10) ? '#ef4444' : ''),
+        'No linked documents')}
+      ${medHtml}
+      ${section('Books', d.books, b =>
+        sysRow(`<a href="/books.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(b.title)}</a>`,
+          b.status, b.status==='Currently Reading'?'#22c55e':''),
+        'No linked books')}
+      ${section('HSA Expenses', d.hsa, h =>
+        sysRow(`<a href="/finance.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(h.provider)}</a>`,
+          `${fmt$(h.you_paid)}${h.reimbursed?' ✓':''}`, h.hsa_eligible&&!h.reimbursed?'#22c55e':'var(--text3)'),
+        'No linked HSA expenses')}
+      ${section('Career Goals', d.career.goals, g =>
+        sysRow(`<a href="/career.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(g.title)}</a>`,
+          g.status, g.status==='achieved'?'#22c55e':''),
+        'No linked career goals')}
+      ${section('Resources', d.resources, r =>
+        sysRow(`<a href="/resources.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(r.name)}</a>`,
+          r.category, ''),
+        'No linked resources')}`;
+  } catch(e) {
+    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
   }
 }
 

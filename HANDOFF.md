@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.084
+**Last updated:** v202603.085
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -318,13 +318,19 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 12. **Data quality checker** — completeness per module. Feeds into Reports.
 13. **Finance/HSA tags** — still deferred, decision needed
 
+### Completed this session
+- **Scheduled backup** — `node-cron` wired in server.js, runs 2:00 AM America/Chicago, keeps 7 rolling `scheduled_*.db` files. Falls back gracefully if node-cron unavailable.
+- **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
+- **Reports → People tab** — full family member report.
+- **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
 ### Low / deferred
-14. **Global tag search** — click tag chip → see all records with that tag across modules
+14. ~~**Global tag search**~~ — **DONE v202603.084/085.** `GH_TAG_SEARCH` modal in lt-core.js. Tag chips on documents, inventory (grid+list), todos, and books cards are all clickable. Slide-up sheet shows grouped cross-module results. Backend: `GET /api/v1/settings/tags/search?tag=X`.
 15. **Finance OFX/QFX import UI** — backend exists
 16. **Calendar module** — keep for Google Calendar sync only or remove
 17. **Google Site data import**
 18. **Left nav icon review**
-19. **"Everything about Risha" report** — queries record_family_members + Medical patient field
+19. ~~**"Everything about Risha" report**~~ — **DONE v202603.085.** Reports → People tab. Family member picker pills, per-member report with: summary stats grid, todos, documents, medical (conditions/meds/visits), books, HSA, career goals, resources. Backend: `GET /api/v1/settings/family/:id/report`.
 
 ---
 

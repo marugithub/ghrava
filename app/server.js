@@ -186,6 +186,41 @@ const server = app.listen(PORT, () => {
       console.warn('[startup] data-cleanup skipped:', e.message);
     }
   }, 5000);
+
+  // ── Scheduled daily backup (2:00 AM) ────────────────────────
+  // Uses node-cron (already in package.json). Keeps 7 rolling daily backups
+  // in /app/backups/ with prefix 'scheduled_'. Startup backup (auto_*) is
+  // separate and untouched by this pruning.
+  try {
+    const cron = require('node-cron');
+    cron.schedule('0 2 * * *', async () => {
+      try {
+        const db         = require('./db/db');
+        const backupDir  = '/app/backups';
+        const dbPath     = process.env.DB_PATH || '/app/data/lifetracker.db';
+        if (!fs.existsSync(dbPath)) return;
+        if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+
+        const stamp    = new Date().toISOString().slice(0,16).replace(/[-T:]/g,'').replace(/(\d{8})(\d{4})/,'$1_$2');
+        const dest     = path.join(backupDir, `scheduled_${stamp}.db`);
+        await db.backup(dest);
+        console.log(`[cron] daily backup → ${dest} (${fs.statSync(dest).size} bytes)`);
+
+        // Prune: keep newest 7 scheduled backups
+        const files = fs.readdirSync(backupDir)
+          .filter(f => f.startsWith('scheduled_') && f.endsWith('.db'))
+          .sort(); // oldest first
+        const toDelete = files.slice(0, Math.max(0, files.length - 7));
+        toDelete.forEach(f => { try { fs.unlinkSync(path.join(backupDir, f)); } catch {} });
+        if (toDelete.length) console.log(`[cron] pruned ${toDelete.length} old scheduled backup(s)`);
+      } catch(e) {
+        console.error('[cron] scheduled backup failed:', e.message);
+      }
+    }, { timezone: 'America/Chicago' });
+    console.log('[cron] daily backup scheduled at 02:00 America/Chicago');
+  } catch(e) {
+    console.warn('[cron] node-cron not available, scheduled backup disabled:', e.message);
+  }
 });
 
 // ── Graceful shutdown — checkpoint WAL before exit ────────────

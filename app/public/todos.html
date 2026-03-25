@@ -826,6 +826,7 @@ function todoHTML(t, isDone) {
         ${dueHtml}
         ${sourceHtml}
       </div>
+      ${t.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${t.tags.map(tag=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(tag):'';return `<span class="tag-chip" data-tag="${esc(tag)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(tag)}" onclick="event.stopPropagation()">${esc(tag)}</span>`;}).join('')}</div>` : ''}
     </div>
     <div class="todo-actions" onclick="event.stopPropagation()">
       ${!isDone ? `<button class="todo-act-btn complete-btn" title="Mark complete" onclick="toggleDone(${t.id}, 1)">

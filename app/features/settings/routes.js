@@ -178,6 +178,81 @@ router.get('/family/:id', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+// GET /api/v1/settings/family/:id/report
+// Returns everything linked to a family member across all modules.
+// Medical uses the display_name as a patient string (not FK).
+// All other modules use record_family_members junction table.
+router.get('/family/:id/report', (req, res) => {
+  try {
+    const member = db.prepare('SELECT * FROM family_members WHERE id = ?').get(req.params.id);
+    if (!member) return notFound(res, 'Family member');
+    const fid = member.id;
+    const name = member.display_name;
+
+    function linked(entityType, table, cols) {
+      try {
+        return db.prepare(`
+          SELECT ${cols} FROM ${table}
+          WHERE id IN (
+            SELECT entity_id FROM record_family_members
+            WHERE entity_type=? AND family_member_id=?
+          ) ORDER BY rowid DESC
+        `).all(entityType, fid);
+      } catch { return []; }
+    }
+
+    // Medical uses display_name as patient string, not FK
+    function medical(table, cols) {
+      try {
+        return db.prepare(`SELECT ${cols} FROM ${table} WHERE patient=? ORDER BY rowid DESC`).all(name);
+      } catch { return []; }
+    }
+
+    const todos    = linked('todo',             'todos',         'id, title, status, priority, due_date, category');
+    const books    = linked('book',             'books',         'id, title, author, status, genre, rating');
+    const docs     = linked('document',         'documents',     'id, title, category, expiry_date, file_name');
+    const resources= linked('resource',         'resources',     'id, name, category, url');
+    const hsaItems = linked('hsa_payment',      'hsa_payments',  'id, date, provider, you_paid, hsa_eligible, reimbursed');
+    const careerJobs= linked('career_job',      'career_jobs',   'id, title, company, start_date, end_date, status');
+    const careerGoals=linked('career_goal',     'career_goals',  'id, title, category, status, target_date');
+    const activities= db.prepare(`
+      SELECT ka.id, ka.name, ka.category, ka.schedule, k.display_name AS kid_name
+      FROM kid_activities ka
+      JOIN kids k ON k.id = ka.kid_id
+      WHERE ka.id IN (
+        SELECT entity_id FROM record_family_members WHERE entity_type='kid_activity' AND family_member_id=?
+      )
+    `).all(fid);
+
+    const medVisits = medical('med_visit_notes',  'id, visit_date, patient, questions AS reason, doctors_response, follow_up_needed');
+    const medMeds   = medical('med_medications',  'id, name, dosage, frequency, status, start_date');
+    const medConds  = medical('med_conditions',   'id, condition_name, status, start_date');
+
+    // Open todos for this member (urgency summary)
+    const openTodos  = todos.filter(t => t.status === 'open' || t.status === 'in_progress');
+    const overdueTodos = openTodos.filter(t => t.due_date && t.due_date < new Date().toISOString().slice(0,10));
+
+    res.json({
+      member,
+      summary: {
+        todos_open:    openTodos.length,
+        todos_overdue: overdueTodos.length,
+        books:         books.length,
+        documents:     docs.length,
+        medical_visits:medVisits.length,
+        medications_active: medMeds.filter(m => m.status === 'Active').length,
+        conditions_active:  medConds.filter(c => c.status === 'Active').length,
+        hsa_unreimbursed: hsaItems.filter(h => h.hsa_eligible && !h.reimbursed)
+                           .reduce((s, h) => s + (parseFloat(h.you_paid)||0), 0),
+      },
+      todos, books, documents: docs, resources, hsa: hsaItems,
+      career: { jobs: careerJobs, goals: careerGoals },
+      activities,
+      medical: { visits: medVisits, medications: medMeds, conditions: medConds },
+    });
+  } catch (err) { serverError(res, err); }
+});
+
 router.post('/family', (req, res) => {
   try {
     const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, is_primary_user, notes } = req.body;

@@ -170,6 +170,7 @@ assert_json_array  "GET /kids"                "$BASE/api/v1/kids"
 
 # ── Settings shared data ──────────────────────────────────────
 echo ""
+assert_json_object "GET /settings/family/1/report"  "$BASE/api/v1/settings/family/1/report"
 assert_json_object "GET /settings/tags/search" "$BASE/api/v1/settings/tags/search?tag=test"
 echo "Settings — shared data (must always be public)"
 assert_json_array  "GET /settings/tags"       "$BASE/api/v1/settings/tags"
