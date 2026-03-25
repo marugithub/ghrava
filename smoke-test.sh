@@ -14,6 +14,21 @@ PASS=0
 FAIL=0
 ERRORS=()
 
+# ── Wait for server to be up (up to 30s) ─────────────────────
+echo "Waiting for server at $BASE..."
+for i in $(seq 1 30); do
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$BASE/health" 2>/dev/null)
+  if [ "$http_code" = "200" ]; then
+    echo "Server up after ${i}s"
+    break
+  fi
+  sleep 1
+  if [ "$i" = "30" ]; then
+    echo "Server did not start within 30s — aborting"
+    exit 1
+  fi
+done
+
 # ── Helpers ───────────────────────────────────────────────────
 green='\033[0;32m'
 red='\033[0;31m'

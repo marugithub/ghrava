@@ -735,6 +735,10 @@ async function selectPerson(memberId) {
         sysRow(`<a href="/finance.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(h.provider)}</a>`,
           `${fmt$(h.you_paid)}${h.reimbursed?' ✓':''}`, h.hsa_eligible&&!h.reimbursed?'#22c55e':'var(--text3)'),
         'No linked HSA expenses')}
+      ${section('Career Jobs', d.career.jobs, j =>
+        sysRow(`<a href="/career.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(j.title)} @ ${esc(j.company||'')}</a>`,
+          j.is_current ? 'Current' : (j.end_date||''), j.is_current?'#22c55e':''),
+        'No linked jobs')}
       ${section('Career Goals', d.career.goals, g =>
         sysRow(`<a href="/career.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(g.title)}</a>`,
           g.status, g.status==='achieved'?'#22c55e':''),

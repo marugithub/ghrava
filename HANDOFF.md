@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.085
+**Last updated:** v202603.086
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -317,6 +317,10 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 11. **Recurring tasks linked to records** — oil change linked to specific vehicle in Property.
 12. **Data quality checker** — completeness per module. Feeds into Reports.
 13. **Finance/HSA tags** — still deferred, decision needed
+
+### Fixed v202603.086
+- **smoke-test.sh** — adds 30s server startup wait loop so test runs immediately after `docker restart` without spurious HTTP 000 failures
+- **Reports → People tab** — fixed two SQL errors: `kid_activities.schedule` (column is `day_of_week`), `career_jobs.status` (column is `is_current`). Added Career Jobs section to the report.
 
 ### Completed this session
 - **Scheduled backup** — `node-cron` wired in server.js, runs 2:00 AM America/Chicago, keeps 7 rolling `scheduled_*.db` files. Falls back gracefully if node-cron unavailable.

@@ -213,10 +213,10 @@ router.get('/family/:id/report', (req, res) => {
     const docs     = linked('document',         'documents',     'id, title, category, expiry_date, file_name');
     const resources= linked('resource',         'resources',     'id, name, category, url');
     const hsaItems = linked('hsa_payment',      'hsa_payments',  'id, date, provider, you_paid, hsa_eligible, reimbursed');
-    const careerJobs= linked('career_job',      'career_jobs',   'id, title, company, start_date, end_date, status');
+    const careerJobs= linked('career_job',      'career_jobs',   'id, title, company, start_date, end_date, is_current');
     const careerGoals=linked('career_goal',     'career_goals',  'id, title, category, status, target_date');
     const activities= db.prepare(`
-      SELECT ka.id, ka.name, ka.category, ka.schedule, k.display_name AS kid_name
+      SELECT ka.id, ka.name, ka.category, ka.day_of_week AS schedule, k.display_name AS kid_name
       FROM kid_activities ka
       JOIN kids k ON k.id = ka.kid_id
       WHERE ka.id IN (
