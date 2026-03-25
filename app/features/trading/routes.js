@@ -230,30 +230,43 @@ router.get('/social/reddit/:subreddit', async (req, res) => {
 // GET Fear & Greed Index (proxy — CNN endpoint)
 router.get('/social/feargreed', async (req, res) => {
   const https = require('https');
+
+  // Helper: fetch a URL and return parsed JSON
+  const fetchJson = (url, headers) => new Promise((resolve, reject) => {
+    https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/json', 'Referer': 'https://edition.cnn.com/markets/fear-and-greed', ...headers } }, r => {
+      let body = '';
+      r.on('data', c => body += c);
+      r.on('end', () => { try { resolve({ status: r.statusCode, data: JSON.parse(body) }); } catch(e) { reject(new Error('Parse failed: ' + body.slice(0, 100))); } });
+    }).on('error', reject);
+  });
+
+  // CNN endpoint requires a start date — use 30 days ago to get recent data
+  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
   try {
-    const url = 'https://production.dataviz.cnn.io/index/fearandgreed/graphdata';
-    const data = await new Promise((resolve, reject) => {
-      https.get(url, {
-        headers: {
-          'User-Agent': 'Mozilla/5.0',
-          'Referer': 'https://www.cnn.com/markets/fear-and-greed',
-        }
-      }, r => {
-        let body = '';
-        r.on('data', c => body += c);
-        r.on('end', () => { try { resolve(JSON.parse(body)); } catch { reject(new Error('Parse failed')); } });
-      }).on('error', reject);
-    });
-    const current = data?.fear_and_greed;
-    if (!current) return res.status(502).json({ error: 'No Fear & Greed data' });
+    const { status, data } = await fetchJson(
+      `https://production.dataviz.cnn.io/index/fearandgreed/graphdata/${startDate}`
+    );
+
+    if (status !== 200 || !data) {
+      return res.status(502).json({ error: `CNN returned HTTP ${status}` });
+    }
+
+    // Current value is in fear_and_greed, history in fear_and_greed_historical
+    const current = data.fear_and_greed;
+    if (!current || current.score == null) {
+      return res.status(502).json({ error: 'No Fear & Greed score in response', raw: JSON.stringify(data).slice(0, 200) });
+    }
+
     res.json({
       value:         Math.round(current.score),
-      previousClose: current.previous_close ? Math.round(current.previous_close) : null,
-      lastUpdated:   current.timestamp ? new Date(current.timestamp).toLocaleDateString() : null,
+      previousClose: current.previous_close != null ? Math.round(current.previous_close) : null,
+      oneWeekAgo:    current.previous_1_week  != null ? Math.round(current.previous_1_week) : null,
+      oneMonthAgo:   current.previous_1_month != null ? Math.round(current.previous_1_month) : null,
+      lastUpdated:   current.timestamp ? new Date(current.timestamp).toLocaleDateString() : new Date().toLocaleDateString(),
       _source:       'CNN Fear & Greed Index',
     });
   } catch (e) {
-    // Fallback: CNN endpoint may change — return a clear error
     res.status(502).json({ error: 'Fear & Greed proxy failed: ' + e.message });
   }
 });

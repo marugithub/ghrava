@@ -329,9 +329,7 @@ async function analyzeStock({ symbol, quote, timeframe, context='', settings, en
     if (e.recentFilings && e.recentFilings.length > 0) {
       lines.push(`Recent SEC Filings: ${e.recentFilings.slice(0,3).map(f=>f.form+' ('+f.filed+')').join(', ')}`);
     }
-    if (lines.length > 0) enrichBlock = '
-' + lines.join('
-');
+    if (lines.length > 0) enrichBlock = '\n' + lines.join('\n');
   }
 
   const prompt = `You are a seasoned professional stock and options trader with 20 years experience.
@@ -2313,11 +2311,17 @@ const SocialTab = ({ data, quotes }) => {
                   left:`${fg.value}%`, width:14, height:14, borderRadius:'50%',
                   background:'white', border:`2px solid ${C.panel}`, boxShadow:'0 1px 4px rgba(0,0,0,0.5)' }} />
               </div>
-              {fg.previousClose != null && (
-                <div style={{ color:C.muted, fontSize:11 }}>
-                  Prev close: <span style={{ color:fgColor(fg.previousClose) }}>{fg.previousClose} — {fgLabel(fg.previousClose)}</span>
-                </div>
-              )}
+              <div style={{ display:'flex', gap:12, justifyContent:'center', flexWrap:'wrap', marginTop:8, fontSize:11 }}>
+                {fg.previousClose != null && (
+                  <span style={{ color:C.muted }}>Prev: <span style={{ color:fgColor(fg.previousClose), fontWeight:600 }}>{fg.previousClose}</span></span>
+                )}
+                {fg.oneWeekAgo != null && (
+                  <span style={{ color:C.muted }}>1wk: <span style={{ color:fgColor(fg.oneWeekAgo), fontWeight:600 }}>{fg.oneWeekAgo}</span></span>
+                )}
+                {fg.oneMonthAgo != null && (
+                  <span style={{ color:C.muted }}>1mo: <span style={{ color:fgColor(fg.oneMonthAgo), fontWeight:600 }}>{fg.oneMonthAgo}</span></span>
+                )}
+              </div>
               <div style={{ color:C.dimmed, fontSize:10, marginTop:6 }}>
                 CNN Fear & Greed Index · Updated {fg.lastUpdated||'today'}
               </div>
