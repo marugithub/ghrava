@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.086
+**Last updated:** v202603.087
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -314,9 +314,15 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 
 ### Design discussions needed
 10. **Dashboard vs Reports overlap** — teaser cards in place. Build Reports Phase 1 next session.
-11. **Recurring tasks linked to records** — oil change linked to specific vehicle in Property.
-12. **Data quality checker** — completeness per module. Feeds into Reports.
-13. **Finance/HSA tags** — still deferred, decision needed
+11. ~~**Recurring tasks linked to records**~~ — **DONE v202603.087.** Vehicle service and property maintenance records with next_due_date within 30 days auto-generate todos. Auto-resolve when date moves out.
+12. ~~**Data quality checker**~~ — **DONE v202603.087.** Reports → Data Quality tab shows both needs_review flags and completeness issues (10 checks across 8 modules).
+13. ~~**Finance/HSA tags**~~ — **DONE v202603.087.** Tags wired on finance_transactions and hsa_payments. GET responses include tag names, POST/PUT save tags, DELETE clears tags.
+
+### v202603.087
+- **Data completeness checker** — `GET /api/v1/settings/completeness` returns 10 checks (inventory no-location/price/category, contacts no phone+email, documents missing expiry, books no author, vehicles no registration, medications missing dosage, certs no expiry, HSA missing category). Reports → Data Quality tab now shows both needs_review flags and completeness issues.
+- **Recurring tasks — Property** — `syncAutoTodos()` now generates auto-todos from `vehicle_service.next_due_date` (section 8) and `property_maintenance.next_due_date` (section 9). Both auto-resolve when the record's next_due_date is updated past 30 days out.
+- **Finance tags** — `finance_transactions` GET/POST/PUT/DELETE all tag-aware via `finance_transaction` entity type.
+- **HSA tags** — `hsa_payments` GET/POST/PUT/DELETE all tag-aware via `hsa_payment` entity type.
 
 ### Fixed v202603.086
 - **smoke-test.sh** — adds 30s server startup wait loop so test runs immediately after `docker restart` without spurious HTTP 000 failures

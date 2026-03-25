@@ -282,6 +282,73 @@ function syncAutoTodos() {
       );
     }
   } catch (e) { console.error('[todos] med_discontinued:', e.message); }
+
+  // ── 8. Vehicle service next_due_date within 30 days ─────────
+  try {
+    const in30 = daysFromNow(30);
+    const dueService = db.prepare(`
+      SELECT vs.id, vs.service_type, vs.next_due_date, v.nickname, v.make, v.model
+      FROM vehicle_service vs
+      JOIN vehicles v ON v.id = vs.vehicle_id
+      WHERE vs.next_due_date IS NOT NULL AND vs.next_due_date <= ?
+        AND v.is_active = 1
+    `).all(in30);
+
+    const openSvcIds = new Set(
+      db.prepare(`SELECT auto_source_id FROM todos
+        WHERE is_auto=1 AND auto_type='vehicle_service_due' AND auto_source_type='vehicle_service'
+          AND status IN ('open','in_progress')`).all().map(r => r.auto_source_id)
+    );
+    const dueSvcIds = new Set(dueService.map(s => s.id));
+    // Resolve todos for service records no longer due
+    for (const sid of openSvcIds) {
+      if (!dueSvcIds.has(sid)) resolve.run('vehicle_service_due', 'vehicle_service', sid);
+    }
+    for (const svc of dueService) {
+      const vname = svc.nickname || `${svc.make||''} ${svc.model||''}`.trim() || 'Vehicle';
+      const overdue = svc.next_due_date < now;
+      upsert.run(
+        `${svc.service_type} due — ${vname}`,
+        `${overdue ? 'Overdue' : 'Due'}: ${svc.service_type} for ${vname} (next due ${svc.next_due_date}).`,
+        svc.next_due_date, overdue ? 'high' : 'medium', 'Property',
+        'vehicle_service_due', 'vehicle_service', svc.id,
+        'vehicle_service_due', 'vehicle_service', svc.id
+      );
+    }
+  } catch (e) { console.error('[todos] vehicle_service_due:', e.message); }
+
+  // ── 9. Property maintenance next_due_date within 30 days ────
+  try {
+    const in30 = daysFromNow(30);
+    const dueMaint = db.prepare(`
+      SELECT pm.id, pm.category, pm.description, pm.next_due_date, p.nickname
+      FROM property_maintenance pm
+      JOIN properties p ON p.id = pm.property_id
+      WHERE pm.next_due_date IS NOT NULL AND pm.next_due_date <= ?
+        AND p.is_active = 1
+    `).all(in30);
+
+    const openMaintIds = new Set(
+      db.prepare(`SELECT auto_source_id FROM todos
+        WHERE is_auto=1 AND auto_type='property_maint_due' AND auto_source_type='property_maintenance'
+          AND status IN ('open','in_progress')`).all().map(r => r.auto_source_id)
+    );
+    const dueMaintIds = new Set(dueMaint.map(m => m.id));
+    for (const sid of openMaintIds) {
+      if (!dueMaintIds.has(sid)) resolve.run('property_maint_due', 'property_maintenance', sid);
+    }
+    for (const maint of dueMaint) {
+      const pname = maint.nickname || 'Property';
+      const overdue = maint.next_due_date < now;
+      upsert.run(
+        `${maint.category} maintenance due — ${pname}`,
+        `${overdue ? 'Overdue' : 'Due'}: ${maint.description} at ${pname} (next due ${maint.next_due_date}).`,
+        maint.next_due_date, overdue ? 'high' : 'medium', 'Property',
+        'property_maint_due', 'property_maintenance', maint.id,
+        'property_maint_due', 'property_maintenance', maint.id
+      );
+    }
+  } catch (e) { console.error('[todos] property_maint_due:', e.message); }
 }
 
 // ── GET /api/v1/todos ──────────────────────────────────────────

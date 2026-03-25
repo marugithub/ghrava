@@ -38,6 +38,75 @@ router.post('/review/check-complete', (req, res) => {
   } catch(err) { serverError(res, err); }
 });
 
+// GET /api/v1/settings/completeness
+// Returns data completeness issues — records missing important optional fields.
+// Distinct from needs_review (migration flags) — this is ongoing field coverage.
+router.get('/completeness', (req, res) => {
+  try {
+    const issues = [];
+
+    function check(module, label, href, sql, field) {
+      try {
+        const rows = db.prepare(sql).all();
+        if (rows.length) issues.push({ module, label, href, field, count: rows.length,
+          samples: rows.slice(0, 3).map(r => r.name || r.title || r.display_name || String(r.id)) });
+      } catch { /* table may not exist */ }
+    }
+
+    // Inventory
+    check('inventory', 'Inventory', '/inventory.html',
+      "SELECT name FROM items WHERE is_active=1 AND is_archived=0 AND (parent_type IS NULL OR parent_id IS NULL)",
+      'No location assigned');
+    check('inventory', 'Inventory', '/inventory.html',
+      "SELECT name FROM items WHERE is_active=1 AND is_archived=0 AND (purchase_price IS NULL OR purchase_price=0)",
+      'No purchase price');
+    check('inventory', 'Inventory', '/inventory.html',
+      "SELECT name FROM items WHERE is_active=1 AND is_archived=0 AND (category IS NULL OR category='')",
+      'No category');
+
+    // Contacts
+    check('contacts', 'Contacts', '/settings.html',
+      "SELECT name FROM contacts WHERE phone_primary IS NULL AND email IS NULL",
+      'No phone or email');
+
+    // Documents
+    check('documents', 'Documents', '/documents.html',
+      "SELECT title AS name FROM documents WHERE is_active=1 AND expiry_date IS NULL AND category IN ('Insurance','Legal','ID','Warranty','Medical')",
+      'No expiry date (for ' + 'Insurance/Legal/ID/Warranty/Medical)');
+
+    // Books
+    check('books', 'Books', '/books.html',
+      "SELECT title AS name FROM books WHERE is_active=1 AND author IS NULL",
+      'No author');
+
+    // Vehicles
+    check('vehicles', 'Vehicles', '/property.html',
+      "SELECT nickname AS name FROM vehicles WHERE is_active=1 AND registration_expires IS NULL",
+      'No registration expiry date');
+    check('vehicles', 'Vehicles', '/property.html',
+      "SELECT nickname AS name FROM vehicles WHERE is_active=1 AND (make IS NULL OR model IS NULL)",
+      'Missing make or model');
+
+    // Medical medications
+    check('medical', 'Medical', '/medical.html',
+      "SELECT name FROM med_medications WHERE status='Active' AND (dosage IS NULL OR dosage='')",
+      'Active medication missing dosage');
+
+    // Career certifications
+    check('career', 'Career', '/career.html',
+      "SELECT name FROM career_certifications WHERE status='Active' AND expiry_date IS NULL",
+      'Active cert with no expiry date');
+
+    // HSA payments
+    check('hsa', 'HSA', '/finance.html',
+      "SELECT provider AS name FROM hsa_payments WHERE hsa_eligible=1 AND (category IS NULL OR category='')",
+      'HSA-eligible expense missing category');
+
+    const total = issues.reduce((s, i) => s + i.count, 0);
+    res.json({ total, issues });
+  } catch(err) { serverError(res, err); }
+});
+
 
 // ── Public read-only routes (no auth required) ─────────────────
 // Principle: reading data never requires auth — only writes do.

@@ -36,6 +36,7 @@ const db      = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
 const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
+const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
 
 // ── All finance routes require auth ──────────────────────────
 router.use(requireAuth);
@@ -275,7 +276,7 @@ router.get('/transactions', (req, res) => {
     if (category)   { sql += ' AND t.category = ?'; params.push(category); }
     sql += ' ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?';
     params.push(parseInt(limit), parseInt(offset));
-    const rows = db.prepare(sql).all(...params);
+    const rows = db.prepare(sql).all(...params).map(r => withTagNames(r, 'finance_transaction'));
 
     // Also return summary
     let sumSql = `
@@ -314,6 +315,7 @@ router.post('/transactions', (req, res) => {
       d.is_reconciled ? 1 : 0
     );
     saveFamilyMembers(r.lastInsertRowid, 'finance_transaction', d.family_member_ids || []);
+    if (d.tags?.length) saveTagsByName(r.lastInsertRowid, 'finance_transaction', d.tags);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -337,6 +339,7 @@ router.put('/transactions/:id', (req, res) => {
       d.is_reconciled!==undefined ? (d.is_reconciled?1:0) : existing.is_reconciled,
       req.params.id
     );
+    if (d.tags !== undefined) saveTagsByName(parseInt(req.params.id), 'finance_transaction', d.tags);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
@@ -346,6 +349,7 @@ router.delete('/transactions/:id', (req, res) => {
     const existing = db.prepare('SELECT id FROM finance_transactions WHERE id=?').get(req.params.id);
     if (!existing) return notFound(res, 'Transaction');
     clearFamilyMembers(req.params.id, 'finance_transaction');
+    clearTags(req.params.id, 'finance_transaction');
     db.prepare('DELETE FROM finance_transactions WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }

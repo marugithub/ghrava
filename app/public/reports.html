@@ -879,34 +879,67 @@ async function loadQuality() {
   const el = $('qualityContent'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const r = await fetch('/api/v1/settings/review/summary');
-    const d = await r.json();
-    const flagged = (d.modules || []).filter(m => m.count > 0);
-    if (!flagged.length) {
+    const [reviewResp, completenessResp] = await Promise.all([
+      fetch('/api/v1/settings/review/summary'),
+      fetch('/api/v1/settings/completeness'),
+    ]);
+    const reviewData      = await reviewResp.json();
+    const completenessData = await completenessResp.json();
+
+    const flagged    = (reviewData.modules || []).filter(m => m.count > 0);
+    const incomplete = (completenessData.issues || []);
+
+    if (!flagged.length && !incomplete.length) {
       el.innerHTML = `<div class="dq-all-clear">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
         </svg>
         <div style="font-size:18px;font-weight:700">All Clear</div>
-        <div style="font-size:13px;color:var(--text3);margin-top:4px">No records need review</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px">No records flagged and no completeness issues</div>
       </div>`;
       return;
     }
-    const totalFlagged = flagged.reduce((s, m) => s + m.count, 0);
-    el.innerHTML = `
-      <div style="padding:12px 0 4px">
-        <div style="font-size:13px;color:var(--text3)">${totalFlagged} record${totalFlagged!==1?'s':''} flagged across ${flagged.length} module${flagged.length!==1?'s':''}</div>
-      </div>
-      ${flagged.map(m => {
-        const href = DQ_LINKS[m.table] || '#';
-        return `<a href="${href}" class="dq-row" target="_blank">
-          <span style="font-size:13px;font-weight:600">${esc(m.label)}</span>
-          <span class="dq-badge">${m.count} to review</span>
-        </a>`;
-      }).join('')}
-      <div style="margin-top:12px;font-size:12px;color:var(--text3)">
-        Links open the relevant module in a new tab. Clear the flag on each record to dismiss it.
-      </div>`;
+
+    let html = '';
+
+    // ── Review flags (needs_review) ───────────────────────────
+    if (flagged.length) {
+      const totalFlagged = flagged.reduce((s, m) => s + m.count, 0);
+      html += `
+        <div class="section-hdr" style="padding-top:12px">Needs Review
+          <span style="color:var(--text3);font-weight:400;font-size:11px">(${totalFlagged} flagged after import/migration)</span>
+        </div>
+        ${flagged.map(m => {
+          const href = DQ_LINKS[m.table] || '#';
+          return `<a href="${href}" class="dq-row" target="_blank">
+            <span style="font-size:13px;font-weight:600">${esc(m.label)}</span>
+            <span class="dq-badge">${m.count} to review</span>
+          </a>`;
+        }).join('')}
+        <div style="margin-top:6px;margin-bottom:12px;font-size:12px;color:var(--text3)">
+          Open the module, edit and save each flagged record to clear its flag.
+        </div>`;
+    }
+
+    // ── Completeness issues ───────────────────────────────────
+    if (incomplete.length) {
+      const totalIncomplete = incomplete.reduce((s, i) => s + i.count, 0);
+      html += `
+        <div class="section-hdr">Incomplete Records
+          <span style="color:var(--text3);font-weight:400;font-size:11px">(${totalIncomplete} records missing important fields)</span>
+        </div>
+        ${incomplete.map(issue => `
+          <a href="${esc(issue.href)}" class="dq-row" target="_blank" style="flex-direction:column;align-items:flex-start;gap:4px">
+            <div style="display:flex;width:100%;align-items:center;justify-content:space-between">
+              <span style="font-size:13px;font-weight:600;color:var(--text)">${esc(issue.label)}</span>
+              <span class="dq-badge" style="background:rgba(100,116,139,.12);color:var(--text3)">${issue.count}</span>
+            </div>
+            <span style="font-size:12px;color:var(--text3)">${esc(issue.field)}</span>
+            ${issue.samples.length ? `<span style="font-size:11px;color:var(--text3);font-style:italic">${issue.samples.map(esc).join(', ')}${issue.count > 3 ? ` +${issue.count-3} more` : ''}</span>` : ''}
+          </a>`).join('')}`;
+    }
+
+    el.innerHTML = html;
   } catch(e) {
     el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
   }

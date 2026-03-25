@@ -13,6 +13,7 @@ const db          = require('../../db/db');
 const { requireAuth }        = require('../auth/middleware');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
 const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
+const { saveTagsByName, withTagNames, clearTags } = require('../../shared/tags');
 const { clearReview } = require('../../shared/needs-review');
 
 // ══════════════════════════════════════════════════════════════
@@ -234,7 +235,7 @@ router.get('/payments', (req, res) => {
     if (req.query.patient)  { sql += ' AND patient = ?';  p.push(req.query.patient); }
     if (req.query.category) { sql += ' AND category = ?'; p.push(req.query.category); }
     sql += ' ORDER BY date DESC, id DESC';
-    res.json(db.prepare(sql).all(...p));
+    res.json(db.prepare(sql).all(...p).map(r => withTagNames(withFamilyMembers(r, 'hsa_payment'), 'hsa_payment')));
   } catch (e) { serverError(res, e); }
 });
 
@@ -265,6 +266,7 @@ router.post('/payments', (req, res) => {
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null
     );
     saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
+    if (d.tags?.length) saveTagsByName(info.lastInsertRowid, 'hsa_payment', d.tags);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -288,6 +290,7 @@ router.put('/payments/:id', (req, res) => {
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null,
       req.params.id
     );
+    if (d.tags !== undefined) saveTagsByName(parseInt(req.params.id), 'hsa_payment', d.tags);
     clearReview('hsa_payments', req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
@@ -297,6 +300,7 @@ router.put('/payments/:id', (req, res) => {
 router.delete('/payments/:id', (req, res) => {
   try {
     clearFamilyMembers(req.params.id, 'hsa_payment');
+    clearTags(req.params.id, 'hsa_payment');
     db.prepare('DELETE FROM hsa_payments WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
