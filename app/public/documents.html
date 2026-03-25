@@ -186,8 +186,8 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label">File Name / Location Note</label>
-        <input class="form-input" id="dFileName" placeholder="tax_2024.pdf, Google Drive/Tax…">
+        <label class="form-label">File / Location</label>
+        <input class="form-input" id="dFileName" placeholder="Z:\Docs\tax_2024.pdf  or  \\NAS\Docs\...  or  https://...">
       </div>
 
       <div class="form-row">
@@ -232,6 +232,44 @@ const CAT_ICONS = { Tax:'📄',Legal:'⚖️',Insurance:'🛡️',Warranty:'🔧
 const CAT_COLORS = { Tax:'rgba(239,68,68,.12)',Legal:'rgba(99,102,241,.12)',Insurance:'rgba(20,184,166,.12)',Warranty:'rgba(245,158,11,.12)',Medical:'rgba(20,184,166,.12)',Financial:'rgba(34,197,94,.12)',Property:'rgba(59,130,246,.12)',Vehicle:'rgba(99,102,241,.12)',Career:'rgba(249,115,22,.12)',Other:'rgba(148,163,184,.12)' };
 
 // ── Load docs ──────────────────────────────────────────────────
+// ── File path link helper ─────────────────────────────────────
+// Detects path type and returns a clickable element:
+//   UNC  \\server\share\...  → copy-to-clipboard (browsers block file:// for UNC)
+//   Drive Z:\path\...       → file:// URL (opens in browser/Explorer if reachable)
+//   URL  http(s)://...      → plain <a> link, new tab
+//   Anything else           → copy-to-clipboard fallback
+function fileLink(raw) {
+  if (!raw) return '';
+  const s = raw.trim();
+  // HTTP/HTTPS URL
+  if (/^https?:\/\//i.test(s)) {
+    return `<a href="${esc(s)}" target="_blank" rel="noopener"
+      style="font-size:11px;color:var(--accent);font-family:var(--mono);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:3px"
+      onclick="event.stopPropagation()">📎 ${esc(s)}</a>`;
+  }
+  // Drive-letter path  C:\  D:\  Z:\  etc.
+  if (/^[A-Za-z]:[\\\/]/.test(s)) {
+    // Convert to file:// URL — forward slashes, encode spaces
+    const url = 'file:///' + s.replace(/\\/g, '/').replace(/ /g, '%20');
+    return `<a href="${esc(url)}" target="_blank" rel="noopener"
+      title="Open file (${esc(s)})"
+      style="font-size:11px;color:var(--accent);font-family:var(--mono);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:3px"
+      onclick="event.stopPropagation()">📎 ${esc(s)}</a>`;
+  }
+  // UNC path  \\server\share\...  or  //server/share/...
+  if (/^[\\\/]{2}/.test(s)) {
+    return `<button
+      title="Copy UNC path to clipboard (browsers can't open \\\\ paths directly)"
+      onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(s)}).then(()=>window.LT?.toast?.('Path copied','ok')||alert('Copied: ${s.replace(/'/g,"\\'")}'))"
+      style="font-size:11px;color:var(--accent);font-family:var(--mono);background:none;border:none;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;margin-top:3px">📋 ${esc(s)}</button>`;
+  }
+  // Anything else (relative path, Google Drive note, etc.) — copy to clipboard
+  return `<button
+    title="Copy to clipboard"
+    onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(s)}).then(()=>window.LT?.toast?.('Copied','ok')||alert('Copied'))"
+    style="font-size:11px;color:var(--accent);font-family:var(--mono);background:none;border:none;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;margin-top:3px">📎 ${esc(s)}</button>`;
+}
+
 async function loadDocs() {
   const el = $('docList'); if (!el) return;
   el.innerHTML = spinnerHtml();
@@ -285,7 +323,7 @@ function renderDocs() {
             <div class="doc-meta">${d.subcategory?`<span>${esc(d.subcategory)}</span>`:''} ${d.issuer?`<span style="color:var(--text2)">${esc(d.issuer)}</span>`:''} ${d.family_member?`<span>👤 ${esc(d.family_member)}</span>`:''} ${exHtml}</div>
             ${d.description?`<div style="font-size:12px;color:var(--text3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.description)}</div>`:''}
             ${tagHtml?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${tagHtml}</div>`:''}
-            ${d.file_name?`<div style="font-size:11px;color:var(--accent);margin-top:3px;font-family:var(--mono)">📎 ${esc(d.file_name)}</div>`:''}
+            ${d.file_name ? fileLink(d.file_name) : ''}
           </div>
         </div>
       </div>`;

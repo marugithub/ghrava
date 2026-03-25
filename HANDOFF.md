@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.082
+**Last updated:** v202603.083
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -310,7 +310,7 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 6. **Settings audit** — move Diagnostics/Logs/Recent Changes out of Settings into Admin or Reports
 7. ~~**Medical patient filter**~~ — **Already built** (discovered v202603.082 audit). Patient pill strip at top of Medical page.
 8. ~~**Property maintenance UI**~~ — **Already built** (discovered v202603.082 audit). Full drawer with category, vendor (GH_REFS contact picker), cost, warranty, next due date.
-9. **Documents file upload** — wire attachment_id to NAS filesystem
+9. **Documents file pointer** — `file_name` field now clickable in cards. Drive paths (Z:\...) open as file:// URL. UNC paths (\\NAS\...) copy to clipboard (browser security prevents direct open). HTTP/HTTPS opens in new tab. Plain text copies to clipboard. Upload to NAS deferred — separate design decision alongside SSO.
 
 ### Design discussions needed
 10. **Dashboard vs Reports overlap** — teaser cards in place. Build Reports Phase 1 next session.
