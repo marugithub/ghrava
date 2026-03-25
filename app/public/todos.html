@@ -593,13 +593,18 @@
 
     <div class="form-group">
       <label class="form-label">Repeat</label>
-      <select class="form-select" id="fRecurrence">
+      <select class="form-select" id="fRecurrence" onchange="toggleRecurrenceDays(this.value)">
         <option value="">No repeat</option>
         <option value="daily">Daily</option>
         <option value="weekly">Weekly</option>
         <option value="monthly">Monthly</option>
         <option value="yearly">Yearly</option>
+        <option value="every_n_days">Every N days…</option>
       </select>
+    </div>
+    <div class="form-group" id="recurrenceDaysGroup" style="display:none">
+      <label class="form-label">Every how many days?</label>
+      <input type="number" class="form-input" id="fRecurrenceDays" min="1" max="365" placeholder="e.g. 14">
     </div>
 
     <div class="form-group">
@@ -956,6 +961,17 @@ function openDetail(id) {
 }
 
 // ── Form ──────────────────────────────────────────────────────
+function toggleRecurrenceDays(val) {
+  const grp = $('recurrenceDaysGroup');
+  if (val === 'every_n_days') {
+    grp.style.display = '';
+    $('fRecurrenceDays').focus();
+  } else {
+    grp.style.display = 'none';
+    $('fRecurrenceDays').value = '';
+  }
+}
+
 async function openAdd() {
   editingId = null;
   $('drawerTitle').textContent = 'New To-Do';
@@ -967,6 +983,7 @@ async function openAdd() {
   $('fDue').value = '';
   $('fReminder').value = '';
   $('fRecurrence').value = '';
+  toggleRecurrenceDays('');
   initTodoTags([]);
   $('formDrawer').classList.add('open');
   setTimeout(() => $('fTitle').focus(), 300);
@@ -985,6 +1002,8 @@ async function openEdit(id) {
   $('fDue').value         = t.due_date || '';
   $('fReminder').value    = t.reminder_date || '';
   $('fRecurrence').value  = t.recurrence || '';
+  $('fRecurrenceDays').value = t.recurrence_days || '';
+  toggleRecurrenceDays(t.recurrence || '');
   initTodoTags(t.tags||[]);
   $('formDrawer').classList.add('open');
 }
@@ -1008,6 +1027,9 @@ $('formSave').addEventListener('click', async () => {
       due_date:   $('fDue').value || null,
       reminder_date: $('fReminder').value || null,
       recurrence: $('fRecurrence').value || null,
+      recurrence_days: $('fRecurrence').value === 'every_n_days'
+        ? (parseInt($('fRecurrenceDays').value) || null)
+        : null,
       tags: todoFormTags,
       family_member_ids: GH_FAMILY.getIds('todoFamilyWrap'),
     };

@@ -91,6 +91,14 @@
       border-top: 1px solid var(--border);
       flex-shrink: 0;
     }
+    /* GH_VIEW grid mode */
+    #docList.gh-grid {
+      display: grid;
+      grid-template-columns: repeat(var(--doc-cols,3), 1fr);
+      gap: 10px;
+      padding: 8px 16px 100px;
+    }
+    #docList.gh-grid .doc-card { margin-bottom: 0; }
   </style>
 </head>
 <body class="module-documents">
@@ -114,6 +122,9 @@
   <div class="view-tabs" id="catStrip" style="--tab-color:#6366f1">
     <button class="view-tab active" data-cat="">All</button>
   </div>
+
+  <!-- GH_VIEW toolbar -->
+  <div id="docViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
 
   <div id="docList" style="padding:0 16px"></div>
 </div>
@@ -212,6 +223,9 @@ function bgClose(id) { if (event.target === $(id)) $(id).classList.remove('open'
 function closeDocModal() { $('docDrawer').classList.remove('open'); }
 
 let editDocId = null, allDocs = [], filterCat = '', searchQ = '';
+let _docView = localStorage.getItem('doc_view') || 'list';
+let _docCols = parseInt(localStorage.getItem('doc_cols')) || 3;
+let _docFilters = {};
 let docFormTags = [];
 
 const CAT_ICONS = { Tax:'📄',Legal:'⚖️',Insurance:'🛡️',Warranty:'🔧',Medical:'🏥',Financial:'💰',Property:'🏠',Vehicle:'🚗',Career:'💼',Other:'📁' };
@@ -232,12 +246,24 @@ async function loadDocs() {
 
 function renderDocs() {
   const el = $('docList'); if (!el) return;
-  if (!allDocs.length) { el.innerHTML = emptyState(...GH_EMPTY.documents); return; }
+
+  // Apply GH_VIEW grid/list mode
+  el.classList.toggle('gh-grid', _docView === 'grid');
+  el.classList.toggle('gh-list', _docView === 'list');
+  el.style.setProperty('--doc-cols', _docCols);
+
+  // Apply tag filter from GH_VIEW
+  let docs = allDocs;
+  if (_docFilters.tags?.length) {
+    docs = docs.filter(d => _docFilters.tags.every(t => (d.tags||[]).includes(t)));
+  }
+
+  if (!docs.length) { el.innerHTML = emptyState(...GH_EMPTY.documents); return; }
   const today  = new Date().toISOString().slice(0,10);
   const warn30 = new Date(Date.now()+30*864e5).toISOString().slice(0,10);
   const warn90 = new Date(Date.now()+90*864e5).toISOString().slice(0,10);
   const groups = {};
-  allDocs.forEach(d => { (groups[d.category]=groups[d.category]||[]).push(d); });
+  docs.forEach(d => { (groups[d.category]=groups[d.category]||[]).push(d); });
   let html = '';
   Object.keys(groups).sort().forEach(cat => {
     const docs = groups[cat];
@@ -381,7 +407,21 @@ async function deleteDoc() {
   catch(e){toast('Delete failed','err');}
 }
 
-document.addEventListener('DOMContentLoaded', () => { loadCatStrip(); loadDocs(); });
+document.addEventListener('DOMContentLoaded', () => {
+  GH_VIEW.init('docViewToolbar', 'doc', state => {
+    _docView    = state.view;
+    _docCols    = state.cols;
+    _docFilters = state.filters || {};
+    renderDocs();
+  }, {
+    defaultView: 'list',
+    filterFields: [
+      { key: 'tags', type: 'tags', label: 'Tags' },
+    ]
+  });
+  loadCatStrip();
+  loadDocs();
+});
 </script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.079
+**Last updated:** v202603.080
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -299,22 +299,22 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 ## 13. Active Backlog
 
 ### Immediate / next session
-1. **Migration 043 apply** — `docker restart ghrava` to add `recurrence_days` column
-2. **GH_VIEW for other modules** — Books, Documents, Resources are next for grid/list toggle
-3. **Dashboard additions** — Documents expiring widget, Backup status widget, "Reports coming" teaser cards
-4. **Books cover display** — verify cover thumbnails render correctly on book cards after ISBN scan
+1. ~~**Migration 043 apply**~~ — **DONE v202603.080.** `docker restart ghrava` applies it. Verify "Every N days" recurrence on a test todo.
+2. ~~**GH_VIEW for other modules**~~ — **DONE v202603.080.** Books, Documents, Resources all wired. Grid/list toggle + column picker + tag filter on all three.
+3. ~~**Dashboard additions**~~ — **DONE v202603.080.** Expiring documents widget (next 90 days), Backup status widget (days since / overdue flag), Reports teaser card. Data served from `GET /api/v1/dashboard`.
+4. **Books cover display** — verify cover thumbnails render correctly on book cards after ISBN scan (unconfirmed from prior session)
 
 ### Medium priority
-5. **Reports module** — `reports.html` separate page. Phase 1: shell + System section. Phase 2: Data Quality with needs_review links. Phase 3: Inventory/Finance/Medical/Documents summary cards. New-tab + 30s poll approach for live updates.
+5. **Reports module** — `reports.html` separate page. Phase 1: shell + System section. Phase 2: Data Quality with needs_review links. Phase 3: Inventory/Finance/Medical/Documents summary cards. New-tab + 30s poll approach.
 6. **Settings audit** — move Diagnostics/Logs/Recent Changes out of Settings into Admin or Reports
 7. **Medical patient filter** — persistent Arnav/Risha/Self/All tab at top of Medical page
 8. **Property maintenance UI** — backend done (migration 035), UI not built
 9. **Documents file upload** — wire attachment_id to NAS filesystem
 
 ### Design discussions needed
-10. **Dashboard vs Reports overlap** — "Coming soon" teaser approach agreed. Design before building.
-11. **Recurring tasks linked to records** — oil change linked to specific vehicle in Property. Simple enough not to over-engineer.
-12. **Data quality checker** — completeness per module (items no location, contacts no phone, etc). Feeds into Reports.
+10. **Dashboard vs Reports overlap** — teaser cards in place. Build Reports Phase 1 next session.
+11. **Recurring tasks linked to records** — oil change linked to specific vehicle in Property.
+12. **Data quality checker** — completeness per module. Feeds into Reports.
 13. **Finance/HSA tags** — still deferred, decision needed
 
 ### Low / deferred
@@ -346,6 +346,12 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 # NAS terminal:
 docker restart ghrava         # code-only changes
 docker compose up --build -d  # only when package.json changed
+```
+
+**Run smoke-test.sh before packaging any deploy zip. If it fails, fix before shipping.**
+```bash
+# On NAS after docker restart, before zipping:
+bash smoke-test.sh http://localhost:3001
 ```
 
 **Zip packaging pattern:**

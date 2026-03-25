@@ -50,6 +50,20 @@
 .book-stat { flex:1;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;text-align:center;min-width:72px; }
 .book-stat-val { font-size:20px;font-weight:800;font-family:var(--mono);color:var(--text); }
 .book-stat-lbl { font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em;margin-top:2px; }
+
+/* GH_VIEW grid mode */
+#bookList.gh-grid {
+  display:grid;
+  grid-template-columns:repeat(var(--bk-cols,3),1fr);
+  gap:10px;
+  padding:8px 16px 100px;
+}
+#bookList.gh-grid .book-card {
+  flex-direction:column;gap:8px;margin-bottom:0;
+}
+#bookList.gh-grid .book-cover-thumb { width:100%;height:120px;border-radius:var(--r); }
+#bookList.gh-grid .book-spine { width:100%;height:4px;align-self:auto; }
+
 </style>
 </head>
 <body>
@@ -90,6 +104,9 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
   </div>
   <!-- Genre sub-filter populated dynamically -->
   <div style="display:flex;gap:6px;padding:4px 16px;overflow-x:auto;scrollbar-width:none" id="genreFilters"></div>
+
+  <!-- GH_VIEW toolbar -->
+  <div id="bookViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
 
   <!-- Book list -->
   <div id="bookList" style="padding:4px 16px 100px">
@@ -173,6 +190,9 @@ let currentGenre  = '';
 let currentRating = 0;
 let editingBookId = null;
 let _allBooks     = [];  // local cache for fast drawer open
+let _bkView    = localStorage.getItem('bk_view') || 'list';
+let _bkCols    = parseInt(localStorage.getItem('bk_cols')) || 3;
+let _bkFilters = {};
 
 const FORMAT_COLOR = { Physical:'#22c55e', Kindle:'#5c72fa', Audible:'#f59e0b' };
 
@@ -213,9 +233,22 @@ async function loadBooks() {
     buildGenreFilter(books);
 
     // Client-side search
-    const filtered = search
+    let filtered = search
       ? books.filter(b=>(b.title+' '+(b.author||'')).toLowerCase().includes(search.toLowerCase()))
       : books;
+
+    // Apply GH_VIEW advanced filters
+    if (_bkFilters.tags?.length) {
+      filtered = filtered.filter(b => _bkFilters.tags.every(t => (b.tags||[]).includes(t)));
+    }
+    if (_bkFilters.rating) {
+      filtered = filtered.filter(b => (b.rating||0) >= parseInt(_bkFilters.rating));
+    }
+
+    // Apply grid/list view
+    el.classList.toggle('gh-grid', _bkView === 'grid');
+    el.classList.toggle('gh-list', _bkView === 'list');
+    el.style.setProperty('--bk-cols', _bkCols);
 
     if(!filtered.length){
       el.innerHTML=emptyState(...GH_EMPTY.books);
@@ -370,6 +403,19 @@ function initBookTags(existing) {
   GH_TAGS.init({inputId:'bookTagInput',wrapId:'bookTagsWrap',module:'books',getFormTags:()=>bookFormTags,addTag:t=>addBookTag(t),allowCreate:true});
 }
 document.addEventListener('DOMContentLoaded', ()=>{
+  GH_VIEW.init('bookViewToolbar', 'bk', state => {
+    _bkView    = state.view;
+    _bkCols    = state.cols;
+    _bkFilters = state.filters || {};
+    loadBooks();
+  }, {
+    defaultView: 'list',
+    filterFields: [
+      { key: 'rating', type: 'select', label: 'Min Rating',
+        options: [{value:'',label:'Any'},{value:'5',label:'★★★★★'},{value:'4',label:'★★★★+'},{value:'3',label:'★★★+'}] },
+      { key: 'tags',   type: 'tags',   label: 'Tags' },
+    ]
+  });
   loadBooks();
   loadStats();
 });

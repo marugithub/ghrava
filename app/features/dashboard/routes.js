@@ -15,6 +15,10 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../../db/db');
+const fs      = require('fs');
+const path    = require('path');
+
+const BACKUP_DIR = process.env.BACKUP_DIR || '/app/backups';
 
 function currentYear() { return new Date().getFullYear(); }
 
@@ -150,6 +154,37 @@ router.get('/', (req, res) => {
       return { total, activities };
     });
 
+    // ── Expiring documents (next 90 days) ──────────────────────
+    const expiringDocs = safeGet(() => db.prepare(`
+      SELECT id, title, doc_type, expiry_date
+      FROM documents
+      WHERE is_active=1 AND expiry_date IS NOT NULL
+        AND expiry_date >= date('now')
+        AND expiry_date <= date('now','+90 days')
+      ORDER BY expiry_date ASC
+      LIMIT 10
+    `).all()) || [];
+
+    // ── Backup status ───────────────────────────────────────────
+    const backupStatus = safeGet(() => {
+      if (!fs.existsSync(BACKUP_DIR)) return { last_backup: null, last_backup_size: null, days_since_backup: null, overdue: true };
+      const files = fs.readdirSync(BACKUP_DIR)
+        .filter(f => f.endsWith('.db'))
+        .map(f => ({ filename: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtime }))
+        .sort((a, b) => b.mtime - a.mtime);
+      if (!files.length) return { last_backup: null, last_backup_size: null, days_since_backup: null, overdue: true };
+      const latest = files[0];
+      const stat = fs.statSync(path.join(BACKUP_DIR, latest.filename));
+      const daysSince = Math.floor((Date.now() - latest.mtime) / 864e5);
+      return {
+        last_backup: latest.mtime.toISOString(),
+        last_backup_filename: latest.filename,
+        last_backup_size: stat.size,
+        days_since_backup: daysSince,
+        overdue: daysSince > 7,
+      };
+    }) || { last_backup: null, last_backup_size: null, days_since_backup: null, overdue: true };
+
     res.json({
       year,
       inventory:  { items: inv.items, est_value: inv.est_value,
@@ -168,6 +203,8 @@ router.get('/', (req, res) => {
       books:      bookStats,
       property:   propStats,
       kids:       kidsStats,
+      expiring_documents: expiringDocs,
+      backup:     backupStatus,
     });
   } catch (e) {
     console.error('Dashboard error:', e);

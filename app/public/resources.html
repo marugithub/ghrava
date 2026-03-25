@@ -33,15 +33,14 @@
 .res-list {
   padding: 10px 12px 100px;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(var(--res-cols, 1), 1fr);
   gap: 7px;
 }
 @media (min-width: 600px) {
-  .res-list { grid-template-columns: 1fr 1fr; }
+  .res-list { grid-template-columns: repeat(var(--res-cols, 2), 1fr); }
 }
 @media (min-width: 900px) {
-  /* sidebar takes 220px — 2 columns in remaining space */
-  .res-list { grid-template-columns: 1fr 1fr; padding: 10px 16px 60px; gap: 8px; }
+  .res-list { grid-template-columns: repeat(var(--res-cols, 2), 1fr); padding: 10px 16px 60px; gap: 8px; }
 }
 
 .res-card {
@@ -357,6 +356,9 @@
     <button class="view-tab active" data-cat="">All</button>
   </div>
 
+    <!-- GH_VIEW toolbar -->
+  <div id="resViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
+
     <!-- Resource list -->
   <div id="resList" class="res-list">
     <div class="spinner"><div class="spin"></div>Loading…</div>
@@ -498,6 +500,9 @@ let filterTag = '';
 let filterFav = false;
 let searchQ = '';
 let editingId = null;
+let _resView = localStorage.getItem('res_view') || 'list';
+let _resCols = parseInt(localStorage.getItem('res_cols')) || 2;
+let _resFilters = {};
 let pendingImport = [];
 let formTags = []; // tags being edited in form
 let searchTimer;
@@ -549,18 +554,27 @@ function render() {
   const el = $('resList');
   const _rc = $('resCount'); if (_rc) _rc.textContent = resources.length;
 
-  if (!resources.length) {
+  // Apply GH_VIEW column count
+  el.style.setProperty('--res-cols', _resCols);
+
+  // Apply GH_VIEW tag filter
+  let displayResources = resources;
+  if (_resFilters.tags?.length) {
+    displayResources = resources.filter(r => _resFilters.tags.every(t => (r.tags||[]).includes(t)));
+  }
+
+  if (!displayResources.length) {
     el.innerHTML = `<div class="empty">
       <div class="empty-icon">🔗</div>
-      <h3>${searchQ || filterCat || filterTag || filterFav ? 'No matches found' : 'No resources yet'}</h3>
+      <h3>${searchQ || filterCat || filterTag || filterFav || _resFilters.tags?.length ? 'No matches found' : 'No resources yet'}</h3>
       <p>${searchQ || filterCat || filterTag || filterFav ? 'Try a different search or filter.' : 'Tap + to add your first resource, or import a CSV.'}</p>
     </div>`;
     return;
   }
 
   // Split favorites / rest when not filtering by fav
-  const favs = resources.filter(r => r.is_favorite);
-  const rest  = resources.filter(r => !r.is_favorite);
+  const favs = displayResources.filter(r => r.is_favorite);
+  const rest  = displayResources.filter(r => !r.is_favorite);
 
   let html = '';
   if (favs.length && !filterFav) {
@@ -867,6 +881,18 @@ window.openEdit = function(id) {
 
 
 document.addEventListener('DOMContentLoaded', () => {
+  GH_VIEW.init('resViewToolbar', 'res', state => {
+    _resView    = state.view;
+    _resCols    = state.cols;
+    _resFilters = state.filters || {};
+    render();
+  }, {
+    defaultView: 'list',
+    filterFields: [
+      { key: 'tags', type: 'tags', label: 'Tags' },
+    ]
+  });
+
   const searchEl = $('searchInput');
   if (searchEl) searchEl.addEventListener('input', () => {
     clearTimeout(searchTimer);

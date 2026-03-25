@@ -361,16 +361,17 @@ router.use(requireAuth);
 // ── Create a todo ──────────────────────────────────────────────
 router.post('/', (req, res) => {
   try {
-    const { title, notes, due_date, priority, category, reminder_date, recurrence, tags } = req.body;
+    const { title, notes, due_date, priority, category, reminder_date, recurrence, recurrence_days, tags } = req.body;
     if (!title?.trim()) return badRequest(res, 'title required');
     const info = db.prepare(`
       INSERT INTO todos
-        (title, notes, due_date, priority, category, is_auto, reminder_date, recurrence, status)
-      VALUES (?,?,?,?,?,0,?,?,'open')
+        (title, notes, due_date, priority, category, is_auto, reminder_date, recurrence, recurrence_days, status)
+      VALUES (?,?,?,?,?,0,?,?,?,'open')
     `).run(
       title.trim(), notes || null, due_date || null,
       priority || 'medium', category || 'General',
-      reminder_date || null, recurrence || null
+      reminder_date || null, recurrence || null,
+      (recurrence === 'every_n_days' && recurrence_days) ? parseInt(recurrence_days) : null
     );
     const newId = info.lastInsertRowid;
     if (tags && tags.length) saveTagsByName(newId, 'todo', tags);
@@ -386,11 +387,11 @@ router.put('/:id', (req, res) => {
     const todo = db.prepare('SELECT * FROM todos WHERE id=?').get(req.params.id);
     if (!todo) return notFound(res, 'Todo');
     if (todo.is_auto) return badRequest(res, 'Auto-generated todos cannot be edited — dismiss or complete them.');
-    const { title, notes, due_date, priority, category, status, reminder_date, recurrence } = req.body;
+    const { title, notes, due_date, priority, category, status, reminder_date, recurrence, recurrence_days } = req.body;
     db.prepare(`
       UPDATE todos SET
         title=?, notes=?, due_date=?, priority=?, category=?,
-        status=?, reminder_date=?, recurrence=?,
+        status=?, reminder_date=?, recurrence=?, recurrence_days=?,
         completed_at=CASE WHEN ? IN ('done','dismissed') THEN CURRENT_TIMESTAMP ELSE completed_at END,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
@@ -399,6 +400,9 @@ router.put('/:id', (req, res) => {
       priority ?? todo.priority, category ?? todo.category,
       status ?? todo.status, reminder_date ?? todo.reminder_date,
       recurrence ?? todo.recurrence,
+      (recurrence !== undefined)
+        ? ((recurrence === 'every_n_days' && recurrence_days) ? parseInt(recurrence_days) : null)
+        : todo.recurrence_days,
       status ?? todo.status,
       req.params.id
     );
@@ -440,17 +444,23 @@ function spawnNextRecurring(todo) {
     const base = todo.due_date ? new Date(todo.due_date) : new Date();
     const next = new Date(base);
     switch (todo.recurrence) {
-      case 'daily':   next.setDate(next.getDate() + 1); break;
-      case 'weekly':  next.setDate(next.getDate() + 7); break;
-      case 'monthly': next.setMonth(next.getMonth() + 1); break;
-      case 'yearly':  next.setFullYear(next.getFullYear() + 1); break;
+      case 'daily':        next.setDate(next.getDate() + 1); break;
+      case 'weekly':       next.setDate(next.getDate() + 7); break;
+      case 'monthly':      next.setMonth(next.getMonth() + 1); break;
+      case 'yearly':       next.setFullYear(next.getFullYear() + 1); break;
+      case 'every_n_days': {
+        const days = parseInt(todo.recurrence_days) || 1;
+        next.setDate(next.getDate() + days);
+        break;
+      }
       default: return null;
     }
     const r = db.prepare(`
-      INSERT INTO todos (title, notes, due_date, priority, category, recurrence, status)
-      VALUES (?,?,?,?,?,?,'open')
+      INSERT INTO todos (title, notes, due_date, priority, category, recurrence, recurrence_days, status)
+      VALUES (?,?,?,?,?,?,?,'open')
     `).run(todo.title, todo.notes, next.toISOString().slice(0,10),
-           todo.priority, todo.category, todo.recurrence);
+           todo.priority, todo.category, todo.recurrence,
+           todo.recurrence_days || null);
     return r.lastInsertRowid;
   } catch (e) { return null; }
 }
