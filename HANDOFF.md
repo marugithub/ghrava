@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.083
+**Last updated:** v202603.084
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -307,7 +307,7 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 
 ### Medium priority
 5. **Reports module** — Finance reports (Spending/Health/Net Worth/Annual) were already complete. **v202603.082 added:** System tab (version, uptime, DB size, backup age, record counts) and Data Quality tab (needs_review flags per module, links to relevant pages). Remaining: Phase 3 summary cards for Inventory/Medical/Documents.
-6. **Settings audit** — move Diagnostics/Logs/Recent Changes out of Settings into Admin or Reports
+6. ~~**Settings audit**~~ — **DONE v202603.084.** Logs, Data Cleanup, Data Review, Diagnostics, Recent Changes all moved to Reports → Tools tab. Settings shows "Moved to Reports → Tools tab" redirect links. Full diagnostics runner rebuilt in Reports with `rpt_` prefix IDs.
 7. ~~**Medical patient filter**~~ — **Already built** (discovered v202603.082 audit). Patient pill strip at top of Medical page.
 8. ~~**Property maintenance UI**~~ — **Already built** (discovered v202603.082 audit). Full drawer with category, vendor (GH_REFS contact picker), cost, warranty, next due date.
 9. **Documents file pointer** — `file_name` field now clickable in cards. Drive paths (Z:\...) open as file:// URL. UNC paths (\\NAS\...) copy to clipboard (browser security prevents direct open). HTTP/HTTPS opens in new tab. Plain text copies to clipboard. Upload to NAS deferred — separate design decision alongside SSO.

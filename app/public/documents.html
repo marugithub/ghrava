@@ -314,7 +314,7 @@ function renderDocs() {
         const lbl = exp<today?'⚠️ Expired':exp<=warn30?'⏰ Expires '+exp:'📅 '+exp;
         exHtml = `<span class="expiry-chip ${cls}">${lbl}</span>`;
       }
-      const tagHtml = (d.tags||[]).length ? d.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return `<span class="tag-chip"${s?` style="${s}"`:''}>${esc(t)}</span>`;}).join('') : '';
+      const tagHtml = (d.tags||[]).length ? d.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return `<span class="tag-chip" data-tag="${esc(t)}" style="cursor:pointer${s?';'+s:''}" title="Search tag: ${esc(t)}">${esc(t)}</span>`;}).join('') : '';
       html += `<div class="doc-card" onclick="openDocDrawer(${d.id})">
         <div class="doc-card-inner">
           <div class="doc-icon" style="background:${CAT_COLORS[d.category]||'rgba(148,163,184,.12)'}">${CAT_ICONS[d.category]||'📁'}</div>

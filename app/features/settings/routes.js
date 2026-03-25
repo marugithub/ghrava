@@ -10,6 +10,7 @@ const { notFound, badRequest, serverError } = require('../../shared/errors');
 const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 const { getReviewSummary, getTotalFlaggedCount, checkAndCompleteTodo } = require('../../shared/needs-review');
 const { runDataCleanup } = require('../../shared/data-cleanup');
+const { getEntitiesByTag } = require('../../shared/tags');
 
 // ── Data Cleanup endpoint (manual run) ───────────────────────
 router.post('/cleanup/run', requireAuth, (req, res) => {
@@ -53,6 +54,59 @@ router.get('/tags', (req, res) => {
       return { ...t, usage_count: usage.n };
     });
     res.json(withCounts);
+  } catch (err) { serverError(res, err); }
+});
+
+// GET /api/v1/settings/tags/search?tag=X
+// Cross-module tag search. Returns all entities tagged with the given name,
+// enriched with a display title and a deep-link URL for each result.
+router.get('/tags/search', (req, res) => {
+  try {
+    const { tag } = req.query;
+    if (!tag?.trim()) return badRequest(res, 'tag parameter required');
+
+    const entities = getEntitiesByTag(tag.trim());
+    if (!entities.length) return res.json({ tag, results: [] });
+
+    // For each entity_type, map to: module label, page URL, and a title query
+    const TYPE_META = {
+      item:                   { label: 'Inventory',    href: '/inventory.html',  table: 'items',                  col: 'name' },
+      book:                   { label: 'Books',        href: '/books.html',      table: 'books',                  col: 'title' },
+      document:               { label: 'Documents',    href: '/documents.html',  table: 'documents',              col: 'title' },
+      resource:               { label: 'Resources',    href: '/resources.html',  table: 'resources',              col: 'name' },
+      todo:                   { label: 'Todos',        href: '/todos.html',      table: 'todos',                  col: 'title' },
+      daily_log:              { label: 'Daily Log',    href: '/daily-log.html',  table: 'daily_log',              col: 'entry_text' },
+      career_cert:            { label: 'Certifications', href: '/career.html',   table: 'career_certifications',  col: 'name' },
+      career_job:             { label: 'Career',       href: '/career.html',     table: 'career_jobs',            col: 'title' },
+      career_skill:           { label: 'Skills',       href: '/career.html',     table: 'career_skills',          col: 'name' },
+      medical_visit:          { label: 'Medical',      href: '/medical.html',    table: 'med_visit_notes',        col: 'patient' },
+      medical_medication:     { label: 'Medications',  href: '/medical.html',    table: 'med_medications',        col: 'name' },
+      property:               { label: 'Property',     href: '/property.html',   table: 'properties',             col: 'nickname' },
+      vehicle:                { label: 'Vehicles',     href: '/property.html',   table: 'vehicles',               col: 'nickname' },
+      hsa_payment:            { label: 'HSA',          href: '/finance.html',    table: 'hsa_payments',           col: 'provider' },
+    };
+
+    const results = entities.map(({ entity_type, entity_id }) => {
+      const meta = TYPE_META[entity_type];
+      if (!meta) return null;
+      let title = null;
+      try {
+        const row = db.prepare(
+          `SELECT ${meta.col} AS t FROM ${meta.table} WHERE id = ?`
+        ).get(entity_id);
+        title = row?.t ? String(row.t).slice(0, 80) : null;
+      } catch { /* table may not exist yet */ }
+      return { entity_type, entity_id, label: meta.label, href: meta.href, title };
+    }).filter(Boolean);
+
+    // Group by module label for tidy frontend rendering
+    const grouped = {};
+    results.forEach(r => {
+      if (!grouped[r.label]) grouped[r.label] = { label: r.label, href: r.href, items: [] };
+      grouped[r.label].items.push({ entity_type: r.entity_type, entity_id: r.entity_id, title: r.title });
+    });
+
+    res.json({ tag, total: results.length, groups: Object.values(grouped) });
   } catch (err) { serverError(res, err); }
 });
 

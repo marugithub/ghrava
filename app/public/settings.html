@@ -736,127 +736,44 @@
       </div>
 
       <div class="section-label">Recent Changes</div>
-      <div style="padding:0 20px">
-        <div class="card card-static" style="padding:12px 14px;font-size:13px;color:var(--text2);line-height:1.6">
-          <div style="font-weight:600;color:var(--text);margin-bottom:6px">v30 — 2026-03-08</div>
-          <div>• Kids module — full build (profiles, activities, notes, school info)</div>
-          <div>• App log file — /app/logs/ghrava.log, request logging</div>
-          <div>• Log viewer in Settings → About</div>
-          <div>• Daily log follow-up badge improvements</div>
-          <div style="font-weight:600;color:var(--text);margin:10px 0 6px">v33 — 2026-03-09</div>
-          <div>• Dashboard crash fixes (medStats, resources, kidsStats)</div>
-          <div>• Medical summary column fix</div>
-          <div>• Sidebar scrollbar hidden</div>
-          <div>• Diagnostic test fixes (inventory, HSA, todos)</div>
-          <div style="font-weight:600;color:var(--text);margin:10px 0 6px">v29 — 2026-03-08</div>
-          <div>• Google Calendar sync (OAuth, month view, event CRUD)</div>
-          <div>• Google Contacts import</div>
-          <div>• Settings → Google Services panel</div>
-          <div>• Dashboard upcoming events widget</div>
-          <div style="font-weight:600;color:var(--text);margin:10px 0 6px">v28 — 2026-03-08</div>
-          <div>• Tag colors applied to chips in all modules</div>
-          <div>• Inline tag creation on inventory &amp; daily log</div>
-          <div>• Settings → About panel + /app/info endpoint</div>
-        </div>
+      <div style="padding:0 20px 8px">
+        <a href="/reports.html" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);text-decoration:none;color:var(--text)">
+          <span style="font-size:13px;color:var(--text2)">Moved to Reports → Tools tab</span>
+          <span style="color:var(--accent);font-size:13px">→</span>
+        </a>
       </div>
 
       <div class="section-label">Logs</div>
-      <div style="padding:0 20px 20px">
-        <!-- Log tabs -->
-        <div style="display:flex;gap:4px;margin-bottom:10px;background:var(--bg3);border-radius:var(--r);padding:3px">
-          <button id="logTabServer" onclick="switchLogTab('server')"
-            style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:var(--accent);color:#fff;transition:all .15s">
-            Server Log
-          </button>
-          <button id="logTabClient" onclick="switchLogTab('client')"
-            style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:transparent;color:var(--text2);transition:all .15s">
-            Client Log
-          </button>
-        </div>
-
-        <!-- Server log controls -->
-        <div id="logCtrlServer" style="display:flex;gap:8px;margin-bottom:8px">
-          <button class="btn btn-ghost" style="flex:1" onclick="loadLogs(50)">Last 50 lines</button>
-          <button class="btn btn-ghost" style="flex:1" onclick="loadLogs(200)">Last 200 lines</button>
-        </div>
-
-        <!-- Client log controls -->
-        <div id="logCtrlClient" style="display:none;gap:8px;margin-bottom:8px">
-          <button class="btn btn-ghost" style="flex:1" onclick="loadClientLog('all')">All</button>
-          <button class="btn btn-ghost" style="flex:1" onclick="loadClientLog('error')">Errors only</button>
-          <button class="btn btn-ghost" style="flex:1" onclick="GH_LOG.download()">↓ Download</button>
-          <button class="btn btn-ghost" style="flex:1;color:var(--red)" onclick="GH_LOG.clear();loadClientLog('all')">Clear</button>
-        </div>
-
-        <div id="logViewer" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:400px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all"></div>
+      <div style="padding:0 20px 8px">
+        <a href="/reports.html" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);text-decoration:none;color:var(--text)">
+          <span style="font-size:13px;color:var(--text2)">Moved to Reports → Tools tab</span>
+          <span style="color:var(--accent);font-size:13px">→</span>
+        </a>
       </div>
 
       <div class="section-label">Data Cleanup</div>
-      <div style="padding:0 20px 20px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-          Fixes common data quality issues: extracts brand/description from bloated item names,
-          sets missing quantities to 1. Also runs automatically on every app restart and after CSV imports.
-          Only fills blank fields — never overwrites existing data.
-        </div>
-        <button class="btn btn-ghost" id="cleanupRunBtn" onclick="runCleanup()" style="margin-bottom:12px">▶ Run Cleanup Now</button>
-        <div id="cleanupLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6"></div>
-
-        <div style="font-size:12px;color:var(--text3);margin:16px 0 8px">
-          Downloads product images from the internet for inventory items that have a UPC barcode but no photo yet. Processes up to 50 items per run — tap again if more remain.
-        </div>
-        <button class="btn btn-ghost" id="imageFetchBtn" onclick="runImageBackfill()" style="margin-bottom:12px">🖼 Fetch Product Images</button>
-        <div id="imageFetchLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6"></div>
+      <div style="padding:0 20px 8px">
+        <a href="/reports.html" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);text-decoration:none;color:var(--text)">
+          <span style="font-size:13px;color:var(--text2)">Moved to Reports → Tools tab</span>
+          <span style="color:var(--accent);font-size:13px">→</span>
+        </a>
       </div>
 
       <div class="section-label">Data Review</div>
-      <div style="padding:0 20px 20px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-          Records flagged for review after data imports or system changes.
-          Edit and save any flagged record to clear its flag.
-        </div>
-        <button class="btn btn-ghost" onclick="loadReviewSummary()" style="margin-bottom:12px">🔄 Check Now</button>
-        <div id="reviewDashboard"></div>
+      <div style="padding:0 20px 8px">
+        <a href="/reports.html" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);text-decoration:none;color:var(--text)">
+          <span style="font-size:13px;color:var(--text2)">Moved to Reports → Tools tab</span>
+          <span style="color:var(--accent);font-size:13px">→</span>
+        </a>
       </div>
 
       <div class="section-label">Diagnostics</div>
-      <div style="padding:0 20px 20px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Run API tests against this Ghrava instance. All CRUD tests clean up after themselves — no test data is left behind.</div>
-        <div style="display:flex;gap:8px;margin-bottom:10px">
-          <button class="btn btn-ghost" id="diagRunBtn" onclick="diagStartRun()" style="flex:1">▶ Run All Tests</button>
-          <button class="btn btn-ghost" onclick="runOrphanCheck()" style="white-space:nowrap">🔍 Orphan Check</button>
-          <button class="btn btn-ghost" id="diagDlBtn" onclick="diagDownloadLog()" style="display:none;white-space:nowrap">↓ Log</button>
-        </div>
-        <div id="orphanResults" style="display:none;margin-bottom:12px;font-size:12px;font-family:var(--mono)"></div>
-
-        <!-- Progress -->
-        <div id="diagProgress" style="display:none;margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-            <div style="flex:1;height:4px;border-radius:2px;background:var(--border);overflow:hidden">
-              <div id="diagFill" style="height:100%;width:0%;border-radius:2px;background:var(--green);transition:width .3s"></div>
-            </div>
-            <span id="diagStat" style="font-size:11px;color:var(--text2);white-space:nowrap;font-family:var(--mono)">0/0</span>
-            <span id="diagFailed" style="font-size:11px;color:var(--red);display:none"></span>
-          </div>
-          <!-- filter strip -->
-          <div style="display:flex;gap:6px;margin-bottom:8px">
-            <button onclick="diagSetFilter('all')"  id="dfAll"  style="flex:1" class="btn btn-ghost btn-sm diag-fbtn diag-fbtn-active">all</button>
-            <button onclick="diagSetFilter('pass')" id="dfPass" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">pass</button>
-            <button onclick="diagSetFilter('fail')" id="dfFail" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">fail</button>
-          </div>
-        </div>
-
-        <!-- Suite list -->
-        <div id="diagSuites"></div>
-
-        <!-- Log output -->
-        <div id="diagLogWrap" style="display:none;margin-top:10px">
-          <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Output Log</div>
-          <div id="diagLog" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:200px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all"></div>
-        </div>
+      <div style="padding:0 20px 8px">
+        <a href="/reports.html" style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);text-decoration:none;color:var(--text)">
+          <span style="font-size:13px;color:var(--text2)">Moved to Reports → Tools tab</span>
+          <span style="color:var(--accent);font-size:13px">→</span>
+        </a>
       </div>
-
-    </div>
-  </div>
 
 </div><!-- /app -->
 

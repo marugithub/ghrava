@@ -74,8 +74,10 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <button class="view-tab"        data-tab="health"     onclick="switchRpt('health',this)">Health</button>
     <button class="view-tab"        data-tab="networth"   onclick="switchRpt('networth',this)">Net Worth</button>
     <button class="view-tab"        data-tab="annual"     onclick="switchRpt('annual',this)">Annual</button>
+    <button class="view-tab"        data-tab="summary"    onclick="switchRpt('summary',this)">Summary</button>
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
+    <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
   </div>
 
   <!-- ── SPENDING ─────────────────────────────────────────── -->
@@ -141,6 +143,13 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <div id="annExpenses" style="padding:0 16px"></div>
   </div>
 
+  <!-- Summary Panel -->
+  <div class="view-panel" id="panel-summary">
+    <div id="summaryContent" style="padding:0 16px 80px">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
   <!-- Data Quality Panel -->
   <div class="view-panel" id="panel-quality">
     <div id="qualityContent" style="padding:0 16px 80px">
@@ -152,6 +161,90 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
   <div class="view-panel" id="panel-system">
     <div id="systemContent" style="padding:0 16px 80px">
       <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
+  <!-- Tools Panel -->
+  <div class="view-panel" id="panel-tools">
+    <div style="padding:0 16px 80px">
+
+      <!-- Logs -->
+      <div class="section-hdr" style="padding-top:12px">Logs</div>
+      <div style="display:flex;gap:4px;margin-bottom:10px;background:var(--bg3);border-radius:var(--r);padding:3px">
+        <button id="rpt_logTabServer" onclick="rpt_switchLogTab('server')"
+          style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:var(--accent);color:#fff;transition:all .15s">
+          Server Log
+        </button>
+        <button id="rpt_logTabClient" onclick="rpt_switchLogTab('client')"
+          style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:transparent;color:var(--text2);transition:all .15s">
+          Client Log
+        </button>
+      </div>
+      <div id="rpt_logCtrlServer" style="display:flex;gap:8px;margin-bottom:8px">
+        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadLogs(50)">Last 50 lines</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadLogs(200)">Last 200 lines</button>
+      </div>
+      <div id="rpt_logCtrlClient" style="display:none;gap:8px;margin-bottom:8px">
+        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadClientLog('all')">All</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadClientLog('error')">Errors only</button>
+        <button class="btn btn-ghost" style="flex:1" onclick="GH_LOG.download()">↓ Download</button>
+        <button class="btn btn-ghost" style="flex:1;color:var(--red)" onclick="GH_LOG.clear();rpt_loadClientLog('all')">Clear</button>
+      </div>
+      <div id="rpt_logViewer" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:400px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all;margin-bottom:16px"></div>
+
+      <!-- Data Cleanup -->
+      <div class="section-hdr">Data Cleanup</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Fixes common data quality issues: extracts brand/description from bloated item names, sets missing quantities to 1.
+        Runs automatically on every restart and after CSV imports. Only fills blank fields — never overwrites existing data.
+      </div>
+      <button class="btn btn-ghost" id="rpt_cleanupRunBtn" onclick="rpt_runCleanup()" style="margin-bottom:12px">▶ Run Cleanup Now</button>
+      <div id="rpt_cleanupLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:8px"></div>
+      <div style="font-size:12px;color:var(--text3);margin:16px 0 8px">
+        Downloads product images for inventory items that have a UPC barcode but no photo. Processes up to 50 per run.
+      </div>
+      <button class="btn btn-ghost" id="rpt_imageFetchBtn" onclick="rpt_runImageBackfill()" style="margin-bottom:12px">🖼 Fetch Product Images</button>
+      <div id="rpt_imageFetchLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:16px"></div>
+
+      <!-- Data Review -->
+      <div class="section-hdr">Data Review</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Records flagged for review after data imports or system changes. Edit and save any flagged record to clear its flag.
+      </div>
+      <button class="btn btn-ghost" onclick="rpt_loadReviewSummary()" style="margin-bottom:12px">🔄 Check Now</button>
+      <div id="rpt_reviewDashboard" style="margin-bottom:16px"></div>
+
+      <!-- Diagnostics -->
+      <div class="section-hdr">Diagnostics</div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
+        Run API tests against this Ghrava instance. All CRUD tests clean up after themselves — no test data is left behind.
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <button class="btn btn-ghost" id="rpt_diagRunBtn" onclick="rpt_diagStartRun()" style="flex:1">▶ Run All Tests</button>
+        <button class="btn btn-ghost" onclick="rpt_runOrphanCheck()" style="white-space:nowrap">🔍 Orphan Check</button>
+        <button class="btn btn-ghost" id="rpt_diagDlBtn" onclick="rpt_diagDownloadLog()" style="display:none;white-space:nowrap">↓ Log</button>
+      </div>
+      <div id="rpt_orphanResults" style="display:none;margin-bottom:12px;font-size:12px;font-family:var(--mono)"></div>
+      <div id="rpt_diagProgress" style="display:none;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+          <div style="flex:1;height:4px;border-radius:2px;background:var(--border);overflow:hidden">
+            <div id="rpt_diagFill" style="height:100%;width:0%;border-radius:2px;background:var(--green);transition:width .3s"></div>
+          </div>
+          <span id="rpt_diagStat" style="font-size:11px;color:var(--text2);white-space:nowrap;font-family:var(--mono)">0/0</span>
+          <span id="rpt_diagFailed" style="font-size:11px;color:var(--red);display:none"></span>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <button onclick="rpt_diagSetFilter('all')"  id="rpt_dfAll"  style="flex:1" class="btn btn-ghost btn-sm diag-fbtn diag-fbtn-active">all</button>
+          <button onclick="rpt_diagSetFilter('pass')" id="rpt_dfPass" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">pass</button>
+          <button onclick="rpt_diagSetFilter('fail')" id="rpt_dfFail" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">fail</button>
+        </div>
+      </div>
+      <div id="rpt_diagSuites"></div>
+      <div id="rpt_diagLogWrap" style="display:none;margin-top:10px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Output Log</div>
+        <div id="rpt_diagLog" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:300px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all"></div>
+      </div>
+
     </div>
   </div>
 
@@ -192,8 +285,10 @@ function loadTab(tab) {
   else if (tab === 'health') loadHealth();
   else if (tab === 'networth') loadNetWorth();
   else if (tab === 'annual') loadAnnual();
+  else if (tab === 'summary') loadSummary();
   else if (tab === 'quality') loadQuality();
   else if (tab === 'system') loadSystem();
+  else if (tab === 'tools') rpt_loadTools();
 }
 
 // ── Year select helpers ───────────────────────────────────
@@ -486,6 +581,117 @@ async function loadAnnual() {
   }
 }
 
+// ── Summary ───────────────────────────────────────────────────
+async function loadSummary() {
+  const el = $('summaryContent'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    const d = await fetch('/api/v1/dashboard').then(r => r.json());
+    const inv   = d.inventory   || {};
+    const med   = d.medical     || {};
+    const books = d.books       || {};
+    const prop  = d.property    || {};
+    const kids  = d.kids        || {};
+    const certs = d.certifications || {};
+    const xdocs = d.expiring_documents || [];
+    const hsa   = d.hsa         || {};
+    const tod   = d.todos       || {};
+
+    const card = (title, color, icon, rows, href, alerts) => `
+      <a href="${href}" target="_blank" style="text-decoration:none;color:inherit;display:block">
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+            <div style="width:34px;height:34px;border-radius:var(--r);background:${color}1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px">${icon}</div>
+            <div style="font-size:15px;font-weight:700;color:var(--text);flex:1">${title}</div>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".3"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+            ${rows.map(([lbl,val,clr]) => `
+              <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
+                <div style="font-size:16px;font-weight:800;font-family:var(--mono);color:${clr||'var(--text)'}">${val??'—'}</div>
+                <div style="font-size:10px;color:var(--text3);margin-top:1px;text-transform:uppercase;letter-spacing:.04em">${lbl}</div>
+              </div>`).join('')}
+          </div>
+          ${alerts ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${alerts}</div>` : ''}
+        </div>
+      </a>`;
+
+    const badge = (txt, type) =>
+      `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:${
+        type==='warn'?'rgba(245,158,11,.12)':type==='bad'?'rgba(239,68,68,.12)':'rgba(34,197,94,.12)'
+      };color:${type==='warn'?'#f59e0b':type==='bad'?'#ef4444':'#22c55e'}">${txt}</span>`;
+
+    const invAlerts = [
+      inv.expired     > 0 ? badge(inv.expired + ' expired', 'bad')        : '',
+      inv.expiring_soon>0 ? badge(inv.expiring_soon + ' expiring soon','warn') : '',
+    ].filter(Boolean).join('');
+
+    const docAlerts = xdocs.length > 0
+      ? badge(xdocs.length + ' expiring within 90 days', xdocs.some(d => {
+          const days = Math.ceil((new Date(d.expiry_date)-new Date())/864e5);
+          return days <= 30;
+        }) ? 'bad' : 'warn')
+      : badge('All current', 'ok');
+
+    const medAlerts = [
+      med.medications > 0 ? badge(med.medications + ' active medications','warn') : '',
+      med.conditions  > 0 ? badge(med.conditions  + ' conditions tracked','') : '',
+    ].filter(Boolean).join('');
+
+    const todoAlerts = [
+      tod.urgent_count > 0  ? badge(tod.urgent_count + ' urgent', 'bad')    : '',
+      tod.overdue_count > 0 ? badge(tod.overdue_count + ' overdue', 'warn') : '',
+    ].filter(Boolean).join('');
+
+    el.innerHTML = `
+      <div class="section-hdr" style="padding-top:12px">Household at a Glance</div>
+      ${card('Inventory', '#f59e0b', '📦', [
+        ['Total items',  inv.items,        ''],
+        ['Est. value',   inv.est_value != null ? fmt$(inv.est_value) : '—', '#22c55e'],
+        ['Expiring soon',inv.expiring_soon, inv.expiring_soon > 0 ? '#f59e0b' : ''],
+        ['Expired',      inv.expired,       inv.expired > 0 ? '#ef4444' : ''],
+      ], '/inventory.html', invAlerts)}
+      ${card('Documents', '#6366f1', '📄', [
+        ['Total docs',       (d.expiring_documents != null ? '—' : '—'), ''],
+        ['Expiring 90 days', xdocs.length, xdocs.length > 0 ? '#f59e0b' : ''],
+      ], '/documents.html', docAlerts)}
+      ${card('Medical', '#14b8a6', '🏥', [
+        ['Medications',   med.medications,   ''],
+        ['Conditions',    med.conditions,    ''],
+        ['Recent visits', med.recent_visits, ''],
+        ['Physicians',    med.physicians,    ''],
+      ], '/medical.html', medAlerts)}
+      ${card('To-Do', '#a78bfa', '✓', [
+        ['Open',    tod.open_count,    ''],
+        ['Due today',tod.due_today,    tod.due_today > 0 ? '#f59e0b' : ''],
+        ['Overdue', tod.overdue_count, tod.overdue_count > 0 ? '#ef4444' : ''],
+        ['Urgent',  tod.urgent_count,  tod.urgent_count > 0 ? '#ef4444' : ''],
+      ], '/todos.html', todoAlerts)}
+      ${card('Books', '#8b5cf6', '📚', [
+        ['Reading',    books.reading,    books.reading > 0 ? '#22c55e' : ''],
+        ['Read',       books.read_count, ''],
+        ['Want to read',books.want_count,''],
+      ], '/books.html', '')}
+      ${card('Property', '#ef4444', '🏠', [
+        ['Properties',  prop.properties, ''],
+        ['Vehicles',    prop.vehicles,   ''],
+        ['Est. value',  prop.total_est_value != null ? fmt$(prop.total_est_value) : '—', '#22c55e'],
+        ['Outstanding', prop.total_owed  != null ? fmt$(prop.total_owed)  : '—', prop.total_owed > 0 ? '#ef4444' : ''],
+      ], '/property.html', prop.vehicle_alerts > 0 ? badge(prop.vehicle_alerts + ' vehicle alert' + (prop.vehicle_alerts!==1?'s':''), 'warn') : '')}
+      ${card('Certifications', '#f97316', '🏅', [
+        ['Total',         certs.total,        ''],
+        ['Expiring soon', certs.expiring_soon, certs.expiring_soon > 0 ? '#f59e0b' : ''],
+        ['Expired',       certs.expired,       certs.expired > 0 ? '#ef4444' : ''],
+      ], '/career.html', certs.expired > 0 ? badge(certs.expired + ' expired', 'bad') : certs.expiring_soon > 0 ? badge(certs.expiring_soon + ' renew soon', 'warn') : '')}
+      ${card('HSA', '#22c55e', '💊', [
+        ['Unreimbursed pool', hsa.unreimbursed_pool != null ? fmt$(hsa.unreimbursed_pool) : '—', hsa.unreimbursed_pool > 0 ? '#22c55e' : ''],
+        ['Missing receipts',  hsa.missing_receipts,  hsa.missing_receipts > 0 ? '#f59e0b' : ''],
+      ], '/finance.html', hsa.missing_receipts > 0 ? badge(hsa.missing_receipts + ' receipts missing', 'warn') : '')}`;
+  } catch(e) {
+    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
+  }
+}
+
 // ── Data Quality ──────────────────────────────────────────────
 const DQ_LINKS = {
   'items': '/inventory.html', 'documents': '/documents.html', 'books': '/books.html',
@@ -600,6 +806,380 @@ async function loadSystem() {
     el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
   }
 }
+
+// ── Tools tab ────────────────────────────────────────────────
+function rpt_loadTools() {
+  // Auto-load server log on first open
+  if (!document.getElementById('rpt_logViewer').dataset.loaded) {
+    rpt_loadLogs(50);
+    document.getElementById('rpt_logViewer').dataset.loaded = '1';
+  }
+}
+
+let _rpt_logTab = 'server';
+function rpt_switchLogTab(tab) {
+  _rpt_logTab = tab;
+  const srv = $('rpt_logTabServer'), cli = $('rpt_logTabClient');
+  if (srv) { srv.style.background = tab === 'server' ? 'var(--accent)' : 'transparent'; srv.style.color = tab === 'server' ? '#fff' : 'var(--text2)'; }
+  if (cli) { cli.style.background = tab === 'client' ? 'var(--accent)' : 'transparent'; cli.style.color = tab === 'client' ? '#fff' : 'var(--text2)'; }
+  const cs = $('rpt_logCtrlServer'), cc = $('rpt_logCtrlClient');
+  if (cs) cs.style.display = tab === 'server' ? 'flex' : 'none';
+  if (cc) cc.style.display = tab === 'client' ? 'flex' : 'none';
+  if (tab === 'server') rpt_loadLogs(50); else rpt_loadClientLog('all');
+}
+
+async function rpt_loadLogs(n) {
+  const el = $('rpt_logViewer'); if (!el) return;
+  el.style.display = 'block'; el.textContent = 'Loading…';
+  try {
+    const d = await fetch(`/api/v1/app/logs?lines=${n}`).then(r => r.json());
+    if (!d.lines?.length) { el.textContent = 'No log entries yet.'; return; }
+    el.innerHTML = d.lines.map(line => {
+      const col = line.includes('[ERROR]') ? 'var(--red)' : line.includes('[WARN]') ? 'var(--amber)' : 'var(--text2)';
+      return `<span style="color:${col}">${esc(line)}</span>`;
+    }).join('\n');
+    el.scrollTop = el.scrollHeight;
+  } catch(e) { el.textContent = 'Could not load logs: ' + e.message; }
+}
+
+function rpt_loadClientLog(filter) {
+  const el = $('rpt_logViewer'); if (!el) return;
+  el.style.display = 'block';
+  const entries = GH_LOG.entries();
+  const filtered = filter === 'error' ? entries.filter(e => e.level === 'error' || e.level === 'warn') : entries;
+  if (!filtered.length) { el.textContent = filter === 'error' ? 'No errors recorded.' : 'No client log entries yet.'; return; }
+  el.innerHTML = filtered.map(e => {
+    const col = e.level === 'error' ? 'var(--red)' : e.level === 'warn' ? 'var(--amber)' : 'var(--text2)';
+    const line = `[${e.ts.slice(11,19)}] [${e.level.toUpperCase()}] [${e.page}] ${e.msg}${e.data ? ' | ' + e.data : ''}`;
+    return `<span style="color:${col}">${esc(line)}</span>`;
+  }).join('\n');
+  el.scrollTop = el.scrollHeight;
+}
+
+async function rpt_runCleanup() {
+  const btn = $('rpt_cleanupRunBtn'), log = $('rpt_cleanupLog');
+  btn.disabled = true; btn.textContent = 'Running…';
+  log.style.display = 'block'; log.textContent = 'Running cleanup…';
+  try {
+    const d = await fetch('/api/v1/settings/cleanup/run', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).then(r => r.json());
+    const lines = [];
+    if (d.titles > 0)     lines.push(`✓ ${d.titles} item name(s) cleaned`);
+    else                  lines.push('✓ No bloated item names found');
+    if (d.quantities > 0) lines.push(`✓ ${d.quantities} quantity/quantities set to 1`);
+    else                  lines.push('✓ No missing quantities found');
+    if (d.errors?.length) lines.push(`⚠ ${d.errors.length} error(s): ${d.errors.slice(0,3).join('; ')}`);
+    lines.push('');
+    lines.push((d.titles||0)+(d.quantities||0) > 0 ? `${(d.titles||0)+(d.quantities||0)} record(s) updated.` : 'Everything looks clean.');
+    log.innerHTML = lines.map(l => `<span style="color:${l.startsWith('⚠')?'var(--amber)':l.startsWith('✓')?'var(--green)':'var(--text3)'}">${esc(l)}</span>`).join('\n');
+  } catch(e) { log.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
+  finally { btn.disabled = false; btn.textContent = '▶ Run Cleanup Now'; }
+}
+
+async function rpt_runImageBackfill() {
+  const btn = $('rpt_imageFetchBtn'), log = $('rpt_imageFetchLog');
+  btn.disabled = true; btn.textContent = 'Fetching…';
+  log.style.display = 'block'; log.innerHTML = '<span style="color:var(--text3)">Scanning…</span>';
+  try {
+    const r = await fetch('/api/v1/inventory/items/backfill-images', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    if (!r.ok) throw new Error((await r.json()).error || `HTTP ${r.status}`);
+    const d = await r.json();
+    const lines = [];
+    if (d.succeeded > 0) lines.push(`✓ ${d.succeeded} image(s) downloaded`);
+    if (d.skipped  > 0) lines.push(`⏭ ${d.skipped} already had a photo`);
+    if (d.failed   > 0) lines.push(`⚠ ${d.failed} failed`);
+    if (d.remaining > 0) lines.push(`${d.remaining} item(s) still need images — tap again`);
+    else if (d.processed > 0) lines.push('All done.');
+    else lines.push('No items found with a UPC but no photo.');
+    log.innerHTML = lines.map(l => `<span style="color:${l.startsWith('⚠')?'var(--amber)':l.startsWith('✓')?'var(--green)':'var(--text3)'}">${esc(l)}</span>`).join('\n');
+  } catch(e) { log.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
+  finally { btn.disabled = false; btn.textContent = '🖼 Fetch Product Images'; }
+}
+
+async function rpt_loadReviewSummary() {
+  const el = $('rpt_reviewDashboard'); if (!el) return;
+  el.innerHTML = spinnerHtml('Checking…');
+  try {
+    const d = await fetch('/api/v1/settings/review/summary').then(r => r.json());
+    if (!d.total) { el.innerHTML = `<div style="color:var(--green);font-size:13px;padding:8px 0">✓ No records need review</div>`; return; }
+    el.innerHTML = `<div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:14px">
+      <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:12px">⚠️ ${d.total} record(s) need review</div>
+      ${d.modules.map(m => `<div style="margin-bottom:12px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">${esc(m.label)} <span style="color:var(--text3);font-weight:400">(${m.count})</span></div>
+        ${m.samples.map(s => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+          <div style="font-size:13px;color:var(--text2)">${esc(s.name||'—')}</div>
+          <div style="font-size:11px;color:var(--amber);margin-top:2px">${esc(s.review_reason||'Flagged for review')}</div>
+        </div>`).join('')}
+        ${m.count > 5 ? `<div style="font-size:11px;color:var(--text3);padding-top:6px">+ ${m.count-5} more</div>` : ''}
+      </div>`).join('')}
+    </div>`;
+  } catch(e) { el.innerHTML = `<div style="color:var(--red);font-size:13px">${esc(e.message)}</div>`; }
+}
+
+async function rpt_runOrphanCheck() {
+  const el = $('rpt_orphanResults'); if (!el) return;
+  el.style.display = 'block'; el.innerHTML = '<span style="color:var(--text3)">Checking…</span>';
+  try {
+    const r = await fetch('/api/v1/settings/diagnostics/orphans').then(r => r.json());
+    const rows = r.checks.map(c => {
+      const icon = c.ok ? '✓' : (c.warning ? '⚠' : '✗');
+      const color = c.ok ? 'var(--green)' : (c.warning ? 'var(--amber)' : 'var(--red)');
+      return `<div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)">
+        <span style="color:${color};width:14px;flex-shrink:0">${icon}</span>
+        <span style="flex:1;color:var(--text)">${esc(c.check)}</span>
+        <span style="color:var(--text3)">${esc(c.detail||'')}</span>
+      </div>`;
+    }).join('');
+    const summary = r.ok
+      ? '<div style="color:var(--green);padding:6px 0;font-weight:600">✓ No orphaned records found</div>'
+      : '<div style="color:var(--red);padding:6px 0;font-weight:600">✗ Orphaned records detected</div>';
+    el.innerHTML = summary + rows;
+  } catch(e) { el.innerHTML = `<span style="color:var(--red)">Check failed: ${esc(e.message)}</span>`; }
+}
+
+// ── Diagnostics runner (self-contained, rpt_ prefix) ────────
+(function() {
+  let _running = false, _aborted = false, _results = {}, _log = [], _filter = 'all', _suites = [];
+  const _$ = id => document.getElementById(id);
+
+  function _api(method, path, body) {
+    const headers = {'Content-Type':'application/json'};
+    const opts = {method, headers};
+    if (body !== undefined) opts.body = JSON.stringify(body);
+    const t0 = Date.now();
+    return fetch(path, opts).then(async r => {
+      const ms = Date.now()-t0; let data;
+      try { data = await r.json(); } catch { data = null; }
+      return {status:r.status, data, ms};
+    }).catch(e => ({status:0, data:null, ms:0, error:e.message}));
+  }
+  const _GET=(p)=>_api('GET',p);
+  const _POST=(p,b)=>_api('POST',p,b);
+  const _PUT=(p,b)=>_api('PUT',p,b);
+  const _PATCH=(p,b)=>_api('PATCH',p,b);
+  const _DEL=(p)=>_api('DELETE',p);
+
+  function _buildSuites() {
+    const today = new Date().toISOString().slice(0,10);
+    const year  = new Date().getFullYear();
+    return [
+      {id:'health',label:'Health & App Info',tests:[
+        {name:'GET /health',run:async()=>{const r=await _GET('/health');return{ok:r.status===200,detail:`${r.status} ${r.ms}ms`};}},
+        {name:'App name is Ghrava',run:async()=>{const r=await _GET('/api/v1/app/info');return{ok:r.data?.name==='Ghrava',detail:r.data?.version||`${r.status}`};}},
+        {name:'Record counts present',run:async()=>{const r=await _GET('/api/v1/app/info');return{ok:!!r.data?.record_counts,detail:r.status===200?'ok':`${r.status}`};}},
+      ]},
+      {id:'dashboard',label:'Dashboard',tests:[
+        {name:'GET /dashboard',run:async()=>{const r=await _GET('/api/v1/dashboard');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'inventory key present',run:async()=>{const r=await _GET('/api/v1/dashboard');return{ok:!!r.data?.inventory,detail:r.status===200?'✓':'missing'};}},
+        {name:'GET /dashboard/attention',run:async()=>{const r=await _GET('/api/v1/dashboard/attention');return{ok:r.status===200&&'items'in(r.data||{}),detail:`${r.ms}ms`};}},
+      ]},
+      {id:'settings',label:'Settings',tests:[
+        {name:'GET /settings/family',run:async()=>{const r=await _GET('/api/v1/settings/family');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} members`};}},
+        {name:'Tag search route',run:async()=>{const r=await _GET('/api/v1/settings/tags/search?tag=test');return{ok:r.status===200&&'results'in(r.data||{})||'groups'in(r.data||{}),detail:`${r.ms}ms`};}},
+        {name:'Dropdown hsa_category seeded',run:async()=>{const r=await _GET('/api/v1/settings/dropdowns/hsa_category');return{ok:r.status===200&&r.data?.length>0,detail:`${r.data?.length??0} options`};}},
+      ]},
+      {id:'inventory',label:'Inventory',tests:[
+        {name:'GET /inventory/items',run:async()=>{const r=await _GET('/api/v1/inventory/items');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} items`};}},
+        {name:'Inventory CRUD',run:async()=>{
+          const locs=await _GET('/api/v1/inventory/locations');
+          const locId=locs.data?.[0]?.id;
+          if(!locId)return{ok:false,detail:'no locations found'};
+          const c=await _POST('/api/v1/inventory/items',{name:'_diag_item_',parent_type:'location',parent_id:locId,quantity:1});
+          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
+          const id=c.data?.id;
+          const u=await _PUT(`/api/v1/inventory/items/${id}`,{...c.data,name:'_diag_upd_'});
+          const d=await _DEL(`/api/v1/inventory/items/${id}`);
+          return{ok:u.status===200&&d.status===200,detail:`201·${u.status}·${d.status}`};
+        }},
+      ]},
+      {id:'hsa',label:'HSA / Finance',tests:[
+        {name:'GET /hsa/pool',run:async()=>{const r=await _GET('/api/v1/hsa/pool');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'Expense CRUD',run:async()=>{const c=await _POST('/api/v1/hsa/payments',{date:today,you_paid:9.99,provider:'_diag_',category:'Doctor',payment_type:'Out of Pocket'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/hsa/payments/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+        {name:'GET /finance/accounts',run:async()=>{const r=await _GET('/api/v1/finance/accounts');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+      ]},
+      {id:'medical',label:'Medical',tests:[
+        {name:'GET /medical/summary',run:async()=>{const r=await _GET('/api/v1/medical/summary');return{ok:r.status===200,detail:`${r.ms}ms`};}},
+        {name:'Visit CRUD',run:async()=>{const c=await _POST('/api/v1/medical/notes',{visit_date:today,patient:'_diag_',notes:'_test_'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/medical/notes/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+        {name:'Medication CRUD',run:async()=>{const c=await _POST('/api/v1/medical/medications',{name:'_diag_med_',patient:'Self',status:'Active'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/medical/medications/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+      ]},
+      {id:'todos',label:'Todos',tests:[
+        {name:'GET /todos',run:async()=>{const r=await _GET('/api/v1/todos');return{ok:r.status===200&&Array.isArray(r.data?.todos),detail:`${r.data?.todos?.length??r.status} items`};}},
+        {name:'Todo CRUD',run:async()=>{const c=await _POST('/api/v1/todos',{title:'_diag_todo_',category:'General',priority:'medium'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const id=c.data?.id;const s=await _PATCH(`/api/v1/todos/${id}/status`,{status:'done'});const d=await _DEL(`/api/v1/todos/${id}`);return{ok:s.status===200&&d.status===200,detail:`201·${s.status}·${d.status}`};}},
+      ]},
+      {id:'documents',label:'Documents',tests:[
+        {name:'Document CRUD',run:async()=>{const c=await _POST('/api/v1/documents',{title:'_diag_doc_',doc_type:'Other',status:'active'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/documents/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+      ]},
+      {id:'books',label:'Books',tests:[
+        {name:'Book CRUD',run:async()=>{const c=await _POST('/api/v1/books',{title:'_diag_book_',author:'Test',status:'to-read',format:'physical'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/books/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+      ]},
+      {id:'property',label:'Property',tests:[
+        {name:'Vehicle CRUD',run:async()=>{const c=await _POST('/api/v1/property/vehicles',{nickname:'_diag_vehicle_',year:2020,make:'Test',model:'_diag_'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/property/vehicles/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
+      ]},
+    ];
+  }
+
+  function _key(sid,name){ return sid+'__'+name.replace(/[^a-z0-9]/gi,'_'); }
+
+  function _setState(sid, name, state, detail='') {
+    const k = _key(sid,name);
+    const dot=_$('rpt_tdot_'+k), nm=_$('rpt_tnm_'+k), det=_$('rpt_tdet_'+k);
+    if(dot) dot.className='diag-dot'+(state?' diag-'+state:'');
+    if(nm)  nm.className='diag-test-name'+(state?' diag-'+state:'');
+    if(det) det.textContent=detail;
+    _results[sid+'::'+name]={state,detail};
+    _updateSuite(sid);
+    _updateProgress();
+  }
+
+  function _updateSuite(sid) {
+    const suite=_suites.find(s=>s.id===sid); if(!suite)return;
+    const states=suite.tests.map(t=>(_results[sid+'::'+t.name]||{}).state||'idle');
+    let st=null;
+    if(states.every(s=>s==='idle'))st=null;
+    else if(states.some(s=>s==='running'))st='running';
+    else if(states.some(s=>s==='fail'))st='fail';
+    else if(states.every(s=>s==='pass'))st='pass';
+    const dot=_$('rpt_sdot_'+sid), pill=_$('rpt_spill_'+sid), cnt=_$('rpt_scnt_'+sid);
+    if(dot) dot.className='diag-dot'+(st?' diag-'+st:'');
+    const pc=states.filter(s=>s==='pass').length, fc=states.filter(s=>s==='fail').length;
+    if(pill){
+      if(st==='pass') pill.innerHTML=`<span class="diag-pill diag-pill-pass">${pc} ✓</span>`;
+      else if(st==='fail') pill.innerHTML=`<span class="diag-pill diag-pill-fail">${fc} ✗</span>`;
+      else pill.innerHTML='';
+    }
+    if(cnt) cnt.textContent=st?`${pc}/${suite.tests.length}`:`${suite.tests.length} tests`;
+    if(st==='fail'){const el=_$('rpt_dsuite_'+sid);if(el)el.open=true;}
+    _applyFilter();
+  }
+
+  function _updateProgress() {
+    const all=Object.values(_results);
+    const totalTests=_suites.reduce((n,s)=>n+s.tests.length,0);
+    const passed=all.filter(r=>r.state==='pass').length;
+    const failed=all.filter(r=>r.state==='fail').length;
+    const pct=totalTests>0?Math.round(passed/totalTests*100):0;
+    const prog=_$('rpt_diagProgress'); if(prog) prog.style.display='block';
+    const fill=_$('rpt_diagFill'); if(fill){fill.style.width=pct+'%';fill.style.background=failed>0?'var(--red)':'var(--green)';}
+    const stat=_$('rpt_diagStat'); if(stat) stat.textContent=`${passed}/${totalTests} passed`;
+    const sf=_$('rpt_diagFailed'); if(sf){sf.style.display=failed>0?'':'none';sf.textContent=failed+' failed';}
+  }
+
+  function _applyFilter() {
+    _suites.forEach(suite=>{
+      const el=_$('rpt_dsuite_'+suite.id); if(!el)return;
+      if(_filter==='all'){el.style.display='';return;}
+      const states=suite.tests.map(t=>(_results[suite.id+'::'+t.name]||{}).state||'idle');
+      el.style.display=(_filter==='fail'?states.some(s=>s==='fail'):states.every(s=>s==='pass'))?'':'none';
+    });
+  }
+
+  function _appendLog(line) {
+    _log.push(line);
+    const el=_$('rpt_diagLog'), wrap=_$('rpt_diagLogWrap');
+    if(!el||!wrap)return;
+    wrap.style.display='block';
+    const div=document.createElement('div');
+    if(line.startsWith('  ✓'))div.style.color='var(--green)';
+    else if(line.startsWith('  ✗'))div.style.color='var(--red)';
+    else if(line.startsWith('['))div.style.color='var(--accent)';
+    div.textContent=line;
+    el.appendChild(div);
+    el.scrollTop=el.scrollHeight;
+  }
+
+  window.rpt_diagSetFilter = function(f) {
+    _filter=f;
+    ['all','pass','fail'].forEach(x=>{
+      const b=_$('rpt_df'+x.charAt(0).toUpperCase()+x.slice(1));
+      if(b) b.style.color=f===x?(x==='fail'?'var(--red)':x==='pass'?'var(--green)':'var(--accent)'):'';
+    });
+    _applyFilter();
+  };
+
+  window.rpt_diagDownloadLog = function() {
+    const blob=new Blob([_log.join('\n')],{type:'text/plain'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download=`ghrava_diag_${new Date().toISOString().slice(0,16).replace(/:/g,'-')}.log`;
+    a.click();
+  };
+
+  window.rpt_diagStartRun = async function() {
+    if(_running){_aborted=true;return;}
+    _running=true;_aborted=false;_results={};_log=[];
+    const btn=_$('rpt_diagRunBtn');
+    if(btn){btn.textContent='⏹ Stop';btn.onclick=()=>{_aborted=true;};}
+    const logEl=_$('rpt_diagLog');if(logEl)logEl.innerHTML='';
+    const lw=_$('rpt_diagLogWrap');if(lw)lw.style.display='none';
+    const dp=_$('rpt_diagProgress');if(dp)dp.style.display='none';
+    _suites=_buildSuites();
+    const container=_$('rpt_diagSuites');
+    container.innerHTML='<style>'+
+      '.diag-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text3)}'+
+      '.diag-dot.diag-pass{background:var(--green)}.diag-dot.diag-fail{background:var(--red)}'+
+      '.diag-dot.diag-running{background:var(--amber);animation:pulse 1s infinite}'+
+      '.diag-suite{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden}'+
+      'details.diag-suite summary{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none;list-style:none;font-size:12px;font-weight:700}'+
+      'details.diag-suite summary::-webkit-details-marker{display:none}'+
+      '.diag-suite-name{flex:1}.diag-suite-cnt{font-size:11px;color:var(--text3)}'+
+      '.diag-chevron{font-size:13px;color:var(--text3);transition:transform .15s}'+
+      'details.diag-suite[open] .diag-chevron{transform:rotate(90deg)}'+
+      '.diag-test-row{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 26px;border-top:1px solid var(--border)}'+
+      '.diag-test-name{flex:1;font-size:11px;color:var(--text2)}.diag-test-name.diag-pass{color:var(--text)}.diag-test-name.diag-fail{color:var(--red)}'+
+      '.diag-test-det{font-size:10px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}'+
+      '.diag-pill{font-size:10px;padding:1px 7px;border-radius:99px;font-weight:700}'+
+      '.diag-pill-pass{background:rgba(34,197,94,.15);color:var(--green)}.diag-pill-fail{background:rgba(239,68,68,.15);color:var(--red)}'+
+      '</style>'+
+      _suites.map(suite=>`
+        <details class="diag-suite" id="rpt_dsuite_${suite.id}">
+          <summary>
+            <div class="diag-dot" id="rpt_sdot_${suite.id}"></div>
+            <span class="diag-suite-name">${suite.label}</span>
+            <span id="rpt_spill_${suite.id}"></span>
+            <span class="diag-suite-cnt" id="rpt_scnt_${suite.id}">${suite.tests.length} tests</span>
+            <span class="diag-chevron">›</span>
+          </summary>
+          ${suite.tests.map(t=>`
+            <div class="diag-test-row">
+              <div class="diag-dot" id="rpt_tdot_${_key(suite.id,t.name)}"></div>
+              <span class="diag-test-name" id="rpt_tnm_${_key(suite.id,t.name)}">${t.name}</span>
+              <span class="diag-test-det" id="rpt_tdet_${_key(suite.id,t.name)}"></span>
+            </div>`).join('')}
+        </details>`).join('');
+
+    const totalTests=_suites.reduce((n,s)=>n+s.tests.length,0);
+    _appendLog(`Starting — ${totalTests} tests across ${_suites.length} suites`);
+    _appendLog(`Time: ${new Date().toLocaleString()}`);
+    _appendLog('─'.repeat(44));
+
+    for(const suite of _suites){
+      if(_aborted)break;
+      _appendLog(`\n[${suite.label}]`);
+      for(const test of suite.tests){
+        if(_aborted)break;
+        _setState(suite.id,test.name,'running');
+        try{
+          const{ok,detail}=await test.run();
+          _setState(suite.id,test.name,ok?'pass':'fail',detail);
+          _appendLog(`  ${ok?'✓':'✗'} ${test.name}${detail?`  (${detail})`:''}`);
+        }catch(e){
+          _setState(suite.id,test.name,'fail',e.message);
+          _appendLog(`  ✗ ${test.name}  ERROR: ${e.message}`);
+        }
+      }
+    }
+    const all=Object.values(_results);
+    const passed=all.filter(r=>r.state==='pass').length, failed=all.filter(r=>r.state==='fail').length;
+    _appendLog(''); _appendLog('─'.repeat(44));
+    _appendLog(`Done: ${passed} passed, ${failed} failed`);
+    try {
+      const p=await fetch('/api/v1/settings/diagnostics/purge',{method:'POST',headers:{'Content-Type':'application/json'}}).then(r=>r.json());
+      if(p.total>0)_appendLog(`Cleanup: removed ${p.total} test record(s)`);
+    }catch(e){_appendLog(`Cleanup warning: ${e.message}`);}
+    _running=false;
+    if(btn){btn.textContent='▶ Run All Tests';btn.onclick=rpt_diagStartRun;}
+    const dlBtn=_$('rpt_diagDlBtn');if(dlBtn)dlBtn.style.display='block';
+  };
+})();
 
 // ── Init ─────────────────────────────────────────────────────
 function init() {

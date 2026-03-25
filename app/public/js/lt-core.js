@@ -1487,3 +1487,152 @@ window.GH_FAMILY = (function() {
 
   return { init, getIds };
 })();
+
+// ── GH_TAG_SEARCH — cross-module tag search modal ─────────────
+// Usage: GH_TAG_SEARCH.open('tagname')
+// Wired automatically to all .tag-chip elements via delegated click.
+window.GH_TAG_SEARCH = (function() {
+
+  function _injectStyles() {
+    if (document.getElementById('gh-ts-styles')) return;
+    const s = document.createElement('style');
+    s.id = 'gh-ts-styles';
+    s.textContent = `
+      #gh-ts-overlay {
+        position:fixed;inset:0;z-index:9500;
+        background:rgba(0,0,0,.5);backdrop-filter:blur(4px);
+        display:flex;align-items:flex-end;justify-content:center;
+      }
+      #gh-ts-sheet {
+        background:var(--bg2);border-radius:20px 20px 0 0;
+        width:100%;max-width:640px;max-height:80vh;
+        display:flex;flex-direction:column;
+        box-shadow:0 -8px 40px rgba(0,0,0,.25);
+      }
+      #gh-ts-header {
+        display:flex;align-items:center;gap:10px;
+        padding:16px 20px 12px;border-bottom:1px solid var(--border);
+        flex-shrink:0;
+      }
+      #gh-ts-title {
+        flex:1;font-size:16px;font-weight:700;color:var(--text);
+      }
+      #gh-ts-close {
+        width:30px;height:30px;border-radius:50%;border:none;
+        background:var(--bg3);color:var(--text2);font-size:18px;
+        cursor:pointer;display:flex;align-items:center;justify-content:center;
+        flex-shrink:0;
+      }
+      #gh-ts-body {
+        overflow-y:auto;padding:12px 16px 24px;flex:1;
+      }
+      .gh-ts-group-label {
+        font-size:10px;font-weight:700;text-transform:uppercase;
+        letter-spacing:.07em;color:var(--text3);font-family:var(--mono);
+        padding:10px 0 6px;
+      }
+      .gh-ts-item {
+        display:flex;align-items:center;justify-content:space-between;
+        padding:9px 12px;background:var(--bg3);border-radius:var(--r);
+        margin-bottom:5px;cursor:pointer;text-decoration:none;color:var(--text);
+        border:1px solid transparent;transition:border-color .1s;
+      }
+      .gh-ts-item:hover { border-color:var(--accent); }
+      .gh-ts-item-title { font-size:13px;color:var(--text);flex:1;min-width:0;
+        overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+      .gh-ts-item-arrow { color:var(--accent);font-size:14px;margin-left:8px;flex-shrink:0; }
+      .gh-ts-empty { text-align:center;padding:32px 16px;color:var(--text3);font-size:14px; }
+    `;
+    document.head.appendChild(s);
+  }
+
+  function open(tagName) {
+    _injectStyles();
+    // Remove existing
+    document.getElementById('gh-ts-overlay')?.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'gh-ts-overlay';
+    overlay.innerHTML = `
+      <div id="gh-ts-sheet">
+        <div id="gh-ts-header">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+          <div id="gh-ts-title">Tag: <span style="color:var(--accent)">${_esc(tagName)}</span></div>
+          <button id="gh-ts-close" title="Close">×</button>
+        </div>
+        <div id="gh-ts-body"><div class="spinner"><div class="spin"></div>Searching…</div></div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+    overlay.querySelector('#gh-ts-close').addEventListener('click', close);
+
+    _fetch(tagName);
+  }
+
+  function close() {
+    document.getElementById('gh-ts-overlay')?.remove();
+  }
+
+  async function _fetch(tagName) {
+    const body = document.getElementById('gh-ts-body');
+    if (!body) return;
+    try {
+      const r = await fetch(`/api/v1/settings/tags/search?tag=${encodeURIComponent(tagName)}`);
+      const d = await r.json();
+
+      if (!d.total) {
+        body.innerHTML = `<div class="gh-ts-empty">No records tagged <strong>${_esc(tagName)}</strong></div>`;
+        return;
+      }
+
+      const totalLabel = `${d.total} record${d.total !== 1 ? 's' : ''} across ${d.groups.length} module${d.groups.length !== 1 ? 's' : ''}`;
+      document.getElementById('gh-ts-title').innerHTML =
+        `Tag: <span style="color:var(--accent)">${_esc(tagName)}</span> <span style="font-size:12px;font-weight:400;color:var(--text3)">(${totalLabel})</span>`;
+
+      body.innerHTML = d.groups.map(g => `
+        <div class="gh-ts-group-label">${_esc(g.label)} — ${g.items.length}</div>
+        ${g.items.map(item => `
+          <a href="${_esc(g.href)}" target="_blank" class="gh-ts-item">
+            <span class="gh-ts-item-title">${item.title ? _esc(item.title) : '<em style="color:var(--text3)">Untitled</em>'}</span>
+            <span class="gh-ts-item-arrow">↗</span>
+          </a>`).join('')}
+      `).join('');
+    } catch(e) {
+      if (body) body.innerHTML = `<div class="gh-ts-empty">Search failed: ${_esc(e.message)}</div>`;
+    }
+  }
+
+  function _esc(s) {
+    return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+  }
+
+  // ── Global delegated click handler ───────────────────────────
+  // Any .tag-chip with data-tag attribute (or text content) triggers search.
+  // Injected once on DOMContentLoaded.
+  function _wireGlobal() {
+    document.addEventListener('click', e => {
+      const chip = e.target.closest('.tag-chip:not(.tag-chip-form)');
+      if (!chip) return;
+      // Don't intercept chips that have a remove button (form chips)
+      if (chip.querySelector('.tag-chip-remove')) return;
+      const tag = chip.dataset.tag || chip.textContent?.trim();
+      if (!tag) return;
+      e.preventDefault();
+      e.stopPropagation();
+      open(tag);
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _wireGlobal);
+  } else {
+    _wireGlobal();
+  }
+
+  return { open, close };
+})();
