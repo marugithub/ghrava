@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.081
+**Last updated:** v202603.082
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -306,10 +306,10 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 4. **Books cover display** — verify cover thumbnails render correctly on book cards after ISBN scan (unconfirmed from prior session)
 
 ### Medium priority
-5. **Reports module** — `reports.html` separate page. Phase 1: shell + System section. Phase 2: Data Quality with needs_review links. Phase 3: Inventory/Finance/Medical/Documents summary cards. New-tab + 30s poll approach.
+5. **Reports module** — Finance reports (Spending/Health/Net Worth/Annual) were already complete. **v202603.082 added:** System tab (version, uptime, DB size, backup age, record counts) and Data Quality tab (needs_review flags per module, links to relevant pages). Remaining: Phase 3 summary cards for Inventory/Medical/Documents.
 6. **Settings audit** — move Diagnostics/Logs/Recent Changes out of Settings into Admin or Reports
-7. **Medical patient filter** — persistent Arnav/Risha/Self/All tab at top of Medical page
-8. **Property maintenance UI** — backend done (migration 035), UI not built
+7. ~~**Medical patient filter**~~ — **Already built** (discovered v202603.082 audit). Patient pill strip at top of Medical page.
+8. ~~**Property maintenance UI**~~ — **Already built** (discovered v202603.082 audit). Full drawer with category, vendor (GH_REFS contact picker), cost, warranty, next due date.
 9. **Documents file upload** — wire attachment_id to NAS filesystem
 
 ### Design discussions needed

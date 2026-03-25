@@ -181,6 +181,11 @@ echo ""
 echo "Backup"
 assert_json_object "GET /backup/list"         "$BASE/api/v1/backup/list"
 
+
+# ── App info ─────────────────────────────────────────────────────────────
+echo ""
+echo "App"
+assert_json_object "GET /app/info"            "$BASE/api/v1/app/info"
 # ── Daily log ─────────────────────────────────────────────────
 echo ""
 echo "Daily Log"

@@ -40,6 +40,22 @@
 .delta-dn{background:rgba(239,68,68,.12);color:#ef4444}
 .account-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px}
 .expense-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border)}
+/* Data Quality */
+.dq-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px;text-decoration:none;color:var(--text)}
+.dq-row:hover{border:1px solid var(--accent)}
+.dq-row{border:1px solid var(--border)}
+.dq-badge{font-size:12px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:99px;background:rgba(245,158,11,.12);color:#f59e0b;white-space:nowrap;flex-shrink:0}
+.dq-all-clear{text-align:center;padding:40px 16px;color:var(--green)}
+.dq-all-clear svg{display:block;margin:0 auto 12px}
+/* System */
+.sys-row{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border)}
+.sys-label{font-size:13px;color:var(--text2)}
+.sys-val{font-size:13px;font-family:var(--mono);color:var(--text);text-align:right}
+.sys-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
+.sys-counts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
+.sys-count-cell{background:var(--bg2);padding:10px 14px}
+.sys-count-val{font-size:18px;font-weight:800;font-family:var(--mono);color:var(--text)}
+.sys-count-lbl{font-size:11px;color:var(--text3);margin-top:2px}
 </style>
 </head>
 <body>
@@ -54,10 +70,12 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
 <div id="app" style="padding-bottom:40px">
 
   <div class="view-tabs" id="rptTabs" style="--tab-color:#64748b">
-    <button class="view-tab active" data-tab="spending" onclick="switchRpt('spending',this)">Spending</button>
-    <button class="view-tab" data-tab="health"   onclick="switchRpt('health',this)">Health</button>
-    <button class="view-tab" data-tab="networth" onclick="switchRpt('networth',this)">Net Worth</button>
-    <button class="view-tab" data-tab="annual"   onclick="switchRpt('annual',this)">Annual</button>
+    <button class="view-tab active" data-tab="spending"   onclick="switchRpt('spending',this)">Spending</button>
+    <button class="view-tab"        data-tab="health"     onclick="switchRpt('health',this)">Health</button>
+    <button class="view-tab"        data-tab="networth"   onclick="switchRpt('networth',this)">Net Worth</button>
+    <button class="view-tab"        data-tab="annual"     onclick="switchRpt('annual',this)">Annual</button>
+    <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
+    <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
   </div>
 
   <!-- ── SPENDING ─────────────────────────────────────────── -->
@@ -123,6 +141,20 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <div id="annExpenses" style="padding:0 16px"></div>
   </div>
 
+  <!-- Data Quality Panel -->
+  <div class="view-panel" id="panel-quality">
+    <div id="qualityContent" style="padding:0 16px 80px">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
+  <!-- System Panel -->
+  <div class="view-panel" id="panel-system">
+    <div id="systemContent" style="padding:0 16px 80px">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -160,6 +192,8 @@ function loadTab(tab) {
   else if (tab === 'health') loadHealth();
   else if (tab === 'networth') loadNetWorth();
   else if (tab === 'annual') loadAnnual();
+  else if (tab === 'quality') loadQuality();
+  else if (tab === 'system') loadSystem();
 }
 
 // ── Year select helpers ───────────────────────────────────
@@ -449,6 +483,121 @@ async function loadAnnual() {
       </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No expenses</div>';
   } catch(e) {
     $('annSummary').innerHTML = errorState(e.message, 'loadAnnual()');
+  }
+}
+
+// ── Data Quality ──────────────────────────────────────────────
+const DQ_LINKS = {
+  'items': '/inventory.html', 'documents': '/documents.html', 'books': '/books.html',
+  'kids': '/kids.html', 'kid_activities': '/kids.html', 'kid_notes': '/kids.html',
+  'career_certifications': '/career.html', 'career_jobs': '/career.html',
+  'career_skills': '/career.html', 'career_education': '/career.html', 'career_goals': '/career.html',
+  'properties': '/property.html', 'vehicles': '/property.html',
+  'med_visit_notes': '/medical.html', 'med_conditions': '/medical.html', 'med_medications': '/medical.html',
+  'daily_log': '/daily-log.html', 'todos': '/todos.html', 'resources': '/resources.html',
+  'contacts': '/settings.html', 'family_members': '/settings.html', 'hsa_payments': '/hsa.html',
+};
+
+async function loadQuality() {
+  const el = $('qualityContent'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    const r = await fetch('/api/v1/settings/review/summary');
+    const d = await r.json();
+    const flagged = (d.modules || []).filter(m => m.count > 0);
+    if (!flagged.length) {
+      el.innerHTML = `<div class="dq-all-clear">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+        </svg>
+        <div style="font-size:18px;font-weight:700">All Clear</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px">No records need review</div>
+      </div>`;
+      return;
+    }
+    const totalFlagged = flagged.reduce((s, m) => s + m.count, 0);
+    el.innerHTML = `
+      <div style="padding:12px 0 4px">
+        <div style="font-size:13px;color:var(--text3)">${totalFlagged} record${totalFlagged!==1?'s':''} flagged across ${flagged.length} module${flagged.length!==1?'s':''}</div>
+      </div>
+      ${flagged.map(m => {
+        const href = DQ_LINKS[m.table] || '#';
+        return `<a href="${href}" class="dq-row" target="_blank">
+          <span style="font-size:13px;font-weight:600">${esc(m.label)}</span>
+          <span class="dq-badge">${m.count} to review</span>
+        </a>`;
+      }).join('')}
+      <div style="margin-top:12px;font-size:12px;color:var(--text3)">
+        Links open the relevant module in a new tab. Clear the flag on each record to dismiss it.
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
+  }
+}
+
+// ── System ────────────────────────────────────────────────────
+function fmtUptime(s) {
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
+  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
+  return h + 'h ' + m + 'm';
+}
+function fmtBytes(b) {
+  if (!b) return '—';
+  if (b < 1024) return b + ' B';
+  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+  return (b/1048576).toFixed(2) + ' MB';
+}
+
+async function loadSystem() {
+  const el = $('systemContent'); if (!el) return;
+  el.innerHTML = spinnerHtml();
+  try {
+    const [info, dash] = await Promise.all([
+      fetch('/api/v1/app/info').then(r => r.json()),
+      fetch('/api/v1/dashboard').then(r => r.json()),
+    ]);
+    const bkp = dash.backup || {};
+    const rc  = info.record_counts || {};
+
+    const sysRows = [
+      ['Version',      info.version || '—'],
+      ['Build date',   info.build_date || '—'],
+      ['Node.js',      info.node_version || '—'],
+      ['Uptime',       fmtUptime(info.uptime_s || 0)],
+      ['Database',     fmtBytes(info.db_size_bytes)],
+      ['Last backup',  bkp.last_backup ? new Date(bkp.last_backup).toLocaleString() : 'Never'],
+      ['Backup age',   bkp.days_since_backup != null ? bkp.days_since_backup + ' day' + (bkp.days_since_backup!==1?'s':'') + (bkp.overdue?' — ⚠️ overdue':'') : '—'],
+      ['Image thumbs', info.sharp_available ? '✓ sharp available' : '— using fallback'],
+    ];
+
+    const countDefs = [
+      ['Inventory items', rc.items],   ['Documents', rc.documents],
+      ['Books', rc.books],             ['Contacts', rc.contacts],
+      ['HSA expenses', rc.hsa_payments], ['Transactions', rc.finance_transactions],
+      ['Daily log', rc.daily_log],     ['Todos', rc.todos],
+      ['Medical visits', rc.med_visit_notes], ['Family', rc.family_members],
+    ];
+
+    el.innerHTML = `
+      <div class="section-hdr" style="padding-top:12px">App</div>
+      <div class="sys-card">
+        ${sysRows.map(([l,v]) => `
+          <div class="sys-row">
+            <span class="sys-label">${l}</span>
+            <span class="sys-val">${esc(String(v))}</span>
+          </div>`).join('')}
+      </div>
+      <div class="section-hdr">Record Counts</div>
+      <div class="sys-counts-grid" style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:12px">
+        ${countDefs.map(([l,v]) => `
+          <div class="sys-count-cell">
+            <div class="sys-count-val">${v ?? '—'}</div>
+            <div class="sys-count-lbl">${l}</div>
+          </div>`).join('')}
+      </div>`;
+  } catch(e) {
+    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
   }
 }
 

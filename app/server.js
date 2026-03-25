@@ -145,6 +145,7 @@ app.get('/api/v1/app/info', (req, res) => {
       base_url:    cfg?.value || null,
       log_file:    LOG_FILE,
       record_counts: counts,
+      db_size_bytes: (() => { try { return fs.statSync(process.env.DB_PATH || '/app/data/lifetracker.db').size; } catch { return null; } })(),
       sharp_available: (() => { try { require('sharp'); return true; } catch { return false; } })(),
     });
   } catch(e) {
