@@ -1,0 +1,14 @@
+{
+  "name": "ghrava-e2e-tests",
+  "version": "1.0.0",
+  "description": "Ghrava nightly E2E test suite using Playwright",
+  "private": true,
+  "scripts": {
+    "test": "playwright test --config=playwright.config.js",
+    "test:ui": "playwright test --config=playwright.config.js --headed",
+    "install-browsers": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0"
+  }
+}

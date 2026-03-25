@@ -78,6 +78,7 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <button class="view-tab"        data-tab="people"     onclick="switchRpt('people',this)">People</button>
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
+    <button class="view-tab"        data-tab="testing"    onclick="switchRpt('testing',this)">Testing</button>
     <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
   </div>
 
@@ -169,6 +170,17 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
   <div class="view-panel" id="panel-system">
     <div id="systemContent" style="padding:0 16px 80px">
       <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
+  <!-- Testing Panel -->
+  <div class="view-panel" id="panel-testing">
+    <div style="padding:0 16px 80px">
+      <div class="section-hdr" style="padding-top:12px">Nightly E2E Test Runs</div>
+      <div id="testRunList">
+        <div class="spinner"><div class="spin"></div>Loading…</div>
+      </div>
+      <div id="testRunDetail" style="display:none;margin-top:16px"></div>
     </div>
   </div>
 
@@ -297,6 +309,7 @@ function loadTab(tab) {
   else if (tab === 'people') loadPeople();
   else if (tab === 'quality') loadQuality();
   else if (tab === 'system') loadSystem();
+  else if (tab === 'testing') loadTesting();
   else if (tab === 'tools') rpt_loadTools();
 }
 
@@ -1008,6 +1021,112 @@ async function loadSystem() {
       </div>`;
   } catch(e) {
     el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
+  }
+}
+
+// ── Testing ───────────────────────────────────────────────────
+async function loadTesting() {
+  const listEl = $('testRunList'); if (!listEl) return;
+  const detailEl = $('testRunDetail');
+  detailEl.style.display = 'none';
+  listEl.innerHTML = spinnerHtml();
+  try {
+    const runs = await fetch('/api/v1/app/test-results').then(r => r.json());
+    if (!runs.length) {
+      listEl.innerHTML = `
+        <div style="padding:24px 0;text-align:center;color:var(--text3)">
+          <div style="font-size:32px;margin-bottom:8px">🧪</div>
+          <div style="font-size:15px;font-weight:600;color:var(--text)">No test runs yet</div>
+          <div style="font-size:13px;margin-top:6px">Run <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">tests\\run-tests.ps1</code> from Windows to start a nightly E2E test.</div>
+        </div>`;
+      return;
+    }
+    listEl.innerHTML = runs.map(r => {
+      const allPass = r.failed === 0;
+      const pct = r.total > 0 ? Math.round(r.passed/r.total*100) : 0;
+      const dur = r.duration_ms ? (r.duration_ms/1000).toFixed(1)+'s' : '—';
+      const dt  = r.started_at ? new Date(r.started_at).toLocaleString() : r.filename;
+      return `<div onclick="showTestRun('${esc(r.filename)}')" style="display:flex;align-items:center;gap:12px;
+          padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
+          margin-bottom:6px;cursor:pointer;transition:border-color .15s"
+          onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+        <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+          background:${allPass?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};flex-shrink:0">
+          <span style="font-size:18px">${allPass?'✓':'✗'}</span>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${dt}</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">${r.suites} suites · ${dur}</div>
+        </div>
+        <div style="text-align:right;flex-shrink:0">
+          <div style="font-size:15px;font-weight:800;font-family:var(--mono);color:${allPass?'var(--green)':'var(--red)'}">
+            ${r.passed}/${r.total}
+          </div>
+          <div style="font-size:11px;color:var(--text3)">${pct}% pass</div>
+        </div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    listEl.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
+  }
+}
+
+async function showTestRun(filename) {
+  const detailEl = $('testRunDetail'); if (!detailEl) return;
+  detailEl.style.display = 'block';
+  detailEl.innerHTML = spinnerHtml();
+  detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  try {
+    const run = await fetch(`/api/v1/app/test-results/${encodeURIComponent(filename)}`).then(r => r.json());
+    const dt = run.started_at ? new Date(run.started_at).toLocaleString() : filename;
+    const dur = run.duration_ms ? (run.duration_ms/1000).toFixed(1)+'s' : '—';
+
+    const suitesHtml = (run.suites || []).map(suite => {
+      const suitePass = suite.tests.every(t => t.status === 'passed');
+      return `
+        <div style="margin-bottom:10px">
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;
+            background:var(--bg3);border-radius:var(--r);cursor:pointer"
+            onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+            <span style="font-size:13px">${suitePass?'✓':'✗'}</span>
+            <span style="font-size:13px;font-weight:600;flex:1">${esc(suite.name)}</span>
+            <span style="font-size:11px;color:var(--text3)">${suite.tests.filter(t=>t.status==='passed').length}/${suite.tests.length} ›</span>
+          </div>
+          <div style="display:none">
+            ${suite.tests.map(t => `
+              <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 12px 6px 24px;border-bottom:1px solid var(--border)">
+                <span style="color:${t.status==='passed'?'var(--green)':'var(--red)'};flex-shrink:0;margin-top:1px">${t.status==='passed'?'✓':'✗'}</span>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12px;color:var(--text)">${esc(t.title)}</div>
+                  ${t.error ? `<div style="font-size:11px;color:var(--red);margin-top:3px;font-family:var(--mono);white-space:pre-wrap;word-break:break-all">${esc(t.error)}</div>` : ''}
+                  ${t.duration_ms ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${(t.duration_ms/1000).toFixed(2)}s</div>` : ''}
+                </div>
+              </div>`).join('')}
+          </div>
+        </div>`;
+    }).join('');
+
+    detailEl.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div>
+          <div style="font-size:15px;font-weight:700">${dt}</div>
+          <div style="font-size:12px;color:var(--text3)">${run.passed}/${run.total} passed · ${dur}</div>
+        </div>
+        <button onclick="$('testRunDetail').style.display='none'" style="padding:4px 12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">Close ×</button>
+      </div>
+      ${run.failed > 0 ? `
+        <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px">
+          <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px">⚠ ${run.failed} failed test${run.failed!==1?'s':''}</div>
+          ${(run.suites||[]).flatMap(s=>s.tests.filter(t=>t.status!=='passed').map(t=>`
+            <div style="font-size:12px;color:var(--text);padding:3px 0;border-bottom:1px solid rgba(239,68,68,.1)">
+              <span style="color:var(--red)">✗</span> ${esc(s.name)} → ${esc(t.title)}
+              ${t.error?`<div style="font-size:11px;color:var(--red);font-family:var(--mono);margin-top:2px">${esc(t.error.split('\\n')[0])}</div>`:''}
+            </div>`)).join('')}
+        </div>` : ''}
+      <div class="section-hdr" style="padding-top:0">All Suites</div>
+      ${suitesHtml || '<div style="color:var(--text3);font-size:13px">No suite details available</div>'}`;
+  } catch(e) {
+    detailEl.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
   }
 }
 

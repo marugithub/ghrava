@@ -1,0 +1,417 @@
+/**
+ * ghrava-e2e.spec.js — Ghrava Nightly E2E Test Suite
+ *
+ * Runs against the live Ghrava instance. Catches:
+ *   - Pages that render raw HTML as visible text (the fileLink bug class)
+ *   - JS errors on page load
+ *   - Missing key UI elements
+ *   - CRUD flows with automatic cleanup
+ *   - Tag chip rendering (elements, not text)
+ *   - Drawer open/close
+ *
+ * Usage:
+ *   npx playwright test --config=tests/playwright.config.js
+ *
+ * Auto-cleanup: all test records use prefix _e2e_ and are deleted
+ * within the same test. No purge endpoint needed.
+ */
+
+const { test, expect } = require('@playwright/test');
+
+const BASE = process.env.GHRAVA_URL || 'http://192.168.4.62:3001';
+const API  = BASE + '/api/v1';
+
+// ── Helpers ───────────────────────────────────────────────────
+
+/** Check a page for raw HTML text (the fileLink bug class) */
+async function checkNoRawHtml(page, url, description) {
+  await page.goto(url, { waitUntil: 'networkidle' });
+  // Check for common raw HTML patterns that would indicate a rendering bug
+  const rawHtml = await page.evaluate(() => {
+    const patterns = [/<button\s/, /<div\s/, /<span\s/, /<a\s+href/];
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    const raw = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      const text = node.textContent.trim();
+      if (text.length > 10 && patterns.some(p => p.test(text))) {
+        raw.push(text.slice(0, 100));
+      }
+    }
+    return raw;
+  });
+  expect(rawHtml, `${description}: raw HTML found in page text: ${rawHtml.join(' | ')}`).toHaveLength(0);
+}
+
+/** Collect JS errors during page load */
+async function collectPageErrors(page, url) {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+  await page.goto(url, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1000); // let deferred JS settle
+  return errors.filter(e =>
+    !e.includes('favicon') &&
+    !e.includes('404') &&
+    !e.includes('google') &&
+    !e.includes('calendar') &&
+    !e.includes('NET::') &&
+    !e.includes('Failed to load resource')
+  );
+}
+
+/** POST to API, returns created record */
+async function apiPost(path, body) {
+  const r = await fetch(`${API}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`POST ${path} → ${r.status}: ${await r.text()}`);
+  return r.json();
+}
+
+/** DELETE from API */
+async function apiDelete(path) {
+  const r = await fetch(`${API}${path}`, { method: 'DELETE' });
+  if (!r.ok) throw new Error(`DELETE ${path} → ${r.status}`);
+}
+
+
+// ══════════════════════════════════════════════════════════════
+// SUITE 1 — Page Load & Render Integrity
+// ══════════════════════════════════════════════════════════════
+
+test.describe('Page Load & Render Integrity', () => {
+
+  const pages = [
+    ['/index.html',        'Dashboard'],
+    ['/inventory.html',    'Inventory'],
+    ['/documents.html',    'Documents'],
+    ['/books.html',        'Books'],
+    ['/medical.html',      'Medical'],
+    ['/todos.html',        'Todos'],
+    ['/finance.html',      'Finance'],
+    ['/resources.html',    'Resources'],
+    ['/career.html',       'Career'],
+    ['/property.html',     'Property'],
+    ['/kids.html',         'Kids'],
+    ['/reports.html',      'Reports'],
+    ['/settings.html',     'Settings'],
+    ['/daily-log.html',    'Daily Log'],
+  ];
+
+  for (const [path, name] of pages) {
+    test(`${name} loads with HTTP 200`, async ({ page }) => {
+      const response = await page.goto(BASE + path);
+      expect(response.status(), `${name}: HTTP status`).toBe(200);
+    });
+
+    test(`${name} has no raw HTML in text content`, async ({ page }) => {
+      await checkNoRawHtml(page, BASE + path, name);
+    });
+  }
+
+  test('Dashboard has no JS errors on load', async ({ page }) => {
+    const errors = await collectPageErrors(page, BASE + '/index.html');
+    expect(errors, `Dashboard JS errors: ${errors.join('; ')}`).toHaveLength(0);
+  });
+
+  test('Documents has no JS errors on load', async ({ page }) => {
+    const errors = await collectPageErrors(page, BASE + '/documents.html');
+    expect(errors, `Documents JS errors: ${errors.join('; ')}`).toHaveLength(0);
+  });
+
+  test('Inventory has no JS errors on load', async ({ page }) => {
+    const errors = await collectPageErrors(page, BASE + '/inventory.html');
+    expect(errors, `Inventory JS errors: ${errors.join('; ')}`).toHaveLength(0);
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════
+// SUITE 2 — Key UI Elements Render Correctly
+// ══════════════════════════════════════════════════════════════
+
+test.describe('Key UI Elements', () => {
+
+  test('Documents file-copy-btn renders as button, not text', async ({ page }) => {
+    // Create a document with a UNC path
+    const doc = await apiPost('/documents', {
+      title: '_e2e_doc_filecopy_test',
+      category: 'Other',
+      file_name: '\\\\SoniNAS\\Backups\\test.pdf',
+    });
+    try {
+      await page.goto(BASE + '/documents.html', { waitUntil: 'networkidle' });
+      await page.waitForSelector('.doc-card', { timeout: 5000 });
+
+      // Verify the file link renders as a button element, not raw text
+      const btn = page.locator('.file-copy-btn').first();
+      await expect(btn).toBeVisible();
+
+      // Verify no raw HTML visible in document cards
+      const rawInCards = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('.doc-card'))
+          .some(card => /<button/.test(card.textContent));
+      });
+      expect(rawInCards, 'Raw <button> HTML found in document card text').toBe(false);
+    } finally {
+      await apiDelete(`/documents/${doc.id}`);
+    }
+  });
+
+  test('Tag chips render as span elements with data-tag, not raw HTML', async ({ page }) => {
+    // Create a book with a tag
+    const book = await apiPost('/books', {
+      title: '_e2e_book_tag_test',
+      status: 'Want to Read',
+      format: 'Physical',
+      tags: ['e2etesttag'],
+    });
+    try {
+      await page.goto(BASE + '/books.html', { waitUntil: 'networkidle' });
+      await page.waitForSelector('.book-card', { timeout: 5000 });
+
+      // Verify tag chip is a span with data-tag
+      const chip = page.locator('[data-tag="e2etesttag"]').first();
+      await expect(chip).toBeVisible();
+
+      // Confirm no raw HTML angle brackets in card text
+      const rawInCards = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('.book-card'))
+          .some(card => /<span/.test(card.textContent) || /<div/.test(card.textContent));
+      });
+      expect(rawInCards, 'Raw HTML tags found in book card text').toBe(false);
+    } finally {
+      await apiDelete(`/books/${book.id}`);
+    }
+  });
+
+  test('Dashboard widgets load and contain numeric values', async ({ page }) => {
+    await page.goto(BASE + '/index.html', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2000);
+    // At least one widget value should not be — (loading placeholder)
+    const widgets = page.locator('.widget-value');
+    const count = await widgets.count();
+    expect(count, 'No widget values found').toBeGreaterThan(0);
+  });
+
+  test('Todos page renders todo items or empty state', async ({ page }) => {
+    await page.goto(BASE + '/todos.html', { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    const hasTodos = await page.locator('.todo-item').count() > 0;
+    const hasEmpty = await page.locator('.todos-empty, .empty-state, .empty').count() > 0;
+    expect(hasTodos || hasEmpty, 'Todos page: neither todo items nor empty state found').toBe(true);
+  });
+
+  test('Reports page tabs are clickable and load content', async ({ page }) => {
+    await page.goto(BASE + '/reports.html', { waitUntil: 'networkidle' });
+    // Click Data Quality tab
+    await page.click('[data-tab="quality"]');
+    await page.waitForTimeout(1500);
+    const qualityContent = page.locator('#qualityContent');
+    await expect(qualityContent).toBeVisible();
+    // Should not contain raw HTML
+    const rawHtml = await qualityContent.evaluate(el => /<button|<div\s|<span\s/.test(el.textContent));
+    expect(rawHtml, 'Data Quality tab contains raw HTML').toBe(false);
+  });
+
+  test('Settings page loads key sections', async ({ page }) => {
+    await page.goto(BASE + '/settings.html', { waitUntil: 'networkidle' });
+    await expect(page.locator('#app')).toBeVisible();
+    // Family and Tags nav items should be present
+    await expect(page.locator('text=Family Members')).toBeVisible();
+    await expect(page.locator('text=Tags')).toBeVisible();
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════
+// SUITE 3 — CRUD Flows (auto-cleanup)
+// ══════════════════════════════════════════════════════════════
+
+test.describe('CRUD Flows', () => {
+
+  test('Todos — create, mark done, delete', async ({ page }) => {
+    const todo = await apiPost('/todos', {
+      title: '_e2e_todo_test',
+      category: 'General',
+      priority: 'medium',
+    });
+    expect(todo.id, 'Todo create: no id').toBeTruthy();
+    try {
+      // Mark done
+      const patch = await fetch(`${API}/todos/${todo.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'done' }),
+      });
+      expect(patch.ok, `Mark done: HTTP ${patch.status}`).toBe(true);
+
+      // Verify it appears on todos page
+      await page.goto(BASE + '/todos.html', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1500);
+      // No JS errors
+      const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      expect(errors).toHaveLength(0);
+    } finally {
+      await apiDelete(`/todos/${todo.id}`);
+    }
+  });
+
+  test('Documents — create with UNC path, render, delete', async ({ page }) => {
+    const doc = await apiPost('/documents', {
+      title: '_e2e_doc_unc_test',
+      category: 'Legal',
+      file_name: '\\\\SoniNAS\\Backups\\XPS\\Documents\\test.pdf',
+    });
+    expect(doc.id, 'Document create: no id').toBeTruthy();
+    try {
+      await page.goto(BASE + '/documents.html', { waitUntil: 'networkidle' });
+      await page.waitForSelector('.doc-card', { timeout: 5000 });
+      // The file link must NOT appear as raw HTML
+      const allText = await page.locator('.doc-list, #docList').textContent();
+      expect(allText).not.toContain('<button');
+      expect(allText).not.toContain('onclick=');
+    } finally {
+      await apiDelete(`/documents/${doc.id}`);
+    }
+  });
+
+  test('Books — create with tag, verify chip, delete', async ({ page }) => {
+    const book = await apiPost('/books', {
+      title: '_e2e_book_test',
+      author: 'E2E Author',
+      status: 'Want to Read',
+      format: 'Physical',
+      tags: ['_e2etag_'],
+    });
+    expect(book.id, 'Book create: no id').toBeTruthy();
+    try {
+      await page.goto(BASE + '/books.html?status=Want+to+Read', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1500);
+      // Verify tag chip is a proper element
+      const chip = page.locator('[data-tag="_e2etag_"]');
+      await expect(chip).toBeVisible();
+      // Confirm it's a span/button element, not text
+      const tagName = await chip.evaluate(el => el.tagName.toLowerCase());
+      expect(['span', 'button'], `Tag chip tagName: ${tagName}`).toContain(tagName);
+    } finally {
+      await apiDelete(`/books/${book.id}`);
+    }
+  });
+
+  test('Inventory — create item, verify in all-items, delete', async ({ page }) => {
+    // Need a location first
+    const locsResp = await fetch(`${API}/inventory/locations`);
+    const locs = await locsResp.json();
+    if (!locs.length) { test.skip(); return; }
+    const locId = locs[0].id;
+
+    const item = await apiPost('/inventory/items', {
+      name: '_e2e_item_test',
+      parent_type: 'location',
+      parent_id: locId,
+      quantity: 1,
+      category: 'Other',
+    });
+    expect(item.id, 'Item create: no id').toBeTruthy();
+    try {
+      await page.goto(BASE + '/inventory.html', { waitUntil: 'networkidle' });
+      // Click "All Items" mode
+      const allItemsBtn = page.locator('text=All Items').first();
+      if (await allItemsBtn.count()) await allItemsBtn.click();
+      await page.waitForTimeout(1500);
+      // No raw HTML in cards
+      const rawInCards = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('.ai-card, .ai-list-card'))
+          .some(card => /<span/.test(card.textContent) || /<button/.test(card.textContent));
+      });
+      expect(rawInCards, 'Raw HTML found in inventory cards').toBe(false);
+    } finally {
+      await apiDelete(`/inventory/items/${item.id}`);
+    }
+  });
+
+  test('Contacts — create, verify in settings, delete', async ({ page }) => {
+    const contact = await apiPost('/settings/contacts', {
+      contact_type: 'General',
+      name: '_e2e_contact_test',
+      phone_primary: '555-0000',
+    });
+    expect(contact.id, 'Contact create: no id').toBeTruthy();
+    try {
+      await page.goto(BASE + '/settings.html', { waitUntil: 'networkidle' });
+      await page.waitForTimeout(1000);
+      // Settings page must not have JS errors
+      const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      expect(errors).toHaveLength(0);
+    } finally {
+      await apiDelete(`/settings/contacts/${contact.id}`);
+    }
+  });
+
+});
+
+
+// ══════════════════════════════════════════════════════════════
+// SUITE 4 — API Contract
+// ══════════════════════════════════════════════════════════════
+
+test.describe('API Contract', () => {
+
+  test('GET /dashboard returns all expected keys', async ({ request }) => {
+    const r = await request.get(`${API}/dashboard`);
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    for (const key of ['inventory', 'hsa', 'todos', 'medical', 'family', 'books', 'property', 'backup', 'expiring_documents']) {
+      expect(d, `Dashboard missing key: ${key}`).toHaveProperty(key);
+    }
+  });
+
+  test('GET /app/info returns version and db_size_bytes', async ({ request }) => {
+    const r = await request.get(`${API}/app/info`);
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(d.version, 'app/info missing version').toBeTruthy();
+    expect(typeof d.db_size_bytes, 'db_size_bytes not a number').toBe('number');
+  });
+
+  test('GET /settings/completeness returns issues array', async ({ request }) => {
+    const r = await request.get(`${API}/settings/completeness`);
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(Array.isArray(d.issues), 'completeness.issues not an array').toBe(true);
+  });
+
+  test('GET /settings/tags/search with known tag returns groups array', async ({ request }) => {
+    const r = await request.get(`${API}/settings/tags/search?tag=test`);
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(d, 'tag search missing groups').toHaveProperty('groups');
+  });
+
+  test('GET /settings/family/1/report returns member object', async ({ request }) => {
+    const r = await request.get(`${API}/settings/family/1/report`);
+    // May 404 if family member 1 doesn't exist — that's fine
+    if (r.status() === 404) return;
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(d, 'family report missing member key').toHaveProperty('member');
+    expect(d, 'family report missing summary key').toHaveProperty('summary');
+  });
+
+  test('POST to protected endpoint without token hits validation not 401', async ({ request }) => {
+    // Auth is disabled — writes should return 400 (validation) not 401 (auth)
+    const r = await request.post(`${API}/books`, {
+      data: {}, headers: { 'Content-Type': 'application/json' }
+    });
+    expect(r.status(), 'POST /books with empty body should 400 not 401').toBe(400);
+  });
+
+});

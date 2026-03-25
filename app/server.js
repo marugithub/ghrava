@@ -170,6 +170,59 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', version: VERSION, timestamp: new Date().toISOString(), port: PORT });
 });
 
+// ── Test Results — store and retrieve nightly E2E run data ──────
+// POST /api/v1/app/test-results  — called by the external Playwright runner after a run
+// GET  /api/v1/app/test-results  — list runs (newest first, last 30)
+// GET  /api/v1/app/test-results/:id — single run details
+const TEST_REPORT_DIR = '/app/data/test-reports';
+(function() {
+  if (!fs.existsSync(TEST_REPORT_DIR)) {
+    try { fs.mkdirSync(TEST_REPORT_DIR, { recursive: true }); } catch {}
+  }
+
+  app.post('/api/v1/app/test-results', (req, res) => {
+    try {
+      const run = req.body;
+      if (!run || !run.started_at) return res.status(400).json({ error: 'started_at required' });
+      const stamp = run.started_at.replace(/[^0-9T]/g, '-').replace(/T/, '_').slice(0, 16);
+      const filename = `run_${stamp}.json`;
+      const filepath = path.join(TEST_REPORT_DIR, filename);
+      fs.writeFileSync(filepath, JSON.stringify({ ...run, filename }, null, 2));
+      console.log(`[test-results] saved ${filename} — ${run.passed}/${run.total} passed`);
+      res.status(201).json({ ok: true, filename });
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/v1/app/test-results', (req, res) => {
+    try {
+      if (!fs.existsSync(TEST_REPORT_DIR)) return res.json([]);
+      const files = fs.readdirSync(TEST_REPORT_DIR)
+        .filter(f => f.startsWith('run_') && f.endsWith('.json'))
+        .sort().reverse().slice(0, 30);
+      const runs = files.map(f => {
+        try {
+          const d = JSON.parse(fs.readFileSync(path.join(TEST_REPORT_DIR, f), 'utf8'));
+          // Return summary only (not full suite details) for the list
+          return { filename: f, started_at: d.started_at, duration_ms: d.duration_ms,
+            passed: d.passed, failed: d.failed, total: d.total, suites: d.suites?.length ?? 0 };
+        } catch { return null; }
+      }).filter(Boolean);
+      res.json(runs);
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get('/api/v1/app/test-results/:filename', (req, res) => {
+    try {
+      const name = path.basename(req.params.filename);
+      if (!name.startsWith('run_') || !name.endsWith('.json'))
+        return res.status(400).json({ error: 'Invalid filename' });
+      const fp = path.join(TEST_REPORT_DIR, name);
+      if (!fs.existsSync(fp)) return res.status(404).json({ error: 'Run not found' });
+      res.json(JSON.parse(fs.readFileSync(fp, 'utf8')));
+    } catch(e) { res.status(500).json({ error: e.message }); }
+  });
+})();
+
 
 app.get('/', (req, res) => res.redirect('/index.html'));
 

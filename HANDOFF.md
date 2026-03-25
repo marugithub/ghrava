@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.087
+**Last updated:** v202603.089
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -317,6 +317,19 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 11. ~~**Recurring tasks linked to records**~~ — **DONE v202603.087.** Vehicle service and property maintenance records with next_due_date within 30 days auto-generate todos. Auto-resolve when date moves out.
 12. ~~**Data quality checker**~~ — **DONE v202603.087.** Reports → Data Quality tab shows both needs_review flags and completeness issues (10 checks across 8 modules).
 13. ~~**Finance/HSA tags**~~ — **DONE v202603.087.** Tags wired on finance_transactions and hsa_payments. GET responses include tag names, POST/PUT save tags, DELETE clears tags.
+
+### v202603.089
+- **E2E test suite** — `tests/` folder with Playwright. Runs from Windows against live Ghrava. Catches render bugs (raw HTML as text), JS errors, tag chip integrity, CRUD flows with auto-cleanup. Results POST'd to Ghrava and visible in Reports → Testing tab. Setup: `cd tests && npm install && npx playwright install chromium`. Nightly via Windows Task Scheduler.
+- **Reports → Testing tab** — shows all test run history, pass/fail counts, per-suite drill-down, inline failure messages.
+- **`POST /api/v1/app/test-results`** — stores JSON run data to `/app/data/test-reports/`. `GET` lists last 30 runs. `GET /:filename` returns full run details.
+- **fileLink() bug fixed** — UNC paths with backslashes now use `data-path` attribute + delegated clipboard handler. No more inline `JSON.stringify()` in onclick attributes.
+
+### v202603.088
+- **Finance/HSA tag UI** — tag input (GH_TAGS) wired into transaction drawer and HSA expense drawer. Tag chips shown on transaction rows and HSA expense rows with GH_TAG_SEARCH on click.
+
+### v202603.088
+- **Finance/HSA tag UI** — tag inputs wired into transaction drawer and HSA expense drawer. Tags save on POST/PUT. Tag chips display on transaction rows and expense rows (already had chip rendering). Delegated clipboard handler on `file-copy-btn` class.
+- **fileLink() bug fixed** — UNC paths like `\\SoniNAS\...` were rendering raw HTML as text due to `JSON.stringify()` inside a template literal creating nested backslash/quote escaping. Fixed by using `data-path` attribute with a delegated click handler — no inline JS, no escaping problems.
 
 ### v202603.087
 - **Data completeness checker** — `GET /api/v1/settings/completeness` returns 10 checks (inventory no-location/price/category, contacts no phone+email, documents missing expiry, books no author, vehicles no registration, medications missing dosage, certs no expiry, HSA missing category). Reports → Data Quality tab now shows both needs_review flags and completeness issues.

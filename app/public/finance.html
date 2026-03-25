@@ -738,6 +738,12 @@
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="fNotes" rows="2" placeholder="Optional notes…"></textarea>
       <div id="hsaFamilyWrap" style="margin-top:10px"></div>
+      <div class="form-group" style="margin-top:10px">
+        <label class="form-label">Tags</label>
+        <div class="tags-input-wrap" id="hsaTagsWrap" onclick="document.getElementById('hsaTagInput').focus()">
+          <input id="hsaTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+        </div>
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeExpenseDrawer()">Cancel</button>
@@ -901,6 +907,13 @@ let selectedReimb = new Set();
 let editingPlanId = null;
 let familyMembers = [];
 let medContacts = [];
+let _hsaTags = [];
+
+function _initHsaTags(existing) {
+  _hsaTags = existing || [];
+  if (window.GH_TAGS) GH_TAGS.init({ inputId:'hsaTagInput', wrapId:'hsaTagsWrap', module:'hsa',
+    getFormTags:()=>_hsaTags, addTag: t=>{ if(!_hsaTags.includes(t)){_hsaTags.push(t);} }, allowCreate:true });
+}
 
 // ── Helpers ────────────────────────────────────────────────────
 function fmt$(n) {
@@ -1305,6 +1318,7 @@ function expenseRowHtml(r, type) {
           ${r.hsa_eligible ? '<span class="badge badge-green">HSA✓</span>' : '<span class="badge badge-grey">Not eligible</span>'}
           ${attIcon}
         </div>
+        ${r.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${r.tags.map(tag=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(tag):'';return `<span class="tag-chip" data-tag="${esc(tag)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(tag)}" onclick="event.stopPropagation()">${esc(tag)}</span>`;}).join('')}</div>` : ''}
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
         <div class="expense-amount">${fmt$(r.you_paid)}</div>
@@ -1393,6 +1407,7 @@ function openAddDrawer(type = 'payment') {
   $('fReceiptLoc').value = '';
   $('fNotes').value = '';
   GH_FAMILY.init('hsaFamilyWrap', []);
+  _initHsaTags([]);
   $('expenseDrawer').classList.add('open');
 }
 
@@ -1430,6 +1445,7 @@ async function editExpense(id, type) {
     $('fReceiptLoc').value    = r.receipt_location || '';
     $('fNotes').value         = r.notes       || '';
     GH_FAMILY.init('hsaFamilyWrap', r.family_members||[]);
+    _initHsaTags(r.tags||[]);
     $('expenseDrawer').classList.add('open');
   } catch (e) { toast(e.message, 'err'); }
 }
@@ -1480,6 +1496,7 @@ async function saveExpense() {
       receipt_location: $('fReceiptLoc').value.trim()||null,
       notes: $('fNotes').value.trim()||null,
       family_member_ids: GH_FAMILY.getIds('hsaFamilyWrap'),
+      tags: _hsaTags,
     };
   }
   try {
@@ -1777,6 +1794,13 @@ async function deleteAccount() {
 // TRANSACTIONS
 // ════════════════════════════════════════════════════════════
 let editingTxId = null;
+let _txTags = [];
+
+function _initTxTags(existing) {
+  _txTags = existing || [];
+  if (window.GH_TAGS) GH_TAGS.init({ inputId:'txTagInput', wrapId:'txTagsWrap', module:'finance',
+    getFormTags:()=>_txTags, addTag: t=>{ if(!_txTags.includes(t)){_txTags.push(t);} }, allowCreate:true });
+}
 
 async function populateTxAccountFilter() {
   try {
@@ -1829,10 +1853,14 @@ async function loadTransactions() {
 function txRowHtml(t) {
   const amt = parseFloat(t.amount);
   const fmt = v => '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const tagHtml = t.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${
+    t.tags.map(tag=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(tag):'';return `<span class="tag-chip" data-tag="${esc(tag)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(tag)}" onclick="event.stopPropagation()">${esc(tag)}</span>`;}).join('')
+  }</div>` : '';
   return `<div class="expense-row" onclick="openTxDrawer(${t.id})" style="cursor:pointer">
     <div style="flex:1">
       <div style="font-weight:600;font-size:14px">${esc(t.description)}</div>
       <div style="font-size:12px;color:var(--text3)">${t.account_name}${t.category?' · '+t.category:''}</div>
+      ${tagHtml}
     </div>
     <div style="text-align:right">
       <div style="font-weight:700;color:${amt>=0?'var(--green)':'var(--red)'}">${amt>=0?'+':''}${fmt(amt)}</div>
@@ -1859,6 +1887,7 @@ async function openTxDrawer(id) {
   if (t.account_id) $('txAccount').value = t.account_id;
   $('txDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   GH_FAMILY.init('txFamilyWrap', t.family_members||[]);
+  _initTxTags(t.tags||[]);
   $('txDrawer').classList.add('open');
 }
 
@@ -1871,7 +1900,8 @@ async function saveTx() {
       amount: parseFloat($('txAmount').value),
       category: $('txCategory').value||null,
       notes: $('txNotes').value||null,
-      family_member_ids: GH_FAMILY.getIds('txFamilyWrap')
+      family_member_ids: GH_FAMILY.getIds('txFamilyWrap'),
+      tags: _txTags,
     };
     if (!payload.description || !payload.account_id) { toast('Account and description required','err'); return; }
     if (isNaN(payload.amount)) { toast('Valid amount required','err'); return; }
@@ -2326,6 +2356,12 @@ async function deleteGc() {
     <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="txCategory" placeholder="Groceries, Utilities…"></div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="txNotes" style="min-height:60px"></textarea></div>
     <div id="txFamilyWrap" style="margin-bottom:12px"></div>
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="txTagsWrap" onclick="document.getElementById('txTagInput').focus()">
+        <input id="txTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-primary" id="txSave" style="flex:1" onclick="saveTx()">Save</button>
       <button class="btn btn-ghost" id="txDeleteBtn" style="color:var(--red);display:none" onclick="deleteTx()">Delete</button>

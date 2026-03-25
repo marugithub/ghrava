@@ -247,27 +247,20 @@ function fileLink(raw) {
       style="font-size:11px;color:var(--accent);font-family:var(--mono);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:3px"
       onclick="event.stopPropagation()">📎 ${esc(s)}</a>`;
   }
-  // Drive-letter path  C:\  D:\  Z:\  etc.
-  if (/^[A-Za-z]:[\\\/]/.test(s)) {
-    // Convert to file:// URL — forward slashes, encode spaces
+  // Drive-letter path
+  if (/^[A-Za-z]:[\\\x2f]/.test(s)) {
     const url = 'file:///' + s.replace(/\\/g, '/').replace(/ /g, '%20');
     return `<a href="${esc(url)}" target="_blank" rel="noopener"
-      title="Open file (${esc(s)})"
+      title="Open file"
       style="font-size:11px;color:var(--accent);font-family:var(--mono);text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-top:3px"
       onclick="event.stopPropagation()">📎 ${esc(s)}</a>`;
   }
-  // UNC path  \\server\share\...  or  //server/share/...
-  if (/^[\\\/]{2}/.test(s)) {
-    return `<button
-      title="Copy UNC path to clipboard (browsers can't open \\\\ paths directly)"
-      onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(s)}).then(()=>window.LT?.toast?.('Path copied','ok')||alert('Copied: ${s.replace(/'/g,"\\'")}'))"
-      style="font-size:11px;color:var(--accent);font-family:var(--mono);background:none;border:none;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;margin-top:3px">📋 ${esc(s)}</button>`;
-  }
-  // Anything else (relative path, Google Drive note, etc.) — copy to clipboard
-  return `<button
-    title="Copy to clipboard"
-    onclick="event.stopPropagation();navigator.clipboard.writeText(${JSON.stringify(s)}).then(()=>window.LT?.toast?.('Copied','ok')||alert('Copied'))"
-    style="font-size:11px;color:var(--accent);font-family:var(--mono);background:none;border:none;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;margin-top:3px">📎 ${esc(s)}</button>`;
+  // UNC or other — copy to clipboard via data-path (no inline JSON, avoids backslash escaping)
+  const isUnc = /^[\\\x2f]{2}/.test(s);
+  return `<button class="file-copy-btn" data-path="${s.replace(/"/g,'&quot;')}" 
+    title="${isUnc ? 'Copy UNC path' : 'Copy to clipboard'}"
+    style="font-size:11px;color:var(--accent);font-family:var(--mono);background:none;border:none;cursor:pointer;padding:0;display:inline-flex;align-items:center;gap:4px;margin-top:3px"
+    onclick="event.stopPropagation()">${isUnc ? '📋' : '📎'} ${esc(s)}</button>`;
 }
 
 async function loadDocs() {
@@ -446,6 +439,18 @@ async function deleteDoc() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Delegated handler for file path copy buttons (data-path avoids inline escaping issues)
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.file-copy-btn');
+    if (!btn) return;
+    const p = btn.dataset.path;
+    if (!p) return;
+    navigator.clipboard.writeText(p).then(
+      () => { if (window.LT?.toast) LT.toast('Path copied', 'ok'); },
+      () => { prompt('Copy this path:', p); }
+    );
+  });
+
   GH_VIEW.init('docViewToolbar', 'doc', state => {
     _docView    = state.view;
     _docCols    = state.cols;
