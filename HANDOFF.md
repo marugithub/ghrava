@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.080
+**Last updated:** v202603.081
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -281,10 +281,11 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Before any DROP/DELETE migration** — ask user to take manual backup first
 
 ### Auth
-- `requireAuth` on writes only — reads always public
-- All GET routes declared **before** `router.use(requireAuth)` in every route file
-- Trading module: fully public (no requireAuth at all)
-- Session: 365 days
+- `requireAuth` is currently a **no-op** — all routes public, no token required
+- Route-level `requireAuth` calls are preserved in place as SSO hook points
+- When SSO (Authelia/OIDC) is added later, wire it into `middleware.js` `requireAuth` only — no route files need changing
+- Settings UI for password is kept but does nothing until SSO is wired
+- Trading module: fully public (unchanged)
 
 ### Patterns
 - **Tags:** always via `shared/tags.js` — never raw taggables SQL in route files

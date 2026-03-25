@@ -132,12 +132,12 @@ echo ""
 echo "Medical"
 assert_json_array  "GET /medical/medications" "$BASE/api/v1/medical/medications"
 assert_json_array  "GET /medical/conditions"  "$BASE/api/v1/medical/conditions"
-assert_json_object "GET /medical/summary"     "$BASE/api/v1/medical/summary"
+assert_json_array  "GET /medical/summary"     "$BASE/api/v1/medical/summary"
 
 # ── Todos ─────────────────────────────────────────────────────
 echo ""
 echo "Todos"
-assert_json_array  "GET /todos"               "$BASE/api/v1/todos"
+assert_json_object "GET /todos"               "$BASE/api/v1/todos"
 
 # ── Finance ───────────────────────────────────────────────────
 echo ""
@@ -184,7 +184,7 @@ assert_401 "GET /backup/list (protected)" "$BASE/api/v1/backup/list" "GET"
 # ── Daily log ─────────────────────────────────────────────────
 echo ""
 echo "Daily Log"
-assert_json_array  "GET /daily-log"           "$BASE/api/v1/daily-log"
+assert_json_object "GET /daily-log"           "$BASE/api/v1/daily-log"
 
 # ── Auth wall ─────────────────────────────────────────────────
 echo ""

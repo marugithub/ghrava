@@ -42,11 +42,10 @@ function isValidToken(token) {
 }
 
 function requireAuth(req, res, next) {
-  const token = req.headers.authorization?.replace('Bearer ', '');
-  if (!isValidToken(token)) {
-    return res.status(401).json({ error: 'Not authenticated', login_required: true });
-  }
-  req.sessionToken = token;
+  // AUTH DISABLED — passes all requests through unconditionally.
+  // Route-level middleware is intentionally preserved so SSO (Authelia/OIDC)
+  // can be wired in here later without touching any route files.
+  // To re-enable: replace this body with real token/session validation.
   next();
 }
 
