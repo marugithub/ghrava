@@ -1,6 +1,11 @@
 # Dependencies — never commit, always npm install inside Docker
 app/node_modules/
 
+# Test artifacts — generated at runtime, not source
+tests/node_modules/
+tests/test-results/
+tests/playwright-report/
+
 # Database — live data, never in git
 data/
 app/data/

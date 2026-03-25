@@ -43,6 +43,19 @@ $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $TestsDir    = $ScriptDir
 $ResultsDir  = Join-Path $TestsDir "test-results"
 
+# Ensure test-results/ exists before Playwright tries to write into it.
+# On Windows/NAS mapped drives this can fail with EPERM if the path doesn't
+# pre-exist — creating it here prevents Playwright from crashing on scandir.
+if (-not (Test-Path $ResultsDir)) {
+    try {
+        New-Item -ItemType Directory -Path $ResultsDir -Force | Out-Null
+        New-Item -ItemType Directory -Path (Join-Path $ResultsDir "html") -Force | Out-Null
+        Write-Host "Created test-results/ directory" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "Warning: could not create test-results/ — $_" -ForegroundColor Yellow
+    }
+}
+
 # ── Check Playwright is installed ────────────────────────────
 $PwPath = Join-Path $TestsDir "node_modules\.bin\playwright.cmd"
 if (-not (Test-Path $PwPath)) {
@@ -178,5 +191,18 @@ if ($ExitCode -eq 0) {
 Write-Host "  Duration: $([math]::Round($DurationMs/1000,1))s" -ForegroundColor Cyan
 Write-Host "══════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
+
+# ── Clean up test-results folder so deploy script doesn't hit EPERM ──
+# Results are already saved to $ReportDir and posted to Ghrava above.
+# The local test-results/ folder is a temp artifact — safe to remove.
+$LocalResults = Join-Path $TestsDir "test-results"
+if (Test-Path $LocalResults) {
+    try {
+        Remove-Item $LocalResults -Recurse -Force -ErrorAction SilentlyContinue
+        Write-Host "Cleaned up local test-results folder" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "Note: could not remove test-results/ — $_ (safe to ignore)" -ForegroundColor DarkGray
+    }
+}
 
 exit $ExitCode

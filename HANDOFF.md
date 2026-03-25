@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.090
+**Last updated:** v202603.091
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -350,6 +350,10 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
+### Next session — before anything else
+- **Deploy script exclusions** — update `ghrava_deploy.ps1` to explicitly skip `tests\test-results\` and `tests\node_modules\` in case `run-tests.ps1` cleanup fails (defensive). v202603.091 already handles the immediate EPERM by deleting `test-results/` after posting results.
+- ~~**.gitignore for test-results**~~ — **DONE v202603.091.** `tests/test-results/`, `tests/node_modules/`, `tests/playwright-report/` added. — `ghrava_deploy.ps1` should exclude `tests/test-results/` from the zip and from git commits. Add `tests/test-results/` and `tests/node_modules/` to `.gitignore`. The Playwright HTML report and JSON results are runtime artifacts — large, machine-generated, change every night, no value in version control.
 
 ### Low / deferred
 14. ~~**Global tag search**~~ — **DONE v202603.084/085.** `GH_TAG_SEARCH` modal in lt-core.js. Tag chips on documents, inventory (grid+list), todos, and books cards are all clickable. Slide-up sheet shows grouped cross-module results. Backend: `GET /api/v1/settings/tags/search?tag=X`.
