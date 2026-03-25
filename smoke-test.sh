@@ -179,19 +179,34 @@ assert_json_array  "GET /settings/contacts"   "$BASE/api/v1/settings/contacts"
 # ── Backup ────────────────────────────────────────────────────
 echo ""
 echo "Backup"
-assert_401 "GET /backup/list (protected)" "$BASE/api/v1/backup/list" "GET"
+assert_json_object "GET /backup/list"         "$BASE/api/v1/backup/list"
 
 # ── Daily log ─────────────────────────────────────────────────
 echo ""
 echo "Daily Log"
 assert_json_object "GET /daily-log"           "$BASE/api/v1/daily-log"
 
-# ── Auth wall ─────────────────────────────────────────────────
+# ── Write validation (auth disabled — 400 means route is reachable and validating) ──
 echo ""
-echo "Auth wall (no token — must return 401)"
-assert_401 "POST /settings/family (protected)" "$BASE/api/v1/settings/family"
-assert_401 "POST /books (protected)"           "$BASE/api/v1/books"
-assert_401 "POST /documents (protected)"       "$BASE/api/v1/documents"
+echo "Write routes reachable (auth disabled — empty POST should hit validation, not auth wall)"
+assert_400() {
+  local label="$1"
+  local url="$2"
+  local http_code
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
+    -X POST -H "Content-Type: application/json" -d '{}' "$url")
+  if [ "$http_code" = "400" ] || [ "$http_code" = "422" ]; then
+    echo -e "  ${green}PASS${reset}  $label  (${http_code} validation as expected)"
+    ((PASS++))
+  else
+    echo -e "  ${red}FAIL${reset}  $label  (expected 400/422, got HTTP $http_code)"
+    ((FAIL++))
+    ERRORS+=("$label — HTTP $http_code")
+  fi
+}
+assert_400 "POST /settings/family (write reachable)" "$BASE/api/v1/settings/family"
+assert_400 "POST /books (write reachable)"           "$BASE/api/v1/books"
+assert_400 "POST /documents (write reachable)"       "$BASE/api/v1/documents"
 
 # ── Summary ───────────────────────────────────────────────────
 TOTAL=$((PASS + FAIL))
