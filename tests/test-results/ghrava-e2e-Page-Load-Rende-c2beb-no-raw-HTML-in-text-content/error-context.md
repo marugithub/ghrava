@@ -1,0 +1,1210 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do 2" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+        - generic [ref=e20]: "2"
+    - generic [ref=e21]:
+      - generic [ref=e22]: Finance
+      - link "Finance" [ref=e23] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e25]
+        - generic [ref=e27]: Finance
+      - link "↗ Terminal" [ref=e28] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e30]
+        - generic [ref=e32]: ↗ Terminal
+      - link "Reports" [ref=e33] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+    - generic [ref=e37]:
+      - generic [ref=e38]: Household
+      - link "Inventory" [ref=e39] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e41]
+        - generic [ref=e44]: Inventory
+      - link "Medical" [ref=e45] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e47]
+        - generic [ref=e49]: Medical
+      - link "Kids" [ref=e50] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e52]
+        - generic [ref=e56]: Kids
+      - link "Property" [ref=e57] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e59]
+        - generic [ref=e62]: Property
+      - link "Documents" [ref=e63] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e65]
+        - generic [ref=e68]: Documents
+    - generic [ref=e69]:
+      - generic [ref=e70]: Personal
+      - link "Career" [ref=e71] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e73]
+        - generic [ref=e76]: Career
+      - link "Books" [ref=e77] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e79]
+        - generic [ref=e82]: Books
+      - link "Resources" [ref=e83] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e85]
+        - generic [ref=e90]: Resources
+    - button "Collapse" [ref=e92] [cursor=pointer]:
+      - img [ref=e94]
+      - generic [ref=e96]: Collapse
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - link "Home" [ref=e100] [cursor=pointer]:
+          - /url: /index.html
+          - img [ref=e102]
+        - img [ref=e107]
+        - heading "Resources" [level=1] [ref=e113]
+        - generic [ref=e114]:
+          - button "Favorites only" [ref=e115] [cursor=pointer]:
+            - img [ref=e116]
+          - button "Import CSV" [ref=e118] [cursor=pointer]:
+            - img [ref=e119]
+          - button "Notifications" [ref=e122] [cursor=pointer]:
+            - img [ref=e124]
+            - generic [ref=e126]: "3"
+          - link "Settings" [ref=e127] [cursor=pointer]:
+            - /url: /settings.html
+            - img [ref=e129]
+    - generic [ref=e132]:
+      - generic [ref=e133]:
+        - img
+        - searchbox "Search name, description…" [ref=e134]
+      - combobox [ref=e135] [cursor=pointer]:
+        - option "# All Tags" [selected]
+        - option "#free (40)"
+        - option "#student-verify (25)"
+        - option "#paid-discount (12)"
+        - option "#university-access (9)"
+        - option "#reddit-find (8)"
+        - option "#edu-email (4)"
+        - option "#no-signup-required (3)"
+        - option "#discount-varies (2)"
+        - option "#federal-employee (2)"
+        - option "#free-account (2)"
+        - option "#test-tag (1)"
+    - generic [ref=e136]:
+      - button "All" [ref=e137] [cursor=pointer]
+      - button "Cloud Computing" [ref=e138] [cursor=pointer]
+      - button "Communication" [ref=e139] [cursor=pointer]
+      - button "Database" [ref=e140] [cursor=pointer]
+      - button "Design" [ref=e141] [cursor=pointer]
+      - button "Development" [ref=e142] [cursor=pointer]
+      - button "Productivity" [ref=e143] [cursor=pointer]
+      - button "Research Database" [ref=e144] [cursor=pointer]
+      - button "3D Design" [ref=e145] [cursor=pointer]
+      - button "3D Modeling" [ref=e146] [cursor=pointer]
+      - button "AI Data Analysis" [ref=e147] [cursor=pointer]
+      - button "AI Document Analysis" [ref=e148] [cursor=pointer]
+      - button "AI Search" [ref=e149] [cursor=pointer]
+      - button "AI Tools" [ref=e150] [cursor=pointer]
+      - button "API Testing" [ref=e151] [cursor=pointer]
+      - button "Academic Research" [ref=e152] [cursor=pointer]
+      - button "App Deployment" [ref=e153] [cursor=pointer]
+      - button "Cloud Hosting" [ref=e154] [cursor=pointer]
+      - button "Creative" [ref=e155] [cursor=pointer]
+      - button "Design (macOS)" [ref=e156] [cursor=pointer]
+      - button "Design Collaboration" [ref=e157] [cursor=pointer]
+      - button "Design/Engineering" [ref=e158] [cursor=pointer]
+      - button "Diagramming" [ref=e159] [cursor=pointer]
+      - button "Digital Art" [ref=e160] [cursor=pointer]
+      - button "Email Marketing" [ref=e161] [cursor=pointer]
+      - button "Engineering Database" [ref=e162] [cursor=pointer]
+      - button "Financial Data" [ref=e163] [cursor=pointer]
+      - button "Forms/Surveys" [ref=e164] [cursor=pointer]
+      - button "Game Development" [ref=e165] [cursor=pointer]
+      - button "Interactive Design" [ref=e166] [cursor=pointer]
+      - button "Learning" [ref=e167] [cursor=pointer]
+      - button "Legal/News Database" [ref=e168] [cursor=pointer]
+      - button "Math/Science" [ref=e169] [cursor=pointer]
+      - button "Medical Research" [ref=e170] [cursor=pointer]
+      - button "Music Streaming" [ref=e171] [cursor=pointer]
+      - button "Professional" [ref=e172] [cursor=pointer]
+      - button "Professional Development" [ref=e173] [cursor=pointer]
+      - button "Shopping/Entertainment" [ref=e174] [cursor=pointer]
+      - button "Thesis Database" [ref=e175] [cursor=pointer]
+      - button "Transcription" [ref=e176] [cursor=pointer]
+      - button "VFX/Compositing" [ref=e177] [cursor=pointer]
+      - button "Various" [ref=e178] [cursor=pointer]
+      - button "Video Conferencing" [ref=e179] [cursor=pointer]
+      - button "Video Editing" [ref=e180] [cursor=pointer]
+      - button "Visual Collaboration" [ref=e181] [cursor=pointer]
+      - button "Web Services" [ref=e182] [cursor=pointer]
+      - button "Writing" [ref=e183] [cursor=pointer]
+    - generic [ref=e185]:
+      - button "Grid view" [ref=e186] [cursor=pointer]:
+        - img [ref=e187]
+      - button "List view" [ref=e192] [cursor=pointer]:
+        - img [ref=e193]
+      - generic [ref=e198]: Cols
+      - button "2" [ref=e199] [cursor=pointer]
+      - button "3" [ref=e200] [cursor=pointer]
+      - button "4" [ref=e201] [cursor=pointer]
+      - button "5" [ref=e202] [cursor=pointer]
+      - button "Sort" [ref=e204] [cursor=pointer]:
+        - img [ref=e205]
+        - text: Sort
+      - button "Advanced Filters" [ref=e206] [cursor=pointer]:
+        - img [ref=e207]
+        - text: Advanced Filters
+    - generic [ref=e209]:
+      - generic [ref=e210]: ⭐ Favorites
+      - generic [ref=e211] [cursor=pointer]:
+        - generic [ref=e212]:
+          - img [ref=e214]
+          - generic [ref=e217]:
+            - generic [ref=e218]: Adobe Creative Cloud All Apps
+            - generic [ref=e219]: www.adobe.com/creativecloud/buy/students.html
+          - generic "Toggle favorite" [ref=e220]:
+            - img [ref=e221]
+        - generic [ref=e223]: "Photoshop, Illustrator, Premiere Pro + AI features | Regular: $720/year → $240/year (save $480/yr)"
+        - generic [ref=e224]:
+          - generic [ref=e225]: Creative
+          - generic [ref=e226]: "#paid-discount"
+          - generic [ref=e227]: "#student-verify"
+          - link "Open" [ref=e228]:
+            - /url: https://www.adobe.com/creativecloud/buy/students.html
+            - img [ref=e229]
+        - generic [ref=e233]:
+          - img [ref=e234]
+          - text: Student verification
+      - generic [ref=e236]: All Resources
+      - generic [ref=e237] [cursor=pointer]:
+        - generic [ref=e238]:
+          - img [ref=e240]
+          - generic [ref=e243]:
+            - generic [ref=e244]: AWS Educate
+            - generic [ref=e245]: aws.amazon.com/education/awseducate
+          - generic "Toggle favorite" [ref=e246]:
+            - img [ref=e247]
+        - generic [ref=e249]: "Cloud services + hands-on labs | Regular: $1,200+/year → FREE credits (save $1,200+/yr)"
+        - generic [ref=e250]:
+          - generic [ref=e251]: Cloud Computing
+          - generic [ref=e252]: "#free"
+          - generic [ref=e253]: "#student-verify"
+          - generic [ref=e254]: "+1"
+          - link "Open" [ref=e255]:
+            - /url: https://aws.amazon.com/education/awseducate/
+            - img [ref=e256]
+        - generic [ref=e260]:
+          - img [ref=e261]
+          - text: Student verification
+      - generic [ref=e263] [cursor=pointer]:
+        - generic [ref=e264]:
+          - img [ref=e266]
+          - generic [ref=e269]:
+            - generic [ref=e270]: Airtable Pro
+            - generic [ref=e271]: airtable.com
+          - generic "Toggle favorite" [ref=e272]:
+            - img [ref=e273]
+        - generic [ref=e275]: "Advanced database and project management | Regular: $240/year → $120/year (save $120/yr)"
+        - generic [ref=e276]:
+          - generic [ref=e277]: Database
+          - generic [ref=e278]: "#paid-discount"
+          - generic [ref=e279]: "#student-verify"
+          - link "Open" [ref=e280]:
+            - /url: https://airtable.com
+            - img [ref=e281]
+        - generic [ref=e285]:
+          - img [ref=e286]
+          - text: Student verification
+      - generic [ref=e288] [cursor=pointer]:
+        - generic [ref=e289]:
+          - img [ref=e291]
+          - generic [ref=e294]:
+            - generic [ref=e295]: Amazon Prime Student
+            - generic [ref=e296]: www.amazon.com/joinstudentprograms
+          - generic "Toggle favorite" [ref=e297]:
+            - img [ref=e298]
+        - generic [ref=e300]: "Free shipping, Prime Video, music | Regular: $139/year → FREE (6 months) (save $70/yr)"
+        - generic [ref=e301]:
+          - generic [ref=e302]: Shopping/Entertainment
+          - generic [ref=e303]: "#edu-email"
+          - generic [ref=e304]: "#free"
+          - link "Open" [ref=e305]:
+            - /url: https://www.amazon.com/joinstudentprograms
+            - img [ref=e306]
+        - generic [ref=e310]:
+          - img [ref=e311]
+          - text: .edu email
+      - generic [ref=e313] [cursor=pointer]:
+        - generic [ref=e314]:
+          - img [ref=e316]
+          - generic [ref=e319]:
+            - generic [ref=e320]: Autodesk Education Suite
+            - generic [ref=e321]: www.autodesk.com/education/edu-software/overview
+          - generic "Toggle favorite" [ref=e322]:
+            - img [ref=e323]
+        - generic [ref=e325]: "AutoCAD, Maya, 3ds Max, Fusion 360 | Regular: $4,000+/year → FREE (save $4,000+/yr)"
+        - generic [ref=e326]:
+          - generic [ref=e327]: Design/Engineering
+          - generic [ref=e328]: "#free"
+          - generic [ref=e329]: "#student-verify"
+          - link "Open" [ref=e330]:
+            - /url: https://www.autodesk.com/education/edu-software/overview
+            - img [ref=e331]
+        - generic [ref=e335]:
+          - img [ref=e336]
+          - text: Student verification
+      - generic [ref=e338] [cursor=pointer]:
+        - generic [ref=e339]:
+          - img [ref=e341]
+          - generic [ref=e344]:
+            - generic [ref=e345]: Blender
+            - generic [ref=e346]: www.blender.org
+          - generic "Toggle favorite" [ref=e347]:
+            - img [ref=e348]
+        - generic [ref=e350]: "Professional 3D modeling and animation | Regular: FREE → FREE"
+        - generic [ref=e351]:
+          - generic [ref=e352]: 3D Modeling
+          - generic [ref=e353]: "#free"
+          - generic [ref=e354]: "#no-signup-required"
+          - link "Open" [ref=e355]:
+            - /url: https://www.blender.org
+            - img [ref=e356]
+        - generic [ref=e360]:
+          - img [ref=e361]
+          - text: No verification
+      - generic [ref=e363] [cursor=pointer]:
+        - generic [ref=e364]:
+          - img [ref=e366]
+          - generic [ref=e369]:
+            - generic [ref=e370]: Bloomberg Terminal
+            - generic [ref=e371]: www.bloomberg.com/professional/solution/bloomberg-terminal
+          - generic "Toggle favorite" [ref=e372]:
+            - img [ref=e373]
+        - generic [ref=e375]: "Professional financial data and analytics | Regular: $24,000/year → FREE (save $24,000/yr)"
+        - generic [ref=e376]:
+          - generic [ref=e377]: Financial Data
+          - generic [ref=e378]: "#free"
+          - generic [ref=e379]: "#reddit-find"
+          - generic [ref=e380]: "+1"
+          - link "Open" [ref=e381]:
+            - /url: https://www.bloomberg.com/professional/solution/bloomberg-terminal
+            - img [ref=e382]
+        - generic [ref=e386]:
+          - img [ref=e387]
+          - text: University business programs
+      - generic [ref=e389] [cursor=pointer]:
+        - generic [ref=e390]:
+          - img [ref=e392]
+          - generic [ref=e395]:
+            - generic [ref=e396]: Canva Pro
+            - generic [ref=e397]: www.canva.com/education
+          - generic "Toggle favorite" [ref=e398]:
+            - img [ref=e399]
+        - generic [ref=e401]: "Professional design templates and AI features | Regular: $120/year → FREE (save $120/yr)"
+        - generic [ref=e402]:
+          - generic [ref=e403]: Design
+          - generic [ref=e404]: "#free"
+          - generic [ref=e405]: "#university-access"
+          - link "Open" [ref=e406]:
+            - /url: https://www.canva.com/education/
+            - img [ref=e407]
+        - generic [ref=e411]:
+          - img [ref=e412]
+          - text: K-12 free, university partnerships
+      - generic [ref=e414] [cursor=pointer]:
+        - generic [ref=e415]:
+          - img [ref=e417]
+          - generic [ref=e420]:
+            - generic [ref=e421]: Cloudflare
+            - generic [ref=e422]: www.cloudflare.com
+          - generic "Toggle favorite" [ref=e423]:
+            - img [ref=e424]
+        - generic [ref=e426]: "CDN, security, DNS services | Regular: $240/year → FREE tier (save $240/yr)"
+        - generic [ref=e427]:
+          - generic [ref=e428]: Web Services
+          - generic [ref=e429]: "#free"
+          - generic [ref=e430]: "#free-account"
+          - link "Open" [ref=e431]:
+            - /url: https://www.cloudflare.com
+            - img [ref=e432]
+        - generic [ref=e436]:
+          - img [ref=e437]
+          - text: Account creation
+      - generic [ref=e439] [cursor=pointer]:
+        - generic [ref=e440]:
+          - img [ref=e442]
+          - generic [ref=e445]:
+            - generic [ref=e446]: DaVinci Resolve Studio
+            - generic [ref=e447]: www.blackmagicdesign.com/products/davinciresolve
+          - generic "Toggle favorite" [ref=e448]:
+            - img [ref=e449]
+        - generic [ref=e451]: "Professional video editing and color grading | Regular: $295 → FREE (save $295/yr)"
+        - generic [ref=e452]:
+          - generic [ref=e453]: Video Editing
+          - generic [ref=e454]: "#free"
+          - generic [ref=e455]: "#no-signup-required"
+          - generic [ref=e456]: "+1"
+          - link "Open" [ref=e457]:
+            - /url: https://www.blackmagicdesign.com/products/davinciresolve
+            - img [ref=e458]
+        - generic [ref=e462]:
+          - img [ref=e463]
+          - text: No verification needed
+      - generic [ref=e465] [cursor=pointer]:
+        - generic [ref=e466]:
+          - img [ref=e468]
+          - generic [ref=e471]:
+            - generic [ref=e472]: DataCamp Premium
+            - generic [ref=e473]: www.datacamp.com
+          - generic "Toggle favorite" [ref=e474]:
+            - img [ref=e475]
+        - generic [ref=e477]: "Data science and programming courses | Regular: $300/year → $150/year (save $150/yr)"
+        - generic [ref=e478]:
+          - generic [ref=e479]: Learning
+          - generic [ref=e480]: "#paid-discount"
+          - generic [ref=e481]: "#student-verify"
+          - link "Open" [ref=e482]:
+            - /url: https://www.datacamp.com
+            - img [ref=e483]
+        - generic [ref=e487]:
+          - img [ref=e488]
+          - text: Student verification
+      - generic [ref=e490] [cursor=pointer]:
+        - generic [ref=e491]:
+          - img [ref=e493]
+          - generic [ref=e496]:
+            - generic [ref=e497]: DigitalOcean
+            - generic [ref=e498]: www.digitalocean.com/github-students
+          - generic "Toggle favorite" [ref=e499]:
+            - img [ref=e500]
+        - generic [ref=e502]: "Simple cloud hosting and deployment | Regular: $600/year → FREE credits (save $200+/yr)"
+        - generic [ref=e503]:
+          - generic [ref=e504]: Cloud Hosting
+          - generic [ref=e505]: "#free"
+          - generic [ref=e506]: "#student-verify"
+          - link "Open" [ref=e507]:
+            - /url: https://www.digitalocean.com/github-students
+            - img [ref=e508]
+        - generic [ref=e512]:
+          - img [ref=e513]
+          - text: GitHub Student Pack
+      - generic [ref=e515] [cursor=pointer]:
+        - generic [ref=e516]:
+          - img [ref=e518]
+          - generic [ref=e521]:
+            - generic [ref=e522]: Discord Nitro
+            - generic [ref=e523]: discord.com/nitro
+          - generic "Toggle favorite" [ref=e524]:
+            - img [ref=e525]
+        - generic [ref=e527]: "Enhanced Discord features | Regular: $120/year → Occasional FREE (save $120/yr)"
+        - generic [ref=e528]:
+          - generic [ref=e529]: Communication
+          - generic [ref=e530]: "#free"
+          - link "Open" [ref=e531]:
+            - /url: https://discord.com/nitro
+            - img [ref=e532]
+        - generic [ref=e536]:
+          - img [ref=e537]
+          - text: Via partnerships (GitHub Pack)
+      - generic [ref=e539] [cursor=pointer]:
+        - generic [ref=e540]:
+          - img [ref=e542]
+          - generic [ref=e545]:
+            - generic [ref=e546]: Federal Employee Discounts
+            - generic [ref=e547]: www.usa.gov/government-employee-discounts
+          - generic "Toggle favorite" [ref=e548]:
+            - img [ref=e549]
+        - generic [ref=e551]: "Software, travel, entertainment discounts | Regular: $5,000+/year → Varies (save $2,000+/yr)"
+        - generic [ref=e552]:
+          - generic [ref=e553]: Various
+          - generic [ref=e554]: "#discount-varies"
+          - generic [ref=e555]: "#federal-employee"
+          - link "Open" [ref=e556]:
+            - /url: https://www.usa.gov/government-employee-discounts
+            - img [ref=e557]
+        - generic [ref=e561]:
+          - img [ref=e562]
+          - text: Federal ID verification
+      - generic [ref=e564] [cursor=pointer]:
+        - generic [ref=e565]:
+          - img [ref=e567]
+          - generic [ref=e570]:
+            - generic [ref=e571]: Figma Professional
+            - generic [ref=e572]: www.figma.com/education
+          - generic "Toggle favorite" [ref=e573]:
+            - img [ref=e574]
+        - generic [ref=e576]: "Professional UI/UX design and prototyping | Regular: $180/year → FREE (save $180/yr)"
+        - generic [ref=e577]:
+          - generic [ref=e578]: Design
+          - generic [ref=e579]: "#free"
+          - link "Open" [ref=e580]:
+            - /url: https://www.figma.com/education/
+            - img [ref=e581]
+        - generic [ref=e585]:
+          - img [ref=e586]
+          - text: Education domain email
+      - generic [ref=e588] [cursor=pointer]:
+        - generic [ref=e589]:
+          - img [ref=e591]
+          - generic [ref=e594]:
+            - generic [ref=e595]: Framer
+            - generic [ref=e596]: framer.com
+          - generic "Toggle favorite" [ref=e597]:
+            - img [ref=e598]
+        - generic [ref=e600]: "Advanced prototyping and design | Regular: $180/year → FREE (save $180/yr)"
+        - generic [ref=e601]:
+          - generic [ref=e602]: Interactive Design
+          - generic [ref=e603]: "#free"
+          - generic [ref=e604]: "#student-verify"
+          - link "Open" [ref=e605]:
+            - /url: https://framer.com
+            - img [ref=e606]
+        - generic [ref=e610]:
+          - img [ref=e611]
+          - text: Student verification
+      - generic [ref=e613] [cursor=pointer]:
+        - generic [ref=e614]:
+          - img [ref=e616]
+          - generic [ref=e619]:
+            - generic [ref=e620]: GitHub Student Developer Pack
+            - generic [ref=e621]: education.github.com/pack
+          - generic "Toggle favorite" [ref=e622]:
+            - img [ref=e623]
+        - generic [ref=e625]: "100+ tools: Copilot, Pro account, cloud credits, domains, hosting | Regular: $200,000+/year → FREE (save $200,000+/yr)"
+        - generic [ref=e626]:
+          - generic [ref=e627]: Development
+          - generic [ref=e628]: "#edu-email"
+          - generic [ref=e629]: "#free"
+          - link "Open" [ref=e630]:
+            - /url: https://education.github.com/pack
+            - img [ref=e631]
+        - generic [ref=e635]:
+          - img [ref=e636]
+          - text: .edu email verification
+      - generic [ref=e638] [cursor=pointer]:
+        - generic [ref=e639]:
+          - img [ref=e641]
+          - generic [ref=e644]:
+            - generic [ref=e645]: Google Cloud Platform
+            - generic [ref=e646]: cloud.google.com/edu/students
+          - generic "Toggle favorite" [ref=e647]:
+            - img [ref=e648]
+        - generic [ref=e650]: "Cloud services and AI/ML tools | Regular: $1,200/year → $300 credits (save $300+/yr)"
+        - generic [ref=e651]:
+          - generic [ref=e652]: Cloud Computing
+          - generic [ref=e653]: "#paid-discount"
+          - generic [ref=e654]: "#reddit-find"
+          - generic [ref=e655]: "+1"
+          - link "Open" [ref=e656]:
+            - /url: https://cloud.google.com/edu/students
+            - img [ref=e657]
+        - generic [ref=e661]:
+          - img [ref=e662]
+          - text: Student verification
+      - generic [ref=e664] [cursor=pointer]:
+        - generic [ref=e665]:
+          - img [ref=e667]
+          - generic [ref=e670]:
+            - generic [ref=e671]: Google One AI Premium
+            - generic [ref=e672]: one.google.com/about/ai-premium
+          - generic "Toggle favorite" [ref=e673]:
+            - img [ref=e674]
+        - generic [ref=e676]: "Gemini Advanced + 2TB storage + NotebookLM | Regular: $240/year → FREE (1 year) (save $240/yr)"
+        - generic [ref=e677]:
+          - generic [ref=e678]: AI Tools
+          - generic [ref=e679]: "#edu-email"
+          - generic [ref=e680]: "#free"
+          - link "Open" [ref=e681]:
+            - /url: https://one.google.com/about/ai-premium
+            - img [ref=e682]
+        - generic [ref=e686]:
+          - img [ref=e687]
+          - text: US college students with .edu
+      - generic [ref=e689] [cursor=pointer]:
+        - generic [ref=e690]:
+          - img [ref=e692]
+          - generic [ref=e695]:
+            - generic [ref=e696]: Government Training Resources
+            - generic [ref=e697]: www.opm.gov/healthcare-insurance/healthcare/plan-information
+          - generic "Toggle favorite" [ref=e698]:
+            - img [ref=e699]
+        - generic [ref=e701]: "Professional development and certification | Regular: $3,000+/year → FREE (save $3,000+/yr)"
+        - generic [ref=e702]:
+          - generic [ref=e703]: Professional Development
+          - generic [ref=e704]: "#federal-employee"
+          - generic [ref=e705]: "#free"
+          - link "Open" [ref=e706]:
+            - /url: https://www.opm.gov/healthcare-insurance/healthcare/plan-information/
+            - img [ref=e707]
+        - generic [ref=e711]:
+          - img [ref=e712]
+          - text: Federal employee access
+      - generic [ref=e714] [cursor=pointer]:
+        - generic [ref=e715]:
+          - img [ref=e717]
+          - generic [ref=e720]:
+            - generic [ref=e721]: Grammarly Premium
+            - generic [ref=e722]: www.grammarly.com
+          - generic "Toggle favorite" [ref=e723]:
+            - img [ref=e724]
+        - generic [ref=e726]: "AI writing assistant and grammar checker | Regular: $144/year → Varies (save $50+/yr)"
+        - generic [ref=e727]:
+          - generic [ref=e728]: Writing
+          - generic [ref=e729]: "#discount-varies"
+          - link "Open" [ref=e730]:
+            - /url: https://www.grammarly.com
+            - img [ref=e731]
+        - generic [ref=e735]:
+          - img [ref=e736]
+          - text: Institutional partnerships
+      - generic [ref=e738] [cursor=pointer]:
+        - generic [ref=e739]:
+          - img [ref=e741]
+          - generic [ref=e744]:
+            - generic [ref=e745]: Heroku
+            - generic [ref=e746]: www.heroku.com
+          - generic "Toggle favorite" [ref=e747]:
+            - img [ref=e748]
+        - generic [ref=e750]: "App deployment and hosting | Regular: $300/year → FREE tier (save $300/yr)"
+        - generic [ref=e751]:
+          - generic [ref=e752]: App Deployment
+          - generic [ref=e753]: "#free"
+          - generic [ref=e754]: "#free-account"
+          - link "Open" [ref=e755]:
+            - /url: https://www.heroku.com
+            - img [ref=e756]
+        - generic [ref=e760]:
+          - img [ref=e761]
+          - text: Account creation
+      - generic [ref=e763] [cursor=pointer]:
+        - generic [ref=e764]:
+          - img [ref=e766]
+          - generic [ref=e769]:
+            - generic [ref=e770]: Humata
+            - generic [ref=e771]: www.humata.ai
+          - generic "Toggle favorite" [ref=e772]:
+            - img [ref=e773]
+        - generic [ref=e775]: "PDF analysis and AI document processing | Regular: $120/year → $24/year (save $96/yr)"
+        - generic [ref=e776]:
+          - generic [ref=e777]: AI Document Analysis
+          - generic [ref=e778]: "#paid-discount"
+          - generic [ref=e779]: "#student-verify"
+          - link "Open" [ref=e780]:
+            - /url: https://www.humata.ai
+            - img [ref=e781]
+        - generic [ref=e785]:
+          - img [ref=e786]
+          - text: Student verification
+      - generic [ref=e788] [cursor=pointer]:
+        - generic [ref=e789]:
+          - img [ref=e791]
+          - generic [ref=e794]:
+            - generic [ref=e795]: IEEE Xplore
+            - generic [ref=e796]: ieeexplore.ieee.org
+          - generic "Toggle favorite" [ref=e797]:
+            - img [ref=e798]
+        - generic [ref=e800]: "Engineering and technology papers | Regular: $6,000/year → FREE (save $6,000/yr)"
+        - generic [ref=e801]:
+          - generic [ref=e802]: Engineering Database
+          - generic [ref=e803]: "#free"
+          - generic [ref=e804]: "#university-access"
+          - link "Open" [ref=e805]:
+            - /url: https://ieeexplore.ieee.org
+            - img [ref=e806]
+        - generic [ref=e810]:
+          - img [ref=e811]
+          - text: University subscription
+      - generic [ref=e813] [cursor=pointer]:
+        - generic [ref=e814]:
+          - img [ref=e816]
+          - generic [ref=e819]:
+            - generic [ref=e820]: InVision
+            - generic [ref=e821]: www.invisionapp.com
+          - generic "Toggle favorite" [ref=e822]:
+            - img [ref=e823]
+        - generic [ref=e825]: "Design workflow and collaboration | Regular: $180/year → FREE (save $180/yr)"
+        - generic [ref=e826]:
+          - generic [ref=e827]: Design Collaboration
+          - generic [ref=e828]: "#free"
+          - generic [ref=e829]: "#student-verify"
+          - link "Open" [ref=e830]:
+            - /url: https://www.invisionapp.com
+            - img [ref=e831]
+        - generic [ref=e835]:
+          - img [ref=e836]
+          - text: Student verification
+      - generic [ref=e838] [cursor=pointer]:
+        - generic [ref=e839]:
+          - img [ref=e841]
+          - generic [ref=e844]:
+            - generic [ref=e845]: JSTOR
+            - generic [ref=e846]: www.jstor.org
+          - generic "Toggle favorite" [ref=e847]:
+            - img [ref=e848]
+        - generic [ref=e850]: "12+ million academic articles, books, primary sources | Regular: $19,500/year → FREE (save $19,500/yr)"
+        - generic [ref=e851]:
+          - generic [ref=e852]: Academic Research
+          - generic [ref=e853]: "#free"
+          - generic [ref=e854]: "#university-access"
+          - link "Open" [ref=e855]:
+            - /url: https://www.jstor.org
+            - img [ref=e856]
+        - generic [ref=e860]:
+          - img [ref=e861]
+          - text: University library access
+      - generic [ref=e863] [cursor=pointer]:
+        - generic [ref=e864]:
+          - img [ref=e866]
+          - generic [ref=e869]:
+            - generic [ref=e870]: JetBrains All Products Pack
+            - generic [ref=e871]: www.jetbrains.com/community/education
+          - generic "Toggle favorite" [ref=e872]:
+            - img [ref=e873]
+        - generic [ref=e875]: "All professional IDEs: IntelliJ, PyCharm, WebStorm, etc. | Regular: $649/year → FREE (save $649/yr)"
+        - generic [ref=e876]:
+          - generic [ref=e877]: Development
+          - generic [ref=e878]: "#free"
+          - generic [ref=e879]: "#student-verify"
+          - link "Open" [ref=e880]:
+            - /url: https://www.jetbrains.com/community/education/
+            - img [ref=e881]
+        - generic [ref=e885]:
+          - img [ref=e886]
+          - text: Student verification
+      - generic [ref=e888] [cursor=pointer]:
+        - generic [ref=e889]:
+          - img [ref=e891]
+          - generic [ref=e894]:
+            - generic [ref=e895]: Julius AI
+            - generic [ref=e896]: julius.ai
+          - generic "Toggle favorite" [ref=e897]:
+            - img [ref=e898]
+        - generic [ref=e900]: "AI-powered data analysis assistant | Regular: $120/year → $60/year (save $60/yr)"
+        - generic [ref=e901]:
+          - generic [ref=e902]: AI Data Analysis
+          - generic [ref=e903]: "#paid-discount"
+          - link "Open" [ref=e904]:
+            - /url: https://julius.ai
+            - img [ref=e905]
+        - generic [ref=e909]:
+          - img [ref=e910]
+          - text: Academic verification
+      - generic [ref=e912] [cursor=pointer]:
+        - generic [ref=e913]:
+          - img [ref=e915]
+          - generic [ref=e918]:
+            - generic [ref=e919]: Krita
+            - generic [ref=e920]: krita.org
+          - generic "Toggle favorite" [ref=e921]:
+            - img [ref=e922]
+        - generic [ref=e924]: "Professional digital painting software | Regular: FREE → FREE"
+        - generic [ref=e925]:
+          - generic [ref=e926]: Digital Art
+          - generic [ref=e927]: "#free"
+          - generic [ref=e928]: "#no-signup-required"
+          - generic [ref=e929]: "+1"
+          - link "Open" [ref=e930]:
+            - /url: https://krita.org
+            - img [ref=e931]
+        - generic [ref=e935]:
+          - img [ref=e936]
+          - text: No verification
+      - generic [ref=e938] [cursor=pointer]:
+        - generic [ref=e939]:
+          - img [ref=e941]
+          - generic [ref=e944]:
+            - generic [ref=e945]: LexisNexis Academic
+            - generic [ref=e946]: academic.lexisnexis.com
+          - generic "Toggle favorite" [ref=e947]:
+            - img [ref=e948]
+        - generic [ref=e950]: "Legal documents, news, business information | Regular: $4,500/year → FREE (save $4,500/yr)"
+        - generic [ref=e951]:
+          - generic [ref=e952]: Legal/News Database
+          - generic [ref=e953]: "#free"
+          - generic [ref=e954]: "#university-access"
+          - link "Open" [ref=e955]:
+            - /url: https://academic.lexisnexis.com
+            - img [ref=e956]
+        - generic [ref=e960]:
+          - img [ref=e961]
+          - text: University subscription
+      - generic [ref=e963] [cursor=pointer]:
+        - generic [ref=e964]:
+          - img [ref=e966]
+          - generic [ref=e969]:
+            - generic [ref=e970]: LinkedIn Premium
+            - generic [ref=e971]: www.linkedin.com/learning
+          - generic "Toggle favorite" [ref=e972]:
+            - img [ref=e973]
+        - generic [ref=e975]: "Professional networking and job search | Regular: $360/year → FREE (1 month) (save $30/yr)"
+        - generic [ref=e976]:
+          - generic [ref=e977]: Professional
+          - generic [ref=e978]: "#free"
+          - link "Open" [ref=e979]:
+            - /url: https://www.linkedin.com/learning/
+            - img [ref=e980]
+        - generic [ref=e984]:
+          - img [ref=e985]
+          - text: Any LinkedIn account
+      - generic [ref=e987] [cursor=pointer]:
+        - generic [ref=e988]:
+          - img [ref=e990]
+          - generic [ref=e993]:
+            - generic [ref=e994]: Lucidchart Education
+            - generic [ref=e995]: lucid.app/education
+          - generic "Toggle favorite" [ref=e996]:
+            - img [ref=e997]
+        - generic [ref=e999]: "Professional flowcharts and diagrams | Regular: $120/year → FREE (save $120/yr)"
+        - generic [ref=e1000]:
+          - generic [ref=e1001]: Diagramming
+          - generic [ref=e1002]: "#free"
+          - link "Open" [ref=e1003]:
+            - /url: https://lucid.app/education
+            - img [ref=e1004]
+        - generic [ref=e1008]:
+          - img [ref=e1009]
+          - text: Education email
+      - generic [ref=e1011] [cursor=pointer]:
+        - generic [ref=e1012]:
+          - img [ref=e1014]
+          - generic [ref=e1017]:
+            - generic [ref=e1018]: Mailchimp Pro
+            - generic [ref=e1019]: www.mailchimp.com
+          - generic "Toggle favorite" [ref=e1020]:
+            - img [ref=e1021]
+        - generic [ref=e1023]: "Email marketing and automation | Regular: $300/year → Student discounts (save $100+/yr)"
+        - generic [ref=e1024]:
+          - generic [ref=e1025]: Email Marketing
+          - generic [ref=e1026]: "#paid-discount"
+          - generic [ref=e1027]: "#student-verify"
+          - link "Open" [ref=e1028]:
+            - /url: https://www.mailchimp.com
+            - img [ref=e1029]
+        - generic [ref=e1033]:
+          - img [ref=e1034]
+          - text: Student verification
+      - generic [ref=e1036] [cursor=pointer]:
+        - generic [ref=e1037]:
+          - img [ref=e1039]
+          - generic [ref=e1042]:
+            - generic [ref=e1043]: Microsoft 365 Education
+            - generic [ref=e1044]: www.microsoft.com/en-us/education/products/office
+          - generic "Toggle favorite" [ref=e1045]:
+            - img [ref=e1046]
+        - generic [ref=e1048]: "Full Office suite + Teams + OneDrive + Copilot features | Regular: $720/year → FREE (save $720/yr)"
+        - generic [ref=e1049]:
+          - generic [ref=e1050]: Productivity
+          - generic [ref=e1051]: "#edu-email"
+          - generic [ref=e1052]: "#free"
+          - link "Open" [ref=e1053]:
+            - /url: https://www.microsoft.com/en-us/education/products/office
+            - img [ref=e1054]
+        - generic [ref=e1058]:
+          - img [ref=e1059]
+          - text: .edu email
+      - generic [ref=e1061] [cursor=pointer]:
+        - generic [ref=e1062]:
+          - img [ref=e1064]
+          - generic [ref=e1067]:
+            - generic [ref=e1068]: Microsoft Azure
+            - generic [ref=e1069]: azure.microsoft.com/en-us/free/students
+          - generic "Toggle favorite" [ref=e1070]:
+            - img [ref=e1071]
+        - generic [ref=e1073]: "Cloud computing and AI services | Regular: $1,200/year → $100 credits (save $100+/yr)"
+        - generic [ref=e1074]:
+          - generic [ref=e1075]: Cloud Computing
+          - generic [ref=e1076]: "#paid-discount"
+          - link "Open" [ref=e1077]:
+            - /url: https://azure.microsoft.com/en-us/free/students/
+            - img [ref=e1078]
+        - generic [ref=e1082]:
+          - img [ref=e1083]
+          - text: 18+ with school email
+      - generic [ref=e1085] [cursor=pointer]:
+        - generic [ref=e1086]:
+          - img [ref=e1088]
+          - generic [ref=e1091]:
+            - generic [ref=e1092]: Miro Team
+            - generic [ref=e1093]: miro.com/education
+          - generic "Toggle favorite" [ref=e1094]:
+            - img [ref=e1095]
+        - generic [ref=e1097]: "Visual collaboration and whiteboarding | Regular: $120/year → FREE (save $120/yr)"
+        - generic [ref=e1098]:
+          - generic [ref=e1099]: Visual Collaboration
+          - generic [ref=e1100]: "#free"
+          - generic [ref=e1101]: "#student-verify"
+          - link "Open" [ref=e1102]:
+            - /url: https://miro.com/education/
+            - img [ref=e1103]
+        - generic [ref=e1107]:
+          - img [ref=e1108]
+          - text: Student verification
+      - generic [ref=e1110] [cursor=pointer]:
+        - generic [ref=e1111]:
+          - img [ref=e1113]
+          - generic [ref=e1116]:
+            - generic [ref=e1117]: MongoDB Atlas
+            - generic [ref=e1118]: www.mongodb.com/students
+          - generic "Toggle favorite" [ref=e1119]:
+            - img [ref=e1120]
+        - generic [ref=e1122]: "Cloud database service | Regular: $600/year → FREE tier + credits (save $200+/yr)"
+        - generic [ref=e1123]:
+          - generic [ref=e1124]: Database
+          - generic [ref=e1125]: "#free"
+          - generic [ref=e1126]: "#student-verify"
+          - link "Open" [ref=e1127]:
+            - /url: https://www.mongodb.com/students
+            - img [ref=e1128]
+        - generic [ref=e1132]:
+          - img [ref=e1133]
+          - text: Student verification
+      - generic [ref=e1135] [cursor=pointer]:
+        - generic [ref=e1136]:
+          - img [ref=e1138]
+          - generic [ref=e1141]:
+            - generic [ref=e1142]: Notion AI
+            - generic [ref=e1143]: www.notion.so/students
+          - generic "Toggle favorite" [ref=e1144]:
+            - img [ref=e1145]
+        - generic [ref=e1147]: "AI-powered note-taking and organization | Regular: $120/year → FREE (save $120/yr)"
+        - generic [ref=e1148]:
+          - generic [ref=e1149]: Productivity
+          - generic [ref=e1150]: "#free"
+          - generic [ref=e1151]: "#student-verify"
+          - link "Open" [ref=e1152]:
+            - /url: https://www.notion.so/students
+            - img [ref=e1153]
+        - generic [ref=e1157]:
+          - img [ref=e1158]
+          - text: Student verification
+      - generic [ref=e1160] [cursor=pointer]:
+        - generic [ref=e1161]:
+          - img [ref=e1163]
+          - generic [ref=e1166]:
+            - generic [ref=e1167]: Nuke Non-Commercial
+            - generic [ref=e1168]: www.foundry.com/products/nuke-family/nuke
+          - generic "Toggle favorite" [ref=e1169]:
+            - img [ref=e1170]
+        - generic [ref=e1172]: "Industry-standard compositing software | Regular: $5,000+/year → FREE (save $5,000+/yr)"
+        - generic [ref=e1173]:
+          - generic [ref=e1174]: VFX/Compositing
+          - generic [ref=e1175]: "#free"
+          - generic [ref=e1176]: "#reddit-find"
+          - generic [ref=e1177]: "+1"
+          - link "Open" [ref=e1178]:
+            - /url: https://www.foundry.com/products/nuke-family/nuke
+            - img [ref=e1179]
+        - generic [ref=e1183]:
+          - img [ref=e1184]
+          - text: Student verification
+      - generic [ref=e1186] [cursor=pointer]:
+        - generic [ref=e1187]:
+          - img [ref=e1189]
+          - generic [ref=e1192]:
+            - generic [ref=e1193]: Otter.ai Pro
+            - generic [ref=e1194]: otter.ai
+          - generic "Toggle favorite" [ref=e1195]:
+            - img [ref=e1196]
+        - generic [ref=e1198]: "AI meeting transcription and notes | Regular: $120/year → $100/year (save $20/yr)"
+        - generic [ref=e1199]:
+          - generic [ref=e1200]: Transcription
+          - generic [ref=e1201]: "#paid-discount"
+          - generic [ref=e1202]: "#student-verify"
+          - link "Open" [ref=e1203]:
+            - /url: https://otter.ai
+            - img [ref=e1204]
+        - generic [ref=e1208]:
+          - img [ref=e1209]
+          - text: Student verification
+      - generic [ref=e1211] [cursor=pointer]:
+        - generic [ref=e1212]:
+          - img [ref=e1214]
+          - generic [ref=e1217]:
+            - generic [ref=e1218]: Perplexity Pro
+            - generic [ref=e1219]: perplexity.ai
+          - generic "Toggle favorite" [ref=e1220]:
+            - img [ref=e1221]
+        - generic [ref=e1223]: "AI research assistant with citations | Regular: $240/year → FREE (up to 24 months) (save $480/yr)"
+        - generic [ref=e1224]:
+          - generic [ref=e1225]: AI Search
+          - generic [ref=e1226]: "#free"
+          - generic [ref=e1227]: "#student-verify"
+          - link "Open" [ref=e1228]:
+            - /url: https://perplexity.ai
+            - img [ref=e1229]
+        - generic [ref=e1233]:
+          - img [ref=e1234]
+          - text: Student verification via SheerID
+      - generic [ref=e1236] [cursor=pointer]:
+        - generic [ref=e1237]:
+          - img [ref=e1239]
+          - generic [ref=e1242]:
+            - generic [ref=e1243]: ProQuest Dissertations
+            - generic [ref=e1244]: www.proquest.com/products-services/dissertations
+          - generic "Toggle favorite" [ref=e1245]:
+            - img [ref=e1246]
+        - generic [ref=e1248]: "Global dissertation and thesis database | Regular: $8,000/year → FREE (save $8,000/yr)"
+        - generic [ref=e1249]:
+          - generic [ref=e1250]: Thesis Database
+          - generic [ref=e1251]: "#free"
+          - generic [ref=e1252]: "#university-access"
+          - link "Open" [ref=e1253]:
+            - /url: https://www.proquest.com/products-services/dissertations
+            - img [ref=e1254]
+        - generic [ref=e1258]:
+          - img [ref=e1259]
+          - text: University library
+      - generic [ref=e1261] [cursor=pointer]:
+        - generic [ref=e1262]:
+          - img [ref=e1264]
+          - generic [ref=e1267]:
+            - generic [ref=e1268]: PubMed Central
+            - generic [ref=e1269]: pubmed.ncbi.nlm.nih.gov
+          - generic "Toggle favorite" [ref=e1270]:
+            - img [ref=e1271]
+        - generic [ref=e1273]: "Biomedical and life sciences literature | Regular: $5,000/year → FREE (save $5,000/yr)"
+        - generic [ref=e1274]:
+          - generic [ref=e1275]: Medical Research
+          - generic [ref=e1276]: "#free"
+          - generic [ref=e1277]: "#university-access"
+          - link "Open" [ref=e1278]:
+            - /url: https://pubmed.ncbi.nlm.nih.gov
+            - img [ref=e1279]
+        - generic [ref=e1283]:
+          - img [ref=e1284]
+          - text: University access
+      - generic [ref=e1286] [cursor=pointer]:
+        - generic [ref=e1287]:
+          - img [ref=e1289]
+          - generic [ref=e1292]:
+            - generic [ref=e1293]: Requestly
+            - generic [ref=e1294]: requestly.com
+          - generic "Toggle favorite" [ref=e1295]:
+            - img [ref=e1296]
+        - generic [ref=e1298]: "API mocking and testing tool | Regular: $120/year → FREE (save $120/yr)"
+        - generic [ref=e1299]:
+          - generic [ref=e1300]: API Testing
+          - generic [ref=e1301]: "#free"
+          - generic [ref=e1302]: "#reddit-find"
+          - generic [ref=e1303]: "+1"
+          - link "Open" [ref=e1304]:
+            - /url: https://requestly.com
+            - img [ref=e1305]
+        - generic [ref=e1309]:
+          - img [ref=e1310]
+          - text: Student verification
+      - generic [ref=e1312] [cursor=pointer]:
+        - generic [ref=e1313]:
+          - img [ref=e1315]
+          - generic [ref=e1318]:
+            - generic [ref=e1319]: Scopus
+            - generic [ref=e1320]: www.scopus.com
+          - generic "Toggle favorite" [ref=e1321]:
+            - img [ref=e1322]
+        - generic [ref=e1324]: "Abstract and citation database | Regular: $12,000/year → FREE (save $12,000/yr)"
+        - generic [ref=e1325]:
+          - generic [ref=e1326]: Research Database
+          - generic [ref=e1327]: "#free"
+          - generic [ref=e1328]: "#university-access"
+          - link "Open" [ref=e1329]:
+            - /url: https://www.scopus.com
+            - img [ref=e1330]
+        - generic [ref=e1334]:
+          - img [ref=e1335]
+          - text: University access
+      - generic [ref=e1337] [cursor=pointer]:
+        - generic [ref=e1338]:
+          - img [ref=e1340]
+          - generic [ref=e1343]:
+            - generic [ref=e1344]: Sketch
+            - generic [ref=e1345]: www.sketch.com/education
+          - generic "Toggle favorite" [ref=e1346]:
+            - img [ref=e1347]
+        - generic [ref=e1349]: "UI/UX design tool for Mac | Regular: $120/year → $60/year (save $60/yr)"
+        - generic [ref=e1350]:
+          - generic [ref=e1351]: Design (macOS)
+          - generic [ref=e1352]: "#paid-discount"
+          - generic [ref=e1353]: "#student-verify"
+          - link "Open" [ref=e1354]:
+            - /url: https://www.sketch.com/education/
+            - img [ref=e1355]
+        - generic [ref=e1359]:
+          - img [ref=e1360]
+          - text: Student verification
+      - generic [ref=e1362] [cursor=pointer]:
+        - generic [ref=e1363]:
+          - img [ref=e1365]
+          - generic [ref=e1368]:
+            - generic [ref=e1369]: Slack Standard
+            - generic [ref=e1370]: slack.com
+          - generic "Toggle favorite" [ref=e1371]:
+            - img [ref=e1372]
+        - generic [ref=e1374]: "Team communication and collaboration | Regular: $96/year → FREE (save $96/yr)"
+        - generic [ref=e1375]:
+          - generic [ref=e1376]: Communication
+          - generic [ref=e1377]: "#free"
+          - generic [ref=e1378]: "#student-verify"
+          - link "Open" [ref=e1379]:
+            - /url: https://slack.com
+            - img [ref=e1380]
+        - generic [ref=e1384]:
+          - img [ref=e1385]
+          - text: Student team verification
+      - generic [ref=e1387] [cursor=pointer]:
+        - generic [ref=e1388]:
+          - img [ref=e1390]
+          - generic [ref=e1393]:
+            - generic [ref=e1394]: Spotify Premium
+            - generic [ref=e1395]: open.spotify.com/us/students
+          - generic "Toggle favorite" [ref=e1396]:
+            - img [ref=e1397]
+        - generic [ref=e1399]: "Music streaming with offline access | Regular: $120/year → $60/year (save $60/yr)"
+        - generic [ref=e1400]:
+          - generic [ref=e1401]: Music Streaming
+          - generic [ref=e1402]: "#paid-discount"
+          - generic [ref=e1403]: "#student-verify"
+          - link "Open" [ref=e1404]:
+            - /url: https://open.spotify.com/us/students
+            - img [ref=e1405]
+        - generic [ref=e1409]:
+          - img [ref=e1410]
+          - text: 18+ enrolled student
+      - generic [ref=e1412] [cursor=pointer]:
+        - generic [ref=e1413]:
+          - img [ref=e1415]
+          - generic [ref=e1418]:
+            - generic [ref=e1419]: Substance Painter/Designer
+            - generic [ref=e1420]: www.adobe.com/products/substance3d/substance-painter-and-des
+          - generic "Toggle favorite" [ref=e1421]:
+            - img [ref=e1422]
+        - generic [ref=e1424]: "Industry-standard 3D texturing tools | Regular: $240/year → FREE (1 year) (save $240/yr)"
+        - generic [ref=e1425]:
+          - generic [ref=e1426]: 3D Design
+          - generic [ref=e1427]: "#free"
+          - generic [ref=e1428]: "#reddit-find"
+          - generic [ref=e1429]: "+1"
+          - link "Open" [ref=e1430]:
+            - /url: https://www.adobe.com/products/substance3d/substance-painter-and-designer.html
+            - img [ref=e1431]
+        - generic [ref=e1435]:
+          - img [ref=e1436]
+          - text: Student verification
+      - generic [ref=e1438] [cursor=pointer]:
+        - generic [ref=e1439]:
+          - img [ref=e1441]
+          - generic [ref=e1444]:
+            - generic [ref=e1445]: Typeform Pro
+            - generic [ref=e1446]: www.typeform.com
+          - generic "Toggle favorite" [ref=e1447]:
+            - img [ref=e1448]
+        - generic [ref=e1450]: "Professional form builder and surveys | Regular: $300/year → Student discounts (save $100+/yr)"
+        - generic [ref=e1451]:
+          - generic [ref=e1452]: Forms/Surveys
+          - generic [ref=e1453]: "#paid-discount"
+          - generic [ref=e1454]: "#student-verify"
+          - link "Open" [ref=e1455]:
+            - /url: https://www.typeform.com
+            - img [ref=e1456]
+        - generic [ref=e1460]:
+          - img [ref=e1461]
+          - text: Student verification
+      - generic [ref=e1463] [cursor=pointer]:
+        - generic [ref=e1464]:
+          - img [ref=e1466]
+          - generic [ref=e1469]:
+            - generic [ref=e1470]: Unity Pro
+            - generic [ref=e1471]: unity.com/education
+          - generic "Toggle favorite" [ref=e1472]:
+            - img [ref=e1473]
+        - generic [ref=e1475]: "Professional game development platform | Regular: $2,040/year → FREE (save $2,040/yr)"
+        - generic [ref=e1476]:
+          - generic [ref=e1477]: Game Development
+          - generic [ref=e1478]: "#free"
+          - generic [ref=e1479]: "#student-verify"
+          - link "Open" [ref=e1480]:
+            - /url: https://unity.com/education
+            - img [ref=e1481]
+        - generic [ref=e1485]:
+          - img [ref=e1486]
+          - text: Student verification
+      - generic [ref=e1488] [cursor=pointer]:
+        - generic [ref=e1489]:
+          - img [ref=e1491]
+          - generic [ref=e1494]:
+            - generic [ref=e1495]: Web of Science
+            - generic [ref=e1496]: www.webofscience.com
+          - generic "Toggle favorite" [ref=e1497]:
+            - img [ref=e1498]
+        - generic [ref=e1500]: "Citation database, impact factor analysis | Regular: $15,000/year → FREE (save $15,000/yr)"
+        - generic [ref=e1501]:
+          - generic [ref=e1502]: Research Database
+          - generic [ref=e1503]: "#free"
+          - generic [ref=e1504]: "#university-access"
+          - link "Open" [ref=e1505]:
+            - /url: https://www.webofscience.com
+            - img [ref=e1506]
+        - generic [ref=e1510]:
+          - img [ref=e1511]
+          - text: University subscription
+      - generic [ref=e1513] [cursor=pointer]:
+        - generic [ref=e1514]:
+          - img [ref=e1516]
+          - generic [ref=e1519]:
+            - generic [ref=e1520]: Wolfram Alpha Pro
+            - generic [ref=e1521]: www.wolframalpha.com
+          - generic "Toggle favorite" [ref=e1522]:
+            - img [ref=e1523]
+        - generic [ref=e1525]: "Advanced computational engine | Regular: $60/year → FREE (save $60/yr)"
+        - generic [ref=e1526]:
+          - generic [ref=e1527]: Math/Science
+          - generic [ref=e1528]: "#free"
+          - generic [ref=e1529]: "#reddit-find"
+          - link "Open" [ref=e1530]:
+            - /url: https://www.wolframalpha.com
+            - img [ref=e1531]
+        - generic [ref=e1535]:
+          - img [ref=e1536]
+          - text: Some universities provide access
+      - generic [ref=e1538] [cursor=pointer]:
+        - generic [ref=e1539]:
+          - img [ref=e1541]
+          - generic [ref=e1544]:
+            - generic [ref=e1545]: Zoom Pro
+            - generic [ref=e1546]: zoom.us/education
+          - generic "Toggle favorite" [ref=e1547]:
+            - img [ref=e1548]
+        - generic [ref=e1550]: "Professional video conferencing | Regular: $180/year → FREE (save $180/yr)"
+        - generic [ref=e1551]:
+          - generic [ref=e1552]: Video Conferencing
+          - generic [ref=e1553]: "#free"
+          - link "Open" [ref=e1554]:
+            - /url: https://zoom.us/education
+            - img [ref=e1555]
+        - generic [ref=e1559]:
+          - img [ref=e1560]
+          - text: Educational institution
+  - button "Add resource" [ref=e1562] [cursor=pointer]:
+    - img [ref=e1563]
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+```

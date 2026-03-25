@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.089
+**Last updated:** v202603.090
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -317,6 +317,10 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 11. ~~**Recurring tasks linked to records**~~ — **DONE v202603.087.** Vehicle service and property maintenance records with next_due_date within 30 days auto-generate todos. Auto-resolve when date moves out.
 12. ~~**Data quality checker**~~ — **DONE v202603.087.** Reports → Data Quality tab shows both needs_review flags and completeness issues (10 checks across 8 modules).
 13. ~~**Finance/HSA tags**~~ — **DONE v202603.087.** Tags wired on finance_transactions and hsa_payments. GET responses include tag names, POST/PUT save tags, DELETE clears tags.
+
+### v202603.090 — E2E test suite fixes
+- **checkNoRawHtml false positives** — original regex `/<div\s/` and `/<span\s/` matched SVG paths, nav labels, Settings redirect notes, and other legitimate text on every page. Replaced with specific patterns targeting only the actual bug signature: `window.LT?.toast` visible as text, `<button onclick=` in body text, inline style strings leaking, clipboard JS visible. Also skips `<pre>`, `<code>`, log viewers explicitly.
+- **Runtime 49min → ~5min** — `waitUntil: 'networkidle'` hangs on pages that poll Google Calendar and other external APIs. Switched page loads to `waitUntil: 'load'` + 1.5s settle wait. Added `navigationTimeout: 10000` and `actionTimeout: 5000` to playwright.config.js.
 
 ### v202603.089
 - **E2E test suite** — `tests/` folder with Playwright. Runs from Windows against live Ghrava. Catches render bugs (raw HTML as text), JS errors, tag chip integrity, CRUD flows with auto-cleanup. Results POST'd to Ghrava and visible in Reports → Testing tab. Setup: `cd tests && npm install && npx playwright install chromium`. Nightly via Windows Task Scheduler.

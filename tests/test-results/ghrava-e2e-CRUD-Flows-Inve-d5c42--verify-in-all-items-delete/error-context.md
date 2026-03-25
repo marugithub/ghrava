@@ -1,0 +1,207 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do 2" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+        - generic [ref=e20]: "2"
+    - generic [ref=e21]:
+      - generic [ref=e22]: Finance
+      - link "Finance" [ref=e23] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e25]
+        - generic [ref=e27]: Finance
+      - link "↗ Terminal" [ref=e28] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e30]
+        - generic [ref=e32]: ↗ Terminal
+      - link "Reports" [ref=e33] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+    - generic [ref=e37]:
+      - generic [ref=e38]: Household
+      - link "Inventory" [ref=e39] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e41]
+        - generic [ref=e44]: Inventory
+      - link "Medical" [ref=e45] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e47]
+        - generic [ref=e49]: Medical
+      - link "Kids" [ref=e50] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e52]
+        - generic [ref=e56]: Kids
+      - link "Property" [ref=e57] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e59]
+        - generic [ref=e62]: Property
+      - link "Documents" [ref=e63] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e65]
+        - generic [ref=e68]: Documents
+    - generic [ref=e69]:
+      - generic [ref=e70]: Personal
+      - link "Career" [ref=e71] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e73]
+        - generic [ref=e76]: Career
+      - link "Books" [ref=e77] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e79]
+        - generic [ref=e82]: Books
+      - link "Resources" [ref=e83] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e85]
+        - generic [ref=e90]: Resources
+    - button "Collapse" [ref=e92] [cursor=pointer]:
+      - img [ref=e94]
+      - generic [ref=e96]: Collapse
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - link "Home" [ref=e100] [cursor=pointer]:
+          - /url: /index.html
+          - img [ref=e102]
+        - img [ref=e107]
+        - heading "Inventory" [level=1] [ref=e111]
+        - generic [ref=e112]:
+          - button "Notifications" [ref=e113] [cursor=pointer]:
+            - img [ref=e115]
+            - generic [ref=e117]: "3"
+          - link "Settings" [ref=e118] [cursor=pointer]:
+            - /url: /settings.html
+            - img [ref=e120]
+      - generic [ref=e123]:
+        - generic [ref=e124]:
+          - img
+          - searchbox "Search items, containers…" [ref=e125]
+        - link "Export to Excel" [ref=e126] [cursor=pointer]:
+          - /url: /api/v1/inventory/export
+          - img [ref=e127]
+        - generic "Import from Excel" [ref=e130] [cursor=pointer]:
+          - img [ref=e131]
+    - generic [ref=e134]:
+      - generic "View all items" [ref=e135] [cursor=pointer]:
+        - generic [ref=e136]: "17"
+        - generic [ref=e137]: Items
+      - generic "View all containers" [ref=e138] [cursor=pointer]:
+        - generic [ref=e139]: "1"
+        - generic [ref=e140]: Containers
+      - generic [ref=e141]:
+        - generic [ref=e142]: $0
+        - generic [ref=e143]: Est. Value
+    - generic [ref=e144]:
+      - generic [ref=e145]:
+        - button "All Items" [active] [ref=e146] [cursor=pointer]
+        - button "Rooms" [ref=e147] [cursor=pointer]
+        - generic [ref=e149]:
+          - button "Grid view" [ref=e150] [cursor=pointer]:
+            - img [ref=e151]
+          - button "List view" [ref=e156] [cursor=pointer]:
+            - img [ref=e157]
+          - generic [ref=e162]: Cols
+          - button "2" [ref=e163] [cursor=pointer]
+          - button "3" [ref=e164] [cursor=pointer]
+          - button "4" [ref=e165] [cursor=pointer]
+          - button "5" [ref=e166] [cursor=pointer]
+          - button "Sort" [ref=e168] [cursor=pointer]:
+            - img [ref=e169]
+            - text: Sort
+          - button "Advanced Filters" [ref=e170] [cursor=pointer]:
+            - img [ref=e171]
+            - text: Advanced Filters
+        - generic [ref=e173]:
+          - button "All" [ref=e174] [cursor=pointer]
+          - button "Home" [ref=e175] [cursor=pointer]
+          - button "Business" [ref=e176] [cursor=pointer]
+      - generic [ref=e178]:
+        - generic [ref=e179]:
+          - generic [ref=e180] [cursor=pointer]:
+            - generic [ref=e181]: 📦
+            - generic [ref=e182]:
+              - generic [ref=e183]: _e2e_item_test
+              - generic [ref=e184]: "ð\x9f\x93\x8d 3817 - Arnav - Bedroom"
+          - generic [ref=e185] [cursor=pointer]:
+            - img "Netgear Managed 8-Port Gig Plus Switch" [ref=e186]
+            - generic [ref=e187]:
+              - generic [ref=e188]: Netgear Managed 8-Port Gig Plus Switch
+              - generic [ref=e189]: "ð\x9f\x93\x8d 3817 - Garage"
+          - generic [ref=e190] [cursor=pointer]:
+            - generic: "2"
+            - generic [ref=e191]: 📦
+            - generic [ref=e192]:
+              - generic [ref=e193]: Original Toyota cabin air filter
+              - generic [ref=e194]: "ð\x9f\x93\x8d 3817 - Garage"
+          - generic [ref=e195] [cursor=pointer]:
+            - generic: "2"
+            - img "Toyota Genuine Air Filter 17801-YZZ05" [ref=e196]
+            - generic [ref=e197]:
+              - generic [ref=e198]: Toyota Genuine Air Filter 17801-YZZ05
+              - generic [ref=e199]: "ð\x9f\x93\x8d 3817 - Garage"
+          - generic [ref=e200] [cursor=pointer]:
+            - img "Lenovo ThinkPad Universal USB-C Dock" [ref=e201]
+            - generic [ref=e202]:
+              - generic [ref=e203]: Lenovo ThinkPad Universal USB-C Dock
+              - generic [ref=e204]: "ð\x9f\x93\x8d 3817 - Garage"
+          - generic [ref=e205] [cursor=pointer]:
+            - img "ARM & HAMMER Essentials Deodorant Fresh Rosemary Lavender Ma" [ref=e206]
+            - generic [ref=e207]:
+              - generic [ref=e208]: ARM & HAMMER Essentials Deodorant Fresh Rosemary Lavender Ma
+              - generic [ref=e209]: "ð\x9f\x93\x8d 3817 - Arnav - Bedroom"
+          - generic [ref=e210] [cursor=pointer]:
+            - img "Jet Black Enigma by Michael Malul Eau De Parfum Spray for Me" [ref=e211]
+            - generic [ref=e212]:
+              - generic [ref=e213]: Jet Black Enigma by Michael Malul Eau De Parfum Spray for Me
+              - generic [ref=e214]: "ð\x9f\x93\x8d 3817 - Arnav - Bedroom"
+          - generic [ref=e215] [cursor=pointer]:
+            - img "Ocean Noir by Michael Malu EDP Spray for MEN" [ref=e216]
+            - generic [ref=e217]:
+              - generic [ref=e218]: Ocean Noir by Michael Malu EDP Spray for MEN
+              - generic [ref=e219]: "ð\x9f\x93\x8d 3817 - Arnav - Bedroom"
+          - generic [ref=e220] [cursor=pointer]:
+            - img "Michael Malul Sea + Zephyr Eau De Parfum" [ref=e221]
+            - generic [ref=e222]:
+              - generic [ref=e223]: Michael Malul Sea + Zephyr Eau De Parfum
+              - generic [ref=e224]: "ð\x9f\x93\x8d 3817 - Arnav - Bedroom"
+          - generic [ref=e225] [cursor=pointer]:
+            - img "Pen+Gear The Best Sticker Book Ever - Good Vibes Edition Mul" [ref=e226]
+            - generic [ref=e227]:
+              - generic [ref=e228]: Pen+Gear The Best Sticker Book Ever - Good Vibes Edition Mul
+              - generic [ref=e229]: "ð\x9f\x93\x8d Risha desk"
+          - generic [ref=e230] [cursor=pointer]:
+            - img "Pentel RSVP Ballpoint Pen (0.7mm) Fine Line Black Ink" [ref=e231]
+            - generic [ref=e232]:
+              - generic [ref=e233]: Pentel RSVP Ballpoint Pen (0.7mm) Fine Line Black Ink
+              - generic [ref=e234]: "ð\x9f\x93\x8d 3817 - TV-Bedroom"
+          - generic [ref=e235] [cursor=pointer]:
+            - generic [ref=e236]: 📦
+            - generic [ref=e237]:
+              - generic [ref=e238]: test product
+              - generic [ref=e239]: "ð\x9f\x93\x8d 3817 - Garage › Kitchen Box"
+        - generic [ref=e240]:
+          - button "← Prev"
+          - generic [ref=e241]: 1 of 2 · 17 items
+  - button [ref=e242] [cursor=pointer]:
+    - img [ref=e243]
+  - text: i i
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+```

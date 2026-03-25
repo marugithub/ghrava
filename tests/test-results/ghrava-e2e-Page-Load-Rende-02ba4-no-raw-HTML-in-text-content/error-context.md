@@ -1,0 +1,139 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do 2" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+        - generic [ref=e20]: "2"
+    - generic [ref=e21]:
+      - generic [ref=e22]: Finance
+      - link "Finance" [ref=e23] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e25]
+        - generic [ref=e27]: Finance
+      - link "↗ Terminal" [ref=e28] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e30]
+        - generic [ref=e32]: ↗ Terminal
+      - link "Reports" [ref=e33] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+    - generic [ref=e37]:
+      - generic [ref=e38]: Household
+      - link "Inventory" [ref=e39] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e41]
+        - generic [ref=e44]: Inventory
+      - link "Medical" [ref=e45] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e47]
+        - generic [ref=e49]: Medical
+      - link "Kids" [ref=e50] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e52]
+        - generic [ref=e56]: Kids
+      - link "Property" [ref=e57] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e59]
+        - generic [ref=e62]: Property
+      - link "Documents" [ref=e63] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e65]
+        - generic [ref=e68]: Documents
+    - generic [ref=e69]:
+      - generic [ref=e70]: Personal
+      - link "Career" [ref=e71] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e73]
+        - generic [ref=e76]: Career
+      - link "Books" [ref=e77] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e79]
+        - generic [ref=e82]: Books
+      - link "Resources" [ref=e83] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e85]
+        - generic [ref=e90]: Resources
+    - button "Collapse" [ref=e92] [cursor=pointer]:
+      - img [ref=e94]
+      - generic [ref=e96]: Collapse
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - link "Home" [ref=e100] [cursor=pointer]:
+          - /url: /index.html
+          - img [ref=e102]
+        - img [ref=e107]
+        - heading "Finance" [level=1] [ref=e110]
+        - generic [ref=e111]:
+          - generic [ref=e112]:
+            - generic [ref=e113]: 📅
+            - combobox [ref=e114] [cursor=pointer]:
+              - option "2028"
+              - option "2027"
+              - option "2026" [selected]
+              - option "2025"
+              - option "2024"
+              - option "2023"
+          - button "Notifications" [ref=e115] [cursor=pointer]:
+            - img [ref=e117]
+            - generic [ref=e119]: "3"
+          - link "Settings" [ref=e120] [cursor=pointer]:
+            - /url: /settings.html
+            - img [ref=e122]
+    - generic [ref=e125]:
+      - button "HSA" [ref=e126] [cursor=pointer]
+      - button "Accounts" [ref=e127] [cursor=pointer]
+      - button "Transactions" [ref=e128] [cursor=pointer]
+      - button "Net Worth" [ref=e129] [cursor=pointer]
+      - button "Budgets" [ref=e130] [cursor=pointer]
+      - button "Gift Cards" [ref=e131] [cursor=pointer]
+      - button "Import" [ref=e132] [cursor=pointer]
+      - button "Holdings" [ref=e133] [cursor=pointer]
+    - generic [ref=e134]:
+      - generic [ref=e136]:
+        - generic [ref=e137]: Please log in to view your HSA data
+        - link "Go to Settings →" [ref=e138] [cursor=pointer]:
+          - /url: /settings.html
+      - generic [ref=e139]:
+        - button "Expenses" [ref=e140] [cursor=pointer]
+        - button "OTC" [ref=e141] [cursor=pointer]
+        - button "Reimbursed" [ref=e142] [cursor=pointer]
+        - button "Plan" [ref=e143] [cursor=pointer]
+      - generic [ref=e144]:
+        - button "All" [ref=e145] [cursor=pointer]
+        - button "Doctor" [ref=e146] [cursor=pointer]
+        - button "Hospital" [ref=e147] [cursor=pointer]
+        - button "Pharmacy" [ref=e148] [cursor=pointer]
+        - button "Lab" [ref=e149] [cursor=pointer]
+        - button "Dental" [ref=e150] [cursor=pointer]
+        - button "Vision" [ref=e151] [cursor=pointer]
+        - button "Mental Health" [ref=e152] [cursor=pointer]
+        - button "Therapy" [ref=e153] [cursor=pointer]
+        - button "Other" [ref=e154] [cursor=pointer]
+      - button "↓ CSV" [ref=e156] [cursor=pointer]
+      - generic [ref=e158]:
+        - generic [ref=e159]: 💊
+        - heading "No medical expenses" [level=3] [ref=e160]
+        - paragraph [ref=e161]: Tap + to add your first expense for 2026.
+  - button "+" [ref=e162] [cursor=pointer]
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+```

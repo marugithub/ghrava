@@ -1,0 +1,326 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do 2" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+        - generic [ref=e20]: "2"
+    - generic [ref=e21]:
+      - generic [ref=e22]: Finance
+      - link "Finance" [ref=e23] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e25]
+        - generic [ref=e27]: Finance
+      - link "↗ Terminal" [ref=e28] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e30]
+        - generic [ref=e32]: ↗ Terminal
+      - link "Reports" [ref=e33] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+    - generic [ref=e37]:
+      - generic [ref=e38]: Household
+      - link "Inventory" [ref=e39] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e41]
+        - generic [ref=e44]: Inventory
+      - link "Medical" [ref=e45] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e47]
+        - generic [ref=e49]: Medical
+      - link "Kids" [ref=e50] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e52]
+        - generic [ref=e56]: Kids
+      - link "Property" [ref=e57] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e59]
+        - generic [ref=e62]: Property
+      - link "Documents" [ref=e63] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e65]
+        - generic [ref=e68]: Documents
+    - generic [ref=e69]:
+      - generic [ref=e70]: Personal
+      - link "Career" [ref=e71] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e73]
+        - generic [ref=e76]: Career
+      - link "Books" [ref=e77] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e79]
+        - generic [ref=e82]: Books
+      - link "Resources" [ref=e83] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e85]
+        - generic [ref=e90]: Resources
+    - button "Collapse" [ref=e92] [cursor=pointer]:
+      - img [ref=e94]
+      - generic [ref=e96]: Collapse
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - link "Home" [ref=e100] [cursor=pointer]:
+          - /url: /index.html
+          - img [ref=e102]
+        - img [ref=e107]
+        - heading "Settings" [level=1] [ref=e111]
+        - generic [ref=e112]:
+          - button "Lock" [ref=e113] [cursor=pointer]:
+            - img [ref=e114]
+          - button "Notifications" [ref=e117] [cursor=pointer]:
+            - img [ref=e119]
+            - generic [ref=e121]: "3"
+          - link "Settings" [ref=e122] [cursor=pointer]:
+            - /url: /settings.html
+            - img [ref=e124]
+    - generic [ref=e127]:
+      - generic [ref=e128]: 🔐
+      - generic [ref=e129]: Settings
+      - generic [ref=e130]: Enter your Ghrava password to continue.
+      - generic [ref=e131]:
+        - textbox "Enter password" [active] [ref=e132]
+        - button "Unlock" [ref=e134] [cursor=pointer]
+    - generic [ref=e135]:
+      - generic [ref=e136]:
+        - button [ref=e137] [cursor=pointer]:
+          - img [ref=e138]
+        - generic [ref=e140]: Account
+      - generic [ref=e142]:
+        - generic [ref=e143]: Change Password
+        - generic [ref=e144]: Enter your current password, then choose a new one.
+        - generic [ref=e145]:
+          - generic [ref=e146]: Current Password
+          - textbox "Current password" [ref=e147]
+        - generic [ref=e148]:
+          - generic [ref=e149]: New Password
+          - textbox "New password" [ref=e150]
+        - generic [ref=e151]:
+          - generic [ref=e152]: Confirm New Password
+          - textbox "Confirm new password" [ref=e153]
+        - button "Update Password" [ref=e154] [cursor=pointer]
+    - generic [ref=e155]:
+      - generic [ref=e156]:
+        - button "Settings" [ref=e157] [cursor=pointer]:
+          - img [ref=e158]
+          - text: Settings
+        - generic [ref=e160]: Family Members
+      - generic [ref=e163]: Loading…
+    - generic [ref=e165]:
+      - generic [ref=e166]:
+        - button "Settings" [ref=e167] [cursor=pointer]:
+          - img [ref=e168]
+          - text: Settings
+        - generic [ref=e170]: Contacts
+      - generic [ref=e171]:
+        - generic [ref=e172]:
+          - button "All" [ref=e173]
+          - button "Medical" [ref=e174]
+          - button "Contractor" [ref=e175]
+          - button "Financial" [ref=e176]
+          - button "Employer" [ref=e177]
+          - button "School" [ref=e178]
+          - button "Vendor" [ref=e179]
+          - button "General" [ref=e180]
+          - button "Other" [ref=e181]
+        - generic [ref=e183]: Loading…
+    - generic [ref=e185]:
+      - generic [ref=e186]:
+        - button "Settings" [ref=e187] [cursor=pointer]:
+          - img [ref=e188]
+          - text: Settings
+        - generic [ref=e190]: Tags
+      - generic [ref=e193]: Loading…
+    - generic [ref=e195]:
+      - generic [ref=e196]:
+        - button "Settings" [ref=e197] [cursor=pointer]:
+          - img [ref=e198]
+          - text: Settings
+        - generic [ref=e200]: Dropdown Lists
+      - generic [ref=e202]:
+        - generic [ref=e203]: Manage options that appear in dropdowns across the app. Disable to hide, delete to remove custom ones.
+        - combobox [ref=e204] [cursor=pointer]:
+          - option "— choose a list —" [selected]
+          - option "Inventory Categories"
+          - option "Health & Wellness Sub-categories"
+          - option "Contact Types"
+          - option "Item Condition"
+          - option "Purchase Method"
+    - generic [ref=e205]:
+      - generic [ref=e206]:
+        - button "Settings" [ref=e207] [cursor=pointer]:
+          - img [ref=e208]
+          - text: Settings
+        - generic [ref=e210]: Custom Fields
+      - generic [ref=e211]:
+        - combobox [ref=e213] [cursor=pointer]:
+          - option "All modules" [selected]
+          - option "Inventory"
+          - option "HSA"
+          - option "Finance"
+          - option "Medical"
+          - option "Career"
+        - generic [ref=e215]: Loading…
+    - generic [ref=e217]:
+      - generic [ref=e218]:
+        - button "Settings" [ref=e219] [cursor=pointer]:
+          - img [ref=e220]
+          - text: Settings
+        - generic [ref=e222]: Backup & Restore
+      - generic [ref=e223]:
+        - generic [ref=e225]:
+          - generic [ref=e226]:
+            - generic [ref=e227]: Create Backup
+            - generic [ref=e228]: Saves a copy of your database
+          - button "Backup Now" [ref=e229] [cursor=pointer]
+        - generic [ref=e230]:
+          - generic [ref=e231]: Export Data
+          - generic [ref=e232]: Download your data as JSON or CSV for external use, migration, or archiving.
+          - generic [ref=e233]:
+            - link "⬇️ Full JSON Export" [ref=e234] [cursor=pointer]:
+              - /url: /api/v1/backup/export-json
+            - button "⬇️ CSV by Table ▾" [ref=e235] [cursor=pointer]
+        - generic [ref=e237]: Saved Backups
+        - generic [ref=e239]: Loading…
+    - generic [ref=e241]:
+      - generic [ref=e242]:
+        - button "Settings" [ref=e243] [cursor=pointer]:
+          - img [ref=e244]
+          - text: Settings
+        - generic [ref=e246]: Infrastructure
+      - generic [ref=e247]:
+        - generic [ref=e248]: App URL
+        - generic [ref=e250]:
+          - generic [ref=e251]:
+            - generic [ref=e252]: Base URL
+            - textbox "http://192.168.1.x:3001" [ref=e253]
+            - generic [ref=e254]: The URL used to reach this app on your network. Used in QR codes so scanning opens the app directly.
+          - generic [ref=e255]:
+            - button "Save URL" [ref=e256] [cursor=pointer]
+            - button "Auto-detect" [ref=e257] [cursor=pointer]
+        - generic [ref=e258]: QR Codes
+        - generic [ref=e260]:
+          - generic [ref=e261]: Regenerate all QR codes to use the current Base URL. Do this once after setting the URL above, or any time your NAS IP changes.
+          - button "Regenerate All QR Codes" [ref=e262] [cursor=pointer]
+    - generic [ref=e263]:
+      - generic [ref=e264]:
+        - button "Settings" [ref=e265] [cursor=pointer]:
+          - img [ref=e266]
+          - text: Settings
+        - generic [ref=e268]: Google Services
+      - generic [ref=e269]:
+        - generic [ref=e270]: Status
+        - generic [ref=e273]: Loading…
+        - generic [ref=e275]: OAuth Credentials
+        - generic [ref=e276]:
+          - generic [ref=e277]:
+            - generic [ref=e278]:
+              - text: Create a project at
+              - link "Google Cloud Console" [ref=e279] [cursor=pointer]:
+                - /url: https://console.cloud.google.com
+              - text: ", enable the Calendar API and People API, then create OAuth 2.0 credentials. Set the redirect URI to: your-base-url/api/v1/google/oauth/callback"
+            - generic [ref=e280]:
+              - generic [ref=e281]: Client ID
+              - textbox "xxxxxx.apps.googleusercontent.com" [ref=e282]
+            - generic [ref=e283]:
+              - generic [ref=e284]: Client Secret
+              - textbox "Client secret" [ref=e285]
+          - button "Save Credentials" [ref=e286] [cursor=pointer]
+        - generic [ref=e287]: API Keys
+        - generic [ref=e289]:
+          - generic [ref=e290]:
+            - generic [ref=e291]: Google Books API Key
+            - textbox "Paste API key…" [ref=e292]
+            - generic [ref=e293]:
+              - text: Used as fallback when scanning book ISBNs. Open Library is tried first — this key is only needed if Open Library doesn't find the book. Get a free key at
+              - link "Google Cloud Console ↗" [ref=e294] [cursor=pointer]:
+                - /url: https://console.cloud.google.com/
+          - button "Save Key" [ref=e295] [cursor=pointer]
+        - generic [ref=e296]: Sync Settings
+        - generic [ref=e298]:
+          - generic [ref=e299] [cursor=pointer]:
+            - generic [ref=e300]:
+              - generic [ref=e301]: 📅 Google Calendar
+              - generic [ref=e302]: Pull events into Ghrava calendar
+            - checkbox "📅 Google Calendar Pull events into Ghrava calendar" [ref=e303]
+          - generic [ref=e304] [cursor=pointer]:
+            - generic [ref=e305]:
+              - generic [ref=e306]: 👥 Google Contacts
+              - generic [ref=e307]: Import contacts (one-way, read-only)
+            - checkbox "👥 Google Contacts Import contacts (one-way, read-only)" [ref=e308]
+    - generic [ref=e309]:
+      - generic [ref=e310]:
+        - button "Settings" [ref=e311] [cursor=pointer]:
+          - img [ref=e312]
+          - text: Settings
+        - generic [ref=e314]: About Ghrava
+      - generic [ref=e315]:
+        - generic [ref=e317]:
+          - generic [ref=e318]: 🏠
+          - generic [ref=e319]: Ghrava
+          - generic [ref=e320]: v28.0.0
+          - generic [ref=e321]: Build 2026-03-08
+        - generic [ref=e322]: System
+        - generic [ref=e325]:
+          - generic [ref=e326]:
+            - generic [ref=e327]: Status
+            - generic [ref=e328]: ● Online
+          - generic [ref=e329]:
+            - generic [ref=e330]: Uptime
+            - generic [ref=e331]: —
+          - generic [ref=e332]:
+            - generic [ref=e333]: Node.js
+            - generic [ref=e334]: —
+          - generic [ref=e335]:
+            - generic [ref=e336]: Base URL
+            - generic [ref=e337]: —
+          - generic [ref=e338]:
+            - generic [ref=e339]: Image Processing
+            - generic [ref=e340]: —
+        - generic [ref=e341]: Data
+        - generic [ref=e344]: Loading…
+        - generic [ref=e345]: Recent Changes
+        - link "Moved to Reports → Tools tab →" [ref=e347] [cursor=pointer]:
+          - /url: /reports.html
+          - generic [ref=e348]: Moved to Reports → Tools tab
+          - generic [ref=e349]: →
+        - generic [ref=e350]: Logs
+        - link "Moved to Reports → Tools tab →" [ref=e352] [cursor=pointer]:
+          - /url: /reports.html
+          - generic [ref=e353]: Moved to Reports → Tools tab
+          - generic [ref=e354]: →
+        - generic [ref=e355]: Data Cleanup
+        - link "Moved to Reports → Tools tab →" [ref=e357] [cursor=pointer]:
+          - /url: /reports.html
+          - generic [ref=e358]: Moved to Reports → Tools tab
+          - generic [ref=e359]: →
+        - generic [ref=e360]: Data Review
+        - link "Moved to Reports → Tools tab →" [ref=e362] [cursor=pointer]:
+          - /url: /reports.html
+          - generic [ref=e363]: Moved to Reports → Tools tab
+          - generic [ref=e364]: →
+        - generic [ref=e365]: Diagnostics
+        - link "Moved to Reports → Tools tab →" [ref=e367] [cursor=pointer]:
+          - /url: /reports.html
+          - generic [ref=e368]: Moved to Reports → Tools tab
+          - generic [ref=e369]: →
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+```

@@ -1,0 +1,114 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do 2" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+        - generic [ref=e20]: "2"
+    - generic [ref=e21]:
+      - generic [ref=e22]: Finance
+      - link "Finance" [ref=e23] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e25]
+        - generic [ref=e27]: Finance
+      - link "↗ Terminal" [ref=e28] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e30]
+        - generic [ref=e32]: ↗ Terminal
+      - link "Reports" [ref=e33] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+    - generic [ref=e37]:
+      - generic [ref=e38]: Household
+      - link "Inventory" [ref=e39] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e41]
+        - generic [ref=e44]: Inventory
+      - link "Medical" [ref=e45] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e47]
+        - generic [ref=e49]: Medical
+      - link "Kids" [ref=e50] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e52]
+        - generic [ref=e56]: Kids
+      - link "Property" [ref=e57] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e59]
+        - generic [ref=e62]: Property
+      - link "Documents" [ref=e63] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e65]
+        - generic [ref=e68]: Documents
+    - generic [ref=e69]:
+      - generic [ref=e70]: Personal
+      - link "Career" [ref=e71] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e73]
+        - generic [ref=e76]: Career
+      - link "Books" [ref=e77] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e79]
+        - generic [ref=e82]: Books
+      - link "Resources" [ref=e83] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e85]
+        - generic [ref=e90]: Resources
+    - button "Collapse" [ref=e92] [cursor=pointer]:
+      - img [ref=e94]
+      - generic [ref=e96]: Collapse
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - link "Home" [ref=e100] [cursor=pointer]:
+          - /url: /index.html
+          - img [ref=e102]
+        - img [ref=e107]
+        - heading "Property" [level=1] [ref=e111]
+        - generic [ref=e112]:
+          - button "Notifications" [ref=e113] [cursor=pointer]:
+            - img [ref=e115]
+            - generic [ref=e117]: "3"
+          - link "Settings" [ref=e118] [cursor=pointer]:
+            - /url: /settings.html
+            - img [ref=e120]
+    - generic [ref=e123]:
+      - button "🏠 Properties" [ref=e124] [cursor=pointer]
+      - button "🚗 Vehicles" [ref=e125] [cursor=pointer]
+      - button "🔧 Maintenance" [ref=e126] [cursor=pointer]
+    - generic [ref=e127]:
+      - generic [ref=e128]:
+        - generic [ref=e129]: Properties
+        - button "+ Add" [ref=e130] [cursor=pointer]
+      - generic [ref=e131]:
+        - generic [ref=e132]:
+          - generic [ref=e133]: Est. Value
+          - generic [ref=e134]: $0
+        - generic [ref=e135]:
+          - generic [ref=e136]: Mortgage
+          - generic [ref=e137]: $0
+        - generic [ref=e138]:
+          - generic [ref=e139]: Equity
+          - generic [ref=e140]: $0
+      - generic [ref=e142]: No properties yet
+  - button "+" [ref=e143] [cursor=pointer]
+```

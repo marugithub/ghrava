@@ -1,0 +1,123 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do 2" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+        - generic [ref=e20]: "2"
+    - generic [ref=e21]:
+      - generic [ref=e22]: Finance
+      - link "Finance" [ref=e23] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e25]
+        - generic [ref=e27]: Finance
+      - link "↗ Terminal" [ref=e28] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e30]
+        - generic [ref=e32]: ↗ Terminal
+      - link "Reports" [ref=e33] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e35]
+        - generic [ref=e36]: Reports
+    - generic [ref=e37]:
+      - generic [ref=e38]: Household
+      - link "Inventory" [ref=e39] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e41]
+        - generic [ref=e44]: Inventory
+      - link "Medical" [ref=e45] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e47]
+        - generic [ref=e49]: Medical
+      - link "Kids" [ref=e50] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e52]
+        - generic [ref=e56]: Kids
+      - link "Property" [ref=e57] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e59]
+        - generic [ref=e62]: Property
+      - link "Documents" [ref=e63] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e65]
+        - generic [ref=e68]: Documents
+    - generic [ref=e69]:
+      - generic [ref=e70]: Personal
+      - link "Career" [ref=e71] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e73]
+        - generic [ref=e76]: Career
+      - link "Books" [ref=e77] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e79]
+        - generic [ref=e82]: Books
+      - link "Resources" [ref=e83] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e85]
+        - generic [ref=e90]: Resources
+    - button "Collapse" [ref=e92] [cursor=pointer]:
+      - img [ref=e94]
+      - generic [ref=e96]: Collapse
+  - generic [ref=e97]:
+    - banner [ref=e98]:
+      - generic [ref=e99]:
+        - link "Home" [ref=e100] [cursor=pointer]:
+          - /url: /index.html
+          - img [ref=e102]
+        - img [ref=e107]
+        - heading "Daily Log" [level=1] [ref=e110]
+        - generic [ref=e111]:
+          - button "Notifications" [ref=e112] [cursor=pointer]:
+            - img [ref=e114]
+            - generic [ref=e116]: "3"
+          - link "Settings" [ref=e117] [cursor=pointer]:
+            - /url: /settings.html
+            - img [ref=e119]
+    - generic [ref=e123]:
+      - generic [ref=e124]:
+        - img
+        - searchbox "Search entries…" [ref=e125]
+      - button "Show follow-ups" [ref=e126] [cursor=pointer]:
+        - img [ref=e127]
+      - generic [ref=e130]: "1"
+    - generic [ref=e131]:
+      - button "All" [ref=e132] [cursor=pointer]
+      - button "General" [ref=e133] [cursor=pointer]
+      - button "Investment" [ref=e134] [cursor=pointer]
+      - button "Career" [ref=e135] [cursor=pointer]
+      - button "Finance" [ref=e136] [cursor=pointer]
+      - button "Health" [ref=e137] [cursor=pointer]
+      - button "Home" [ref=e138] [cursor=pointer]
+      - button "Car" [ref=e139] [cursor=pointer]
+      - button "Family" [ref=e140] [cursor=pointer]
+      - button "Medical" [ref=e141] [cursor=pointer]
+      - button "Estate" [ref=e142] [cursor=pointer]
+    - generic [ref=e143]:
+      - generic [ref=e144]: ⚠ Overdue follow-ups
+      - generic [ref=e145] [cursor=pointer]:
+        - generic [ref=e146]: Investment
+        - generic [ref=e147]: check the stock prices for netflix
+        - generic [ref=e149]:
+          - img [ref=e150]
+          - text: Overdue · 2026-02-28
+  - button "Add entry" [ref=e152] [cursor=pointer]:
+    - img [ref=e153]
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+```

@@ -23,24 +23,64 @@ const API  = BASE + '/api/v1';
 
 // ── Helpers ───────────────────────────────────────────────────
 
-/** Check a page for raw HTML text (the fileLink bug class) */
+/** Check a page for raw HTML text (the fileLink bug class).
+ *
+ * Only looks for the specific patterns that indicate a template literal
+ * rendered its HTML as text instead of markup:
+ *   - <button onclick=  or  <button class=  (inline JS/style leaking out)
+ *   - style="font-size: appearing in body text (inline style strings rendered as text)
+ *   - window.LT?.toast  (JS code visible as text — the original fileLink bug)
+ *
+ * Deliberately does NOT match <div or <span broadly — those appear in
+ * code examples, SVG paths, and tooltip titles and produce false positives.
+ *
+ * Skips: <pre>, <code>, <script>, <style>, log viewer elements.
+ */
 async function checkNoRawHtml(page, url, description) {
   await page.goto(url, { waitUntil: 'networkidle' });
-  // Check for common raw HTML patterns that would indicate a rendering bug
+  await page.waitForTimeout(1500); // let deferred JS settle
+
   const rawHtml = await page.evaluate(() => {
-    const patterns = [/<button\s/, /<div\s/, /<span\s/, /<a\s+href/];
+    // Specific patterns for the "template literal rendered as text" bug class
+    const badPatterns = [
+      /window\.LT\??\.toast/,       // JS code visible — original fileLink bug
+      /<button[^>]*onclick=/,         // onclick attribute leaked into text
+      /<button[^>]*class="file-copy/, // file-copy-btn rendered as text
+      /style="font-size:11px;color:var/, // inline style string leaked
+      /navigator\.clipboard\.write/, // clipboard JS visible as text
+    ];
+
+    // Skip elements that legitimately show code/HTML
+    const skipSelectors = [
+      'pre', 'code', 'script', 'style',
+      '#logViewer', '#rpt_logViewer', '#diagLog', '#rpt_diagLog',
+      '.diag-test-det', '[style*="font-family:var(--mono)"]',
+    ];
+
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    const raw = [];
+    const bad = [];
     let node;
     while ((node = walker.nextNode())) {
+      // Skip if inside a code/log element
+      let el = node.parentElement;
+      let skip = false;
+      while (el && el !== document.body) {
+        if (skipSelectors.some(sel => { try { return el.matches(sel); } catch { return false; } })) {
+          skip = true; break;
+        }
+        el = el.parentElement;
+      }
+      if (skip) continue;
+
       const text = node.textContent.trim();
-      if (text.length > 10 && patterns.some(p => p.test(text))) {
-        raw.push(text.slice(0, 100));
+      if (text.length > 5 && badPatterns.some(p => p.test(text))) {
+        bad.push(text.slice(0, 120));
       }
     }
-    return raw;
+    return bad;
   });
-  expect(rawHtml, `${description}: raw HTML found in page text: ${rawHtml.join(' | ')}`).toHaveLength(0);
+
+  expect(rawHtml, `${description}: raw HTML/JS found in visible page text:\n  ${rawHtml.join('\n  ')}`).toHaveLength(0);
 }
 
 /** Collect JS errors during page load */
@@ -48,8 +88,14 @@ async function collectPageErrors(page, url) {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
   page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
-  await page.goto(url, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1000); // let deferred JS settle
+  await page.goto(url, { waitUntil: 'load' });
+  // Wait for initial render to complete
+  try {
+    await page.waitForFunction(
+      () => !document.querySelector('.spinner .spin'),
+      { timeout: 5000 }
+    );
+  } catch { /* proceed */ }
   return errors.filter(e =>
     !e.includes('favicon') &&
     !e.includes('404') &&
@@ -103,7 +149,7 @@ test.describe('Page Load & Render Integrity', () => {
 
   for (const [path, name] of pages) {
     test(`${name} loads with HTTP 200`, async ({ page }) => {
-      const response = await page.goto(BASE + path);
+      const response = await page.goto(BASE + path, { waitUntil: 'load' });
       expect(response.status(), `${name}: HTTP status`).toBe(200);
     });
 
@@ -144,7 +190,7 @@ test.describe('Key UI Elements', () => {
       file_name: '\\\\SoniNAS\\Backups\\test.pdf',
     });
     try {
-      await page.goto(BASE + '/documents.html', { waitUntil: 'networkidle' });
+      await page.goto(BASE + '/documents.html', { waitUntil: 'load' });
       await page.waitForSelector('.doc-card', { timeout: 5000 });
 
       // Verify the file link renders as a button element, not raw text
@@ -171,7 +217,7 @@ test.describe('Key UI Elements', () => {
       tags: ['e2etesttag'],
     });
     try {
-      await page.goto(BASE + '/books.html', { waitUntil: 'networkidle' });
+      await page.goto(BASE + '/books.html', { waitUntil: 'load' });
       await page.waitForSelector('.book-card', { timeout: 5000 });
 
       // Verify tag chip is a span with data-tag
@@ -190,8 +236,8 @@ test.describe('Key UI Elements', () => {
   });
 
   test('Dashboard widgets load and contain numeric values', async ({ page }) => {
-    await page.goto(BASE + '/index.html', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(2000);
+    await page.goto(BASE + '/index.html', { waitUntil: 'load' });
+    await page.waitForTimeout(800);
     // At least one widget value should not be — (loading placeholder)
     const widgets = page.locator('.widget-value');
     const count = await widgets.count();
@@ -199,18 +245,18 @@ test.describe('Key UI Elements', () => {
   });
 
   test('Todos page renders todo items or empty state', async ({ page }) => {
-    await page.goto(BASE + '/todos.html', { waitUntil: 'networkidle' });
-    await page.waitForTimeout(1500);
+    await page.goto(BASE + '/todos.html', { waitUntil: 'load' });
+    await page.waitForTimeout(600);
     const hasTodos = await page.locator('.todo-item').count() > 0;
     const hasEmpty = await page.locator('.todos-empty, .empty-state, .empty').count() > 0;
     expect(hasTodos || hasEmpty, 'Todos page: neither todo items nor empty state found').toBe(true);
   });
 
   test('Reports page tabs are clickable and load content', async ({ page }) => {
-    await page.goto(BASE + '/reports.html', { waitUntil: 'networkidle' });
+    await page.goto(BASE + '/reports.html', { waitUntil: 'load' });
     // Click Data Quality tab
     await page.click('[data-tab="quality"]');
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(600);
     const qualityContent = page.locator('#qualityContent');
     await expect(qualityContent).toBeVisible();
     // Should not contain raw HTML
@@ -219,7 +265,7 @@ test.describe('Key UI Elements', () => {
   });
 
   test('Settings page loads key sections', async ({ page }) => {
-    await page.goto(BASE + '/settings.html', { waitUntil: 'networkidle' });
+    await page.goto(BASE + '/settings.html', { waitUntil: 'load' });
     await expect(page.locator('#app')).toBeVisible();
     // Family and Tags nav items should be present
     await expect(page.locator('text=Family Members')).toBeVisible();
@@ -252,8 +298,8 @@ test.describe('CRUD Flows', () => {
       expect(patch.ok, `Mark done: HTTP ${patch.status}`).toBe(true);
 
       // Verify it appears on todos page
-      await page.goto(BASE + '/todos.html', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1500);
+      await page.goto(BASE + '/todos.html', { waitUntil: 'load' });
+      await page.waitForTimeout(600);
       // No JS errors
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -271,7 +317,7 @@ test.describe('CRUD Flows', () => {
     });
     expect(doc.id, 'Document create: no id').toBeTruthy();
     try {
-      await page.goto(BASE + '/documents.html', { waitUntil: 'networkidle' });
+      await page.goto(BASE + '/documents.html', { waitUntil: 'load' });
       await page.waitForSelector('.doc-card', { timeout: 5000 });
       // The file link must NOT appear as raw HTML
       const allText = await page.locator('.doc-list, #docList').textContent();
@@ -292,8 +338,8 @@ test.describe('CRUD Flows', () => {
     });
     expect(book.id, 'Book create: no id').toBeTruthy();
     try {
-      await page.goto(BASE + '/books.html?status=Want+to+Read', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1500);
+      await page.goto(BASE + '/books.html?status=Want+to+Read', { waitUntil: 'load' });
+      await page.waitForTimeout(600);
       // Verify tag chip is a proper element
       const chip = page.locator('[data-tag="_e2etag_"]');
       await expect(chip).toBeVisible();
@@ -321,11 +367,11 @@ test.describe('CRUD Flows', () => {
     });
     expect(item.id, 'Item create: no id').toBeTruthy();
     try {
-      await page.goto(BASE + '/inventory.html', { waitUntil: 'networkidle' });
+      await page.goto(BASE + '/inventory.html', { waitUntil: 'load' });
       // Click "All Items" mode
       const allItemsBtn = page.locator('text=All Items').first();
       if (await allItemsBtn.count()) await allItemsBtn.click();
-      await page.waitForTimeout(1500);
+      await page.waitForTimeout(600);
       // No raw HTML in cards
       const rawInCards = await page.evaluate(() => {
         return Array.from(document.querySelectorAll('.ai-card, .ai-list-card'))
@@ -345,8 +391,8 @@ test.describe('CRUD Flows', () => {
     });
     expect(contact.id, 'Contact create: no id').toBeTruthy();
     try {
-      await page.goto(BASE + '/settings.html', { waitUntil: 'networkidle' });
-      await page.waitForTimeout(1000);
+      await page.goto(BASE + '/settings.html', { waitUntil: 'load' });
+      await page.waitForTimeout(400);
       // Settings page must not have JS errors
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));

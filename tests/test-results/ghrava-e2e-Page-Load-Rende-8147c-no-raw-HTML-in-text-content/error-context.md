@@ -1,0 +1,137 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+    - generic [ref=e20]:
+      - generic [ref=e21]: Finance
+      - link "Finance" [ref=e22] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e24]
+        - generic [ref=e26]: Finance
+      - link "↗ Terminal" [ref=e27] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e29]
+        - generic [ref=e31]: ↗ Terminal
+      - link "Reports" [ref=e32] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e34]
+        - generic [ref=e35]: Reports
+    - generic [ref=e36]:
+      - generic [ref=e37]: Household
+      - link "Inventory" [ref=e38] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e40]
+        - generic [ref=e43]: Inventory
+      - link "Medical" [ref=e44] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e46]
+        - generic [ref=e48]: Medical
+      - link "Kids" [ref=e49] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e51]
+        - generic [ref=e55]: Kids
+      - link "Property" [ref=e56] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e58]
+        - generic [ref=e61]: Property
+      - link "Documents" [ref=e62] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e64]
+        - generic [ref=e67]: Documents
+    - generic [ref=e68]:
+      - generic [ref=e69]: Personal
+      - link "Career" [ref=e70] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e72]
+        - generic [ref=e75]: Career
+      - link "Books" [ref=e76] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e78]
+        - generic [ref=e81]: Books
+      - link "Resources" [ref=e82] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e84]
+        - generic [ref=e89]: Resources
+    - button "Collapse" [ref=e91] [cursor=pointer]:
+      - img [ref=e93]
+      - generic [ref=e95]: Collapse
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+  - generic [ref=e96]:
+    - banner [ref=e97]:
+      - generic [ref=e98]:
+        - link "Home" [ref=e99] [cursor=pointer]:
+          - /url: /index.html
+          - img [ref=e101]
+        - img [ref=e106]
+        - heading "Documents" [level=1] [ref=e110]
+        - generic [ref=e111]:
+          - button "Notifications" [ref=e112] [cursor=pointer]:
+            - img [ref=e114]
+          - link "Settings" [ref=e116] [cursor=pointer]:
+            - /url: /settings.html
+            - img [ref=e118]
+    - generic [ref=e122]:
+      - img
+      - searchbox "Search documents…" [ref=e123]
+    - generic [ref=e124]:
+      - button "All" [ref=e125] [cursor=pointer]
+      - button "Tax" [ref=e126] [cursor=pointer]
+      - button "Legal" [ref=e127] [cursor=pointer]
+      - button "Insurance" [ref=e128] [cursor=pointer]
+      - button "Warranty" [ref=e129] [cursor=pointer]
+      - button "Medical" [ref=e130] [cursor=pointer]
+      - button "Financial" [ref=e131] [cursor=pointer]
+      - button "Property" [ref=e132] [cursor=pointer]
+      - button "Vehicle" [ref=e133] [cursor=pointer]
+      - button "Career" [ref=e134] [cursor=pointer]
+      - button "Other" [ref=e135] [cursor=pointer]
+    - generic [ref=e137]:
+      - button "Grid view" [ref=e138] [cursor=pointer]:
+        - img [ref=e139]
+      - button "List view" [ref=e144] [cursor=pointer]:
+        - img [ref=e145]
+      - generic [ref=e150]: Cols
+      - button "2" [ref=e151] [cursor=pointer]
+      - button "3" [ref=e152] [cursor=pointer]
+      - button "4" [ref=e153] [cursor=pointer]
+      - button "5" [ref=e154] [cursor=pointer]
+      - button "Sort" [ref=e156] [cursor=pointer]:
+        - img [ref=e157]
+        - text: Sort
+      - button "Advanced Filters" [ref=e158] [cursor=pointer]:
+        - img [ref=e159]
+        - text: Advanced Filters
+    - generic [ref=e161]:
+      - generic [ref=e162]:
+        - text: 📄 Tax
+        - generic [ref=e163]: "1"
+      - generic [ref=e165] [cursor=pointer]:
+        - generic [ref=e166]: 📄
+        - generic [ref=e167]:
+          - generic [ref=e168]: 2025 Schwab 1099 Form - Algir
+          - generic [ref=e170]: Charles Schwab Bank
+          - generic [ref=e171]:
+            - 'generic "Search tag: 2025" [ref=e172]': "2025"
+            - 'generic "Search tag: tax" [ref=e173]': tax
+          - button "📋 \\\\SoniNAS\\Backups\\XPS - My Documents\\AllDocuments\\8-Personal\\FINANCIAL\\TAXES\\2025 Taxes\\Algir" [ref=e174]
+  - button "+" [ref=e175] [cursor=pointer]
+```

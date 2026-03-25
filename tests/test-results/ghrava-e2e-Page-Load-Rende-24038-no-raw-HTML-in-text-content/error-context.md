@@ -1,0 +1,265 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - link "Ghrava" [ref=e4] [cursor=pointer]:
+      - /url: /index.html
+      - img "Ghrava" [ref=e6]
+    - generic [ref=e7]:
+      - generic [ref=e8]: Daily
+      - link "Daily Log" [ref=e9] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e11]
+        - generic [ref=e13]: Daily Log
+      - link "To Do" [ref=e14] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e16]
+        - generic [ref=e19]: To Do
+    - generic [ref=e20]:
+      - generic [ref=e21]: Finance
+      - link "Finance" [ref=e22] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e24]
+        - generic [ref=e26]: Finance
+      - link "↗ Terminal" [ref=e27] [cursor=pointer]:
+        - /url: /trade.html
+        - img [ref=e29]
+        - generic [ref=e31]: ↗ Terminal
+      - link "Reports" [ref=e32] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e34]
+        - generic [ref=e35]: Reports
+    - generic [ref=e36]:
+      - generic [ref=e37]: Household
+      - link "Inventory" [ref=e38] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e40]
+        - generic [ref=e43]: Inventory
+      - link "Medical" [ref=e44] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e46]
+        - generic [ref=e48]: Medical
+      - link "Kids" [ref=e49] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e51]
+        - generic [ref=e55]: Kids
+      - link "Property" [ref=e56] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e58]
+        - generic [ref=e61]: Property
+      - link "Documents" [ref=e62] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e64]
+        - generic [ref=e67]: Documents
+    - generic [ref=e68]:
+      - generic [ref=e69]: Personal
+      - link "Career" [ref=e70] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e72]
+        - generic [ref=e75]: Career
+      - link "Books" [ref=e76] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e78]
+        - generic [ref=e81]: Books
+      - link "Resources" [ref=e82] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e84]
+        - generic [ref=e89]: Resources
+    - button "Collapse" [ref=e91] [cursor=pointer]:
+      - img [ref=e93]
+      - generic [ref=e95]: Collapse
+  - generic [ref=e96]:
+    - generic [ref=e97]:
+      - generic [ref=e98]: Wednesday, March 25, 2026
+      - generic [ref=e99]: Good morning, Algir
+    - generic [ref=e100]:
+      - generic [ref=e101]:
+        - generic [ref=e102]: A
+        - generic [ref=e103]: Algir
+      - generic [ref=e104]:
+        - generic [ref=e105]: A
+        - generic [ref=e106]: Arnav
+      - generic [ref=e107]:
+        - generic [ref=e108]: R
+        - generic [ref=e109]: Risha
+      - generic [ref=e110]:
+        - generic [ref=e111]: Z
+        - generic [ref=e112]: Zarna
+    - generic [ref=e113]:
+      - link "Inventory 16 $0 est. value" [ref=e114] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e116]
+        - generic [ref=e119]: Inventory
+        - generic [ref=e120]: "16"
+        - generic [ref=e121]: $0 est. value
+      - link "To Do 2 0 today · 2 overdue 1 urgent" [ref=e122] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e124]
+        - generic [ref=e127]: To Do
+        - generic [ref=e128]: "2"
+        - generic [ref=e129]: 0 today · 2 overdue
+        - generic [ref=e131]: 1 urgent
+      - link "HSA Pool $0 Unreimbursed 2026" [ref=e132] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e134]
+        - generic [ref=e136]: HSA Pool
+        - generic [ref=e137]: $0
+        - generic [ref=e138]: Unreimbursed 2026
+      - link "Medical 0 0 conditions · 0 doctors" [ref=e139] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e141]
+        - generic [ref=e143]: Medical
+        - generic [ref=e144]: "0"
+        - generic [ref=e145]: 0 conditions · 0 doctors
+      - link "Net Worth $0 $0 assets" [ref=e146] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e148]
+        - generic [ref=e150]: Net Worth
+        - generic [ref=e151]: $0
+        - generic [ref=e152]: $0 assets
+      - link "Gift Cards $0 0 cards" [ref=e153] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e155]
+        - generic [ref=e157]: Gift Cards
+        - generic [ref=e158]: $0
+        - generic [ref=e159]: 0 cards
+      - link "Career 0 certifications" [ref=e160] [cursor=pointer]:
+        - /url: /career.html
+        - img [ref=e162]
+        - generic [ref=e165]: Career
+        - generic [ref=e166]: "0"
+        - generic [ref=e167]: certifications
+      - link "Books 0 reading · 0 read" [ref=e168] [cursor=pointer]:
+        - /url: /books.html
+        - img [ref=e170]
+        - generic [ref=e173]: Books
+        - generic [ref=e174]: "0"
+        - generic [ref=e175]: reading · 0 read
+      - link "Kids — Loading…" [ref=e176] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e178]
+        - generic [ref=e181]: Kids
+        - generic [ref=e182]: —
+        - generic [ref=e183]: Loading…
+      - link "Property 0p / 0v $0 est. value" [ref=e184] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e186]
+        - generic [ref=e189]: Property
+        - generic [ref=e190]: 0p / 0v
+        - generic [ref=e191]: $0 est. value
+      - link "Latest Log Entry check the stock prices for netflix 2026-02-23 Follow-up 1 overdue" [ref=e192] [cursor=pointer]:
+        - /url: /daily-log.html
+        - generic [ref=e193]:
+          - img [ref=e195]
+          - generic [ref=e198]:
+            - generic [ref=e199]: Latest Log Entry
+            - generic [ref=e200]: check the stock prices for netflix
+            - generic [ref=e201]:
+              - generic [ref=e202]: 2026-02-23
+              - generic [ref=e203]: Follow-up
+              - generic [ref=e204]: 1 overdue
+      - link "Backup Today 852 KB · Settings → Backup" [ref=e205] [cursor=pointer]:
+        - /url: /settings.html
+        - img [ref=e207]
+        - generic [ref=e209]: Backup
+        - generic [ref=e210]: Today
+        - generic [ref=e211]: 852 KB · Settings → Backup
+      - link "Reports Coming soon Data quality · Finance · Medical" [ref=e212] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e214]
+        - generic [ref=e215]: Reports
+        - generic [ref=e216]: Coming soon
+        - generic [ref=e217]: Data quality · Finance · Medical
+      - generic [ref=e218] [cursor=pointer]:
+        - generic [ref=e219]:
+          - img [ref=e221]
+          - generic [ref=e223]: Needs Attention
+          - generic [ref=e224]: 3 items
+        - generic [ref=e225]:
+          - link "⚠️ Follow-up overdue check the stock prices for netflix Daily Log 2026-02-28" [ref=e226]:
+            - /url: /daily-log.html
+            - generic [ref=e227]: ⚠️
+            - generic [ref=e228]:
+              - generic [ref=e229]: Follow-up overdue
+              - generic [ref=e230]: check the stock prices for netflix
+            - generic [ref=e231]:
+              - generic [ref=e232]: Daily Log
+              - generic [ref=e233]: 2026-02-28
+          - link "⚠️ Todo overdue Data Needs Review To Do 2026-03-24" [ref=e234]:
+            - /url: /todos.html
+            - generic [ref=e235]: ⚠️
+            - generic [ref=e236]:
+              - generic [ref=e237]: Todo overdue
+              - generic [ref=e238]: Data Needs Review
+            - generic [ref=e239]:
+              - generic [ref=e240]: To Do
+              - generic [ref=e241]: 2026-03-24
+          - 'link "🚨 Todo overdue — URGENT Overdue follow-up: 2026-02-23 To Do 2026-02-28" [ref=e242]':
+            - /url: /todos.html
+            - generic [ref=e243]: 🚨
+            - generic [ref=e244]:
+              - generic [ref=e245]: Todo overdue — URGENT
+              - generic [ref=e246]: "Overdue follow-up: 2026-02-23"
+            - generic [ref=e247]:
+              - generic [ref=e248]: To Do
+              - generic [ref=e249]: 2026-02-28
+      - generic [ref=e250] [cursor=pointer]:
+        - generic [ref=e251]:
+          - img [ref=e253]
+          - generic [ref=e255]: Data Needs Review
+          - generic [ref=e256]: 7 records
+        - generic [ref=e258]:
+          - generic [ref=e259]: Inventory items
+          - generic [ref=e260]: "7"
+        - link "View details in Settings → Data Review →" [ref=e261]:
+          - /url: settings.html
+    - generic [ref=e262]: All Modules
+    - generic [ref=e263]:
+      - link "Daily Log" [ref=e264] [cursor=pointer]:
+        - /url: /daily-log.html
+        - img [ref=e267]
+        - generic [ref=e269]: Daily Log
+      - link "Inventory" [ref=e270] [cursor=pointer]:
+        - /url: /inventory.html
+        - img [ref=e273]
+        - generic [ref=e276]: Inventory
+      - link "To Do" [ref=e277] [cursor=pointer]:
+        - /url: /todos.html
+        - img [ref=e280]
+        - generic [ref=e283]: To Do
+      - link "Medical" [ref=e284] [cursor=pointer]:
+        - /url: /medical.html
+        - img [ref=e287]
+        - generic [ref=e289]: Medical
+      - link "Finance" [ref=e290] [cursor=pointer]:
+        - /url: /finance.html
+        - img [ref=e293]
+        - generic [ref=e295]: Finance
+      - link "Resources" [ref=e296] [cursor=pointer]:
+        - /url: /resources.html
+        - img [ref=e299]
+        - generic [ref=e304]: Resources
+      - link "Property" [ref=e305] [cursor=pointer]:
+        - /url: /property.html
+        - img [ref=e308]
+        - generic [ref=e311]: Property
+      - link "Kids" [ref=e312] [cursor=pointer]:
+        - /url: /kids.html
+        - img [ref=e315]
+        - generic [ref=e319]: Kids
+      - link "Documents" [ref=e320] [cursor=pointer]:
+        - /url: /documents.html
+        - img [ref=e323]
+        - generic [ref=e326]: Documents
+      - link "Reports" [ref=e327] [cursor=pointer]:
+        - /url: /reports.html
+        - img [ref=e330]
+        - generic [ref=e331]: Reports
+  - generic:
+    - generic:
+      - generic: Notifications
+      - button "Mark all read"
+    - generic:
+      - generic: Loading…
+```
