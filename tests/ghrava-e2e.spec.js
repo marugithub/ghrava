@@ -238,7 +238,7 @@ test.describe('Key UI Elements', () => {
 
   test('Dashboard widgets load and contain numeric values', async ({ page }) => {
     await page.goto(BASE + '/index.html', { waitUntil: 'load' });
-    await page.waitForTimeout(800);
+    await page.waitForSelector('.widget-value, .dash-stat, [class*="stat"]', { timeout: 5000 }).catch(() => {});
     // At least one widget value should not be — (loading placeholder)
     const widgets = page.locator('.widget-value');
     const count = await widgets.count();
@@ -247,7 +247,7 @@ test.describe('Key UI Elements', () => {
 
   test('Todos page renders todo items or empty state', async ({ page }) => {
     await page.goto(BASE + '/todos.html', { waitUntil: 'load' });
-    await page.waitForTimeout(600);
+    await page.waitForSelector('.todo-item, .todos-empty, .todo-section-head', { timeout: 5000 }).catch(() => {});
     const hasTodos = await page.locator('.todo-item').count() > 0;
     const hasEmpty = await page.locator('.todos-empty, .empty-state, .empty').count() > 0;
     expect(hasTodos || hasEmpty, 'Todos page: neither todo items nor empty state found').toBe(true);
@@ -257,7 +257,7 @@ test.describe('Key UI Elements', () => {
     await page.goto(BASE + '/reports.html', { waitUntil: 'load' });
     // Click Data Quality tab
     await page.click('[data-tab="quality"]');
-    await page.waitForTimeout(600);
+    await page.waitForSelector('#qualityContent :first-child', { timeout: 5000 }).catch(() => {});
     const qualityContent = page.locator('#qualityContent');
     await expect(qualityContent).toBeVisible();
     // Should not contain raw HTML
@@ -300,7 +300,7 @@ test.describe('CRUD Flows', () => {
 
       // Verify it appears on todos page
       await page.goto(BASE + '/todos.html', { waitUntil: 'load' });
-      await page.waitForTimeout(600);
+    await page.waitForSelector('.todo-item, .todos-empty', { timeout: 5000 }).catch(() => {});
       // No JS errors
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -340,7 +340,7 @@ test.describe('CRUD Flows', () => {
     expect(book.id, 'Book create: no id').toBeTruthy();
     try {
       await page.goto(BASE + '/books.html?status=Want+to+Read', { waitUntil: 'load' });
-      await page.waitForTimeout(600);
+    await page.waitForSelector('.book-card, .empty-state', { timeout: 5000 }).catch(() => {});
       // Verify tag chip is a proper element
       const chip = page.locator('[data-tag="_e2etag_"]');
       await expect(chip).toBeVisible();
@@ -372,7 +372,7 @@ test.describe('CRUD Flows', () => {
       // Click "All Items" mode
       const allItemsBtn = page.locator('text=All Items').first();
       if (await allItemsBtn.count()) await allItemsBtn.click();
-      await page.waitForTimeout(600);
+      await page.waitForSelector('.ai-card, .ai-list-card, .empty-state', { timeout: 5000 }).catch(() => {});
       // No raw HTML/JS leaked into card text
       const rawInCards = await page.evaluate(() => {
         return Array.from(document.querySelectorAll('.ai-card, .ai-list-card'))
@@ -401,7 +401,7 @@ test.describe('CRUD Flows', () => {
     expect(contact.id, 'Contact create: no id').toBeTruthy();
     try {
       await page.goto(BASE + '/settings.html', { waitUntil: 'load' });
-      await page.waitForTimeout(400);
+    await page.waitForSelector('.settings-nav, .nav-item, .section-label', { timeout: 5000 }).catch(() => {});
       // Settings page must not have JS errors
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));

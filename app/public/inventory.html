@@ -1916,7 +1916,7 @@ async function renderAllItemsFlat(el) {
           <div class="ai-list-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
           <div class="ai-list-body">
             <div class="ai-list-name">${esc(item.name)}</div>
-            ${loc ? `<div class="ai-list-loc">ð ${esc(loc)}</div>` : ''}
+            ${loc ? `<div class="ai-list-loc">&#x1F4CD; ${esc(loc)}</div>` : ''}
             ${item.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${item.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return `<span class="tag-chip" data-tag="${esc(t)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(t)}">${esc(t)}</span>`;}).join('')}</div>` : ''}
           </div>
           ${item.quantity > 1 ? `<div class="ai-list-qty">${item.quantity}</div>` : ''}
@@ -1934,7 +1934,7 @@ async function renderAllItemsFlat(el) {
           <div class="ai-card-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
           <div class="ai-card-body">
             <div class="ai-card-name">${esc(item.name)}</div>
-            ${loc ? `<div class="ai-card-loc">ð ${esc(loc)}</div>` : ''}
+            ${loc ? `<div class="ai-card-loc">&#x1F4CD; ${esc(loc)}</div>` : ''}
           </div>
             ${item.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${item.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return `<span class="tag-chip" data-tag="${esc(t)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(t)}">${esc(t)}</span>`;}).join('')}</div>` : ''}
         </div>`;

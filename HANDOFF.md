@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.092
+**Last updated:** v202603.093
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -351,12 +351,16 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
 
+### v202603.093
+- **Pin icon — double-encoded bytes** — v202603.092 replaced 9 single-encoded `f09f938d` bytes but missed 2 double-encoded `c3b0c29fc293c28d` variants on lines 1919 and 1937 (the actual list/grid card templates). Now 11 `&#x1F4CD;` entities total, zero bad bytes.
+- **E2E test speed** — replaced 7 fixed `waitForTimeout` calls with `waitForSelector` (returns as soon as element appears, not after a fixed delay). Expected runtime ~3–5 min vs previous 49 min. One intentional 1500ms wait remains in `checkNoRawHtml` after `networkidle`.
+
 ### v202603.092 — 6 pending issues fixed
 1. ~~**Test results path**~~ — `run-tests.ps1` default changed to `Z:\ghrava\test-results\`.
 2. ~~**Settings iframe hides behind main panel**~~ — when `?drawer=contact` param present, `#app` is now hidden before drawer opens. No more z-index conflict.
 3. ~~**Settings drawer z-index**~~ — resolved by item 2.
 4. ~~**Backup verification in deploy**~~ — smoke-test.sh now checks that `auto_YYYYMMDD*.db` exists from today's date. Fails the smoke test if no fresh backup found.
-5. ~~**Pin icon mojibake on inventory cards**~~ — all 9 occurrences of raw 📍 UTF-8 bytes replaced with `&#x1F4CD;` HTML entity. No encoding issues remain.
+5. **Pin icon mojibake — PARTIAL FIX** — `&#x1F4CD;` entity was written to inventory.html for 9 occurrences. Deployed, but list/grid card views STILL show mojibake after hard deploy. Detail view is correct. This means the all-items browse cards use a different render path than what was patched. Next fix: audit EVERY render function in inventory.html that outputs location path text — specifically `renderItemCard`, `renderItemGridCard`, `renderItemCompactCard`, and any location-tree item renderers. Do NOT rely on grep for emoji — read byte-by-byte. Also check if the issue is browser cache first (Ctrl+Shift+F5).
 6. ~~**E2E `_e2e_item_test` not cleaned up**~~ — inventory CRUD test now calls `PUT /archive` before `DELETE` (route requires archived=1 for hard delete). Also fixed overly-broad `/<span/` raw HTML check in inventory and books tests.
 
 ### Next session — before anything else
