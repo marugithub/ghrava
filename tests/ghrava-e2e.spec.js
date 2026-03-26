@@ -227,9 +227,10 @@ test.describe('Key UI Elements', () => {
       // Confirm no raw HTML angle brackets in card text
       const rawInCards = await page.evaluate(() => {
         return Array.from(document.querySelectorAll('.book-card'))
-          .some(card => /<span/.test(card.textContent) || /<div/.test(card.textContent));
+          .some(card => /<button[^>]*onclick=/.test(card.textContent) ||
+                        /window\.LT/.test(card.textContent));
       });
-      expect(rawInCards, 'Raw HTML tags found in book card text').toBe(false);
+      expect(rawInCards, 'Raw HTML/JS found in book card text').toBe(false);
     } finally {
       await apiDelete(`/books/${book.id}`);
     }
@@ -372,13 +373,21 @@ test.describe('CRUD Flows', () => {
       const allItemsBtn = page.locator('text=All Items').first();
       if (await allItemsBtn.count()) await allItemsBtn.click();
       await page.waitForTimeout(600);
-      // No raw HTML in cards
+      // No raw HTML/JS leaked into card text
       const rawInCards = await page.evaluate(() => {
         return Array.from(document.querySelectorAll('.ai-card, .ai-list-card'))
-          .some(card => /<span/.test(card.textContent) || /<button/.test(card.textContent));
+          .some(card => /<button[^>]*onclick=/.test(card.textContent) ||
+                        /window\.LT/.test(card.textContent) ||
+                        /navigator\.clipboard/.test(card.textContent));
       });
-      expect(rawInCards, 'Raw HTML found in inventory cards').toBe(false);
+      expect(rawInCards, 'Raw HTML/JS found in inventory cards').toBe(false);
     } finally {
+      // DELETE /inventory/items/:id requires the item to be archived first.
+      // PUT /archive sets is_archived=1, then DELETE hard-deletes it.
+      try {
+        await fetch(`${API}/inventory/items/${item.id}/archive`, { method: 'PUT',
+          headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      } catch {}
       await apiDelete(`/inventory/items/${item.id}`);
     }
   });

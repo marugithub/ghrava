@@ -24,7 +24,7 @@
 
 param(
     [string]$GhUrl     = "http://192.168.4.62:3001",
-    [string]$ReportDir = "Z:\Backups\XPS - My Documents\AllDocuments\_SaveForever\MyAppBackups\test-reports"
+    [string]$ReportDir = "Z:\ghrava\test-results"
 )
 
 $ErrorActionPreference = "Continue"

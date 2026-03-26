@@ -199,6 +199,18 @@ echo ""
 echo "Backup"
 assert_json_object "GET /backup/list"         "$BASE/api/v1/backup/list"
 
+# ── Verify a fresh backup exists from this restart ──────────
+TODAY=$(date +%Y%m%d)
+BACKUP_CHECK=$(curl -s "$BASE/api/v1/backup/list")
+if echo "$BACKUP_CHECK" | grep -q "auto_${TODAY}"; then
+  echo "  PASS  Backup from today exists (auto_${TODAY}...)"
+  PASS=$((PASS+1))
+else
+  echo "  FAIL  No backup from today found — check /app/backups/ for auto_${TODAY}*.db"
+  FAIL=$((FAIL+1))
+  ERRORS+=("No fresh backup from today (auto_${TODAY}*.db missing)")
+fi
+
 
 # ── App info ─────────────────────────────────────────────────────────────
 echo ""

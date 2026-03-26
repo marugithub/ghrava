@@ -879,7 +879,7 @@
         <option value="storage_unit">🗄️ Storage Unit</option>
         <option value="shed">🏚️ Shed</option>
         <option value="office">💼 Office</option>
-        <option value="other">📍 Other</option>
+        <option value="other">&#x1F4CD; Other</option>
       </select>
     </div>
     <div class="form-group">
@@ -992,7 +992,7 @@
 
       <!-- Step 2: Room / Place (required) -->
       <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px">
-        <span style="font-size:12px;color:var(--text3);width:32px;flex-shrink:0">📍 In</span>
+        <span style="font-size:12px;color:var(--text3);width:32px;flex-shrink:0">&#x1F4CD; In</span>
         <div style="flex:1">
           <div style="font-size:11px;color:var(--text3);margin-bottom:3px;display:flex;align-items:center;gap:4px">
             Room or place <span style="color:var(--red);font-size:10px">*</span>
@@ -1430,7 +1430,7 @@ const CAT_CONFIG = {
   Other:              { icon:'📦', color:'var(--cat-other)',       bg:'var(--cat-other-bg)' },
 };
 
-const LOC_ICONS = { house:'🏠', room:'🚪', garage:'🏗️', attic:'📦', basement:'⬇️', storage_unit:'🗄️', shed:'🏚️', office:'💼', other:'📍' };
+const LOC_ICONS = { house:'🏠', room:'🚪', garage:'🏗️', attic:'📦', basement:'⬇️', storage_unit:'🗄️', shed:'🏚️', office:'💼', other:'&#x1F4CD;' };
 
 // SVG icons for room type tiles — Lucide icon paths
 const LOC_SVG = {
@@ -1994,7 +1994,7 @@ async function renderLocationTree(el) {
 }
 
 function renderLocCard(loc) {
-  const icon = LOC_ICONS[loc.location_type]||'📍';
+  const icon = LOC_ICONS[loc.location_type]||'&#x1F4CD;';
   const bgColor = loc.location_type==='house'?'rgba(245,158,11,.15)':loc.location_type==='garage'?'rgba(107,114,128,.15)':'rgba(92,114,250,.12)';
   const childCount = (loc.children||[]).length;
   return `<div class="loc-card" id="lc-${loc.id}">
@@ -2131,7 +2131,7 @@ function renderItemCompactCard(item) {
     }
     <div class="item-compact-name">${item.name}</div>
     ${item.brand ? `<div class="item-compact-meta">${item.brand}</div>` : ''}
-    ${item.location_path ? `<div class="item-compact-meta" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">📍 ${item.location_path}</div>` : ''}
+    ${item.location_path ? `<div class="item-compact-meta" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&#x1F4CD; ${item.location_path}</div>` : ''}
   </div>`;
 }
 
@@ -2256,7 +2256,7 @@ async function openDetail(id) {
           ${isArchived?`<span class="badge badge-amber">Archived</span>`:''}
           ${item.insured?`<span class="badge badge-green">✓ Insured</span>`:''}
         </div>
-        ${item.location_path?`<div style="font-size:12px;color:var(--text3);margin-top:6px">📍 ${item.location_path}</div>`:''}
+        ${item.location_path?`<div style="font-size:12px;color:var(--text3);margin-top:6px">&#x1F4CD; ${item.location_path}</div>`:''}
       </div>
       <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;margin-left:10px">
         <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="openQR('item','${item.item_ref}')">QR</button>
@@ -2906,7 +2906,7 @@ async function populateCtnParent(selectedType, selectedId) {
   const [locR,ctnR]=await Promise.all([fetch(`${API}/locations/flat`),fetch(`${API}/containers`)]);
   const locs=await locR.json(), ctns=await ctnR.json();
   let opts='<option value="">— select —</option><optgroup label="Locations">';
-  locs.forEach(l=>{ opts+=`<option value="location:${l.id}"${selectedType==='location'&&+selectedId===l.id?' selected':''}>${LOC_ICONS[l.location_type]||'📍'} ${l.name}</option>`; });
+  locs.forEach(l=>{ opts+=`<option value="location:${l.id}"${selectedType==='location'&&+selectedId===l.id?' selected':''}>${LOC_ICONS[l.location_type]||'&#x1F4CD;'} ${l.name}</option>`; });
   opts+='</optgroup><optgroup label="Containers (nested)">';
   ctns.filter(c=>c.id!==editingId).forEach(c=>{ opts+=`<option value="container:${c.id}"${selectedType==='container'&&+selectedId===c.id?' selected':''}>${CTN_ICONS[c.subtype]||'📦'} ${c.name}</option>`; });
   opts+='</optgroup>';
@@ -3072,7 +3072,7 @@ async function loadWhereLists(force=false) {
 
 function populateLocSel(selectLocId) {
   $('itm_loc_sel').innerHTML = '<option value="">— pick a room or place —</option>' +
-    _whereLocs.map(l => `<option value="${l.id}"${+l.id === +selectLocId ? ' selected' : ''}>${LOC_ICONS[l.location_type]||'📍'} ${esc(l.name)}</option>`).join('');
+    _whereLocs.map(l => `<option value="${l.id}"${+l.id === +selectLocId ? ' selected' : ''}>${LOC_ICONS[l.location_type]||'&#x1F4CD;'} ${esc(l.name)}</option>`).join('');
 }
 
 function populateCtnSel(locId, selectCtnId) {
@@ -3298,7 +3298,7 @@ async function openMove(ctnId) {
   $('movePreviewBox').innerHTML=`<div style="background:var(--amber-bg);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:10px 12px;font-size:13px;color:var(--amber)">Moving <strong>${prev.container.name}</strong> · ${prev.total_children} sub-items will also move</div>`;
   $('moveTargetsList').innerHTML=locs.map(l=>`
     <div class="card" style="margin-bottom:6px;cursor:pointer" data-mt-type="location" data-mt-id="${l.id}">
-      ${LOC_ICONS[l.location_type]||'📍'} ${l.name}
+      ${LOC_ICONS[l.location_type]||'&#x1F4CD;'} ${l.name}
     </div>`).join('');
   $('moveTargetsList').querySelectorAll('[data-mt-id]').forEach(t=>{
     t.addEventListener('click',()=>{

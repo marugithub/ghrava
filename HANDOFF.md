@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.091
+**Last updated:** v202603.092
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -350,6 +350,14 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
+### v202603.092 — 6 pending issues fixed
+1. ~~**Test results path**~~ — `run-tests.ps1` default changed to `Z:\ghrava\test-results\`.
+2. ~~**Settings iframe hides behind main panel**~~ — when `?drawer=contact` param present, `#app` is now hidden before drawer opens. No more z-index conflict.
+3. ~~**Settings drawer z-index**~~ — resolved by item 2.
+4. ~~**Backup verification in deploy**~~ — smoke-test.sh now checks that `auto_YYYYMMDD*.db` exists from today's date. Fails the smoke test if no fresh backup found.
+5. ~~**Pin icon mojibake on inventory cards**~~ — all 9 occurrences of raw 📍 UTF-8 bytes replaced with `&#x1F4CD;` HTML entity. No encoding issues remain.
+6. ~~**E2E `_e2e_item_test` not cleaned up**~~ — inventory CRUD test now calls `PUT /archive` before `DELETE` (route requires archived=1 for hard delete). Also fixed overly-broad `/<span/` raw HTML check in inventory and books tests.
 
 ### Next session — before anything else
 - **Deploy script exclusions** — update `ghrava_deploy.ps1` to explicitly skip `tests\test-results\` and `tests\node_modules\` in case `run-tests.ps1` cleanup fails (defensive). v202603.091 already handles the immediate EPERM by deleting `test-results/` after posting results.

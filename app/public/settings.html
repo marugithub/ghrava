@@ -1360,6 +1360,15 @@ async function toggleCalendar(calId, checkbox) {
   // Used when GH_REFS opens Settings in an iframe to add a new record.
   const drawerParam = params.get('drawer');
   const typeParam   = params.get('type');
+
+  // When loaded inside the GH_REFS iframe overlay, hide the full settings
+  // UI and show only the requested drawer — avoids z-index conflicts and
+  // prevents the full page from rendering behind the overlay.
+  if (drawerParam) {
+    const appEl = document.getElementById('app');
+    if (appEl) appEl.style.display = 'none';
+  }
+
   if (drawerParam === 'contact') {
     setTimeout(() => openContactDrawer(null, typeParam || null), 400);
   } else if (drawerParam === 'family') {
