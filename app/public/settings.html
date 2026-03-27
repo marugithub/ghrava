@@ -516,16 +516,9 @@
 
       <!-- Data Export section -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
-        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Export Data</div>
-        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Download your data as JSON or CSV for external use, migration, or archiving.</div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <a class="btn btn-ghost" style="font-size:13px;text-decoration:none" href="/api/v1/backup/export-json" download>⬇️ Full JSON Export</a>
-          <button class="btn btn-ghost" style="font-size:13px" onclick="showCsvExportMenu()">⬇️ CSV by Table ▾</button>
-        </div>
-        <div id="csvTableMenu" style="display:none;margin-top:10px;display:none">
-          <div style="font-size:11px;color:var(--text3);margin-bottom:6px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Choose table</div>
-          <div style="display:flex;flex-wrap:wrap;gap:6px" id="csvTableBtns"></div>
-        </div>
+        <div style="font-weight:600;font-size:14px;margin-bottom:4px">Export &amp; Import Data</div>
+        <div style="font-size:12px;color:var(--text3);margin-bottom:12px">Download your data as Excel, import from a template, or restore from a previous export.</div>
+        <a class="btn btn-primary" href="/data.html" style="text-decoration:none;font-size:13px">Open Data Manager →</a>
       </div>
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:4px 0 10px;display:flex;align-items:center;justify-content:space-between">
         <span>Saved Backups</span>

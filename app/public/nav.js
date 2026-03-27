@@ -49,6 +49,7 @@
     books:     { href:'/books.html',      label:'Books',     color:'#8b5cf6', bg:'rgba(139,92,246,.1)',    svgKey:'books' },
     calendar:  { href:'/calendar.html',   label:'Calendar',  color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'calendar' },
     reports:   { href:'/reports.html',    label:'Reports',   color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
+    data:      { href:'/data.html',       label:'Data',      color:'#8fa3bf', bg:'rgba(143,163,191,.1)',   svgKey:'settings' },
   };
 
   function moduleIcon(m, sizePx) {

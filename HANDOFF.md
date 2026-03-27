@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.100
+**Last updated:** v202603.101
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -350,6 +350,25 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
+### v202603.101
+**Unified XLSX export/import — standardized across all modules:**
+
+- `GET /api/v1/data/export` — single workbook with 20 module sheets + Instructions sheet. Each item row includes `attachment_path` (NAS UNC path). Instructions sheet documents every column, required fields, date format, and upsert key.
+- `GET /api/v1/data/template` — blank workbook with headers only + Instructions. Use this to add new data without downloading the full export.
+- `POST /api/v1/data/import` — upload workbook, process only sheets present. Three modes per row: (1) `id` exists in DB → UPDATE, (2) `id` present but not in DB → INSERT with that id (restore), (3) no `id` → INSERT new. Returns per-sheet counts of inserted/updated/skipped.
+
+**Sheets covered:** Items, Books, Medications, Conditions, Visit Notes, HSA Payments, HSA OTC, Todos, Certifications, Jobs, Skills, Education, Career Goals, Resources, Documents, Properties, Vehicles, Daily Log, Contacts, Finance Accounts.
+
+**Partial import:** delete sheets you don't want to touch before uploading. Only present sheets are processed. Nothing is ever deleted.
+
+**`/data.html`** — new Data Manager page: export button, template button, drag-drop import zone with per-sheet result counts, sheet reference grid showing key + required columns for each module.
+
+**Settings** — Export Data section replaced with "Open Data Manager →" link to `/data.html`.
+
+**Nav** — Data page added to sidebar (uses settings icon).
+
+**Smoke test:** 48 assertions (was 46).
 
 ### v202603.100
 

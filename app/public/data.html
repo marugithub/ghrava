@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Data — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <style>
+    .data-card {
+      background: var(--bg2); border: 1px solid var(--border);
+      border-radius: var(--r-lg); padding: 20px; margin-bottom: 16px;
+    }
+    .data-card-title { font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .data-card-desc  { font-size: 13px; color: var(--text3); margin-bottom: 14px; line-height: 1.5; }
+    .sheet-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 8px; margin-top: 12px;
+    }
+    .sheet-pill {
+      background: var(--bg3); border: 1px solid var(--border);
+      border-radius: var(--r); padding: 8px 12px; font-size: 12px;
+    }
+    .sheet-pill-name { font-weight: 600; color: var(--text); margin-bottom: 2px; }
+    .sheet-pill-key  { color: var(--text3); font-family: var(--mono); font-size: 11px; }
+    .sheet-pill-req  { color: var(--amber); font-size: 11px; margin-top: 2px; }
+
+    .imp-drop {
+      border: 2px dashed var(--border2); border-radius: var(--r-lg);
+      padding: 32px; text-align: center; cursor: pointer; transition: all .15s;
+    }
+    .imp-drop:hover, .imp-drop.drag { border-color: var(--accent); background: var(--accent-bg); }
+    .imp-drop-icon { font-size: 36px; margin-bottom: 8px; }
+    .imp-drop-label { font-size: 14px; font-weight: 600; color: var(--text); }
+    .imp-drop-sub   { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+    .result-sheet {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 13px;
+    }
+    .result-sheet:last-child { border-bottom: none; }
+    .result-sheet-name { font-weight: 600; color: var(--text); }
+    .result-counts { display: flex; gap: 10px; font-family: var(--mono); font-size: 12px; }
+    .rc-ins  { color: var(--green); }
+    .rc-upd  { color: var(--accent); }
+    .rc-skip { color: var(--text3); }
+
+    .warn-box {
+      background: rgba(245,158,11,.08); border: 1px solid rgba(245,158,11,.25);
+      border-radius: var(--r); padding: 12px 14px; font-size: 13px; color: var(--text);
+      margin-bottom: 14px; line-height: 1.6;
+    }
+  </style>
+</head>
+<body class="module-settings">
+<div id="app" style="padding-bottom: 100px">
+
+  <div style="padding: 12px 16px 0">
+
+    <!-- Export -->
+    <div class="data-card">
+      <div class="data-card-title">📤 Export All Data</div>
+      <div class="data-card-desc">
+        Downloads a single Excel workbook with all your Ghrava data — one sheet per module.
+        Includes an Instructions sheet explaining every column.
+        Use this to back up your data, review it in Excel, or prepare a file for re-import.
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a class="btn btn-primary" href="/api/v1/data/export" download
+           style="text-decoration:none">
+          ⬇ Download Full Export
+        </a>
+        <a class="btn btn-ghost" href="/api/v1/data/template" download
+           style="text-decoration:none">
+          📋 Download Blank Template
+        </a>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-top:10px">
+        Template = same workbook with headers only, no data — useful for adding new records without downloading your full export.
+      </div>
+    </div>
+
+    <!-- Sheet reference -->
+    <div class="data-card">
+      <div class="data-card-title">📑 Sheet Reference</div>
+      <div class="data-card-desc">Each sheet in the workbook. The key column is how Ghrava matches rows on import.</div>
+      <div class="sheet-grid" id="sheetGrid">
+        <!-- populated by JS -->
+      </div>
+    </div>
+
+    <!-- Import -->
+    <div class="data-card">
+      <div class="data-card-title">📥 Import Data</div>
+      <div class="warn-box">
+        ⚠ <strong>Before importing:</strong> Make a backup — go to Reports → Tools → Run Backup Now.
+        Import updates existing rows and adds new ones. It does not delete anything.
+      </div>
+      <div class="data-card-desc">
+        Upload the Ghrava export file (or a template you filled in).
+        <strong>Only sheets present in the workbook are processed</strong> — delete sheets you don't want to change before uploading.
+        Rows with a matching <code>id</code> are updated. Rows without an <code>id</code> are inserted as new.
+      </div>
+
+      <div class="imp-drop" id="impDrop"
+           onclick="document.getElementById('impFile').click()"
+           ondragover="event.preventDefault();this.classList.add('drag')"
+           ondragleave="this.classList.remove('drag')"
+           ondrop="handleDrop(event)">
+        <div class="imp-drop-icon">📂</div>
+        <div class="imp-drop-label">Drop Excel file here or tap to browse</div>
+        <div class="imp-drop-sub">.xlsx files only — Ghrava export or filled-in template</div>
+      </div>
+      <input type="file" id="impFile" accept=".xlsx" style="display:none"
+             onchange="fileSelected(this.files[0])">
+
+      <div id="impStatus" style="margin-top:14px;display:none"></div>
+    </div>
+
+  </div>
+</div>
+
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script>
+window.GH_PAGE = { key: 'settings', title: 'Data' };
+
+const SHEETS = [
+  { sheet:'Items',           key:'item_ref',    required:'name, location_name' },
+  { sheet:'Books',           key:'id',          required:'title' },
+  { sheet:'Medications',     key:'id',          required:'name, patient' },
+  { sheet:'Conditions',      key:'id',          required:'condition_name, patient' },
+  { sheet:'Visit Notes',     key:'id',          required:'patient, visit_date' },
+  { sheet:'HSA Payments',    key:'id',          required:'date, patient' },
+  { sheet:'HSA OTC',         key:'id',          required:'purchase_date, item_name' },
+  { sheet:'Todos',           key:'id',          required:'title' },
+  { sheet:'Certifications',  key:'id',          required:'name' },
+  { sheet:'Jobs',            key:'id',          required:'company, title' },
+  { sheet:'Skills',          key:'id',          required:'name' },
+  { sheet:'Education',       key:'id',          required:'institution' },
+  { sheet:'Career Goals',    key:'id',          required:'title' },
+  { sheet:'Resources',       key:'id',          required:'name' },
+  { sheet:'Documents',       key:'id',          required:'title, category' },
+  { sheet:'Properties',      key:'id',          required:'nickname' },
+  { sheet:'Vehicles',        key:'id / vin',    required:'nickname' },
+  { sheet:'Daily Log',       key:'id',          required:'log_date, entry_text' },
+  { sheet:'Contacts',        key:'id',          required:'contact_type, name' },
+  { sheet:'Finance Accounts',key:'id',          required:'name, type' },
+];
+
+// Render sheet reference grid
+const grid = document.getElementById('sheetGrid');
+grid.innerHTML = SHEETS.map(s => `
+  <div class="sheet-pill">
+    <div class="sheet-pill-name">${s.sheet}</div>
+    <div class="sheet-pill-key">Key: ${s.key}</div>
+    <div class="sheet-pill-req">Required: ${s.required}</div>
+  </div>`).join('');
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('impDrop').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) fileSelected(f);
+}
+
+async function fileSelected(file) {
+  if (!file) return;
+  if (!file.name.endsWith('.xlsx')) {
+    showStatus('error', 'Please upload an .xlsx file (Excel format).');
+    return;
+  }
+
+  const status = document.getElementById('impStatus');
+  status.style.display = 'block';
+  status.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px">
+    <div class="spin" style="width:18px;height:18px;border-width:2px"></div>
+    <span style="color:var(--text3)">Importing ${esc(file.name)}…</span>
+  </div>`;
+
+  const fd = new FormData();
+  fd.append('file', file);
+
+  try {
+    const res = await fetch('/api/v1/data/import', { method: 'POST', body: fd });
+    const d   = await res.json();
+    if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+    renderResult(d, file.name);
+  } catch(e) {
+    showStatus('error', e.message);
+  }
+
+  // Reset file input so same file can be re-uploaded
+  document.getElementById('impFile').value = '';
+}
+
+function renderResult(d, filename) {
+  const status = document.getElementById('impStatus');
+  const sheetsPresent = Object.keys(d.sheets);
+  const allOk = d.errors.length === 0;
+
+  const sheetRows = sheetsPresent.map(name => {
+    const s = d.sheets[name];
+    return `<div class="result-sheet">
+      <div class="result-sheet-name">${esc(name)}</div>
+      <div class="result-counts">
+        <span class="rc-ins">+${s.inserted} new</span>
+        <span class="rc-upd">↑${s.updated} updated</span>
+        <span class="rc-skip">${s.skipped} skipped</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const errHtml = d.errors.length ? `
+    <div style="margin-top:10px;padding:10px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:var(--r);font-size:12px;font-family:var(--mono);color:var(--red)">
+      ${d.errors.map(e => `<div>${esc(e)}</div>`).join('')}
+    </div>` : '';
+
+  status.innerHTML = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+      <div style="padding:12px 16px;background:${allOk?'rgba(34,197,94,.08)':'rgba(245,158,11,.08)'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+        <div>
+          <div style="font-weight:700;color:var(--text);font-size:14px">
+            ${allOk ? '✓' : '⚠'} Import complete — ${esc(filename)}
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">
+            ${d.summary.inserted} inserted · ${d.summary.updated} updated · ${d.summary.skipped} skipped
+          </div>
+        </div>
+        <div style="font-size:12px;color:var(--text3)">${sheetsPresent.length} sheet${sheetsPresent.length!==1?'s':''} processed</div>
+      </div>
+      ${sheetRows}
+    </div>
+    ${errHtml}`;
+}
+
+function showStatus(type, msg) {
+  const status = document.getElementById('impStatus');
+  status.style.display = 'block';
+  const color = type === 'error' ? 'var(--red)' : 'var(--green)';
+  status.innerHTML = `<div style="padding:12px;color:${color};font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r)">${esc(msg)}</div>`;
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+</script>
+</body>
+</html>

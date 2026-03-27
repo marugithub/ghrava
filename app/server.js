@@ -112,6 +112,7 @@ app.use('/api/v1/import',        require('./features/import/routes'));
 app.use('/api/v1/documents',     require('./features/documents/routes'));
 app.use('/api/v1/google',        require('./features/google/routes'));
 app.use('/api/v1/kids',          require('./features/kids/routes'));
+app.use('/api/v1/data',          require('./features/data/routes'));
 app.use('/api/v1/trading',       require('./features/trading/routes'));
 
 // ── App info (public — no auth) ────────────────────────────────
