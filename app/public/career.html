@@ -374,7 +374,7 @@ function onFab() {
 async function loadCerts() {
   const el = $('certsList'); if (!el) return;
   try {
-    const rows = await api('GET', '/certifications');
+    const rows = await api('/certifications');
     if (!rows.length) { el.innerHTML = emptyState(...GH_EMPTY.certs); return; }
     const today = new Date();
     el.innerHTML = rows.map(c => {
@@ -403,7 +403,7 @@ async function loadCerts() {
 async function openCertDrawer(id) {
   editingCertId = id||null;
   let c = {};
-  if (id) { try { const all = await api('GET', '/certifications'); c = all.find(x=>x.id===id)||{}; } catch(e){} }
+  if (id) { try { const all = await api('/certifications'); c = all.find(x=>x.id===id)||{}; } catch(e){} }
   $('certDrawerTitle').textContent = id ? 'Edit Certification' : 'Add Certification';
   $('certName').value    = c.name||'';
   $('certIssuer').value  = c.issuing_body||'';
@@ -429,7 +429,7 @@ async function saveCert() {
     if (!payload.name) { toast('Name required','err'); return; }
     const url = editingCertId ? `/certifications/${editingCertId}` : '/certifications';
     const method = editingCertId ? 'PUT' : 'POST';
-    const res = await api(method, url, payload);
+    const res = await api(url,{method,body:JSON.stringify(payload)});
     toast(editingCertId ? 'Updated' : 'Certification added' + (res.todo_id ? ' · Renewal Todo created' : ''));
     $('certDrawer').classList.remove('open'); loadCerts();
   } catch(e) { toast(ghErrorMsg(e),'err'); }
@@ -438,7 +438,7 @@ async function saveCert() {
 
 async function deleteCert() {
   if (!await LT.confirm('Delete this certification?')) return;
-  await api('DELETE', `/certifications/${editingCertId}`);
+  await api(`/certifications/${editingCertId}`,{method:'DELETE'});
   toast('Deleted'); $('certDrawer').classList.remove('open'); loadCerts();
 }
 
@@ -446,7 +446,7 @@ async function deleteCert() {
 async function loadJobs() {
   const el = $('jobsList'); if (!el) return;
   try {
-    const rows = await api('GET', '/jobs');
+    const rows = await api('/jobs');
     if (!rows.length) { el.innerHTML = emptyState(...GH_EMPTY.jobs); return; }
     el.innerHTML = rows.map(j => `
       <div class="career-card" onclick="openJobDrawer(${j.id})">
@@ -465,7 +465,7 @@ async function loadJobs() {
 async function openJobDrawer(id) {
   editingJobId = id||null;
   let j = {};
-  if (id) { try { const all = await api('GET', '/jobs'); j = all.find(x=>x.id===id)||{}; } catch(e){} }
+  if (id) { try { const all = await api('/jobs'); j = all.find(x=>x.id===id)||{}; } catch(e){} }
   $('jobDrawerTitle').textContent = id ? 'Edit Job' : 'Add Job';
   $('jobCompany').value  = j.company||'';
   $('jobTitle').value    = j.title||'';
@@ -493,7 +493,7 @@ async function saveJob() {
       family_member_ids: GH_FAMILY.getIds('jobFamilyWrap') };
     if (!payload.company || !payload.title) { toast('Company and title required','err'); return; }
     const url = editingJobId ? `/jobs/${editingJobId}` : '/jobs';
-    await api(editingJobId?'PUT':'POST', url, payload);
+    await api(url,{method:editingJobId?'PUT':'POST',body:JSON.stringify(payload)});
     toast(editingJobId ? 'Updated' : 'Job added');
     $('jobDrawer').classList.remove('open'); loadJobs();
   } catch(e) { toast(ghErrorMsg(e),'err'); }
@@ -502,7 +502,7 @@ async function saveJob() {
 
 async function deleteJob() {
   if (!await LT.confirm('Delete this job entry?')) return;
-  await api('DELETE', `/jobs/${editingJobId}`);
+  await api(`/jobs/${editingJobId}`,{method:'DELETE'});
   toast('Deleted'); $('jobDrawer').classList.remove('open'); loadJobs();
 }
 
@@ -512,7 +512,7 @@ const PROF_LEVELS = ['Beginner','Intermediate','Advanced','Expert'];
 async function loadSkills() {
   const el = $('skillsList'); if (!el) return;
   try {
-    const rows = await api('GET', '/skills');
+    const rows = await api('/skills');
     if (!rows.length) { el.innerHTML = emptyState(...GH_EMPTY.skills); return; }
     const grouped = {};
     rows.forEach(s => { const cat = s.category||'Other'; (grouped[cat]=grouped[cat]||[]).push(s); });
@@ -536,7 +536,7 @@ async function loadSkills() {
 async function openSkillDrawer(id) {
   editingSkillId = id||null;
   let s = {};
-  if (id) { try { const all = await api('GET', '/skills'); s = all.find(x=>x.id===id)||{}; } catch(e){} }
+  if (id) { try { const all = await api('/skills'); s = all.find(x=>x.id===id)||{}; } catch(e){} }
   $('skillDrawerTitle').textContent = id ? 'Edit Skill' : 'Add Skill';
   $('skillName').value     = s.name||'';
   $('skillCat').value      = s.category||'';
@@ -560,7 +560,7 @@ async function saveSkill() {
     };
     if (!payload.name) { toast('Skill name required','err'); return; }
     const url = editingSkillId ? `/skills/${editingSkillId}` : '/skills';
-    await api(editingSkillId?'PUT':'POST', url, payload);
+    await api(url,{method:editingSkillId?'PUT':'POST',body:JSON.stringify(payload)});
     toast(editingSkillId ? 'Updated' : 'Skill added');
     $('skillDrawer').classList.remove('open'); loadSkills();
   } catch(e) { toast(ghErrorMsg(e),'err'); }
@@ -569,7 +569,7 @@ async function saveSkill() {
 
 async function deleteSkill() {
   if (!await LT.confirm('Delete this skill?')) return;
-  await api('DELETE', `/skills/${editingSkillId}`);
+  await api(`/skills/${editingSkillId}`,{method:'DELETE'});
   toast('Deleted'); $('skillDrawer').classList.remove('open'); loadSkills();
 }
 
@@ -577,7 +577,7 @@ async function deleteSkill() {
 async function loadEdu() {
   const el = $('eduList'); if (!el) return;
   try {
-    const rows = await api('GET', '/education');
+    const rows = await api('/education');
     if (!rows.length) { el.innerHTML = emptyState(...GH_EMPTY.education); return; }
     el.innerHTML = rows.map(e => `
       <div class="career-card" onclick="openEduDrawer(${e.id})">
@@ -593,7 +593,7 @@ async function loadEdu() {
 async function openEduDrawer(id) {
   editingEduId = id||null;
   let e = {};
-  if (id) { try { const all = await api('GET', '/education'); e = all.find(x=>x.id===id)||{}; } catch(e){} }
+  if (id) { try { const all = await api('/education'); e = all.find(x=>x.id===id)||{}; } catch(e){} }
   $('eduDrawerTitle').textContent = id ? 'Edit Education' : 'Add Education';
   await GH_SELECT.init('eduInstitution', 'school_name', e.institution||null, { placeholder: '— select or add school —', allowAdd: true });
   $('eduDegree').value = e.degree||'';
@@ -615,7 +615,7 @@ async function saveEdu() {
     if (!payload.institution) { toast('Institution required','err'); return; }
     const url = editingEduId ? `/education/${editingEduId}` : '/education';
     const method = editingEduId ? 'PUT' : 'POST';
-    await api(method, url, payload);
+    await api(url,{method,body:JSON.stringify(payload)});
     toast(editingEduId ? 'Updated' : 'Education added');
     $('eduDrawer').classList.remove('open'); loadEdu();
   } catch(e) { toast(ghErrorMsg(e),'err'); }
@@ -624,7 +624,7 @@ async function saveEdu() {
 
 async function deleteEdu() {
   if (!await LT.confirm('Delete this entry?')) return;
-  await api('DELETE', `/education/${editingEduId}`);
+  await api(`/education/${editingEduId}`,{method:'DELETE'});
   toast('Deleted'); $('eduDrawer').classList.remove('open'); loadEdu();
 }
 
@@ -644,7 +644,7 @@ async function loadGoals() {
   const el = $('goalsList'); if (!el) return;
   try {
     const params = _goalFilter ? `?status=${_goalFilter}` : '';
-    const goals = await api(`${API}/goals${params}`);
+    const goals = await api(`/goals${params}`);
     if (!goals.length) {
       el.innerHTML = emptyState(...GH_EMPTY.goals);
       return;
@@ -711,8 +711,8 @@ async function saveGoal() {
     family_member_ids: GH_FAMILY.getIds('goalFamilyWrap'),
   };
   try {
-    if (_editGoalId) await api(`${API}/goals/${_editGoalId}`, 'PUT', body);
-    else             await api(`${API}/goals`, 'POST', body);
+    if (_editGoalId) await api(`/goals/${_editGoalId}`, {method:'PUT',body:JSON.stringify(body)});
+    else             await api('/goals', {method:'POST',body:JSON.stringify(body)});
     toast(_editGoalId ? 'Goal updated' : 'Goal added');
     closeDrawer('goalDrawer');
     loadGoals();
@@ -723,7 +723,7 @@ async function saveGoal() {
 async function deleteGoal() {
   if (!_editGoalId) return;
   if (!await LT.confirm('Delete this goal?')) return;
-  await api(`${API}/goals/${_editGoalId}`, 'DELETE');
+  await api(`/goals/${_editGoalId}`, {method:'DELETE'});
   toast('Deleted'); closeDrawer('goalDrawer'); loadGoals();
 }
 

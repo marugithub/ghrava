@@ -454,6 +454,28 @@ Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
 
+### v202603.108
+**api() call signature audit — comprehensive fix across all pages:**
+- Each page has its own api() wrapper with different signatures. Rule:
+  - `window.api` (finance.html, medical.html) = `api(method, path, body)`
+  - Local `api(path, opts={})` wrappers (career.html, property.html) = pass method/body in opts object
+  - Local `api(path, method='GET', body)` wrappers (books.html) = already correct
+  - Local GET-only `api(path)` wrappers (reports.html) = already correct
+- Fixed 15+ broken calls in finance.html (import section, accounts, transactions, net-worth, gift cards)
+- Fixed 4 career goals calls that double-included `/api/v1/career` prefix
+- Reverted 11 career cert/job/skill/edu calls that were broken by earlier "fixes"
+- Reverted 8 property.html calls that were broken by earlier "fixes"
+- All writes in finance import section now correctly pass method/body
+
+**Nav sidebar — System section added:**
+- `notifications` (Alerts, bell icon) and `data` (Data Manager) added to nav sidebar under new "System" section
+- Settings moved into System section alongside them
+
+**Data Quality completeness checks expanded:**
+- Kids: no date of birth, no grade
+- Finance: uncategorized manual transactions, uncategorized imported transactions  
+- Property: maintenance overdue (past next_due_date)
+
 ### v202603.107
 - **E2E tests expanded:** 9 new API contract tests — data export/import xlsx, dashboard doc_total/kids keys, notifications page load, data page sheet pills, finance budget route. Total: ~22 API contract tests.
 - **Smoke test:** 51 assertions (was 48). Added notifications page, data page, finance/budgets.

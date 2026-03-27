@@ -102,6 +102,27 @@ router.get('/completeness', (req, res) => {
       "SELECT provider AS name FROM hsa_payments WHERE hsa_eligible=1 AND (category IS NULL OR category='')",
       'HSA-eligible expense missing category');
 
+    // Kids
+    check('kids', 'Kids', '/kids.html',
+      "SELECT display_name AS name FROM kids WHERE is_active=1 AND date_of_birth IS NULL",
+      'No date of birth');
+    check('kids', 'Kids', '/kids.html',
+      "SELECT display_name AS name FROM kids WHERE is_active=1 AND grade IS NULL",
+      'No grade set');
+
+    // Finance transactions — uncategorized
+    check('finance', 'Finance', '/finance.html',
+      "SELECT description AS name FROM finance_transactions WHERE (category IS NULL OR category='') LIMIT 50",
+      'Manual transaction missing category');
+    check('finance', 'Finance', '/finance.html',
+      "SELECT description AS name FROM imported_transactions WHERE (category IS NULL OR category='') LIMIT 50",
+      'Imported transaction missing category');
+
+    // Property maintenance overdue
+    check('property', 'Property', '/property.html',
+      "SELECT pm.description AS name FROM property_maintenance pm WHERE pm.next_due_date IS NOT NULL AND pm.next_due_date < date('now')",
+      'Property maintenance overdue');
+
     const total = issues.reduce((s, i) => s + i.count, 0);
     res.json({ total, issues });
   } catch(err) { serverError(res, err); }

@@ -48,8 +48,9 @@
     career:    { href:'/career.html',     label:'Career',    color:'#f97316', bg:'rgba(249,115,22,.1)',    svgKey:'career' },
     books:     { href:'/books.html',      label:'Books',     color:'#8b5cf6', bg:'rgba(139,92,246,.1)',    svgKey:'books' },
     calendar:  { href:'/calendar.html',   label:'Calendar',  color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'calendar' },
-    reports:   { href:'/reports.html',    label:'Reports',   color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
-    data:      { href:'/data.html',       label:'Data',      color:'#8fa3bf', bg:'rgba(143,163,191,.1)',   svgKey:'settings' },
+    reports:   { href:'/reports.html',    label:'Reports',       color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
+    data:      { href:'/data.html',       label:'Data',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'settings' },
+    notifications: { href:'/notifications.html', label:'Alerts', color:'#ef4444', bg:'rgba(239,68,68,.1)',   svgKey:'bell' },
   };
 
   function moduleIcon(m, sizePx) {
@@ -61,6 +62,7 @@
     { label: 'Finance',   keys: ['finance', 'trading', 'reports'] },
     { label: 'Household', keys: ['inventory', 'medical', 'kids', 'property', 'documents'] },
     { label: 'Personal',  keys: ['career', 'books', 'resources'] },
+    { label: 'System',    keys: ['notifications', 'data', 'settings'] },
   ];
 
   const currentPath = window.location.pathname;

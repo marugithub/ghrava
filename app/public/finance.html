@@ -1771,7 +1771,7 @@ function renderNetWorthStrip(nw) {
 async function openAccountDrawer(id) {
   editingAccountId = id || null;
   let a = {};
-  if (id) { try { const all = await api('/finance/accounts'); a = all.find(x=>x.id===id)||{}; } catch(e){} }
+  if (id) { try { const all = await api('GET', '/finance/accounts'); a = all.find(x=>x.id===id)||{}; } catch(e){} }
   $('accDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
   $('accName').value        = a.name||'';
   $('accType').value        = a.type||'Checking';
@@ -1811,7 +1811,7 @@ async function saveAccount() {
 async function deleteAccount() {
   if (!editingAccountId) return;
   if (!await LT.confirm('Delete this account? Transactions will also be removed.')) return;
-  await api(`/finance/accounts/${editingAccountId}`, { method: 'DELETE' });
+  await api('DELETE', `/finance/accounts/${editingAccountId}`);
   toast('Account removed'); $('accountDrawer').classList.remove('open'); loadAccounts();
 }
 
@@ -1829,7 +1829,7 @@ function _initTxTags(existing) {
 
 async function populateTxAccountFilter() {
   try {
-    const accounts = await api('/finance/accounts');
+    const accounts = await api('GET', '/finance/accounts');
     const sel = $('txAccFilter');
     if (!sel) return;
     sel.innerHTML = '<option value="">All accounts</option>' +
@@ -1895,7 +1895,7 @@ async function loadTransactions() {
           if (sel.value === '__add__') return;
           popup.remove();
           try {
-            await api('/api/v1/import/transactions/' + id, 'PATCH', { category: sel.value || null });
+            await api('PATCH', '/api/v1/import/transactions/' + id, { category: sel.value || null });
             span.textContent = sel.value || 'Uncategorized';
             span.dataset.cat = sel.value || '';
           } catch(e) { toast('Could not update category', 'err'); }
@@ -1973,7 +1973,7 @@ async function openTxDrawer(id) {
   let t = {};
   if (id) {
     try {
-      const data = await api('/finance/transactions?limit=200');
+      const data = await api('GET', '/finance/transactions?limit=200');
       t = data.transactions.find(x=>x.id===id)||{};
     } catch(e) {}
   }
@@ -2017,7 +2017,7 @@ async function saveTx() {
 async function deleteTx() {
   if (!editingTxId) return;
   if (!await LT.confirm('Delete this transaction?')) return;
-  await api(`/finance/transactions/${editingTxId}`, { method: 'DELETE' });
+  await api('DELETE', `/finance/transactions/${editingTxId}`);
   toast('Deleted'); $('txDrawer').classList.remove('open'); loadTransactions();
 }
 
@@ -2073,13 +2073,13 @@ function $id_(id) { return document.getElementById(id); }
 
 async function loadNetWorthCurrent() {
   try {
-    const nw = await api('/finance/net-worth/current');
+    const nw = await api('GET', '/finance/net-worth/current');
     renderNetWorthStrip(nw);
   } catch(e) {}
 }
 
 async function saveNwSnapshot() {
-  await api('/finance/net-worth/snapshot', { method: 'POST', body: JSON.stringify({}) });
+  await api('POST', '/finance/net-worth/snapshot', {});
   toast('Snapshot saved');
   loadNetWorthDetail();
 }
@@ -2095,7 +2095,7 @@ async function loadGiftCards() {
   const el = $('gcList'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    _gcAllCards = await api('/finance/gift-cards');
+    _gcAllCards = await api('GET', '/finance/gift-cards');
     const totalBal = _gcAllCards.reduce((s,c) => s + (parseFloat(c.current_balance)||0), 0);
     const cntEl = $('gcCount'); if(cntEl) cntEl.textContent = _gcAllCards.length;
     const totEl = $('gcTotalBalance');
@@ -2397,7 +2397,7 @@ async function saveGc() {
 async function deleteGc() {
   if (!editingGcId) return;
   if (!await LT.confirm('Remove this gift card?')) return;
-  await api(`/finance/gift-cards/${editingGcId}`, { method: 'DELETE' });
+  await api('DELETE', `/finance/gift-cards/${editingGcId}`);
   toast('Removed'); $('gcDrawer').classList.remove('open'); loadGiftCards();
 }
 </script>
@@ -2942,7 +2942,7 @@ async function applyRulesNow() {
 
 async function loadImpAccountSelect() {
   try {
-    const data = await api('/api/v1/import/accounts');
+    const data = await api('GET', '/api/v1/import/accounts');
     _impAccounts = Array.isArray(data) ? data : [];
   } catch { _impAccounts = []; }
 
@@ -3093,7 +3093,7 @@ function impReset() {
 
 async function loadImpMissingAlerts() {
   try {
-    const missing = await api('/api/v1/import/missing-statements');
+    const missing = await api('GET', '/api/v1/import/missing-statements');
     const el = document.getElementById('impMissingAlerts');
     if (!el) return;
     if (!missing.length) { el.innerHTML=''; return; }
@@ -3108,7 +3108,7 @@ async function loadImpMissingAlerts() {
 
 async function loadImpAccounts() {
   try {
-    const accounts = await api('/api/v1/import/accounts');
+    const accounts = await api('GET', '/api/v1/import/accounts');
     _impAccounts = accounts;
     const el = document.getElementById('impAcctList');
     if (!el) return;
@@ -3134,7 +3134,7 @@ async function loadImpAccounts() {
 
 async function loadImpHistory() {
   try {
-    const rows = await api('/api/v1/import/batches');
+    const rows = await api('GET', '/api/v1/import/batches');
     const el = document.getElementById('impHistoryList');
     if (!el) return;
     if (!rows.length) {
@@ -3163,7 +3163,7 @@ async function rollbackBatch(id, e) {
   e.stopPropagation();
   if (!await LT.confirm('Undo this import? All its transactions will be removed.')) return;
   try {
-    await api('/api/v1/import/batches/'+id,'DELETE');
+    await api('DELETE', '/api/v1/import/batches/'+id);
     toast('Import rolled back');
     loadImpHistory();
   } catch(e) { toast('Failed: '+e.message,'err'); }
@@ -3207,8 +3207,8 @@ async function saveAcct() {
     track_statements:parseInt(document.getElementById('acctTrack').value),
   };
   try {
-    if (_editAcctId) await api('/api/v1/import/accounts/'+_editAcctId,'PUT',body);
-    else             await api('/api/v1/import/accounts','POST',body);
+    if (_editAcctId) await api('PUT', '/api/v1/import/accounts/'+_editAcctId, body);
+    else             await api('POST', '/api/v1/import/accounts', body);
     toast(_editAcctId?'Account updated':'Account added');
     closeDrawer('acctDrawer');
     loadImpAccounts();
