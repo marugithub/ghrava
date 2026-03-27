@@ -674,6 +674,7 @@ async function renderMedications() {
             ${r.start_date ? `<span>Started ${formatDate(r.start_date)}</span>` : ''}
             ${r.purpose ? `<span style="color:var(--text2)">${esc(r.purpose)}</span>` : ''}
           </div>
+          ${r.tags&&r.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${r.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
         </div>
       `).join('')}
     `).join('');

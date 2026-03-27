@@ -1,6 +1,6 @@
 # Ghrava Wiring Map
 **Consult this before changing ANYTHING. Update it when adding new dependencies.**
-Last updated: 202603.004
+Last updated: v202603.101
 
 ---
 
@@ -12,36 +12,17 @@ Last updated: 202603.004
 
 | File | What it owns | Change impact |
 |------|-------------|---------------|
-| `public/nav.js` | Sidebar, page header, collapse state, GH_PAGE config | Every page header and sidebar |
-| `public/theme.js` | Dark/light/teal theme application | Every page appearance |
-| `public/js/lt-core.js` | `window.$`, `window.api`, `window.esc`, `window.toast`, `window.LT`, auth gate, spinner, emptyState, errorState | Every page — highest risk |
-| `public/js/lt-messages.js` | `window.GH_EMPTY` — all empty state content | Any page showing empty states |
-| `public/js/lt-shared-data.js` | Shared dropdowns: family, contacts, physicians, locations, tags | finance, inventory, medical, career, books |
-| `public/attachments.js` | Attachment UI widget | finance, inventory |
+| `public/nav.js` | Sidebar, page header, bell dropdown, GH_PAGE config, MODULES registry | Every page header and sidebar |
+| `public/theme.js` | Dark/light/teal theme | Every page appearance |
+| `public/js/lt-core.js` | `$()`, `api()`, `esc()`, `toast()`, `LT`, `GH_SELECT`, `GH_TAGS`, `GH_TAG_SEARCH`, `GH_VIEW`, `GH_FAMILY`, spinner, emptyState, errorState | Every page — highest risk |
+| `public/js/lt-refs.js` | `GH_REFS` — contact/family pickers via settings.html iframe | inventory, medical, property, settings |
+| `public/js/lt-messages.js` | `GH_EMPTY` — all empty state content | Any page showing empty states |
+| `public/js/lt-shared-data.js` | Shared dropdowns: family, contacts, locations | finance, inventory, medical, career, books |
 | `public/shared.css` | ALL component styles | Every page — second highest risk |
 
-**Rule: If you change lt-core.js, re-run the full JS audit across all 15 pages.**
+**Rule: If you change lt-core.js, re-run the full JS audit across all pages.**
+**Rule: If you change lt-refs.js, test contact picker from inventory, medical, and property.**
 **Rule: If you change shared.css, check medical.html and resources.html for local overrides.**
-
----
-
-## CSS Shared Components (defined in shared.css, used in 12+ pages)
-
-Changing any of these in shared.css affects all pages listed:
-
-| Class | Pages affected | Notes |
-|-------|---------------|-------|
-| `.view-tab` / `.view-tabs` | All 15 | `flex: 0 0 auto` — do NOT change to flex:1 |
-| `.view-panel` / `.view-panel.active` | All 15 | Tab content show/hide |
-| `.btn`, `.btn-primary`, `.btn-ghost` | All 15 | |
-| `.drawer`, `.drawer-overlay`, `.drawer-title` | All 15 | |
-| `.form-input`, `.form-select`, `.form-label`, `.form-group` | All 15 | |
-| `.spinner`, `.spin` | All 15 | Initial loading state |
-| `.empty-state`, `.empty-state-*` | All 15 | Used via `emptyState()` helper |
-| `.fab` | 12 pages | Float action button |
-| `--tab-color` CSS var | All tab bars | Set per-page on `.view-tabs` element |
-
-**Rule: Never redefine these in a page `<style>` block. medical.html and resources.html were offenders — fixed in 202603.003.**
 
 ---
 
@@ -49,288 +30,169 @@ Changing any of these in shared.css affects all pages listed:
 
 | Page | Backend modules used |
 |------|---------------------|
-| `finance.html` | `/finance` (LOCKED), `/hsa` (LOCKED), `/import` |
-| `inventory.html` | `/inventory`, `/attachments` (LOCKED), `/settings` |
-| `medical.html` | `/medical`, `/settings` (partial) |
+| `index.html` | `/dashboard`, `/google` |
+| `finance.html` | `/finance`, `/hsa`, `/import` |
+| `inventory.html` | `/inventory`, `/attachments`, `/settings` |
+| `medical.html` | `/medical`, `/settings` (contacts via lt-refs) |
 | `todos.html` | `/todos`, `/settings` (dropdowns) |
 | `daily-log.html` | `/daily-log`, `/settings` (dropdowns) |
 | `career.html` | `/career`, `/settings` (dropdowns) |
-| `property.html` | `/property` |
+| `property.html` | `/property`, `/settings` (contacts via lt-refs) |
 | `documents.html` | `/documents`, `/settings` (family) |
-| `resources.html` | `/resources` |
+| `resources.html` | `/resources`, `/settings` (dropdowns) |
 | `books.html` | `/books` |
 | `kids.html` | `/kids` |
-| `settings.html` | ALL modules (diagnostic tests) |
-| `reports.html` | `/finance` (LOCKED) |
-| `index.html` | `/dashboard`, `/google` |
-| `calendar.html` | `/google`, `/settings` |
+| `notifications.html` | `/notifications` |
+| `reports.html` | `/finance`, `/settings`, `/import`, `/app` |
+| `settings.html` | ALL modules (diagnostic tests) — canonical contact/family forms |
+| `data.html` | `/data` (unified export/import) |
 
 ---
 
-## Backend Auth Model
+## Backend Route Registry
 
-**Rule: Finance and HSA GET routes are intentionally locked. The UI must handle 401 gracefully — show errorState(), never leave a spinner.**
-
-| Module | GET auth | Write auth | Intent |
-|--------|----------|------------|--------|
-| `finance` | LOCKED | LOCKED | Sensitive financial data |
-| `hsa` | LOCKED | LOCKED | Sensitive financial data |
-| `attachments` | LOCKED | LOCKED | File access requires auth |
-| `backup` | LOCKED | LOCKED | Data export requires auth |
-| `settings` | Partial (7 public, 11 locked) | All locked | Dropdowns public, config locked |
-| `todos` | Public | Locked | GETs before requireAuth |
-| `resources` | Public | Locked | GETs before requireAuth |
-| `inventory` | Public | Locked | GETs before requireAuth |
-| `notifications` | Public | Locked | GETs before requireAuth |
-| All others | Public | Locked | Standard pattern |
-
-**Rule: When adding a new route, GETs go BEFORE `router.use(requireAuth)`. Writes go after.**
-
----
-
-## Empty State & Error Pattern
-
-**Rule: NEVER write inline `<div style="color:var(--red)">Failed to load</div>`. Always use:**
-
-```js
-// Empty (no data exists yet)
-el.innerHTML = emptyState(...GH_EMPTY.accounts);
-el.innerHTML = emptyState('🔍', 'No results', 'Try a different filter', '');
-
-// Error (fetch failed)
-el.innerHTML = errorState(e.message, 'loadAccounts()');  // with retry
-el.innerHTML = errorState(e.message, '');                  // no retry
-```
-
-**Rule: NEVER bake a `<div class="spinner">` into HTML for tab panels that load on demand.
-Tab panels start EMPTY. The load function sets the spinner, then replaces it with data or error.**
+| Mount path | File | Auth on writes |
+|-----------|------|----------------|
+| `/api/v1/auth` | features/auth/routes.js | n/a |
+| `/api/v1/daily-log` | features/dailylog/routes.js | requireAuth (no-op) |
+| `/api/v1/inventory` | features/inventory/routes.js | requireAuth (no-op) |
+| `/api/v1/resources` | features/resources/routes.js | requireAuth (no-op) |
+| `/api/v1/todos` | features/todos/routes.js | requireAuth (no-op) |
+| `/api/v1/notifications` | features/notifications/routes.js | requireAuth (no-op) |
+| `/api/v1/dashboard` | features/dashboard/routes.js | public |
+| `/api/v1/settings` | features/settings/routes.js | requireAuth (no-op) |
+| `/api/v1/hsa` | features/hsa/routes.js | requireAuth (no-op) |
+| `/api/v1/medical` | features/medical/routes.js | requireAuth (no-op) |
+| `/api/v1/attachments` | features/attachments/routes.js | requireAuth (no-op) |
+| `/api/v1/backup` | features/backup/routes.js | requireAuth (no-op) |
+| `/api/v1/finance` | features/finance/routes.js | requireAuth (no-op) |
+| `/api/v1/career` | features/career/routes.js | requireAuth (no-op) |
+| `/api/v1/books` | features/books/routes.js | requireAuth (no-op) |
+| `/api/v1/property` | features/property/routes.js | requireAuth (no-op) |
+| `/api/v1/import` | features/import/routes.js | requireAuth (no-op) |
+| `/api/v1/documents` | features/documents/routes.js | requireAuth (no-op) |
+| `/api/v1/google` | features/google/routes.js | public |
+| `/api/v1/kids` | features/kids/routes.js | requireAuth (no-op) |
+| `/api/v1/data` | features/data/routes.js | public (all) |
 
 ---
 
-## Module-to-Page Mapping (for when you change a backend module)
+## GH_SELECT — canonical dropdown_options keys
 
-Changing a backend module affects these frontend pages:
+Every configurable dropdown MUST pull from `dropdown_options`. No hardcoded `<option>` lists
+for data that grows. Truly static enumerations (book format, cert status) may remain hardcoded.
 
-| Backend module | Frontend pages | Risk |
-|---------------|----------------|------|
-| `finance` | finance.html, reports.html | High — 8 tabs |
-| `hsa` | finance.html (HSA tab) | High — 4 sub-tabs |
-| `inventory` | inventory.html, settings.html (diag) | High — complex |
-| `settings` | todos.html, daily-log.html, career.html, inventory.html, medical.html, calendar.html, settings.html | High — dropdowns used everywhere |
-| `todos` | todos.html, index.html (dashboard), settings.html | Medium |
-| `daily-log` | daily-log.html, settings.html | Medium |
-| `dashboard` | index.html | Low |
-| `attachments` | finance.html, inventory.html | Medium |
-| `kids` | kids.html | Low |
-| `property` | property.html | Low |
-| `career` | career.html | Low |
-| `medical` | medical.html | Low |
-| `books` | books.html, settings.html (diag) | Low |
-| `documents` | documents.html | Low |
-| `resources` | resources.html | Low |
+| list_key | Used by | Seeded in |
+|----------|---------|-----------|
+| `inventory_category` | inventory.html | migration 006 |
+| `hw_subcategory` | inventory.html | migration 013 |
+| `contact_specialty` | settings.html | migration 006 |
+| `dailylog_category` | daily-log.html | migration 006 |
+| `todo_category` | todos.html | migration 006 |
+| `hsa_category` | finance.html | migration 029 |
+| `document_category` | documents.html | migration 026 |
+| `document_subcategory` | documents.html | migration 026 |
+| `kids_activity_category` | kids.html | migration 013 |
+| `kids_note_category` | kids.html | migration 013 |
+| `property_type` | property.html | migration 013 |
+| `property_maintenance_category` | property.html | migration 013 |
+| `book_genre` | books.html | migration 013 |
+| `career_job_type` | career.html | migration 013 |
+| `career_skill_category` | career.html | migration 013 |
+| `career_goal_category` | career.html | migration 013 |
+| `location_name` | inventory.html | user-added |
+| `resource_category` | resources.html | migration 044 |
+| `finance_category` | finance.html | migration 045 |
+| `hsa_store` | finance.html | migration 045 |
+| `vehicle_service_type` | property.html | migration 047 |
+| `hsa_otc_category` | finance.html | migration 047 |
+| `financial_institution` | finance.html | migration 047 |
+
+---
+
+## GH_REFS — contact/family picker
+
+Contact creation form lives **only** in `settings.html`. Other pages open it via `lt-refs.js`
+which loads `settings.html?drawer=contact` in an iframe overlay. The `gh-drawer-only` CSS
+class on body hides everything except the drawer. postMessage signals save/cancel.
+
+Pages that load `lt-refs.js`: inventory.html, medical.html, property.html
+Pages that need it but may be missing: **audit before adding new modules with contact fields**
+
+---
+
+## Canonical Entity Types (tags system)
+
+| Module | entity_type | Wired? |
+|--------|-------------|--------|
+| Inventory items | `item` | ✓ |
+| Daily Log | `daily_log` | ✓ |
+| Resources | `resource` | ✓ |
+| Documents | `document` | ✓ |
+| Books | `book` | ✓ |
+| Finance transactions | `finance_transaction` | ✓ |
+| HSA payments | `hsa_payment` | ✓ |
+| Todos | `todo` | ✓ |
+| Medical visits | `med_visit_note` | ✗ |
+| Medical medications | `med_medication` | ✗ |
+| Kids notes | `kid_note` | ✓ (kids) |
+| Kids activities | `kid_activity` | ✓ (kids) |
+| Career certs | `career_cert` | ✗ |
+| Properties | `property` | ✗ |
+| Vehicles | `vehicle` | ✗ |
+
+**Rule: Use ONLY the entity_type from this table. Never invent new strings.**
+
+---
+
+## Export / Import Architecture
+
+### Type 1 — Ghrava data (your records)
+- `GET /api/v1/data/export` → XLSX workbook, 20 sheets, Instructions sheet
+- `GET /api/v1/data/template` → blank workbook with headers + instructions
+- `POST /api/v1/data/import` → upload workbook, only present sheets processed
+- Upsert key: `id` for most tables, `item_ref` for inventory Items
+- Partial import: delete sheets before uploading — only present sheets are processed
+
+### Type 2 — External bank statements
+- `POST /api/v1/import/preview` — parse file, show preview (CSV/XLSX/OFX/QFX)
+- `POST /api/v1/import/confirm` — import with auto-categorization via rules
+- Parsers: Chase, BofA, Navy Federal, Schwab (checking + brokerage), Vanguard, TSP, Citi, Discover, generic
+- Auto-categorize: `import_category_rules` table, 50+ seeded keyword rules, `POST /api/v1/finance/category-rules/apply`
 
 ---
 
 ## Known Patterns That Break
 
-1. **Local `<style>` blocks redefining `.view-tab`** → overrides shared.css flex fix → tabs squish. Check: medical.html, resources.html.
-
-2. **Baked-in spinners in tab panels** → spinner shows forever if tab not active on load. Rule: tab panel HTML starts empty.
-
-3. **`router.use(requireAuth)` before `router.get()`** → all GETs return 401 → UI shows error on every load. Rule: GETs always before the blanket middleware.
-
-4. **Boot guard `if(LT.authToken)` in DOMContentLoaded** → page shows nothing if auth token not yet set. Rule: auth gate handles auth before page loads — remove these guards.
-
-5. **`$id()` instead of `$()`** → undefined function error → whole JS crashes silently. Rule: only `$()` is defined in lt-core. Never use `$id()`.
-
-6. **`var(--surface)` or `var(--text1)` in any page** → these vars don't exist in our theme → invisible rendering. Rule: use `var(--bg2)` and `var(--text)`.
-
-7. **Template literal inside HTML string**: `` `<span>${x}</span>` `` as a raw HTML value → renders literal backtick characters. Rule: run the JS syntax audit before shipping.
+1. **GETs after `router.use(requireAuth)`** → all GETs 401 → UI errors on load. Always put GETs first.
+2. **Non-async function with `await GH_SELECT.init()`** → silent crash. Make drawer-open functions async.
+3. **`$id()` instead of `$()`** → undefined → whole JS fails silently.
+4. **`var(--surface)`, `var(--text1)`, `var(--bg5)`** → don't exist → invisible rendering.
+5. **Duplicate contact form** — the contact form lives ONLY in settings.html. Never copy it.
+6. **ON DELETE CASCADE** — never. Clean up child records manually in a transaction.
+7. **WAL journal mode** — never. Always DELETE + FULL.
+8. **Hardcoded `<option>` for growing data** — always GH_SELECT + dropdown_options.
+9. **Freetext for named entities** (person, place, org) — always GH_REFS or GH_SELECT.
 
 ---
 
 ## Pre-Deploy Checklist
 
-Run these before every deploy:
-
 ```bash
-# 1. JS syntax check all pages
-python3 -c "
-import os, re, subprocess, tempfile
-pub = '/home/claude/ghrava_clean/app/public'
-for f in sorted(os.listdir(pub)):
-    if not f.endswith('.html'): continue
-    c = open(f'{pub}/{f}').read()
-    scripts = re.findall(r'<script(?:\s+[^>]*)?>(?!.*?src=)(.*?)</script>', c, re.DOTALL)
-    combined = '\n'.join(scripts)
-    if not combined.strip(): continue
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.js', delete=False) as tmp:
-        tmp.write(combined); tp = tmp.name
-    r = subprocess.run(['node', '--check', tp], capture_output=True, text=True)
-    os.unlink(tp)
-    if r.returncode != 0: print(f'{f}: {r.stderr[:100]}')
-"
+# JS syntax check all pages
+for page in index finance inventory medical todos daily-log career property \
+            documents resources books kids notifications reports settings data; do
+  python3 -c "
+import re
+with open('app/public/${page}.html') as f: c=f.read()
+scripts=re.findall(r'<script(?![^>]*src=)[^>]*>(.*?)</script>',c,re.DOTALL)
+open('/tmp/chk.js','w').write('\n'.join(scripts))" && \
+  node --check /tmp/chk.js && echo "${page}.html OK"
+done
 
-# 2. Div balance check
-python3 -c "
-import os
-for f in sorted(os.listdir('/home/claude/ghrava_clean/app/public')):
-    if not f.endswith('.html'): continue
-    c = open(f'/home/claude/ghrava_clean/app/public/{f}').read()
-    d = c.count('<div') - c.count('</div>')
-    if d: print(f'{f}: {d:+d}')
-"
+# Route files
+for f in app/features/*/routes.js; do node --check $f && echo "$f OK"; done
 
-# 3. Check for stale CSS vars
-python3 -c "
-import os
-stale = ['var(--surface)', 'var(--text1)', 'var(--r-sm)', 'var(--bg5)']
-for f in sorted(os.listdir('/home/claude/ghrava_clean/app/public')):
-    if not f.endswith('.html'): continue
-    c = open(f'/home/claude/ghrava_clean/app/public/{f}').read()
-    for v in stale:
-        if v in c: print(f'{f}: {v}')
-"
-
-# 4. Check for local api() definitions
-python3 -c "
-import re, os
-pub = '/home/claude/ghrava_clean/app/public'
-for f in sorted(os.listdir(pub)):
-    if not f.endswith('.html'): continue
-    c = open(f'{pub}/{f}').read()
-    if re.search(r'const api\s*=.*?fetch\(', c[:8000], re.DOTALL) and 'window.api' not in c[:1000]:
-        print(f'{f}: has local fetch-based api()')
-"
+# Smoke test
+bash smoke-test.sh
 ```
-
----
-
-## Canonical Entity Types (tags+taggables system)
-
-Every module that supports tags MUST use exactly this entity_type string.
-No other strings are valid. This is the single source of truth.
-
-| Module | entity_type | Backend file | Currently wired? |
-|--------|-------------|--------------|-----------------|
-| Inventory items | `item` | inventory/routes.js | ✓ Yes |
-| Daily Log entries | `daily_log` | dailylog/routes.js | ✓ Yes |
-| Resources | `resource` | resources/routes.js | ✓ Yes |
-| Documents | `document` | documents/routes.js | ✗ No — uses freetext column |
-| Medical visits | `medical_visit` | medical/routes.js | ✗ No |
-| Medical medications | `medical_medication` | medical/routes.js | ✗ No |
-| Todos | `todo` | todos/routes.js | ✗ No |
-| Career certs | `career_cert` | career/routes.js | ✗ No |
-| Career jobs | `career_job` | career/routes.js | ✗ No |
-| Books | `book` | books/routes.js | ✗ No |
-| Kids notes | `kid_note` | kids/routes.js | ✗ No |
-| Property | `property` | property/routes.js | ✗ No |
-| Vehicles | `vehicle` | property/routes.js | ✗ No |
-| Finance transactions | `finance_transaction` | finance/routes.js | ✗ No |
-| Gift cards | `gift_card` | finance/routes.js | ✗ No |
-
-**Rule: When adding tag support to a module, use ONLY the entity_type from this table.
-Never invent a new string. Update this table when adding a new module.**
-
----
-
-## Canonical dropdown_options Keys
-
-Every configurable dropdown MUST pull from dropdown_options.
-No hardcoded <option> lists are permitted except for truly static enumerations
-(e.g. book format: Physical/Kindle/Audible — user would never add "VHS" to this list).
-
-### Already seeded (migration 006, 013, 026, 029):
-| list_key | Used by |
-|----------|---------|
-| `inventory_category` | inventory.html |
-| `hw_subcategory` | inventory.html |
-| `contact_type` | settings.html |
-| `item_condition` | inventory.html |
-| `purchase_method` | inventory.html |
-| `dailylog_category` | daily-log.html |
-| `todo_category` | todos.html |
-| `hsa_category` | finance.html |
-
-### Needs to be seeded (migration 036):
-| list_key | Used by | Values to seed |
-|----------|---------|----------------|
-| `document_category` | documents.html | Tax, Legal, Insurance, Warranty, Medical, Financial, Property, Vehicle, Career, Other |
-| `document_subcategory` | documents.html | Flat list covering all categories: Federal Return, Life Insurance, Will/Trust, Service Record, Lab Results… (21 values). GH_SELECT lets user add their own. |
-| `kids_activity_category` | kids.html | Sports, Music, Arts, Academic, Social, Religious, Volunteer, Other |
-| `kids_note_category` | kids.html | General, Medical, School, Milestone, Behavior, Achievement |
-| `property_type` | property.html | Primary Residence, Rental, Vacation, Land, Commercial, Other |
-| `property_maintenance_category` | property.html | Roof, HVAC, Plumbing, Electrical, Landscaping, Appliance, Pest Control, Other |
-| `vehicle_service_type` | property.html | Oil Change, Tire Rotation, Brake Service, Inspection, Registration, Repair, Recall, Other |
-| `medical_visit_type` | medical.html | Primary Care, Specialist, Urgent Care, ER, Dental, Vision, Mental Health, Lab, Imaging, Other |
-| `medical_condition_status` | medical.html | Active, Managed, Resolved, Monitoring |
-| `medical_physician_type` | medical.html | Primary Care, Specialist, Dentist, Optometrist, Mental Health, Other |
-| `book_genre` | books.html | Fiction, Non-fiction, Biography, Science, History, Technology, Self-help, Other |
-
-### Static enumerations (hardcoded is acceptable — user would never add values):
-| Field | Values | Reason static is OK |
-|-------|--------|---------------------|
-| book_status | Want to Read, Currently Reading, Read | Fixed reading states |
-| book_format | Physical, Kindle, Audible | Fixed media types |
-| cert_status | Active, Expired, Pending, Suspended | Fixed cert states |
-| medical_condition_status | Active, Managed, Resolved, Monitoring | Clinical states |
-
----
-
-## GH_SELECT Design Specification
-
-A shared utility (in lt-core.js) that wraps any <select> backed by dropdown_options.
-
-**Usage pattern:**
-```html
-<select id="dCat" class="form-select"></select>
-```
-```js
-// In page init or drawer open:
-await GH_SELECT.init('dCat', 'document_category', currentValue);
-```
-
-**What GH_SELECT does:**
-1. Fetches options from `/api/v1/settings/dropdowns/{list_key}`
-2. Populates the `<select>` with those options
-3. Appends a special `<option value="__add__">＋ Add new…</option>` at bottom
-4. When `__add__` is selected: opens a small inline modal (not a drawer — lightweight)
-   - Input field: "New value name"
-   - Save button: POSTs to `/api/v1/settings/dropdowns` with the new value
-   - On success: refreshes the dropdown, selects the new value
-5. Restores the `currentValue` if provided (for edit mode)
-
-**The modal is NOT a full drawer.** It's a small centered popup:
-- 320px wide, positioned near the select
-- Single text input + Save/Cancel
-- Closes on Save or Cancel or Esc
-
-**Authentication:** Creating a new dropdown value requires auth (POST to settings).
-The modal shows the auth-required toast if not logged in.
-
----
-
-## Tag Search Architecture (future feature)
-
-Backend endpoint: `GET /api/v1/tags/:tagName/search`
-
-Returns all records across all modules tagged with that value:
-```json
-{
-  "tag": "insurance",
-  "results": [
-    { "entity_type": "document", "entity_id": 3, "title": "State Farm Policy 2024", "module": "documents", "url": "/documents.html?id=3" },
-    { "entity_type": "resource", "entity_id": 12, "title": "State Farm Portal", "module": "resources", "url": "/resources.html" },
-    ...
-  ]
-}
-```
-
-Each module registers a "title query" — a SQL fragment that returns `id, title` for that entity_type.
-The endpoint queries taggables for all matching entity_type+entity_id pairs, then fetches titles.
-
-Frontend: A `GH_TAG_SEARCH` panel that can be triggered from any tag click.
-Contextual: if triggered from within a module, filters to that module's entity_types only.
-Global: if triggered from Reports or a global search, shows all modules.
-
-**This only works if all modules use canonical entity_types from the table above.**

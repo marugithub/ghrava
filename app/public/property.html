@@ -342,7 +342,7 @@ function onFab(){
 async function loadProps(){
   const el=$('propList'); if(!el) return;
   try{
-    const ps=await api('/properties');
+    const ps=await api('GET', '/properties');
     const tv=ps.reduce((s,p)=>s+(parseFloat(p.current_est_value)||0),0);
     const tm=ps.reduce((s,p)=>s+(parseFloat(p.mortgage_balance)||0),0);
     const eq=tv-tm;
@@ -368,6 +368,7 @@ async function loadProps(){
           <div class="stat-cell"><div class="stat-lbl">Equity</div><div class="stat-val" style="color:${eq>=0?'var(--green)':'var(--red)'}">${v?fmt$(eq):'—'}</div></div>
         </div>
         ${p.mortgage_monthly?`<div style="padding:8px 16px;font-size:12px;color:var(--text3);border-top:1px solid var(--border)">${fmt$(p.mortgage_monthly)}/mo${p.hoa_monthly?' · HOA '+fmt$(p.hoa_monthly)+'/mo':''}</div>`:''}
+        ${p.tags&&p.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 16px;border-top:1px solid var(--border)">${p.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
       </div>`;
     }).join('');
   }catch(e){el.innerHTML = errorState(e.message, '');}
@@ -375,7 +376,7 @@ async function loadProps(){
 
 async function openPropDrawer(id){
   editProp=id||null; let p={};
-  if(id){try{const all=await api('/properties');p=all.find(x=>x.id===id)||{};}catch(e){}}
+  if(id){try{const all=await api('GET', '/properties');p=all.find(x=>x.id===id)||{};}catch(e){}}
   $('propDrawerTitle').textContent=id?'Edit Property':'Add Property';
   $('pNick').value=p.nickname||''; $('pType').value=p.property_type||'Primary Residence';
   $('pStreet').value=p.address_street||''; $('pCity').value=p.address_city||'';
@@ -413,7 +414,7 @@ async function saveProp(){
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editProp?`/properties/${editProp}`:'/properties';
-    await api(url,{method:editProp?'PUT':'POST',body:JSON.stringify(payload)});
+    await api(editProp?'PUT':'POST', url, payload);
     toast(editProp?'Updated':'Property added');
     $('propDrawer').classList.remove('open');loadProps();
   }catch(e){toast(ghErrorMsg(e),'err');}
@@ -421,7 +422,7 @@ async function saveProp(){
 }
 async function delProp(){
   if(!await LT.confirm('Remove this property?'))return;
-  await api(`/properties/${editProp}`,{method:'DELETE'});
+  await api('DELETE', `/properties/${editProp}`);
   toast('Removed');$('propDrawer').classList.remove('open');loadProps();
 }
 
@@ -429,7 +430,7 @@ async function delProp(){
 async function loadVehs(){
   const el=$('vehList');if(!el)return;
   try{
-    const vs=await api('/vehicles');
+    const vs=await api('GET', '/vehicles');
     if(!vs.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px">No vehicles yet</div>';return;}
     const today=new Date().toISOString().slice(0,10);
     const warn30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
@@ -457,6 +458,7 @@ async function loadVehs(){
         <div style="padding:8px 16px;border-top:1px solid var(--border)">
           <button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" onclick="openSvcDrawer(${v.id},'${esc(v.nickname)}')">🔧 Service Log</button>
         </div>
+        ${v.tags&&v.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 16px;border-top:1px solid var(--border)">${v.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
       </div>`;
     }).join('');
   }catch(e){el.innerHTML = errorState(e.message, '');}
@@ -464,7 +466,7 @@ async function loadVehs(){
 
 async function openVehDrawer(id){
   editVeh=id||null; let v={};
-  if(id){try{const all=await api('/vehicles');v=all.find(x=>x.id===id)||{};}catch(e){}}
+  if(id){try{const all=await api('GET', '/vehicles');v=all.find(x=>x.id===id)||{};}catch(e){}}
   $('vehDrawerTitle').textContent=id?'Edit Vehicle':'Add Vehicle';
   $('vNick').value=v.nickname||''; $('vYear').value=v.year||''; $('vMake').value=v.make||'';
   $('vModel').value=v.model||''; $('vTrim').value=v.trim||''; $('vColor').value=v.color||'';
@@ -502,7 +504,7 @@ async function saveVeh(){
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editVeh?`/vehicles/${editVeh}`:'/vehicles';
-    await api(url,{method:editVeh?'PUT':'POST',body:JSON.stringify(payload)});
+    await api(editVeh?'PUT':'POST', url, payload);
     toast(editVeh?'Updated':'Vehicle added');
     $('vehDrawer').classList.remove('open');loadVehs();
   }catch(e){toast(ghErrorMsg(e),'err');}
@@ -510,7 +512,7 @@ async function saveVeh(){
 }
 async function delVeh(){
   if(!await LT.confirm('Remove this vehicle?'))return;
-  await api(`/vehicles/${editVeh}`,{method:'DELETE'});
+  await api('DELETE', `/vehicles/${editVeh}`);
   toast('Removed');$('vehDrawer').classList.remove('open');loadVehs();
 }
 
@@ -528,7 +530,7 @@ async function openSvcDrawer(vid,name){
 async function loadSvcLog(){
   const el=$('svcLogList');if(!el)return;
   try{
-    const rows=await api(`/vehicles/${svcVehId}/service`);
+    const rows=await api('GET', `/vehicles/${svcVehId}/service`);
     if(!rows.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:4px 0 12px">No records yet</div>';return;}
     el.innerHTML=rows.map(s=>`
       <div class="svc-row">
@@ -550,7 +552,7 @@ async function saveSvc(){
     shop:$('sShop').value||null,notes:$('sNotes').value||null,
     next_due_date:$('sNextDate').value||null,next_due_miles:parseInt($('sNextMiles').value)||null
   };
-  await api(`/vehicles/${svcVehId}/service`,{method:'POST',body:JSON.stringify(payload)});
+  await api('POST', `/vehicles/${svcVehId}/service`, payload);
   toast('Record added');
   ['sType','sShop','sNotes','sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
   await loadSvcLog();
@@ -626,7 +628,7 @@ async function loadMaint(){
   const el = $('maintList'); if(!el) return;
   // Populate property selector
   if(!_allProps.length){
-    try{ _allProps = await api('/properties'); } catch(e){ _allProps=[]; }
+    try{ _allProps = await api('GET', '/properties'); } catch(e){ _allProps=[]; }
   }
   const sel = $('maintPropFilter');
   if(sel && _allProps.length){

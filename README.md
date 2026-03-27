@@ -1,166 +1,124 @@
-# LifeTracker — Phase 1A Setup Instructions
+# Ghrava — Household Management App
 
-Your environment: QNAP TS-451 @ 192.168.4.62, QTS 5.2.8, Container Station 3.1.2, Windows 11
-
----
-
-## STEP 1 — Copy this folder to your QNAP
-
-1. Open File Explorer on your PC
-2. In the address bar type:  \\192.168.4.62\homes
-3. Press Enter
-4. Open the "admin" folder
-5. Copy the entire "lifetracker" folder here
-
-Your QNAP path will be:  /share/homes/admin/lifetracker/
+**Container:** `ghrava` | **Host:** 192.168.4.62:3001 | **NAS path:** `Z:\ghrava`
+**Stack:** Node.js 20 + Express, SQLite (better-sqlite3), vanilla JS, Docker on QNAP TS-451
 
 ---
 
-## STEP 2 — Open PuTTY and connect
+## Quick Start
 
-- Host: 192.168.4.62
-- Port: 22
-- Connection type: SSH
+```bash
+# Deploy code changes (no package.json change)
+docker restart ghrava
 
-Login with your QNAP admin username and password.
+# Deploy with new npm packages
+cd /share/Docker/ghrava && docker-compose up -d --build
 
----
+# View logs
+docker logs ghrava --tail 50
 
-## STEP 3 — Verify Docker is running
+# Run smoke test (from Windows mapped drive)
+bash Z:\ghrava\smoke-test.sh
 
-In PuTTY, type:
-
-    docker --version
-
-Expected output:  Docker version 24.x.x, build ...
-
-If you see "command not found" — open Container Station in your QTS browser first, wait 30 seconds, then try again.
-
----
-
-## STEP 4 — Check Node.js (needed to build the image)
-
-    node --version
-
-If it shows v18 or higher — skip to Step 5.
-
-If "command not found" — run these commands one at a time:
-
-    cd /tmp
-    wget https://nodejs.org/dist/v20.11.0/node-v20.11.0-linux-x64.tar.xz
-    tar -xf node-v20.11.0-linux-x64.tar.xz
-    cp -r node-v20.11.0-linux-x64 /share/homes/admin/node20
-    echo 'export PATH=/share/homes/admin/node20/bin:$PATH' >> /root/.profile
-    source /root/.profile
-    node --version
-
-Expected output: v20.11.0
+# Run E2E tests (from Windows, requires Node + Playwright)
+cd Z:\ghrava\tests && powershell -File run-tests.ps1
+```
 
 ---
 
-## STEP 5 — Verify the files are in place
+## URLs
 
-    ls /share/homes/admin/lifetracker/
-
-Expected output:  app   data   docker-compose.yml   .env
-
-    ls /share/homes/admin/lifetracker/app/
-
-Expected output:  db   features   shared   Dockerfile   package.json   server.js
-
----
-
-## STEP 6 — Build the Docker image
-
-    cd /share/homes/admin/lifetracker
-    docker-compose build
-
-This takes 2-5 minutes the first time. You'll see many lines ending with:
-  Successfully built ...
-  Successfully tagged ...
+| URL | Purpose |
+|-----|---------|
+| http://192.168.4.62:3001 | App home |
+| http://192.168.4.62:3001/health | Health check |
+| http://192.168.4.62:3001/data.html | Data export / import |
+| http://192.168.4.62:3001/reports.html | Reports + Tools |
+| http://192.168.4.62:3001/settings.html | Settings |
 
 ---
 
-## STEP 7 — Start the container
+## Modules
 
-    docker-compose up -d
-
-Expected output:  Creating lifetracker ... done
-
-Confirm it is running:
-
-    docker ps
-
-The STATUS column must show "Up" — not "Exited".
-
----
-
-## STEP 8 — Check the logs
-
-    docker logs lifetracker
-
-Expected output:
-  apply 001_initial.sql
-  Migrations complete. Applied: 1, Skipped: 0
-  LifeTracker running on port 3001
+| Module | Page | Routes prefix |
+|--------|------|--------------|
+| Dashboard | index.html | /api/v1/dashboard |
+| Daily Log | daily-log.html | /api/v1/daily-log |
+| Inventory | inventory.html | /api/v1/inventory |
+| Medical | medical.html | /api/v1/medical |
+| Finance + HSA | finance.html | /api/v1/finance, /api/v1/hsa, /api/v1/import |
+| Todos | todos.html | /api/v1/todos |
+| Books | books.html | /api/v1/books |
+| Documents | documents.html | /api/v1/documents |
+| Resources | resources.html | /api/v1/resources |
+| Property | property.html | /api/v1/property |
+| Career | career.html | /api/v1/career |
+| Kids | kids.html | /api/v1/kids |
+| Notifications | notifications.html | /api/v1/notifications |
+| Reports | reports.html | (aggregates multiple APIs) |
+| Settings | settings.html | /api/v1/settings |
+| Data Manager | data.html | /api/v1/data |
 
 ---
 
-## STEP 9 — Test in your browser
+## Key Architecture Rules
 
-Open:  http://192.168.4.62:3001
-
-You should see the LifeTracker placeholder page.
-
-Then open:  http://192.168.4.62:3001/health
-
-You should see:  {"status":"ok","version":"1.0.0",...}
-
----
-
-## STEP 10 — Set your app password (first-run)
-
-Open this URL in your browser or use any API tool:
-
-    POST http://192.168.4.62:3001/api/v1/auth/setup
-    Body: {"password": "your-chosen-password"}
-
-Or from PuTTY using curl:
-
-    curl -X POST http://localhost:3001/api/v1/auth/setup \
-      -H "Content-Type: application/json" \
-      -d '{"password":"your-chosen-password"}'
+1. **requireAuth is a no-op** — `app/features/auth/middleware.js` calls `next()` unconditionally. Auth infrastructure preserved for future SSO.
+2. **GET routes always before `router.use(requireAuth)`** in every route file.
+3. **Tags** — always via `shared/tags.js` (`saveTagsByName`, `withTagNames`, `clearTags`). Never raw SQL.
+4. **Family members** — always via `shared/familyMembers.js`.
+5. **Dropdowns** — always `GH_SELECT` backed by `dropdown_options` table. No hardcoded `<option>` lists for growing data.
+6. **Named entities** (person/place/contact) — always `GH_REFS` contact picker or `GH_SELECT`. Never freetext.
+7. **One canonical form per record type** — if a record can be added from multiple screens, all screens call the same form (contact form lives in settings.html, surfaced via lt-refs.js iframe).
+8. **No ON DELETE CASCADE** — ever.
+9. **DB journal_mode=DELETE, synchronous=FULL** — never WAL.
 
 ---
 
-## Phase 1A is complete. Message Claude to start Phase 1B: Inventory.
+## Deploy Pattern
+
+```bash
+# 1. Run smoke test first
+bash Z:\ghrava\smoke-test.sh
+
+# 2. Package (from Claude's container)
+cd /home/claude/ghrava/ghrava
+zip /home/claude/Ghrava_DEPLOY.zip [files] app/version.txt HANDOFF.md
+
+# 3. Deploy to NAS
+# Copy zip to Z:\ghrava, extract, then:
+docker restart ghrava
+```
 
 ---
 
-## Day-to-day commands
+## Data Export / Import
 
-Restart after changing a file:
-    cd /share/homes/admin/lifetracker && docker-compose build && docker-compose up -d
-
-Restart after changing only .env:
-    cd /share/homes/admin/lifetracker && docker-compose restart
-
-View logs:
-    docker logs lifetracker --tail 50
-
-Stop the app:
-    cd /share/homes/admin/lifetracker && docker-compose down
-
-Change the port: edit PORT= in the .env file, then restart.
+- **Export all data:** `GET /api/v1/data/export` → XLSX workbook, 20 module sheets
+- **Import template:** `GET /api/v1/data/template` → blank workbook with headers + instructions
+- **Import:** `POST /api/v1/data/import` → upload workbook, only present sheets processed
+- **Restore key:** `id` column for most tables, `item_ref` for inventory items
+- **Bank statements:** `POST /api/v1/import/preview` + `/confirm` → separate flow, supports CSV/XLSX/OFX/QFX
 
 ---
 
-## Troubleshooting
+## Migrations
 
-| Problem | Fix |
-|---|---|
-| Browser "can't reach site" | Run: docker ps — check STATUS column |
-| STATUS shows "Exited" | Run: docker logs lifetracker — read the error |
-| "docker: command not found" | Open Container Station in QTS browser first |
-| Port 3001 already in use | Change PORT=3001 to PORT=3002 in .env, restart |
-| Container keeps restarting | Syntax error in a file — check docker logs |
+Migrations auto-apply on container start. Each file in `app/db/migrations/` runs once.
+Adding a migration = creating a new numbered SQL file. `docker restart ghrava` applies it.
+
+Current count: 047 migrations applied.
+
+**Safe to apply (INSERT OR IGNORE / CREATE IF NOT EXISTS only):**
+- 044: resource_category dropdown
+- 045: finance_category, hsa_store dropdowns
+- 046: import_category_rules table + 50 seed rules
+- 047: vehicle_service_type, hsa_otc_category, financial_institution dropdowns
+
+---
+
+## Testing
+
+- **Smoke test:** `bash smoke-test.sh` — 48 HTTP assertions against live container
+- **E2E (Playwright):** `cd tests && powershell -File run-tests.ps1` — runs nightly at 2:30 AM
+- **Test results:** visible in Reports → Testing tab in the app

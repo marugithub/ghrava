@@ -608,12 +608,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Institution <span style="color:var(--red)">*</span></label>
-      <select id="acctInstitution" class="form-input">
-        <option value="">Select…</option>
-        <option>Chase</option><option>Schwab</option><option>Vanguard</option>
-        <option>Bank of America</option><option>Navy Federal</option><option>TSP</option>
-        <option>Discover</option><option>Citi</option><option>Other</option>
-      </select>
+      <select id="acctInstitution" class="form-input"></select>
     </div>
     <div class="form-row">
       <div class="form-group" style="flex:1">
@@ -2591,14 +2586,7 @@ async function deleteGc() {
     <div class="drawer-handle"></div>
     <div class="drawer-title" id="budDrawerTitle">Add Budget</div>
     <div class="form-group"><label class="form-label">Category <span class="req">*</span></label>
-      <input class="form-input" id="budCategory" list="budCats" placeholder="Groceries, Dining, Gas…">
-      <datalist id="budCats">
-        <option>Groceries</option><option>Dining Out</option><option>Gas</option>
-        <option>Entertainment</option><option>Clothing</option><option>Healthcare</option>
-        <option>Subscriptions</option><option>Travel</option><option>Home Improvement</option>
-        <option>Personal Care</option><option>Kids</option><option>Pets</option>
-        <option>Utilities</option><option>Insurance</option><option>Miscellaneous</option>
-      </datalist>
+      <select class="form-select" id="budCategory"></select>
     </div>
     <div class="form-group"><label class="form-label">Monthly Limit ($) <span class="req">*</span></label>
       <input class="form-input" type="number" id="budLimit" step="10" placeholder="500">
@@ -2635,7 +2623,7 @@ async function deleteGc() {
     const month = document.getElementById('budgetMonthSel')?.value || (new Date().getMonth()+1);
     const year  = document.getElementById('budgetYearSel')?.value  || new Date().getFullYear();
     try {
-      const data = await api(`/finance/budgets?year=${year}&month=${month}`);
+      const data = await api('GET', `/finance/budgets?year=${year}&month=${month}`);
       const { budgets, unbudgeted } = data;
 
       const totalLimit = budgets.reduce((s,b)=>s+b.monthly_limit,0);
@@ -2697,12 +2685,12 @@ async function deleteGc() {
       const month = document.getElementById('budgetMonthSel')?.value || (new Date().getMonth()+1);
       const year  = document.getElementById('budgetYearSel')?.value  || new Date().getFullYear();
       try {
-        const data = await api(`/finance/budgets?year=${year}&month=${month}`);
+        const data = await api('GET', `/finance/budgets?year=${year}&month=${month}`);
         b = data.budgets.find(x => x.id === id) || {};
       } catch(e) {}
     }
     document.getElementById('budDrawerTitle').textContent = id ? 'Edit Budget' : 'Add Budget';
-    document.getElementById('budCategory').value = b.category || '';
+    await GH_SELECT.init('budCategory','finance_category',b.category||null,{placeholder:'— select category —',allowAdd:true});
     document.getElementById('budLimit').value    = b.monthly_limit || '';
     document.getElementById('budNotes').value    = b.notes || '';
     document.getElementById('budDeleteBtn').style.display = id ? 'inline-flex' : 'none';
@@ -2732,7 +2720,7 @@ async function deleteGc() {
 
   window.deleteBudget = async function() {
     if (!await LT.confirm('Remove this budget category?')) return;
-    await api(`/finance/budgets/${editingBudgetId}`, { method: 'DELETE' });
+    await api('DELETE', `/finance/budgets/${editingBudgetId}`);
     toast('Removed');
     document.getElementById('budgetDrawer').classList.remove('open');
     loadBudgets();
@@ -3180,14 +3168,14 @@ async function rollbackBatch(id, e) {
   } catch(e) { toast('Failed: '+e.message,'err'); }
 }
 
-function openAcctDrawer(id) {
+async function openAcctDrawer(id) {
   _editAcctId = id;
   document.getElementById('acctDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
   if (id) {
     const a = _impAccounts.find(x => x.id==id);
     if (a) {
       document.getElementById('acctNickname').value    = a.nickname||'';
-      document.getElementById('acctInstitution').value = a.institution||'';
+      await GH_SELECT.init('acctInstitution','financial_institution',a.institution||null,{placeholder:'Select institution…',allowAdd:true});
       document.getElementById('acctType').value        = a.account_type||'';
       document.getElementById('acctLastFour').value    = a.last_four||'';
       document.getElementById('acctOwner').value       = a.owner||'';
@@ -3196,9 +3184,9 @@ function openAcctDrawer(id) {
     }
   } else {
     ['acctNickname','acctLastFour','acctOwner','acctNotes'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('acctInstitution').value='';
     document.getElementById('acctType').value='';
     document.getElementById('acctTrack').value='1';
+    await GH_SELECT.init('acctInstitution','financial_institution',null,{placeholder:'Select institution…',allowAdd:true});
   }
   document.getElementById('acctDrawer').classList.add('open');
 }

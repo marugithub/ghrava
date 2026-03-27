@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.101
+**Last updated:** v202603.103
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -299,199 +299,124 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 
 ## 13. Active Backlog
 
-### Immediate / next session
-1. ~~**Migration 043 apply**~~ — **DONE v202603.080.** `docker restart ghrava` applies it. Verify "Every N days" recurrence on a test todo.
-2. ~~**GH_VIEW for other modules**~~ — **DONE v202603.080.** Books, Documents, Resources all wired. Grid/list toggle + column picker + tag filter on all three.
-3. ~~**Dashboard additions**~~ — **DONE v202603.080.** Expiring documents widget (next 90 days), Backup status widget (days since / overdue flag), Reports teaser card. Data served from `GET /api/v1/dashboard`.
-4. **Books cover display** — verify cover thumbnails render correctly on book cards after ISBN scan (unconfirmed from prior session)
-
-### Medium priority
-5. **Reports module** — Finance reports (Spending/Health/Net Worth/Annual) were already complete. **v202603.082 added:** System tab (version, uptime, DB size, backup age, record counts) and Data Quality tab (needs_review flags per module, links to relevant pages). Remaining: Phase 3 summary cards for Inventory/Medical/Documents.
-6. ~~**Settings audit**~~ — **DONE v202603.084.** Logs, Data Cleanup, Data Review, Diagnostics, Recent Changes all moved to Reports → Tools tab. Settings shows "Moved to Reports → Tools tab" redirect links. Full diagnostics runner rebuilt in Reports with `rpt_` prefix IDs.
-7. ~~**Medical patient filter**~~ — **Already built** (discovered v202603.082 audit). Patient pill strip at top of Medical page.
-8. ~~**Property maintenance UI**~~ — **Already built** (discovered v202603.082 audit). Full drawer with category, vendor (GH_REFS contact picker), cost, warranty, next due date.
-9. **Documents file pointer** — `file_name` field now clickable in cards. Drive paths (Z:\...) open as file:// URL. UNC paths (\\NAS\...) copy to clipboard (browser security prevents direct open). HTTP/HTTPS opens in new tab. Plain text copies to clipboard. Upload to NAS deferred — separate design decision alongside SSO.
-
-### Design discussions needed
-10. **Dashboard vs Reports overlap** — teaser cards in place. Build Reports Phase 1 next session.
-11. ~~**Recurring tasks linked to records**~~ — **DONE v202603.087.** Vehicle service and property maintenance records with next_due_date within 30 days auto-generate todos. Auto-resolve when date moves out.
-12. ~~**Data quality checker**~~ — **DONE v202603.087.** Reports → Data Quality tab shows both needs_review flags and completeness issues (10 checks across 8 modules).
-13. ~~**Finance/HSA tags**~~ — **DONE v202603.087.** Tags wired on finance_transactions and hsa_payments. GET responses include tag names, POST/PUT save tags, DELETE clears tags.
-
-### v202603.090 — E2E test suite fixes
-- **checkNoRawHtml false positives** — original regex `/<div\s/` and `/<span\s/` matched SVG paths, nav labels, Settings redirect notes, and other legitimate text on every page. Replaced with specific patterns targeting only the actual bug signature: `window.LT?.toast` visible as text, `<button onclick=` in body text, inline style strings leaking, clipboard JS visible. Also skips `<pre>`, `<code>`, log viewers explicitly.
-- **Runtime 49min → ~5min** — `waitUntil: 'networkidle'` hangs on pages that poll Google Calendar and other external APIs. Switched page loads to `waitUntil: 'load'` + 1.5s settle wait. Added `navigationTimeout: 10000` and `actionTimeout: 5000` to playwright.config.js.
-
-### v202603.089
-- **E2E test suite** — `tests/` folder with Playwright. Runs from Windows against live Ghrava. Catches render bugs (raw HTML as text), JS errors, tag chip integrity, CRUD flows with auto-cleanup. Results POST'd to Ghrava and visible in Reports → Testing tab. Setup: `cd tests && npm install && npx playwright install chromium`. Nightly via Windows Task Scheduler.
-- **Reports → Testing tab** — shows all test run history, pass/fail counts, per-suite drill-down, inline failure messages.
-- **`POST /api/v1/app/test-results`** — stores JSON run data to `/app/data/test-reports/`. `GET` lists last 30 runs. `GET /:filename` returns full run details.
-- **fileLink() bug fixed** — UNC paths with backslashes now use `data-path` attribute + delegated clipboard handler. No more inline `JSON.stringify()` in onclick attributes.
-
-### v202603.088
-- **Finance/HSA tag UI** — tag input (GH_TAGS) wired into transaction drawer and HSA expense drawer. Tag chips shown on transaction rows and HSA expense rows with GH_TAG_SEARCH on click.
-
-### v202603.088
-- **Finance/HSA tag UI** — tag inputs wired into transaction drawer and HSA expense drawer. Tags save on POST/PUT. Tag chips display on transaction rows and expense rows (already had chip rendering). Delegated clipboard handler on `file-copy-btn` class.
-- **fileLink() bug fixed** — UNC paths like `\\SoniNAS\...` were rendering raw HTML as text due to `JSON.stringify()` inside a template literal creating nested backslash/quote escaping. Fixed by using `data-path` attribute with a delegated click handler — no inline JS, no escaping problems.
-
-### v202603.087
-- **Data completeness checker** — `GET /api/v1/settings/completeness` returns 10 checks (inventory no-location/price/category, contacts no phone+email, documents missing expiry, books no author, vehicles no registration, medications missing dosage, certs no expiry, HSA missing category). Reports → Data Quality tab now shows both needs_review flags and completeness issues.
-- **Recurring tasks — Property** — `syncAutoTodos()` now generates auto-todos from `vehicle_service.next_due_date` (section 8) and `property_maintenance.next_due_date` (section 9). Both auto-resolve when the record's next_due_date is updated past 30 days out.
-- **Finance tags** — `finance_transactions` GET/POST/PUT/DELETE all tag-aware via `finance_transaction` entity type.
-- **HSA tags** — `hsa_payments` GET/POST/PUT/DELETE all tag-aware via `hsa_payment` entity type.
-
-### Fixed v202603.086
-- **smoke-test.sh** — adds 30s server startup wait loop so test runs immediately after `docker restart` without spurious HTTP 000 failures
-- **Reports → People tab** — fixed two SQL errors: `kid_activities.schedule` (column is `day_of_week`), `career_jobs.status` (column is `is_current`). Added Career Jobs section to the report.
-
-### Completed this session
-- **Scheduled backup** — `node-cron` wired in server.js, runs 2:00 AM America/Chicago, keeps 7 rolling `scheduled_*.db` files. Falls back gracefully if node-cron unavailable.
-- **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
-- **Reports → People tab** — full family member report.
-- **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
-
-### v202603.101
-**Unified XLSX export/import — standardized across all modules:**
-
-- `GET /api/v1/data/export` — single workbook with 20 module sheets + Instructions sheet. Each item row includes `attachment_path` (NAS UNC path). Instructions sheet documents every column, required fields, date format, and upsert key.
-- `GET /api/v1/data/template` — blank workbook with headers only + Instructions. Use this to add new data without downloading the full export.
-- `POST /api/v1/data/import` — upload workbook, process only sheets present. Three modes per row: (1) `id` exists in DB → UPDATE, (2) `id` present but not in DB → INSERT with that id (restore), (3) no `id` → INSERT new. Returns per-sheet counts of inserted/updated/skipped.
-
-**Sheets covered:** Items, Books, Medications, Conditions, Visit Notes, HSA Payments, HSA OTC, Todos, Certifications, Jobs, Skills, Education, Career Goals, Resources, Documents, Properties, Vehicles, Daily Log, Contacts, Finance Accounts.
-
-**Partial import:** delete sheets you don't want to touch before uploading. Only present sheets are processed. Nothing is ever deleted.
-
-**`/data.html`** — new Data Manager page: export button, template button, drag-drop import zone with per-sheet result counts, sheet reference grid showing key + required columns for each module.
-
-**Settings** — Export Data section replaced with "Open Data Manager →" link to `/data.html`.
-
-**Nav** — Data page added to sidebar (uses settings icon).
-
-**Smoke test:** 48 assertions (was 46).
-
-### v202603.100
-
-**Database safety — pending migrations 044–047:**
-All four are `INSERT OR IGNORE` only — zero risk to existing data. Migration 046 adds a new table (`CREATE TABLE IF NOT EXISTS`). None touch items, hsa_payments, or any table with live data. Safe to apply with `docker restart ghrava`.
-
-**Excel export — restored + enhanced (`GET /api/v1/inventory/export`):**
-- Items sheet now includes `attachment_path` and `attachment_file` columns — NAS UNC path (`\\SoniNAS\...`) where available, falling back to stored_path. Excel users can paste the UNC path into Explorer to open the file directly.
-- New **Attachments sheet** — all attachments across all modules (inventory, HSA, medical, etc.) with `file_path` (UNC preferred), `entity_type`, `entity_id`, `label`, `mime_type`, `created_at`. Complete record of every file stored on the NAS.
-- Empty sheets now use `[{}]` fallback so Excel never errors on an empty workbook sheet.
-- Import (`POST /api/v1/inventory/import`) is unchanged — reads Items sheet by `item_ref` key, skips existing refs. Safe to re-import without duplicating.
-
-**Restore strategy (document for future schema changes):**
-- Export XLSX before any structural migration
-- The `item_ref` column is the idempotent key — re-importing the export will add back deleted rows and skip existing ones
-- For column renames: the import reads by column header name, so a renamed column just means that field comes in as null — not a crash
-- Attachments are files on the NAS, not in SQLite — they survive any DB restore unchanged
-
-**GH_SELECT fixes continued:**
-- Vehicle service type (property.html) — datalist → GH_SELECT `vehicle_service_type` (migration 047, 14 types)
-- HSA OTC category (finance.html) — hardcoded → GH_SELECT `hsa_otc_category` (migration 047, 9 categories)
-
-**Finance — unified transactions + auto-categorization (v202603.099):**
-- `GET /finance/transactions/unified` merges manual + imported in one view
-- Inline category edit on imported rows (dotted underline → GH_SELECT popup → PATCH)
-- Category rules CRUD + apply-to-all endpoint
-- Migration 046: `import_category_rules` table + 50+ seeded keyword rules
-- Auto-categorize runs on every import via `/confirm` route
-- Import panel: new "Auto-Categorize" sub-tab
-
-### v202603.099
-**Finance — unified transactions + auto-categorization:**
-- `GET /api/v1/finance/transactions/unified` — merges `finance_transactions` (manual) and `imported_transactions` (from uploads) into one sorted list. Both show in the Transactions tab. Imported rows show a blue "imported" badge and ⚠ "dup?" badge on flagged rows.
-- Inline category editing on imported rows — click the dotted-underline category label to get a GH_SELECT popup. PATCH is sent to `/api/v1/import/transactions/:id`. No page reload.
-- `GET/POST/DELETE /api/v1/finance/category-rules` — manage keyword→category rules stored in `import_category_rules` table.
-- `POST /api/v1/finance/category-rules/apply` — retroactively categorize all uncategorized imported transactions using current rules.
-- Auto-categorization on import — `confirm` route now runs rules against every imported transaction that has no category from the bank parser.
-- Migration 046 — creates `import_category_rules` table, seeds 50+ rules for common merchants/payroll/utilities.
-- Finance Import panel — new "Auto-Categorize" sub-tab with rules list, add/delete, and "Apply to uncategorized" button.
-- **Smoke test** — 46 assertions (was 44), added unified transactions and category-rules.
-- **E2E spec** — 8 new API contract tests: unified transactions, category rules CRUD, apply-rules, notifications shape, CSV exports.
-
-**GH_SELECT + inline add across modules (v202603.097–098):**
-- Finance transaction category → GH_SELECT `finance_category` (migration 045, 22 categories)
-- HSA expense category → GH_SELECT `hsa_category`
-- HSA OTC store → GH_SELECT `hsa_store` (migration 045, 10 stores)
-- Resources category → GH_SELECT `resource_category` (migration 044, 18 categories)
-- Contact drawer iframe — fixed rendering: `gh-drawer-only` CSS class hides all settings UI, shows only the drawer
-- Medical.html — missing `lt-refs.js` script tag added; physician contact pickers now work
-
-### v202603.098
-- **Contact drawer — iframe rendering fixed properly** — root cause was that `.drawer-overlay` elements live *outside* `#app` in settings.html, so hiding `#app` did nothing. Now `?drawer=contact` adds `gh-drawer-only` class to `<body>` + injects CSS that hides `#app`, `nav`, `.gh-page-header` — leaving only the drawer visible. Single canonical form, used from any page.
-- **lt-refs.js reverted to iframe approach** — removed the duplicate contact form. One form in settings.html, surfaced everywhere via GH_REFS.
-- **Finance transaction category → GH_SELECT** — was freetext. Now `<select>` backed by `finance_category` list key (migration 045, 22 categories seeded). `openTxDrawer` already async.
-- **HSA expense category → GH_SELECT** — was hardcoded `<option>` tags. Now backed by `hsa_category` dropdown (existing migration 029). Add inline.
-- **HSA OTC store → GH_SELECT** — was freetext. Now `<select>` backed by `hsa_store` list key (migration 045, 10 stores seeded). Add inline.
-- **`openAddDrawer` made async** — needed for `await GH_SELECT.init()` calls inside.
-- **Resources category → GH_SELECT** — migration 044, 18 categories. Dead `populateCatSuggestions()` removed.
-- **Medical.html → lt-refs.js added** — all physician contact pickers now work.
-
-### v202603.097
-- **Contact drawer — single canonical form** — reverted the duplicate contact form from lt-refs.js. The iframe approach is correct (one form, one place). Fixed the actual rendering bug: drawers live *outside* `#app` so hiding `#app` did nothing. Now `?drawer=contact` adds `gh-drawer-only` class to body, injecting CSS that hides `#app`, `nav`, `.gh-page-header` — everything except `.drawer-overlay`. The drawer is the only thing visible in the iframe.
-- **Medical.html — lt-refs.js added** — was missing the script tag. All three physician contact pickers (medication, condition, visit note drawers) now have working `＋ Add new contact…` option.
-- **Resources category — GH_SELECT** — replaced freetext `<input list="catSuggestions">` with `<select>` backed by GH_SELECT `resource_category` list key. Migration 044 seeds 18 categories. Users can add more inline without going to Settings. Removed dead `populateCatSuggestions()` function.
-
-### v202603.096
-- **CSV exports — all modules** — new GET routes returning `Content-Disposition: attachment` CSV files:
-  - Medical: `/medical/conditions/export/csv`, `/medical/notes/export/csv` (medications already existed)
-  - Career: `/career/certifications/export/csv`, `/career/jobs/export/csv`, `/career/skills/export/csv`, `/career/goals/export/csv`
-  - Daily Log: `/daily-log/export/csv` (supports `?year=` filter)
-  - Property: `/property/vehicles/export/csv`, `/property/vehicles/service/export/csv`, `/property/maintenance/export/csv`
-- **Export buttons in UI** — `↓ CSV` buttons added to Medical tabs (updates href per active tab), Career tabs (updates per active tab), Daily Log search bar, Property vehicles panel (CSV + Service CSV), Property maintenance panel
-- **Notifications page** — `/notifications.html` — severity-grouped list (Overdue / Upcoming / Info), mark read, dismiss, module links. Bell dropdown in nav gets "View all →" link pointing to this page.
-- **Smoke test** — 44 assertions (was 39), added export and notifications page checks.
-
-### v202603.095
-- **Settings test 14.5s timeout fixed** — `toBeVisible()` on `.settings-row-label` was timing out because the locator syntax with `hasText` option doesn't wait for content to render. Replaced with `waitForSelector('.settings-row-label')` then `allTextContents()` to collect all labels and check inclusively. Fails immediately with a clear message listing what labels were found.
-- **Data Quality raw HTML check** — was using `/<div\s|<span\s/` which causes false positives. Replaced with specific pattern matching actual bug signatures only.
-
-### v202603.094 — E2E test fixes (all test bugs, not app bugs)
-1. **Tag chips test (line 211)** — books page defaults to "Currently Reading" shelf. Test now explicitly clicks "Want to Read" tab after navigation.
-2. **Settings sections (line 268)** — `text=Family Members` matched the hidden sub-panel title (off-screen). Now uses `.settings-row-label` scoped locator.
-3. **Todos CRUD (line 285)** — removed unreliable `page.on('pageerror')` registered after `goto` (misses load-time errors). JS error coverage stays in Suite 1 dedicated tests.
-4. **Books tag chip (line 332)** — same shelf issue as #1. Now clicks "Want to Read" tab.
-5. **Tags search (line 447)** — searching for tag `test` returns `{ tag, results: [] }` (no `groups` key when no results). Now creates a book with `_e2e_searchable_tag_` first, searches for it, verifies `groups` exists, then cleans up.
-
-### v202603.094
-- **Test script hang fixed** — `run-tests.ps1` was using `Start-Process -Wait -NoNewWindow` which hangs on Windows/mapped drives when Playwright's browser child processes don't release the process group. Replaced with `& $PwPath ...` (call operator) + `$LASTEXITCODE`. Now exits cleanly when tests finish.
-- **E2E test data purge** — `POST /api/v1/settings/diagnostics/purge-e2e` hard-deletes all `_e2e_*` records from items (archive then delete), books, documents, todos, contacts, hsa_payments. Cleans taggables and record_family_members first. Returns per-table counts. Surfaced in Reports → Tools → "🧹 Clean E2E Data" button next to Orphan Check.
-
-### v202603.093
-- **Pin icon — double-encoded bytes** — v202603.092 replaced 9 single-encoded `f09f938d` bytes but missed 2 double-encoded `c3b0c29fc293c28d` variants on lines 1919 and 1937 (the actual list/grid card templates). Now 11 `&#x1F4CD;` entities total, zero bad bytes.
-- **E2E test speed** — replaced 7 fixed `waitForTimeout` calls with `waitForSelector` (returns as soon as element appears, not after a fixed delay). Expected runtime ~3–5 min vs previous 49 min. One intentional 1500ms wait remains in `checkNoRawHtml` after `networkidle`.
-
-### v202603.092 — 6 pending issues fixed
-1. ~~**Test results path**~~ — `run-tests.ps1` default changed to `Z:\ghrava\test-results\`.
-2. ~~**Settings iframe hides behind main panel**~~ — when `?drawer=contact` param present, `#app` is now hidden before drawer opens. No more z-index conflict.
-3. ~~**Settings drawer z-index**~~ — resolved by item 2.
-4. ~~**Backup verification in deploy**~~ — smoke-test.sh now checks that `auto_YYYYMMDD*.db` exists from today's date. Fails the smoke test if no fresh backup found.
-5. **Pin icon mojibake — PARTIAL FIX** — `&#x1F4CD;` entity was written to inventory.html for 9 occurrences. Deployed, but list/grid card views STILL show mojibake after hard deploy. Detail view is correct. This means the all-items browse cards use a different render path than what was patched. Next fix: audit EVERY render function in inventory.html that outputs location path text — specifically `renderItemCard`, `renderItemGridCard`, `renderItemCompactCard`, and any location-tree item renderers. Do NOT rely on grep for emoji — read byte-by-byte. Also check if the issue is browser cache first (Ctrl+Shift+F5).
-6. ~~**E2E `_e2e_item_test` not cleaned up**~~ — inventory CRUD test now calls `PUT /archive` before `DELETE` (route requires archived=1 for hard delete). Also fixed overly-broad `/<span/` raw HTML check in inventory and books tests.
-
-### Next session — before anything else
-- **Deploy script exclusions** — update `ghrava_deploy.ps1` to explicitly skip `tests\test-results\` and `tests\node_modules\` in case `run-tests.ps1` cleanup fails (defensive). v202603.091 already handles the immediate EPERM by deleting `test-results/` after posting results.
-- ~~**.gitignore for test-results**~~ — **DONE v202603.091.** `tests/test-results/`, `tests/node_modules/`, `tests/playwright-report/` added. — `ghrava_deploy.ps1` should exclude `tests/test-results/` from the zip and from git commits. Add `tests/test-results/` and `tests/node_modules/` to `.gitignore`. The Playwright HTML report and JSON results are runtime artifacts — large, machine-generated, change every night, no value in version control.
-
-### ~~Backlog — Test Data Cleanup~~ DONE v202603.094
-- ~~**E2E test data purge mechanism**~~ — the Playwright suite creates records prefixed `_e2e_` that survive if a test crashes before its `finally` block runs. Currently no way to bulk-remove them without manual DB access. Requirements when built:
-  - A dedicated purge endpoint `POST /api/v1/settings/diagnostics/purge-e2e` that hard-deletes all records whose name/title/provider starts with `_e2e_`
-  - Must cover every table that the test suite writes to: `items` (needs archive first), `books`, `documents`, `todos`, `contacts`, `hsa_payments`, and any future test targets
-  - Surface it in Reports → Tools tab as "Clean up E2E test data" button, shown only when `_e2e_` records are actually found
-  - Do NOT auto-run on startup or on a schedule — manual trigger only
-  - Log how many records were removed per table
-
-### Low / deferred
-14. ~~**Global tag search**~~ — **DONE v202603.084/085.** `GH_TAG_SEARCH` modal in lt-core.js. Tag chips on documents, inventory (grid+list), todos, and books cards are all clickable. Slide-up sheet shows grouped cross-module results. Backend: `GET /api/v1/settings/tags/search?tag=X`.
-15. **Finance OFX/QFX import UI** — backend exists
-16. **Calendar module** — keep for Google Calendar sync only or remove
-17. **Google Site data import**
-18. **Left nav icon review**
-19. ~~**"Everything about Risha" report**~~ — **DONE v202603.085.** Reports → People tab. Family member picker pills, per-member report with: summary stats grid, todos, documents, medical (conditions/meds/visits), books, HSA, career goals, resources. Backend: `GET /api/v1/settings/family/:id/report`.
+### Status as of v202603.101
 
 ---
+
+### ✅ DONE — no action needed
+- GH_SELECT across all modules (finance, HSA, resources, property, medical, career)
+- Contact drawer iframe rendering fixed (gh-drawer-only CSS class)
+- Medical.html missing lt-refs.js — fixed
+- Unified transactions view (imported + manual merged)
+- Finance import auto-categorization (rules table + apply-on-import)
+- Inline category editing on imported transaction rows
+- CSV exports: medical, career, property, daily log, HSA
+- Excel export with NAS attachment links
+- Notifications page (/notifications.html)
+- Unified XLSX export/import (/data.html, /api/v1/data/*)
+- E2E test script hang fixed (Start-Process → call operator)
+- E2E purge endpoint (POST /api/v1/settings/diagnostics/purge-e2e)
+- Settings test 14.5s timeout fixed
+- Smoke test: 48 assertions
+
+---
+
+### 🔴 NEXT — Build immediately (no design decision needed)
+
+**1. Finance — remaining GH_SELECT violations**
+- `openBudgetDrawer` — `budCategory` is still a datalist freetext. Replace with GH_SELECT `finance_category`.
+- Finance accounts drawer (`accInstitution`) — still freetext "Chase, Vanguard…". Replace with GH_SELECT `financial_institution`.
+- Both drawers need `async function` + `await GH_SELECT.init()`.
+
+**2. Finance — budgets tab full build**
+- `loadBudgets()` exists and is wired. Backend budget routes exist (`/finance/budgets`).
+- Verify budget CRUD works end-to-end. If broken, fix. Show monthly spend vs budget per category.
+
+**3. Tags — extend to remaining modules**
+Per WIRING.md canonical entity types, these are NOT yet tag-wired:
+- Medical visit notes (`med_visit_note`)
+- Medical medications (`med_medication`)
+- Career certifications (`career_cert`)
+- Properties (`property`)
+- Vehicles (`vehicle`)
+Each needs: backend GET/POST/PUT/DELETE tag-aware, UI tag input in drawer + tag chips on cards.
+
+**4. Kids module — full feature review**
+- Verify relationship field displays correctly for Arnav/Risha
+- Check empty state (verify display_name + relationship both set in Family Members)
+- Activity and note tabs — confirm GH_SELECT categories working
+
+**5. Books — cover display**
+- Unconfirmed from prior session whether cover thumbnails render correctly after ISBN scan
+- Test: scan ISBN → Open Library lookup → cover image downloads → displays on book card
+
+**6. Reports — complete remaining tabs**
+- Summary tab: Phase 3 cards for Inventory, Medical, Documents (currently showing placeholder)
+- Data Quality tab: completeness checks cover 8 modules — add Kids, Finance
+
+**7. Career — education institution → GH_SELECT**
+- `eduInstitution` is still a freetext input
+- Create `school_name` dropdown_options key, seed with common institutions + allow add
+- Migration 048 needed
+
+**8. Data Manager — import for finance bank statements**
+- Currently `/data.html` only handles Ghrava-to-Ghrava data
+- Add a second section: "Import Bank Statement" that links to Finance → Import tab
+- Makes it the single entry point for all data operations
+
+---
+
+### 🟡 MEDIUM — Build when above is done
+
+**Finance — OFX/QFX import more bank parsers**
+- Wells Fargo, Capital One, USAA not yet supported
+- Add parsers in `features/import/parsers.js` — same pattern as existing parsers
+
+**Dashboard — attention widget improvements**
+- Currently shows expiring docs, overdue todos, HSA pool, certs
+- Add: vehicle registration expiring, property maintenance overdue
+
+**Property — vehicle service type in export/import**
+- `vehicle_service` table not in unified export yet
+- Add sheet to data/routes.js export
+
+**Medical — visit notes physician stored as freetext `physician` in export**
+- Currently exports contact name string; import doesn't resolve back to contact_id
+- Fix: export `physician_contact_id`, import resolves by contact name
+
+**Calendar module**
+- Currently shows but polls Google Calendar (external)
+- Decision: keep for Google sync only, or remove from nav?
+
+---
+
+### 🔵 LOW / DESIGN NEEDED
+
+**Left nav icon review** — some modules use wrong SVG icon (using settings icon for Data)
+**SSO / auth activation** — requireAuth is a no-op; SSH setup on QNAP needed first
+**Notifications email digest** — design conversation first
+**Doc Fetcher** — separate automation system (Playwright + Bitwarden CLI + Paperless-ngx)
+
+---
+
+### Key file locations (current)
+- `app/features/auth/middleware.js` — requireAuth no-op
+- `app/features/data/routes.js` — unified export/import (NEW v202603.101)
+- `app/features/finance/routes.js` — transactions, unified, category rules, budgets
+- `app/features/import/routes.js` — bank statement import with auto-categorize
+- `app/features/settings/routes.js` — dropdowns, tags, completeness, family report, purge-e2e
+- `app/features/todos/routes.js` — syncAutoTodos() sections 1-9
+- `app/public/data.html` — Data Manager page (NEW v202603.101)
+- `app/public/notifications.html` — Notifications page
+- `app/public/reports.html` — all 6 tabs
+- `app/public/js/lt-refs.js` — GH_REFS contact/family pickers via settings iframe
+- `app/public/js/lt-core.js` — GH_SELECT, GH_TAGS, GH_VIEW, GH_TAG_SEARCH, GH_FAMILY
+- `app/public/nav.js` — sidebar, bell dropdown, MODULES registry
+- `app/public/settings.html` — canonical contact/family forms; gh-drawer-only CSS for iframe
+- `smoke-test.sh` — 48 assertions
+- `tests/ghrava-e2e.spec.js` — Playwright E2E suite
+- `tests/run-tests.ps1` — Windows runner (uses & call operator, exits cleanly)
+
 
 ## 14. Known Issues
 
