@@ -242,6 +242,7 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
       <div style="display:flex;gap:8px;margin-bottom:10px">
         <button class="btn btn-ghost" id="rpt_diagRunBtn" onclick="rpt_diagStartRun()" style="flex:1">▶ Run All Tests</button>
         <button class="btn btn-ghost" onclick="rpt_runOrphanCheck()" style="white-space:nowrap">🔍 Orphan Check</button>
+        <button class="btn btn-ghost" id="rpt_e2ePurgeBtn" onclick="rpt_purgeE2E()" style="white-space:nowrap;color:var(--amber)">🧹 Clean E2E Data</button>
         <button class="btn btn-ghost" id="rpt_diagDlBtn" onclick="rpt_diagDownloadLog()" style="display:none;white-space:nowrap">↓ Log</button>
       </div>
       <div id="rpt_orphanResults" style="display:none;margin-bottom:12px;font-size:12px;font-family:var(--mono)"></div>
@@ -1236,6 +1237,32 @@ async function rpt_loadReviewSummary() {
       </div>`).join('')}
     </div>`;
   } catch(e) { el.innerHTML = `<div style="color:var(--red);font-size:13px">${esc(e.message)}</div>`; }
+}
+
+async function rpt_purgeE2E() {
+  const btn = $('rpt_e2ePurgeBtn'); if (!btn) return;
+  const el  = $('rpt_orphanResults');
+  btn.disabled = true; btn.textContent = 'Scanning…';
+  if (el) { el.style.display = 'block'; el.innerHTML = '<span style="color:var(--text3)">Checking for _e2e_ test data…</span>'; }
+  try {
+    const r = await fetch('/api/v1/settings/diagnostics/purge-e2e', { method: 'POST',
+      headers: { 'Content-Type': 'application/json' } }).then(r => r.json());
+    if (el) {
+      if (r.total === 0) {
+        el.innerHTML = '<span style="color:var(--green)">✓ No _e2e_ test records found — database is clean</span>';
+      } else {
+        const rows = Object.entries(r.deleted)
+          .filter(([,n]) => n > 0)
+          .map(([table, n]) => `<div><span style="color:var(--green)">✓</span> ${table}: ${n} deleted</div>`)
+          .join('');
+        el.innerHTML = `<div style="color:var(--green);font-weight:600;margin-bottom:6px">Removed ${r.total} _e2e_ test record(s):</div>${rows}`;
+      }
+    }
+  } catch(e) {
+    if (el) el.innerHTML = `<span style="color:var(--red)">Failed: ${esc(e.message)}</span>`;
+  } finally {
+    btn.disabled = false; btn.textContent = '🧹 Clean E2E Data';
+  }
 }
 
 async function rpt_runOrphanCheck() {

@@ -710,7 +710,61 @@ router.post('/diagnostics/purge', requireAuth, (req, res) => {
 });
 
 
-// ── DB Orphan / Integrity Checks (public — no data, just counts) ──
+// ── E2E test data purge — hard-deletes all _e2e_* test rows ───
+// Called manually from Reports → Tools. Items require archive first.
+// Returns counts per table and total removed.
+router.post('/diagnostics/purge-e2e', (req, res) => {
+  try {
+    // Check first — what's there
+    const counts = {
+      items:      db.prepare("SELECT COUNT(*) AS n FROM items WHERE name LIKE '%_e2e_%'").get().n,
+      books:      db.prepare("SELECT COUNT(*) AS n FROM books WHERE title LIKE '%_e2e_%'").get().n,
+      documents:  db.prepare("SELECT COUNT(*) AS n FROM documents WHERE title LIKE '%_e2e_%'").get().n,
+      todos:      db.prepare("SELECT COUNT(*) AS n FROM todos WHERE title LIKE '%_e2e_%'").get().n,
+      contacts:   db.prepare("SELECT COUNT(*) AS n FROM contacts WHERE name LIKE '%_e2e_%'").get().n,
+      hsa:        db.prepare("SELECT COUNT(*) AS n FROM hsa_payments WHERE provider LIKE '%_e2e_%'").get().n,
+    };
+    const totalFound = Object.values(counts).reduce((s, n) => s + n, 0);
+
+    if (totalFound === 0) {
+      return res.json({ ok: true, deleted: counts, total: 0, message: 'No _e2e_ test records found' });
+    }
+
+    const purge = db.transaction(() => {
+      // Taggables first
+      db.prepare("DELETE FROM taggables WHERE entity_type='book'     AND entity_id IN (SELECT id FROM books     WHERE title    LIKE '%_e2e_%')").run();
+      db.prepare("DELETE FROM taggables WHERE entity_type='document' AND entity_id IN (SELECT id FROM documents WHERE title    LIKE '%_e2e_%')").run();
+      db.prepare("DELETE FROM taggables WHERE entity_type='todo'     AND entity_id IN (SELECT id FROM todos     WHERE title    LIKE '%_e2e_%')").run();
+      db.prepare("DELETE FROM taggables WHERE entity_type='item'     AND entity_id IN (SELECT id FROM items     WHERE name     LIKE '%_e2e_%')").run();
+      db.prepare("DELETE FROM taggables WHERE entity_type='contact'  AND entity_id IN (SELECT id FROM contacts  WHERE name     LIKE '%_e2e_%')").run();
+      db.prepare("DELETE FROM taggables WHERE entity_type='hsa_payment' AND entity_id IN (SELECT id FROM hsa_payments WHERE provider LIKE '%_e2e_%')").run();
+
+      // record_family_members cleanup
+      db.prepare("DELETE FROM record_family_members WHERE entity_type='item'     AND entity_id IN (SELECT id FROM items     WHERE name  LIKE '%_e2e_%')").run();
+      db.prepare("DELETE FROM record_family_members WHERE entity_type='todo'     AND entity_id IN (SELECT id FROM todos     WHERE title LIKE '%_e2e_%')").run();
+      db.prepare("DELETE FROM record_family_members WHERE entity_type='document' AND entity_id IN (SELECT id FROM documents WHERE title LIKE '%_e2e_%')").run();
+
+      // Items: archive then hard-delete (route enforces archived=1 before DELETE)
+      db.prepare("UPDATE items SET is_archived=1 WHERE name LIKE '%_e2e_%'").run();
+      const items = db.prepare("DELETE FROM items WHERE name LIKE '%_e2e_%' AND is_archived=1").run().changes;
+
+      return {
+        items,
+        books:     db.prepare("DELETE FROM books     WHERE title    LIKE '%_e2e_%'").run().changes,
+        documents: db.prepare("DELETE FROM documents WHERE title    LIKE '%_e2e_%'").run().changes,
+        todos:     db.prepare("DELETE FROM todos     WHERE title    LIKE '%_e2e_%'").run().changes,
+        contacts:  db.prepare("DELETE FROM contacts  WHERE name     LIKE '%_e2e_%'").run().changes,
+        hsa:       db.prepare("DELETE FROM hsa_payments WHERE provider LIKE '%_e2e_%'").run().changes,
+      };
+    });
+
+    const deleted = purge();
+    const total = Object.values(deleted).reduce((s, n) => s + n, 0);
+    res.json({ ok: true, deleted, total });
+  } catch (err) { serverError(res, err); }
+});
+
+
 router.get('/diagnostics/orphans', (req, res) => {
   try {
     const checks = [];

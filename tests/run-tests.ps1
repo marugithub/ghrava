@@ -82,17 +82,13 @@ Write-Host ""
 Write-Host "Running tests..." -ForegroundColor Cyan
 $env:GHRAVA_URL = $GhUrl
 
-$PwArgs = @(
-    "test",
-    "--config=$TestsDir\playwright.config.js",
-    "--reporter=list,json,html"
-)
+# Use the call operator (&) instead of Start-Process — Start-Process -Wait
+# can hang on Windows/mapped drives when Playwright's browser child processes
+# don't cleanly exit the process group. & runs inline, exits when done.
+& $PwPath test --config="$TestsDir\playwright.config.js" --reporter=list,json,html 2>&1
 
-$PwProcess = Start-Process -FilePath $PwPath -ArgumentList $PwArgs `
-    -WorkingDirectory $TestsDir -Wait -PassThru -NoNewWindow
-
-$ExitCode  = $PwProcess.ExitCode
-$EndTime   = Get-Date
+$ExitCode   = $LASTEXITCODE
+$EndTime    = Get-Date
 $DurationMs = [int]($EndTime - $StartTime).TotalMilliseconds
 
 # ── Parse JSON results ────────────────────────────────────────

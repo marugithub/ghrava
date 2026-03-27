@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.093
+**Last updated:** v202603.094
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -351,6 +351,17 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
 
+### v202603.094 — E2E test fixes (all test bugs, not app bugs)
+1. **Tag chips test (line 211)** — books page defaults to "Currently Reading" shelf. Test now explicitly clicks "Want to Read" tab after navigation.
+2. **Settings sections (line 268)** — `text=Family Members` matched the hidden sub-panel title (off-screen). Now uses `.settings-row-label` scoped locator.
+3. **Todos CRUD (line 285)** — removed unreliable `page.on('pageerror')` registered after `goto` (misses load-time errors). JS error coverage stays in Suite 1 dedicated tests.
+4. **Books tag chip (line 332)** — same shelf issue as #1. Now clicks "Want to Read" tab.
+5. **Tags search (line 447)** — searching for tag `test` returns `{ tag, results: [] }` (no `groups` key when no results). Now creates a book with `_e2e_searchable_tag_` first, searches for it, verifies `groups` exists, then cleans up.
+
+### v202603.094
+- **Test script hang fixed** — `run-tests.ps1` was using `Start-Process -Wait -NoNewWindow` which hangs on Windows/mapped drives when Playwright's browser child processes don't release the process group. Replaced with `& $PwPath ...` (call operator) + `$LASTEXITCODE`. Now exits cleanly when tests finish.
+- **E2E test data purge** — `POST /api/v1/settings/diagnostics/purge-e2e` hard-deletes all `_e2e_*` records from items (archive then delete), books, documents, todos, contacts, hsa_payments. Cleans taggables and record_family_members first. Returns per-table counts. Surfaced in Reports → Tools → "🧹 Clean E2E Data" button next to Orphan Check.
+
 ### v202603.093
 - **Pin icon — double-encoded bytes** — v202603.092 replaced 9 single-encoded `f09f938d` bytes but missed 2 double-encoded `c3b0c29fc293c28d` variants on lines 1919 and 1937 (the actual list/grid card templates). Now 11 `&#x1F4CD;` entities total, zero bad bytes.
 - **E2E test speed** — replaced 7 fixed `waitForTimeout` calls with `waitForSelector` (returns as soon as element appears, not after a fixed delay). Expected runtime ~3–5 min vs previous 49 min. One intentional 1500ms wait remains in `checkNoRawHtml` after `networkidle`.
@@ -366,6 +377,14 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 ### Next session — before anything else
 - **Deploy script exclusions** — update `ghrava_deploy.ps1` to explicitly skip `tests\test-results\` and `tests\node_modules\` in case `run-tests.ps1` cleanup fails (defensive). v202603.091 already handles the immediate EPERM by deleting `test-results/` after posting results.
 - ~~**.gitignore for test-results**~~ — **DONE v202603.091.** `tests/test-results/`, `tests/node_modules/`, `tests/playwright-report/` added. — `ghrava_deploy.ps1` should exclude `tests/test-results/` from the zip and from git commits. Add `tests/test-results/` and `tests/node_modules/` to `.gitignore`. The Playwright HTML report and JSON results are runtime artifacts — large, machine-generated, change every night, no value in version control.
+
+### ~~Backlog — Test Data Cleanup~~ DONE v202603.094
+- ~~**E2E test data purge mechanism**~~ — the Playwright suite creates records prefixed `_e2e_` that survive if a test crashes before its `finally` block runs. Currently no way to bulk-remove them without manual DB access. Requirements when built:
+  - A dedicated purge endpoint `POST /api/v1/settings/diagnostics/purge-e2e` that hard-deletes all records whose name/title/provider starts with `_e2e_`
+  - Must cover every table that the test suite writes to: `items` (needs archive first), `books`, `documents`, `todos`, `contacts`, `hsa_payments`, and any future test targets
+  - Surface it in Reports → Tools tab as "Clean up E2E test data" button, shown only when `_e2e_` records are actually found
+  - Do NOT auto-run on startup or on a schedule — manual trigger only
+  - Log how many records were removed per table
 
 ### Low / deferred
 14. ~~**Global tag search**~~ — **DONE v202603.084/085.** `GH_TAG_SEARCH` modal in lt-core.js. Tag chips on documents, inventory (grid+list), todos, and books cards are all clickable. Slide-up sheet shows grouped cross-module results. Backend: `GET /api/v1/settings/tags/search?tag=X`.
