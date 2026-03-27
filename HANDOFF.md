@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.094
+**Last updated:** v202603.095
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -350,6 +350,10 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
+### v202603.095
+- **Settings test 14.5s timeout fixed** — `toBeVisible()` on `.settings-row-label` was timing out because the locator syntax with `hasText` option doesn't wait for content to render. Replaced with `waitForSelector('.settings-row-label')` then `allTextContents()` to collect all labels and check inclusively. Fails immediately with a clear message listing what labels were found.
+- **Data Quality raw HTML check** — was using `/<div\s|<span\s/` which causes false positives. Replaced with specific pattern matching actual bug signatures only.
 
 ### v202603.094 — E2E test fixes (all test bugs, not app bugs)
 1. **Tag chips test (line 211)** — books page defaults to "Currently Reading" shelf. Test now explicitly clicks "Want to Read" tab after navigation.

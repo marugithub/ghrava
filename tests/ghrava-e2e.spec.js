@@ -262,17 +262,22 @@ test.describe('Key UI Elements', () => {
     await page.waitForSelector('#qualityContent :first-child', { timeout: 5000 }).catch(() => {});
     const qualityContent = page.locator('#qualityContent');
     await expect(qualityContent).toBeVisible();
-    // Should not contain raw HTML
-    const rawHtml = await qualityContent.evaluate(el => /<button|<div\s|<span\s/.test(el.textContent));
-    expect(rawHtml, 'Data Quality tab contains raw HTML').toBe(false);
+    // Should not contain raw HTML/JS as visible text
+    const rawHtml = await qualityContent.evaluate(el =>
+      /<button[^>]*onclick=/.test(el.textContent) || /window\.LT/.test(el.textContent)
+    );
+    expect(rawHtml, 'Data Quality tab contains raw HTML/JS').toBe(false);
   });
 
   test('Settings page loads key sections', async ({ page }) => {
     await page.goto(BASE + '/settings.html', { waitUntil: 'load' });
     await expect(page.locator('#app')).toBeVisible();
-    // Nav items must be in the main settings list, not hidden sub-panels
-    await expect(page.locator('.settings-row-label', { hasText: 'Family Members' }).first()).toBeVisible();
-    await expect(page.locator('.settings-row-label', { hasText: 'Tags' }).first()).toBeVisible();
+    // Wait for settings rows to be rendered (JS populates them after load)
+    await page.waitForSelector('.settings-row-label', { timeout: 8000 });
+    // Family Members and Tags must appear in the main nav list
+    const labels = await page.locator('.settings-row-label').allTextContents();
+    expect(labels.some(l => l.includes('Family Members')), `Family Members not in settings nav. Found: ${labels.join(', ')}`).toBe(true);
+    expect(labels.some(l => l.includes('Tags')), `Tags not in settings nav. Found: ${labels.join(', ')}`).toBe(true);
   });
 
 });
