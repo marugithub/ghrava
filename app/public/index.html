@@ -93,9 +93,7 @@
       font-family: var(--mono);
     }
     .family-avatar-name {
-      font-size: 10px; color: var(--text3); font-weight: 500;
-      text-align: center; max-width: 48px;
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      display: none; /* names removed — avatars only */
     }
 
     /* Placeholder tile tooltip */
@@ -367,7 +365,7 @@
         </div>
         <div class="widget-label">Career</div>
         <div class="widget-value" style="color:${certs.expired > 0 ? '#ef4444' : '#f97316'}">${d && certs.total !== undefined ? certs.total : '\u2014'}</div>
-        <div class="widget-sub">${d ? 'certifications' : 'Loading\u2026'}</div>
+        <div class="widget-sub">${d ? 'cert' + (certs.total!==1?'s':'') + (certs.active_jobs ? ' \u00b7 ' + certs.active_jobs + ' job' + (certs.active_jobs!==1?'s':'') : '') : 'Loading\u2026'}</div>
         ${d && (certs.expiring_soon > 0 || certs.expired > 0) ? `<div class="widget-alert-row"><span class="status-badge ${certAlert}">${certs.expired > 0 ? certs.expired + ' expired' : certs.expiring_soon + ' renew soon'}</span></div>` : ''}
       </a>
 
@@ -377,7 +375,7 @@
         </div>
         <div class="widget-label">Books</div>
         <div class="widget-value" style="color:#8b5cf6">${d && books.reading !== undefined ? books.reading : '\u2014'}</div>
-        <div class="widget-sub">${d && books.read_count !== undefined ? 'reading \u00b7 ' + books.read_count + ' read' : 'Loading\u2026'}</div>
+        <div class="widget-sub">${d && books.read_count !== undefined ? 'reading now \u00b7 ' + books.read_count + ' finished' : 'Loading\u2026'}</div>
       </a>
 
       <a href="/kids.html" class="widget" style="--w-accent:#ec4899">
@@ -385,8 +383,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         </div>
         <div class="widget-label">Kids</div>
-        <div class="widget-value" style="color:#ec4899">${d && kids.count !== undefined ? kids.count : '\u2014'}</div>
-        <div class="widget-sub">${d && kids.active_activities !== undefined ? kids.active_activities + ' active activit' + (kids.active_activities!==1?'ies':'y') : 'Loading\u2026'}</div>
+        <div class="widget-value" style="color:#ec4899">${d && kids.total !== undefined ? kids.total : '\u2014'}</div>
+        <div class="widget-sub">${d && kids.activities !== undefined ? kids.activities + ' activit' + (kids.activities!==1?'ies':'y') : 'Loading\u2026'}</div>
       </a>
 
       <a href="/property.html" class="widget" style="--w-accent:#ef4444">
@@ -394,8 +392,8 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
         </div>
         <div class="widget-label">Property</div>
-        <div class="widget-value" style="color:#ef4444">${d && prop.properties !== undefined ? prop.properties + 'p / ' + (prop.vehicles||0) + 'v' : '\u2014'}</div>
-        <div class="widget-sub">${d && prop.total_est_value !== undefined ? fmt$(prop.total_est_value) + ' est. value' : 'Loading\u2026'}</div>
+        <div class="widget-value" style="color:#ef4444">${d && prop.properties !== undefined ? prop.properties : '\u2014'}</div>
+        <div class="widget-sub">${d && prop.vehicles !== undefined ? prop.vehicles + ' vehicle' + (prop.vehicles!==1?'s':'') + (prop.total_est_value ? ' \u00b7 ' + fmt$(prop.total_est_value) : '') : 'Loading\u2026'}</div>
         ${d && prop.vehicle_alerts > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${prop.vehicle_alerts} reg/insp alert${prop.vehicle_alerts!==1?'s':''}</span></div>` : ''}
       </a>
 

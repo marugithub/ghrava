@@ -87,6 +87,15 @@ function detectFormat(headers, rawText) {
     return 'tsp';
   if (joined.includes('date') && joined.includes('description') && joined.includes('amount') && joined.includes('running bal'))
     return 'bofa';
+  // Capital One: Transaction Date, Posted Date, Card No., Description, Category, Debit, Credit
+  if (joined.includes('transaction date') && joined.includes('posted date') && joined.includes('card no'))
+    return 'capital_one';
+  // USAA: Date, Description, Original Description, Category, Amount, Status
+  if (joined.includes('original description') && joined.includes('status') && joined.includes('amount'))
+    return 'usaa';
+  // Wells Fargo: no standard header, or minimal "Date","Amount","*","*","Description"
+  if (raw.includes('wells fargo') || (h.length >= 5 && joined.includes('date') && !joined.includes('description') && !joined.includes('post')))
+    return 'wells_fargo';
   if (joined.includes('date') && joined.includes('description') && (joined.includes('debit') || joined.includes('credit')))
     return 'generic_split';
   return 'generic';
@@ -537,6 +546,64 @@ function parseDiscover(rows) {
   }).filter(r => r.date && r.amount !== null);
 }
 
+// ── Wells Fargo (checking / savings / credit card) ─────────────
+// Headers: Date, Amount, *, *, Description
+// No header row in some exports — positional CSV
+
+function parseWellsFargo(rows) {
+  return rows.map(r => {
+    // WF CSV: "MM/DD/YYYY","amount","","","description"
+    const keys = Object.keys(r);
+    const date = parseDate(r[keys[0]] || r['Date'] || r['date']);
+    const rawAmt = r[keys[1]] !== undefined ? r[keys[1]] : (r['Amount'] || r['amount']);
+    const amt = parseAmount(rawAmt);
+    const desc = (r[keys[4]] || r['Description'] || r['description'] || r[keys[2]] || '').trim();
+    return { date, description: desc, amount: amt, balance: null, postDate: null, category: null, type: null, memo: null };
+  }).filter(r => r.date && r.amount !== null);
+}
+
+// ── Capital One ───────────────────────────────────────────────
+// Headers: Transaction Date, Posted Date, Card No., Description, Category, Debit, Credit
+
+function parseCapitalOne(rows) {
+  return rows.map(r => {
+    const debit  = parseAmount(r['Debit']  || r['debit']  || null);
+    const credit = parseAmount(r['Credit'] || r['credit'] || null);
+    let amt = null;
+    if (debit  != null && debit  !== 0) amt = -Math.abs(debit);
+    if (credit != null && credit !== 0) amt = Math.abs(credit);
+    return {
+      date:        parseDate(r['Transaction Date'] || r['transaction date']),
+      postDate:    parseDate(r['Posted Date'] || r['posted date'] || null),
+      description: (r['Description'] || r['description'] || '').trim(),
+      amount:      amt,
+      balance:     null,
+      category:    r['Category'] || r['category'] || null,
+      type:        null,
+      memo:        null,
+    };
+  }).filter(r => r.date && r.amount !== null);
+}
+
+// ── USAA (checking / savings) ─────────────────────────────────
+// Headers: Date, Description, Original Description, Category, Amount, Status
+
+function parseUSAA(rows) {
+  return rows.map(r => {
+    const amt = parseAmount(r['Amount'] || r['amount'] || null);
+    return {
+      date:        parseDate(r['Date'] || r['date']),
+      description: (r['Description'] || r['description'] || r['Original Description'] || '').trim(),
+      amount:      amt,
+      balance:     null,
+      postDate:    null,
+      category:    r['Category'] || r['category'] || null,
+      type:        null,
+      memo:        null,
+    };
+  }).filter(r => r.date && r.amount !== null);
+}
+
 // ── Main export ────────────────────────────────────────────────
 
 /**
@@ -612,6 +679,9 @@ function parseFile(content, filename) {
     case 'bofa':           transactions = parseBofa(rows);        break;
     case 'navyfed':        transactions = parseNavyFed(rows);     break;
     case 'schwab_checking':transactions = parseSchawbChecking(rows); break;
+    case 'capital_one':    transactions = parseCapitalOne(rows);  break;
+    case 'usaa':           transactions = parseUSAA(rows);        break;
+    case 'wells_fargo':    transactions = parseWellsFargo(rows);  break;
     case 'generic_split':
       if (headers.some(h => h.toLowerCase().includes('debit') && headers.some(h2 => h2.toLowerCase().includes('credit'))))
         transactions = parseCiti(rows);

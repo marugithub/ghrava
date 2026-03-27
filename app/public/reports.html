@@ -837,9 +837,13 @@ async function loadSummary() {
         ['Expired',      inv.expired,       inv.expired > 0 ? '#ef4444' : ''],
       ], '/inventory.html', invAlerts)}
       ${card('Documents', '#6366f1', '📄', [
-        ['Total docs',       (d.expiring_documents != null ? '—' : '—'), ''],
+        ['Total',            d.doc_total ?? '—',  ''],
         ['Expiring 90 days', xdocs.length, xdocs.length > 0 ? '#f59e0b' : ''],
       ], '/documents.html', docAlerts)}
+      ${card('Kids', '#ec4899', '👧', [
+        ['Kids',       kids.total,      kids.total > 0 ? '#ec4899' : ''],
+        ['Activities', kids.activities, ''],
+      ], '/kids.html', '')}
       ${card('Medical', '#14b8a6', '🏥', [
         ['Medications',   med.medications,   ''],
         ['Conditions',    med.conditions,    ''],

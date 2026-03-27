@@ -90,7 +90,7 @@
 
     <!-- Import -->
     <div class="data-card">
-      <div class="data-card-title">📥 Import Data</div>
+      <div class="data-card-title">📥 Import Ghrava Data</div>
       <div class="warn-box">
         ⚠ <strong>Before importing:</strong> Make a backup — go to Reports → Tools → Run Backup Now.
         Import updates existing rows and adds new ones. It does not delete anything.
@@ -114,6 +114,24 @@
              onchange="fileSelected(this.files[0])">
 
       <div id="impStatus" style="margin-top:14px;display:none"></div>
+    </div>
+
+    <!-- Bank Statement Import -->
+    <div class="data-card">
+      <div class="data-card-title">🏦 Import Bank Statement</div>
+      <div class="data-card-desc">
+        Upload a statement from your bank to import transactions into the Finance module.
+        Supported banks: Chase, Bank of America, Navy Federal, Schwab, Vanguard, TSP,
+        Citi, Discover, Wells Fargo, Capital One, USAA — plus generic CSV.
+        Also accepts OFX and QFX formats from most banks.
+      </div>
+      <a class="btn btn-primary" href="/finance.html#import" style="text-decoration:none">
+        Open Finance → Import Statement →
+      </a>
+      <div style="font-size:12px;color:var(--text3);margin-top:10px">
+        Bank statements use the Finance module's Import tab — transactions are matched
+        to accounts and auto-categorized using your category rules.
+      </div>
     </div>
 
   </div>

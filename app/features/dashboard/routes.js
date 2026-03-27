@@ -114,13 +114,17 @@ router.get('/', (req, res) => {
       FROM finance_accounts WHERE is_active=1
     `).get());
 
-    const certStats = safeGet(() => db.prepare(`
-      SELECT
-        COUNT(*) AS total,
-        COUNT(CASE WHEN expiry_date IS NOT NULL AND expiry_date <= date('now','+60 days') AND expiry_date >= date('now') THEN 1 END) AS expiring_soon,
-        COUNT(CASE WHEN expiry_date IS NOT NULL AND expiry_date < date('now') THEN 1 END) AS expired
-      FROM career_certifications WHERE status != 'Expired'
-    `).get());
+    const certStats = safeGet(() => {
+      const s = db.prepare(`
+        SELECT
+          COUNT(*) AS total,
+          COUNT(CASE WHEN expiry_date IS NOT NULL AND expiry_date <= date('now','+60 days') AND expiry_date >= date('now') THEN 1 END) AS expiring_soon,
+          COUNT(CASE WHEN expiry_date IS NOT NULL AND expiry_date < date('now') THEN 1 END) AS expired
+        FROM career_certifications WHERE status != 'Expired'
+      `).get();
+      const jobs = db.prepare("SELECT COUNT(*) AS n FROM career_jobs WHERE is_current=1").get();
+      return { ...s, active_jobs: jobs?.n || 0 };
+    });
 
     const bookStats = safeGet(() => db.prepare(`
       SELECT
@@ -204,6 +208,7 @@ router.get('/', (req, res) => {
       property:   propStats,
       kids:       kidsStats,
       expiring_documents: expiringDocs,
+      doc_total: safeGet(() => db.prepare('SELECT COUNT(*) AS n FROM documents WHERE is_active=1').get().n),
       backup:     backupStatus,
     });
   } catch (e) {

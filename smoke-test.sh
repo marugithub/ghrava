@@ -224,6 +224,9 @@ assert_json_object "GET /finance/transactions/unified"  "$BASE/api/v1/finance/tr
 assert_json_array   "GET /finance/category-rules"          "$BASE/api/v1/finance/category-rules"
 assert_200         "GET /data page"               "$BASE/data.html"
 assert_200         "GET /api/v1/data/template"       "$BASE/api/v1/data/template"
+assert_200         "GET /notifications page"    "$BASE/notifications.html"
+assert_200         "GET /data page"               "$BASE/data.html"
+assert_json_object "GET /finance/budgets"         "$BASE/api/v1/finance/budgets"
 assert_json_object "GET /app/info"            "$BASE/api/v1/app/info"
 # ── Daily log ─────────────────────────────────────────────────
 echo ""

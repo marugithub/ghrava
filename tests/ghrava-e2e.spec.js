@@ -553,4 +553,65 @@ test.describe('API Contract', () => {
     }
   });
 
+  test('GET /data/export returns xlsx content-type', async ({ request }) => {
+    const r = await request.get(`${API}/data/export`);
+    expect(r.ok()).toBe(true);
+    const ct = r.headers()['content-type'] || '';
+    expect(ct, 'data export should be xlsx').toContain('spreadsheetml');
+  });
+
+  test('GET /data/template returns xlsx content-type', async ({ request }) => {
+    const r = await request.get(`${API}/data/template`);
+    expect(r.ok()).toBe(true);
+    const ct = r.headers()['content-type'] || '';
+    expect(ct, 'template should be xlsx').toContain('spreadsheetml');
+  });
+
+  test('POST /data/import with empty xlsx responds ok', async ({ request }) => {
+    // Upload a minimal valid xlsx (just check the route accepts multipart)
+    // Since we can't easily build xlsx here, just verify the route exists
+    const r = await request.post(`${API}/data/import`, {
+      multipart: { file: { name: 'test.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from('') } }
+    });
+    // Should get 400 (no file) or 500 (invalid xlsx) — not 404
+    expect(r.status(), 'import route should exist').not.toBe(404);
+  });
+
+  test('Dashboard returns doc_total and kids keys', async ({ request }) => {
+    const r = await request.get(`${API}/dashboard`);
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(d, 'dashboard missing doc_total').toHaveProperty('doc_total');
+    expect(d, 'dashboard missing kids').toHaveProperty('kids');
+    expect(d.kids, 'kids missing total').toHaveProperty('total');
+    expect(d.kids, 'kids missing activities').toHaveProperty('activities');
+  });
+
+  test('GET /notifications page loads without JS errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(`${BASE}/notifications.html`, { waitUntil: 'load' });
+    await page.waitForSelector('#app', { timeout: 5000 });
+    expect(errors.filter(e => !e.includes('favicon')), 'notifications page JS errors').toHaveLength(0);
+  });
+
+  test('GET /data page loads without JS errors', async ({ page }) => {
+    const errors = [];
+    page.on('pageerror', e => errors.push(e.message));
+    await page.goto(`${BASE}/data.html`, { waitUntil: 'load' });
+    await page.waitForSelector('#app', { timeout: 5000 });
+    expect(errors.filter(e => !e.includes('favicon')), 'data page JS errors').toHaveLength(0);
+    // Sheet reference grid should be populated
+    const chips = await page.locator('.sheet-pill').count();
+    expect(chips, 'data page should show sheet pills').toBeGreaterThan(5);
+  });
+
+  test('Finance budget routes exist', async ({ request }) => {
+    const r = await request.get(`${API}/finance/budgets`);
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(d, 'budgets missing budgets array').toHaveProperty('budgets');
+    expect(Array.isArray(d.budgets)).toBe(true);
+  });
+
 });

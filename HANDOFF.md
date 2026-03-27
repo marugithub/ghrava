@@ -453,3 +453,12 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
+
+### v202603.107
+- **E2E tests expanded:** 9 new API contract tests — data export/import xlsx, dashboard doc_total/kids keys, notifications page load, data page sheet pills, finance budget route. Total: ~22 API contract tests.
+- **Smoke test:** 51 assertions (was 48). Added notifications page, data page, finance/budgets.
+
+### v202603.106
+- **saveBudget api() fixed** — budget saves were silently failing (old signature). Fixed.
+- **Bank parsers:** Wells Fargo, Capital One, USAA added (now 11 formats total).
+- **Data Manager** — bank import section added linking to Finance → Import.

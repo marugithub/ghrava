@@ -2710,7 +2710,8 @@ async function deleteGc() {
       };
       if (!payload.category) { toast('Category required', 'err'); return; }
       const url = editingBudgetId ? `/finance/budgets/${editingBudgetId}` : '/finance/budgets';
-      await api(url, { method: editingBudgetId ? 'PUT' : 'POST', body: JSON.stringify(payload) });
+      const method = editingBudgetId ? 'PUT' : 'POST';
+      await api(method, url, payload);
       toast(editingBudgetId ? 'Updated' : 'Budget added');
       document.getElementById('budgetDrawer').classList.remove('open');
       loadBudgets();
