@@ -182,4 +182,24 @@ router.delete('/:id', requireAuth, (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+
+
+// GET /api/v1/daily-log/export/csv
+router.get('/export/csv', (req, res) => {
+  try {
+    const { year } = req.query;
+    let sql = 'SELECT id,log_date,category,entry_text,follow_up_needed,follow_up_date,created_at FROM daily_log';
+    const params = [];
+    if (year) { sql += " WHERE strftime('%Y',log_date)=?"; params.push(String(year)); }
+    sql += ' ORDER BY log_date DESC';
+    const rows = db.prepare(sql).all(...params);
+    const h = ['id','log_date','category','entry_text','follow_up_needed','follow_up_date','created_at'];
+    function esc(v) { if (v==null) return ''; const s=String(v); return s.includes(',')||s.includes('"')||s.includes('\n')?`"${s.replace(/"/g,'""')}"`  :s; }
+    const lines = rows.map(r => h.map(k => esc(r[k])).join(','));
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="daily_log${year?'_'+year:''}.csv"`);
+    res.send([h.join(','), ...lines].join('\n'));
+  } catch(e) { const {serverError}=require('../errors')||{serverError:(r,e)=>r.status(500).json({error:e.message})}; res.status(500).json({error:e.message}); }
+});
+
 module.exports = router;

@@ -70,7 +70,11 @@ window.GH_PAGE = { module: 'property', title: 'Property' };
   <div class="view-panel" id="panel-vehs">
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Vehicles</span>
-      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openVehDrawer()">+ Add</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a href="/api/v1/property/vehicles/export/csv" style="padding:4px 10px;font-size:11px;color:var(--text3);text-decoration:none;white-space:nowrap;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)" title="Download vehicles as CSV">↓ CSV</a>
+        <a href="/api/v1/property/vehicles/service/export/csv" style="padding:4px 10px;font-size:11px;color:var(--text3);text-decoration:none;white-space:nowrap;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)" title="Download service log as CSV">↓ Service CSV</a>
+        <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openVehDrawer()">+ Add</button>
+      </div>
     </div>
     <div id="vehList" style="padding:4px 16px 0"><div class="spinner"><div class="spin"></div>Loading…</div></div>
   </div>
@@ -79,7 +83,10 @@ window.GH_PAGE = { module: 'property', title: 'Property' };
   <div class="view-panel" id="panel-maint">
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Property Maintenance</span>
-      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openMaintDrawer()">+ Add</button>
+      <div style="display:flex;gap:8px;align-items:center">
+        <a href="/api/v1/property/maintenance/export/csv" style="padding:4px 10px;font-size:11px;color:var(--text3);text-decoration:none;white-space:nowrap;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)" title="Download maintenance log as CSV">↓ CSV</a>
+        <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openMaintDrawer()">+ Add</button>
+      </div>
     </div>
     <!-- Property selector -->
     <div style="padding:8px 16px 0">

@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.095
+**Last updated:** v202603.096
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -350,6 +350,16 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
+### v202603.096
+- **CSV exports — all modules** — new GET routes returning `Content-Disposition: attachment` CSV files:
+  - Medical: `/medical/conditions/export/csv`, `/medical/notes/export/csv` (medications already existed)
+  - Career: `/career/certifications/export/csv`, `/career/jobs/export/csv`, `/career/skills/export/csv`, `/career/goals/export/csv`
+  - Daily Log: `/daily-log/export/csv` (supports `?year=` filter)
+  - Property: `/property/vehicles/export/csv`, `/property/vehicles/service/export/csv`, `/property/maintenance/export/csv`
+- **Export buttons in UI** — `↓ CSV` buttons added to Medical tabs (updates href per active tab), Career tabs (updates per active tab), Daily Log search bar, Property vehicles panel (CSV + Service CSV), Property maintenance panel
+- **Notifications page** — `/notifications.html` — severity-grouped list (Overdue / Upcoming / Info), mark read, dismiss, module links. Bell dropdown in nav gets "View all →" link pointing to this page.
+- **Smoke test** — 44 assertions (was 39), added export and notifications page checks.
 
 ### v202603.095
 - **Settings test 14.5s timeout fixed** — `toBeVisible()` on `.settings-row-label` was timing out because the locator syntax with `hasText` option doesn't wait for content to render. Replaced with `waitForSelector('.settings-row-label')` then `allTextContents()` to collect all labels and check inclusively. Fails immediately with a clear message listing what labels were found.

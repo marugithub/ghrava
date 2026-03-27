@@ -242,6 +242,9 @@
       </div>
       <div id="ghNotifList" class="gh-notif-list">
         <div class="gh-notif-empty">Loading…</div>
+      </div>
+      <div style="padding:8px 12px;border-top:1px solid var(--border);text-align:center">
+        <a href="/notifications.html" style="font-size:12px;color:var(--accent);text-decoration:none">View all notifications →</a>
       </div>`;
     document.body.appendChild(panel);
     document.addEventListener('click', e => {

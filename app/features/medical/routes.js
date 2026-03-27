@@ -89,6 +89,34 @@ router.get('/medications/export/csv', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+router.get('/conditions/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT * FROM med_conditions ORDER BY patient, status, condition_name').all();
+    const h = ['id','patient','condition_name','status','start_date','diagnosed_date','notes'];
+    const lines = rows.map(r => h.map(k => escCsv(r[k])).join(','));
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="conditions.csv"');
+    res.send([h.join(','), ...lines].join('\n'));
+  } catch (e) { serverError(res, e); }
+});
+
+router.get('/notes/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT n.id, n.visit_date, n.patient, c.name AS physician, c.specialty,
+             n.questions, n.doctors_response, n.follow_up_needed, n.follow_up_date, n.notes
+      FROM med_visit_notes n
+      LEFT JOIN contacts c ON c.id = n.contact_id
+      ORDER BY n.visit_date DESC
+    `).all();
+    const h = ['id','visit_date','patient','physician','specialty','questions','doctors_response','follow_up_needed','follow_up_date','notes'];
+    const lines = rows.map(r => h.map(k => escCsv(r[k])).join(','));
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename="visit_notes.csv"');
+    res.send([h.join(','), ...lines].join('\n'));
+  } catch (e) { serverError(res, e); }
+});
+
 // ══════════════════════════════════════════════════════════════
 // CONDITIONS
 // ══════════════════════════════════════════════════════════════

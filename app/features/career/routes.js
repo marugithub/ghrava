@@ -274,6 +274,48 @@ auth.delete('/education/:id', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// ── CSV Exports ───────────────────────────────────────────────
+function escCsv(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return s.includes(',') || s.includes('"') || s.includes('\n')
+    ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function csvResp(res, rows, headers, filename) {
+  const lines = rows.map(r => headers.map(h => escCsv(r[h])).join(','));
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send([headers.join(','), ...lines].join('\n'));
+}
+
+pub.get('/certifications/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT id,name,issuing_body,credential_id,issue_date,expiry_date,status,notes FROM career_certifications ORDER BY status,name').all();
+    csvResp(res, rows, ['id','name','issuing_body','credential_id','issue_date','expiry_date','status','notes'], 'certifications.csv');
+  } catch(e) { serverError(res, e); }
+});
+
+pub.get('/jobs/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT id,company,title,employment_type,start_date,end_date,location,is_current,description FROM career_jobs ORDER BY start_date DESC').all();
+    csvResp(res, rows, ['id','company','title','employment_type','start_date','end_date','location','is_current','description'], 'jobs.csv');
+  } catch(e) { serverError(res, e); }
+});
+
+pub.get('/skills/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT id,name,category,proficiency,notes FROM career_skills ORDER BY category,name').all();
+    csvResp(res, rows, ['id','name','category','proficiency','notes'], 'skills.csv');
+  } catch(e) { serverError(res, e); }
+});
+
+pub.get('/goals/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare('SELECT id,title,category,status,target_date,notes FROM career_goals ORDER BY status,target_date').all();
+    csvResp(res, rows, ['id','title','category','status','target_date','notes'], 'career_goals.csv');
+  } catch(e) { serverError(res, e); }
+});
+
 router.use('/', pub);
 router.use('/', auth);
 module.exports = router;

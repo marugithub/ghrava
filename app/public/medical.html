@@ -123,14 +123,18 @@
   <!-- ── Page header ──────────────────────────────────────── -->
   <!-- header injected by nav.js -->
 
-  <!-- ── View tabs ────────────────────────────────────────── -->
-  <div class="view-tabs" style="--tab-color:#14b8a6" style="--tab-color:#14b8a6">
+  <!-- ── View tabs ────────────────────────────────────────── -->\
+  <div class="view-tabs" style="--tab-color:#14b8a6;display:flex;align-items:center" style="--tab-color:#14b8a6">
     <button class="view-tab active" onclick="switchView('medications',this)">Meds</button>
     <button class="view-tab" onclick="switchView('conditions',this)">Conditions</button>
     <button class="view-tab" onclick="switchView('notes',this)">Visits</button>
     
     <button class="view-tab" onclick="switchView('hw',this)">H&amp;W</button>
     <button class="view-tab" onclick="switchView('summary',this)">Summary</button>
+    <a id="medExportBtn" href="/api/v1/medical/medications/export/csv"
+       style="margin-left:auto;padding:4px 10px;font-size:11px;color:var(--text3);text-decoration:none;
+              white-space:nowrap;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)"
+       title="Download current view as CSV">↓ CSV</a>
   </div>
 
   <!-- ── Patient filter ───────────────────────────────────── -->
@@ -453,6 +457,18 @@ function switchView(view, btn) {
   btn.classList.add('active');
   const strip = $id('patientStrip');
   strip.style.display = (view === 'summary') ? 'none' : 'flex';
+  // Update CSV export link to match active view
+  const exportMap = {
+    medications: '/api/v1/medical/medications/export/csv',
+    conditions:  '/api/v1/medical/conditions/export/csv',
+    notes:       '/api/v1/medical/notes/export/csv',
+  };
+  const exportBtn = document.getElementById('medExportBtn');
+  if (exportBtn) {
+    const href = exportMap[view];
+    exportBtn.style.display = href ? '' : 'none';
+    if (href) exportBtn.href = href;
+  }
   renderCurrentView();
 }
 

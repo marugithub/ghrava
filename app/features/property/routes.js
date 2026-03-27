@@ -209,6 +209,53 @@ router.delete('/vehicles/service/:serviceId', requireAuth, (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+
+// ── CSV Exports ───────────────────────────────────────────────
+function escCsv(v) {
+  if (v == null) return '';
+  const s = String(v);
+  return s.includes(',') || s.includes('"') || s.includes('\n')
+    ? `"${s.replace(/"/g, '""')}"` : s;
+}
+function csvSend(res, rows, headers, filename) {
+  const lines = rows.map(r => headers.map(h => escCsv(r[h])).join(','));
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+  res.send([headers.join(','), ...lines].join('\n'));
+}
+
+router.get('/vehicles/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare(`SELECT id,nickname,make,model,year,color,vin,license_plate,
+      registration_expires,inspection_expires,purchase_date,purchase_price,notes
+      FROM vehicles WHERE is_active=1 ORDER BY make,model`).all();
+    csvSend(res, rows, ['id','nickname','make','model','year','color','vin','license_plate',
+      'registration_expires','inspection_expires','purchase_date','purchase_price','notes'], 'vehicles.csv');
+  } catch(e) { serverError(res, e); }
+});
+
+router.get('/vehicles/service/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare(`SELECT vs.id, v.nickname AS vehicle, vs.service_date,
+      vs.service_type, vs.mileage, vs.cost, vs.shop, vs.next_due_date, vs.next_due_miles, vs.notes
+      FROM vehicle_service vs JOIN vehicles v ON v.id=vs.vehicle_id
+      ORDER BY vs.service_date DESC`).all();
+    csvSend(res, rows, ['id','vehicle','service_date','service_type','mileage','cost','shop',
+      'next_due_date','next_due_miles','notes'], 'vehicle_service.csv');
+  } catch(e) { serverError(res, e); }
+});
+
+router.get('/maintenance/export/csv', (req, res) => {
+  try {
+    const rows = db.prepare(`SELECT pm.id, p.nickname AS property, pm.maint_date,
+      pm.category, pm.description, pm.cost, pm.vendor, pm.warranty_expiry, pm.next_due_date, pm.notes
+      FROM property_maintenance pm JOIN properties p ON p.id=pm.property_id
+      ORDER BY pm.maint_date DESC`).all();
+    csvSend(res, rows, ['id','property','maint_date','category','description','cost',
+      'vendor','warranty_expiry','next_due_date','notes'], 'property_maintenance.csv');
+  } catch(e) { serverError(res, e); }
+});
+
 module.exports = router;
 
 // ── Property Maintenance ──────────────────────────────────────
