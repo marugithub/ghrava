@@ -521,14 +521,7 @@ const TYPE_CFG = {
 function typeCfg(t) { return TYPE_CFG[t] || TYPE_CFG.other; }
 
 // ── Auth wrapper ──────────────────────────────────────────────
-async function apiFetch(method, path, body) {
-  const opts = { method, headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` } };
-  if (body !== undefined) opts.body = JSON.stringify(body);
-  const r = await fetch('/api/v1/resources' + path, opts);
-  if (r.status === 401) { if (typeof toast === 'function') toast('Please log in via Settings to make changes', 'err'); throw new Error('Not authenticated'); }
-  if (!r.ok) { const e = await r.json().catch(() => ({ error: 'Error' })); throw new Error(e.error || 'Error'); }
-  return r.json();
-}
+const apiFetch = window.makeApi('/resources');
 
 // ── Load ──────────────────────────────────────────────────────
 async function load() {

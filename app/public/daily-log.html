@@ -344,6 +344,7 @@
 <script src="/js/lt-messages.js"></script>
 <script>
 const API = '/api/v1/daily-log';
+const api = window.makeApi('/daily-log');
 let entries = [], total = 0, editingId = null, deletingId = null;
 let filterCat = '', filterSearch = '', filterFollowup = false;
 let searchTimer;
@@ -372,8 +373,7 @@ async function load() {
   // Keep export link in sync (no search/category filter on CSV — full log)
   const eb = document.getElementById('logExportBtn');
   if (eb) eb.href = '/api/v1/daily-log/export/csv';
-  const res = await fetch(`${API}?${p}`);
-  const data = await res.json();
+  const data = await api('GET', `?${p}`);
   entries = data.entries || [];
   total   = data.total   || 0;
   render();
@@ -546,11 +546,7 @@ function openDetail(id) {
 async function markFollowupDone() {
   if (!_detailEntryId) return;
   try {
-    const r = await fetch(`/api/v1/daily-log/${_detailEntryId}`, {
-      method: 'PATCH',
-      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
-      body: JSON.stringify({ follow_up_needed: 0, follow_up_date: null }),
-    });
+    const r = await api('PATCH', `/${_detailEntryId}`, { follow_up_needed: 0, follow_up_date: null });
     if (!r.ok) throw new Error();
     $('detailFollowup').style.display = 'none';
     toast('Follow-up marked done', 'ok');
@@ -582,15 +578,13 @@ $('formSave').addEventListener('click', async () => {
   const btn = $('formSave');
   btn.textContent = 'Saving…'; btn.disabled = true;
   try {
-    const url = editingId ? `${API}/${editingId}` : API;
     const method = editingId ? 'PUT' : 'POST';
-    const r = await fetch(url, {method, headers:{'Content-Type':'application/json'}, body: JSON.stringify({
+    await api(method, editingId ? `/${editingId}` : '/', {
       log_date: date, category: $('fCategory').value, entry_text: text,
       follow_up_needed: $('fFollowup').checked,
       follow_up_date: $('fFollowup').checked ? $('fFollowupDate').value : null,
       tags: dlFormTags
-    })});
-    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    });
     $('formDrawer').classList.remove('open');
     toast(editingId ? 'Entry updated' : 'Entry saved');
     await load(); // auto-refresh
@@ -675,7 +669,7 @@ const DL_CAT_FALLBACK = ['General','Investment','Career','Finance','Health','Hom
 async function renderDlCatStrip() {
   let cats = DL_CAT_FALLBACK;
   try {
-    const rows = await fetch('/api/v1/settings/dropdowns/dailylog_category').then(r => r.ok ? r.json() : []);
+    const rows = await window.api('GET', '/settings/dropdowns/dailylog_category');
     if (rows.length) cats = rows.map(r => r.label);
   } catch {}
 

@@ -454,6 +454,32 @@ Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
 
+### v202603.109
+**window.makeApi() — unified api factory, all pages migrated:**
+
+`window.makeApi(prefix)` added to lt-core.js. Two lines. Returns `(method, path, body) => window.api(method, prefix+path, body)`.
+All pages now use the same `api(method, path, body)` call signature. All calls inherit: auth header, JSON body, 401 retry, error logging.
+
+Pages migrated (wrappers replaced):
+- `books.html`    → `makeApi('/books')`
+- `career.html`   → `makeApi('/career')`  — also fixed goals double-prefix bug
+- `property.html` → `makeApi('/property')` — maintenance/vehicle CRUD now works
+- `medical.html`  → `makeApi('')` (calls multiple modules)
+- `resources.html`→ `makeApi('/resources')` (was `apiFetch`)
+- `todos.html`    → `makeApi('/todos')` — raw fetch replaced
+- `kids.html`     → `makeApi('/kids')` — all 10+ raw fetch calls replaced; r.ok/r.json() removed
+- `daily-log.html`→ `makeApi('/daily-log')` — all raw fetch replaced; stale url variable removed
+
+Pages intentionally NOT migrated:
+- `finance.html`   — uses window.api directly with full paths (already correct)
+- `reports.html`   — GET-only wrapper scoped to finance/reports (correct as-is)
+- `documents.html` — already using window.api directly
+
+Rule documented in WIRING.md: every page must use `const api = window.makeApi('/module')`.
+Never hand-roll fetch(). Never invent a new local wrapper.
+
+**Syntax check: 15 pages + 18 route files + lt-core + nav = 0 errors.**
+
 ### v202603.108
 **api() call signature audit — comprehensive fix across all pages:**
 - Each page has its own api() wrapper with different signatures. Rule:

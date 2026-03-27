@@ -182,7 +182,7 @@ const $ = id => document.getElementById(id);
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 // Use window.api from lt-core.js (path prefixed with /api/v1)
 // Books uses a module-local wrapper to prepend /books
-const api = (path, method='GET', body) => window.api(method, '/books' + path, body || undefined);
+const api = window.makeApi('/books');
 
 let currentShelf  = 'Currently Reading';
 let currentFormat = '';
@@ -226,7 +226,7 @@ async function loadBooks() {
     if(currentShelf!=='all') qs.set('status',currentShelf);
     if(currentFormat) qs.set('format',currentFormat);
     if(currentGenre)  qs.set('genre',currentGenre);
-    const books = await api('?'+qs.toString());
+    const books = await api('GET', '?'+qs.toString());
     _allBooks = books;
 
     // Build genre filter from results (all books)
@@ -268,7 +268,7 @@ function buildGenreFilter(books) {
 
 async function loadStats() {
   try {
-    const s = await api('/stats');
+    const s = await api('GET', '/stats');
     $('stReading').textContent = s.reading_count||0;
     $('stRead').textContent    = s.read_count||0;
     $('stWant').textContent    = s.want_count||0;
@@ -354,13 +354,13 @@ async function saveBook() {
   window._bkPendingCoverUrl = null;
   try {
     let saved;
-    if(editingBookId) saved = await api(`/${editingBookId}`,'PUT',body);
-    else              saved = await api('/','POST',body);
+    if(editingBookId) saved = await api('PUT', `/${editingBookId}`, body);
+    else              saved = await api('POST', '/', body);
     // Download and store cover as attachment if we have a pending URL
     const bookId = saved?.id || editingBookId;
     if (pendingCover && bookId && !editingBookId) {
       try {
-        await api(`/${bookId}/fetch-cover`, 'POST', { url: pendingCover });
+        await api('POST', `/${bookId}/fetch-cover`, { url: pendingCover });
       } catch(e) { console.warn('Cover fetch failed:', e.message); }
     }
     toast(editingBookId?'Updated':'Book added');
@@ -372,7 +372,7 @@ async function saveBook() {
 
 async function deleteBook() {
   if(!await LT.confirm('Remove this book?')) return;
-  await api(`/${editingBookId}`,'DELETE');
+  await api('DELETE', `/${editingBookId}`);
   toast('Removed'); $('bookDrawer').classList.remove('open');
   loadBooks(); loadStats();
 }

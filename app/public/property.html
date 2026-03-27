@@ -314,11 +314,7 @@ const API = '/api/v1/property';
 const $  = id => document.getElementById(id);
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
 const fmt$ = n => '$'+(Math.abs(n)||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
-const api = (path, opts={}) => {
-  const h = {'Content-Type':'application/json'};
-  if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
-  return fetch(API+path,{headers:h,...opts}).then(r=>r.ok?r.json():r.json().then(e=>{throw e;}));
-};
+const api = window.makeApi('/property');
 function bgClose(id){ if(event.target===$(id)) $(id).classList.remove('open'); }
 
 let tab='props', editProp=null, editVeh=null, svcVehId=null;
@@ -342,7 +338,7 @@ function onFab(){
 async function loadProps(){
   const el=$('propList'); if(!el) return;
   try{
-    const ps=await api('/properties');
+    const ps=await api('GET', '/properties');
     const tv=ps.reduce((s,p)=>s+(parseFloat(p.current_est_value)||0),0);
     const tm=ps.reduce((s,p)=>s+(parseFloat(p.mortgage_balance)||0),0);
     const eq=tv-tm;
@@ -376,7 +372,7 @@ async function loadProps(){
 
 async function openPropDrawer(id){
   editProp=id||null; let p={};
-  if(id){try{const all=await api('/properties');p=all.find(x=>x.id===id)||{};}catch(e){}}
+  if(id){try{const all=await api('GET', '/properties');p=all.find(x=>x.id===id)||{};}catch(e){}}
   $('propDrawerTitle').textContent=id?'Edit Property':'Add Property';
   $('pNick').value=p.nickname||''; $('pType').value=p.property_type||'Primary Residence';
   $('pStreet').value=p.address_street||''; $('pCity').value=p.address_city||'';
@@ -414,7 +410,7 @@ async function saveProp(){
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editProp?`/properties/${editProp}`:'/properties';
-    await api(url, {method:editProp?'PUT':'POST',body:JSON.stringify(payload)});
+    await api(editProp?'PUT':'POST', url, payload);
     toast(editProp?'Updated':'Property added');
     $('propDrawer').classList.remove('open');loadProps();
   }catch(e){toast(ghErrorMsg(e),'err');}
@@ -422,7 +418,7 @@ async function saveProp(){
 }
 async function delProp(){
   if(!await LT.confirm('Remove this property?'))return;
-  await api(`/properties/${editProp}`,{method:'DELETE'});
+  await api('DELETE', `/properties/${editProp}`);
   toast('Removed');$('propDrawer').classList.remove('open');loadProps();
 }
 
@@ -430,7 +426,7 @@ async function delProp(){
 async function loadVehs(){
   const el=$('vehList');if(!el)return;
   try{
-    const vs=await api('/vehicles');
+    const vs=await api('GET', '/vehicles');
     if(!vs.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px">No vehicles yet</div>';return;}
     const today=new Date().toISOString().slice(0,10);
     const warn30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
@@ -466,7 +462,7 @@ async function loadVehs(){
 
 async function openVehDrawer(id){
   editVeh=id||null; let v={};
-  if(id){try{const all=await api('/vehicles');v=all.find(x=>x.id===id)||{};}catch(e){}}
+  if(id){try{const all=await api('GET', '/vehicles');v=all.find(x=>x.id===id)||{};}catch(e){}}
   $('vehDrawerTitle').textContent=id?'Edit Vehicle':'Add Vehicle';
   $('vNick').value=v.nickname||''; $('vYear').value=v.year||''; $('vMake').value=v.make||'';
   $('vModel').value=v.model||''; $('vTrim').value=v.trim||''; $('vColor').value=v.color||'';
@@ -504,7 +500,7 @@ async function saveVeh(){
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editVeh?`/vehicles/${editVeh}`:'/vehicles';
-    await api(url, {method:editVeh?'PUT':'POST',body:JSON.stringify(payload)});
+    await api(editVeh?'PUT':'POST', url, payload);
     toast(editVeh?'Updated':'Vehicle added');
     $('vehDrawer').classList.remove('open');loadVehs();
   }catch(e){toast(ghErrorMsg(e),'err');}
@@ -512,7 +508,7 @@ async function saveVeh(){
 }
 async function delVeh(){
   if(!await LT.confirm('Remove this vehicle?'))return;
-  await api(`/vehicles/${editVeh}`,{method:'DELETE'});
+  await api('DELETE', `/vehicles/${editVeh}`);
   toast('Removed');$('vehDrawer').classList.remove('open');loadVehs();
 }
 
@@ -530,7 +526,7 @@ async function openSvcDrawer(vid,name){
 async function loadSvcLog(){
   const el=$('svcLogList');if(!el)return;
   try{
-    const rows=await api(`/vehicles/${svcVehId}/service`);
+    const rows=await api('GET', `/vehicles/${svcVehId}/service`);
     if(!rows.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:4px 0 12px">No records yet</div>';return;}
     el.innerHTML=rows.map(s=>`
       <div class="svc-row">
@@ -552,14 +548,14 @@ async function saveSvc(){
     shop:$('sShop').value||null,notes:$('sNotes').value||null,
     next_due_date:$('sNextDate').value||null,next_due_miles:parseInt($('sNextMiles').value)||null
   };
-  await api(`/vehicles/${svcVehId}/service`,{method:'POST',body:JSON.stringify(payload)});
+  await api('POST', `/vehicles/${svcVehId}/service`, payload);
   toast('Record added');
   ['sType','sShop','sNotes','sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
   await loadSvcLog();
 }
 async function delSvc(id){
   if(!await LT.confirm('Delete this record?'))return;
-  await api(`/vehicles/service/${id}`,{method:'DELETE'});
+  await api('DELETE', `/vehicles/service/${id}`);
   await loadSvcLog();
 }
 
@@ -628,7 +624,7 @@ async function loadMaint(){
   const el = $('maintList'); if(!el) return;
   // Populate property selector
   if(!_allProps.length){
-    try{ _allProps = await api('/properties'); } catch(e){ _allProps=[]; }
+    try{ _allProps = await api('GET', '/properties'); } catch(e){ _allProps=[]; }
   }
   const sel = $('maintPropFilter');
   if(sel && _allProps.length){
@@ -644,7 +640,7 @@ async function loadMaint(){
     // Fetch maintenance for selected property or all
     let records = [];
     if(propId){
-      records = await api(`/properties/${propId}/maintenance`);
+      records = await api('GET', `/properties/${propId}/maintenance`);
     } else {
       // Fetch for all props
       const all = await Promise.all((_allProps||[]).map(p=>
@@ -755,8 +751,8 @@ async function saveMaint(){
     notes:$('mNotes').value.trim()||null,
   };
   try{
-    if(_editMaintId) await api(`/properties/maintenance/${_editMaintId}`,{method:'PUT',body:JSON.stringify(body)});
-    else             await api(`/properties/${propId}/maintenance`,{method:'POST',body:JSON.stringify(body)});
+    if(_editMaintId) await api('PUT', `/properties/maintenance/${_editMaintId}`, body);
+    else             await api('POST', `/properties/${propId}/maintenance`, body);
     toast(_editMaintId?'Updated':'Record added');
     $('maintDrawer').classList.remove('open');
     loadMaint();
@@ -767,7 +763,7 @@ async function saveMaint(){
 async function deleteMaint(){
   if(!_editMaintId) return;
   if(!await LT.confirm('Delete this maintenance record?')) return;
-  await api(`/properties/maintenance/${_editMaintId}`,{method:'DELETE'});
+  await api('DELETE', `/properties/maintenance/${_editMaintId}`);
   toast('Deleted'); $('maintDrawer').classList.remove('open'); loadMaint();
 }
 </script>

@@ -176,6 +176,41 @@ Pages that need it but may be missing: **audit before adding new modules with co
 
 ---
 
+## api() Call Rule — MANDATORY
+
+**Every page MUST use `window.makeApi(prefix)`. Never hand-roll `fetch()`.**
+
+```js
+// At top of every page script:
+const api = window.makeApi('/career');   // prefix = the module's /api/v1/xxx path
+
+// All calls use (method, path, body):
+await api('GET', '/certifications');
+await api('POST', '/certifications', payload);
+await api('PUT', `/certifications/${id}`, payload);
+await api('DELETE', `/certifications/${id}`);
+```
+
+This gives: auth header, JSON body, 401 retry, error logging — from window.api in lt-core.js.
+
+| Page | makeApi prefix |
+|------|---------------|
+| books.html | `/books` |
+| career.html | `/career` |
+| property.html | `/property` |
+| medical.html | `''` (calls multiple modules) |
+| resources.html | `/resources` |
+| todos.html | `/todos` |
+| kids.html | `/kids` |
+| daily-log.html | `/daily-log` |
+| finance.html | uses `window.api` directly — full paths only |
+| reports.html | GET-only local wrapper scoped to finance/reports |
+| documents.html | uses `window.api` directly |
+
+**Rule: When adding a new page, add `const api = window.makeApi('/newmodule')` and use it for all calls.**
+
+---
+
 ## Pre-Deploy Checklist
 
 ```bash

@@ -281,6 +281,26 @@ window.apiPut    = (path, body)  => api('PUT',    path, body);
 window.apiPatch  = (path, body)  => api('PATCH',  path, body);
 window.apiDelete = (path)        => api('DELETE', path);
 
+/**
+ * window.makeApi(prefix) — module-scoped api factory
+ *
+ * Returns a function with the same signature as window.api but with the
+ * given prefix automatically prepended to every path.
+ *
+ * Usage in any page:
+ *   const api = window.makeApi('/career');
+ *   await api('GET', '/certifications');        // → GET /api/v1/career/certifications
+ *   await api('POST', '/certifications', body); // → POST /api/v1/career/certifications
+ *   await api('DELETE', `/certifications/${id}`);
+ *
+ * This is the ONLY api() factory. All pages must use this instead of
+ * hand-rolling fetch() calls. Gives: auth header, JSON body, 401 retry,
+ * error logging — all inherited from window.api.
+ */
+window.makeApi = function(prefix) {
+  return (method, path, body) => window.api(method, prefix + path, body);
+};
+
 // Expose re-auth prompt so raw fetch() callers can also trigger it on 401
 window.reAuthPrompt = _reAuthPrompt;
 

@@ -380,17 +380,7 @@ Object.defineProperty(window, 'authToken', { get: () => LT.authToken, set: v => 
 let familyMembers = [];
 let medicalContacts = [];
 
-async function api(method, path, body) {
-  const opts = {
-    method,
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` }
-  };
-  if (body) opts.body = JSON.stringify(body);
-  const res = await fetch('/api/v1' + path, opts);
-  if (res.status === 401) { if (typeof toast === 'function') toast('Please log in via Settings to make changes', 'err'); throw new Error('Not authenticated'); }
-  if (!res.ok) { const e = await res.json().catch(()=>({error:'Error'})); throw new Error(e.error || 'Error'); }
-  return res.json();
-}
+const api = window.makeApi('');
 
 async function loadSharedData() {
   async function silentGet(path) {

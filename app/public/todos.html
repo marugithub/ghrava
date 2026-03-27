@@ -637,6 +637,7 @@
 <script src="/js/lt-messages.js"></script>
 <script>
 const API = '/api/v1/todos';
+const api = window.makeApi('/todos');
 let todos = [], stats = {}, editingId = null;
 let filterCat = '', filterMode = ''; // mode: '' | 'urgent' | 'overdue' | 'auto' | 'done'
 let showDone = false;
@@ -699,7 +700,7 @@ async function load() {
   if (filterCat) p.set('category', filterCat);
 
   try {
-    const data = await fetch(`${API}?${p}`).then(r => r.json());
+    const data = await api('GET', `?${p}`);
     todos  = data.todos  || [];
     stats  = data.stats  || {};
 
@@ -1034,14 +1035,10 @@ $('formSave').addEventListener('click', async () => {
       tags: todoFormTags,
       family_member_ids: GH_FAMILY.getIds('todoFamilyWrap'),
     };
-    const url    = editingId ? `${API}/${editingId}` : API;
     const method = editingId ? 'PUT' : 'POST';
-    const r = await fetch(url, {
-      method,
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
+    const path   = editingId ? `/${editingId}` : '/';
+    const r = await api(method, path, body);
+    if (!r) throw new Error('Save failed');
     $('formDrawer').classList.remove('open');
     toast(editingId ? 'Updated' : 'To-do added');
     await load();
@@ -1076,7 +1073,7 @@ document.getElementById('filterStrip').addEventListener('click', e => {
 async function loadCategoryPills() {
   const DEFAULT_CATS = ['HSA','Medical','Inventory','Finance','General','Home','Car','Health'];
   try {
-    const opts = await fetch('/api/v1/settings/dropdowns/todo_category').then(r => r.ok ? r.json() : []);
+    const opts = await window.api('GET', '/settings/dropdowns/todo_category');
     const cats = opts.length ? opts.map(o => o.value) : DEFAULT_CATS;
     const strip = document.getElementById('filterStrip');
     const existing = strip.innerHTML; // keep 'All' pill
