@@ -487,4 +487,70 @@ test.describe('API Contract', () => {
     expect(r.status(), 'POST /books with empty body should 400 not 401').toBe(400);
   });
 
+  test('GET /finance/transactions/unified returns transactions and summary', async ({ request }) => {
+    const r = await request.get(`${API}/finance/transactions/unified`);
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(d, 'unified transactions missing transactions key').toHaveProperty('transactions');
+    expect(d, 'unified transactions missing summary key').toHaveProperty('summary');
+    expect(Array.isArray(d.transactions)).toBe(true);
+  });
+
+  test('GET /finance/category-rules returns array of rules', async ({ request }) => {
+    const r = await request.get(`${API}/finance/category-rules`);
+    expect(r.ok()).toBe(true);
+    const rules = await r.json();
+    expect(Array.isArray(rules)).toBe(true);
+    // Migration 046 seeds rules — should have at least some
+    expect(rules.length, 'No category rules seeded').toBeGreaterThan(0);
+  });
+
+  test('Category rule CRUD — create, verify, delete', async ({ request }) => {
+    const r = await request.post(`${API}/finance/category-rules`, {
+      data: { pattern: '%_E2E_TEST_RULE%', category: 'Other', sort_order: 999 },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect(r.status(), 'Create rule: HTTP status').toBe(201);
+    const rule = await r.json();
+    expect(rule.id).toBeTruthy();
+    // Delete it
+    const del = await request.delete(`${API}/finance/category-rules/${rule.id}`);
+    expect(del.ok()).toBe(true);
+  });
+
+  test('POST /finance/category-rules/apply returns updated count', async ({ request }) => {
+    const r = await request.post(`${API}/finance/category-rules/apply`, {
+      data: {}, headers: { 'Content-Type': 'application/json' },
+    });
+    expect(r.ok()).toBe(true);
+    const d = await r.json();
+    expect(d, 'apply-rules missing updated key').toHaveProperty('updated');
+    expect(typeof d.updated).toBe('number');
+  });
+
+  test('GET /notifications returns array with time_ago field', async ({ request }) => {
+    const r = await request.get(`${API}/notifications`);
+    expect(r.ok()).toBe(true);
+    const notifs = await r.json();
+    expect(Array.isArray(notifs)).toBe(true);
+    // If any exist, they should have time_ago
+    if (notifs.length > 0) {
+      expect(notifs[0], 'notification missing time_ago').toHaveProperty('time_ago');
+    }
+  });
+
+  test('CSV export routes return 200', async ({ request }) => {
+    const exports = [
+      '/medical/medications/export/csv',
+      '/medical/conditions/export/csv',
+      '/career/certifications/export/csv',
+      '/daily-log/export/csv',
+      '/property/vehicles/export/csv',
+    ];
+    for (const path of exports) {
+      const r = await request.get(`${API}${path}`);
+      expect(r.status(), `${path} should return 200`).toBe(200);
+    }
+  });
+
 });

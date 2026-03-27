@@ -233,8 +233,7 @@ window.GH_PAGE = { module: 'property', title: 'Property' };
   <div class="form-row">
     <div class="form-group"><label class="form-label">Date *</label><input class="form-input" type="date" id="sDate"></div>
     <div class="form-group" style="flex:2"><label class="form-label">Service Type *</label>
-      <input class="form-input" id="sType" list="sTypes" placeholder="Oil Change…">
-      <datalist id="sTypes"><option>Oil Change</option><option>Tire Rotation</option><option>New Tires</option><option>Brakes</option><option>Battery</option><option>State Inspection</option><option>Registration Renewal</option><option>Air Filter</option><option>Transmission Service</option><option>Detail</option></datalist>
+      <select class="form-select" id="sType"></select>
     </div>
   </div>
   <div class="form-row">
@@ -520,8 +519,9 @@ async function openSvcDrawer(vid,name){
   svcVehId=vid;
   $('svcDrawerTitle').textContent=name+' — Service Log';
   $('sDate').value=new Date().toISOString().slice(0,10);
-  ['sType','sShop','sNotes'].forEach(id=>$(id).value='');
+  ['sShop','sNotes'].forEach(id=>$(id).value='');
   ['sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
+  await GH_SELECT.init('sType','vehicle_service_type','Oil Change',{allowAdd:true});
   await loadSvcLog();
   $('svcDrawer').classList.add('open');
 }

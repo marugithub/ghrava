@@ -445,11 +445,12 @@
        ══════════════════════════════════════════════════════ -->
   <div class="view-panel" id="panel-import">
 
-    <!-- Sub-tabs: Import / Accounts / History -->
+    <!-- Sub-tabs: Import / Accounts / History / Rules -->
     <div style="display:flex;gap:2px;padding:8px 16px 0">
       <button class="chip-btn active" id="imp-sub-upload"   onclick="impSubTab('upload',this)">Upload Statement</button>
       <button class="chip-btn"        id="imp-sub-accounts" onclick="impSubTab('accounts',this)">Accounts</button>
       <button class="chip-btn"        id="imp-sub-history"  onclick="impSubTab('history',this)">History</button>
+      <button class="chip-btn"        id="imp-sub-rules"    onclick="impSubTab('rules',this)">Auto-Categorize</button>
     </div>
 
     <!-- ── Upload Statement ── -->
@@ -517,6 +518,37 @@
     <div id="imp-panel-history" style="display:none;padding:8px 16px 100px">
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Import History</div>
       <div id="impHistoryList"></div>
+    </div>
+
+    <!-- ── Category rules ── -->
+    <div id="imp-panel-rules" style="display:none;padding:8px 16px 100px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div>
+          <div style="font-size:14px;font-weight:600;color:var(--text)">Auto-Categorize Rules</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">Keyword patterns → category. First match wins on import.</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost" style="font-size:12px" onclick="applyRulesNow()">▶ Apply to uncategorized</button>
+          <button class="btn btn-primary" style="font-size:12px" onclick="openRuleForm()">+ Add rule</button>
+        </div>
+      </div>
+      <div id="ruleAddForm" style="display:none;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:12px">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Description contains <span class="req">*</span></label>
+            <input class="form-input" id="rulePattern" placeholder="WALMART, NETFLIX, PAYROLL…" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Assign category <span class="req">*</span></label>
+            <select class="form-select" id="ruleCategory"></select>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-primary" style="font-size:13px" onclick="saveRule()">Save Rule</button>
+          <button class="btn btn-ghost" style="font-size:13px" onclick="closeRuleForm()">Cancel</button>
+        </div>
+      </div>
+      <div id="rulesList"></div>
     </div>
 
   </div><!-- #panel-import -->
@@ -661,8 +693,6 @@
         <div class="form-group">
           <label class="form-label">Category</label>
           <select class="form-select" id="fCategory">
-            <option>Doctor</option><option>Hospital</option><option>Pharmacy</option>
-            <option>Lab</option><option>Dental</option><option>Vision</option><option>Other</option>
           </select>
         </div>
         <div class="form-group">
@@ -699,14 +729,11 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Category</label>
-          <select class="form-select" id="fOtcCategory">
-            <option>OTC Medicine</option><option>Vitamins &amp; Supplements</option>
-            <option>First Aid</option><option>Medical Supplies</option><option>Other</option>
-          </select>
+          <select class="form-select" id="fOtcCategory"></select>
         </div>
         <div class="form-group">
           <label class="form-label">Store</label>
-          <input class="form-input" type="text" id="fStore" placeholder="CVS, Walgreens…">
+          <select class="form-select" id="fStore"></select>
         </div>
       </div>
       <div class="form-row">
@@ -1380,7 +1407,7 @@ async function exportCsv() {
 }
 
 // ── Add / Edit expense drawer ──────────────────────────────────
-function openAddDrawer(type = 'payment') {
+async function openAddDrawer(type = 'payment') {
   editingId = null;
   editingType = type;
   if (type === 'plan') { openPlanDrawer(); return; }
@@ -1394,12 +1421,15 @@ function openAddDrawer(type = 'payment') {
   populateProviderDatalist();
 
   if (type === 'payment') {
-    $('fProvider').value = ''; $('fCategory').value = 'Doctor';
+    $('fProvider').value = '';
+    await GH_SELECT.init('fCategory', 'hsa_category', 'Doctor', { allowAdd: true });
     $('fPaymentType').value = 'Out of Pocket';
     $('fTotalBill').value = ''; $('fInsPaid').value = ''; $('fYouPaid').value = '';
   } else {
     $('fItemName').value = ''; $('fOtcCategory').value = 'OTC Medicine';
-    $('fStore').value = ''; $('fAmount').value = ''; $('fQty').value = 1;
+    await GH_SELECT.init('fOtcCategory','hsa_otc_category','OTC Medicine',{allowAdd:true});
+    await GH_SELECT.init('fStore', 'hsa_store', null, { placeholder: '— select or add store —', allowAdd: true });
+    $('fAmount').value = ''; $('fQty').value = 1;
   }
   $('fEligible').checked = true;
   $('fReceiptSaved').checked = false;
@@ -1427,15 +1457,15 @@ async function editExpense(id, type) {
 
     if (type === 'payment') {
       $('fProvider').value    = r.provider    || '';
-      $('fCategory').value    = r.category    || 'Doctor';
+      await GH_SELECT.init('fCategory', 'hsa_category', r.category || 'Doctor', { allowAdd: true });
       $('fPaymentType').value = r.payment_type|| 'Out of Pocket';
       $('fTotalBill').value   = r.total_bill  || '';
       $('fInsPaid').value     = r.insurance_paid || '';
       $('fYouPaid').value     = r.you_paid    || '';
     } else {
       $('fItemName').value    = r.item_name   || '';
-      $('fOtcCategory').value = r.otc_category|| 'OTC Medicine';
-      $('fStore').value       = r.store       || '';
+      await GH_SELECT.init('fOtcCategory','hsa_otc_category', r.otc_category||'OTC Medicine',{allowAdd:true});
+      await GH_SELECT.init('fStore', 'hsa_store', r.store || null, { placeholder: '— select or add store —', allowAdd: true });
       $('fAmount').value      = r.amount      || '';
       $('fQty').value         = r.quantity    || 1;
     }
@@ -1821,8 +1851,8 @@ async function loadTransactions() {
   try {
     const acc   = $('txAccFilter')?.value || '';
     const year  = $('txYearFilter')?.value || new Date().getFullYear();
-    const qs    = `?limit=100${acc?'&account_id='+acc:''}${year?'&year='+year:''}`;
-    const data  = await api('/finance/transactions' + qs);
+    const qs    = `?limit=200${acc?'&account_id='+acc:''}${year?'&year='+year:''}`;
+    const data  = await api('GET', '/finance/transactions/unified' + qs);
     const { transactions: txs, summary } = data;
 
     // Update summary strip
@@ -1847,6 +1877,38 @@ async function loadTransactions() {
       </div>
       ${rows.map(t => txRowHtml(t)).join('')}
     `).join('');
+
+    // Wire inline category edit on imported rows
+    el.querySelectorAll('.tx-cat-edit').forEach(span => {
+      span.addEventListener('click', async e => {
+        e.stopPropagation();
+        const id = span.dataset.id;
+        const current = span.dataset.cat || '';
+        const popup = document.createElement('div');
+        popup.style.cssText = 'position:fixed;z-index:9999;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);box-shadow:0 8px 32px rgba(0,0,0,.25);padding:8px;width:220px';
+        const rect = span.getBoundingClientRect();
+        popup.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+        popup.style.left = rect.left + 'px';
+        const sel = document.createElement('select');
+        sel.className = 'form-select';
+        sel.style.width = '100%';
+        document.body.appendChild(popup);
+        popup.appendChild(sel);
+        await GH_SELECT.init(sel.id = '_txCatEdit_' + id, 'finance_category', current || null,
+          { placeholder: '— select category —', allowAdd: true });
+        sel.addEventListener('change', async () => {
+          if (sel.value === '__add__') return;
+          popup.remove();
+          try {
+            await api('/api/v1/import/transactions/' + id, 'PATCH', { category: sel.value || null });
+            span.textContent = sel.value || 'Uncategorized';
+            span.dataset.cat = sel.value || '';
+          } catch(e) { toast('Could not update category', 'err'); }
+        });
+        const close = e => { if (!popup.contains(e.target) && e.target !== span) { popup.remove(); document.removeEventListener('mousedown', close); } };
+        setTimeout(() => document.addEventListener('mousedown', close), 10);
+      });
+    });
   } catch(e) { el.innerHTML = errorState(e.message, ''); }
 }
 
@@ -1856,10 +1918,20 @@ function txRowHtml(t) {
   const tagHtml = t.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${
     t.tags.map(tag=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(tag):'';return `<span class="tag-chip" data-tag="${esc(tag)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(tag)}" onclick="event.stopPropagation()">${esc(tag)}</span>`;}).join('')
   }</div>` : '';
-  return `<div class="expense-row" onclick="openTxDrawer(${t.id})" style="cursor:pointer">
+  const isImp = t.source === 'imported';
+  // Imported rows: category is clickable inline edit; manual rows: open drawer
+  const catHtml = isImp
+    ? `<span class="tx-cat-edit" data-id="${t.id}" data-cat="${esc(t.category||'')}"
+        style="cursor:pointer;border-bottom:1px dotted ${t.category?'var(--text3)':'var(--amber)'};color:${t.category?'var(--text3)':'var(--amber)'}"
+        title="Click to assign category" onclick="event.stopPropagation();txEditCat(this)"
+        >${esc(t.category||'No category')}</span>`
+    : esc(t.category||'');
+  const srcBadge = isImp ? `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(59,130,246,.08);color:var(--accent);margin-left:4px">imported</span>` : '';
+  const flagBadge = t.flagged ? `<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:rgba(245,158,11,.1);color:var(--amber);margin-left:4px" title="Possible duplicate">⚠ dup?</span>` : '';
+  return `<div class="expense-row" ${isImp?'':'onclick="openTxDrawer('+t.id+')"'} style="cursor:${isImp?'default':'pointer'}">
     <div style="flex:1">
       <div style="font-weight:600;font-size:14px">${esc(t.description)}</div>
-      <div style="font-size:12px;color:var(--text3)">${t.account_name}${t.category?' · '+t.category:''}</div>
+      <div style="font-size:12px;color:var(--text3)">${esc(t.account_name)} · ${catHtml}${srcBadge}${flagBadge}</div>
       ${tagHtml}
     </div>
     <div style="text-align:right">
@@ -1867,6 +1939,38 @@ function txRowHtml(t) {
       <div style="font-size:11px;color:var(--text3)">${t.date}</div>
     </div>
   </div>`;
+}
+
+// Inline category edit for imported transactions
+async function txEditCat(span) {
+  const id = span.dataset.id;
+  const current = span.dataset.cat || null;
+  // Create a temporary select element anchored near the span
+  const tmp = document.createElement('select');
+  tmp.id = '_txCatTmp';
+  tmp.className = 'form-select';
+  tmp.style.cssText = 'position:fixed;z-index:9999;min-width:180px;font-size:13px';
+  const rect = span.getBoundingClientRect();
+  tmp.style.top = (rect.bottom + 4) + 'px';
+  tmp.style.left = rect.left + 'px';
+  document.body.appendChild(tmp);
+  await GH_SELECT.init('_txCatTmp', 'finance_category', current, { placeholder: '— category —', allowAdd: true });
+  tmp.focus();
+  const cleanup = () => { tmp.remove(); document.removeEventListener('mousedown', onOut); };
+  const onOut = e => { if (!tmp.contains(e.target) && e.target !== span) cleanup(); };
+  setTimeout(() => document.addEventListener('mousedown', onOut), 10);
+  tmp.addEventListener('change', async () => {
+    if (tmp.value === '__add__') return;
+    const cat = tmp.value || null;
+    cleanup();
+    try {
+      await api('PATCH', '/api/v1/import/transactions/' + id, { category: cat });
+      span.textContent = cat || 'No category';
+      span.dataset.cat = cat || '';
+      span.style.color = cat ? 'var(--text3)' : 'var(--amber)';
+      span.style.borderBottomColor = cat ? 'var(--text3)' : 'var(--amber)';
+    } catch(e) { toast('Update failed', 'err'); }
+  });
 }
 
 async function openTxDrawer(id) {
@@ -1882,10 +1986,10 @@ async function openTxDrawer(id) {
   $('txDate').value        = t.date || new Date().toISOString().slice(0,10);
   $('txDesc').value        = t.description||'';
   $('txAmount').value      = t.amount||'';
-  $('txCategory').value    = t.category||'';
   $('txNotes').value       = t.notes||'';
   if (t.account_id) $('txAccount').value = t.account_id;
   $('txDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+  await GH_SELECT.init('txCategory', 'finance_category', t.category||null, { placeholder: '— select category —', allowAdd: true });
   GH_FAMILY.init('txFamilyWrap', t.family_members||[]);
   _initTxTags(t.tags||[]);
   $('txDrawer').classList.add('open');
@@ -2353,7 +2457,7 @@ async function deleteGc() {
       </div>
     </div>
     <div class="form-group"><label class="form-label">Description <span class="req">*</span></label><input class="form-input" id="txDesc" placeholder="Merchant or description"></div>
-    <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="txCategory" placeholder="Groceries, Utilities…"></div>
+    <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="txCategory"></select></div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="txNotes" style="min-height:60px"></textarea></div>
     <div id="txFamilyWrap" style="margin-bottom:12px"></div>
     <div class="form-group">
@@ -2769,12 +2873,82 @@ let _editAcctId = null;
 function impSubTab(id, btn) {
   document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  ['upload','accounts','history'].forEach(t => {
+  ['upload','accounts','history','rules'].forEach(t => {
     const el = document.getElementById('imp-panel-' + t);
     if (el) el.style.display = (t === id ? 'block' : 'none');
   });
   if (id === 'accounts') loadImpAccounts();
   if (id === 'history')  loadImpHistory();
+  if (id === 'rules')    loadRules();
+}
+
+// ── Category rules ────────────────────────────────────────────
+async function loadRules() {
+  const el = $('rulesList'); if (!el) return;
+  try {
+    const rules = await api('GET', '/finance/category-rules');
+    if (!rules.length) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">No rules yet — add one above.</div>';
+      return;
+    }
+    el.innerHTML = `<table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead><tr style="border-bottom:1px solid var(--border)">
+        <th style="text-align:left;padding:6px 8px;color:var(--text3)">Pattern</th>
+        <th style="text-align:left;padding:6px 8px;color:var(--text3)">Category</th>
+        <th style="text-align:left;padding:6px 8px;color:var(--text3)">Order</th>
+        <th style="padding:6px 8px"></th>
+      </tr></thead>
+      <tbody>${rules.map(r => `<tr style="border-bottom:1px solid var(--border)">
+        <td style="padding:7px 8px;font-family:var(--mono);font-size:12px">${esc(r.pattern)}</td>
+        <td style="padding:7px 8px">${esc(r.category)}</td>
+        <td style="padding:7px 8px;color:var(--text3)">${r.sort_order}</td>
+        <td style="padding:7px 8px;text-align:right">
+          <button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--red)"
+            onclick="deleteRule(${r.id})">Delete</button>
+        </td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  } catch(e) { el.innerHTML = `<div style="color:var(--red);font-size:13px">${esc(e.message)}</div>`; }
+}
+
+async function openRuleForm() {
+  $('ruleAddForm').style.display = 'block';
+  await GH_SELECT.init('ruleCategory', 'finance_category', null, { placeholder: '— select —', allowAdd: true });
+  $('rulePattern').focus();
+}
+
+function closeRuleForm() { $('ruleAddForm').style.display = 'none'; }
+
+async function saveRule() {
+  const pattern = ($('rulePattern').value.trim() || '').toUpperCase();
+  const category = $('ruleCategory').value;
+  if (!pattern || !category || category === '__add__') { toast('Pattern and category required', 'err'); return; }
+  try {
+    // Wrap in % wildcards if not already a LIKE pattern
+    const pat = pattern.includes('%') ? pattern : `%${pattern}%`;
+    await api('POST', '/finance/category-rules', { pattern: pat, category, sort_order: 100 });
+    $('rulePattern').value = '';
+    closeRuleForm();
+    loadRules();
+    toast('Rule saved');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function deleteRule(id) {
+  if (!await LT.confirm('Delete this category rule?')) return;
+  await api('DELETE', '/finance/category-rules/' + id);
+  loadRules();
+}
+
+async function applyRulesNow() {
+  const btn = event.target;
+  btn.disabled = true; btn.textContent = 'Applying…';
+  try {
+    const r = await api('POST', '/finance/category-rules/apply');
+    toast(`${r.updated} transaction${r.updated!==1?'s':''} categorized`);
+    loadTransactions();
+  } catch(e) { toast(e.message, 'err'); }
+  finally { btn.disabled = false; btn.textContent = '▶ Apply to uncategorized'; }
 }
 
 async function loadImpAccountSelect() {

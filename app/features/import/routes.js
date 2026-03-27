@@ -179,6 +179,9 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
   let inserted = 0, skipped = 0, flagged = 0;
 
   // Insert transactions in a transaction
+  // Load category rules once before the import loop
+  const categoryRules = db.prepare('SELECT * FROM import_category_rules WHERE is_active=1 ORDER BY sort_order').all();
+
   const doImport = db.transaction(() => {
     for (const t of parsed.transactions) {
       if (!t.date || t.amount === null) continue;
@@ -197,13 +200,23 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
 
       const isTransfer = classifyTransfer(t, account.account_type);
 
+      // Auto-categorize using rules if no category from parser
+      let autoCategory = t.category || null;
+      if (!autoCategory) {
+        const desc = (t.description || '').toUpperCase();
+        for (const rule of categoryRules) {
+          const regex = new RegExp('^' + rule.pattern.replace(/%/g,'.*').replace(/_/g,'.') + '$', 'i');
+          if (regex.test(desc)) { autoCategory = rule.category; break; }
+        }
+      }
+
       db.prepare(`
         INSERT INTO imported_transactions
           (account_id, batch_id, txn_date, post_date, description, amount, balance,
            category, txn_type, is_transfer, memo, fingerprint, flagged)
         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
       `).run(accountId, batchId, t.date, t.postDate || null, t.description,
-             t.amount, t.balance || null, t.category || null,
+             t.amount, t.balance || null, autoCategory,
              t.type || 'transaction', isTransfer ? 1 : 0,
              t.memo || null, fp, probable ? 1 : 0);
 

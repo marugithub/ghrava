@@ -220,6 +220,8 @@ assert_200         "GET /medical/conditions/export"    "$BASE/api/v1/medical/con
 assert_200         "GET /career/certifications/export" "$BASE/api/v1/career/certifications/export/csv"
 assert_200         "GET /daily-log/export/csv"         "$BASE/api/v1/daily-log/export/csv"
 assert_200         "GET /property/vehicles/export"     "$BASE/api/v1/property/vehicles/export/csv"
+assert_json_object "GET /finance/transactions/unified"  "$BASE/api/v1/finance/transactions/unified"
+assert_json_array   "GET /finance/category-rules"          "$BASE/api/v1/finance/category-rules"
 assert_json_object "GET /app/info"            "$BASE/api/v1/app/info"
 # ── Daily log ─────────────────────────────────────────────────
 echo ""

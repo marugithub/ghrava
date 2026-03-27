@@ -298,6 +298,106 @@ router.get('/transactions', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+
+// GET /api/v1/finance/transactions/unified — merges manual + imported transactions
+// Returns both finance_transactions and imported_transactions in one sorted list.
+router.get('/transactions/unified', (req, res) => {
+  try {
+    const { account_id, year, month, search, limit = 200, offset = 0 } = req.query;
+    const params = [];
+    const impParams = [];
+
+    // Build WHERE for manual transactions
+    let manWhere = 'WHERE 1=1';
+    if (account_id) { manWhere += ' AND t.account_id=?'; params.push(account_id); }
+    if (year)       { manWhere += " AND strftime('%Y',t.date)=?"; params.push(String(year)); }
+    if (month)      { manWhere += " AND strftime('%Y-%m',t.date)=?"; params.push(String(month)); }
+    if (search)     { manWhere += ' AND (t.description LIKE ? OR t.notes LIKE ?)'; params.push(`%${search}%`,`%${search}%`); }
+
+    // Build WHERE for imported transactions
+    let impWhere = 'WHERE t.is_transfer=0';
+    if (account_id) { impWhere += ' AND t.account_id=?'; impParams.push(account_id); }
+    if (year)       { impWhere += " AND strftime('%Y',t.txn_date)=?"; impParams.push(String(year)); }
+    if (month)      { impWhere += " AND strftime('%Y-%m',t.txn_date)=?"; impParams.push(String(month)); }
+    if (search)     { impWhere += ' AND t.description LIKE ?'; impParams.push(`%${search}%`); }
+
+    const manTxns = db.prepare(`
+      SELECT t.id, t.account_id, t.date, t.description, t.amount,
+             t.category, t.notes, t.is_reconciled,
+             a.name AS account_name, 'manual' AS source, NULL AS batch_id,
+             0 AS flagged, 0 AS is_transfer
+      FROM finance_transactions t
+      JOIN finance_accounts a ON a.id=t.account_id
+      ${manWhere}
+    `).all(...params).map(r => withTagNames(r, 'finance_transaction'));
+
+    const impTxns = db.prepare(`
+      SELECT t.id, t.account_id, t.txn_date AS date, t.description, t.amount,
+             t.category, t.memo AS notes, 0 AS is_reconciled,
+             fa.nickname AS account_name, 'imported' AS source, t.batch_id,
+             t.flagged, t.is_transfer
+      FROM imported_transactions t
+      JOIN financial_accounts fa ON fa.id=t.account_id
+      ${impWhere}
+    `).all(...impParams);
+
+    const all = [...manTxns, ...impTxns]
+      .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
+      .slice(parseInt(offset), parseInt(offset) + parseInt(limit));
+
+    const total_credits = all.reduce((s,t) => s + (t.amount > 0 ? t.amount : 0), 0);
+    const total_debits  = all.reduce((s,t) => s + (t.amount < 0 ? t.amount : 0), 0);
+    res.json({ transactions: all, summary: { total_credits, total_debits, net: total_credits + total_debits } });
+  } catch(e) { serverError(res, e); }
+});
+
+// ── Category rules ────────────────────────────────────────────
+router.get('/category-rules', (req, res) => {
+  try {
+    res.json(db.prepare('SELECT * FROM import_category_rules ORDER BY sort_order').all());
+  } catch(e) { serverError(res, e); }
+});
+
+router.post('/category-rules', requireAuth, (req, res) => {
+  try {
+    const { pattern, category, sort_order = 100 } = req.body;
+    if (!pattern || !category) return badRequest(res, 'pattern and category required');
+    const r = db.prepare('INSERT INTO import_category_rules (pattern, category, sort_order) VALUES (?,?,?)')
+      .run(pattern.toUpperCase(), category, sort_order);
+    res.status(201).json(db.prepare('SELECT * FROM import_category_rules WHERE id=?').get(r.lastInsertRowid));
+  } catch(e) { serverError(res, e); }
+});
+
+router.delete('/category-rules/:id', requireAuth, (req, res) => {
+  try {
+    db.prepare('DELETE FROM import_category_rules WHERE id=?').run(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+// POST /api/v1/finance/category-rules/apply — apply rules to uncategorized imported transactions
+router.post('/category-rules/apply', requireAuth, (req, res) => {
+  try {
+    const rules = db.prepare('SELECT * FROM import_category_rules WHERE is_active=1 ORDER BY sort_order').all();
+    const uncategorized = db.prepare("SELECT id, description FROM imported_transactions WHERE (category IS NULL OR category='')").all();
+    let updated = 0;
+    const stmt = db.prepare('UPDATE imported_transactions SET category=? WHERE id=?');
+    for (const txn of uncategorized) {
+      const desc = (txn.description || '').toUpperCase();
+      for (const rule of rules) {
+        // Convert SQL LIKE to JS: % = any, _ = single char
+        const regex = new RegExp('^' + rule.pattern.replace(/%/g,'.*').replace(/_/g,'.') + '$', 'i');
+        if (regex.test(desc)) {
+          stmt.run(rule.category, txn.id);
+          updated++;
+          break;
+        }
+      }
+    }
+    res.json({ ok: true, updated, total_uncategorized: uncategorized.length });
+  } catch(e) { serverError(res, e); }
+});
+
 router.post('/transactions', (req, res) => {
   try {
     const d = req.body;

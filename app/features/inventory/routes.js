@@ -1127,30 +1127,56 @@ router.get('/export', (req, res) => {
 
     const wb = XLSX.utils.book_new();
 
-    // Items sheet
+    // Items sheet — includes primary attachment path per item
     const items = db.prepare(`
-      SELECT i.item_ref,i.name,i.description,i.category,i.brand,i.model_number,i.serial_number,
-        i.quantity,i.condition,
+      SELECT i.item_ref, i.name, i.description, i.category, i.brand, i.model_number, i.serial_number,
+        i.quantity, i.condition,
         l_loc.name as location_name, l_ctn.name as container_name,
-        i.purchase_date,i.purchase_price,i.store_name,i.purchase_method,i.purchased_from,i.order_number,
-        i.replacement_value,i.warranty_expires,i.lifetime_warranty,
-        i.insured,i.insurance_policy,i.insured_value,
-        i.sold_date,i.sold_price,i.sold_to,
-        i.manufacturer,i.upc_barcode,i.is_archived,i.notes
+        i.purchase_date, i.purchase_price, i.store_name, i.purchase_method, i.purchased_from, i.order_number,
+        i.replacement_value, i.warranty_expires, i.lifetime_warranty,
+        i.insured, i.insurance_policy, i.insured_value,
+        i.sold_date, i.sold_price, i.sold_to,
+        i.manufacturer, i.upc_barcode, i.is_archived, i.notes,
+        i.id as _item_id
       FROM items i
       LEFT JOIN locations l_loc ON i.parent_type='location' AND i.parent_id=l_loc.id
       LEFT JOIN containers l_ctn ON i.parent_type='container' AND i.parent_id=l_ctn.id
       WHERE i.is_active=1 ORDER BY i.name
     `).all();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(items), 'Items');
+
+    // Primary attachment per item (NAS/UNC path preferred)
+    const primaryAtts = {};
+    db.prepare(`
+      SELECT entity_id, COALESCE(unc_path, stored_path) as path, original_filename
+      FROM attachments WHERE entity_type='item' AND is_primary_photo=1
+    `).all().forEach(a => { primaryAtts[a.entity_id] = a; });
+
+    const itemsSheet = items.map(row => {
+      const att = primaryAtts[row._item_id];
+      const out = { ...row };
+      delete out._item_id;
+      out.attachment_path = att ? att.path : '';
+      out.attachment_file = att ? att.original_filename : '';
+      return out;
+    });
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(itemsSheet.length ? itemsSheet : [{}]), 'Items');
+
+    // Attachments sheet — all attachments with NAS paths, all modules
+    const allAtts = db.prepare(`
+      SELECT a.entity_type, a.entity_id, a.module, a.label,
+        a.original_filename, COALESCE(a.unc_path, a.stored_path) as file_path,
+        a.file_size, a.mime_type, a.is_primary_photo, a.created_at
+      FROM attachments a ORDER BY a.entity_type, a.entity_id, a.is_primary_photo DESC, a.created_at
+    `).all();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(allAtts.length ? allAtts : [{}]), 'Attachments');
 
     // Locations sheet
     const locs = db.prepare('SELECT id,name,location_type,address,description,notes FROM locations ORDER BY name').all();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(locs), 'Locations');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(locs.length ? locs : [{}]), 'Locations');
 
     // Containers sheet
     const ctns = db.prepare(`
-      SELECT c.container_ref,c.name,c.subtype,c.notes,
+      SELECT c.container_ref, c.name, c.subtype, c.notes,
         CASE WHEN c.parent_type='location' THEN l.name ELSE p.name END as parent_name,
         c.parent_type
       FROM containers c
@@ -1158,11 +1184,11 @@ router.get('/export', (req, res) => {
       LEFT JOIN containers p ON c.parent_type='container' AND c.parent_id=p.id
       ORDER BY c.name
     `).all();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ctns), 'Containers');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ctns.length ? ctns : [{}]), 'Containers');
 
     // Daily Log sheet
     const logs = db.prepare('SELECT log_date,category,entry_text,follow_up_needed,follow_up_date FROM daily_log ORDER BY log_date DESC').all();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logs), 'Daily Log');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logs.length ? logs : [{}]), 'Daily Log');
 
     // Maintenance sheet
     const maint = db.prepare(`
@@ -1171,7 +1197,7 @@ router.get('/export', (req, res) => {
       FROM item_maintenance_log m JOIN items i ON m.item_id=i.id
       ORDER BY m.log_date DESC
     `).all();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(maint), 'Maintenance');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(maint.length ? maint : [{}]), 'Maintenance');
 
     // Audit log sheet
     const audit = db.prepare(`
@@ -1180,7 +1206,7 @@ router.get('/export', (req, res) => {
       FROM item_events e JOIN items i ON e.item_id=i.id
       ORDER BY e.created_at DESC LIMIT 1000
     `).all();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(audit), 'Audit Log');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(audit.length ? audit : [{}]), 'Audit Log');
 
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     const fname = `Ghrava-Export-${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -1189,7 +1215,6 @@ router.get('/export', (req, res) => {
     res.send(buf);
   } catch (err) { serverError(res, err); }
 });
-
 // ══════════════════════════════════════════════════════════════
 // IMPORT — xlsx workbook (Items sheet only for now)
 // ══════════════════════════════════════════════════════════════

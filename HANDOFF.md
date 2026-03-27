@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.097
+**Last updated:** v202603.100
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -350,6 +350,65 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
+### v202603.100
+
+**Database safety — pending migrations 044–047:**
+All four are `INSERT OR IGNORE` only — zero risk to existing data. Migration 046 adds a new table (`CREATE TABLE IF NOT EXISTS`). None touch items, hsa_payments, or any table with live data. Safe to apply with `docker restart ghrava`.
+
+**Excel export — restored + enhanced (`GET /api/v1/inventory/export`):**
+- Items sheet now includes `attachment_path` and `attachment_file` columns — NAS UNC path (`\\SoniNAS\...`) where available, falling back to stored_path. Excel users can paste the UNC path into Explorer to open the file directly.
+- New **Attachments sheet** — all attachments across all modules (inventory, HSA, medical, etc.) with `file_path` (UNC preferred), `entity_type`, `entity_id`, `label`, `mime_type`, `created_at`. Complete record of every file stored on the NAS.
+- Empty sheets now use `[{}]` fallback so Excel never errors on an empty workbook sheet.
+- Import (`POST /api/v1/inventory/import`) is unchanged — reads Items sheet by `item_ref` key, skips existing refs. Safe to re-import without duplicating.
+
+**Restore strategy (document for future schema changes):**
+- Export XLSX before any structural migration
+- The `item_ref` column is the idempotent key — re-importing the export will add back deleted rows and skip existing ones
+- For column renames: the import reads by column header name, so a renamed column just means that field comes in as null — not a crash
+- Attachments are files on the NAS, not in SQLite — they survive any DB restore unchanged
+
+**GH_SELECT fixes continued:**
+- Vehicle service type (property.html) — datalist → GH_SELECT `vehicle_service_type` (migration 047, 14 types)
+- HSA OTC category (finance.html) — hardcoded → GH_SELECT `hsa_otc_category` (migration 047, 9 categories)
+
+**Finance — unified transactions + auto-categorization (v202603.099):**
+- `GET /finance/transactions/unified` merges manual + imported in one view
+- Inline category edit on imported rows (dotted underline → GH_SELECT popup → PATCH)
+- Category rules CRUD + apply-to-all endpoint
+- Migration 046: `import_category_rules` table + 50+ seeded keyword rules
+- Auto-categorize runs on every import via `/confirm` route
+- Import panel: new "Auto-Categorize" sub-tab
+
+### v202603.099
+**Finance — unified transactions + auto-categorization:**
+- `GET /api/v1/finance/transactions/unified` — merges `finance_transactions` (manual) and `imported_transactions` (from uploads) into one sorted list. Both show in the Transactions tab. Imported rows show a blue "imported" badge and ⚠ "dup?" badge on flagged rows.
+- Inline category editing on imported rows — click the dotted-underline category label to get a GH_SELECT popup. PATCH is sent to `/api/v1/import/transactions/:id`. No page reload.
+- `GET/POST/DELETE /api/v1/finance/category-rules` — manage keyword→category rules stored in `import_category_rules` table.
+- `POST /api/v1/finance/category-rules/apply` — retroactively categorize all uncategorized imported transactions using current rules.
+- Auto-categorization on import — `confirm` route now runs rules against every imported transaction that has no category from the bank parser.
+- Migration 046 — creates `import_category_rules` table, seeds 50+ rules for common merchants/payroll/utilities.
+- Finance Import panel — new "Auto-Categorize" sub-tab with rules list, add/delete, and "Apply to uncategorized" button.
+- **Smoke test** — 46 assertions (was 44), added unified transactions and category-rules.
+- **E2E spec** — 8 new API contract tests: unified transactions, category rules CRUD, apply-rules, notifications shape, CSV exports.
+
+**GH_SELECT + inline add across modules (v202603.097–098):**
+- Finance transaction category → GH_SELECT `finance_category` (migration 045, 22 categories)
+- HSA expense category → GH_SELECT `hsa_category`
+- HSA OTC store → GH_SELECT `hsa_store` (migration 045, 10 stores)
+- Resources category → GH_SELECT `resource_category` (migration 044, 18 categories)
+- Contact drawer iframe — fixed rendering: `gh-drawer-only` CSS class hides all settings UI, shows only the drawer
+- Medical.html — missing `lt-refs.js` script tag added; physician contact pickers now work
+
+### v202603.098
+- **Contact drawer — iframe rendering fixed properly** — root cause was that `.drawer-overlay` elements live *outside* `#app` in settings.html, so hiding `#app` did nothing. Now `?drawer=contact` adds `gh-drawer-only` class to `<body>` + injects CSS that hides `#app`, `nav`, `.gh-page-header` — leaving only the drawer visible. Single canonical form, used from any page.
+- **lt-refs.js reverted to iframe approach** — removed the duplicate contact form. One form in settings.html, surfaced everywhere via GH_REFS.
+- **Finance transaction category → GH_SELECT** — was freetext. Now `<select>` backed by `finance_category` list key (migration 045, 22 categories seeded). `openTxDrawer` already async.
+- **HSA expense category → GH_SELECT** — was hardcoded `<option>` tags. Now backed by `hsa_category` dropdown (existing migration 029). Add inline.
+- **HSA OTC store → GH_SELECT** — was freetext. Now `<select>` backed by `hsa_store` list key (migration 045, 10 stores seeded). Add inline.
+- **`openAddDrawer` made async** — needed for `await GH_SELECT.init()` calls inside.
+- **Resources category → GH_SELECT** — migration 044, 18 categories. Dead `populateCatSuggestions()` removed.
+- **Medical.html → lt-refs.js added** — all physician contact pickers now work.
 
 ### v202603.097
 - **Contact drawer — single canonical form** — reverted the duplicate contact form from lt-refs.js. The iframe approach is correct (one form, one place). Fixed the actual rendering bug: drawers live *outside* `#app` so hiding `#app` did nothing. Now `?drawer=contact` adds `gh-drawer-only` class to body, injecting CSS that hides `#app`, `nav`, `.gh-page-header` — everything except `.drawer-overlay`. The drawer is the only thing visible in the iframe.
