@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.096
+**Last updated:** v202603.097
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -350,6 +350,11 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - **Tag chips on cards** — inventory (grid + list), todos, books now all render clickable tag chips that trigger GH_TAG_SEARCH.
 - **Reports → People tab** — full family member report.
 - **Settings audit** — Logs/Diagnostics/Data Cleanup/Data Review/Recent Changes moved to Reports → Tools tab.
+
+### v202603.097
+- **Contact drawer — single canonical form** — reverted the duplicate contact form from lt-refs.js. The iframe approach is correct (one form, one place). Fixed the actual rendering bug: drawers live *outside* `#app` so hiding `#app` did nothing. Now `?drawer=contact` adds `gh-drawer-only` class to body, injecting CSS that hides `#app`, `nav`, `.gh-page-header` — everything except `.drawer-overlay`. The drawer is the only thing visible in the iframe.
+- **Medical.html — lt-refs.js added** — was missing the script tag. All three physician contact pickers (medication, condition, visit note drawers) now have working `＋ Add new contact…` option.
+- **Resources category — GH_SELECT** — replaced freetext `<input list="catSuggestions">` with `<select>` backed by GH_SELECT `resource_category` list key. Migration 044 seeds 18 categories. Users can add more inline without going to Settings. Removed dead `populateCatSuggestions()` function.
 
 ### v202603.096
 - **CSV exports — all modules** — new GET routes returning `Content-Disposition: attachment` CSV files:

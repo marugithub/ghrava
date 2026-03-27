@@ -193,14 +193,14 @@ window.GH_REFS = (function () {
     }
   }
 
-  // ── Shared iframe-style overlay for Settings drawers ─────────
-  // Rather than duplicating drawer HTML on every page, we open
-  // Settings in a hidden iframe, wait for it to be ready, then
-  // programmatically open the right drawer. When the drawer saves,
-  // the iframe posts a message back and we call onSave.
+  // ── Shared iframe overlay for Settings drawers ────────────────
+  // Settings.html is the canonical form for contacts and family members.
+  // One form, maintained in one place. We load it in a hidden iframe
+  // overlay so the user never navigates away. The settings page detects
+  // ?drawer=contact and suppresses its main UI, showing only the drawer.
+  // When the drawer saves, settings.html postMessages the record back.
 
   function _openSettingsDrawer(drawerType, presetType, onSave) {
-    // Remove any existing overlay
     document.getElementById('gh-refs-overlay')?.remove();
 
     const overlay = document.createElement('div');
@@ -211,9 +211,9 @@ window.GH_REFS = (function () {
       'display:flex', 'align-items:flex-end', 'justify-content:center',
     ].join(';');
 
-    // Inner iframe wrapper — same dimensions as a drawer
     const frame = document.createElement('iframe');
-    frame.src = '/settings.html?drawer=' + drawerType + (presetType ? '&type=' + encodeURIComponent(presetType) : '');
+    frame.src = '/settings.html?drawer=' + drawerType +
+      (presetType ? '&type=' + encodeURIComponent(presetType) : '');
     frame.style.cssText = [
       'width:min(560px,100vw)', 'height:92vh',
       'border:none', 'border-radius:20px 20px 0 0',
@@ -223,12 +223,10 @@ window.GH_REFS = (function () {
     overlay.appendChild(frame);
     document.body.appendChild(overlay);
 
-    // Close on backdrop click
     overlay.addEventListener('pointerdown', e => {
       if (e.target === overlay) overlay.remove();
     });
 
-    // Listen for save message from iframe
     function onMessage(e) {
       if (e.data?.ghravaSaved === drawerType) {
         window.removeEventListener('message', onMessage);
@@ -251,7 +249,7 @@ window.GH_REFS = (function () {
     _openSettingsDrawer('family', '', opts.onSave);
   }
 
-  // ── Bust cache externally (e.g. after a save on the same page) ─
+  // ── Bust cache externally ─────────────────────────────────────
   function bustFamily() { _bust('family'); }
   function bustContacts(type) { _bust(_cacheKey(type)); }
 

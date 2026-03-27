@@ -403,8 +403,9 @@
       </div>
       <div class="form-group">
         <label class="form-label">Category</label>
-        <input class="form-input" type="text" id="fCategory" placeholder="Finance, Dev, Health…" autocomplete="off" list="catSuggestions">
-        <datalist id="catSuggestions"></datalist>
+        <select class="form-select" id="fCategory">
+          <option value="">— select category —</option>
+        </select>
       </div>
     </div>
 
@@ -488,6 +489,7 @@
 </script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
 <script>
 const API = '/api/v1/resources';
@@ -746,17 +748,6 @@ GH_TAGS.init({
   allowCreate: true,
 });
 
-// ── Populate category datalist ────────────────────────────────
-function populateCatSuggestions() {
-  const dl = $('catSuggestions');
-  dl.innerHTML = '';
-  allCategories.forEach(c => {
-    const o = document.createElement('option');
-    o.value = c.category;
-    dl.appendChild(o);
-  });
-}
-
 // ── Open add form ─────────────────────────────────────────────
 function openAdd() {
   editingId = null;
@@ -765,13 +756,12 @@ function openAdd() {
   $('fName').value = '';
   $('fUrl').value = '';
   $('fLinkType').value = 'website';
-  $('fCategory').value = '';
   $('fDesc').value = '';
   $('fAccess').value = '';
   $('fFavorite').checked = false;
   renderFormTags();
   GH_FAMILY.init('resFamilyWrap', []);
-  populateCatSuggestions();
+  GH_SELECT.init('fCategory', 'resource_category', null, { placeholder: '— select category —', allowAdd: true });
   $('formDrawer').classList.add('open');
   setTimeout(() => $('fName').focus(), 300);
 }
@@ -786,13 +776,12 @@ function openEdit(id) {
   $('fName').value = r.name || '';
   $('fUrl').value = r.url || '';
   $('fLinkType').value = r.link_type || 'website';
-  $('fCategory').value = r.category || '';
   $('fDesc').value = r.description || '';
   $('fAccess').value = r.access_note || '';
   $('fFavorite').checked = !!r.is_favorite;
   renderFormTags();
   GH_FAMILY.init('resFamilyWrap', r.family_members||[]);
-  populateCatSuggestions();
+  GH_SELECT.init('fCategory', 'resource_category', r.category || null, { placeholder: '— select category —', allowAdd: true });
   $('formDrawer').classList.add('open');
 }
 

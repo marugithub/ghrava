@@ -1361,12 +1361,21 @@ async function toggleCalendar(calId, checkbox) {
   const drawerParam = params.get('drawer');
   const typeParam   = params.get('type');
 
-  // When loaded inside the GH_REFS iframe overlay, hide the full settings
-  // UI and show only the requested drawer — avoids z-index conflicts and
-  // prevents the full page from rendering behind the overlay.
+  // When loaded inside the GH_REFS iframe overlay, suppress the full
+  // settings UI — drawers live outside #app so hiding #app is not enough.
+  // Add body class that hides everything except drawer-overlay elements.
   if (drawerParam) {
-    const appEl = document.getElementById('app');
-    if (appEl) appEl.style.display = 'none';
+    document.body.classList.add('gh-drawer-only');
+    // Inject style to hide everything except drawers
+    const s = document.createElement('style');
+    s.textContent = `
+      body.gh-drawer-only #app,
+      body.gh-drawer-only nav,
+      body.gh-drawer-only .gh-page-header { display: none !important; }
+      body.gh-drawer-only .drawer-overlay  { z-index: 1 !important; }
+      body.gh-drawer-only { background: transparent; }
+    `;
+    document.head.appendChild(s);
   }
 
   if (drawerParam === 'contact') {
