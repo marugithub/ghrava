@@ -75,26 +75,7 @@
       overflow: hidden;
     }
 
-    /* Family avatars */
-    .family-strip {
-      display: flex; gap: 8px; padding: 4px 16px 0;
-      overflow-x: auto; scrollbar-width: none;
-    }
-    .family-strip::-webkit-scrollbar { display: none; }
-    .family-avatar {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 5px; flex-shrink: 0; cursor: default;
-    }
-    .family-avatar-circle {
-      width: 40px; height: 40px; border-radius: 50%;
-      background: var(--bg3); border: 2px solid var(--border2);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 700; color: var(--accent);
-      font-family: var(--mono);
-    }
-    .family-avatar-name {
-      display: none; /* names removed — avatars only */
-    }
+
 
     /* Placeholder tile tooltip */
     .module-tile.placeholder:active::after {
@@ -147,9 +128,6 @@
     <div class="dash-greeting-date" id="greetDate">—</div>
     <div class="dash-greeting-name" id="greetName">Loading…</div>
   </div>
-
-  <!-- ── Family strip ────────────────────────────────────────── -->
-  <div class="family-strip" id="familyStrip"></div>
 
   <!-- ── Widgets ─────────────────────────────────────────────── -->
   <div class="widget-grid" id="widgetGrid">
@@ -244,7 +222,6 @@
       }
 
       // Family strip
-      buildFamilyStrip(data.family || []);
 
       // Widgets
       buildWidgets(data);
@@ -256,255 +233,166 @@
     }
   }
 
-  function buildFamilyStrip(family) {
-    const strip = document.getElementById('familyStrip');
-    if (!strip || !family.length) return;
-    strip.innerHTML = family.map(f => {
-      const initials = f.display_name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      return `<div class="family-avatar">
-        <div class="family-avatar-circle">${initials}</div>
-        <div class="family-avatar-name">${f.display_name.split(' ')[0]}</div>
-      </div>`;
-    }).join('');
-  }
-
   function buildWidgets(d) {
     const grid = document.getElementById('widgetGrid');
     if (!grid) return;
 
-    const inv    = d?.inventory         || {};
-    const hsa    = d?.hsa               || {};
-    const log    = d?.daily_log         || {};
-    const med    = d?.medical           || {};
-    const tod    = d?.todos             || {};
-    const gc     = d?.gift_cards        || {};
-    const nw     = d?.net_worth         || {};
-    const certs  = d?.certifications    || {};
-    const books  = d?.books             || {};
-    const prop   = d?.property          || {};
-    const kids   = d?.kids              || {};
-    const xdocs  = d?.expiring_documents || [];
-    const bkp    = d?.backup            || {};
+    const inv   = d?.inventory          || {};
+    const hsa   = d?.hsa                || {};
+    const log   = d?.daily_log          || {};
+    const med   = d?.medical            || {};
+    const tod   = d?.todos              || {};
+    const gc    = d?.gift_cards         || {};
+    const nw    = d?.net_worth          || {};
+    const certs = d?.certifications     || {};
+    const books = d?.books              || {};
+    const prop  = d?.property           || {};
+    const kids  = d?.kids               || {};
+    const xdocs = d?.expiring_documents || [];
+    const bkp   = d?.backup             || {};
 
-    const invAlert  = inv.expired > 0   ? 'overdue' : inv.expiring_soon > 0   ? 'pending' : 'ok';
-    const certAlert = certs.expired > 0 ? 'overdue' : certs.expiring_soon > 0 ? 'pending' : 'ok';
-    const gcAlert   = gc.expiring_soon > 0 ? 'pending' : 'ok';
-    const nwVal     = nw.net_worth ?? null;
-    const nwFmt     = nwVal !== null ? fmt$(Math.abs(nwVal)) : '\u2014';
-    const nwColor   = nwVal === null ? 'var(--text)' : nwVal >= 0 ? '#22c55e' : '#ef4444';
+    const nwVal   = nw.net_worth ?? null;
+    const nwFmt   = nwVal !== null ? fmt$(Math.abs(nwVal)) : '\u2014';
+    const nwColor = nwVal === null ? 'var(--text)' : nwVal >= 0 ? '#22c55e' : '#ef4444';
+    const nwSign  = nwVal !== null && nwVal < 0 ? '\u2212' : '';
 
-    // Load upcoming calendar events (non-blocking)
-    let calEvts = [];
-    fetch('/api/v1/google/events/upcoming?days=7').then(r=>r.ok?r.json():[]).then(evts => {
-      calEvts = evts;
-      if (evts.length) buildWidgets(d); // re-render if we got events
-    }).catch(()=>{});
+    // Google Calendar removed — todos sync to Google Tasks (future)
 
-    grid.innerHTML = `
-      <a href="/inventory.html" class="widget" style="--w-accent:#f59e0b">
-        <div class="widget-icon-wrap" style="background:rgba(245,158,11,.12);color:#f59e0b">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="16"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+    // ── compact stat card helper ─────────────────────────────
+    const w = (href, accent, emoji, label, val, sub, alert='') =>
+      `<a href="${href}" class="widget" style="--w-accent:${accent}">
+        <div class="wgt-row">
+          <div class="wgt-label">${emoji} ${label}</div>
+          <div class="wgt-val" style="color:${accent}">${val}</div>
         </div>
-        <div class="widget-label">Inventory</div>
-        <div class="widget-value" style="color:#f59e0b">${d ? inv.items ?? '\u2014' : '\u2014'}</div>
-        <div class="widget-sub">${d ? fmt$(inv.est_value||0) + ' est. value' : 'Loading\u2026'}</div>
-        ${d && (inv.expired > 0 || inv.expiring_soon > 0) ? `<div class="widget-alert-row"><span class="status-badge ${invAlert}">${inv.expired > 0 ? inv.expired + ' expired' : inv.expiring_soon + ' expiring'}</span></div>` : ''}
-      </a>
+        <div class="wgt-sub">${sub}</div>
+        ${alert ? `<div class="wgt-alert">${alert}</div>` : ''}
+      </a>`;
 
-      <a href="/todos.html" class="widget" style="--w-accent:#a78bfa">
-        <div class="widget-icon-wrap" style="background:rgba(167,139,250,.12);color:#a78bfa">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
-        </div>
-        <div class="widget-label">To Do</div>
-        <div class="widget-value" style="color:${tod.urgent_count > 0 ? '#ef4444' : '#a78bfa'}">${d ? (tod.open_count ?? '\u2014') : '\u2014'}</div>
-        <div class="widget-sub">${d ? tod.due_today + ' today \u00b7 ' + (tod.overdue_count||0) + ' overdue' : 'Loading\u2026'}</div>
-        ${d && tod.urgent_count > 0 ? `<div class="widget-alert-row"><span class="status-badge overdue">${tod.urgent_count} urgent</span></div>` : d && tod.overdue_count > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${tod.overdue_count} overdue</span></div>` : ''}
-      </a>
+    const badge = (txt, type) =>
+      `<span class="status-badge ${type}" style="font-size:10px">${txt}</span>`;
 
-      <a href="/finance.html" class="widget" style="--w-accent:#22c55e">
-        <div class="widget-icon-wrap" style="background:rgba(34,197,94,.12);color:#22c55e">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-        </div>
-        <div class="widget-label">HSA Pool</div>
-        <div class="widget-value" style="color:${hsa.unreimbursed_pool > 0 ? '#22c55e' : 'var(--text)'}">${d ? fmt$(hsa.unreimbursed_pool||0) : '\u2014'}</div>
-        <div class="widget-sub">${d ? 'Unreimbursed ' + (new Date().getFullYear()) : 'Loading\u2026'}</div>
-        ${d && hsa.missing_receipts > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${hsa.missing_receipts} no receipt</span></div>` : ''}
-      </a>
+    const dash  = '\u2014';
+    const dot   = ' \u00b7 ';
 
-      <a href="/medical.html" class="widget" style="--w-accent:#14b8a6">
-        <div class="widget-icon-wrap" style="background:rgba(20,184,166,.12);color:#14b8a6">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
-        </div>
-        <div class="widget-label">Medical</div>
-        <div class="widget-value" style="color:#14b8a6">${d ? med.medications ?? '\u2014' : '\u2014'}</div>
-        <div class="widget-sub">${d ? med.conditions + ' conditions \u00b7 ' + med.physicians + ' doctors' : 'Loading\u2026'}</div>
-      </a>
+    // ── Stat cards ────────────────────────────────────────────
+    const todAlert  = tod.urgent_count > 0 ? badge(tod.urgent_count+' urgent','overdue') : tod.overdue_count > 0 ? badge(tod.overdue_count+' overdue','pending') : '';
+    const invAlert  = inv.expired > 0 ? badge(inv.expired+' expired','overdue') : inv.expiring_soon > 0 ? badge(inv.expiring_soon+' expiring','pending') : '';
+    const certAlert = certs.expired > 0 ? badge(certs.expired+' expired','overdue') : certs.expiring_soon > 0 ? badge(certs.expiring_soon+' renew soon','pending') : '';
+    const propAlert = prop.vehicle_alerts > 0 ? badge(prop.vehicle_alerts+' vehicle alert'+(prop.vehicle_alerts!==1?'s':''),'pending') : '';
+    const gcAlert   = gc.expiring_soon > 0 ? badge(gc.expiring_soon+' expiring','pending') : '';
+    const bkpColor  = bkp.overdue ? '#ef4444' : '#22c55e';
+    const docAlert  = xdocs.length > 0 ? badge(xdocs.length+' expiring','pending') : '';
 
-      <a href="/finance.html" class="widget" style="--w-accent:#5c72fa">
-        <div class="widget-icon-wrap" style="background:rgba(92,114,250,.12);color:#5c72fa">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
-        </div>
-        <div class="widget-label">Net Worth</div>
-        <div class="widget-value" style="color:${nwColor}">${d ? (nwVal !== null ? (nwVal < 0 ? '-' : '') + nwFmt : '\u2014') : '\u2014'}</div>
-        <div class="widget-sub">${d && nw.assets !== undefined ? fmt$(nw.assets||0) + ' assets' : 'No accounts yet'}</div>
-      </a>
+    const cards = [
+      w('/todos.html',    '#a78bfa', '✓', 'To Do',
+        d ? (tod.open_count??dash) : dash,
+        d ? (tod.due_today||0)+' today'+dot+(tod.overdue_count||0)+' overdue' : 'Loading…',
+        todAlert),
 
-      <a href="/finance.html" class="widget" style="--w-accent:#f97316">
-        <div class="widget-icon-wrap" style="background:rgba(249,115,22,.12);color:#f97316">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-        </div>
-        <div class="widget-label">Gift Cards</div>
-        <div class="widget-value" style="color:#f97316">${d && gc.total_balance !== undefined ? fmt$(gc.total_balance) : '\u2014'}</div>
-        <div class="widget-sub">${d && gc.count !== undefined ? gc.count + ' card' + (gc.count !== 1 ? 's' : '') : 'Loading\u2026'}</div>
-        ${d && gc.expiring_soon > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${gc.expiring_soon} expiring</span></div>` : ''}
-      </a>
+      w('/inventory.html','#f59e0b', '📦', 'Inventory',
+        d ? (inv.items??dash) : dash,
+        d ? fmt$(inv.est_value||0)+' est'+dot+(inv.expiring_soon||0)+' expiring' : 'Loading…',
+        invAlert),
 
-      <a href="/career.html" class="widget" style="--w-accent:#f97316">
-        <div class="widget-icon-wrap" style="background:rgba(249,115,22,.12);color:#f97316">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/></svg>
-        </div>
-        <div class="widget-label">Career</div>
-        <div class="widget-value" style="color:${certs.expired > 0 ? '#ef4444' : '#f97316'}">${d && certs.total !== undefined ? certs.total : '\u2014'}</div>
-        <div class="widget-sub">${d ? 'cert' + (certs.total!==1?'s':'') + (certs.active_jobs ? ' \u00b7 ' + certs.active_jobs + ' job' + (certs.active_jobs!==1?'s':'') : '') : 'Loading\u2026'}</div>
-        ${d && (certs.expiring_soon > 0 || certs.expired > 0) ? `<div class="widget-alert-row"><span class="status-badge ${certAlert}">${certs.expired > 0 ? certs.expired + ' expired' : certs.expiring_soon + ' renew soon'}</span></div>` : ''}
-      </a>
+      w('/finance.html',  '#22c55e', '💰', 'Net Worth',
+        d ? (nwSign+nwFmt) : dash,
+        d && nw.assets !== undefined ? fmt$(nw.assets||0)+' assets'+dot+fmt$(nw.liabilities||0)+' liab.' : 'No accounts yet',
+        ''),
 
-      <a href="/books.html" class="widget" style="--w-accent:#8b5cf6">
-        <div class="widget-icon-wrap" style="background:rgba(139,92,246,.12);color:#8b5cf6">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
-        </div>
-        <div class="widget-label">Books</div>
-        <div class="widget-value" style="color:#8b5cf6">${d && books.reading !== undefined ? books.reading : '\u2014'}</div>
-        <div class="widget-sub">${d && books.read_count !== undefined ? 'reading now \u00b7 ' + books.read_count + ' finished' : 'Loading\u2026'}</div>
-      </a>
+      w('/finance.html',  '#5c72fa', '❤️', 'HSA Pool',
+        d ? fmt$(hsa.unreimbursed_pool||0) : dash,
+        d ? 'Unreimbursed '+new Date().getFullYear()+(hsa.missing_receipts?' · '+hsa.missing_receipts+' no receipt':'') : 'Loading…',
+        hsa.missing_receipts > 0 ? badge(hsa.missing_receipts+' missing receipt','pending') : ''),
 
-      <a href="/kids.html" class="widget" style="--w-accent:#ec4899">
-        <div class="widget-icon-wrap" style="background:rgba(236,72,153,.12);color:#ec4899">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
-        </div>
-        <div class="widget-label">Kids</div>
-        <div class="widget-value" style="color:#ec4899">${d && kids.total !== undefined ? kids.total : '\u2014'}</div>
-        <div class="widget-sub">${d && kids.activities !== undefined ? kids.activities + ' activit' + (kids.activities!==1?'ies':'y') : 'Loading\u2026'}</div>
-      </a>
+      w('/medical.html',  '#14b8a6', '🏥', 'Medical',
+        d ? (med.medications??dash) : dash,
+        d ? (med.conditions||0)+' conditions'+dot+(med.physicians||0)+' doctors' : 'Loading…',
+        ''),
 
-      <a href="/property.html" class="widget" style="--w-accent:#ef4444">
-        <div class="widget-icon-wrap" style="background:rgba(239,68,68,.12);color:#ef4444">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        </div>
-        <div class="widget-label">Property</div>
-        <div class="widget-value" style="color:#ef4444">${d && prop.properties !== undefined ? prop.properties : '\u2014'}</div>
-        <div class="widget-sub">${d && prop.vehicles !== undefined ? prop.vehicles + ' vehicle' + (prop.vehicles!==1?'s':'') + (prop.total_est_value ? ' \u00b7 ' + fmt$(prop.total_est_value) : '') : 'Loading\u2026'}</div>
-        ${d && prop.vehicle_alerts > 0 ? `<div class="widget-alert-row"><span class="status-badge pending">${prop.vehicle_alerts} reg/insp alert${prop.vehicle_alerts!==1?'s':''}</span></div>` : ''}
-      </a>
+      w('/property.html', '#ef4444', '🏠', 'Property',
+        d ? ((prop.properties||0)+'p / '+(prop.vehicles||0)+'v') : dash,
+        d ? fmt$(prop.total_est_value||0)+' est. value' : 'Loading…',
+        propAlert),
 
+      w('/career.html',   '#f97316', '🎖', 'Career',
+        d ? (certs.active_jobs??0) : dash,
+        d ? (certs.active_jobs||0)+' active job'+(certs.active_jobs!==1?'s':'')+dot+(certs.total||0)+' certs' : 'Loading…',
+        certAlert),
+
+      w('/books.html',    '#8b5cf6', '📚', 'Books',
+        d ? (books.reading??dash) : dash,
+        d ? 'reading now'+dot+(books.read_count||0)+' finished'+dot+(books.want_count||0)+' queued' : 'Loading…',
+        ''),
+
+      w('/kids.html',     '#ec4899', '👧', 'Kids',
+        d ? (kids.total??dash) : dash,
+        d ? (kids.activities||0)+' activit'+(kids.activities!==1?'ies':'y') : 'Loading…',
+        ''),
+
+      w('/documents.html','#6366f1', '📄', 'Documents',
+        d ? (d.doc_total??dash) : dash,
+        d ? (xdocs.length||0)+' expiring in 90d' : 'Loading…',
+        docAlert),
+
+      w('/finance.html',  '#f97316', '🎁', 'Gift Cards',
+        d && gc.total_balance !== undefined ? fmt$(gc.total_balance) : dash,
+        d ? (gc.count||0)+' card'+(gc.count!==1?'s':'') : 'Loading…',
+        gcAlert),
+
+      w('/settings.html', bkpColor,  '💾', 'Backup',
+        d ? (bkp.last_backup ? (bkp.days_since_backup===0?'Today':bkp.days_since_backup+'d ago') : 'Never') : dash,
+        d ? (bkp.last_backup_size ? (bkp.last_backup_size/1024).toFixed(0)+' KB' : 'No backup found') : 'Loading…',
+        bkp.overdue ? badge('Overdue','overdue') : ''),
+    ].join('');
+
+    // ── Wide widgets ──────────────────────────────────────────
+    const dailyLogWide = `
       <a href="/daily-log.html" class="widget widget-wide" style="--w-accent:#5c72fa">
-        <div style="display:flex;align-items:flex-start;gap:12px">
-          <div class="widget-icon-wrap" style="background:rgba(92,114,250,.12);color:#5c72fa;flex-shrink:0;margin-bottom:0">
+        <div class="wgt-wide-inner">
+          <div class="wgt-wide-icon" style="background:rgba(92,114,250,.12);color:#5c72fa">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
           </div>
           <div style="flex:1;min-width:0">
-            <div class="widget-label">Latest Log Entry</div>
-            ${d && log.recent ? `
-              <div class="log-entry-text">${escHtml(log.recent.entry_text || '')}</div>
-              <div style="margin-top:6px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
-                <span style="font-family:var(--mono);font-size:10px;color:var(--text3)">${log.recent.log_date||''}</span>
-                ${log.recent.follow_up_needed ? '<span class=\"status-badge pending\">Follow-up</span>' : ''}
-                ${log.follow_ups_overdue > 0 ? `<span class="status-badge overdue">${log.follow_ups_overdue} overdue</span>` : ''}
-              </div>
-            ` : d ? '<div class=\"widget-sub\">No entries yet</div>' : '<div class=\"widget-sub\">Loading\u2026</div>'}
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+              <div class="wgt-label">📋 Daily Log</div>
+              <div style="font-size:10px;color:var(--text3);flex-shrink:0">${d && log.recent ? log.recent.log_date||'' : ''}</div>
+            </div>
+            ${d && log.recent
+              ? `<div class="log-entry-text" style="margin-top:3px">${escHtml(log.recent.entry_text||'')}</div>
+                 <div style="margin-top:4px;display:flex;gap:5px;flex-wrap:wrap">
+                   ${log.recent.follow_up_needed ? '<span class="status-badge pending" style="font-size:10px">Follow-up</span>' : ''}
+                   ${log.follow_ups_overdue > 0 ? `<span class="status-badge overdue" style="font-size:10px">${log.follow_ups_overdue} overdue</span>` : ''}
+                   ${d ? `<span style="font-size:10px;color:var(--text3)">${log.entry_count||0} entries this week</span>` : ''}
+                 </div>`
+              : `<div class="wgt-sub" style="margin-top:3px">${d ? 'No entries yet' : 'Loading…'}</div>`}
           </div>
         </div>
-      </a>
-      ${calEvts.length ? `
-      <a href="/calendar.html" class="widget widget-wide" style="--w-accent:#06b6d4">
-        <div style="display:flex;align-items:flex-start;gap:12px">
-          <div class="widget-icon-wrap" style="background:rgba(6,182,212,.12);color:#06b6d4;flex-shrink:0;margin-bottom:0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          </div>
-          <div style="flex:1;min-width:0">
-            <div class="widget-label">Upcoming Events</div>
-            ${calEvts.slice(0,3).map(e => {
-              const dt = new Date(e.start_datetime);
-              const isAllDay = !!e.all_day;
-              const dateStr = isAllDay ? new Date(e.start_datetime+'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'}) : dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
-              const timeStr = isAllDay ? '' : ' · ' + dt.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
-              return '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-top:5px"><div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + escHtml(e.title) + '</div><div style="font-size:11px;color:var(--text3);white-space:nowrap;flex-shrink:0">' + dateStr + timeStr + '</div></div>';
-            }).join('')}
-          </div>
-        </div>
-      </a>` : ''}
-      ${xdocs.length > 0 ? `
-      <div class="widget widget-wide" style="--w-accent:#f59e0b">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-          <div class="widget-icon-wrap" style="background:rgba(245,158,11,.12);color:#f59e0b;margin-bottom:0;flex-shrink:0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          </div>
-          <div class="widget-label" style="margin-bottom:0">Documents Expiring Soon</div>
-          <span class="status-badge pending" style="margin-left:auto;font-size:11px">${xdocs.length} document${xdocs.length !== 1 ? 's' : ''}</span>
-        </div>
-        ${xdocs.slice(0, 5).map(doc => {
-          const daysLeft = Math.ceil((new Date(doc.expiry_date) - new Date()) / 864e5);
-          const urgent = daysLeft <= 30;
-          return `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid var(--border)">
-            <a href="/documents.html" style="font-size:13px;color:var(--text);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">${escHtml(doc.title || doc.doc_type || 'Document')}</a>
-            <span style="font-size:11px;color:${urgent ? '#f59e0b' : 'var(--text3)'};white-space:nowrap;flex-shrink:0">${doc.expiry_date}</span>
-          </div>`;
-        }).join('')}
-        ${xdocs.length > 5 ? `<div style="margin-top:6px;font-size:12px;color:var(--text3)">${xdocs.length - 5} more — <a href="/documents.html" style="color:var(--accent)">view all →</a></div>` : ''}
-      </div>` : ''}
+      </a>`;
 
-      <a href="/settings.html" class="widget" style="--w-accent:${d && bkp.overdue ? '#ef4444' : '#22c55e'}">
-        <div class="widget-icon-wrap" style="background:${d && bkp.overdue ? 'rgba(239,68,68,.12)' : 'rgba(34,197,94,.12)'};color:${d && bkp.overdue ? '#ef4444' : '#22c55e'}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="20 6 9 17 4 12"/></svg>
-        </div>
-        <div class="widget-label">Backup</div>
-        <div class="widget-value" style="font-size:16px;color:${d && bkp.overdue ? '#ef4444' : '#22c55e'}">
-          ${!d ? '—' : bkp.last_backup ? (bkp.days_since_backup === 0 ? 'Today' : bkp.days_since_backup + 'd ago') : 'Never'}
-        </div>
-        <div class="widget-sub">
-          ${!d ? 'Loading…' : bkp.last_backup_size ? (bkp.last_backup_size / 1024).toFixed(0) + ' KB · Settings → Backup' : 'No backup found'}
-        </div>
-        ${d && bkp.overdue ? `<div class="widget-alert-row"><span class="status-badge overdue">Overdue</span></div>` : ''}
-      </a>
-
-      <a href="/reports.html" class="widget" style="--w-accent:#6366f1;opacity:0.75">
-        <div class="widget-icon-wrap" style="background:rgba(99,102,241,.12);color:#6366f1">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
-        </div>
-        <div class="widget-label">Reports</div>
-        <div class="widget-value" style="color:#6366f1;font-size:14px">Coming soon</div>
-        <div class="widget-sub">Data quality · Finance · Medical</div>
-      </a>
-
-      <div id="attentionWidget" class="widget widget-wide" style="--w-accent:#ef4444;display:none">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div class="widget-icon-wrap" style="background:rgba(239,68,68,.12);color:#ef4444;margin-bottom:0;flex-shrink:0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    grid.innerHTML = cards + dailyLogWide
+      + `<div id="attentionWidget" class="widget widget-wide" style="--w-accent:#ef4444;display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div class="wgt-wide-icon" style="background:rgba(239,68,68,.12);color:#ef4444"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="wgt-label" style="margin-bottom:0">Needs Attention</div>
+            <span id="attentionCount" class="status-badge overdue" style="margin-left:auto;font-size:10px"></span>
           </div>
-          <div class="widget-label" style="margin-bottom:0">Needs Attention</div>
-          <span id="attentionCount" class="status-badge overdue" style="margin-left:auto;font-size:11px"></span>
+          <div id="attentionList"></div>
         </div>
-        <div id="attentionList"></div>
-      </div>
-      <div id="reviewWidget" class="widget widget-wide" style="--w-accent:#f59e0b;display:none">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-          <div class="widget-icon-wrap" style="background:rgba(245,158,11,.12);color:#f59e0b;margin-bottom:0;flex-shrink:0">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <div id="reviewWidget" class="widget widget-wide" style="--w-accent:#f59e0b;display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div class="wgt-wide-icon" style="background:rgba(245,158,11,.12);color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+            <div class="wgt-label" style="margin-bottom:0">Data Needs Review</div>
+            <span id="reviewCount" class="status-badge" style="margin-left:auto;font-size:10px;background:rgba(245,158,11,.15);color:#f59e0b"></span>
           </div>
-          <div class="widget-label" style="margin-bottom:0">Data Needs Review</div>
-          <span id="reviewCount" class="status-badge" style="margin-left:auto;font-size:11px;background:rgba(245,158,11,.15);color:#f59e0b"></span>
-        </div>
-        <div id="reviewList"></div>
-        <a href="settings.html" style="display:block;margin-top:8px;font-size:12px;color:var(--accent);text-decoration:none">
-          View details in Settings → Data Review →
-        </a>
-      </div>
-    `;
+          <div id="reviewList"></div>
+          <a href="reports.html" style="display:block;margin-top:6px;font-size:11px;color:var(--accent);text-decoration:none">View in Reports → Tools →</a>
+        </div>`;
 
-    // Load attention items async — shown only if there are any
     loadAttention();
     loadReviewCard();
   }
+
 
   async function loadAttention() {
     try {

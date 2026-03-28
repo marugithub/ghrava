@@ -160,6 +160,10 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
       <div class="form-group"><label class="form-label">Date Started</label><input class="form-input" type="date" id="bkStarted"></div>
       <div class="form-group"><label class="form-label">Date Finished</label><input class="form-input" type="date" id="bkFinished"></div>
     </div>
+    <div class="form-row" id="bkProgressRow">
+      <div class="form-group"><label class="form-label">Pages Read</label><input class="form-input" type="number" id="bkPagesRead" min="0" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Total Pages</label><input class="form-input" type="number" id="bkPagesTotal" min="0" placeholder="—"></div>
+    </div>
     <div class="form-group"><label class="form-label">Notes / Highlights</label><textarea class="form-textarea" id="bkNotes" style="min-height:80px"></textarea></div>
 
     <div style="display:flex;gap:8px;margin-top:8px">
@@ -238,12 +242,11 @@ async function loadBooks() {
       : books;
 
     // Apply GH_VIEW advanced filters
-    if (_bkFilters.tags?.length) {
-      filtered = filtered.filter(b => _bkFilters.tags.every(t => (b.tags||[]).includes(t)));
-    }
-    if (_bkFilters.rating) {
-      filtered = filtered.filter(b => (b.rating||0) >= parseInt(_bkFilters.rating));
-    }
+    if (_bkFilters.tags?.length)   filtered = filtered.filter(b => _bkFilters.tags.every(t => (b.tags||[]).includes(t)));
+    if (_bkFilters.rating)         filtered = filtered.filter(b => (b.rating||0) >= parseInt(_bkFilters.rating));
+    if (_bkFilters.status)         filtered = filtered.filter(b => b.status === _bkFilters.status);
+    if (_bkFilters.format)         filtered = filtered.filter(b => b.format === _bkFilters.format);
+    if (_bkFilters.genre)          filtered = filtered.filter(b => (b.genre||'').toLowerCase().includes(_bkFilters.genre.toLowerCase()));
 
     // Apply grid/list view
     el.classList.toggle('gh-grid', _bkView === 'grid');
@@ -298,6 +301,13 @@ function bookCardHtml(b) {
         ${stars?`<div class="stars">${stars}</div>`:''}
       </div>
       ${b.date_finished?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Finished ${b.date_finished}</div>`:''}
+      ${b.status==='Currently Reading'&&b.pages_total>0?`
+        <div style="margin-top:5px">
+          <div style="background:var(--bg3);border-radius:99px;height:4px;overflow:hidden">
+            <div style="height:100%;width:${Math.min(100,Math.round((b.pages_read||0)/b.pages_total*100))}%;background:#8b5cf6;border-radius:99px"></div>
+          </div>
+          <div style="font-size:10px;color:var(--text3);margin-top:2px">${b.pages_read||0} / ${b.pages_total} pages</div>
+        </div>`:''}
       ${b.notes?`<div style="font-size:12px;color:var(--text2);margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(b.notes)}</div>`:''}
       ${b.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${b.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return `<span class="tag-chip" data-tag="${esc(t)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(t)}">${esc(t)}</span>`;}).join('')}</div>` : ''}
     </div>
@@ -324,8 +334,19 @@ async function openBookDrawer(id) {
   await GH_SELECT.init('bkGenre', 'book_genre', b.genre||'', { allowAdd: true, placeholder: '— select genre —' });
   $('bkFormat').value   = b.format||'Physical';
   $('bkStatus').value   = b.status||'Want to Read';
-  $('bkStarted').value  = b.date_started||'';
-  $('bkFinished').value = b.date_finished||'';
+  $('bkStarted').value    = b.date_started||'';
+  $('bkFinished').value   = b.date_finished||'';
+  $('bkPagesRead').value  = b.pages_read != null ? b.pages_read : '';
+  $('bkPagesTotal').value = b.pages_total != null ? b.pages_total : '';
+  // Show pages row only when currently reading
+  const statusEl = document.getElementById('bkStatus');
+  const showProgress = () => {
+    document.getElementById('bkProgressRow').style.display =
+      statusEl.value === 'Currently Reading' ? '' : 'none';
+  };
+  statusEl.removeEventListener('change', showProgress);
+  statusEl.addEventListener('change', showProgress);
+  showProgress();
   $('bkNotes').value    = b.notes||'';
   currentRating = b.rating||0;
   setRating(currentRating);
@@ -344,6 +365,8 @@ async function saveBook() {
     status:$('bkStatus').value, rating:currentRating||null,
     date_started:$('bkStarted').value||null,
     date_finished:$('bkFinished').value||null,
+    pages_total:$('bkPagesTotal').value ? parseInt($('bkPagesTotal').value) : null,
+    pages_read:$('bkPagesRead').value  ? parseInt($('bkPagesRead').value)  : null,
     notes:$('bkNotes').value.trim()||null,
     tags:bookFormTags,
     family_member_ids: GH_FAMILY.getIds('bookFamilyWrap'),
@@ -412,6 +435,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }, {
     defaultView: 'list',
     filterFields: [
+      { key: 'status', type: 'select', label: 'Status',
+        options: [{value:'',label:'All'},{value:'Currently Reading',label:'Reading'},{value:'Want to Read',label:'Want to Read'},{value:'Read',label:'Read'}] },
+      { key: 'format', type: 'select', label: 'Format',
+        options: [{value:'',label:'All'},{value:'Physical',label:'Physical'},{value:'Kindle',label:'Kindle'},{value:'Audible',label:'Audible'}] },
+      { key: 'genre',  type: 'text',   label: 'Genre', placeholder: 'e.g. Fiction…' },
       { key: 'rating', type: 'select', label: 'Min Rating',
         options: [{value:'',label:'Any'},{value:'5',label:'★★★★★'},{value:'4',label:'★★★★+'},{value:'3',label:'★★★+'}] },
       { key: 'tags',   type: 'tags',   label: 'Tags' },
@@ -705,7 +733,7 @@ function showIsbnConfirmPanel(b) {
     <input type="hidden" id="ic_cover_url" value="${esc(b.cover_url||'')}">
     <div style="display:flex;gap:8px">
       <button class="btn btn-primary" style="flex:1;padding:9px" onclick="applyIsbnFields()">Apply to Form</button>
-      <button class="btn btn-ghost" style="padding:9px 14px" onclick="document.getElementById('isbnConfirmPanel')?.remove()">Dismiss</button>
+      <button class="btn btn-ghost" style="padding:9px 14px" onclick="document.getElementById('isbnConfirmPanel')?.remove()">Cancel</button>
     </div>`;
 
   // Insert at top of drawer

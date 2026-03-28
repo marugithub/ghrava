@@ -21,48 +21,7 @@
 /* ── View tabs ─────────────────────────────────────────────── */
 
 /* ── Medical card ──────────────────────────────────────────── */
-.med-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 14px 16px;
-  margin-bottom: 8px;
-  cursor: pointer;
-  transition: all .15s;
-  position: relative;
-}
-.med-card:hover { border-color: var(--border2); background: var(--bg3); transform: translateY(-1px); }
-.med-card-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 4px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.med-card-meta {
-  font-size: 12px;
-  color: var(--text3);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-top: 4px;
-}
-.med-card-sub {
-  font-size: 13px;
-  color: var(--text2);
-  margin-top: 6px;
-  line-height: 1.5;
-}
-.med-card-actions {
-  position: absolute;
-  top: 10px; right: 10px;
-  display: flex;
-  gap: 4px;
-}
+/* med cards use shared .card system */
 
 /* ── Patient pills ─────────────────────────────────────────── */
 .patient-strip {
@@ -642,21 +601,21 @@ area.innerHTML = emptyState(...GH_EMPTY.medications); return;
     area.innerHTML = Object.entries(byPatient).map(([patient, meds]) => `
       <div class="section-label">${esc(patient)}</div>
       ${meds.map(r => `
-        <div class="med-card" onclick="editMedication(${r.id})">
-          <div class="med-card-actions">
-            <button class="btn btn-danger" style="padding:3px 8px;font-size:11px"
-                    onclick="event.stopPropagation();deleteMed(${r.id})">del</button>
+        <div class="card" onclick="editMedication(${r.id})">
+          <div class="card-right">
+            <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
+                    onclick="event.stopPropagation();deleteMed(${r.id})">✕</button>
           </div>
-          <div class="med-card-title">
+          <div class="card-title">
             <span class="status-dot ${statusDotClass(r.status)}"></span>
             ${esc(r.name)}
             <span class="badge badge-grey">${r.status}</span>
           </div>
-          ${r.dosage||r.frequency ? `<div class="med-card-meta">
+          ${r.dosage||r.frequency ? `<div class="card-meta">
             ${r.dosage ? `<span>${esc(r.dosage)}</span>` : ''}
             ${r.frequency ? `<span>· ${esc(r.frequency)}</span>` : ''}
           </div>` : ''}
-          <div class="med-card-meta">
+          <div class="card-meta">
             ${r.physician ? `<span>Dr. ${esc(r.physician)}</span>` : ''}
             ${r.start_date ? `<span>Started ${formatDate(r.start_date)}</span>` : ''}
             ${r.purpose ? `<span style="color:var(--text2)">${esc(r.purpose)}</span>` : ''}
@@ -684,18 +643,18 @@ async function renderConditions() {
     }
 
     area.innerHTML = rows.map(r => `
-      <div class="med-card" onclick="editCondition(${r.id})">
-        <div class="med-card-actions">
-          <button class="btn btn-danger" style="padding:3px 8px;font-size:11px"
-                  onclick="event.stopPropagation();deleteCond(${r.id})">del</button>
+      <div class="card" onclick="editCondition(${r.id})">
+        <div class="card-right">
+          <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
+                  onclick="event.stopPropagation();deleteCond(${r.id})">✕</button>
         </div>
-        <div class="med-card-title">
+        <div class="card-title">
           <span class="status-dot ${statusDotClass(r.status)}"></span>
           ${esc(r.condition_name)}
           <span class="badge badge-grey">${r.status}</span>
           <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
         </div>
-        <div class="med-card-meta">
+        <div class="card-meta">
           ${r.physician ? `<span>${esc(r.physician)}</span>` : ''}
           ${r.start_date ? `<span>Since ${formatDate(r.start_date)}</span>` : ''}
           ${r.end_date ? `<span>→ ${formatDate(r.end_date)}</span>` : ''}
@@ -722,17 +681,17 @@ async function renderNotes() {
     }
 
     area.innerHTML = rows.map(r => `
-      <div class="med-card" onclick="editNote(${r.id})">
-        <div class="med-card-actions">
-          <button class="btn btn-danger" style="padding:3px 8px;font-size:11px"
-                  onclick="event.stopPropagation();deleteNote(${r.id})">del</button>
+      <div class="card" onclick="editNote(${r.id})">
+        <div class="card-right">
+          <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
+                  onclick="event.stopPropagation();deleteNote(${r.id})">✕</button>
         </div>
-        <div class="med-card-title">
+        <div class="card-title">
           ${r.physician_name ? esc(r.physician_name) : 'Visit Note'}
           ${r.follow_up_needed ? `<span class="followup-badge">Follow-up needed</span>` : ''}
           <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
         </div>
-        <div class="med-card-meta">
+        <div class="card-meta">
           <span>${formatDate(r.visit_date)}</span>
           ${r.specialty ? `<span>${esc(r.specialty)}</span>` : ''}
           ${r.follow_up_date ? `<span style="color:var(--amber)">→ ${formatDate(r.follow_up_date)}</span>` : ''}

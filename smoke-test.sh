@@ -219,6 +219,8 @@ assert_200         "GET /notifications page"           "$BASE/notifications.html
 assert_200         "GET /medical/conditions/export"    "$BASE/api/v1/medical/conditions/export/csv"
 assert_200         "GET /career/certifications/export" "$BASE/api/v1/career/certifications/export/csv"
 assert_200         "GET /daily-log/export/csv"         "$BASE/api/v1/daily-log/export/csv"
+assert_200         "GET /documents/export/csv"         "$BASE/api/v1/documents/export/csv"
+assert_200         "GET /books (has pages fields)"      "$BASE/api/v1/books"
 assert_200         "GET /property/vehicles/export"     "$BASE/api/v1/property/vehicles/export/csv"
 assert_json_object "GET /finance/transactions/unified"  "$BASE/api/v1/finance/transactions/unified"
 assert_json_array   "GET /finance/category-rules"          "$BASE/api/v1/finance/category-rules"

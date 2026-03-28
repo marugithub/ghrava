@@ -285,8 +285,14 @@ function renderDocs() {
 
   // Apply tag filter from GH_VIEW
   let docs = allDocs;
-  if (_docFilters.tags?.length) {
-    docs = docs.filter(d => _docFilters.tags.every(t => (d.tags||[]).includes(t)));
+  if (_docFilters.tags?.length)  docs = docs.filter(d => _docFilters.tags.every(t => (d.tags||[]).includes(t)));
+  if (_docFilters.category)      docs = docs.filter(d => d.category === _docFilters.category);
+  if (_docFilters.expiring) {
+    const days = parseInt(_docFilters.expiring);
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + days);
+    const cutStr = cutoff.toISOString().slice(0,10);
+    const todayStr = new Date().toISOString().slice(0,10);
+    docs = docs.filter(d => d.expiry_date && d.expiry_date >= todayStr && d.expiry_date <= cutStr);
   }
 
   if (!docs.length) { el.innerHTML = emptyState(...GH_EMPTY.documents); return; }
@@ -459,6 +465,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }, {
     defaultView: 'list',
     filterFields: [
+      { key: 'category', type: 'select', label: 'Category',
+        options: [{value:'',label:'All'},{value:'Tax',label:'Tax'},{value:'Legal',label:'Legal'},{value:'Insurance',label:'Insurance'},{value:'Warranty',label:'Warranty'},{value:'Medical',label:'Medical'},{value:'Financial',label:'Financial'},{value:'Property',label:'Property'},{value:'Vehicle',label:'Vehicle'},{value:'Career',label:'Career'},{value:'Other',label:'Other'}] },
+      { key: 'expiring', type: 'toggle', label: 'Expiring Soon',
+        options: [{label:'All',value:''},{label:'Expiring 90d',value:'90'},{label:'Expiring 30d',value:'30'}] },
       { key: 'tags', type: 'tags', label: 'Tags' },
     ]
   });

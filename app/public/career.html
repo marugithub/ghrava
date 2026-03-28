@@ -23,17 +23,7 @@
 .view-panel.active { display:block; }
 
 /* Cards */
-.career-card {
-  background: var(--bg2); border-radius: var(--r);
-  padding: 14px 16px; margin-bottom: 8px;
-  display: flex; align-items: flex-start; gap: 12px;
-  cursor: pointer; transition: background .15s;
-}
-.career-card:active { background: var(--surface2); }
-.career-card-body { flex:1;min-width:0; }
-.career-card-title { font-weight:600;font-size:14px;color:var(--text);margin-bottom:2px; }
-.career-card-sub { font-size:12px;color:var(--text3); }
-.career-card-right { text-align:right;flex-shrink:0; }
+/* career cards use shared .card system */
 
 /* Status badges */
 .badge-active   { background:var(--green-bg,#052a10);color:var(--green);padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600; }
@@ -183,6 +173,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     </div>
 <button class="btn btn-primary" id="certSave" style="flex:1" onclick="saveCert()">Save</button>
       <button class="btn btn-ghost" id="certDeleteBtn" style="color:var(--red);display:none" onclick="deleteCert()">Delete</button>
+      <button class="btn btn-ghost" onclick="$('certDrawer').classList.remove('open')">Cancel</button>
     </div>
   </div>
 </div>
@@ -221,6 +212,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     </div>
 <button class="btn btn-primary" id="jobSave" style="flex:1" onclick="saveJob()">Save</button>
       <button class="btn btn-ghost" id="jobDeleteBtn" style="color:var(--red);display:none" onclick="deleteJob()">Delete</button>
+      <button class="btn btn-ghost" onclick="$('jobDrawer').classList.remove('open')">Cancel</button>
     </div>
   </div>
 </div>
@@ -253,6 +245,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     </div>
 <button class="btn btn-primary" id="skillSave" style="flex:1" onclick="saveSkill()">Save</button>
       <button class="btn btn-ghost" id="skillDeleteBtn" style="color:var(--red);display:none" onclick="deleteSkill()">Delete</button>
+      <button class="btn btn-ghost" onclick="$('skillDrawer').classList.remove('open')">Cancel</button>
     </div>
   </div>
 </div>
@@ -276,6 +269,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <div style="display:flex;gap:8px">
       <button class="btn btn-primary" id="eduSave" style="flex:1" onclick="saveEdu()">Save</button>
       <button class="btn btn-ghost" id="eduDeleteBtn" style="color:var(--red);display:none" onclick="deleteEdu()">Delete</button>
+      <button class="btn btn-ghost" onclick="$('eduDrawer').classList.remove('open')">Cancel</button>
     </div>
   </div>
 </div>
@@ -323,6 +317,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
       <div id="goalFamilyWrap" style="margin-bottom:12px"></div>
       <button class="btn btn-primary" id="goalSaveBtn" style="flex:1" onclick="saveGoal()">Save</button>
       <button class="btn btn-ghost" id="goalDeleteBtn" style="color:var(--red);display:none" onclick="deleteGoal()">Delete</button>
+      <button class="btn btn-ghost" onclick="$('goalDrawer').classList.remove('open')">Cancel</button>
     </div>
   </div>
 </div>
@@ -381,14 +376,14 @@ async function loadCerts() {
         : 'No expiry';
       const expColor = daysLeft !== null && daysLeft < 60 ? 'var(--red)' : 'var(--text3)';
       const badgeClass = c.status === 'Active' ? 'badge-active' : c.status === 'In Progress' ? 'badge-progress' : 'badge-expired';
-      return `<div class="career-card" onclick="openCertDrawer(${c.id})">
-        <div class="career-card-body">
-          <div class="career-card-title">${esc(c.name)}</div>
-          <div class="career-card-sub">${c.issuing_body ? esc(c.issuing_body)+' · ' : ''}${c.credential_id ? '#'+esc(c.credential_id) : ''}</div>
+      return `<div class="card" onclick="openCertDrawer(${c.id})">
+        <div class="card-body">
+          <div class="card-title">${esc(c.name)}</div>
+          <div class="card-sub">${c.issuing_body ? esc(c.issuing_body)+' · ' : ''}${c.credential_id ? '#'+esc(c.credential_id) : ''}</div>
           <div style="font-size:12px;color:${expColor};margin-top:4px">${expStr}</div>
           ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
         </div>
-        <div class="career-card-right">
+        <div class="card-right">
           <span class="${badgeClass}">${esc(c.status)}</span>
         </div>
       </div>`;
@@ -445,13 +440,13 @@ async function loadJobs() {
     const rows = await api('/jobs');
     if (!rows.length) { el.innerHTML = emptyState(...GH_EMPTY.jobs); return; }
     el.innerHTML = rows.map(j => `
-      <div class="career-card" onclick="openJobDrawer(${j.id})">
-        <div class="career-card-body">
-          <div class="career-card-title">${esc(j.title)}</div>
-          <div class="career-card-sub">${esc(j.company)}${j.location?' · '+esc(j.location):''}</div>
+      <div class="card" onclick="openJobDrawer(${j.id})">
+        <div class="card-body">
+          <div class="card-title">${esc(j.title)}</div>
+          <div class="card-sub">${esc(j.company)}${j.location?' · '+esc(j.location):''}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:4px">${j.start_date||''}${j.end_date?' – '+j.end_date:j.is_current?' – Present':''}</div>
         </div>
-        <div class="career-card-right">
+        <div class="card-right">
           ${j.is_current ? '<span class="badge-current">Current</span>' : `<span style="font-size:11px;color:var(--text3)">${esc(j.employment_type||'')}</span>`}
         </div>
       </div>`).join('');
@@ -576,10 +571,10 @@ async function loadEdu() {
     const rows = await api('/education');
     if (!rows.length) { el.innerHTML = emptyState(...GH_EMPTY.education); return; }
     el.innerHTML = rows.map(e => `
-      <div class="career-card" onclick="openEduDrawer(${e.id})">
-        <div class="career-card-body">
-          <div class="career-card-title">${esc(e.institution)}</div>
-          <div class="career-card-sub">${[e.degree, e.field_of_study].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="card" onclick="openEduDrawer(${e.id})">
+        <div class="card-body">
+          <div class="card-title">${esc(e.institution)}</div>
+          <div class="card-sub">${[e.degree, e.field_of_study].filter(Boolean).map(esc).join(' · ')}</div>
           <div style="font-size:12px;color:var(--text3);margin-top:4px">${e.start_year||''}${e.end_year?' – '+e.end_year:''}${e.gpa?' · GPA '+esc(e.gpa):''}</div>
         </div>
       </div>`).join('');

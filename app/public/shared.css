@@ -503,36 +503,75 @@ html, body {
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
-  padding: 16px;
+  padding: 12px 14px;
   margin-bottom: 8px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: border-color .15s, box-shadow .12s, transform .12s;
   position: relative;
+  text-decoration: none;
+  display: block;
+  color: inherit;
 }
-
-.card:hover { border-color: var(--border2); background: var(--bg3); transform: translateY(-1px); }
+.card:hover { border-color: var(--border2); background: var(--bg3); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.06); }
 .card-static { cursor: default; }
-.card-static:hover { transform: none; }
+.card-static:hover { transform: none; box-shadow: none; }
 
-.card-title {
+/* Card header: icon + title + optional right element */
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.card-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--r);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
   font-size: 15px;
+}
+.card-title {
+  font-size: 14px;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-
+.card-sub {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Second line of sub-text (wrap allowed) */
+.card-sub-wrap {
+  font-size: 12px;
+  color: var(--text3);
+  line-height: 1.4;
+}
+/* Card body: main flex column */
+.card-body {
+  flex: 1;
+  min-width: 0;
+}
+/* Right-side content (badges, value, etc) */
+.card-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+}
+/* Bottom row: tags, chips, metadata */
 .card-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
-  margin-top: 6px;
-}
-
-.card-sub {
-  font-size: 13px;
-  color: var(--text2);
-  line-height: 1.4;
+  margin-top: 7px;
 }
 
 /* ── Badges / pills ─────────────────────────────────────────── */
@@ -1228,16 +1267,16 @@ html, body {
 .widget-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  padding: 10px 16px 4px;
+  gap: 6px;
+  padding: 8px 16px 4px;
 }
 .widget-wide { grid-column: span 2; }
 
 .widget {
   background: var(--bg2);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
-  padding: 10px 12px 10px;
+  border-radius: var(--r);
+  padding: 8px 10px 7px;
   cursor: pointer;
   text-decoration: none;
   display: block;
@@ -1246,36 +1285,125 @@ html, body {
   transition: border-color .15s, box-shadow .15s, transform .12s;
   -webkit-tap-highlight-color: transparent;
 }
-.widget:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.06); }
+.widget:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.06); }
 .widget::before {
   content: '';
-  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
   background: var(--w-accent, var(--accent));
 }
 
-.widget-icon-wrap {
-  width: 22px; height: 22px; border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  margin-bottom: 6px;
+/* Compact horizontal layout: label left, value right on one row */
+.wgt-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 6px;
 }
-.widget-icon-wrap svg { width: 12px; height: 12px; }
-
-.widget-label {
+.wgt-label {
   font-size: 10px; font-weight: 600;
-  letter-spacing: .07em; text-transform: uppercase;
-  color: var(--text3); margin-bottom: 2px;
+  letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text3); white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
   font-family: var(--sans);
 }
-.widget-value {
-  font-size: 20px; font-weight: 700;
-  letter-spacing: -.02em; line-height: 1;
-  margin-bottom: 2px; color: var(--text);
+.wgt-val {
+  font-size: 18px; font-weight: 800;
+  letter-spacing: -.03em; line-height: 1;
+  color: var(--text); flex-shrink: 0;
 }
-.widget-sub { font-size: 11px; color: var(--text3); line-height: 1.4; }
+.wgt-sub {
+  font-size: 11px; color: var(--text3);
+  margin-top: 2px; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.wgt-alert { display: flex; align-items: center; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
 
-.widget-alert-row {
-  display: flex; align-items: center; gap: 6px; margin-top: 5px;
+/* Wide widget inner layout */
+.wgt-wide-inner {
+  display: flex; align-items: flex-start; gap: 10px;
 }
+.wgt-wide-icon {
+  width: 20px; height: 20px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; margin-top: 1px;
+}
+.wgt-wide-icon svg { width: 11px; height: 11px; }
+
+/* Legacy icon wrap — kept for wide widgets only */
+.widget-icon-wrap {
+  width: 20px; height: 20px; border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 0; flex-shrink: 0;
+}
+.widget-icon-wrap svg { width: 11px; height: 11px; }
+.widget-label { font-size: 10px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text3); margin-bottom: 0; font-family: var(--sans); }
+.widget-value { font-size: 18px; font-weight: 800; letter-spacing: -.03em; line-height: 1; margin-bottom: 1px; color: var(--text); }
+.widget-sub { font-size: 11px; color: var(--text3); line-height: 1.3; }
+.widget-alert-row { display: flex; align-items: center; gap: 5px; margin-top: 4px; flex-wrap: wrap; }
+
+/* ══════════════════════════════════════════════════════════════
+   CENTERED MODAL — for confirmations and "Add new" flows
+   Usage:
+     <div class="gh-modal-overlay" id="myModal" onclick="if(event.target===this)closeMyModal()">
+       <div class="gh-modal">
+         <div class="gh-modal-title">Title</div>
+         <div class="gh-modal-body">...content...</div>
+         <div class="gh-modal-foot">
+           <button class="btn btn-primary" onclick="doSave()">Save</button>
+           <button class="btn btn-ghost" onclick="closeMyModal()">Cancel</button>
+         </div>
+       </div>
+     </div>
+   Toggle: add/remove class 'open' on the overlay.
+   ══════════════════════════════════════════════════════════════ */
+.gh-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 1100;
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s;
+}
+.gh-modal-overlay.open {
+  opacity: 1; pointer-events: auto;
+}
+.gh-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-lg);
+  width: min(420px, 92vw);
+  max-height: 88vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,.25);
+  transform: translateY(12px) scale(.97);
+  transition: transform .18s;
+}
+.gh-modal-overlay.open .gh-modal {
+  transform: translateY(0) scale(1);
+}
+.gh-modal-title {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.gh-modal-body {
+  padding: 14px 18px;
+}
+.gh-modal-foot {
+  display: flex; gap: 8px;
+  padding: 10px 18px 16px;
+  border-top: 1px solid var(--border);
+}
+.gh-modal-foot .btn { flex: 1; }
+
+/* ══════════════════════════════════════════════════════════════
+   BUTTON STANDARD
+   Primary action:   <button class="btn btn-primary">Save</button>
+   Secondary/close:  <button class="btn btn-ghost">Cancel</button>
+   Destructive:      <button class="btn btn-ghost" style="color:var(--red)">Delete</button>
+   Destructive alt:  <button class="btn btn-danger">Delete</button>
+   Never: "OK", "Submit", "Add", "Remove", "del", lone × close buttons
+   ══════════════════════════════════════════════════════════════ */
 
 /* Module grid — 4 cols */
 .module-section-title {
@@ -1323,10 +1451,10 @@ html, body {
 
 @media (min-width: 900px) {
   .module-grid { grid-template-columns: repeat(6, 1fr); }
-  .widget-grid  { grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 12px 24px 4px; }
-  .widget-wide  { grid-column: span 3; }
-  .dash-greeting { padding: 14px 24px 4px; }
-  .module-section-title { padding: 10px 24px 5px; }
+  .widget-grid  { grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 10px 24px 4px; }
+  .widget-wide  { grid-column: span 4; }
+  .dash-greeting { padding: 12px 24px 4px; }
+  .module-section-title { padding: 8px 24px 4px; }
   .module-grid { padding: 0 24px 28px; }
   .dash-family-strip { padding: 4px 24px 0; }
 }

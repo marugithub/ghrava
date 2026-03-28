@@ -20,32 +20,7 @@
 <style>
 /* view-tab styles from shared.css */
 .view-panel{display:none}.view-panel.active{display:block}
-.prop-card,.veh-card{background:var(--bg2);border-radius:var(--r);margin-bottom:10px;overflow:hidden}
-.card-header{padding:14px 16px 10px;display:flex;align-items:flex-start;gap:10px;cursor:pointer}
-.card-icon{width:38px;height:38px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:20px}
-.card-title{font-size:15px;font-weight:700;color:var(--text)}
-.card-sub{font-size:12px;color:var(--text3);margin-top:2px}
-.stat-row{display:flex;border-top:1px solid var(--border)}
-.stat-cell{flex:1;padding:10px 12px;border-right:1px solid var(--border)}
-.stat-cell:last-child{border-right:none}
-.stat-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em}
-.stat-val{font-size:14px;font-weight:700;color:var(--text);margin-top:2px}
-.pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600}
-.pill-red{background:#2a0508;color:#ef4444}
-.pill-amber{background:var(--amber-bg);color:var(--amber)}
-.svc-row{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
-.svc-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;margin-top:5px}
-</style>
-</head>
-<body>
-<script>
-window.GH_PAGE = { module: 'property', title: 'Property' };
-</script>
-<script src="/nav.js"></script>
-<script src="/js/lt-core.js"></script>
-<script src="/js/lt-refs.js"></script>
-<script src="/js/lt-messages.js"></script>
-<div id="nav-container"></div>
+/* prop/veh cards use shared .card */
 
 <div id="app" style="padding-bottom:100px">
   <div class="view-tabs" style="--tab-color:#ef4444">
@@ -158,6 +133,7 @@ window.GH_PAGE = { module: 'property', title: 'Property' };
     </div>
 <button class="btn btn-primary" id="pSave" style="flex:1" onclick="saveProp()">Save</button>
     <button class="btn btn-ghost" id="pDelBtn" style="color:var(--red);display:none" onclick="delProp()">Delete</button>
+    <button class="btn btn-ghost" onclick="$('propDrawer').classList.remove('open')">Cancel</button>
   </div>
  </div>
 </div>
@@ -219,6 +195,7 @@ window.GH_PAGE = { module: 'property', title: 'Property' };
     </div>
 <button class="btn btn-primary" id="vSave" style="flex:1" onclick="saveVeh()">Save</button>
     <button class="btn btn-ghost" id="vDelBtn" style="color:var(--red);display:none" onclick="delVeh()">Delete</button>
+    <button class="btn btn-ghost" onclick="$('vehDrawer').classList.remove('open')">Cancel</button>
   </div>
  </div>
 </div>
@@ -305,6 +282,7 @@ window.GH_PAGE = { module: 'property', title: 'Property' };
   <div style="display:flex;gap:8px;margin-top:4px">
     <button class="btn btn-primary" id="maintSaveBtn" style="flex:1" onclick="saveMaint()">Save</button>
     <button class="btn btn-ghost" id="maintDeleteBtn" style="color:var(--red);display:none" onclick="deleteMaint()">Delete</button>
+    <button class="btn btn-ghost" onclick="$('maintDrawer').classList.remove('open')">Cancel</button>
   </div>
  </div>
 </div>
@@ -349,7 +327,7 @@ async function loadProps(){
     const ICONS={'Primary Residence':'🏠',Rental:'🏢',Vacation:'🏖️',Land:'🌳',Other:'🏗️'};
     el.innerHTML=ps.map(p=>{
       const v=parseFloat(p.current_est_value)||0, m=parseFloat(p.mortgage_balance)||0, eq=v-m;
-      return `<div class="prop-card" onclick="openPropDrawer(${p.id})">
+      return `<div class="card" onclick="openPropDrawer(${p.id})">
         <div class="card-header">
           <div class="card-icon" style="background:rgba(239,68,68,.12)">${ICONS[p.property_type]||'🏠'}</div>
           <div style="flex:1;min-width:0">
@@ -433,7 +411,7 @@ async function loadVehs(){
       const reg=v.registration_expires, ins=v.inspection_expires;
       const regPill=reg&&reg<=today?'pill pill-red':reg&&reg<=warn30?'pill pill-amber':'';
       const insPill=ins&&ins<=today?'pill pill-red':ins&&ins<=warn30?'pill pill-amber':'';
-      return `<div class="veh-card">
+      return `<div class="card">
         <div class="card-header" onclick="openVehDrawer(${v.id})">
           <div class="card-icon" style="background:rgba(99,102,241,.12)">🚗</div>
           <div style="flex:1;min-width:0">

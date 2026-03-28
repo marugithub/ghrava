@@ -374,14 +374,16 @@ window.toast = function(msg, type = 'ok') {
     if (document.getElementById('ltConfirmOverlay')) return;
     const el = document.createElement('div');
     el.id = 'ltConfirmOverlay';
-    el.className = 'confirm-overlay';
+    el.className = 'gh-modal-overlay';
     el.innerHTML = `
-      <div class="confirm-box">
-        <h3 id="ltConfirmTitle">Delete?</h3>
-        <p  id="ltConfirmMsg">This cannot be undone.</p>
-        <div class="btn-row">
-          <button class="btn btn-ghost"   id="ltConfirmNo">Cancel</button>
-          <button class="btn btn-danger"  id="ltConfirmYes">Delete</button>
+      <div class="gh-modal" style="width:min(360px,92vw)">
+        <div class="gh-modal-title" id="ltConfirmTitle">Delete?</div>
+        <div class="gh-modal-body">
+          <p id="ltConfirmMsg" style="font-size:13px;color:var(--text2);margin:0;line-height:1.5">This cannot be undone.</p>
+        </div>
+        <div class="gh-modal-foot">
+          <button class="btn btn-danger" id="ltConfirmYes">Delete</button>
+          <button class="btn btn-ghost"  id="ltConfirmNo">Cancel</button>
         </div>
       </div>`;
     document.body.appendChild(el);
@@ -395,6 +397,7 @@ window.toast = function(msg, type = 'ok') {
       const cb = _cb; _cb = null;
       if (cb) cb();
     });
+    el.addEventListener('pointerdown', e => { if (e.target === el) { el.classList.remove('open'); _cb = null; } });
   }
 
   LT.confirm = function({ title = 'Delete?', msg = 'This cannot be undone.', confirmLabel = 'Delete', danger = true, onConfirm } = {}) {
@@ -776,31 +779,28 @@ window.GH_SELECT = (function () {
     if (_popup) return _popup;
     _popup = document.createElement('div');
     _popup.id = 'gh-select-popup';
-    _popup.style.cssText = [
-      'position:fixed', 'z-index:9999', 'background:var(--bg2)',
-      'border:1px solid var(--border)', 'border-radius:var(--r)',
-      'box-shadow:0 8px 32px rgba(0,0,0,.25)', 'padding:14px 16px',
-      'width:260px', 'display:none',
-    ].join(';');
+    _popup.className = 'gh-modal-overlay';
     _popup.innerHTML = `
-      <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:10px">Add new option</div>
-      <input id="gh-select-input" class="form-input" placeholder="New value…"
-        style="width:100%;box-sizing:border-box;margin-bottom:10px" autocomplete="off">
-      <div style="display:flex;gap:8px">
-        <button id="gh-select-save" class="btn btn-primary" style="flex:1;font-size:13px">Add</button>
-        <button id="gh-select-cancel" class="btn btn-ghost" style="font-size:13px">Cancel</button>
+      <div class="gh-modal" style="width:min(340px,92vw)">
+        <div class="gh-modal-title">Add new option</div>
+        <div class="gh-modal-body">
+          <input id="gh-select-input" class="form-input" placeholder="New value…"
+            style="width:100%;box-sizing:border-box" autocomplete="off">
+          <div id="gh-select-err" style="color:var(--red);font-size:12px;margin-top:6px;display:none"></div>
+        </div>
+        <div class="gh-modal-foot">
+          <button id="gh-select-save" class="btn btn-primary">Save</button>
+          <button id="gh-select-cancel" class="btn btn-ghost">Cancel</button>
+        </div>
       </div>
-      <div id="gh-select-err" style="color:var(--red);font-size:12px;margin-top:6px;display:none"></div>
     `;
     document.body.appendChild(_popup);
     _popup.querySelector('#gh-select-save').addEventListener('click', _doSave);
     _popup.querySelector('#gh-select-cancel').addEventListener('click', _closePopup);
+    _popup.addEventListener('pointerdown', e => { if (e.target === _popup) _closePopup(); });
     _popup.querySelector('#gh-select-input').addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); _doSave(); }
       if (e.key === 'Escape') _closePopup();
-    });
-    document.addEventListener('mousedown', e => {
-      if (_popup && _popup.style.display !== 'none' && !_popup.contains(e.target)) _closePopup();
     });
     return _popup;
   }
@@ -812,22 +812,13 @@ window.GH_SELECT = (function () {
     const input = popup.querySelector('#gh-select-input');
     popup.querySelector('#gh-select-err').style.display = 'none';
     input.value = '';
-    popup.style.display = 'block';
-    const rect = selectEl.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    if (spaceBelow > 160) {
-      popup.style.top  = (rect.bottom + window.scrollY + 4) + 'px';
-      popup.style.left = rect.left + 'px';
-    } else {
-      popup.style.top  = (rect.top + window.scrollY - 160) + 'px';
-      popup.style.left = rect.left + 'px';
-    }
+    popup.classList.add('open');
     setTimeout(() => input.focus(), 50);
   }
 
   function _closePopup() {
     if (!_popup) return;
-    _popup.style.display = 'none';
+    _popup.classList.remove('open');
     const sel = _currentSelectId ? document.getElementById(_currentSelectId) : null;
     if (sel && sel.value === '__add__') {
       const first = Array.from(sel.options).find(o => o.value !== '__add__');
@@ -858,7 +849,7 @@ window.GH_SELECT = (function () {
       if (typeof window.toast === 'function') window.toast('Option added');
     } catch (e) {
       err.textContent = 'Network error. Try again.'; err.style.display = 'block';
-    } finally { btn.textContent = 'Add'; btn.disabled = false; }
+    } finally { btn.textContent = 'Save'; btn.disabled = false; }
   }
 
   async function init(selectId, listKey, current, opts = {}) {

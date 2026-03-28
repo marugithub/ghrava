@@ -557,9 +557,9 @@ function render() {
 
   // Apply GH_VIEW tag filter
   let displayResources = resources;
-  if (_resFilters.tags?.length) {
-    displayResources = resources.filter(r => _resFilters.tags.every(t => (r.tags||[]).includes(t)));
-  }
+  if (_resFilters.tags?.length)  displayResources = displayResources.filter(r => _resFilters.tags.every(t => (r.tags||[]).includes(t)));
+  if (_resFilters.favorite)      displayResources = displayResources.filter(r => r.is_favorite == 1);
+  if (_resFilters.link_type)     displayResources = displayResources.filter(r => r.link_type === _resFilters.link_type);
 
   if (!displayResources.length) {
     el.innerHTML = `<div class="empty">
@@ -874,6 +874,10 @@ document.addEventListener('DOMContentLoaded', () => {
   }, {
     defaultView: 'list',
     filterFields: [
+      { key: 'favorite', type: 'toggle', label: 'Favorites',
+        options: [{label:'All',value:''},{label:'Favorites only',value:'1'}] },
+      { key: 'link_type', type: 'select', label: 'Type',
+        options: [{value:'',label:'All'},{value:'website',label:'Website'},{value:'login',label:'Login'},{value:'document',label:'Document'},{value:'contact',label:'Contact'},{value:'other',label:'Other'}] },
       { key: 'tags', type: 'tags', label: 'Tags' },
     ]
   });

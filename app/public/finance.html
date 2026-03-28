@@ -1373,8 +1373,8 @@ function otcRowHtml(r) {
         <div style="display:flex;gap:4px">
           <button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;border-radius:4px"
                   onclick="event.stopPropagation();openReceipt(${r.id},'hsa_otc','${esc(r.item_name||'OTC')}')">📎</button>
-          <button class="btn btn-danger" style="padding:2px 8px;font-size:11px;border-radius:4px"
-                  onclick="event.stopPropagation();deleteExpense(${r.id},'otc')">del</button>
+          <button class="btn btn-ghost" style="padding:2px 6px;font-size:11px;border-radius:4px;color:var(--red)" title="Delete"
+                  onclick="event.stopPropagation();deleteExpense(${r.id},'otc')">✕</button>
         </div>
       </div>
     </div>`;
@@ -2745,7 +2745,7 @@ async function deleteGc() {
     <div class="drawer-handle"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div class="drawer-title" style="margin-bottom:0">Import CSV</div>
-      <button onclick="document.getElementById('csvDrawer').classList.remove('open')" style="background:none;border:none;color:var(--text3);font-size:22px;cursor:pointer;line-height:1">×</button>
+      <button class="btn btn-ghost" style="padding:4px 12px;font-size:12px" onclick="document.getElementById('csvDrawer').classList.remove('open')">Close</button>
     </div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:12px;line-height:1.6">
       Paste or upload a CSV with columns: <span style="font-family:var(--mono);color:var(--accent)">date, description, amount, category</span><br>

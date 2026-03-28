@@ -2763,7 +2763,7 @@ function showUpcConfirmPanel(upcData, parsed) {
       <input type="hidden" id="pc_upc_cat" value="${esc(upcRawCat)}">
       <div style="display:flex;gap:8px">
         <button class="btn btn-primary" style="flex:1;padding:9px" onclick="applyParsedFields().catch(e=>toast('Apply failed','err'))">Apply to Form</button>
-        <button class="btn btn-ghost" style="padding:9px 14px" onclick="$('upcFeedback').style.display='none'">Dismiss</button>
+        <button class="btn btn-ghost" style="padding:9px 14px" onclick="$('upcFeedback').style.display='none'">Cancel</button>
       </div>
       ${upcData.manual_search_url ? `<div style="margin-top:8px;font-size:12px;color:var(--text3)">📋 <a href="${upcData.manual_search_url}" target="_blank" style="color:var(--accent)">Search for manual on ManualsLib ↗</a></div>` : ''}
     </div>`;

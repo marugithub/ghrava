@@ -299,124 +299,79 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 
 ## 13. Active Backlog
 
-### Status as of v202603.101
+**Last updated: v202603.115**
 
 ---
 
-### ✅ DONE — no action needed
-- GH_SELECT across all modules (finance, HSA, resources, property, medical, career)
-- Contact drawer iframe rendering fixed (gh-drawer-only CSS class)
-- Medical.html missing lt-refs.js — fixed
-- Unified transactions view (imported + manual merged)
-- Finance import auto-categorization (rules table + apply-on-import)
-- Inline category editing on imported transaction rows
-- CSV exports: medical, career, property, daily log, HSA
-- Excel export with NAS attachment links
-- Notifications page (/notifications.html)
-- Unified XLSX export/import (/data.html, /api/v1/data/*)
-- E2E test script hang fixed (Start-Process → call operator)
-- E2E purge endpoint (POST /api/v1/settings/diagnostics/purge-e2e)
-- Settings test 14.5s timeout fixed
-- Smoke test: 48 assertions
+### 🔴 BUILD — No design decision needed
+
+**1. Google Tasks sync on Todos**
+- `/api/v1/google` currently has Google Calendar OAuth — repurpose or replace for Tasks
+- Todos should push to Google Tasks and pull changes back
+- Design: one-way push on save, or full bidirectional sync?
+- **Ask before building** — sync strategy needs decision first
+
+**2. vehicle_service table missing from unified XLSX export**
+- `vehicle_service` records not in `/api/v1/data/export`
+- Add sheet to `app/features/data/routes.js`
+- Low risk: additive only
+
+**3. GH_VIEW Advanced Filters — wire to books, documents, resources**
+- Currently only inventory has GH_VIEW Advanced Filters
+- Books: filter by genre, format, status, rating, tags
+- Documents: filter by category, expiry range, family member
+- Resources: already has basic category filter — add tag filter + favorites toggle
+
+**4. Medical — physician export as contact_id not name**
+- Currently exports `physician` (freetext name); import can't resolve back to contact_id
+- Fix: export `physician_contact_id`, add physician name as read-only column
+
+**5. Property — maintenance completion tracking**
+- `property_maintenance` has `next_due_date` but no `completed_date` field
+- Add migration + UI to mark maintenance as completed, log history
+
+**6. Dashboard attention widget — add property maintenance overdue**
+- `/api/v1/dashboard/attention` doesn't include overdue property maintenance
+- Already tracked in completeness checks — wire to attention feed too
 
 ---
 
-### 🔴 NEXT — Build immediately (no design decision needed)
+### 🟡 MEDIUM
 
-**1. Finance — remaining GH_SELECT violations**
-- `openBudgetDrawer` — `budCategory` is still a datalist freetext. Replace with GH_SELECT `finance_category`.
-- Finance accounts drawer (`accInstitution`) — still freetext "Chase, Vanguard…". Replace with GH_SELECT `financial_institution`.
-- Both drawers need `async function` + `await GH_SELECT.init()`.
+**Finance net-worth snapshots**
+- `POST /api/v1/finance/net-worth/snapshot` exists — verify UI works end-to-end
+- Snapshot history chart in Reports → Net Worth tab
 
-**2. Finance — budgets tab full build**
-- `loadBudgets()` exists and is wired. Backend budget routes exist (`/finance/budgets`).
-- Verify budget CRUD works end-to-end. If broken, fix. Show monthly spend vs budget per category.
+**SSO / auth activation**
+- requireAuth is a no-op (server/middleware.js returns next() unconditionally)
+- Needs SSH setup on QNAP first, then turn on token checking
 
-**3. Tags — extend to remaining modules**
-Per WIRING.md canonical entity types, these are NOT yet tag-wired:
-- Medical visit notes (`med_visit_note`)
-- Medical medications (`med_medication`)
-- Career certifications (`career_cert`)
-- Properties (`property`)
-- Vehicles (`vehicle`)
-Each needs: backend GET/POST/PUT/DELETE tag-aware, UI tag input in drawer + tag chips on cards.
-
-**4. Kids module — full feature review**
-- Verify relationship field displays correctly for Arnav/Risha
-- Check empty state (verify display_name + relationship both set in Family Members)
-- Activity and note tabs — confirm GH_SELECT categories working
-
-**5. Books — cover display**
-- Unconfirmed from prior session whether cover thumbnails render correctly after ISBN scan
-- Test: scan ISBN → Open Library lookup → cover image downloads → displays on book card
-
-**6. Reports — complete remaining tabs**
-- Summary tab: Phase 3 cards for Inventory, Medical, Documents (currently showing placeholder)
-- Data Quality tab: completeness checks cover 8 modules — add Kids, Finance
-
-**7. Career — education institution → GH_SELECT**
-- `eduInstitution` is still a freetext input
-- Create `school_name` dropdown_options key, seed with common institutions + allow add
-- Migration 048 needed
-
-**8. Data Manager — import for finance bank statements**
-- Currently `/data.html` only handles Ghrava-to-Ghrava data
-- Add a second section: "Import Bank Statement" that links to Finance → Import tab
-- Makes it the single entry point for all data operations
-
----
-
-### 🟡 MEDIUM — Build when above is done
-
-**Finance — OFX/QFX import more bank parsers**
-- Wells Fargo, Capital One, USAA not yet supported
-- Add parsers in `features/import/parsers.js` — same pattern as existing parsers
-
-**Dashboard — attention widget improvements**
-- Currently shows expiring docs, overdue todos, HSA pool, certs
-- Add: vehicle registration expiring, property maintenance overdue
-
-**Property — vehicle service type in export/import**
-- `vehicle_service` table not in unified export yet
-- Add sheet to data/routes.js export
-
-**Medical — visit notes physician stored as freetext `physician` in export**
-- Currently exports contact name string; import doesn't resolve back to contact_id
-- Fix: export `physician_contact_id`, import resolves by contact name
-
-**Calendar module**
-- Currently shows but polls Google Calendar (external)
-- Decision: keep for Google sync only, or remove from nav?
+**Doc Fetcher system (separate project)**
+- Playwright + Bitwarden CLI + Paperless-ngx automation stack
+- Downloads statements/EOBs from Chase, BCBS, MyChart automatically
+- Separate Docker Compose stack at doc-fetcher.local
 
 ---
 
 ### 🔵 LOW / DESIGN NEEDED
 
-**Left nav icon review** — some modules use wrong SVG icon (using settings icon for Data)
-**SSO / auth activation** — requireAuth is a no-op; SSH setup on QNAP needed first
-**Notifications email digest** — design conversation first
-**Doc Fetcher** — separate automation system (Playwright + Bitwarden CLI + Paperless-ngx)
+**Notifications email digest** — design conversation needed first
+**Left nav Data icon** — uses settings gear icon, should be a database icon
+**Books — Open Library cover auto-fetch on status change to "Currently Reading"** — nice to have
 
 ---
 
-### Key file locations (current)
-- `app/features/auth/middleware.js` — requireAuth no-op
-- `app/features/data/routes.js` — unified export/import (NEW v202603.101)
-- `app/features/finance/routes.js` — transactions, unified, category rules, budgets
-- `app/features/import/routes.js` — bank statement import with auto-categorize
-- `app/features/settings/routes.js` — dropdowns, tags, completeness, family report, purge-e2e
-- `app/features/todos/routes.js` — syncAutoTodos() sections 1-9
-- `app/public/data.html` — Data Manager page (NEW v202603.101)
-- `app/public/notifications.html` — Notifications page
-- `app/public/reports.html` — all 6 tabs
-- `app/public/js/lt-refs.js` — GH_REFS contact/family pickers via settings iframe
-- `app/public/js/lt-core.js` — GH_SELECT, GH_TAGS, GH_VIEW, GH_TAG_SEARCH, GH_FAMILY
-- `app/public/nav.js` — sidebar, bell dropdown, MODULES registry
-- `app/public/settings.html` — canonical contact/family forms; gh-drawer-only CSS for iframe
-- `smoke-test.sh` — 48 assertions
-- `tests/ghrava-e2e.spec.js` — Playwright E2E suite
-- `tests/run-tests.ps1` — Windows runner (uses & call operator, exits cleanly)
-
+### ✅ CONFIRMED DONE (moved here from active)
+- All GH_SELECT violations fixed across all modules
+- makeApi() unified api factory — all pages migrated
+- Tags wired on all modules (confirmed in WIRING.md entity types table)
+- Books reading progress (pages_read, pages_total) — migration 049
+- Dashboard redesign — compact 4-col, family strip removed, 12 stat cards
+- Modal standard (gh-modal-overlay) — LT.confirm + GH_SELECT "Add new" ported
+- Cancel buttons on all drawers (career 5 + property 3 added)
+- Button label standard — Save/Cancel/Delete/Archive enforced
+- Google Calendar removed — calendar.html dead, no nav entry, no dashboard widget
+- Stale backlog items 1-8 from prior sessions — all complete
 
 ## 14. Known Issues
 
@@ -453,6 +408,99 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
+
+### v202603.117
+**UI design system — card standardization pass 1:**
+- shared.css `.card` component expanded into full system: `.card`, `.card-header`, `.card-icon`, `.card-body`, `.card-title`, `.card-sub`, `.card-sub-wrap`, `.card-right`, `.card-meta`
+- Migrated: career.html (cert/job/edu cards), medical.html (med/condition/visit cards), property.html (prop/vehicle cards)
+- Local `.career-card`, `.med-card`, `.prop-card`, `.veh-card` CSS removed — all use shared `.card` now
+- Still to migrate: todos (`.todo-item`), resources (`.res-card`), kids (`.kid-card`), books (`.book-card` partial)
+
+**GH_VIEW Advanced Filters expanded:**
+- Books: status, format, genre, rating, tags
+- Documents: category, expiring soon (30d/90d), tags
+- Resources: favorites toggle, link_type, tags
+
+**XLSX export: 25 sheets complete.** All modules covered.
+
+**WIRING.md additions:**
+- UI Design System section: card pattern, filter bar standard, migration checklist
+- Gamification architecture: points ledger + achievements schema, trigger events, rules for building
+- Cross-module entity_links design documented
+
+**Backlog updated:** Card migration half done, todos/resources/kids/books remaining.
+
+### v202603.116
+**XLSX export now 25 sheets — complete coverage:**
+Added: Daily Log, Family Members, Transactions (last 5000), Gift Cards, Kids.
+Fixed: Visit Notes now exports physician_contact_id (not freetext name), _physician_name as read-only computed column.
+Vehicle Service sheet added (previous session). genericUpsert updated with is_reconciled, is_primary_user booleans; initial_balance, monthly_limit floats; service_date, next_due_date dates.
+
+**GH_VIEW Advanced Filters expanded:**
+- Books: Status (Reading/Want/Read), Format (Physical/Kindle/Audible), Genre (text), Min Rating, Tags
+- Documents: Category (10 doc types), Expiring Soon (30d / 90d toggle), Tags
+- Resources: Favorites toggle, Link Type (website/login/document/contact/other), Tags
+All filters are client-side on already-loaded data — no extra API calls.
+
+**Cross-module relationship architecture documented in WIRING.md:**
+- entity_links table design documented (not yet built)
+- Side-effect pattern (consumption → qty change → auto-todo) specified
+- Rule: do not build until first use case designed end-to-end (vehicle service is candidate)
+
+**Backlog updated:** Items #2 and #6 marked done (vehicle service export, attention widget maintenance already existed).
+
+### v202603.115
+**Documentation overhaul — accurate current state:**
+- WIRING.md completely rewritten: api() rule, data export rule (XLSX only), modal/button standards, Google integration status, all page-to-API deps, all route registry, dropdown keys, entity types, known-to-break patterns
+- HANDOFF backlog rewritten: stale items removed, completed items moved to ✅ DONE, real remaining work documented
+- Google Calendar: confirmed removed. calendar.html dead, removed from MODULES, removed from dashboard polling and widget
+- Google Tasks: documented as planned (not built), not to be started without sync strategy decision
+
+**Vehicle Service sheet added to unified XLSX export:**
+- New sheet in `/api/v1/data/export` with vehicle_name (computed, read-only), vehicle_id, service_date, service_type, mileage, cost, shop, next_due_date, next_due_miles, notes
+- Generic upsert handles import; date/numeric type detection updated for service_date, next_due_date, mileage, next_due_miles
+- `_vehicle_name` prefix marks it as computed (not written back on import)
+
+**CSV export violations reverted:**
+- documents, resources, kids CSV export routes removed — violated XLSX-only data export rule
+- Their toolbar/header buttons removed
+- Bad smoke test assertions removed
+
+### v202603.114
+**Button / modal polish pass:**
+- `LT.confirm` ported from `.confirm-overlay`/`.confirm-box` to `.gh-modal-overlay`/`.gh-modal` — consistent with new standard, backdrop-click dismisses, button order: primary action left, Cancel right
+- `GH_SELECT` add-new popup ported from absolutely-positioned floating div → `.gh-modal-overlay` centered modal. Label "Add" → "Save". Works on mobile (no more off-screen positioning issues).
+- finance.html: inline HSA "del" buttons → "✕" ghost style (keep `btn-ghost` + `color:var(--red)`)
+- finance.html: CSV drawer × close → proper "Close" button
+- medical.html: inline "del" buttons on med/condition/note cards → "✕" ghost style
+- books.html: "Dismiss" on ISBN confirm panel → "Cancel"
+- inventory.html: "Dismiss" on UPC feedback → "Cancel"
+- All 13 pages + lt-core.js syntax-clean.
+
+### v202603.113
+**Dashboard (index.html) — full redesign:**
+- Family strip removed entirely (initials-only avatars served no purpose without profile switching)
+- New compact `.wgt-row` layout: label left + value right on one row, sub-line below — eliminates the large icon + stacked layout that wasted vertical space
+- 4-column grid on desktop (was 3), 2-column on mobile — cards fill available width
+- 12 stat cards: To Do, Inventory, Net Worth, HSA Pool, Medical, Property, Career, Books, Kids, Documents, Gift Cards, Backup
+- Each card now shows 2–3 data points (e.g. Inventory: count + est value + expiring count; Net Worth: value + assets + liabilities)
+- Career widget now leads with active job count (more useful than cert count)
+- Daily Log wide widget: date shown inline, entry count added
+- "Coming soon" Reports card removed
+- Expiring documents card removed (now surfaced via alert badge on Documents widget)
+- Attention + Review wide widgets kept, moved to bottom, made more compact
+
+**shared.css — two new sections:**
+- `.gh-modal-overlay` / `.gh-modal` — centered modal standard with open animation
+- Button label standard comment block documenting Save/Cancel/Delete/Archive rules
+
+**WIRING.md — standards documented:**
+- Popup/Modal standard: when to use drawer vs centered modal, HTML pattern
+- Button label standard: Save, Cancel, Delete, Archive — never OK/Submit/Remove/lone-×
+
+**Cancel buttons added to drawers that were missing them:**
+- career.html: cert, job, skill, education, goal drawers (5 total)
+- property.html: property, vehicle, maintenance drawers (3 total)
 
 ### v202603.112
 **Inventory.html — full fetch/authFetch migration to makeApi:**
