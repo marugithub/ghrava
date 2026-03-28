@@ -266,10 +266,6 @@
     <div class="filter-strip" id="filterStrip">
       <button class="filter-chip active" onclick="setFilter(this,'')">All</button>
     </div>
-    <div style="padding:0 16px 4px">
-      <button class="filter-chip" onclick="exportCsv()" style="border-color:var(--border2);color:var(--text2)">↓ CSV</button>
-    </div>
-
     <!-- List area -->
     <div id="hsaListArea"></div>
 
@@ -1380,26 +1376,6 @@ function otcRowHtml(r) {
     </div>`;
 }
 
-// ── CSV export ─────────────────────────────────────────────────
-async function exportCsv() {
-  const type = (hsaView === 'otc') ? 'otc' : 'payments';
-  try {
-    // Use raw fetch — CSV endpoint returns text/csv not JSON
-    const r = await fetch(`/api/v1/hsa/${type}/export/csv?year=${hsaYear}`, {
-      headers: { 'Authorization': `Bearer ${LT.authToken}` }
-    });
-    if (!r.ok) { toast('Export failed', 'err'); return; }
-    const blob = await r.blob();
-    const link = document.createElement('a');
-    link.href     = URL.createObjectURL(blob);
-    link.download = `hsa_${type}_${hsaYear}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(link.href);
-    toast(`Exported ${hsaYear} ${type === 'otc' ? 'OTC' : 'expenses'}`);
-  } catch (e) { toast(e.message, 'err'); }
-}
 
 // ── Add / Edit expense drawer ──────────────────────────────────
 async function openAddDrawer(type = 'payment') {
@@ -1731,7 +1707,7 @@ async function loadAccounts() {
   el.innerHTML = spinnerHtml();
   try {
     const [accounts, nw] = await Promise.all([
-      api('/finance/accounts'), api('/finance/net-worth/current')
+      api('GET', '/finance/accounts'), api('GET', '/finance/net-worth/current')
     ]);
     renderNetWorthStrip(nw);
     if (!accounts.length) { el.innerHTML = emptyState(...GH_EMPTY.accounts); return; }
@@ -2038,8 +2014,8 @@ async function loadNetWorthDetail() {
   if (el) el.innerHTML = spinnerHtml();
   try {
     const [nw, snaps] = await Promise.all([
-      api('/finance/net-worth/current'),
-      api('/finance/net-worth/snapshots')
+      api('GET', '/finance/net-worth/current'),
+      api('GET', '/finance/net-worth/snapshots')
     ]);
     const fmt = v => '$' + Math.abs(v||0).toLocaleString('en-US',{minimumFractionDigits:0});
     const fmtEl = (id, v, color) => { const el=$id_(id); if(el){el.textContent=fmt(v);if(color)el.style.color=color;} };
@@ -2228,7 +2204,7 @@ async function quickBalanceUpdate(id, currentBal) {
   if (isNaN(parsed)) { toast('Invalid amount','err'); return; }
   const h = {'Content-Type':'application/json'};
   if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
-  await fetch(`/api/v1/finance/gift-cards/${id}/balance`,{method:'PATCH',headers:h,body:JSON.stringify({balance:parsed})});
+  await api('PATCH', `/finance/gift-cards/${id}/balance`, {balance:parsed});
   toast('Balance updated'); loadGiftCards();
 }
 
@@ -2333,7 +2309,7 @@ async function gcDetailSaveBal() {
   if (isNaN(val)) { toast('Invalid amount','err'); return; }
   const h = {'Content-Type':'application/json'};
   if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
-  await fetch(`/api/v1/finance/gift-cards/${id}/balance`,{method:'PATCH',headers:h,body:JSON.stringify({balance:val})});
+  await api('PATCH', `/finance/gift-cards/${id}/balance`, {balance:val});
   toast('Balance updated');
   await loadGiftCards(); // refresh _gcAllCards
   // Update display

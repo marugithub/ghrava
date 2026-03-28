@@ -275,11 +275,13 @@ router.post('/properties/:id/maintenance', requireAuth, (req, res) => {
       return badRequest(res, 'maint_date, category and description required');
     const r = db.prepare(`
       INSERT INTO property_maintenance
-        (property_id, maint_date, category, description, cost, vendor, vendor_contact_id, warranty_expiry, next_due_date, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
+        (property_id, maint_date, category, description, cost, vendor, vendor_contact_id,
+         warranty_expiry, next_due_date, notes, is_completed, completed_date)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(req.params.id, d.maint_date, d.category, d.description,
            d.cost||null, d.vendor||null, d.vendor_contact_id||null,
-           d.warranty_expiry||null, d.next_due_date||null, d.notes||null);
+           d.warranty_expiry||null, d.next_due_date||null, d.notes||null,
+           d.is_completed ? 1 : 0, d.completed_date||null);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch(e) { serverError(res, e); }
 });
@@ -290,12 +292,34 @@ router.put('/properties/maintenance/:id', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE property_maintenance SET
         maint_date=?, category=?, description=?, cost=?, vendor=?, vendor_contact_id=?,
-        warranty_expiry=?, next_due_date=?, notes=?
+        warranty_expiry=?, next_due_date=?, notes=?,
+        is_completed=?, completed_date=?
       WHERE id=?
     `).run(d.maint_date, d.category, d.description, d.cost||null,
            d.vendor||null, d.vendor_contact_id||null,
            d.warranty_expiry||null, d.next_due_date||null,
-           d.notes||null, req.params.id);
+           d.notes||null,
+           d.is_completed ? 1 : 0, d.completed_date||null,
+           req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+// PATCH /properties/maintenance/:id/complete — quick-complete from list
+router.patch('/properties/maintenance/:id/complete', requireAuth, (req, res) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    db.prepare('UPDATE property_maintenance SET is_completed=1, completed_date=? WHERE id=?')
+      .run(today, req.params.id);
+    res.json({ ok: true, completed_date: today });
+  } catch(e) { serverError(res, e); }
+});
+
+// PATCH /properties/maintenance/:id/reopen — undo completion
+router.patch('/properties/maintenance/:id/reopen', requireAuth, (req, res) => {
+  try {
+    db.prepare('UPDATE property_maintenance SET is_completed=0, completed_date=NULL WHERE id=?')
+      .run(req.params.id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
 });

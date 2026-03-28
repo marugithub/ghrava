@@ -18,34 +18,231 @@
   }
 </script>
 <style>
-.kid-card { margin:10px 16px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--border);overflow:hidden; }
-.kid-card-header { display:flex;align-items:center;gap:14px;padding:14px 16px;cursor:pointer;-webkit-tap-highlight-color:transparent; }
-.kid-avatar { width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#ec4899,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff;flex-shrink:0; }
-.kid-name { font-size:17px;font-weight:700;color:var(--text); }
-.kid-meta { font-size:13px;color:var(--text3);margin-top:2px; }
-.kid-stats { display:flex;gap:16px;padding:0 16px 14px; }
-.kid-stat { text-align:center; }
-.kid-stat-val { font-size:18px;font-weight:800;color:var(--accent); }
-.kid-stat-lbl { font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase; }
-.detail-section-label { font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:14px 16px 6px; }
-.info-row { display:flex;justify-content:space-between;align-items:flex-start;padding:8px 16px;border-bottom:1px solid var(--border);gap:12px; }
-.info-row:last-child { border-bottom:none; }
-.info-label { font-size:13px;color:var(--text3);flex-shrink:0; }
-.info-value { font-size:13px;color:var(--text);text-align:right;flex:1; }
-.activity-row { display:flex;align-items:flex-start;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border); }
-.activity-row:last-child { border-bottom:none; }
-.activity-icon { width:36px;height:36px;border-radius:8px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:18px; }
-.activity-name { font-size:14px;font-weight:600;color:var(--text); }
-.activity-meta { font-size:12px;color:var(--text3);margin-top:2px; }
-.activity-inactive { opacity:.45; }
-.note-row { padding:10px 16px;border-bottom:1px solid var(--border);cursor:pointer;-webkit-tap-highlight-color:transparent; }
-.note-row:last-child { border-bottom:none; }
-.note-row:hover { background:var(--bg); }
-.note-header { display:flex;justify-content:space-between;align-items:baseline;gap:8px; }
-.note-title { font-size:13px;font-weight:600;color:var(--text); }
-.note-date { font-size:11px;color:var(--text3);font-family:var(--mono);flex-shrink:0; }
-.note-body { font-size:13px;color:var(--text2);margin-top:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden; }
-.note-cat-badge { font-size:10px;padding:1px 6px;border-radius:4px;background:var(--bg2);color:var(--text3);font-family:var(--mono); }
+/* ── Kids module — warm, engaging, kid-friendly layout ── */
+
+/* Kid selector — horizontal avatar strip instead of plain text tabs */
+#kidsTabs {
+  display: flex;
+  gap: 10px;
+  padding: 14px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  border-bottom: none;
+  background: transparent;
+}
+#kidsTabs::-webkit-scrollbar { display: none; }
+
+.kid-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0 4px 10px;
+  position: relative;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.kid-tab-avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800; color: #fff;
+  border: 2px solid transparent;
+  transition: transform .15s, border-color .15s;
+  position: relative;
+}
+.kid-tab.active .kid-tab-avatar {
+  border-color: #fff;
+  transform: scale(1.06);
+  box-shadow: 0 4px 12px rgba(0,0,0,.18);
+}
+.kid-tab-name {
+  font-size: 11px; font-weight: 700; color: var(--text3);
+  letter-spacing: .02em; white-space: nowrap;
+}
+.kid-tab.active .kid-tab-name { color: #ec4899; }
+
+/* Active indicator line under selected */
+.kid-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 28px; height: 3px;
+  background: #ec4899;
+  border-radius: 2px;
+}
+
+/* Divider under avatar strip */
+.kid-strip-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 0 16px;
+}
+
+/* Hero banner — shows on profile tab */
+.kid-hero {
+  background: linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%);
+  padding: 20px 20px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+}
+.kid-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.kid-hero-avatar {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.25);
+  border: 3px solid rgba(255,255,255,.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 28px; font-weight: 800; color: #fff;
+  flex-shrink: 0;
+  position: relative;
+}
+.kid-hero-name {
+  font-size: 22px; font-weight: 800; color: #fff;
+  letter-spacing: -.02em; line-height: 1.1;
+}
+.kid-hero-sub {
+  font-size: 13px; color: rgba(255,255,255,.8);
+  margin-top: 3px;
+}
+
+/* Stats strip below hero */
+.kid-stats-strip {
+  display: flex;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+}
+.kid-stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 8px 8px;
+  border-right: 1px solid var(--border);
+}
+.kid-stat-item:last-child { border-right: none; }
+.kid-stat-val {
+  font-size: 20px; font-weight: 800; color: #ec4899;
+  letter-spacing: -.02em; line-height: 1;
+}
+.kid-stat-lbl {
+  font-size: 9px; font-weight: 600; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--text3);
+  margin-top: 3px; font-family: var(--mono);
+}
+
+/* Profile section label */
+.kid-section-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text3); padding: 14px 16px 6px;
+}
+
+/* Info rows */
+.info-row {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; padding: 9px 16px;
+  border-bottom: 1px solid var(--border); gap: 12px;
+}
+.info-row:last-child { border-bottom: none; }
+.info-label { font-size: 13px; color: var(--text3); flex-shrink: 0; }
+.info-value { font-size: 13px; color: var(--text); text-align: right; flex: 1; }
+
+/* Alert card (health/safety) */
+.kid-alert-card {
+  margin: 0 16px 8px;
+  padding: 10px 14px;
+  border-radius: var(--r);
+  background: var(--bg2);
+  border-left: 3px solid var(--red);
+}
+.kid-alert-label {
+  font-size: 10px; color: var(--red); font-family: var(--mono);
+  font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  margin-bottom: 3px;
+}
+.kid-alert-value { font-size: 14px; color: var(--text); line-height: 1.5; }
+.kid-alert-card.amber { border-color: var(--amber); }
+.kid-alert-card.amber .kid-alert-label { color: var(--amber); }
+
+/* Activity row */
+.activity-row {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.activity-row:last-child { border-bottom: none; }
+.activity-row:hover { background: var(--bg3); }
+.activity-icon {
+  width: 38px; height: 38px; border-radius: 10px;
+  flex-shrink: 0; display: flex; align-items: center;
+  justify-content: center; font-size: 20px;
+  background: rgba(236,72,153,.1);
+}
+.activity-name { font-size: 14px; font-weight: 600; color: var(--text); }
+.activity-meta { font-size: 12px; color: var(--text3); margin-top: 2px; line-height: 1.4; }
+.activity-inactive { opacity: .45; }
+
+/* Note row */
+.note-row {
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  cursor: pointer; transition: background .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.note-row:last-child { border-bottom: none; }
+.note-row:hover { background: var(--bg3); }
+.note-header {
+  display: flex; justify-content: space-between;
+  align-items: baseline; gap: 8px;
+}
+.note-title { font-size: 13px; font-weight: 600; color: var(--text); }
+.note-date { font-size: 11px; color: var(--text3); font-family: var(--mono); flex-shrink: 0; }
+.note-body {
+  font-size: 12px; color: var(--text3); margin-top: 4px;
+  display: -webkit-box; -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.note-cat-badge {
+  font-size: 10px; padding: 2px 7px; border-radius: 4px;
+  background: var(--bg3); color: var(--text3);
+  font-family: var(--mono); border: 1px solid var(--border);
+  display: inline-block; margin-top: 4px;
+}
+
+/* Points placeholder — shown on profile, wired when gamification lands */
+.kid-points-banner {
+  margin: 12px 16px 0;
+  background: linear-gradient(135deg, rgba(236,72,153,.1) 0%, rgba(139,92,246,.1) 100%);
+  border: 1px solid rgba(236,72,153,.2);
+  border-radius: var(--r-lg);
+  padding: 12px 16px;
+  display: flex; align-items: center; gap: 12px;
+}
+.kid-points-star {
+  font-size: 28px; flex-shrink: 0;
+}
+.kid-points-val {
+  font-size: 24px; font-weight: 800; color: #ec4899; line-height: 1;
+}
+.kid-points-lbl {
+  font-size: 11px; color: var(--text3); margin-top: 2px;
+  font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em;
+}
+.kid-points-placeholder {
+  font-size: 13px; color: var(--text3); font-style: italic;
+}
 </style>
 </head>
 <body>
@@ -59,21 +256,22 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
 
 <div id="app" style="padding-bottom:80px">
 
-  <!-- Child selector tabs — populated dynamically from kids in DB -->
-  <div class="view-tabs" id="kidsTabs" style="--tab-color:#ec4899">
-    <div class="view-tab active" style="color:var(--text3);font-style:italic;pointer-events:none">Loading…</div>
+  <!-- Kid avatar strip — rendered by renderKidsTabs() -->
+  <div id="kidsTabs">
+    <div style="color:var(--text3);font-style:italic;font-size:13px;padding:20px 16px">Loading…</div>
+  </div>
+  <div class="kid-strip-divider"></div>
+
+  <!-- Search bar — filters across all kids data when typing -->
+  <div class="search-wrap" id="kidsSearchWrap" style="margin:8px 16px 0;display:none">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input class="search-input" id="kidsSearch" type="search" placeholder="Search activities, notes…" autocomplete="off">
   </div>
 
-  <!-- Per-child section header with edit button -->
-  <div id="kidSectionHeader" style="display:none;padding:8px 16px 0;display:flex;align-items:center;justify-content:space-between">
-    <div id="detailKidName" style="font-size:15px;font-weight:600;color:var(--text3)"></div>
-    <button onclick="editCurrentKid()" style="background:none;border:none;color:var(--text3);cursor:pointer;padding:4px;display:flex;align-items:center;gap:4px;font-size:12px">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M11 4H4a2 2 0 00-2 2v16a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-      Edit
-    </button>
-  </div>
+  <!-- Hero banner + sub-tabs — shown after a kid is selected -->
+  <div id="kidSectionHeader" style="display:none"></div>
 
-  <!-- Content sub-tabs (profile / activities / notes) -->
+  <!-- Content sub-tabs -->
   <div class="view-tabs" id="kidDetailTabs" style="--tab-color:#ec4899;display:none">
     <button class="view-tab active" onclick="setDetailTab('profile',this)">Profile</button>
     <button class="view-tab" onclick="setDetailTab('activities',this)">Activities</button>
@@ -186,14 +384,22 @@ async function loadKids(){
 
 function renderKidsTabs(){
   const tabs = $('kidsTabs');
-  if(!_kids.length){
-    tabs.innerHTML=emptyState(...GH_EMPTY.kids);
-    return;
-  }
-  tabs.innerHTML = _kids.map((k,i)=>`
-    <button class="view-tab${i===0?' active':''}" data-kid-id="${k.id}" onclick="openKidDetail(${k.id})">
-      ${esc(k.display_name)}
-    </button>`).join('');
+  if(!_kids.length){ tabs.innerHTML=emptyState(...GH_EMPTY.kids); return; }
+  // Avatar gradient pool — cycles per kid
+  const GRADS = [
+    'linear-gradient(135deg,#ec4899,#8b5cf6)',
+    'linear-gradient(135deg,#3b82f6,#06b6d4)',
+    'linear-gradient(135deg,#f97316,#f59e0b)',
+    'linear-gradient(135deg,#22c55e,#14b8a6)',
+  ];
+  tabs.innerHTML = _kids.map((k,i)=>{
+    const initial = k.display_name[0].toUpperCase();
+    const grad = GRADS[i % GRADS.length];
+    return `<button class="kid-tab${i===0?' active':''}" data-kid-id="${k.id}" onclick="openKidDetail(${k.id})">
+      <div class="kid-tab-avatar" style="background:${grad}">${esc(initial)}</div>
+      <div class="kid-tab-name">${esc(k.display_name.split(' ')[0])}</div>
+    </button>`;
+  }).join('');
 }
 
 function kidCard(k){
@@ -204,16 +410,53 @@ function kidCard(k){
 
 async function openKidDetail(id){
   try{
-    // Update active tab
-    document.querySelectorAll('#kidsTabs .view-tab').forEach(b=>{
+    // Update active avatar tab
+    document.querySelectorAll('#kidsTabs .kid-tab').forEach(b=>{
       b.classList.toggle('active', +b.dataset.kidId === id);
     });
 
-    _currentKid=await api('GET', `/${id}`);
+    _currentKid = await api('GET', `/${id}`);
+    const k = _currentKid;
+
+    // Hero banner in section header
+    const GRADS = [
+      'linear-gradient(135deg,#ec4899,#8b5cf6)',
+      'linear-gradient(135deg,#3b82f6,#06b6d4)',
+      'linear-gradient(135deg,#f97316,#f59e0b)',
+      'linear-gradient(135deg,#22c55e,#14b8a6)',
+    ];
+    const kidIdx = _kids.findIndex(x=>x.id===id);
+    const grad = GRADS[kidIdx % GRADS.length];
+    const initial = k.display_name[0].toUpperCase();
+    const ageLine = [k.age!=null?k.age+' yrs':'', k.grade?'Grade '+k.grade:'', k.school_name||''].filter(Boolean).join(' · ');
+    $('kidSectionHeader').style.display = 'block';
+    $('kidSectionHeader').innerHTML = `
+      <div class="kid-hero" style="background:${grad}">
+        <div class="kid-hero-avatar">${esc(initial)}</div>
+        <div style="flex:1;min-width:0">
+          <div class="kid-hero-name">${esc(k.display_name)}</div>
+          <div class="kid-hero-sub">${esc(ageLine)||'No age set'}</div>
+        </div>
+        <button onclick="editCurrentKid()" style="background:rgba(255,255,255,.2);border:none;border-radius:8px;color:#fff;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">Edit</button>
+      </div>
+      <div class="kid-stats-strip">
+        <div class="kid-stat-item">
+          <div class="kid-stat-val" style="color:#ec4899">${k.activity_count||0}</div>
+          <div class="kid-stat-lbl">Activities</div>
+        </div>
+        <div class="kid-stat-item">
+          <div class="kid-stat-val" style="color:#8b5cf6">${k.note_count||0}</div>
+          <div class="kid-stat-lbl">Notes</div>
+        </div>
+        ${k.school_name?`<div class="kid-stat-item" style="flex:2;align-items:flex-start;padding-left:16px">
+          <div class="kid-stat-val" style="font-size:13px;font-weight:700;color:var(--text)">${esc(k.school_name)}</div>
+          <div class="kid-stat-lbl">School</div>
+        </div>`:''}
+      </div>`;
 
     // Show detail area
-    $('kidSectionHeader').style.display='flex';
     $('kidDetailTabs').style.display='flex';
+    $('kidsSearchWrap').style.display='';
     $('kidDetailView').style.display='block';
     $('mainFab').style.display='none';
     $('actFab').style.display='none';
@@ -239,22 +482,61 @@ function setDetailTab(tab,btn){
 }
 
 function renderProfile(){
-  const k=_currentKid;if(!k)return;
-  const dob=k.date_of_birth?new Date(k.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}):'—';
-  const rows=[['Date of Birth',dob+(k.age!=null?` (age ${k.age})`:' ')],['Grade',k.grade||'—'],['School',k.school_name||'—'],['Teacher',k.teacher_name||'—'],['Homeroom',k.homeroom||'—']];
-  const alerts=[['Allergies',k.allergies,'var(--red)'],['Medications',k.medications_note,'var(--amber)'],['Emergency Note',k.emergency_note,'var(--red)']].filter(r=>r[1]);
-  let html='<div class="detail-section-label" style="padding-top:8px">Info</div><div class="card card-static" style="margin:0 16px;padding:0">';
-  html+=rows.map(r=>`<div class="info-row"><span class="info-label">${r[0]}</span><span class="info-value">${esc(r[1])}</span></div>`).join('');
-  html+='</div>';
-  if(alerts.length){html+='<div class="detail-section-label">Health & Safety</div>';alerts.forEach(([l,v,c])=>{html+=`<div style="margin:0 16px 8px;padding:10px 14px;border-radius:var(--r);background:var(--bg2);border:1px solid var(--border)"><div style="font-size:11px;color:${c};font-family:var(--mono);font-weight:600;margin-bottom:3px;text-transform:uppercase;letter-spacing:.06em">${l}</div><div style="font-size:14px;color:var(--text);line-height:1.5">${esc(v)}</div></div>`;});}
-  if(k.notes){html+=`<div class="detail-section-label">Notes</div><div style="margin:0 16px 16px;font-size:14px;color:var(--text2);line-height:1.6">${esc(k.notes)}</div>`;}
-  if(k.medical_visits?.length){html+='<div class="detail-section-label">Recent Medical Visits</div><div class="card card-static" style="margin:0 16px;padding:0">';k.medical_visits.forEach(v=>{html+=`<div class="info-row"><span class="info-label" style="font-family:var(--mono);font-size:11px">${v.visit_date||''}</span><span class="info-value">${esc(v.visit_type||'')}${v.doctor_name?' · '+esc(v.doctor_name):''}</span></div>`;});html+='</div>';}
-  $('kidProfileContent').innerHTML=html;
+  const k=_currentKid; if(!k) return;
+  const dob = k.date_of_birth
+    ? new Date(k.date_of_birth+'T00:00:00').toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})
+    : '—';
+  const rows = [
+    ['Date of Birth', dob+(k.age!=null?` (age ${k.age})`:' ')],
+    ['Grade', k.grade||'—'],
+    ['Teacher', k.teacher_name||'—'],
+    ['Homeroom', k.homeroom||'—'],
+  ];
+  const alerts = [
+    ['Allergies', k.allergies, ''],
+    ['Medications', k.medications_note, 'amber'],
+    ['Emergency Note', k.emergency_note, ''],
+  ].filter(r=>r[1]);
+
+  let html = '';
+
+  // Points placeholder — will be wired when gamification is built
+  html += `<div class="kid-points-banner" style="margin:12px 16px 0">
+    <div class="kid-points-star">⭐</div>
+    <div>
+      <div class="kid-points-val">—</div>
+      <div class="kid-points-lbl">Points</div>
+    </div>
+    <div class="kid-points-placeholder" style="margin-left:8px">Gamification coming soon</div>
+  </div>`;
+
+  html += '<div class="kid-section-label">Info</div>';
+  html += '<div class="card card-static" style="margin:0 16px;padding:0">';
+  html += rows.map(r=>`<div class="info-row"><span class="info-label">${r[0]}</span><span class="info-value">${esc(r[1])}</span></div>`).join('');
+  html += '</div>';
+
+  if(alerts.length){
+    html += '<div class="kid-section-label">Health & Safety</div>';
+    alerts.forEach(([l,v,cls])=>{
+      html += `<div class="kid-alert-card${cls?' '+cls:''}">
+        <div class="kid-alert-label">${l}</div>
+        <div class="kid-alert-value">${esc(v)}</div>
+      </div>`;
+    });
+  }
+
+  if(k.notes){
+    html += `<div class="kid-section-label">Notes</div>
+      <div style="margin:0 16px 16px;font-size:14px;color:var(--text2);line-height:1.6">${esc(k.notes)}</div>`;
+  }
+
+  $('kidProfileContent').innerHTML = html;
 }
 
-function renderActivities(){
-  const acts=_currentKid?.activities||[];
-  if(!acts.length){$('kidActivitiesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">🏅</div><div style="color:var(--text3);font-size:14px">No activities yet — tap + to add one</div></div>';return;}
+function renderActivities(q=''){
+  const acts=(_currentKid?.activities||[]).filter(a=>!q||
+    (a.name||'').toLowerCase().includes(q)||(a.category||'').toLowerCase().includes(q)||(a.location||'').toLowerCase().includes(q));
+  if(!acts.length&&!q){$('kidActivitiesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">🏅</div><div style="color:var(--text3);font-size:14px">No activities yet — tap + to add one</div></div>';return;}
   const active=acts.filter(a=>a.is_active),inactive=acts.filter(a=>!a.is_active);
   let html='';
   if(active.length){html+='<div class="detail-section-label" style="padding-top:8px">Active</div><div class="card card-static" style="margin:0 16px;padding:0">'+active.map(a=>actRow(a)).join('')+'</div>';}
@@ -270,9 +552,10 @@ function actRow(a,inactive){
   return `<div class="activity-row${inactive?' activity-inactive':''}" data-aid="${a.id}" style="cursor:pointer"><div class="activity-icon" style="background:var(--bg2)">${icon}</div><div style="flex:1"><div class="activity-name">${esc(a.name)}</div><div class="activity-meta">${[a.category,tline,a.location,cost].filter(Boolean).join(' · ')}</div></div><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>`;
 }
 
-function renderNotes(){
-  const notes=_currentKid?.notes||[];
-  if(!notes.length){$('kidNotesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">📝</div><div style="color:var(--text3);font-size:14px">No notes yet — tap + to add one</div></div>';return;}
+function renderNotes(q=''){
+  const notes=(_currentKid?.notes||[]).filter(n=>!q||
+    (n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q)||(n.category||'').toLowerCase().includes(q));
+  if(!notes.length&&!q){$('kidNotesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">📝</div><div style="color:var(--text3);font-size:14px">No notes yet — tap + to add one</div></div>';return;}
   $('kidNotesContent').innerHTML='<div class="card card-static" style="margin:8px 16px;padding:0">'+notes.map(n=>{
     const color=NOTE_COLORS[n.category]||'var(--text3)';
     return `<div class="note-row" data-nid="${n.id}"><div class="note-header"><span class="note-title">${esc(n.title||n.body.slice(0,40))}</span><span class="note-date">${n.note_date||''}</span></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span class="note-cat-badge" style="border:1px solid ${color};color:${color}">${n.category}</span>${n.title?`<span class="note-body" style="margin-top:0">${esc(n.body.slice(0,80))}</span>`:''}</div></div>`;
@@ -294,7 +577,7 @@ function editCurrentKid(){openKidDrawer(_currentKid);}
 
 $('kidCancel').addEventListener('click',()=>$('kidDrawer').classList.remove('open'));
 $('kidDelete').addEventListener('click',async()=>{
-  if(!await LT.confirm({message:`Remove ${_currentKid?.display_name}? All activities and notes will be deleted.`}))return;
+  if(!await LT.confirm({msg:`Remove ${_currentKid?.display_name}? All activities and notes will be deleted.`}))return;
   await api('DELETE', `/${_editingKidId}`);
   $('kidDrawer').classList.remove('open');toast('Removed','ok');showList();
 });
@@ -326,7 +609,7 @@ async function openActivityDrawer(aid){
 }
 $('actCancel').addEventListener('click',()=>$('actDrawer').classList.remove('open'));
 $('actDelete').addEventListener('click',async()=>{
-  if(!await LT.confirm({message:'Delete this activity?'}))return;
+  if(!await LT.confirm({msg:'Delete this activity?'}))return;
   await api('DELETE', `/${_currentKid.id}/activities/${_editingActId}`);
   $('actDrawer').classList.remove('open');toast('Deleted','ok');
   _currentKid=await api('GET', `/${_currentKid.id}`);renderActivities();
@@ -357,7 +640,7 @@ async function openNoteDrawer(nid){
 }
 $('noteCancel').addEventListener('click',()=>$('noteDrawer').classList.remove('open'));
 $('noteDelete').addEventListener('click',async()=>{
-  if(!await LT.confirm({message:'Delete this note?'}))return;
+  if(!await LT.confirm({msg:'Delete this note?'}))return;
   await api('DELETE', `/${_currentKid.id}/notes/${_editingNoteId}`);
   $('noteDrawer').classList.remove('open');toast('Deleted','ok');
   _currentKid=await api('GET', `/${_currentKid.id}`);renderNotes();

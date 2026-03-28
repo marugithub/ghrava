@@ -29,15 +29,21 @@
     <button class="view-tab" onclick="switchTab('maint',this)">🔧 Maintenance</button>
   </div>
 
+  <!-- Search bar -->
+  <div class="search-wrap" style="margin:8px 16px 0">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input class="search-input" id="propSearch" type="search" placeholder="Search properties, vehicles, maintenance…" autocomplete="off">
+  </div>
+
   <div class="view-panel active" id="panel-props">
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Properties</span>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openPropDrawer()">+ Add</button>
     </div>
     <div style="display:flex;gap:8px;padding:8px 16px 4px">
-      <div class="hsa-card" style="flex:1;text-align:center"><div class="hsa-card-label">Est. Value</div><div id="pTotalVal" class="hsa-card-value" style="color:var(--green)">—</div></div>
-      <div class="hsa-card" style="flex:1;text-align:center"><div class="hsa-card-label">Mortgage</div><div id="pTotalMort" class="hsa-card-value" style="color:var(--red)">—</div></div>
-      <div class="hsa-card" style="flex:1;text-align:center"><div class="hsa-card-label">Equity</div><div id="pEquity" class="hsa-card-value">—</div></div>
+      <div class="stat-chip card-static" style="flex:1;text-align:center"><div class="stat-chip-lbl">Est. Value</div><div id="pTotalVal" class="stat-chip-val" style="color:var(--green)">—</div></div>
+      <div class="stat-chip card-static" style="flex:1;text-align:center"><div class="stat-chip-lbl">Mortgage</div><div id="pTotalMort" class="stat-chip-val" style="color:var(--red)">—</div></div>
+      <div class="stat-chip card-static" style="flex:1;text-align:center"><div class="stat-chip-lbl">Equity</div><div id="pEquity" class="stat-chip-val">—</div></div>
     </div>
     <div id="propList" style="padding:4px 16px 0"><div class="spinner"><div class="spin"></div>Loading…</div></div>
   </div>
@@ -46,8 +52,6 @@
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Vehicles</span>
       <div style="display:flex;gap:8px;align-items:center">
-        <a href="/api/v1/property/vehicles/export/csv" style="padding:4px 10px;font-size:11px;color:var(--text3);text-decoration:none;white-space:nowrap;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)" title="Download vehicles as CSV">↓ CSV</a>
-        <a href="/api/v1/property/vehicles/service/export/csv" style="padding:4px 10px;font-size:11px;color:var(--text3);text-decoration:none;white-space:nowrap;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)" title="Download service log as CSV">↓ Service CSV</a>
         <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openVehDrawer()">+ Add</button>
       </div>
     </div>
@@ -59,7 +63,6 @@
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Property Maintenance</span>
       <div style="display:flex;gap:8px;align-items:center">
-        <a href="/api/v1/property/maintenance/export/csv" style="padding:4px 10px;font-size:11px;color:var(--text3);text-decoration:none;white-space:nowrap;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2)" title="Download maintenance log as CSV">↓ CSV</a>
         <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openMaintDrawer()">+ Add</button>
       </div>
     </div>
@@ -278,6 +281,19 @@
   <div class="form-group">
     <label class="form-label">Notes</label>
     <textarea class="form-textarea" id="mNotes" style="min-height:60px"></textarea>
+  </div>
+  <div class="form-row">
+    <div class="form-group">
+      <label class="form-label">Completed?</label>
+      <select class="form-select" id="mCompleted" onchange="if(this.value==='1'&&!$('mCompletedDate').value)$('mCompletedDate').value=new Date().toISOString().slice(0,10)">
+        <option value="">No</option>
+        <option value="1">Yes</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Completed Date</label>
+      <input class="form-input" type="date" id="mCompletedDate">
+    </div>
   </div>
   <div style="display:flex;gap:8px;margin-top:4px">
     <button class="btn btn-primary" id="maintSaveBtn" style="flex:1" onclick="saveMaint()">Save</button>
@@ -591,7 +607,13 @@ async function loadPropertyDropdowns(currentPType, currentMCat) {
   await GH_SELECT.init('pType', 'property_type',                  currentPType ||'Primary Residence', { allowAdd: true });
   await GH_SELECT.init('mCat',  'property_maintenance_category',  currentMCat  ||'Roof',               { allowAdd: true });
 }
-document.addEventListener('DOMContentLoaded',()=>{ loadProps(); });
+document.addEventListener('DOMContentLoaded',()=>{ loadProps();   $('propSearch').addEventListener('input', e => {
+    _propSearch = e.target.value.trim().toLowerCase();
+    if (currentTab==='props') loadProps();
+    else if (currentTab==='vehs') loadVehs();
+    else if (currentTab==='maint') loadMaint();
+  });
+});
 
 // ── MAINTENANCE ───────────────────────────────────────────────
 let _editMaintId = null;
@@ -621,7 +643,7 @@ async function loadMaint(){
     } else {
       // Fetch for all props
       const all = await Promise.all((_allProps||[]).map(p=>
-        api(`/properties/${p.id}/maintenance`).then(r=>r.map(x=>({...x,_propName:p.nickname||p.property_type}))).catch(()=>[])
+        api('GET', `/properties/${p.id}/maintenance`).then(r=>r.map(x=>({...x,_propName:p.nickname||p.property_type}))).catch(()=>[])
       ));
       records = all.flat().sort((a,b)=>b.maint_date.localeCompare(a.maint_date));
     }
@@ -645,7 +667,7 @@ async function loadMaint(){
           <div style="flex:1;min-width:0">
             <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
               <span style="font-weight:600;font-size:13px">${esc(r.description)}</span>
-              ${nextDue?`<span style="font-size:10px;font-weight:700;background:rgba(245,158,11,.12);color:var(--amber);padding:1px 6px;border-radius:4px">OVERDUE</span>`:''}
+              ${r.is_completed?`<span style="font-size:10px;font-weight:700;background:rgba(34,197,94,.12);color:var(--green);padding:1px 6px;border-radius:4px">✓ Done</span>`:nextDue?`<span style="font-size:10px;font-weight:700;background:rgba(245,158,11,.12);color:var(--amber);padding:1px 6px;border-radius:4px">OVERDUE</span>`:''}
               ${warrantyOk?`<span style="font-size:10px;background:rgba(34,197,94,.1);color:var(--green);padding:1px 6px;border-radius:4px">Warranty</span>`:''}
             </div>
             <div style="font-size:11px;color:var(--text3);margin-top:3px;display:flex;gap:8px;flex-wrap:wrap">
@@ -656,7 +678,14 @@ async function loadMaint(){
               ${r.next_due_date?`<span>Next: ${r.next_due_date}</span>`:''}
             </div>
           </div>
-          ${r.cost?`<div style="font-family:var(--mono);font-weight:700;font-size:13px;color:var(--text);flex-shrink:0">${fmt$(r.cost)}</div>`:''}
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
+            ${r.cost?`<div style="font-family:var(--mono);font-weight:700;font-size:13px;color:var(--text)">${fmt$(r.cost)}</div>`:''}
+            ${r.is_completed
+              ?`<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--text3)"
+                  onclick="event.stopPropagation();reopenMaint(${r.id})">Reopen</button>`
+              :`<button class="btn btn-ghost" style="padding:2px 8px;font-size:11px;color:var(--green)"
+                  onclick="event.stopPropagation();completeMaint(${r.id})">✓ Done</button>`}
+          </div>
         </div>
         ${r.notes?`<div style="font-size:12px;color:var(--text2);margin-top:5px;line-height:1.5">${esc(r.notes)}</div>`:''}
       </div>`;
@@ -680,13 +709,13 @@ function openMaintDrawer(id){
   if(id){
     // Find the record — fetch all and locate
     const propId = $('mProp').value||(_allProps[0]?.id);
-    api(`/properties/${propId}/maintenance`).then(records=>{
+    api('GET', `/properties/${propId}/maintenance`).then(records=>{
       // Try all props if not found
       const r=records.find(x=>x.id===id);
       if(r) populateMaintForm(r);
       else {
         // Search across all props
-        Promise.all(_allProps.map(p=>api(`/properties/${p.id}/maintenance`).catch(()=>[]))).then(all=>{
+        Promise.all(_allProps.map(p=>api('GET', `/properties/${p.id}/maintenance`).catch(()=>[]))).then(all=>{
           const found=all.flat().find(x=>x.id===id);
           if(found){ $('mProp').value=found.property_id; populateMaintForm(found); }
         });
@@ -709,8 +738,10 @@ function populateMaintForm(r){
   $('mCost').value    = r.cost||'';
   GH_REFS.populateContact('mVendor', r.vendor_contact_id||null, { type: 'Contractor', placeholder: '— none —' });
   $('mWarranty').value= r.warranty_expiry||'';
-  $('mNextDue').value = r.next_due_date||'';
-  $('mNotes').value   = r.notes||'';
+  $('mNextDue').value       = r.next_due_date||'';
+  $('mNotes').value         = r.notes||'';
+  $('mCompleted').value     = r.is_completed ? '1' : '';
+  $('mCompletedDate').value = r.completed_date||'';
 }
 
 async function saveMaint(){
@@ -726,6 +757,8 @@ async function saveMaint(){
     vendor_contact_id: vendorVal ? parseInt(vendorVal) : null,
     warranty_expiry:$('mWarranty').value||null, next_due_date:$('mNextDue').value||null,
     notes:$('mNotes').value.trim()||null,
+    is_completed: $('mCompleted').value === '1' ? 1 : 0,
+    completed_date: $('mCompletedDate').value || null,
   };
   try{
     if(_editMaintId) await api('PUT', `/properties/maintenance/${_editMaintId}`, body);
@@ -739,9 +772,24 @@ async function saveMaint(){
 
 async function deleteMaint(){
   if(!_editMaintId) return;
-  if(!await LT.confirm('Delete this maintenance record?')) return;
-  await api('DELETE', `/properties/maintenance/${_editMaintId}`);
+  const id = _editMaintId;
+  if (!await LT.confirm({ title:'Delete record?', msg:'This cannot be undone.', confirmLabel:'Delete' })) return;
+  await api('DELETE', `/properties/maintenance/${id}`);
   toast('Deleted'); $('maintDrawer').classList.remove('open'); loadMaint();
+}
+
+async function completeMaint(id){
+  try{
+    await api('PATCH', `/properties/maintenance/${id}/complete`);
+    toast('Marked complete'); loadMaint();
+  }catch(e){ toast(e.message||'Failed','err'); }
+}
+
+async function reopenMaint(id){
+  try{
+    await api('PATCH', `/properties/maintenance/${id}/reopen`);
+    toast('Reopened'); loadMaint();
+  }catch(e){ toast(e.message||'Failed','err'); }
 }
 </script>
 </body>

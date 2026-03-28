@@ -366,9 +366,12 @@ window.toast = function(msg, type = 'ok') {
 
 // ── Confirm overlay ───────────────────────────────────────────
 // Injects a single confirm-overlay into the page on first use.
-// Usage: LT.confirm({ title, msg, danger, onConfirm })
+// Usage:
+//   await LT.confirm({ title, msg, confirmLabel, danger }) → resolves true/false
+//   LT.confirm({ ..., onConfirm: async () => { ... } })   → callback style
+//   await LT.confirm('Quick message string')               → resolves true/false
 (function initConfirm() {
-  let _cb = null;
+  let _resolve = null;
 
   function inject() {
     if (document.getElementById('ltConfirmOverlay')) return;
@@ -390,25 +393,42 @@ window.toast = function(msg, type = 'ok') {
 
     document.getElementById('ltConfirmNo').addEventListener('click', () => {
       el.classList.remove('open');
-      _cb = null;
+      if (_resolve) { _resolve(false); _resolve = null; }
     });
     document.getElementById('ltConfirmYes').addEventListener('click', () => {
       el.classList.remove('open');
-      const cb = _cb; _cb = null;
-      if (cb) cb();
+      if (_resolve) { _resolve(true); _resolve = null; }
     });
-    el.addEventListener('pointerdown', e => { if (e.target === el) { el.classList.remove('open'); _cb = null; } });
+    el.addEventListener('pointerdown', e => {
+      if (e.target === el) {
+        el.classList.remove('open');
+        if (_resolve) { _resolve(false); _resolve = null; }
+      }
+    });
   }
 
-  LT.confirm = function({ title = 'Delete?', msg = 'This cannot be undone.', confirmLabel = 'Delete', danger = true, onConfirm } = {}) {
+  LT.confirm = function(opts = {}) {
+    // Accept a plain string as shorthand: LT.confirm('Are you sure?')
+    if (typeof opts === 'string') opts = { msg: opts };
+
     inject();
+    const { title = 'Delete?', msg = 'This cannot be undone.',
+            confirmLabel = 'Delete', danger = true, onConfirm } = opts;
+
     document.getElementById('ltConfirmTitle').textContent = title;
     document.getElementById('ltConfirmMsg').textContent   = msg;
     const yesBtn = document.getElementById('ltConfirmYes');
-    yesBtn.textContent  = confirmLabel;
-    yesBtn.className    = danger ? 'btn btn-danger' : 'btn btn-primary';
-    _cb = onConfirm || null;
+    yesBtn.textContent = confirmLabel;
+    yesBtn.className   = danger ? 'btn btn-danger' : 'btn btn-primary';
     document.getElementById('ltConfirmOverlay').classList.add('open');
+
+    // Always return a Promise — onConfirm callback also supported
+    return new Promise(resolve => {
+      _resolve = (result) => {
+        if (result && onConfirm) onConfirm();
+        resolve(result);
+      };
+    });
   };
 })();
 

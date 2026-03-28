@@ -134,7 +134,7 @@ html, body {
 }
 
 :root {
-  --nav-header-h: 80px;
+  --nav-header-h: 92px;
 }
 
 .side-nav-logo {
@@ -1090,12 +1090,12 @@ html, body {
 .gh-hamburger:hover { background: var(--bg4); border-color: var(--border2); color: var(--text); }
 
 .gh-header-icon {
-  width: 32px; height: 32px;
-  border-radius: 9px;
+  width: 40px; height: 40px;
+  border-radius: 11px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.gh-header-icon svg { width: 17px; height: 17px; }
+.gh-header-icon svg { width: 22px; height: 22px; }
 
 .gh-header-title-wrap { flex: 1; min-width: 0; }
 
@@ -1161,7 +1161,7 @@ html, body {
 @media (min-width: 900px) {
   .gh-header-row { padding: 12px 24px; height: var(--nav-header-h); box-sizing: border-box; }
   .gh-header-title { font-size: 16px; }
-  .gh-header-back--desktop { display: flex; } /* show home button on desktop */
+  .gh-header-back--desktop { display: none; } /* back button removed — sidebar handles navigation */
 }
 
 /* ── Notification panel ───────────────────────────────────── */
@@ -1404,6 +1404,154 @@ html, body {
    Destructive alt:  <button class="btn btn-danger">Delete</button>
    Never: "OK", "Submit", "Add", "Remove", "del", lone × close buttons
    ══════════════════════════════════════════════════════════════ */
+
+
+/* ══════════════════════════════════════════════════════════════
+   STATS ROW — compact stat chips used across modules
+   Usage: <div class="stats-row">
+            <div class="stat-chip"><span class="stat-chip-val">12</span><span class="stat-chip-lbl">Open</span></div>
+          </div>
+   ══════════════════════════════════════════════════════════════ */
+.stats-row {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.stats-row::-webkit-scrollbar { display: none; }
+.stat-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 6px 12px;
+  min-width: 52px;
+  flex-shrink: 0;
+}
+.stat-chip-val {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  color: var(--text);
+  line-height: 1;
+}
+.stat-chip-lbl {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-top: 3px;
+  font-family: var(--mono);
+  white-space: nowrap;
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FILTER PILLS — horizontal scrolling filter strip
+   Usage: <div class="filter-strip">
+            <button class="filter-pill active" data-val="">All</button>
+            <button class="filter-pill" data-val="urgent">Urgent</button>
+          </div>
+   ══════════════════════════════════════════════════════════════ */
+.filter-strip {
+  display: flex;
+  gap: 6px;
+  padding: 8px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.filter-strip::-webkit-scrollbar { display: none; }
+.filter-pill {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  border-radius: 99px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+  -webkit-tap-highlight-color: transparent;
+}
+.filter-pill:hover { border-color: var(--border2); color: var(--text2); }
+.filter-pill.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
+
+/* ══════════════════════════════════════════════════════════════
+   BULK ACTION BAR — sticky action bar for multi-select
+   ══════════════════════════════════════════════════════════════ */
+.bulk-bar {
+  display: none;
+  position: sticky;
+  top: 54px;
+  z-index: 90;
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 16px;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.bulk-bar.visible { display: flex; }
+.bulk-bar-btn {
+  background: rgba(255,255,255,.18);
+  border: none;
+  border-radius: var(--r);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 12px;
+  cursor: pointer;
+  transition: background .12s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bulk-bar-btn:hover { background: rgba(255,255,255,.3); }
+.bulk-bar-btn.danger { background: rgba(239,68,68,.4); }
+
+/* ══════════════════════════════════════════════════════════════
+   CATEGORY COLORS — shared across todos, finance, daily-log
+   Used as: class="cat-pill cat-Finance" or inline via JS
+   ══════════════════════════════════════════════════════════════ */
+:root {
+  --cat-general-c:    #64748b; --cat-general-bg:    rgba(100,116,139,.12);
+  --cat-investment-c: #6366f1; --cat-investment-bg: rgba(99,102,241,.12);
+  --cat-career-c:     #f97316; --cat-career-bg:     rgba(249,115,22,.12);
+  --cat-finance-c:    #22c55e; --cat-finance-bg:    rgba(34,197,94,.12);
+  --cat-health-c:     #14b8a6; --cat-health-bg:     rgba(20,184,166,.12);
+  --cat-home-c:       #3b82f6; --cat-home-bg:       rgba(59,130,246,.12);
+  --cat-car-c:        #f59e0b; --cat-car-bg:        rgba(245,158,11,.12);
+  --cat-family-c:     #ec4899; --cat-family-bg:     rgba(236,72,153,.12);
+  --cat-medical-c:    #ef4444; --cat-medical-bg:    rgba(239,68,68,.12);
+  --cat-estate-c:     #8b5cf6; --cat-estate-bg:     rgba(139,92,246,.12);
+}
+.cat-pill {
+  font-size: 11px;
+  padding: 3px 9px;
+  border-radius: 99px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  white-space: nowrap;
+  display: inline-block;
+}
+.cat-General                      { background: var(--cat-general-bg);    color: var(--cat-general-c); }
+.cat-Investment                   { background: var(--cat-investment-bg); color: var(--cat-investment-c); }
+.cat-Career, .cat-Work            { background: var(--cat-career-bg);     color: var(--cat-career-c); }
+.cat-Finance, .cat-HSA            { background: var(--cat-finance-bg);    color: var(--cat-finance-c); }
+.cat-Health, .cat-Medical         { background: var(--cat-health-bg);     color: var(--cat-health-c); }
+.cat-Home                         { background: var(--cat-home-bg);       color: var(--cat-home-c); }
+.cat-Car, .cat-Inventory          { background: var(--cat-car-bg);        color: var(--cat-car-c); }
+.cat-Family, .cat-Kids            { background: var(--cat-family-bg);     color: var(--cat-family-c); }
+.cat-Estate, .cat-Security        { background: var(--cat-estate-bg);     color: var(--cat-estate-c); }
+.cat-Personal                     { background: var(--cat-investment-bg); color: var(--cat-investment-c); }
 
 /* Module grid — 4 cols */
 .module-section-title {

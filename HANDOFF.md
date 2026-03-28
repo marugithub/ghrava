@@ -326,9 +326,7 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 - Currently exports `physician` (freetext name); import can't resolve back to contact_id
 - Fix: export `physician_contact_id`, add physician name as read-only column
 
-**5. Property — maintenance completion tracking**
-- `property_maintenance` has `next_due_date` but no `completed_date` field
-- Add migration + UI to mark maintenance as completed, log history
+~~**5. Property — maintenance completion tracking** — DONE v202603.119~~
 
 **6. Dashboard attention widget — add property maintenance overdue**
 - `/api/v1/dashboard/attention` doesn't include overdue property maintenance
@@ -408,6 +406,92 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
+
+### v202603.120
+**nav.js — three UI fixes applied to every page globally:**
+
+1. Sidebar logo bigger: height 60px → 72px, nav header area 80px → 92px
+2. Home/back button removed from ALL page headers — sidebar navigation makes it redundant.
+   Desktop was showing a small home icon next to the page icon; now gone entirely.
+3. Module icons bigger: header icon box 32px → 40px, SVG 17px → 22px
+4. All 12 module SVGs replaced with more distinctive/representative icons:
+   - Daily Log: pencil-on-document (writing/journal)
+   - Inventory: 3D box/package with depth lines
+   - Medical: EKG heartbeat pulse line
+   - Finance: trending-up line chart (money growth)
+   - Todos: checkbox with checkmark
+   - Property: house silhouette
+   - Kids: two people (parent + child silhouette)
+   - Documents: lined document with fold corner
+   - Career: briefcase with handle
+   - Books: open book (two pages)
+   - Resources: link/chain icon
+   - Reports: vertical bar chart (3 bars)
+5. Collapsed sidebar icon: was tiny home SVG, now uses logo.png (36×36)
+
+All changes in nav.js and shared.css only — zero per-page changes needed.
+
+### v202603.119
+**LT.confirm — critical bug fix (deletes were broken everywhere):**
+LT.confirm was callback-only and never returned a Promise. Every page used
+`if (!await LT.confirm(...)) return;` which always evaluated to undefined (falsy),
+meaning every delete confirm dialog silently cancelled without executing. Fixed: LT.confirm
+now returns a Promise that resolves true/false. Also accepts plain string shorthand:
+`await LT.confirm('Sure?')`. Both `await` style and `onConfirm` callback style work.
+
+**Property maintenance completion tracking (migration 050):**
+- Migration: `is_completed INTEGER DEFAULT 0`, `completed_date DATE` added to property_maintenance
+- Backend: PUT updated, new PATCH /complete and PATCH /reopen routes added
+- UI: "✓ Done" / "Reopen" quick-action buttons on each maintenance card
+- Drawer: Completed? toggle + Completed Date field (auto-fills today when switching to Yes)
+
+**Nav Data icon fixed:**
+- Added `database` SVG to nav.js icon set (cylinder icon)
+- Data module now uses database icon instead of settings gear
+
+**Remaining CSV violations cleared:**
+- finance.html: HSA export button + exportCsv() function removed
+- Orphaned export function tail (from previous removal attempt) cleaned up
+
+**Misc fixes:**
+- property.html: 3 remaining old single-arg api() calls in loadMaint fixed
+- kids.html: LT.confirm `{message:}` → `{msg:}` fixed (3 calls)
+- property.html: LT.confirm deleteMaint converted to clean await style
+
+### v202603.118
+**Design consistency pass — major cleanup:**
+
+Search bars added to all modules that were missing them:
+- todos.html: search bar + client-side filter wired into render()
+- career.html: search bar + wired into loadCerts/Jobs/Skills/Education
+- medical.html: search bar + wired into renderMedications/Conditions/Notes
+- property.html: search bar + wired into loadProps/Vehs
+- kids.html: search bar (shown after kid selected) + wired into renderActivities/Notes
+
+CSV violations removed (no per-module exports per WIRING rule):
+- career.html: CSV button + exportMap JS removed
+- medical.html: CSV button + exportMap JS removed
+- daily-log.html: CSV button removed
+- property.html: all 3 CSV buttons (vehicles, service log, maintenance) removed
+
+Kids module full redesign:
+- Avatar strip replaces plain text tab buttons — color-coded gradient avatars per child
+- Hero banner with gradient background shows name, age/grade, school
+- Stats strip (activities count, notes count, school name)
+- Points placeholder banner (gamification ready — wired in when points built)
+- Info rows use kid-section-label, kid-alert-card CSS classes
+- Health/Safety alerts use accent border cards (red for allergies/emergency, amber for meds)
+
+CSS standardization continued:
+- shared.css: stats-row, stat-chip, filter-pill, filter-strip, bulk-bar, cat-pill added as shared components
+- career.html: .career-card* → .card system (already from v117), old api() calls fixed (8 single-arg calls)
+- medical.html: .med-card* → .card system
+- property.html: .prop-card/.veh-card → .card; hsa-card* → stat-chip* (was leaking Finance CSS)
+- resources.html: .res-card kept as justified exception — specialized card with type icon, favorite star, open link, access note
+
+WIRING.md updated:
+- .res-card noted as justified exception to card migration
+- todo-item noted as justified exception (checkbox + priority stripe + bulk select)
 
 ### v202603.117
 **UI design system — card standardization pass 1:**

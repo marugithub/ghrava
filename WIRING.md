@@ -267,14 +267,14 @@ Card CSS rules in shared.css:
 - `.card-sub` — 12px, color var(--text3), margin-top 2px
 - `.card-meta` — flex wrap, gap 6px, margin-top 8px (tags, badges, dates)
 
-**Migration status (pages that still use local card CSS):**
-- todos.html — uses `.todo-item` (13 local rules) → migrate to `.card`
-- career.html — uses `.career-card` (6 local rules) → migrate
-- medical.html — uses `.med-card` (6 local rules) → migrate
-- books.html — uses `.book-card` (2 local rules) → partial (has cover thumb, keep that)
-- property.html — uses `.prop-card`, `.veh-card` → migrate
-- resources.html — uses `.res-card` (4 local rules) → migrate
-- kids.html — uses `.kid-card` (2 local rules) → migrate
+**Migration status:**
+- ✅ career.html — migrated to .card
+- ✅ medical.html — migrated to .card
+- ✅ property.html — migrated to .card
+- ✅ kids.html — full redesign, new CSS classes
+- ✓ todos.html — .todo-item kept (justified: checkbox + priority stripe + bulk select)
+- ✓ resources.html — .res-card kept (justified: type icon + favorite star + open link)
+- books.html — .book-card partial (has cover thumb layout — keep that)
 
 ---
 
