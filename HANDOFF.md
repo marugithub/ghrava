@@ -354,7 +354,8 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 ### 🔵 LOW / DESIGN NEEDED
 
 **Notifications email digest** — design conversation needed first
-**Left nav Data icon** — uses settings gear icon, should be a database icon
+~~**Left nav Data icon**~~ — DONE v202603.120 (database cylinder icon)
+**Sidebar logo** — needs to be roughly 2× current size; padding reduction in v121 helped but more to do
 **Books — Open Library cover auto-fetch on status change to "Currently Reading"** — nice to have
 
 ---
@@ -406,6 +407,31 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
+
+### v202603.122
+**medical.html — stray backslash fixed** (was rendering as "/" between hamburger and page icon)
+
+**Reports — net worth snapshot:**
+- "📸 Save Now" button added to Historical Snapshots section header
+- `takeNwSnapshot()` function added — POSTs to existing `/api/v1/finance/net-worth/snapshot`, refreshes tab after save
+
+**Reports — People tab:**
+- `fetch('/api/v1/settings/family')` → `window.api('GET', '/settings/family')`
+- `fetch('/api/v1/settings/family/${id}/report')` → `window.api()`
+
+**dashboard/routes.js — attention widget:**
+- Completed maintenance (is_completed=1) now filtered out — no longer shows as overdue
+
+**Backlog updated:**
+- Logo size added as low-priority item (defer)
+- Items #2, #3, #4, #6 confirmed done (were stale in backlog)
+
+### v202603.121
+**Fixes from screenshot feedback:**
+- Stray "/" on all pages: was a backslash in medical.html comment line
+- Logo padding reduced 10px→4px, image 72→88px, header area 92→100px
+- Logo confirmed links to /index.html (unchanged)
+- Always Ghrava_DEPLOY.zip from now on
 
 ### v202603.120
 **nav.js — three UI fixes applied to every page globally:**

@@ -355,6 +355,7 @@ router.get('/attention', (req, res) => {
         FROM property_maintenance pm
         JOIN properties p ON p.id = pm.property_id
         WHERE pm.next_due_date IS NOT NULL AND pm.next_due_date < ?
+          AND (pm.is_completed IS NULL OR pm.is_completed = 0)
         ORDER BY pm.next_due_date ASC LIMIT 5
       `).all(today);
       overdueMaint.forEach(r => items.push({

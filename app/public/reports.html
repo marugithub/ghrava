@@ -128,7 +128,10 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <div id="nwSummary" style="padding:10px 16px 0"></div>
     <div class="section-hdr">Accounts</div>
     <div id="nwAccounts" style="padding:0 16px 16px"></div>
-    <div class="section-hdr">Historical Snapshots</div>
+    <div class="section-hdr" style="display:flex;align-items:center;justify-content:space-between">
+      Historical Snapshots
+      <button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" onclick="takeNwSnapshot()">📸 Save Now</button>
+    </div>
     <div class="chart-wrap"><canvas id="nwChart" height="160"></canvas></div>
     <div id="nwSnapshotList" style="padding:0 16px;margin-top:8px"></div>
   </div>
@@ -610,7 +613,7 @@ async function loadPeople() {
   const el = $('peopleContent'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const members = await fetch('/api/v1/settings/family').then(r => r.json());
+    const members = await window.api('GET', '/settings/family');
     if (!members.length) {
       el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">No family members found</div>';
       return;
@@ -656,7 +659,7 @@ async function selectPerson(memberId) {
   const el = $('personReport'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const d = await fetch(`/api/v1/settings/family/${memberId}/report`).then(r => r.json());
+    const d = await window.api('GET', `/settings/family/${memberId}/report`);
     const m = d.member;
     const s = d.summary;
 
@@ -1029,6 +1032,22 @@ async function loadSystem() {
 }
 
 // ── Testing ───────────────────────────────────────────────────
+async function takeNwSnapshot() {
+  const btn = document.querySelector('[onclick="takeNwSnapshot()"]');
+  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
+  try {
+    const r = await fetch('/api/v1/finance/net-worth/snapshot', {
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(window.LT?.authToken||'')}
+    });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error||'Snapshot failed');
+    toast('Snapshot saved');
+    loadNetWorth();
+  } catch(e) { toast(e.message||'Snapshot failed','err'); }
+  finally { if (btn) { btn.textContent='📸 Save Now'; btn.disabled=false; } }
+}
+
 async function loadTesting() {
   const listEl = $('testRunList'); if (!listEl) return;
   const detailEl = $('testRunDetail');
