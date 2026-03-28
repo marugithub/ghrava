@@ -659,11 +659,6 @@ function sourceLink(todo) {
 
 // ── Date helpers ──────────────────────────────────────────────
 function todayStr() { return new Date().toISOString().slice(0,10); }
-function fmtDate(iso) {
-  if (!iso) return '';
-  const [y,m,d] = iso.split('-');
-  return `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]} ${+d}`;
-}
 function dueClass(iso) {
   if (!iso) return '';
   const t = todayStr();
@@ -712,7 +707,7 @@ async function load() {
     updateStats(data.stats);
     render();
   } catch(e) {
-    $('todoList').innerHTML = `<div class="empty"><div class="empty-icon">⚠️</div><h3>Load failed</h3><p>${e.message}</p></div>`;
+    $('todoList').innerHTML = errorState(e.message, 'load()');
   }
 }
 

@@ -632,10 +632,7 @@ async function renderMedications() {
     const rows = await api('GET', url);
 
     if (!rows.length) {
-      area.innerHTML = `<div class="empty">
-        <div class="empty-icon">💊</div><h3>No medications</h3>
-        <p>Track current and past medications for all family members.</p>
-      </div>`; return;
+area.innerHTML = emptyState(...GH_EMPTY.medications); return;
     }
 
     // Group by patient
@@ -669,7 +666,7 @@ async function renderMedications() {
       `).join('')}
     `).join('');
   } catch (e) {
-    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${e.message}</p></div>`;
+    area.innerHTML = errorState(e.message, '');
   }
 }
 
@@ -683,10 +680,7 @@ async function renderConditions() {
     const rows = await api('GET', url);
 
     if (!rows.length) {
-      area.innerHTML = `<div class="empty">
-        <div class="empty-icon">🩺</div><h3>No conditions logged</h3>
-        <p>Track diagnoses and medical conditions for the whole family.</p>
-      </div>`; return;
+      area.innerHTML = emptyState(...GH_EMPTY.conditions); return;
     }
 
     area.innerHTML = rows.map(r => `
@@ -710,7 +704,7 @@ async function renderConditions() {
       </div>
     `).join('');
   } catch (e) {
-    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${e.message}</p></div>`;
+    area.innerHTML = errorState(e.message, '');
   }
 }
 
@@ -724,10 +718,7 @@ async function renderNotes() {
     const rows = await api('GET', url);
 
     if (!rows.length) {
-      area.innerHTML = `<div class="empty">
-        <div class="empty-icon">📋</div><h3>No visit notes</h3>
-        <p>Record questions and doctor responses to keep track of your health history.</p>
-      </div>`; return;
+      area.innerHTML = emptyState(...GH_EMPTY.visits); return;
     }
 
     area.innerHTML = rows.map(r => `
@@ -755,7 +746,7 @@ async function renderNotes() {
       </div>
     `).join('');
   } catch (e) {
-    area.innerHTML = `<div class="empty"><p style="color:var(--red)">${e.message}</p></div>`;
+    area.innerHTML = errorState(e.message, '');
   }
 }
 

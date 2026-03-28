@@ -313,7 +313,6 @@ window.GH_PAGE = { module: 'property', title: 'Property' };
 const API = '/api/v1/property';
 const $  = id => document.getElementById(id);
 const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
-const fmt$ = n => '$'+(Math.abs(n)||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
 const api = window.makeApi('/property');
 function bgClose(id){ if(event.target===$(id)) $(id).classList.remove('open'); }
 
@@ -346,7 +345,7 @@ async function loadProps(){
     $('pTotalMort').textContent=fmt$(tm);
     $('pEquity').textContent=fmt$(eq);
     $('pEquity').style.color=eq>=0?'var(--green)':'var(--red)';
-    if(!ps.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px">No properties yet</div>';return;}
+    if(!ps.length){el.innerHTML=emptyState('🏠', 'No properties', 'Add a property to track value and maintenance.', '');return;}
     const ICONS={'Primary Residence':'🏠',Rental:'🏢',Vacation:'🏖️',Land:'🌳',Other:'🏗️'};
     el.innerHTML=ps.map(p=>{
       const v=parseFloat(p.current_est_value)||0, m=parseFloat(p.mortgage_balance)||0, eq=v-m;
@@ -427,7 +426,7 @@ async function loadVehs(){
   const el=$('vehList');if(!el)return;
   try{
     const vs=await api('GET', '/vehicles');
-    if(!vs.length){el.innerHTML='<div style="text-align:center;color:var(--text3);padding:32px">No vehicles yet</div>';return;}
+    if(!vs.length){el.innerHTML=emptyState('🚗', 'No vehicles', 'Add a vehicle to track service history and registration.', '');return;}
     const today=new Date().toISOString().slice(0,10);
     const warn30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);
     el.innerHTML=vs.map(v=>{
@@ -527,7 +526,7 @@ async function loadSvcLog(){
   const el=$('svcLogList');if(!el)return;
   try{
     const rows=await api('GET', `/vehicles/${svcVehId}/service`);
-    if(!rows.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:4px 0 12px">No records yet</div>';return;}
+    if(!rows.length){el.innerHTML=emptyState('🔧', 'No service records', 'Log service to track maintenance history.', '');return;}
     el.innerHTML=rows.map(s=>`
       <div class="svc-row">
         <div class="svc-dot"></div>

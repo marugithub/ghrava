@@ -1798,9 +1798,9 @@ async function saveAccount() {
       family_member_ids: GH_FAMILY.getIds('accFamilyWrap')
     };
     if (!payload.name) { toast('Name required','err'); return; }
-    const url = editingAccountId ? `/finance/accounts/${editingAccountId}` : '/finance/accounts';
     const method = editingAccountId ? 'PUT' : 'POST';
-    await api(url, { method, body: JSON.stringify(payload) });
+    const url = editingAccountId ? `/finance/accounts/${editingAccountId}` : '/finance/accounts';
+    await api(method, url, payload);
     toast(editingAccountId ? 'Account updated' : 'Account added');
     $('accountDrawer').classList.remove('open');
     loadAccounts();
@@ -2006,7 +2006,7 @@ async function saveTx() {
     if (isNaN(payload.amount)) { toast('Valid amount required','err'); return; }
     const url    = editingTxId ? `/finance/transactions/${editingTxId}` : '/finance/transactions';
     const method = editingTxId ? 'PUT' : 'POST';
-    await api(url, { method, body: JSON.stringify(payload) });
+    await api(method, url, payload);
     toast(editingTxId ? 'Transaction updated' : 'Transaction added');
     $('txDrawer').classList.remove('open');
     loadTransactions();
@@ -2384,9 +2384,9 @@ async function saveGc() {
       in_apple_pay:    $('gcApplePay').checked   ? 1 : 0,
     };
     if (!payload.retailer) { toast('Retailer required','err'); return; }
-    const url    = editingGcId ? `/finance/gift-cards/${editingGcId}` : '/finance/gift-cards';
     const method = editingGcId ? 'PUT' : 'POST';
-    await api(url, { method, body: JSON.stringify(payload) });
+    const url    = editingGcId ? `/finance/gift-cards/${editingGcId}` : '/finance/gift-cards';
+    await api(method, url, payload);
     toast(editingGcId ? 'Updated' : 'Gift card added');
     $('gcDrawer').classList.remove('open');
     loadGiftCards();

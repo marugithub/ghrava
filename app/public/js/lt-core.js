@@ -42,6 +42,26 @@ window.formatDateRelative = function(iso) {
 
 window.today = () => new Date().toISOString().slice(0, 10);
 
+// ── Currency & date helpers (shared across all pages) ─────────
+/**
+ * fmt$(n) — compact dollar amount, no cents, absolute value
+ *   fmt$(1234.56) → "$1,235"
+ *   fmt$(-500)    → "$500"  (shows absolute — caller decides sign)
+ */
+window.fmt$ = n => '$' + (Math.abs(Number(n) || 0))
+  .toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+/**
+ * fmtDate(iso) — short date without year  "Jan 5"
+ * For dates with year use window.formatDate() → "Jan 5, 2025"
+ */
+window.fmtDate = function(iso) {
+  if (!iso) return '';
+  const [, m, d] = iso.split('-');
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${mo[+m - 1]} ${+d}`;
+};
+
 // ── Spinner HTML ──────────────────────────────────────────────
 window.spinner = (msg = 'Loading…') =>
   `<div class="spinner"><div class="spin"></div>${msg ? ` ${esc(msg)}` : ''}</div>`;

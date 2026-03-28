@@ -352,13 +352,6 @@ let dlFormTags = []; // tags on current log entry form
 
 function today() { return new Date().toISOString().slice(0,10); }
 
-function fmtDate(iso) {
-  if (!iso) return '';
-  const t = today(), yest = new Date(); yest.setDate(yest.getDate()-1);
-  if (iso === t) return 'Today';
-  if (iso === yest.toISOString().slice(0,10)) return 'Yesterday';
-  return new Date(iso+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});
-}
 
 function fmtTime(dt) {
   if (!dt) return '';
@@ -444,9 +437,10 @@ function render() {
   const el = $('entriesList');
 
   if (!entries.length) {
-    el.innerHTML = `<div class="empty"><div class="empty-icon">📋</div>
-      <h3>${filterSearch||filterCat ? 'No entries found' : 'No entries yet'}</h3>
-      <p>Tap + to add your first entry.</p></div>`;
+    el.innerHTML = filterSearch||filterCat
+      ? emptyState('🔍', 'No entries found', 'Try a different filter or search term', '')
+      : emptyState(...GH_EMPTY.logEntries);
+    // legacy placeholder start;
     return;
   }
 

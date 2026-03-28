@@ -454,6 +454,75 @@ Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
 
+### v202603.112
+**Inventory.html — full fetch/authFetch migration to makeApi:**
+- Added `const api = window.makeApi('/inventory')` 
+- Migrated 30+ raw `fetch()` and `authFetch()` calls to `api()`
+- Fixed malformed body args (leftover `body:JSON.stringify(...)` from authFetch spread)
+- Fixed stale `r.ok`/`r.json()` references after api() returns JSON directly
+- Intentionally left as raw fetch: photo/document uploads (FormData), inventory CSV import (FormData), silentGet helper (intentional fallback pattern)
+- Fixed awawait typo
+
+**Finance.html — 3 more broken write calls fixed:**
+- saveTx (transaction save) — `api(url,{method,body})` → `api(method,url,payload)`
+- saveAccount — same pattern
+- saveGc (gift card save) — same pattern
+
+**All 13 pages syntax-clean.**
+
+---
+
+### BACKLOG — Design & UX (to build after current code pass)
+
+**Dashboard (index.html) redesign — per user feedback:**
+1. Family strip names — remove (avatars already show initials, names add no value without profile switching)
+2. Widget card vertical padding — reduce significantly, too much whitespace 
+3. Widget card content — add more meaningful data per card, not just one number
+4. Widget horizontal spacing — cards too wide on desktop with too much gap
+5. Empty space — 3-col grid helps but widget-wide should span all 3 cols and show richer content
+6. Sub-line placement — move up, doesn't need its own line when content is short
+7. **Full redesign authorized** — revise layout, content, and card design from scratch using module data as you see fit
+
+**Popup/modal standardization — per user feedback:**
+8. All popups should open centered (like Add Inventory) — drawers are fine for record editing, but "add new" / confirm dialogs should be centered modals
+9. Button consistency across all pages:
+   - Primary action: always "Save" (not "Add", "Submit", "OK")
+   - Secondary: always "Cancel" 
+   - Destructive: always "Delete" or "Archive" (not "Remove", "del", small × buttons)
+   - Confirm dialogs: "Delete" / "Cancel" — never just ✕ in corner
+   - Pages with no explicit cancel: all modals need a visible Cancel button
+10. Some drawers currently have no close mechanism except clicking outside — add explicit Cancel/Close button to all
+
+**WIRING update needed:** add popup/modal standard to WIRING.md once pattern is decided.
+
+### v202603.111
+**Empty/error state consistency pass:**
+- todos.html: inline `<div class="empty">` error → `errorState(e.message, 'load()')`
+- daily-log.html: inline empty div → `emptyState(...GH_EMPTY.logEntries)` / search filter variant
+- medical.html: 3 inline error divs → `errorState()`; medication/conditions/visits empty → `emptyState()`
+- resources.html: inline empty → `emptyState(...GH_EMPTY.resources)` with filter variant
+- property.html: 3 inline "No X yet" divs → `emptyState()` with icons and subtitles
+All 5 pages syntax-check clean.
+
+### v202603.110
+**Design consistency audit — shared utilities added to lt-core:**
+
+Problem: `fmt$` was defined differently in property.html and reports.html. `fmtDate` was defined identically
+in todos.html and daily-log.html. Any future page needing these had to copy-paste or go without.
+
+Fixed: Both are now `window` globals in lt-core.js, available to all pages automatically.
+- `window.fmt$(n)` — compact dollar, no cents, absolute value: `fmt$(1234.56)` → `"$1,235"`
+- `window.fmtDate(iso)` — short date without year: `fmtDate("2025-01-05")` → `"Jan 5"`
+
+Local definitions removed from: property.html, reports.html, todos.html, daily-log.html.
+
+Other findings from audit (not fixed — low risk, not user-visible):
+- `esc()` redefined identically in 5 pages — `window.esc` exists. Harmless duplication.
+- `$()` redefined identically in 4 pages — `window.$` exists. Harmless duplication.
+- Empty/error state inconsistency (some pages use errorState(), others inline HTML) — polish pass deferred.
+
+All 15 pages + 18 routes + lt-core + nav pass syntax check.
+
 ### v202603.109
 **window.makeApi() — unified api factory, all pages migrated:**
 
