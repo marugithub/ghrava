@@ -130,7 +130,7 @@
             <img src="/icons/logo.png" style="width:36px;height:36px;object-fit:contain" alt="G">
           </span>
           <span class="side-nav-logo-text" style="display:flex;align-items:center">
-            <img src="/icons/logo.png" style="height:72px;object-fit:contain" alt="Ghrava">
+            <img src="/icons/logo.png" style="height:88px;object-fit:contain" alt="Ghrava">
           </span>
         </a>
       </div>`;

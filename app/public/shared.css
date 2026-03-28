@@ -134,11 +134,11 @@ html, body {
 }
 
 :root {
-  --nav-header-h: 92px;
+  --nav-header-h: 100px;
 }
 
 .side-nav-logo {
-  padding: 10px 16px;
+  padding: 4px 12px;
   height: var(--nav-header-h);
   box-sizing: border-box;
   border-bottom: 1px solid var(--border);
