@@ -162,7 +162,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
       <div class="form-group"><label class="form-label">Expiry Date</label><input class="form-input" type="date" id="certExpiry"></div>
     </div>
     <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-select" id="certStatus">
+      <select class="form-select" id="certStatus" onchange="triggerCertSuggest()">
         <option>Active</option><option>In Progress</option><option>Expired</option>
       </select>
     </div>
@@ -192,7 +192,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <div class="form-group"><label class="form-label">Company <span class="req">*</span></label><input class="form-input" id="jobCompany"></div>
     <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-input" id="jobTitle"></div>
     <div class="form-group"><label class="form-label">Employment Type</label>
-      <select class="form-select" id="jobType">
+      <select class="form-select" id="jobType" onchange="triggerJobSuggest()">
         <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Freelance</option>
       </select>
     </div>
@@ -409,7 +409,8 @@ async function openCertDrawer(id) {
   $('certDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   initCertTags(c?.tags||[]);
   await loadCareerDropdowns();
-  $('certDrawer').classList.add('open');
+  $('certDrawer').classList.add('open')
+  setTimeout(triggerCertSuggest, 100);;
 }
 
 async function saveCert() {
@@ -755,6 +756,12 @@ function initCertTags(existing){
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addCertTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&certFormTags.length){certFormTags.pop();renderCertTags();}};
   inp.onblur=()=>{if(inp.value.trim())addCertTag(inp.value);};
   GH_TAGS.init({inputId:'certTagInput',wrapId:'certTagsWrap',module:'career',getFormTags:()=>certFormTags,addTag:t=>addCertTag(t),allowCreate:true});
+function triggerCertSuggest() {
+  const cat  = document.getElementById('certStatus')?.value || '';
+  const name = document.getElementById('certName')?.value || '';
+  GH_TAGS.suggest('certTagsWrap', ()=>certFormTags, t=>addCertTag(t), { category: cat, name });
+}
+
 }
 
 // ── Tags (career) ───────────────────────────────────────────
@@ -780,6 +787,12 @@ function initJobTags(existing){
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addJobTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&jobFormTags.length){jobFormTags.pop();renderJobTags();}};
   inp.onblur=()=>{if(inp.value.trim())addJobTag(inp.value);};
   GH_TAGS.init({inputId:'jobTagInput',wrapId:'jobTagsWrap',module:'career',getFormTags:()=>jobFormTags,addTag:t=>addJobTag(t),allowCreate:true});
+function triggerJobSuggest() {
+  const cat  = document.getElementById('jobType')?.value || '';
+  const name = document.getElementById('jobTitle')?.value || '';
+  GH_TAGS.suggest('jobTagsWrap', ()=>jobFormTags, t=>addJobTag(t), { category: cat, name });
+}
+
 }
 
 // ── Tags (career) ───────────────────────────────────────────
@@ -841,3 +854,9 @@ function _reloadCurrentTab() {
 </script>
 </body>
 </html>
+
+// Cert name debounce → suggest
+let _certNameTimer = null;
+document.addEventListener('input', e => {
+  if (e.target?.id === 'certName') { clearTimeout(_certNameTimer); _certNameTimer = setTimeout(triggerCertSuggest, 600); }
+});

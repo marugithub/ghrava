@@ -406,7 +406,7 @@ el.innerHTML = (searchQ || filterCat || filterTag || filterFav || _resFilters.ta
       </div>
       <div class="form-group">
         <label class="form-label">Category</label>
-        <select class="form-select" id="fCategory">
+        <select class="form-select" id="fCategory" onchange="triggerResSuggest()">
           <option value="">— select category —</option>
         </select>
       </div>
@@ -744,6 +744,12 @@ GH_TAGS.init({
   allowCreate: true,
 });
 
+function triggerResSuggest() {
+  const cat  = document.getElementById('fCategory')?.value || '';
+  const name = document.getElementById('fName')?.value || '';
+  GH_TAGS.suggest('tagsWrap', ()=>formTags, tag=>addFormTag(tag), { category: cat, name });
+}
+
 // ── Open add form ─────────────────────────────────────────────
 function openAdd() {
   editingId = null;
@@ -759,6 +765,7 @@ function openAdd() {
   GH_FAMILY.init('resFamilyWrap', []);
   GH_SELECT.init('fCategory', 'resource_category', null, { placeholder: '— select category —', allowAdd: true });
   $('formDrawer').classList.add('open');
+  setTimeout(triggerResSuggest, 100);
   setTimeout(() => $('fName').focus(), 300);
 }
 

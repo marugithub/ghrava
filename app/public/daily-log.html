@@ -648,6 +648,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     dlInput.addEventListener('blur', () => { if (dlInput.value.trim()) addDlTag(dlInput.value); });
     GH_TAGS.init({ inputId:'dlTagInput', wrapId:'dlTagsWrap', module:'dailylog', getFormTags:()=>dlFormTags, addTag: t=>addDlTag(t), allowCreate: true });
+function triggerDlSuggest() {
+  const cat  = document.getElementById('dlCat')?.value || '';
+  const name = document.getElementById('dlTitle')?.value || '';
+  GH_TAGS.suggest('dlTagsWrap', ()=>dlFormTags, t=>addDlTag(t), { category: cat, name });
+}
+
   }
 });
 

@@ -153,7 +153,7 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label">Category</label>
-          <select class="form-select" id="dCat"></select>
+          <select class="form-select" id="dCat" onchange="triggerDocSuggest()"></select>
         </div>
         <div class="form-group" style="flex:2">
           <label class="form-label">Subcategory</label>
@@ -417,10 +417,17 @@ async function openDocDrawer(id) {
     };
     inp.onblur = ()=>{if(inp.value.trim())addDocTag(inp.value);};
     GH_TAGS.init({inputId:'docTagInput',wrapId:'docTagsWrap',module:'documents',getFormTags:()=>docFormTags,addTag:t=>addDocTag(t),allowCreate:true});
+function triggerDocSuggest() {
+  const cat  = document.getElementById('dCat')?.value || '';
+  const name = document.getElementById('dTitle')?.value || '';
+  GH_TAGS.suggest('docTagsWrap', ()=>docFormTags, t=>addDocTag(t), { category: cat, name });
+}
+
   GH_FAMILY.init('docFamilyWrap', d.family_members||[]);
   }
 
-  $('docDrawer').classList.add('open');
+  $('docDrawer').classList.add('open')
+  setTimeout(triggerDocSuggest, 100);;
   setTimeout(()=>$('dTitle').focus(),100);
 }
 

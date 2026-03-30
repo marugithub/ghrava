@@ -434,6 +434,35 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.132
+**Inventory detail view redesign (rebuilt after file truncation incident):**
+- Thumbnail (52×52): primary photo (click to zoom) or category emoji — no edit badge
+- Meta line: ITM# | Category | 📍 Location — one line, location truncates with ellipsis
+- Badges (condition/archived/insured) below meta
+- Icon row: QR · Archive/Unarchive · Edit · × — all det-icon-btn (34×34, consistent)
+- Bottom: "Mark as Sold" only — Close/Archive moved to header
+
+Grid cards: pencil edit button (30px circle, accent) appears on hover bottom-right
+List cards: same edit button appears on hover at right end
+Item edit drawer: Save button now has floppy disk icon + "Save" text
+
+**Tag suggestion wiring — Session 2 (all 10 remaining pages):**
+- todos: fCategory + fTitle → triggerTodoSuggest
+- books: bkGenre + bkTitle → triggerBookSuggest
+- documents: dCat + dTitle → triggerDocSuggest
+- resources: fCategory + fName → triggerResSuggest
+- daily-log: dlCat + dlTitle → triggerDlSuggest
+- career: certStatus/certName → triggerCertSuggest; jobType/jobTitle → triggerJobSuggest
+- medical: mStatus/mName → triggerMedSuggest; vType/vPatient → triggerVisitSuggest
+- property: pType/pNick → triggerPropSuggest; vMake/vNick → triggerVehSuggest
+- kids: afCategory/afName → triggerActSuggest
+All pages: drawer-open fires suggest after 100ms; category change fires suggest immediately
+
+**File truncation fix:** inventory.html was truncated to 88KB during grid card template
+rewrite (page.map end position computed wrong). Restored from git HEAD (172KB).
+Reapplied all changes using surgical str_replace and raw-bytes replace only.
+Rule going forward: never use c[:start] + new + c[end:] on JS template literal blocks.
+
 ### v202603.131
 **Inventory detail view + card edit access redesign:**
 

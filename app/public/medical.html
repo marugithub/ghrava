@@ -137,7 +137,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
-        <select class="form-select" id="mStatus">
+        <select class="form-select" id="mStatus" onchange="triggerMedSuggest()">
           <option>Active</option><option>As Needed</option>
           <option>Discontinued</option><option>Completed</option>
         </select>
@@ -725,6 +725,7 @@ function openMedDrawer(r) {
   $id('mNotes').value = r?.notes || '';
   initMedTags(r?.tags||[]);
   $id('medDrawer').classList.add('open');
+  setTimeout(triggerMedSuggest, 100);
 }
 function closeMedDrawer() { $id('medDrawer').classList.remove('open'); }
 
@@ -966,6 +967,17 @@ function initMedTags(existing){
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addMedTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&medFormTags.length){medFormTags.pop();renderMedTags();}};
   inp.onblur=()=>{if(inp.value.trim())addMedTag(inp.value);};
   GH_TAGS.init({inputId:'medTagInput',wrapId:'medTagsWrap',module:'medical',getFormTags:()=>medFormTags,addTag:t=>addMedTag(t),allowCreate:true});
+function triggerMedSuggest() {
+  const cat  = document.getElementById('mStatus')?.value || '';
+  const name = document.getElementById('mName')?.value || '';
+  GH_TAGS.suggest('medTagsWrap', ()=>medFormTags, t=>addMedTag(t), { category: cat, name });
+}
+function triggerVisitSuggest() {
+  const cat  = document.getElementById('vType')?.value || '';
+  const name = document.getElementById('vPatient')?.value || '';
+  GH_TAGS.suggest('visitTagsWrap', ()=>visitFormTags, t=>addVisitTag(t), { category: cat, name });
+}
+
 }
 </script>
 </body>

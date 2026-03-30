@@ -90,7 +90,7 @@
   <div class="form-row">
     <div class="form-group" style="flex:2"><label class="form-label">Nickname *</label><input class="form-input" id="pNick" placeholder="Main Home, Lake House…"></div>
     <div class="form-group"><label class="form-label">Type</label>
-      <select class="form-select" id="pType"></select>
+      <select class="form-select" id="pType" onchange="triggerPropSuggest()"></select>
     </div>
   </div>
   <div class="form-group"><input class="form-input" id="pStreet" placeholder="Street address"></div>
@@ -382,7 +382,8 @@ async function openPropDrawer(id){
   $('pDelBtn').style.display=id?'inline-flex':'none';
   initPropTags(p?.tags||[]);
   await loadPropertyDropdowns();
-  $('propDrawer').classList.add('open');
+  $('propDrawer').classList.add('open')
+  setTimeout(triggerPropSuggest, 100);;
 }
 
 async function saveProp(){
@@ -577,6 +578,17 @@ function initPropTags(existing){
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addPropTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&propFormTags.length){propFormTags.pop();renderPropTags();}};
   inp.onblur=()=>{if(inp.value.trim())addPropTag(inp.value);};
   GH_TAGS.init({inputId:'propTagInput',wrapId:'propTagsWrap',module:'property',getFormTags:()=>propFormTags,addTag:t=>addPropTag(t),allowCreate:true});
+function triggerPropSuggest() {
+  const cat  = document.getElementById('pType')?.value || '';
+  const name = document.getElementById('pNick')?.value || '';
+  GH_TAGS.suggest('propTagsWrap', ()=>propFormTags, t=>addPropTag(t), { category: cat, name });
+}
+function triggerVehSuggest() {
+  const cat  = document.getElementById('vMake')?.value || '';
+  const name = document.getElementById('vNick')?.value || '';
+  GH_TAGS.suggest('vehTagsWrap', ()=>vehFormTags, t=>addVehTag(t), { category: cat, name });
+}
+
 }
 
 // ── Tags (property) ───────────────────────────────────────────

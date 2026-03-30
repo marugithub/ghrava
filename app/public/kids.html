@@ -324,7 +324,7 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
     <div class="drawer-title" id="actDrawerTitle">Add Activity</div>
     <div class="drawer-body">
       <div class="form-group"><label class="form-label">Activity Name *</label><input class="form-input" id="afName" placeholder="e.g. Soccer, Piano, Chess Club" autocomplete="off"></div>
-      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="afCategory"></select></div>
+      <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="afCategory" onchange="triggerActSuggest()"></select></div>
       <div class="form-group"><label class="form-label">Day(s) of Week</label><input class="form-input" id="afDays" placeholder="e.g. Mon, Wed, Fri"></div>
       <div class="form-group"><label class="form-label">Time</label><div style="display:flex;gap:8px"><input class="form-input" type="time" id="afStart" style="flex:1"><input class="form-input" type="time" id="afEnd" style="flex:1"></div></div>
       <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="afLocation" placeholder="Location or address"></div>
@@ -610,7 +610,8 @@ async function openActivityDrawer(aid){
   initActTags(act?.tags||[]);
   GH_FAMILY.init('actFamilyWrap', act?.family_members||[]);
   await loadKidsDropdowns(act?.category||'Sports', null);
-  $('actDrawer').classList.add('open');setTimeout(()=>$('afName').focus(),300);
+  $('actDrawer').classList.add('open')
+  setTimeout(triggerActSuggest, 100);;setTimeout(()=>$('afName').focus(),300);
 }
 $('actCancel').addEventListener('click',()=>$('actDrawer').classList.remove('open'));
 $('actDelete').addEventListener('click',async()=>{
@@ -687,6 +688,12 @@ function initActTags(existing){
   inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addActTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&actFormTags.length){actFormTags.pop();renderActTags();}};
   inp.onblur=()=>{if(inp.value.trim())addActTag(inp.value);};
   GH_TAGS.init({inputId:'actTagInput',wrapId:'actTagsWrap',module:'kids',getFormTags:()=>actFormTags,addTag:t=>addActTag(t),allowCreate:true});
+function triggerActSuggest() {
+  const cat  = document.getElementById('afCategory')?.value || '';
+  const name = document.getElementById('afName')?.value || '';
+  GH_TAGS.suggest('actTagsWrap', ()=>actFormTags, t=>addActTag(t), { category: cat, name });
+}
+
 }
 
 // ── Tags (kids) ───────────────────────────────────────────

@@ -130,7 +130,7 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
     <div class="form-group"><label class="form-label">Author</label><input class="form-input" id="bkAuthor"></div>
     <div class="form-group"><label class="form-label">ISBN</label><input class="form-input" id="bkIsbn" placeholder="e.g. 9780743273565" style="font-family:var(--mono)"></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Genre</label><select class="form-select" id="bkGenre"></select></div>
+      <div class="form-group"><label class="form-label">Genre</label><select class="form-select" id="bkGenre" onchange="triggerBookSuggest()"></select></div>
       <div class="form-group"><label class="form-label">Format</label>
         <select class="form-select" id="bkFormat">
           <option>Physical</option><option>Kindle</option><option>Audible</option>
@@ -352,7 +352,8 @@ async function openBookDrawer(id) {
   setRating(currentRating);
   initBookTags(b.tags||[]);
   GH_FAMILY.init('bookFamilyWrap', b.family_members||[]);
-  $('bookDrawer').classList.add('open');
+  $('bookDrawer').classList.add('open')
+  setTimeout(triggerBookSuggest, 100);;
 }
 
 async function saveBook() {
@@ -425,6 +426,12 @@ function initBookTags(existing) {
   inp.onkeydown=e=>{ if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addBookTag(inp.value);} else if(e.key==='Backspace'&&!inp.value&&bookFormTags.length){bookFormTags.pop();renderBookTags();} };
   inp.onblur=()=>{if(inp.value.trim())addBookTag(inp.value);};
   GH_TAGS.init({inputId:'bookTagInput',wrapId:'bookTagsWrap',module:'books',getFormTags:()=>bookFormTags,addTag:t=>addBookTag(t),allowCreate:true});
+function triggerBookSuggest() {
+  const cat  = document.getElementById('bkGenre')?.value || '';
+  const name = document.getElementById('bkTitle')?.value || '';
+  GH_TAGS.suggest('bookTagsWrap', ()=>bookFormTags, t=>addBookTag(t), { category: cat, name });
+}
+
 }
 document.addEventListener('DOMContentLoaded', ()=>{
   GH_VIEW.init('bookViewToolbar', 'bk', state => {
