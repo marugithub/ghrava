@@ -34,6 +34,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <input class="search-input" id="propSearch" type="search" placeholder="Search properties, vehicles, maintenance…" autocomplete="off">
   </div>
+  <div id="propViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
 
   <div class="view-panel active" id="panel-props">
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
@@ -609,11 +610,27 @@ async function loadPropertyDropdowns(currentPType, currentMCat) {
 }
 document.addEventListener('DOMContentLoaded',()=>{ loadProps();   $('propSearch').addEventListener('input', e => {
     _propSearch = e.target.value.trim().toLowerCase();
-    if (currentTab==='props') loadProps();
-    else if (currentTab==='vehs') loadVehs();
-    else if (currentTab==='maint') loadMaint();
+    _reloadPropTab();
+  });
+  window._propFilters = {};
+  GH_VIEW.init('propViewToolbar', 'prop', state => {
+    window._propFilters = state.filters || {};
+    _reloadPropTab();
+  }, {
+    defaultView: 'list',
+    filterFields: [
+      { key: 'type', type: 'select', label: 'Type',
+        options: [{value:'',label:'All'},{value:'House',label:'House'},{value:'Condo',label:'Condo'},{value:'Rental',label:'Rental'},{value:'Land',label:'Land'},{value:'Other',label:'Other'}] },
+      { key: 'tags', type: 'tags', label: 'Tags' },
+    ]
   });
 });
+
+function _reloadPropTab() {
+  if (currentTab==='props') loadProps();
+  else if (currentTab==='vehs') loadVehs();
+  else if (currentTab==='maint') loadMaint();
+}
 
 // ── MAINTENANCE ───────────────────────────────────────────────
 let _editMaintId = null;

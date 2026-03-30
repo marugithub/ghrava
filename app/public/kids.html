@@ -477,6 +477,8 @@ function setDetailTab(tab,btn){
   $('dtab-'+tab).classList.add('active');
   $('actFab').style.display=tab==='activities'?'':'none';
   $('noteFab').style.display=tab==='notes'?'':'none';
+  const _kt=$('kidsViewToolbar');
+  if(_kt) _kt.style.display=(tab==='activities'||tab==='notes')?'flex':'none';
   if(tab==='activities')renderActivities();
   if(tab==='notes')renderNotes();
 }
@@ -534,9 +536,12 @@ function renderProfile(){
 }
 
 function renderActivities(q=''){
-  const acts=(_currentKid?.activities||[]).filter(a=>!q||
-    (a.name||'').toLowerCase().includes(q)||(a.category||'').toLowerCase().includes(q)||(a.location||'').toLowerCase().includes(q));
-  if(!acts.length&&!q){$('kidActivitiesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">🏅</div><div style="color:var(--text3);font-size:14px">No activities yet — tap + to add one</div></div>';return;}
+  const _q = q || ($('kidsSearch')?.value||'').trim().toLowerCase();
+  let acts=(_currentKid?.activities||[]).filter(a=>!_q||
+    (a.name||'').toLowerCase().includes(_q)||(a.category||'').toLowerCase().includes(_q)||(a.location||'').toLowerCase().includes(_q));
+  if(window._kidsFilters?.category) acts=acts.filter(a=>a.category===window._kidsFilters.category);
+  if(window._kidsFilters?.tags?.length) acts=acts.filter(a=>window._kidsFilters.tags.every(t=>(a.tags||[]).includes(t)));
+  if(!acts.length&&!_q){$('kidActivitiesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">🏅</div><div style="color:var(--text3);font-size:14px">No activities yet — tap + to add one</div></div>';return;}
   const active=acts.filter(a=>a.is_active),inactive=acts.filter(a=>!a.is_active);
   let html='';
   if(active.length){html+='<div class="detail-section-label" style="padding-top:8px">Active</div><div class="card card-static" style="margin:0 16px;padding:0">'+active.map(a=>actRow(a)).join('')+'</div>';}
@@ -717,7 +722,34 @@ async function loadKidsDropdowns(currentActCat, currentNoteCat) {
     await GH_SELECT.init('nfCategory', 'kids_note_category',     currentNoteCat ||'General',  { allowAdd: true });
   }
 }
-document.addEventListener('DOMContentLoaded',()=>loadKids());
+document.addEventListener('DOMContentLoaded', () => {
+  loadKids();
+  const searchEl = $('kidsSearch');
+  if (searchEl) {
+    searchEl.addEventListener('input', e => {
+      const q = e.target.value.trim().toLowerCase();
+      const tab = document.querySelector('#kidDetailTabs .view-tab.active');
+      const tabName = tab ? tab.textContent.trim().toLowerCase() : '';
+      if (tabName.includes('activit')) renderActivities(q);
+      else if (tabName.includes('note')) renderNotes(q);
+    });
+  }
+  window._kidsFilters = {};
+  GH_VIEW.init('kidsViewToolbar', 'kids', state => {
+    window._kidsFilters = state.filters || {};
+    const tab = document.querySelector('#kidDetailTabs .view-tab.active');
+    const tabName = tab ? tab.textContent.trim().toLowerCase() : '';
+    if (tabName.includes('activit')) renderActivities();
+    else if (tabName.includes('note')) renderNotes();
+  }, {
+    defaultView: 'list',
+    filterFields: [
+      { key: 'category', type: 'select', label: 'Category',
+        options: [{value:'',label:'All'},{value:'Sports',label:'Sports'},{value:'Music',label:'Music'},{value:'Arts',label:'Arts'},{value:'Academic',label:'Academic'},{value:'Social',label:'Social'},{value:'Other',label:'Other'}] },
+      { key: 'tags', type: 'tags', label: 'Tags' },
+    ]
+  });
+});
 </script>
 </body>
 </html>

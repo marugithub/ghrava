@@ -116,6 +116,198 @@ app.use('/api/v1/data',          require('./features/data/routes'));
 app.use('/api/v1/trading',       require('./features/trading/routes'));
 
 // ── App info (public — no auth) ────────────────────────────────
+
+// ── Module Inventory — live record counts per module ──────────
+// GET /api/v1/app/module-inventory
+// Returns per-module counts directly from DB. Zero maintenance — all live SQL.
+app.get('/api/v1/app/module-inventory', (req, res) => {
+  const db = require('./db/db');
+  const ago30 = new Date(Date.now() - 30*24*3600*1000).toISOString().slice(0,10);
+
+  function q(sql) {
+    try { const r = db.prepare(sql).get(); return r ? (r.n ?? r.total ?? 0) : 0; }
+    catch { return null; }
+  }
+  function qa(sql) {
+    try { return db.prepare(sql).all(); }
+    catch { return []; }
+  }
+
+  const modules = [
+    {
+      id: 'inventory', label: 'Inventory',
+      tables: ['items','containers','locations','item_maintenance_log','item_events'],
+      stats: [
+        { label:'Active items',     val: q("SELECT COUNT(*) n FROM items WHERE is_active=1 AND is_archived=0") },
+        { label:'Archived items',   val: q("SELECT COUNT(*) n FROM items WHERE is_archived=1") },
+        { label:'Containers',       val: q("SELECT COUNT(*) n FROM containers") },
+        { label:'Locations/Rooms',  val: q("SELECT COUNT(*) n FROM locations") },
+        { label:'Maintenance logs', val: q("SELECT COUNT(*) n FROM item_maintenance_log") },
+        { label:'Added last 30d',   val: q(`SELECT COUNT(*) n FROM items WHERE created_at >= '${ago30}'`) },
+        { label:'Total est. value', val: q("SELECT COALESCE(ROUND(SUM(replacement_value),2),0) n FROM items WHERE is_active=1 AND is_archived=0") },
+        { label:'Unique categories',val: q("SELECT COUNT(DISTINCT category) n FROM items WHERE is_active=1") },
+        { label:'Tagged items',     val: q("SELECT COUNT(DISTINCT entity_id) n FROM taggables WHERE entity_type='item'") },
+      ]
+    },
+    {
+      id: 'medical', label: 'Medical',
+      tables: ['med_medications','med_conditions','med_visit_notes'],
+      stats: [
+        { label:'Medications (active)',val: q("SELECT COUNT(*) n FROM med_medications WHERE status='Active'") },
+        { label:'Medications (total)', val: q("SELECT COUNT(*) n FROM med_medications") },
+        { label:'Conditions',          val: q("SELECT COUNT(*) n FROM med_conditions WHERE is_active=1") },
+        { label:'Visit notes',         val: q("SELECT COUNT(*) n FROM med_visit_notes") },
+        { label:'Unique patients',     val: q("SELECT COUNT(DISTINCT patient) n FROM med_medications") },
+        { label:'Visits last 30d',     val: q(`SELECT COUNT(*) n FROM med_visit_notes WHERE visit_date >= '${ago30}'`) },
+      ]
+    },
+    {
+      id: 'finance', label: 'Finance',
+      tables: ['finance_accounts','finance_transactions','budgets','gift_cards','holdings','hsa_payments','hsa_otc','net_worth_snapshots'],
+      stats: [
+        { label:'Accounts',           val: q("SELECT COUNT(*) n FROM finance_accounts WHERE is_active=1") },
+        { label:'Transactions',       val: q("SELECT COUNT(*) n FROM finance_transactions") },
+        { label:'Imported batches',   val: q("SELECT COUNT(*) n FROM import_batches") },
+        { label:'Transactions last 30d', val: q(`SELECT COUNT(*) n FROM finance_transactions WHERE date >= '${ago30}'`) },
+        { label:'Budget categories',  val: q("SELECT COUNT(*) n FROM budgets WHERE is_active=1") },
+        { label:'Gift cards (active)',val: q("SELECT COUNT(*) n FROM gift_cards WHERE is_active=1") },
+        { label:'Holdings/positions', val: q("SELECT COUNT(*) n FROM holdings") },
+        { label:'HSA expenses',       val: q("SELECT COUNT(*) n FROM hsa_payments") },
+        { label:'HSA OTC',            val: q("SELECT COUNT(*) n FROM hsa_otc") },
+        { label:'Net worth snapshots',val: q("SELECT COUNT(*) n FROM net_worth_snapshots") },
+        { label:'Category rules',     val: q("SELECT COUNT(*) n FROM import_category_rules WHERE is_active=1") },
+      ]
+    },
+    {
+      id: 'todos', label: 'To Do',
+      tables: ['todos'],
+      stats: [
+        { label:'Open todos',     val: q("SELECT COUNT(*) n FROM todos WHERE is_active=1 AND status NOT IN ('done','dismissed')") },
+        { label:'Done (active)',  val: q("SELECT COUNT(*) n FROM todos WHERE status='done'") },
+        { label:'Auto-generated', val: q("SELECT COUNT(*) n FROM todos WHERE is_auto=1 AND is_active=1") },
+        { label:'Recurring',      val: q("SELECT COUNT(*) n FROM todos WHERE recurrence IS NOT NULL AND is_active=1") },
+        { label:'Total ever',     val: q("SELECT COUNT(*) n FROM todos") },
+        { label:'Overdue',        val: q(`SELECT COUNT(*) n FROM todos WHERE due_date < date('now') AND status NOT IN ('done','dismissed') AND is_active=1`) },
+        { label:'Tagged',         val: q("SELECT COUNT(DISTINCT entity_id) n FROM taggables WHERE entity_type='todo'") },
+      ]
+    },
+    {
+      id: 'daily_log', label: 'Daily Log',
+      tables: ['daily_log'],
+      stats: [
+        { label:'Total entries',     val: q("SELECT COUNT(*) n FROM daily_log") },
+        { label:'Entries last 30d',  val: q(`SELECT COUNT(*) n FROM daily_log WHERE log_date >= '${ago30}'`) },
+        { label:'With follow-up',    val: q("SELECT COUNT(*) n FROM daily_log WHERE follow_up_needed=1") },
+        { label:'Unique categories', val: q("SELECT COUNT(DISTINCT category) n FROM daily_log") },
+        { label:'Earliest entry',    val: (() => { try { return db.prepare("SELECT MIN(log_date) n FROM daily_log").get()?.n || null; } catch { return null; } })() },
+      ]
+    },
+    {
+      id: 'books', label: 'Books',
+      tables: ['books'],
+      stats: [
+        { label:'Total books',       val: q("SELECT COUNT(*) n FROM books WHERE is_active=1") },
+        { label:'Currently reading', val: q("SELECT COUNT(*) n FROM books WHERE status='Currently Reading' AND is_active=1") },
+        { label:'Read',              val: q("SELECT COUNT(*) n FROM books WHERE status='Read' AND is_active=1") },
+        { label:'Want to read',      val: q("SELECT COUNT(*) n FROM books WHERE status='Want to Read' AND is_active=1") },
+        { label:'With progress',     val: q("SELECT COUNT(*) n FROM books WHERE pages_total > 0 AND is_active=1") },
+        { label:'Added last 30d',    val: q(`SELECT COUNT(*) n FROM books WHERE created_at >= '${ago30}'`) },
+        { label:'Tagged',            val: q("SELECT COUNT(DISTINCT entity_id) n FROM taggables WHERE entity_type='book'") },
+      ]
+    },
+    {
+      id: 'career', label: 'Career',
+      tables: ['career_certifications','career_jobs','career_skills','career_education','career_goals'],
+      stats: [
+        { label:'Certifications',  val: q("SELECT COUNT(*) n FROM career_certifications WHERE is_active=1") },
+        { label:'Active jobs',     val: q("SELECT COUNT(*) n FROM career_jobs WHERE is_active=1 AND status='Active'") },
+        { label:'Jobs (total)',    val: q("SELECT COUNT(*) n FROM career_jobs WHERE is_active=1") },
+        { label:'Skills',          val: q("SELECT COUNT(*) n FROM career_skills WHERE is_active=1") },
+        { label:'Education',       val: q("SELECT COUNT(*) n FROM career_education WHERE is_active=1") },
+        { label:'Goals',           val: q("SELECT COUNT(*) n FROM career_goals WHERE is_active=1") },
+        { label:'Expired certs',   val: q(`SELECT COUNT(*) n FROM career_certifications WHERE expiry_date < date('now') AND is_active=1`) },
+      ]
+    },
+    {
+      id: 'property', label: 'Property',
+      tables: ['properties','vehicles','property_maintenance','vehicle_service'],
+      stats: [
+        { label:'Properties',        val: q("SELECT COUNT(*) n FROM properties WHERE is_active=1") },
+        { label:'Vehicles',          val: q("SELECT COUNT(*) n FROM vehicles WHERE is_active=1") },
+        { label:'Maintenance records',val: q("SELECT COUNT(*) n FROM property_maintenance") },
+        { label:'Maintenance completed',val: q("SELECT COUNT(*) n FROM property_maintenance WHERE is_completed=1") },
+        { label:'Service logs',      val: q("SELECT COUNT(*) n FROM vehicle_service") },
+        { label:'Overdue maintenance',val: q(`SELECT COUNT(*) n FROM property_maintenance WHERE next_due_date < date('now') AND (is_completed IS NULL OR is_completed=0)`) },
+      ]
+    },
+    {
+      id: 'documents', label: 'Documents',
+      tables: ['documents'],
+      stats: [
+        { label:'Total documents',   val: q("SELECT COUNT(*) n FROM documents WHERE is_active=1") },
+        { label:'With expiry date',  val: q("SELECT COUNT(*) n FROM documents WHERE expiry_date IS NOT NULL AND is_active=1") },
+        { label:'Expiring 90 days',  val: q(`SELECT COUNT(*) n FROM documents WHERE expiry_date BETWEEN date('now') AND date('now','+90 days') AND is_active=1`) },
+        { label:'Expired',           val: q(`SELECT COUNT(*) n FROM documents WHERE expiry_date < date('now') AND is_active=1`) },
+        { label:'With attachment',   val: q("SELECT COUNT(*) n FROM documents WHERE attachment_id IS NOT NULL AND is_active=1") },
+        { label:'Added last 30d',    val: q(`SELECT COUNT(*) n FROM documents WHERE created_at >= '${ago30}'`) },
+        { label:'Unique categories', val: q("SELECT COUNT(DISTINCT category) n FROM documents WHERE is_active=1") },
+      ]
+    },
+    {
+      id: 'resources', label: 'Resources',
+      tables: ['resources'],
+      stats: [
+        { label:'Total resources',   val: q("SELECT COUNT(*) n FROM resources WHERE is_active=1") },
+        { label:'Favorites',         val: q("SELECT COUNT(*) n FROM resources WHERE is_favorite=1 AND is_active=1") },
+        { label:'Unique categories', val: q("SELECT COUNT(DISTINCT category) n FROM resources WHERE is_active=1") },
+        { label:'With URL',          val: q("SELECT COUNT(*) n FROM resources WHERE url IS NOT NULL AND url != '' AND is_active=1") },
+        { label:'Added last 30d',    val: q(`SELECT COUNT(*) n FROM resources WHERE created_at >= '${ago30}'`) },
+      ]
+    },
+    {
+      id: 'kids', label: 'Kids',
+      tables: ['kids','kid_activities','kid_notes'],
+      stats: [
+        { label:'Kids',              val: q("SELECT COUNT(*) n FROM kids WHERE is_active=1") },
+        { label:'Activities (active)',val: q("SELECT COUNT(*) n FROM kid_activities WHERE is_active=1") },
+        { label:'Notes',             val: q("SELECT COUNT(*) n FROM kid_notes") },
+        { label:'Activity categories',val: q("SELECT COUNT(DISTINCT category) n FROM kid_activities WHERE is_active=1") },
+      ]
+    },
+    {
+      id: 'contacts', label: 'Contacts & Family',
+      tables: ['contacts','family_members'],
+      stats: [
+        { label:'Contacts',          val: q("SELECT COUNT(*) n FROM contacts WHERE is_active=1") },
+        { label:'Family members',    val: q("SELECT COUNT(*) n FROM family_members WHERE is_active=1") },
+        { label:'Records linked to family', val: q("SELECT COUNT(*) n FROM record_family_members") },
+      ]
+    },
+    {
+      id: 'system', label: 'System / Shared',
+      tables: ['tags','taggables','attachments','notifications','dropdown_options','app_config'],
+      stats: [
+        { label:'Unique tags',       val: q("SELECT COUNT(*) n FROM tags") },
+        { label:'Tag assignments',   val: q("SELECT COUNT(*) n FROM taggables") },
+        { label:'Attachments',       val: q("SELECT COUNT(*) n FROM attachments") },
+        { label:'Notifications',     val: q("SELECT COUNT(*) n FROM notifications") },
+        { label:'Dropdown options',  val: q("SELECT COUNT(*) n FROM dropdown_options WHERE is_active=1") },
+        { label:'Config entries',    val: q("SELECT COUNT(*) n FROM app_config") },
+      ]
+    },
+  ];
+
+  // Cross-module totals
+  const totals = {
+    total_records: modules.flatMap(m => m.stats.map(s => s.val)).filter(v => typeof v === 'number').reduce((a,b) => a+b, 0),
+    total_tables:  modules.reduce((a,m) => a + m.tables.length, 0),
+    modules_count: modules.length,
+    generated_at:  new Date().toISOString(),
+  };
+
+  res.json({ modules, totals });
+});
+
 app.get('/api/v1/app/info', (req, res) => {
   const db = require('./db/db');
   try {

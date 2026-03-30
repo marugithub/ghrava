@@ -37,7 +37,7 @@
   background:var(--bg2);border-radius:var(--r);padding:10px 12px;
   cursor:pointer;transition:background .15s;
 }
-.skill-chip:active { background:var(--surface2); }
+.skill-chip:active { background:var(--bg3); }
 .skill-chip-name { font-size:13px;font-weight:600;color:var(--text); }
 .skill-chip-meta { font-size:11px;color:var(--text3);margin-top:2px; }
 
@@ -74,6 +74,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <input class="search-input" id="careerSearch" type="search" placeholder="Search certs, jobs, skills…" autocomplete="off">
   </div>
+  <div id="careerViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
 
   <!-- ══════════════════════════════════════════════
        CERTIFICATIONS
@@ -334,6 +335,7 @@ function onDrawerBg(id) { if (event.target === $id(id)) $id(id).classList.remove
 function $id(id) { return document.getElementById(id); }
 
 let _careerSearch = '';
+window._careerFilters = {};
 let currentTab = 'certs';
 let editingCertId = null, editingJobId = null, editingSkillId = null, editingEduId = null;
 
@@ -362,9 +364,11 @@ async function loadCerts() {
   const el = $('certsList'); if (!el) return;
   try {
     const rows = await api('GET', '/certifications');
-    const _filtered_certifications = _careerSearch
+    let _filtered_certifications = _careerSearch
       ? rows.filter(r => ['name','issuing_body','credential_id','notes'].some(k => (r[k]||'').toLowerCase().includes(_careerSearch)))
       : rows;
+    if (window._careerFilters?.status) _filtered_certifications = _filtered_certifications.filter(r => r.status === window._careerFilters.status);
+    if (window._careerFilters?.tags?.length) _filtered_certifications = _filtered_certifications.filter(r => window._careerFilters.tags.every(t => (r.tags||[]).includes(t)));
     if (!_filtered_certifications.length) { el.innerHTML = emptyState(...GH_EMPTY.certs); return; }
     const today = new Date();
     el.innerHTML = _filtered_certifications.map(c => {
@@ -812,13 +816,28 @@ document.addEventListener('DOMContentLoaded', () => {
   loadCerts();
   $('careerSearch').addEventListener('input', e => {
     _careerSearch = e.target.value.trim().toLowerCase();
-    if (currentTab === 'certs')          loadCerts();
-    else if (currentTab === 'jobs')      loadJobs();
-    else if (currentTab === 'skills')    loadSkills();
-    else if (currentTab === 'education') loadEdu();
-    else if (currentTab === 'goals')     loadGoals();
+    _reloadCurrentTab();
+  });
+  GH_VIEW.init('careerViewToolbar', 'career', state => {
+    window._careerFilters = state.filters || {};
+    _reloadCurrentTab();
+  }, {
+    defaultView: 'list',
+    filterFields: [
+      { key: 'status', type: 'select', label: 'Status',
+        options: [{value:'',label:'All'},{value:'Active',label:'Active'},{value:'In Progress',label:'In Progress'},{value:'Expired',label:'Expired'},{value:'Completed',label:'Completed'}] },
+      { key: 'tags', type: 'tags', label: 'Tags' },
+    ]
   });
 });
+
+function _reloadCurrentTab() {
+  if (currentTab === 'certs')          loadCerts();
+  else if (currentTab === 'jobs')      loadJobs();
+  else if (currentTab === 'skills')    loadSkills();
+  else if (currentTab === 'education') loadEdu();
+  else if (currentTab === 'goals')     loadGoals();
+}
 </script>
 </body>
 </html>

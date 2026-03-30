@@ -183,6 +183,9 @@
     <input class="search-input" id="todoSearch" type="search" placeholder="Search todos…" autocomplete="off">
   </div>
 
+  <!-- GH_VIEW toolbar -->
+  <div id="todoViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
+
   <!-- List -->
   <div id="bulkBar" class="bulk-bar">
     <span id="bulkCount">0 selected</span>
@@ -388,6 +391,9 @@ function render() {
         (t.category||'').toLowerCase().includes(q)
       )
     : todos;
+  if (_todoFilters.priority) displayTodos = displayTodos.filter(t => t.priority === _todoFilters.priority);
+  if (_todoFilters.category) displayTodos = displayTodos.filter(t => t.category === _todoFilters.category);
+  if (_todoFilters.tags?.length) displayTodos = displayTodos.filter(t => _todoFilters.tags.every(tag => (t.tags||[]).includes(tag)));
 
   if (!displayTodos.length) {
     if (filterMode === 'done') {
@@ -678,6 +684,21 @@ $('todoSearch').addEventListener('input', e => {
   renderTodos();
 });
 window._todoSearch = '';
+let _todoView = 'list', _todoFilters = {};
+GH_VIEW.init('todoViewToolbar', 'td', state => {
+  _todoView    = state.view;
+  _todoFilters = state.filters || {};
+  render();
+}, {
+  defaultView: 'list',
+  filterFields: [
+    { key: 'priority', type: 'select', label: 'Priority',
+      options: [{value:'',label:'All'},{value:'urgent',label:'🔴 Urgent'},{value:'high',label:'🟡 High'},{value:'medium',label:'🔵 Medium'},{value:'low',label:'⚪ Low'}] },
+    { key: 'category', type: 'select', label: 'Category',
+      options: [{value:'',label:'All'},{value:'General',label:'General'},{value:'Finance',label:'Finance'},{value:'Health',label:'Health'},{value:'Home',label:'Home'},{value:'Car',label:'Car'},{value:'Work',label:'Work'},{value:'Family',label:'Family'},{value:'Kids',label:'Kids'}] },
+    { key: 'tags', type: 'tags', label: 'Tags' },
+  ]
+});
 $('formCancel').addEventListener('click', () => $('formDrawer').classList.remove('open'));
 onDrawerBg('formDrawer');
 onDrawerBg('detailDrawer');

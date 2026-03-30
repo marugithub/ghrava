@@ -1093,7 +1093,7 @@
     <div class="form-group">
       <label class="form-label">Tags</label>
       <div class="tags-input-wrap" id="itmTagsWrap" onclick="document.getElementById('itmTagInput').focus()">
-        <input class="tags-text-input" id="itmTagInput" placeholder="Type tag, Enter to add…" autocomplete="off">
+        <input class="tags-text-input" id="itmTagInput" placeholder="Tags" autocomplete="off">
       </div>
     </div>
 
@@ -1516,7 +1516,18 @@ function onCatChange(val) {
   } else {
     hw.style.display = 'none';
   }
+  // Smart tag suggestion based on category
+  triggerItmSuggest();
 }
+
+// Debounce name field → trigger suggestions
+let _itmNameTimer = null;
+document.addEventListener('input', e => {
+  if (e.target?.id === 'itm_name') {
+    clearTimeout(_itmNameTimer);
+    _itmNameTimer = setTimeout(triggerItmSuggest, 600);
+  }
+});
 
 function onHwSubcatChange(val) {
   $('hwRxSection').style.display = val === 'Prescription' ? 'block' : 'none';
@@ -3005,21 +3016,18 @@ async function openItemDrawer(item=null) {
   const selId   = item?.parent_id   || null;
   await initWherePicker(selType, selId);
   $('itemDrawer').classList.add('open');
+  // Auto-suggest tags based on existing category/name
+  setTimeout(triggerItmSuggest, 100);
   if (window.GH_INFO) GH_INFO.wire($('itemDrawer'));
   setTimeout(()=>{
     $('itm_name').focus();
     // Wire GH_TAGS here so it runs fresh each time drawer opens
-    GH_TAGS.init({ inputId:'itmTagInput', wrapId:'itmTagsWrap', module:'inventory', getFormTags:()=>itmFormTags, addTag: t=>addItmTag(t), allowCreate: true });
-    // Also wire keydown/blur on tag input
-    const itmInput = document.getElementById('itmTagInput');
-    if (itmInput && !itmInput._tagWired) {
-      itmInput._tagWired = true;
-      itmInput.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); if (itmInput.value.trim()) addItmTag(itmInput.value); }
-        else if (e.key === 'Backspace' && !itmInput.value && itmFormTags.length) { itmFormTags.pop(); renderItmTags(); }
-      });
-      itmInput.addEventListener('blur', () => { if (itmInput.value.trim()) addItmTag(itmInput.value); });
-    }
+    GH_TAGS.init({
+      inputId: 'itmTagInput', wrapId: 'itmTagsWrap',
+      module: 'inventory', entityType: 'item',
+      getFormTags: () => itmFormTags, addTag: t => addItmTag(t),
+      allowCreate: true,
+    });
   }, 300);
 }
 
@@ -3411,32 +3419,24 @@ async function loadCategoryChips() {
 
 // ── Inventory tag input helpers ─────────────────────────────
 function renderItmTags() {
-  const wrap = document.getElementById('itmTagsWrap');
-  const input = document.getElementById('itmTagInput');
-  if (!wrap || !input) return;
-  wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
-  itmFormTags.forEach(t => {
-    const chip = document.createElement('span');
-    chip.className = 'tag-chip';
-    const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t) : '';
-    if (cs) chip.style.cssText = cs;
-    chip.innerHTML = `${t}<span class="tag-chip-remove">&times;</span>`;
-    chip.querySelector('.tag-chip-remove').addEventListener('click', () => {
-      itmFormTags = itmFormTags.filter(x => x !== t);
-      renderItmTags();
-    });
-    wrap.insertBefore(chip, input);
+  GH_TAGS.renderChips('itmTagsWrap', itmFormTags, name => {
+    itmFormTags = itmFormTags.filter(x => x !== name);
+    renderItmTags();
   });
 }
 function addItmTag(raw) {
-  raw.split(',').map(t => t.trim().toLowerCase()).filter(t => t && !itmFormTags.includes(t))
+  raw.split(',').map(t => t.replace(/^#+/,'').trim().toLowerCase())
+    .filter(t => t && !itmFormTags.includes(t))
     .forEach(t => itmFormTags.push(t));
   renderItmTags();
   const inp = document.getElementById('itmTagInput');
   if (inp) inp.value = '';
 }
-
-// tag input wired in openItemDrawer via GH_TAGS.init
+function triggerItmSuggest() {
+  const cat  = document.getElementById('itm_cat')?.value || '';
+  const name = document.getElementById('itm_name')?.value || '';
+  GH_TAGS.suggest('itmTagsWrap', () => itmFormTags, addItmTag, { category: cat, name });
+}
 
 // deep-link handled in DOMContentLoaded init
 </script>

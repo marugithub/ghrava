@@ -472,223 +472,305 @@ LT.logout = function() {
 //
 window.GH_TAGS = (function() {
 
-  // ── Per-module hint sets ─────────────────────────────────────
-  const HINTS = {
-    resources: ['free','paid-discount','student-verify','edu-email',
-                'university-access','federal-employee','reddit-find',
-                'no-signup-required','free-account'],
-    dailylog:  ['follow-up','medical','legal','financial','school',
-                'family','work','insurance','important','taxes'],
-    inventory: ['warranty','expiring','important','fragile',
-                'seasonal','receipt-saved','insurance','high-value'],
-    medical:   ['urgent','annual','specialist','prescription',
-                'insurance-claim','chronic','follow-up'],
-    hsa:       ['receipt-saved','reimbursed','eligible','otc',
-                'insurance','deductible'],
-  };
+  // ── Tag color palette — cycled for new tags ─────────────────
+  const PALETTE = ['3b82f6','10b981','f59e0b','ef4444','8b5cf6',
+                   'ec4899','06b6d4','f97316','84cc16','14b8a6'];
+  let _paletteIdx = 0;
+  function nextColor() { return PALETTE[_paletteIdx++ % PALETTE.length]; }
 
-  let _cache = null;       // array of tag names (backward compat)
-  let _colorMap = {};      // name → color_hex
+  // ── Cache ────────────────────────────────────────────────────
+  let _cache    = null;   // [{name, color_hex, usage_count}]
+  let _colorMap = {};     // name → color_hex
   let _cacheTime = 0;
-  const CACHE_TTL = 60000; // 60s
+  const CACHE_TTL = 60000;
 
   async function fetchAllTags() {
     if (_cache && (Date.now() - _cacheTime) < CACHE_TTL) return _cache;
     try {
-      const r = await fetch('/api/v1/settings/tags');
-      if (!r.ok) return [];
+      const r = await fetch('/api/v1/settings/tags',
+        { headers: { 'Authorization': `Bearer ${window.LT?.authToken||''}` } });
+      if (!r.ok) return _cache || [];
       const tags = await r.json();
-      _cache = tags.map(t => t.name);
+      _cache = tags;
       _colorMap = {};
-      tags.forEach(t => { _colorMap[t.name] = t.color_hex || null; });
+      tags.forEach(t => { _colorMap[t.name.toLowerCase()] = t.color_hex || '8b5cf6'; });
       _cacheTime = Date.now();
       return _cache;
-    } catch { return []; }
+    } catch { return _cache || []; }
   }
 
-  function getColor(name) {
-    return _colorMap[name] || null;
-  }
+  function invalidateCache() { _cache = null; }
 
-  // Returns inline style string for a tag chip based on its color_hex
-  // Usage: `<span class="res-tag" style="${GH_TAGS.chipStyle(name)}">`
+  function getColor(name) { return _colorMap[(name||'').toLowerCase()] || '8b5cf6'; }
+
+  // ── Chip style from color_hex ────────────────────────────────
   function chipStyle(name) {
-    const hex = getColor(name);
-    if (!hex) return '';
-    // Convert hex to rgb for alpha usage
-    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
-    return `color:#${hex.replace('#','')};background:rgba(${r},${g},${b},0.12);border-color:rgba(${r},${g},${b},0.3);`;
+    const hex = getColor(name).replace('#','');
+    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+    return `color:#${hex};background:rgba(${r},${g},${b},0.13);border-color:rgba(${r},${g},${b},0.35);`;
   }
 
-  function invalidateCache() {
-    _cache = null;
-  }
-
-  function buildSuggestions(module, dbTags, currentTags) {
-    const hints = HINTS[module] || [];
-    // Merge: DB tags first (user's real data), then module hints not already in DB
-    const all = [...new Set([...dbTags, ...hints])];
-    // Filter out already-selected tags
-    return all.filter(t => !currentTags.includes(t));
-  }
-
+  // ── Create tag on server ─────────────────────────────────────
   async function createTag(name) {
+    const clean = name.replace(/^#+/, '').trim().toLowerCase();
+    if (!clean) return clean;
+    const color_hex = '#' + nextColor();
     try {
       await fetch('/api/v1/settings/tags', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(window.LT && LT.authToken) || ''}`
+          'Authorization': `Bearer ${window.LT?.authToken||''}`
         },
-        body: JSON.stringify({ name: name.trim().toLowerCase(), color_hex: '#a78bfa' })
+        body: JSON.stringify({ name: clean, color_hex })
       });
       invalidateCache();
-    } catch (e) {
-      console.warn('GH_TAGS: failed to create tag', e);
-    }
+    } catch(e) { console.warn('GH_TAGS: create failed', e); }
+    return clean;
   }
 
-  function renderSuggestions(anchorEl, suggestions, onPick, opts = {}) {
-    // Remove any existing suggestion row
-    removeSuggestions();
+  // ── Floating dropdown ────────────────────────────────────────
+  function openDropdown(wrap, allTags, currentTags, typedVal, onPick, allowCreate) {
+    closeDropdown();
+    const q = typedVal.trim().toLowerCase();
 
-    const { typedValue = '', allowCreate = false, onCreate } = opts;
-    const trimmed = typedValue.trim().toLowerCase();
-
-    // Determine if we should show a create pill:
-    // typed value is non-empty, doesn't exactly match an existing tag, and allowCreate is on
-    const existingNames = suggestions.map(s => s.toLowerCase());
-    const showCreate = allowCreate && trimmed.length > 0 && !existingNames.includes(trimmed);
-
-    if (!suggestions.length && !showCreate) return;
-
-    const row = document.createElement('div');
-    row.id = 'gh-tag-suggestions';
-    row.style.cssText = [
-      'display:flex', 'flex-wrap:wrap', 'gap:5px',
-      'padding:6px 0 2px', 'max-height:80px', 'overflow-y:auto',
-    ].join(';');
-
-    suggestions.slice(0, 20).forEach(tag => {
-      const pill = document.createElement('span');
-      pill.textContent = '#' + tag;
-      pill.style.cssText = [
-        'display:inline-flex', 'align-items:center',
-        'padding:3px 8px', 'border-radius:4px',
-        'background:var(--bg3)', 'border:1px solid var(--border)',
-        'color:var(--text2)', 'font-family:var(--mono)',
-        'font-size:10px', 'cursor:pointer',
-        'transition:background .1s,border-color .1s',
-        'user-select:none',
-      ].join(';');
-      pill.addEventListener('mouseenter', () => {
-        pill.style.background = 'var(--accent-bg)';
-        pill.style.borderColor = 'var(--accent-bd)';
-        pill.style.color = 'var(--accent-h)';
-      });
-      pill.addEventListener('mouseleave', () => {
-        pill.style.background = 'var(--bg3)';
-        pill.style.borderColor = 'var(--border)';
-        pill.style.color = 'var(--text2)';
-      });
-      // Use mousedown (fires before blur) so click registers before input loses focus
-      pill.addEventListener('mousedown', e => {
-        e.preventDefault(); // prevent input blur
-        onPick(tag);
-        // Re-render suggestions after pick
-        setTimeout(() => pill.remove(), 0);
-      });
-      row.appendChild(pill);
+    // Filter: exclude already-selected, filter by typed text
+    let visible = allTags.filter(t => {
+      const n = t.name.toLowerCase();
+      return !currentTags.includes(n) && (!q || n.includes(q));
     });
 
-    // ── "＋ Create [name]" pill ───────────────────────────────
-    if (showCreate) {
-      const createPill = document.createElement('span');
-      createPill.textContent = `＋ Create "${trimmed}"`;
-      createPill.style.cssText = [
-        'display:inline-flex', 'align-items:center',
-        'padding:3px 8px', 'border-radius:4px',
-        'background:var(--purple-bg)', 'border:1px solid rgba(167,139,250,0.3)',
-        'color:var(--purple)', 'font-family:var(--mono)',
-        'font-size:10px', 'cursor:pointer',
-        'transition:background .1s,border-color .1s',
-        'user-select:none',
-      ].join(';');
-      createPill.addEventListener('mouseenter', () => {
-        createPill.style.background = 'rgba(167,139,250,0.2)';
-        createPill.style.borderColor = 'rgba(167,139,250,0.5)';
-      });
-      createPill.addEventListener('mouseleave', () => {
-        createPill.style.background = 'var(--purple-bg)';
-        createPill.style.borderColor = 'rgba(167,139,250,0.3)';
-      });
-      createPill.addEventListener('mousedown', async e => {
-        e.preventDefault();
-        createPill.textContent = '…';
-        await createTag(trimmed);
-        if (onCreate) onCreate(trimmed);
-        else onPick(trimmed);
-      });
-      row.appendChild(createPill);
+    const showCreate = allowCreate && q.length > 0
+      && !allTags.find(t => t.name.toLowerCase() === q);
+
+    if (!visible.length && !showCreate) return;
+
+    const dd = document.createElement('div');
+    dd.className = 'gh-tags-dropdown';
+    dd.id = 'gh-tags-dd';
+
+    const inner = document.createElement('div');
+    inner.className = 'gh-tags-dropdown-inner';
+
+    if (!visible.length && !showCreate) {
+      inner.innerHTML = `<span class="gh-tags-dropdown-empty">No tags match</span>`;
     }
 
-    anchorEl.parentNode.insertBefore(row, anchorEl.nextSibling);
+    visible.slice(0, 24).forEach(t => {
+      const pill = document.createElement('span');
+      pill.className = 'gh-tags-pill';
+      pill.textContent = t.name;
+      pill.style.cssText = chipStyle(t.name);
+      pill.addEventListener('mousedown', e => {
+        e.preventDefault();
+        onPick(t.name);
+      });
+      inner.appendChild(pill);
+    });
+
+    if (showCreate) {
+      const cp = document.createElement('span');
+      cp.className = 'gh-tags-pill gh-tags-pill-create';
+      cp.textContent = `+ Create "${q}"`;
+      cp.addEventListener('mousedown', async e => {
+        e.preventDefault();
+        cp.textContent = '…';
+        const clean = await createTag(q);
+        onPick(clean);
+      });
+      inner.appendChild(cp);
+    }
+
+    dd.appendChild(inner);
+    wrap.appendChild(dd);
   }
 
-  function removeSuggestions() {
-    const el = document.getElementById('gh-tag-suggestions');
+  function closeDropdown() {
+    const el = document.getElementById('gh-tags-dd');
     if (el) el.remove();
   }
 
-  function init({ inputId, wrapId, module, getFormTags, addTag, allowCreate = false }) {
+  // ── Build confirmed chip element ─────────────────────────────
+  function makeChip(name, onRemove) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.style.cssText = chipStyle(name);
+    chip.dataset.tag = name;
+    const label = document.createElement('span');
+    label.textContent = name;
+    const x = document.createElement('span');
+    x.className = 'tag-chip-remove';
+    x.innerHTML = '&times;';
+    x.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); onRemove(name); });
+    chip.appendChild(label);
+    chip.appendChild(x);
+    return chip;
+  }
+
+  // ── Build suggested chip element ─────────────────────────────
+  function makeSuggestedChip(tag, onConfirm, onDismiss) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip-suggested';
+    const hex = tag.color_hex ? tag.color_hex.replace('#','') : '8b5cf6';
+    const r = parseInt(hex.slice(0,2),16), g = parseInt(hex.slice(2,4),16), b = parseInt(hex.slice(4,6),16);
+    chip.style.cssText = `color:#${hex};border-color:rgba(${r},${g},${b},0.4);`;
+    chip.title = 'Click to add suggested tag';
+    chip.dataset.tag = tag.name;
+
+    const label = document.createElement('span');
+    label.textContent = tag.name;
+    const x = document.createElement('span');
+    x.className = 'tag-chip-remove';
+    x.innerHTML = '&times;';
+    x.title = 'Dismiss suggestion';
+    x.addEventListener('mousedown', e => { e.preventDefault(); e.stopPropagation(); onDismiss(tag.name); chip.remove(); });
+
+    chip.addEventListener('mousedown', e => {
+      if (e.target === x) return;
+      e.preventDefault();
+      onConfirm(tag.name);
+      chip.remove();
+    });
+
+    chip.appendChild(label);
+    chip.appendChild(x);
+    return chip;
+  }
+
+  // ── Fetch smart suggestions from server ──────────────────────
+  async function fetchSuggestions({ module, entityType, category, name, currentTags }) {
+    try {
+      const params = new URLSearchParams();
+      if (module)     params.set('module', module);
+      if (entityType) params.set('entity_type', entityType);
+      if (category)   params.set('category', category);
+      if (name)       params.set('name', name);
+      if (currentTags?.length) params.set('current', currentTags.join(','));
+      const r = await fetch(`/api/v1/settings/tags/suggest?${params}`,
+        { headers: { 'Authorization': `Bearer ${window.LT?.authToken||''}` } });
+      if (!r.ok) return [];
+      return await r.json(); // [{name, color_hex}]
+    } catch { return []; }
+  }
+
+  // ── main init ─────────────────────────────────────────────────
+  // Usage:
+  //   GH_TAGS.init({
+  //     inputId, wrapId, module,
+  //     getFormTags,          // () => string[]  — current confirmed tags
+  //     addTag,               // (name) => void  — add to form state
+  //     allowCreate,          // bool (default true)
+  //     entityType,           // e.g. 'item' — for suggestion queries
+  //     getContext,           // () => {category, name} — for smart suggestions
+  //   })
+  //
+  //   GH_TAGS.suggest(wrapId, getFormTags, addTag, context)
+  //     — call after category/name changes to refresh suggested chips
+  //
+  function init({ inputId, wrapId, module, getFormTags, addTag,
+                  allowCreate = true, entityType, getContext }) {
     const input = document.getElementById(inputId);
     const wrap  = document.getElementById(wrapId);
     if (!input || !wrap) return;
 
-    // Shared helper to re-render suggestions with current typed value
-    async function refresh(dbTagsOverride) {
-      const dbTags = dbTagsOverride || await fetchAllTags();
-      const current = getFormTags();
-      const suggestions = buildSuggestions(module, dbTags, current);
-      const typedValue = input.value;
+    // Namespace a dismissed-suggestions set per wrapId
+    wrap._dismissedSuggestions = wrap._dismissedSuggestions || new Set();
 
-      const onPick = tag => {
-        addTag(tag);
-        input.value = '';
-        setTimeout(() => refresh(dbTags), 0);
-      };
-      const onCreate = async name => {
+    async function refreshDropdown() {
+      const allTags = await fetchAllTags();
+      const current = getFormTags().map(t => t.toLowerCase());
+      openDropdown(wrap, allTags, current, input.value, name => {
         addTag(name);
         input.value = '';
-        const fresh = await fetchAllTags(); // cache already busted by createTag
-        refresh(fresh);
-      };
-
-      renderSuggestions(wrap, suggestions, onPick, { typedValue, allowCreate, onCreate });
+        // Remove from dropdown and reopen
+        setTimeout(() => refreshDropdown(), 0);
+      }, allowCreate);
     }
 
-    input.addEventListener('focus', () => refresh());
-
-    // Re-render live as user types so "Create" pill updates with each keystroke
-    input.addEventListener('input', () => refresh());
-
-    input.addEventListener('blur', () => {
-      // Small delay so mousedown on pill can fire first
-      setTimeout(removeSuggestions, 150);
-    });
-
-    // Also refresh suggestions after a tag is typed and confirmed
+    input.addEventListener('focus', refreshDropdown);
+    input.addEventListener('input', refreshDropdown);
+    input.addEventListener('blur', () => setTimeout(closeDropdown, 150));
     input.addEventListener('keydown', e => {
       if (e.key === 'Enter' || e.key === ',') {
-        setTimeout(async () => {
-          invalidateCache(); // user added a new tag — bust cache
-          refresh();
-        }, 50);
+        e.preventDefault();
+        const val = input.value.trim().replace(/^#+/,'').toLowerCase();
+        if (val) {
+          addTag(val);
+          input.value = '';
+          setTimeout(refreshDropdown, 50);
+        }
+      } else if (e.key === 'Backspace' && !input.value) {
+        // Remove last confirmed tag
+        const chips = wrap.querySelectorAll('.tag-chip');
+        if (chips.length) chips[chips.length - 1].querySelector('.tag-chip-remove').dispatchEvent(new MouseEvent('mousedown'));
+      } else if (e.key === 'Escape') {
+        closeDropdown();
+        input.blur();
       }
+    });
+
+    // Store context fetcher for external suggest calls
+    wrap._getContext  = getContext  || null;
+    wrap._module      = module      || '';
+    wrap._entityType  = entityType  || '';
+    wrap._getFormTags = getFormTags;
+    wrap._addTag      = addTag;
+  }
+
+  // ── External: call after context changes to show suggested chips ──
+  // context = { category, name }
+  async function suggest(wrapId, getFormTags, addTag, context = {}) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+
+    const module     = wrap._module     || '';
+    const entityType = wrap._entityType || '';
+    const current    = getFormTags().map(t => t.toLowerCase());
+    const dismissed  = wrap._dismissedSuggestions || new Set();
+
+    const suggs = await fetchSuggestions({
+      module, entityType,
+      category: context.category || '',
+      name:     context.name     || '',
+      currentTags: current,
+    });
+
+    // Remove old suggestion chips
+    wrap.querySelectorAll('.tag-chip-suggested').forEach(c => c.remove());
+
+    const input = wrap.querySelector('.tags-text-input');
+
+    suggs
+      .filter(s => !current.includes(s.name.toLowerCase()) && !dismissed.has(s.name.toLowerCase()))
+      .forEach(s => {
+        const chip = makeSuggestedChip(
+          s,
+          name => { addTag(name); },
+          name => { dismissed.add(name.toLowerCase()); }
+        );
+        // Insert before the input
+        if (input) wrap.insertBefore(chip, input);
+        else wrap.appendChild(chip);
+      });
+  }
+
+  // ── renderChips: rebuild confirmed chips inside a wrap ────────
+  // Call this whenever form tag state changes (replaces per-page renderXxxTags)
+  function renderChips(wrapId, tags, onRemove) {
+    const wrap = document.getElementById(wrapId);
+    if (!wrap) return;
+    const input = wrap.querySelector('.tags-text-input');
+    // Remove existing confirmed chips
+    wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+    // Add fresh chips before the input
+    tags.forEach(name => {
+      const chip = makeChip(name, onRemove);
+      if (input) wrap.insertBefore(chip, input);
+      else wrap.appendChild(chip);
     });
   }
 
-  return { init, invalidateCache, fetchAllTags, getColor, chipStyle };
+  return { init, suggest, renderChips, invalidateCache, fetchAllTags, getColor, chipStyle };
 
 })();
 

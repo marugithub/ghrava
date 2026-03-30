@@ -354,6 +354,33 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 ### 🔵 LOW / DESIGN NEEDED
 
 **Notifications email digest** — design conversation needed first
+~~**Module Inventory Report**~~ — DONE v202603.127 (GET /api/v1/app/module-inventory, Reports → System tab)
+A system-wide snapshot report accessible from Reports → System tab (or a dedicated admin view).
+Per-module, per-version it should capture:
+
+Structure metrics (static, derived from code):
+- Screens / pages count
+- Drawers / forms count
+- Form fields per drawer (label + type)
+- API routes (GET/POST/PUT/DELETE/PATCH)
+- DB tables owned by the module
+- Export coverage (is it in the unified XLSX? which sheet?)
+
+Data metrics (live, queried at runtime):
+- Record count per table
+- Records added in last 30 days
+- Tags used (count)
+- Family members linked (count)
+- Attachments linked (count)
+
+Delivery: Single endpoint `GET /api/v1/settings/module-inventory` returns JSON.
+UI: Table or card grid in Reports → System tab. Each row = one module.
+Export: Part of the unified XLSX export as a "Module Inventory" sheet (structure snapshot only).
+
+Design note: the static metrics (fields, routes) are best captured at build time or by
+parsing HANDOFF.md — not at runtime. Runtime should only serve the live data counts.
+
+**Rule: Do not build until Reports → System tab is reviewed for available space.**
 ~~**Left nav Data icon**~~ — DONE v202603.120 (database cylinder icon)
 **Sidebar logo** — needs to be roughly 2× current size; padding reduction in v121 helped but more to do
 **Books — Open Library cover auto-fetch on status change to "Currently Reading"** — nice to have
@@ -405,8 +432,112 @@ cd /home/claude/ghrava
 zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/version.txt HANDOFF.md
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
-HANDOFF.md-only changes do NOT get their own zip.
+HANDOFF.md-only
+### v202603.128
+**Tag system redesign — Session 1 (shared infrastructure + inventory pilot):**
 
+Migration 051 — clean slate:
+- DELETE FROM taggables; DELETE FROM tags;
+- Strips all 225 test/seed tags. Users build their own tags organically.
+
+shared.css — new tag field visual:
+- .tags-input-wrap: border-radius 4px (squared off), min-height 44px (bigger target)
+- Focus ring: accent border + subtle box-shadow
+- .tag-chip: full pill (border-radius 99px), colored per tag color_hex
+- .tag-chip-suggested: dashed border, opacity 0.65, click to confirm, × to dismiss
+- .gh-tags-dropdown: floating overlay (position:absolute, z-index:9000), max 200px, wrapping pills
+- .gh-tags-pill: clickable pill inside dropdown with hover scale effect
+- No # prefix anywhere
+
+lt-core.js — GH_TAGS fully rewritten:
+- PALETTE: 10 colors cycled for new tags (blue, green, amber, red, purple, pink, cyan, orange, lime, teal)
+- fetchAllTags: returns [{name, color_hex, usage_count}], 60s cache
+- chipStyle(name): derives bg/border/color from stored color_hex with alpha
+- openDropdown: floating div appended to .tags-input-wrap, filters as user types
+- makeChip: confirmed pill with colored × remove
+- makeSuggestedChip: dashed suggestion pill, click confirms, × dismisses (never re-suggested this session)
+- fetchSuggestions: GET /api/v1/settings/tags/suggest with module+entityType+category+name
+- GH_TAGS.suggest(wrapId, getFormTags, addTag, {category, name}): external call to refresh suggestions
+- GH_TAGS.renderChips(wrapId, tags, onRemove): replaces per-page renderXxxTags boilerplate
+- Keyboard: Enter/comma adds, Backspace removes last, Escape closes dropdown
+- No # prefix in input or output
+
+settings/routes.js — GET /api/v1/settings/tags/suggest:
+- Co-occurrence: finds tags most used by other records with same category (per-module SQL)
+- Keyword fallback: name words matched against existing tag names
+- Returns top 5, deduped, excludes already-selected
+- 13 modules mapped (inventory, books, career, medical, todos, property, documents, resources, kids, dailylog, finance)
+
+inventory.html — pilot wiring:
+- renderItmTags → GH_TAGS.renderChips
+- addItmTag strips # prefix
+- GH_TAGS.init adds entityType + getContext
+- onCatChange fires triggerItmSuggest
+- itm_name field fires triggerItmSuggest after 600ms debounce
+- Drawer open fires triggerItmSuggest after 100ms (edit mode suggestions)
+- Placeholder changed to "Tags"
+
+Session 2: wire suggest triggers into remaining 10 pages (todos, career, medical, property, books, documents, kids, resources, daily-log, finance)
+
+### v202603.127
+**Module Inventory Report — live, zero maintenance:**
+
+New endpoint: GET /api/v1/app/module-inventory
+- 13 modules covered: Inventory, Medical, Finance, To Do, Daily Log, Books, Career, Property, Documents, Resources, Kids, Contacts/Family, System/Shared
+- Each module returns: live record counts from DB, tables it owns, key metrics (active vs total, last 30d additions, tagged records, etc.)
+- ~80 individual SQL queries, all wrapped in try/catch — one failing table never breaks the response
+- Cross-module totals: total modules, total tables tracked, generated_at timestamp
+- No config, no code updates needed when data changes — all derived from DB at request time
+
+Reports → System tab updated:
+- Calls module-inventory endpoint alongside app/info
+- Renders a 4-column table (count | metric | count | metric) grouped by module
+- Shows module label + owned tables as section header
+- "Live · {timestamp}" label so it's clear the data is real-time
+
+Backlog updated: Module Inventory Report item updated to reflect DONE status.
+ changes do NOT get their own zip.
+
+
+### v202603.126
+**GH_VIEW Advanced Filters — all remaining modules wired:**
+- kids.html: Activities and Notes tabs get filter toolbar (category + tags); search wired in _medBoot equivalent; toolbar shown/hidden in setDetailTab
+- medical.html: medSearch event was declared in HTML but never attached in JS — fixed in _medBoot; GH_VIEW init with status + tags filters
+
+**Finance — transactions search bar:**
+- Search input added below account/year filters
+- Client-side filter on description + category — no new API call
+- Wired to loadTransactions via input event on tab switch
+
+**Finance — holdings api() fixed:**
+- `api(url)` single-arg call → `api('GET', url)` — was returning undefined
+
+**CSS — var(--surface2) fixed:**
+- Not a defined CSS variable; replaced with var(--bg3) in finance.html and career.html
+
+### v202603.125
+**GH_VIEW Advanced Filters added to todos, career, medical, property:**
+
+todos.html:
+- Toolbar between search and list; filters: Priority (urgent/high/medium/low), Category, Tags
+- Applied inside render() to displayTodos
+
+career.html:
+- Toolbar below search bar; filters: Status (Active/In Progress/Expired/Completed), Tags
+- Applied in loadCerts; consolidated search+filter reload into _reloadCurrentTab()
+
+medical.html:
+- medSearch event was wired in HTML but never attached in JS — now wired in _medBoot()
+- Toolbar below search; filters: Status (Active/As Needed/Discontinued/Completed), Tags
+- Applied in renderMedications with _medFilters
+
+property.html:
+- Toolbar below search; filters: Property Type, Tags
+- Search reload consolidated into _reloadPropTab()
+
+**Inventory dropdown bug fix (v202603.123):**
+- loadWhereLists and populateCtnParent both used .ok/.json() on api() results
+- Both fixed — containers/rooms now populate in Add Item drawer
 
 ### v202603.124
 **All forms converted to centered modals with fixed footer (zero per-page changes):**

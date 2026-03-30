@@ -983,12 +983,12 @@ async function loadSystem() {
   const el = $('systemContent'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const [info, dash] = await Promise.all([
+    const [info, dash, inv] = await Promise.all([
       fetch('/api/v1/app/info').then(r => r.json()),
       fetch('/api/v1/dashboard').then(r => r.json()),
+      fetch('/api/v1/app/module-inventory').then(r => r.json()),
     ]);
     const bkp = dash.backup || {};
-    const rc  = info.record_counts || {};
 
     const sysRows = [
       ['Version',      info.version || '—'],
@@ -998,16 +998,31 @@ async function loadSystem() {
       ['Database',     fmtBytes(info.db_size_bytes)],
       ['Last backup',  bkp.last_backup ? new Date(bkp.last_backup).toLocaleString() : 'Never'],
       ['Backup age',   bkp.days_since_backup != null ? bkp.days_since_backup + ' day' + (bkp.days_since_backup!==1?'s':'') + (bkp.overdue?' — ⚠️ overdue':'') : '—'],
-      ['Image thumbs', info.sharp_available ? '✓ sharp available' : '— using fallback'],
+      ['Modules',      inv.totals?.modules_count || '—'],
+      ['DB tables tracked', inv.totals?.total_tables || '—'],
     ];
 
-    const countDefs = [
-      ['Inventory items', rc.items],   ['Documents', rc.documents],
-      ['Books', rc.books],             ['Contacts', rc.contacts],
-      ['HSA expenses', rc.hsa_payments], ['Transactions', rc.finance_transactions],
-      ['Daily log', rc.daily_log],     ['Todos', rc.todos],
-      ['Medical visits', rc.med_visit_notes], ['Family', rc.family_members],
-    ];
+    // Build module inventory table
+    const moduleRows = (inv.modules || []).map(m => {
+      const cells = m.stats.map(s =>
+        `<td style="padding:5px 10px;text-align:right;font-family:var(--mono);font-size:12px;white-space:nowrap">${s.val ?? '—'}</td>
+         <td style="padding:5px 10px;font-size:11px;color:var(--text3)">${esc(s.label)}</td>`
+      );
+      // Pair stats into 2-per-row
+      const pairs = [];
+      for (let i = 0; i < cells.length; i += 2) {
+        pairs.push(`<tr style="border-top:1px solid var(--border)">${cells[i]}${cells[i+1]||'<td colspan="2"></td>'}</tr>`);
+      }
+      return `
+        <tr style="background:var(--bg3)">
+          <td colspan="4" style="padding:7px 10px;font-size:12px;font-weight:700;color:var(--text);
+              font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase">
+            ${esc(m.label)}
+            <span style="font-weight:400;color:var(--text3);margin-left:8px">${m.tables.join(', ')}</span>
+          </td>
+        </tr>
+        ${pairs.join('')}`;
+    }).join('');
 
     el.innerHTML = `
       <div class="section-hdr" style="padding-top:12px">App</div>
@@ -1018,13 +1033,24 @@ async function loadSystem() {
             <span class="sys-val">${esc(String(v))}</span>
           </div>`).join('')}
       </div>
-      <div class="section-hdr">Record Counts</div>
-      <div class="sys-counts-grid" style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:12px">
-        ${countDefs.map(([l,v]) => `
-          <div class="sys-count-cell">
-            <div class="sys-count-val">${v ?? '—'}</div>
-            <div class="sys-count-lbl">${l}</div>
-          </div>`).join('')}
+      <div class="section-hdr" style="display:flex;align-items:center;justify-content:space-between">
+        Module Inventory
+        <span style="font-size:11px;color:var(--text3);font-weight:400">
+          Live · ${inv.totals?.generated_at ? new Date(inv.totals.generated_at).toLocaleString() : ''}
+        </span>
+      </div>
+      <div style="overflow-x:auto;margin-bottom:16px">
+        <table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;font-size:13px">
+          <thead>
+            <tr style="background:var(--bg2)">
+              <th style="padding:7px 10px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)">Count</th>
+              <th style="padding:7px 10px;text-align:left;font-size:11px;color:var(--text3)">Metric</th>
+              <th style="padding:7px 10px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)">Count</th>
+              <th style="padding:7px 10px;text-align:left;font-size:11px;color:var(--text3)">Metric</th>
+            </tr>
+          </thead>
+          <tbody>${moduleRows}</tbody>
+        </table>
       </div>`;
   } catch(e) {
     el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;

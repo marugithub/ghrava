@@ -133,6 +133,91 @@ router.get('/completeness', (req, res) => {
 // Principle: reading data never requires auth — only writes do.
 // These must be declared BEFORE router.use(requireAuth).
 
+
+// GET /api/v1/settings/tags/suggest
+// Returns up to 5 smart tag suggestions for a given record context.
+// Strategy: co-occurrence first (same category), then name keyword match.
+// ?module=inventory&entity_type=item&category=Electronics&name=Sony+TV&current=existing,tags
+router.get('/tags/suggest', (req, res) => {
+  try {
+    const { module: mod, entity_type, category, name = '', current = '' } = req.query;
+    const currentTags = current ? current.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+    const suggestions = new Map(); // name → { name, color_hex, score, source }
+
+    // ── Co-occurrence: tags most used on records with same category ──────────
+    // Each module maps to a table + category column
+    const MODULE_TABLE = {
+      inventory:  { table: 'items',                  catCol: 'category',    entityType: 'item' },
+      books:      { table: 'books',                  catCol: 'genre',       entityType: 'book' },
+      career:     { table: 'career_certifications',  catCol: 'status',      entityType: 'career_cert' },
+      medical:    { table: 'med_medications',        catCol: 'status',      entityType: 'medical_medication' },
+      todos:      { table: 'todos',                  catCol: 'category',    entityType: 'todo' },
+      property:   { table: 'properties',             catCol: 'property_type', entityType: 'property' },
+      documents:  { table: 'documents',              catCol: 'category',    entityType: 'document' },
+      resources:  { table: 'resources',              catCol: 'category',    entityType: 'resource' },
+      kids:       { table: 'kid_activities',         catCol: 'category',    entityType: 'kid_activity' },
+      dailylog:   { table: 'daily_log',              catCol: 'category',    entityType: 'daily_log' },
+      finance:    { table: 'finance_transactions',   catCol: 'category',    entityType: 'finance_tx' },
+    };
+
+    const meta = MODULE_TABLE[mod];
+    if (meta && category) {
+      try {
+        const coRows = db.prepare(`
+          SELECT t.name, t.color_hex, COUNT(*) AS freq
+          FROM taggables tb
+          JOIN tags t ON t.id = tb.tag_id
+          JOIN ${meta.table} r ON r.id = tb.entity_id
+          WHERE tb.entity_type = ?
+            AND r.${meta.catCol} = ?
+          GROUP BY t.id
+          ORDER BY freq DESC
+          LIMIT 10
+        `).all(entity_type || meta.entityType, category);
+
+        coRows.forEach(r => {
+          const key = r.name.toLowerCase();
+          if (!currentTags.includes(key) && !suggestions.has(key)) {
+            suggestions.set(key, { name: r.name, color_hex: r.color_hex, score: r.freq + 10, source: 'co' });
+          }
+        });
+      } catch(e) { /* table may vary */ }
+    }
+
+    // ── Keyword match: name words vs existing tag names ──────────────────────
+    if (name && suggestions.size < 5) {
+      const nameWords = name.toLowerCase()
+        .replace(/[^a-z0-9 ]/g, ' ')
+        .split(/\s+/)
+        .filter(w => w.length > 2);
+
+      if (nameWords.length) {
+        try {
+          const allTags = db.prepare('SELECT name, color_hex FROM tags ORDER BY name').all();
+          allTags.forEach(t => {
+            const key = t.name.toLowerCase();
+            if (currentTags.includes(key) || suggestions.has(key)) return;
+            const matches = nameWords.filter(w =>
+              key.includes(w) || w.includes(key)
+            ).length;
+            if (matches > 0) {
+              suggestions.set(key, { name: t.name, color_hex: t.color_hex, score: matches, source: 'keyword' });
+            }
+          });
+        } catch(e) {}
+      }
+    }
+
+    // Sort by score, return top 5
+    const result = [...suggestions.values()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(({ name, color_hex }) => ({ name, color_hex }));
+
+    res.json(result);
+  } catch (err) { serverError(res, err); }
+});
+
 router.get('/tags', (req, res) => {
   try {
     const tags = db.prepare('SELECT * FROM tags ORDER BY name').all();

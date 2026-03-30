@@ -103,6 +103,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <input class="search-input" id="medSearch" type="search" placeholder="Search medications, conditions, notes…" autocomplete="off">
   </div>
+  <div id="medViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
 
   <!-- ── Main list ────────────────────────────────────────── -->
   <div class="content" style="padding-top:12px">
@@ -584,6 +585,8 @@ async function renderMedications() {
     if (_medSearch) rows = rows.filter(r =>
       ['name','patient','dosage','frequency','purpose','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch))
     );
+    if (window._medFilters?.status) rows = rows.filter(r => r.status === window._medFilters.status);
+    if (window._medFilters?.tags?.length) rows = rows.filter(r => window._medFilters.tags.every(t => (r.tags||[]).includes(t)));
     if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.medications); return; }
 
     // Group by patient
@@ -886,6 +889,29 @@ async function _medBoot() {
       btn.textContent = m.display_name;
       btn.onclick = function() { setPatient(this, m.display_name); };
       strip.appendChild(btn);
+    });
+  }
+  // Wire search bar
+  const searchEl = document.getElementById('medSearch');
+  if (searchEl) {
+    searchEl.addEventListener('input', e => {
+      _medSearch = e.target.value.trim().toLowerCase();
+      renderCurrentView();
+    });
+  }
+  // GH_VIEW toolbar
+  window._medFilters = {};
+  if (window.GH_VIEW) {
+    GH_VIEW.init('medViewToolbar', 'med', state => {
+      window._medFilters = state.filters || {};
+      renderCurrentView();
+    }, {
+      defaultView: 'list',
+      filterFields: [
+        { key: 'status', type: 'select', label: 'Status',
+          options: [{value:'',label:'All'},{value:'Active',label:'Active'},{value:'As Needed',label:'As Needed'},{value:'Discontinued',label:'Discontinued'},{value:'Completed',label:'Completed'}] },
+        { key: 'tags', type: 'tags', label: 'Tags' },
+      ]
     });
   }
   renderMedications();

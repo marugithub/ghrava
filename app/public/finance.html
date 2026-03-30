@@ -313,18 +313,22 @@
       <button class="btn btn-ghost" style="padding:5px 10px;font-size:13px" onclick="openCsvImport()" title="Import CSV">⬆️ CSV</button>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openTxDrawer()">+ Add</button>
     </div>
+    <div class="search-wrap" style="margin:6px 16px 0">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input class="search-input" id="txSearch" type="search" placeholder="Search description, category…" autocomplete="off">
+    </div>
 
     <!-- Summary strip -->
     <div style="display:flex;gap:8px;padding:8px 16px 4px">
-      <div style="flex:1;background:var(--surface2);border-radius:var(--r);padding:8px 10px;text-align:center">
+      <div style="flex:1;background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center">
         <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">Credits</div>
         <div id="txCredits" style="font-size:15px;font-weight:700;color:var(--green)">—</div>
       </div>
-      <div style="flex:1;background:var(--surface2);border-radius:var(--r);padding:8px 10px;text-align:center">
+      <div style="flex:1;background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center">
         <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">Debits</div>
         <div id="txDebits" style="font-size:15px;font-weight:700;color:var(--red)">—</div>
       </div>
-      <div style="flex:1;background:var(--surface2);border-radius:var(--r);padding:8px 10px;text-align:center">
+      <div style="flex:1;background:var(--bg3);border-radius:var(--r);padding:8px 10px;text-align:center">
         <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">Net</div>
         <div id="txNet" style="font-size:15px;font-weight:700">—</div>
       </div>
@@ -985,6 +989,11 @@ function switchFinTab(id, btn) {
   } else if (id === 'transactions') {
     fab.style.display = 'flex'; fab.textContent = '+'; fab.title = 'Add transaction';
     populateTxAccountFilter(); loadTransactions();
+    const txSrch = $('txSearch');
+    if (txSrch && !txSrch._wired) {
+      txSrch._wired = true;
+      txSrch.addEventListener('input', () => loadTransactions());
+    }
   } else if (id === 'networth') {
     fab.style.display = 'none';
     loadNetWorthDetail();
@@ -1834,11 +1843,16 @@ async function loadTransactions() {
     netEl.textContent = (summary.net >= 0 ? '+' : '-') + fmt(summary.net);
     netEl.style.color = summary.net >= 0 ? 'var(--green)' : 'var(--red)';
 
-    if (!txs.length) { el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px">No transactions</div>'; return; }
+    // Apply search filter
+    const _txQ = ($('txSearch')?.value||'').trim().toLowerCase();
+    const displayTxs = _txQ
+      ? txs.filter(t => (t.description||'').toLowerCase().includes(_txQ) || (t.category||'').toLowerCase().includes(_txQ))
+      : txs;
+    if (!displayTxs.length) { el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px">No transactions' + (_txQ?' matching "'+_txQ+'"':'') + '</div>'; return; }
 
     // Group by month
     const grouped = {};
-    txs.forEach(t => {
+    displayTxs.forEach(t => {
       const m = t.date.slice(0,7);
       (grouped[m] = grouped[m]||[]).push(t);
     });
@@ -3195,7 +3209,7 @@ async function saveAcct() {
 async function loadHoldings() {
   const acctId = document.getElementById('holdingsAcctFilter')?.value||'';
   const url = '/api/v1/import/holdings'+(acctId?'?account_id='+acctId:'');
-  const data = await api(url).catch(()=>({holdings:[],summary:[]}));
+  const data = await api('GET', url).catch(()=>({holdings:[],summary:[]}));
   const holdings = data.holdings||[];
   const summary  = data.summary||[];
 
