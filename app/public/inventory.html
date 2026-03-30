@@ -2243,30 +2243,101 @@ async function openDetail(id) {
   const cfg = catCfg(item.category);
   const isArchived = item.is_archived;
 
+  // Primary photo for header thumbnail
+  const _primaryPhoto = item.photos?.find(p => p.is_primary_photo) || item.photos?.[0] || null;
+
   let html = `
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px">
+    <!-- ── Detail header ─────────────────────────────────── -->
+    <div style="display:flex;align-items:flex-start;gap:12px;margin-bottom:12px">
+
+      <!-- Thumbnail: primary photo or category emoji -->
+      <div style="flex-shrink:0;position:relative">
+        ${_primaryPhoto
+          ? `<div style="width:52px;height:52px;border-radius:8px;overflow:hidden;border:1px solid var(--border);cursor:pointer"
+                  onclick="AttachmentManager._viewImage(${_primaryPhoto.id},'${esc(_primaryPhoto.label||_primaryPhoto.original_filename||'')}')"
+                  title="View photo">
+               <img src="/api/v1/attachments/thumb/${_primaryPhoto.id}"
+                    style="width:100%;height:100%;object-fit:cover"
+                    onerror="this.parentElement.style.display='none'">
+             </div>
+             <button onclick="editItem(${item.id})" title="Edit item"
+                     style="position:absolute;bottom:-4px;right:-4px;width:20px;height:20px;
+                            border-radius:50%;background:var(--accent);border:none;cursor:pointer;
+                            display:flex;align-items:center;justify-content:center;padding:0">
+               <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                 <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+               </svg>
+             </button>`
+          : `<div style="width:52px;height:52px;border-radius:8px;background:${cfg.bg};
+                          display:flex;align-items:center;justify-content:center;font-size:26px;
+                          cursor:pointer;border:1px solid transparent"
+                  onclick="editItem(${item.id})" title="Edit item">
+               ${cfg.icon}
+             </div>`}
+      </div>
+
+      <!-- Title block -->
       <div style="flex:1;min-width:0">
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-          <span style="font-size:24px">${cfg.icon}</span>
-          <div>
-            <div style="font-size:18px;font-weight:700;letter-spacing:-.02em">${item.name}</div>
-            <div style="font-family:var(--mono);font-size:11px;color:var(--text3)">${item.item_ref||''}</div>
-          </div>
+        <div style="font-size:17px;font-weight:700;letter-spacing:-.02em;line-height:1.25;margin-bottom:3px">${esc(item.name)}</div>
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:11px;color:var(--text3)">
+          ${item.item_ref?`<span style="font-family:var(--mono)">${item.item_ref}</span>`:''}
+          ${item.item_ref && item.category ? `<span style="opacity:.4">|</span>` : ''}
+          ${item.category?`<span style="font-weight:600;color:${cfg.color}">${item.category}</span>`:''}
+          ${item.location_path ? `<span style="opacity:.4">|</span><span>&#x1F4CD; ${esc(item.location_path)}</span>` : ''}
         </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
-          ${item.category?`<span style="padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:${cfg.bg};color:${cfg.color};font-family:var(--mono)">${item.category}</span>`:''}
+        <div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:5px">
           ${item.condition?`<span class="badge badge-${item.condition==='Excellent'?'green':item.condition==='Good'?'blue':'amber'}">${item.condition}</span>`:''}
           ${isArchived?`<span class="badge badge-amber">Archived</span>`:''}
           ${item.insured?`<span class="badge badge-green">✓ Insured</span>`:''}
         </div>
-        ${item.location_path?`<div style="font-size:12px;color:var(--text3);margin-top:6px">&#x1F4CD; ${item.location_path}</div>`:''}
       </div>
-      <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0;margin-left:10px">
-        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="openQR('item','${item.item_ref}')">QR</button>
-        <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editItem(${item.id})" title="Edit"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+
+      <!-- Action icons: × QR Archive Edit -->
+      <div style="display:flex;align-items:center;gap:2px;flex-shrink:0">
+        <button onclick="openQR('item','${item.item_ref}')" title="QR code"
+                style="width:32px;height:32px;border-radius:6px;background:none;border:1px solid var(--border);
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="3" height="3"/>
+            <rect x="19" y="14" width="2" height="2"/><rect x="14" y="19" width="2" height="2"/>
+            <rect x="17" y="17" width="2" height="2"/>
+          </svg>
+        </button>
+        ${!isArchived ? `
+        <button onclick="openArchive(${item.id})" title="Archive"
+                style="width:32px;height:32px;border-radius:6px;background:none;border:1px solid var(--border);
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/>
+            <line x1="10" y1="12" x2="14" y2="12"/>
+          </svg>
+        </button>` : `
+        <button onclick="doUnarchive(${item.id})" title="Unarchive"
+                style="width:32px;height:32px;border-radius:6px;background:none;border:1px solid var(--border);
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--amber)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/>
+            <polyline points="10 12 12 10 14 12"/><line x1="12" y1="10" x2="12" y2="16"/>
+          </svg>
+        </button>`}
+        <button onclick="editItem(${item.id})" title="Edit"
+                style="width:32px;height:32px;border-radius:6px;background:none;border:1px solid var(--border);
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button onclick="$('detailDrawer').classList.remove('open')" title="Close"
+                style="width:32px;height:32px;border-radius:6px;background:none;border:1px solid var(--border);
+                       cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text2);font-size:16px;line-height:1">
+          &times;
+        </button>
       </div>
     </div>
-    ${item.description?`<div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:12px">${item.description}</div>`:''}
+    ${item.description?`<div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:12px">${esc(item.description)}</div>`:''}
 
     <!-- Photos & Attachments section — handled by shared AttachmentManager -->
     <div class="det-section">
@@ -2363,13 +2434,9 @@ async function openDetail(id) {
       </div>
     </div>
 
-    <!-- Action buttons -->
+    <!-- Action buttons — Sell stays at bottom, archive/edit moved to header -->
     <div class="btn-row" style="margin-top:12px">
-      <button class="btn btn-ghost" onclick="$('detailDrawer').classList.remove('open')">Close</button>
-      ${isArchived
-        ? `<button class="btn btn-ghost" onclick="doUnarchive(${id})">Unarchive</button>`
-        : `<button class="btn btn-ghost" onclick="openSell(${id})">Sell</button>
-           <button class="btn btn-danger" onclick="openArchive(${id})">Archive</button>`}
+      ${!isArchived ? `<button class="btn btn-ghost" onclick="openSell(${id})">Mark as Sold</button>` : ''}
     </div>
   `;
 

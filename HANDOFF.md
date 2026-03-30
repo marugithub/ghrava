@@ -382,7 +382,8 @@ parsing HANDOFF.md — not at runtime. Runtime should only serve the live data c
 
 **Rule: Do not build until Reports → System tab is reviewed for available space.**
 ~~**Left nav Data icon**~~ — DONE v202603.120 (database cylinder icon)
-**Sidebar logo** — needs to be roughly 2× current size; padding reduction in v121 helped but more to do
+**Sidebar logo** — needs to be roughly 2× current size
+**Image rotation** — inventory photo rotate (90°/180°) via sharp on server; re-generates thumbnail; needs PATCH /api/v1/attachments/:id/rotate endpoint + rotate button in photo viewer. Medium effort.; padding reduction in v121 helped but more to do
 **Books — Open Library cover auto-fetch on status change to "Currently Reading"** — nice to have
 
 ---
@@ -433,6 +434,32 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.130
+**Inventory detail view header redesigned:**
+
+Layout: [thumbnail] [title + ITM# | Category | Location] [× QR Archive Edit]
+
+Thumbnail (52×52, rounded):
+- Shows primary photo if item has photos — click to zoom
+- Falls back to category emoji in category color background if no photo
+- Small blue edit pencil badge overlaid bottom-right corner in both cases — tap to open edit drawer directly
+
+Title block (one line each):
+- Line 1: Item name (17px bold)
+- Line 2: ITM-XXXX | Category (colored) | 📍 Location path — all inline, no labels
+- Line 3: Condition / Archived / Insured badges if present
+
+Action icon row (right, 4 buttons 32×32):
+- QR code icon → openQR
+- Archive box icon → openArchive (or unarchive arrow when archived)
+- Edit pencil → editItem
+- × close → closes detail drawer
+
+Bottom button row: kept "Mark as Sold" only — Close/Archive/Edit moved to header
+
+Backlog added: Image rotation — EXIF-aware rotate for inventory photos
+(needs server-side sharp rotate + re-thumbnail, medium effort)
+
 ### v202603.129
 **Tag dropdown fixes + starter library:**
 
