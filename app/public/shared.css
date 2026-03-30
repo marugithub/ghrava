@@ -439,7 +439,8 @@ html, body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 10px 18px;
+  padding: 11px 20px;
+  min-height: 44px;
   border-radius: var(--r);
   font-family: var(--sans);
   font-size: 14px;
@@ -457,11 +458,11 @@ html, body {
 .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 2px 10px rgba(92,114,250,0.32); }
 .btn-primary:hover { background: var(--accent); }
 
-.btn-ghost { background: var(--bg3); border: 1px solid var(--border); color: var(--text2); }
-.btn-ghost:hover { border-color: var(--border2); color: var(--text); }
+.btn-ghost { background: var(--bg3); border: 1.5px solid var(--border2); color: var(--text); }
+.btn-ghost:hover { background: var(--bg4); border-color: var(--accent); color: var(--text); }
 
-.btn-danger { background: var(--red-bg); border: 1px solid rgba(239,68,68,.3); color: var(--red); }
-.btn-danger:hover { background: rgba(239,68,68,0.15); }
+.btn-danger { background: rgba(239,68,68,.12); border: 1.5px solid rgba(239,68,68,.4); color: var(--red); font-weight: 700; }
+.btn-danger:hover { background: rgba(239,68,68,.2); border-color: var(--red); }
 
 .btn-full { width: 100%; }
 

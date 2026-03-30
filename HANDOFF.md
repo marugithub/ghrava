@@ -434,6 +434,28 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.133
+**Inventory fixes:**
+
+Pin emoji garbled in grid view — fixed.
+Raw bytes replacement in previous session double-encoded the UTF-8 emoji (Ã°Â... garbage).
+All location icons now use HTML entity &#x1F4CD; consistently in both list and grid cards.
+
+Location in detail view now on its own line (not truncated inline with ITM# and category).
+
+**Button/icon sizing:**
+- .btn base: padding 10px→11px/20px, min-height 44px added (proper touch target)
+- .btn-ghost: border 1px→1.5px, stronger color, hover highlights accent border
+- .btn-danger: border 1px→1.5px, heavier font-weight, more visible hover
+- .det-icon-btn (detail header): 34px→40px, filled bg (var(--bg3)), heavier border
+- det-icon-btn SVGs: 15px→18px
+- × close button: 17px→20px font
+- Card edit buttons (.ai-card-edit-btn, .ai-list-edit-btn): 30px→36px circles
+  Now slightly visible at 0.15 opacity always (not invisible until hover)
+- Card edit SVGs: 13px→15px
+
+Stray backtick removed from detail header location line (caused syntax error).
+
 ### v202603.132
 **Inventory detail view redesign (rebuilt after file truncation incident):**
 - Thumbnail (52×52): primary photo (click to zoom) or category emoji — no edit badge
