@@ -434,6 +434,27 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.131
+**Inventory detail view + card edit access redesign:**
+
+Detail header:
+- Thumbnail: photo or category emoji — no edit badge overlay (removed)
+- Meta line: ITM# | Category (colored) | 📍 Location — all one line, location truncates with ellipsis
+- Badges (condition/archived/insured) on third line
+- Icon row: 4 buttons all 34×34 (.det-icon-btn class), consistent border/hover
+  - QR · Archive/Unarchive · Edit · ×
+
+Grid cards:
+- Edit pencil button (30×30 circle, accent color) appears on hover in bottom-right corner
+- Uses event.stopPropagation() so card click still opens detail
+- CSS: .ai-card-edit-btn opacity:0 → 1 on .ai-card:hover
+
+List cards:
+- Same edit button (.ai-list-edit-btn) appears on hover at right end of row
+
+Item edit drawer:
+- Save button now has floppy disk icon + "Save" text
+
 ### v202603.130
 **Inventory detail view header redesigned:**
 
