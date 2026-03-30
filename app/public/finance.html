@@ -2740,9 +2740,10 @@ async function deleteGc() {
     <div style="font-size:13px;color:var(--text3);margin-bottom:12px;line-height:1.5">
       Supports: <span style="font-family:var(--mono);color:var(--accent)">Chase · Schwab · Navy Fed · USAA · Wells Fargo · Capital One · Vanguard · TSP · BofA</span>
     </div>
-    <div class="form-group"><label class="form-label">Account</label>
+    <div class="form-group">
+      <label class="form-label">Account <span class="req">*</span> <span style="font-weight:400;color:var(--text3);font-size:11px">required to import</span></label>
       <select class="form-select" id="csvAccount">
-        <option value="">No account / unassigned</option>
+        <option value="">— select account —</option>
       </select>
     </div>
     <div class="form-group">
@@ -2829,68 +2830,116 @@ function loadCsvFile(file) {
   reader.readAsText(file);
 }
 
-function parseCsvText(text) {
-  const lines = text.trim().split('\n').map(l => l.trim()).filter(Boolean);
-  if (!lines.length) return [];
-  // Detect header row
-  const first = lines[0].toLowerCase();
-  const hasHeader = first.includes('date') || first.includes('description') || first.includes('amount');
-  const dataLines = hasHeader ? lines.slice(1) : lines;
+function parseCsvText() { return []; } // kept for compat — real parsing is server-side
 
-  return dataLines.map(line => {
-    // Handle quoted fields
-    const parts = [];
-    let cur = '', inQ = false;
-    for (let i = 0; i < line.length; i++) {
-      if (line[i] === '"') { inQ = !inQ; continue; }
-      if (line[i] === ',' && !inQ) { parts.push(cur.trim()); cur = ''; continue; }
-      cur += line[i];
-    }
-    parts.push(cur.trim());
-    return {
-      date: parts[0] || '',
-      description: parts[1] || '',
-      amount: parseFloat((parts[2]||'').replace(/[$,]/g,'')),
-      category: parts[3] || null,
-    };
-  }).filter(r => r.date && !isNaN(r.amount));
-}
-
-function previewCsv() {
-  const rows = parseCsvText(document.getElementById('csvPaste').value);
+async function previewCsv() {
+  const text = document.getElementById('csvPaste').value.trim();
+  const fileInput = document.getElementById('csvFileInput');
+  const file = fileInput?.files?.[0];
   const el = document.getElementById('csvPreview');
-  if (!rows.length) { el.innerHTML = '<div style="color:var(--red);font-size:13px">No valid rows found. Check format.</div>'; return; }
-  const sample = rows.slice(0,5);
-  el.innerHTML = `<div style="font-size:12px;color:var(--text3);margin-bottom:6px">${rows.length} rows detected (showing first 5)</div>
-    <div style="overflow-x:auto">
-    <table style="width:100%;border-collapse:collapse;font-size:12px">
-      <thead><tr style="border-bottom:1px solid var(--border)">${['Date','Description','Amount','Category'].map(h=>`<th style="text-align:left;padding:4px 6px;color:var(--text3);font-family:var(--mono)">${h}</th>`).join('')}</tr></thead>
-      <tbody>${sample.map(r=>`<tr style="border-bottom:1px solid var(--border)">
-        <td style="padding:4px 6px;font-family:var(--mono)">${r.date}</td>
-        <td style="padding:4px 6px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.description||''}</td>
-        <td style="padding:4px 6px;font-family:var(--mono);color:${r.amount<0?'var(--red)':'var(--green)'}">${r.amount.toFixed(2)}</td>
-        <td style="padding:4px 6px">${r.category||'—'}</td>
-      </tr>`).join('')}</tbody>
-    </table></div>`;
+
+  // Need either a file or pasted text
+  if (!file && !text) {
+    el.innerHTML = '<div style="color:var(--red);font-size:13px">Select a file or paste CSV text first.</div>';
+    return;
+  }
+
+  el.innerHTML = '<div style="font-size:12px;color:var(--text3)">Parsing…</div>';
+
+  try {
+    const fd = new FormData();
+    const acct = document.getElementById('csvAccount').value;
+    if (acct) fd.append('account_id', acct);
+
+    if (file) {
+      fd.append('file', file);
+    } else {
+      // Paste path: send text as a fake file
+      const blob = new Blob([text], { type: 'text/csv' });
+      fd.append('file', blob, 'pasted.csv');
+    }
+
+    const h = {};
+    if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const res = await fetch('/api/v1/import/preview', { method: 'POST', headers: h, body: fd });
+    const d = await res.json();
+
+    if (d.error) throw new Error(d.error);
+    if (!d.totalRows) { el.innerHTML = '<div style="color:var(--red);font-size:13px">No valid rows found. Check the file format.</div>'; return; }
+
+    const newR = d.newRows ?? d.totalRows;
+    const dupe = d.duplicates ?? 0;
+    const rows = d.preview || [];
+
+    el.innerHTML = `
+      <div style="font-size:12px;margin-bottom:8px;padding:8px 10px;background:var(--bg3);border-radius:6px">
+        <span style="font-weight:600;color:var(--text)">${esc(d.format||'').replace(/_/g,' ') || 'Detected'}</span>
+        &nbsp;·&nbsp;
+        <span style="color:var(--green);font-weight:600">${newR} new</span>
+        <span style="color:var(--text3)">&nbsp;/ ${d.totalRows} total</span>
+        ${dupe ? `<span style="color:var(--text3)">&nbsp;· ${dupe} dupes</span>` : ''}
+      </div>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          ${['Date','Description','Amount','Dupe?'].map(h=>`<th style="text-align:left;padding:4px 6px;color:var(--text3)">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody>${rows.map(r=>`<tr style="border-bottom:1px solid var(--border);${r.isDuplicate?'opacity:.35':''}">
+          <td style="padding:4px 6px;font-family:var(--mono);white-space:nowrap">${r.date||''}</td>
+          <td style="padding:4px 6px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.description||'')}</td>
+          <td style="padding:4px 6px;font-family:var(--mono);color:${(r.amount||0)<0?'var(--red)':'var(--green)'}">${(r.amount||0).toFixed(2)}</td>
+          <td style="padding:4px 6px">${r.isDuplicate?'⚠ dup':'—'}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>`;
+
+    // Store format for confirm step
+    el.dataset.format = d.format || '';
+    el.dataset.totalRows = d.totalRows;
+    el.dataset.newRows = newR;
+  } catch(e) {
+    el.innerHTML = `<div style="color:var(--red);font-size:13px">⚠ ${esc(e.message)}</div>`;
+  }
 }
 
 async function importCsv() {
-  const rows = parseCsvText(document.getElementById('csvPaste').value);
-  if (!rows.length) { toast('No valid rows found', 'err'); return; }
-  const account_id = document.getElementById('csvAccount').value || null;
+  const text = document.getElementById('csvPaste').value.trim();
+  const fileInput = document.getElementById('csvFileInput');
+  const file = fileInput?.files?.[0];
+  const el = document.getElementById('csvPreview');
+
+  if (!file && !text) { toast('Select a file or paste CSV text first', 'err'); return; }
+
+  const acct = document.getElementById('csvAccount').value;
+  if (!acct) { toast('Select an account first', 'err'); return; }
+
   const btn = document.getElementById('csvImportBtn');
   btn.textContent = 'Importing…'; btn.disabled = true;
+
   try {
-    const h = {'Content-Type':'application/json'};
-    if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
-    const r = await fetch('/api/v1/finance/transactions/import-csv', {
-      method:'POST', headers:h, body: JSON.stringify({ account_id, rows })
-    }).then(r=>r.json());
-    toast(`✓ ${r.imported} transactions imported`);
+    const fd = new FormData();
+    fd.append('account_id', acct);
+    if (file) {
+      fd.append('file', file);
+    } else {
+      const blob = new Blob([text], { type: 'text/csv' });
+      fd.append('file', blob, 'pasted.csv');
+    }
+
+    const h = {};
+    if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const res = await fetch('/api/v1/import/confirm', { method: 'POST', headers: h, body: fd });
+    const d = await res.json();
+
+    if (d.error) throw new Error(d.error);
+    toast(`✓ ${d.imported} transactions imported`);
     document.getElementById('csvDrawer').classList.remove('open');
     if (typeof loadTransactions === 'function') loadTransactions();
-  } catch(e) { toast('Import failed', 'err'); }
-  finally { btn.textContent = 'Import'; btn.disabled = false; }
+    if (typeof loadImpHistory === 'function') loadImpHistory();
+  } catch(e) {
+    toast(e.message || 'Import failed', 'err');
+  } finally {
+    btn.textContent = 'Import'; btn.disabled = false;
+  }
 }
 </script>
 
