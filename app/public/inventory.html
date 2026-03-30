@@ -2884,8 +2884,7 @@ $('locSave').addEventListener('click', async () => {
 // CONTAINER CRUD
 // ══════════════════════════════════════════════════════════════
 async function populateCtnParent(selectedType, selectedId) {
-  const [locR,ctnR]=await Promise.all([api('GET','/locations/flat'),api('GET','/containers')]);
-  const locs=await locR.json(), ctns=await ctnR.json();
+  const [locs,ctns]=await Promise.all([api('GET','/locations/flat'),api('GET','/containers')]);
   let opts='<option value="">— select —</option><optgroup label="Locations">';
   locs.forEach(l=>{ opts+=`<option value="location:${l.id}"${selectedType==='location'&&+selectedId===l.id?' selected':''}>${LOC_ICONS[l.location_type]||'&#x1F4CD;'} ${l.name}</option>`; });
   opts+='</optgroup><optgroup label="Containers (nested)">';
@@ -3039,9 +3038,9 @@ let _whereCtns = [];
 
 async function loadWhereLists(force=false) {
   if (!force && _whereLocs.length) return; // already loaded
-  const [locR, ctnR] = await Promise.all([api('GET', '/locations/flat'), api('GET', '/containers')]);
-  _whereLocs = locR.ok ? await locR.json() : [];
-  _whereCtns = ctnR.ok ? await ctnR.json() : [];
+  const [locs, ctns] = await Promise.all([api('GET', '/locations/flat'), api('GET', '/containers')]);
+  _whereLocs = Array.isArray(locs) ? locs : [];
+  _whereCtns = Array.isArray(ctns) ? ctns : [];
 }
 
 // ── Location/Container picker ────────────────────────────────

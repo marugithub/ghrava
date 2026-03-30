@@ -408,6 +408,22 @@ Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
 
+### v202603.123
+**Root cause fix — inventory Add Item dropdown empty (containers/rooms):**
+`loadWhereLists()` called `locR.ok` and `await locR.json()` on the result of `api()`,
+which returns parsed JSON not a Response object. So `locR.ok` was always falsy and
+`_whereLocs`/`_whereCtns` were always set to []. Fix: destructure directly to `locs`/`ctns`.
+Same bug in `populateCtnParent()` — fixed there too.
+
+**Systematic api() audit — all remaining broken patterns found and categorised:**
+- inventory: `populateCtnParent` — `.json()` on api() result → fixed
+- daily-log: `markFollowupDone` — `r.ok` check on api() result → removed
+- medical: `silentGet` — legitimate raw fetch helper, not a bug
+- inventory lines 2454/2480: photo upload raw fetch — legitimate (FormData)
+- reports: local `api()` wrapper for /finance/reports — intentional single-arg, not a bug
+- reports/settings `.then(r=>r.json())` — on raw `fetch()` chains, not api() — not a bug
+- finance line 2819: CSV import raw fetch — legitimate
+
 ### v202603.122
 **medical.html — stray backslash fixed** (was rendering as "/" between hamburger and page icon)
 

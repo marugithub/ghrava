@@ -535,8 +535,7 @@ function openDetail(id) {
 async function markFollowupDone() {
   if (!_detailEntryId) return;
   try {
-    const r = await api('PATCH', `/${_detailEntryId}`, { follow_up_needed: 0, follow_up_date: null });
-    if (!r.ok) throw new Error();
+    await api('PATCH', `/${_detailEntryId}`, { follow_up_needed: 0, follow_up_date: null });
     $('detailFollowup').style.display = 'none';
     toast('Follow-up marked done', 'ok');
     load();
