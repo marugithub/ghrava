@@ -543,8 +543,7 @@ window.GH_TAGS = (function() {
     const showCreate = allowCreate && q.length > 0
       && !allTags.find(t => t.name.toLowerCase() === q);
 
-    if (!visible.length && !showCreate) return;
-
+    // Always show dropdown on focus — even if empty, show "Type to create" hint
     const dd = document.createElement('div');
     dd.className = 'gh-tags-dropdown';
     dd.id = 'gh-tags-dd';
@@ -553,7 +552,14 @@ window.GH_TAGS = (function() {
     inner.className = 'gh-tags-dropdown-inner';
 
     if (!visible.length && !showCreate) {
-      inner.innerHTML = `<span class="gh-tags-dropdown-empty">No tags match</span>`;
+      // Show a helpful hint instead of nothing
+      const hint = allowCreate
+        ? `<span class="gh-tags-dropdown-empty">Type a name to create a tag</span>`
+        : `<span class="gh-tags-dropdown-empty">No tags available</span>`;
+      inner.innerHTML = hint;
+      dd.appendChild(inner);
+      wrap.appendChild(dd);
+      return;
     }
 
     visible.slice(0, 24).forEach(t => {

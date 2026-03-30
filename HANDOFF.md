@@ -433,6 +433,30 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.129
+**Tag dropdown fixes + starter library:**
+
+Bug fixes (lt-core.js):
+- openDropdown silently returned when allTags was empty AND typed text was empty
+  → now always renders the dropdown; shows "Type a name to create a tag" hint when empty
+- This was why nothing appeared on focus with a clean DB — both conditions true simultaneously
+
+Migration 052 — 59 starter tags across all modules:
+- Inventory: high-value, fragile, seasonal-use, needs-repair, loaned-out, in-storage,
+  set-item, collectible, battery-powered, wifi-connected, gift-received, duplicate
+- Finance/Docs: receipt-saved, reimbursable, tax-deductible, under-review,
+  recurring-charge, disputed, paid-off, hsa-eligible, needs-filing
+- Medical: chronic, hereditary, pediatric, follow-up-needed, pre-existing,
+  rx-required, covered-by-insurance, out-of-pocket
+- Property: urgent-repair, cosmetic-only, diy-ok, needs-contractor, under-warranty, permit-required
+- Todos/Log: waiting-on-someone, blocked, quick-win, research-needed, delegate
+- Career: federal, renewal-required, continuing-ed, remote-ok, leadership-role
+- Kids: competition, school-required, summer-program, team-activity, individual-activity
+- Books: recommended, re-read, work-reading, audiobook-preferred
+- Resources: requires-login, federal-benefit, student-benefit, bookmark-later, free-resource
+- No overlap with any existing dropdown_options values (verified against full list)
+- Each tag has a meaningful color_hex from the 10-color palette
+
 ### v202603.128
 **Tag system redesign — Session 1 (shared infrastructure + inventory pilot):**
 
