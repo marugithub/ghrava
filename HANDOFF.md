@@ -408,6 +408,30 @@ Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only changes do NOT get their own zip.
 
 
+### v202603.124
+**All forms converted to centered modals with fixed footer (zero per-page changes):**
+
+Problem: drawers slid from bottom, sticky Save/Cancel buttons overlapped form fields while scrolling.
+
+Fix — two files only:
+
+shared.css — drawer layout rewritten:
+- `.drawer-overlay`: `align-items: flex-end` → `align-items: center` (vertical centering)
+- `.drawer`: was single overflow-y:auto block → now `display:flex; flex-direction:column; overflow:hidden`
+  - Max width 540px (was 680px), `border-radius: var(--r-xl)` all corners, centered modal shadow
+- New `.drawer-header`: fixed top (handle + title) — never scrolls
+- New `.drawer-body`: `flex:1; overflow-y:auto` — only the form fields scroll
+- New `.drawer-foot`: `flex-shrink:0; border-top` — Save/Cancel/Delete always visible at bottom, never overlaps content
+- Entry animation: fade+scale (was slide-up from bottom)
+
+lt-core.js — `initDrawerStickyFooter` replaced with `structureDrawer`:
+- MutationObserver watches every `.drawer-overlay` for class "open"
+- On first open, auto-restructures the drawer DOM into header/body/foot without per-page changes
+- Detects footer by: has direct `.btn` children AND no form fields inside
+- Handles all three existing button row patterns: `.btn-row`, `.drawer-footer`, `<div style="display:flex;gap:8px">`
+- `drawer.dataset.structured = "1"` guard prevents double-restructuring
+- Works for dynamically injected drawers too (inner MutationObserver)
+
 ### v202603.123
 **Root cause fix — inventory Add Item dropdown empty (containers/rooms):**
 `loadWhereLists()` called `locR.ok` and `await locR.json()` on the result of `api()`,

@@ -734,49 +734,120 @@ window.GH_TAGS = (function() {
 // Finds the last .btn-row inside each .drawer and makes it sticky
 // Works without any HTML changes to individual drawers
 // ══════════════════════════════════════════════════════════════
-(function initDrawerStickyFooter() {
-  function stickyFooter(drawer) {
-    // Find all btn-rows; make the LAST one sticky
-    const rows = drawer.querySelectorAll('.btn-row');
-    rows.forEach((r, i) => {
-      if (i === rows.length - 1) {
-        r.classList.add('drawer-btn-sticky');
-      }
-    });
+(function initDrawerStructure() {
+  // Restructure any .drawer into: .drawer-header / .drawer-body / .drawer-foot
+  // Runs once per drawer when it first opens.
+  // Safe to call multiple times — drawer.dataset.structured guards it.
+
+  function isFooterEl(el) {
+    // A footer element contains Save/Cancel/Delete buttons as direct or near-direct children
+    // but does NOT contain form fields (form-group, form-input, textarea, select)
+    if (el.nodeType !== 1) return false;
+    const tag = el.tagName;
+    if (tag !== 'DIV' && tag !== 'FOOTER') return false;
+    // Must have at least one .btn child (direct or one level deep)
+    const hasBtns = el.querySelector(':scope > .btn, :scope > button.btn, :scope > a.btn');
+    if (!hasBtns) return false;
+    // Must NOT have form fields (those belong in the body)
+    const hasFormFields = el.querySelector('.form-group, .form-input, textarea, .form-select, .tags-input-wrap, .gh-select');
+    if (hasFormFields) return false;
+    return true;
   }
 
-  // Watch for drawers being opened (class 'open' added)
+  function structureDrawer(overlay) {
+    const drawer = overlay.querySelector(':scope > .drawer');
+    if (!drawer || drawer.dataset.structured === '1') return;
+    drawer.dataset.structured = '1';
+
+    // Collect direct element children
+    const children = [...drawer.children];
+
+    // Find footer: last element that is a button row
+    let footEl = null;
+    for (let i = children.length - 1; i >= 0; i--) {
+      if (isFooterEl(children[i])) { footEl = children[i]; break; }
+    }
+    // Also check for .btn-row, .drawer-footer class
+    if (!footEl) {
+      for (let i = children.length - 1; i >= 0; i--) {
+        const el = children[i];
+        if (el.classList.contains('btn-row') || el.classList.contains('drawer-footer') || el.classList.contains('drawer-foot')) {
+          footEl = el; break;
+        }
+      }
+    }
+
+    // Separate handle/title (header) from body content
+    const headerEls = children.filter(el =>
+      el.classList.contains('drawer-handle') ||
+      el.classList.contains('drawer-title') ||
+      (el.tagName === 'DIV' && el.id && (el.id.endsWith('Title') || el.id.endsWith('DrawerTitle') || el.id === 'drawerTitle'))
+    );
+
+    const bodyEls = children.filter(el => el !== footEl && !headerEls.includes(el));
+
+    // Build .drawer-header
+    const header = document.createElement('div');
+    header.className = 'drawer-header';
+    headerEls.forEach(el => header.appendChild(el));
+
+    // Build .drawer-body
+    const body = document.createElement('div');
+    body.className = 'drawer-body';
+    bodyEls.forEach(el => body.appendChild(el));
+
+    // Build .drawer-foot
+    const foot = document.createElement('div');
+    foot.className = 'drawer-foot';
+    if (footEl) {
+      // If footEl is already a flex div with buttons, move its children
+      if (footEl.classList.contains('btn-row') || footEl.classList.contains('drawer-footer')) {
+        // unwrap btn-row into foot directly
+        [...footEl.children].forEach(btn => foot.appendChild(btn));
+      } else {
+        foot.appendChild(footEl);
+      }
+    }
+
+    // Rebuild drawer
+    drawer.innerHTML = '';
+    drawer.appendChild(header);
+    drawer.appendChild(body);
+    if (foot.children.length > 0) drawer.appendChild(foot);
+  }
+
+  // MutationObserver watches for drawers opening
   const observer = new MutationObserver(mutations => {
     for (const m of mutations) {
       if (m.type === 'attributes' && m.attributeName === 'class') {
         const el = m.target;
         if (el.classList.contains('drawer-overlay') && el.classList.contains('open')) {
-          const drawer = el.querySelector('.drawer');
-          if (drawer) stickyFooter(drawer);
+          structureDrawer(el);
         }
       }
     }
   });
 
-  // Observe all drawer-overlays — runs after DOM ready
   function observeDrawers() {
     document.querySelectorAll('.drawer-overlay').forEach(overlay => {
       observer.observe(overlay, { attributes: true });
-      // Also apply to any already-open drawers (e.g. on page load with deep links)
-      if (overlay.classList.contains('open')) {
-        const drawer = overlay.querySelector('.drawer');
-        if (drawer) stickyFooter(drawer);
-      }
+      if (overlay.classList.contains('open')) structureDrawer(overlay);
     });
+    // Also watch for dynamically added drawers
+    new MutationObserver(muts => {
+      muts.forEach(m => m.addedNodes.forEach(n => {
+        if (n.nodeType === 1) {
+          n.querySelectorAll('.drawer-overlay').forEach(o => observer.observe(o, { attributes: true }));
+        }
+      }));
+    }).observe(document.body || document.documentElement, { childList: true, subtree: true });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', observeDrawers);
-  } else {
-    observeDrawers();
-  }
-  // Re-run after any dynamic drawer injection (e.g. nav.js building the notif panel)
-  document.addEventListener('DOMContentLoaded', () => setTimeout(observeDrawers, 500));
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observeDrawers);
+  else observeDrawers();
+
+  // Expose for manual call if needed
+  window.structureDrawer = structureDrawer;
 })();
 
 // Auth gate removed — pages load freely without any password prompt.

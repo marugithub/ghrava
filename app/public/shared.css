@@ -599,63 +599,89 @@ html, body {
 .drawer-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.65);
+  background: rgba(0,0,0,.55);
   z-index: 300;
   display: none;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
-  backdrop-filter: blur(6px);
+  backdrop-filter: blur(4px);
 }
-
-.drawer-overlay.open { display: flex; animation: fadein 0.2s ease; }
-
+.drawer-overlay.open {
+  display: flex;
+  animation: fadein .18s ease;
+}
 @keyframes fadein { from { opacity:0 } to { opacity:1 } }
 
+/* ── Drawer — centered modal, flex column so footer never scrolls ── */
 .drawer {
   background: var(--bg2);
-  border: 1px solid var(--border);
-  border-bottom: none;
-  border-radius: var(--r-xl) var(--r-xl) 0 0;
-  width: 100%;
-  max-width: 680px;
-  padding: 0 20px max(20px, env(safe-area-inset-bottom));
-  /* JS sets --drawer-max-h based on window.innerHeight */
-  max-height: var(--drawer-max-h, 88vh);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-xl);
+  width: min(540px, 94vw);
+  max-height: 90vh;
+  /* Flex column: header fixed top, body scrolls, footer fixed bottom */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  animation: modal-in .22s cubic-bezier(0.32,0.72,0,1);
+}
+@keyframes modal-in {
+  from { opacity:0; transform: scale(.95) translateY(8px); }
+  to   { opacity:1; transform: scale(1)  translateY(0); }
+}
+
+/* Fixed header: handle + title */
+.drawer-header {
+  flex-shrink: 0;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* Scrollable form area */
+.drawer-body {
+  flex: 1;
   overflow-y: auto;
-  animation: slideup 0.26s cubic-bezier(0.32,0.72,0,1);
   overscroll-behavior: contain;
-  /* Needed for sticky btn-row to work inside an overflow-y:auto container */
-  /* We achieve sticky via JS nudge — see lt-core.js initDrawerStickyFooter */
+  padding: 16px 20px 8px;
 }
 
-/* ── Sticky save buttons inside drawers ─────────────────────── */
-/* Applied automatically by lt-core.js to the last .btn-row in each drawer */
-.drawer-btn-sticky {
-  position: sticky;
-  bottom: 0;
-  z-index: 2;
-  background: var(--bg2);
-  padding: 10px 0 4px;
-  margin-top: 12px;
+/* Fixed footer: Save / Cancel / Delete — never scrolls */
+.drawer-foot {
+  flex-shrink: 0;
+  display: flex;
+  gap: 8px;
+  padding: 12px 20px 16px;
   border-top: 1px solid var(--border);
+  background: var(--bg2);
+}
+.drawer-foot .btn { flex: 1; }
+
+/* Legacy: .btn-row inside drawer-foot → reset sticky styles */
+.drawer-foot .btn-row,
+.drawer-foot > div[style*="flex"] {
+  display: contents;
 }
 
-@keyframes slideup { from { transform: translateY(100%) } to { transform: translateY(0) } }
+/* Keep old .drawer-btn-sticky working if present */
+.drawer-btn-sticky {
+  display: none; /* footer is now fixed via flex layout, not sticky */
+}
 
 .drawer-handle {
   width: 36px;
   height: 4px;
   background: var(--border2);
   border-radius: 2px;
-  margin: 14px auto 18px;
+  margin: 14px auto 10px;
 }
 
 .drawer-title {
-  font-size: 19px;
+  font-size: 17px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -.02em;
   color: var(--text);
-  margin-bottom: 18px;
+  padding: 4px 0 14px;
 }
 
 /* ── Section headers ────────────────────────────────────────── */
@@ -1712,7 +1738,8 @@ html, body {
   .btn-primary { box-shadow: 0 2px 8px rgba(75,185,174,0.28); }
 
   /* Drawer */
-  .drawer { background: var(--bg2); border-color: var(--border); }
+  .drawer { background: var(--bg2); border-color: var(--border2); }
+  .drawer-foot { background: var(--bg2); border-color: var(--border); }
   .drawer-handle { background: var(--border2); }
   .drawer-overlay { background: rgba(0,0,0,0.35); }
 
@@ -2227,7 +2254,7 @@ html.drawer-compact .drawer .form-input,
 html.drawer-compact .drawer .form-select,
 html.drawer-compact .drawer .form-textarea { padding: 7px 10px; font-size: 13px; }
 html.drawer-compact .drawer .drawer-title { font-size: 16px; margin-bottom: 12px; }
-html.drawer-compact .drawer .drawer-handle { margin: 10px auto 12px; }
+
 html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 
 /* Short screens: reduce max-height even further */
