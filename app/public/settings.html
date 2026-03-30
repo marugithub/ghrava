@@ -352,20 +352,24 @@
       <div class="settings-card">
         <div class="settings-card-title">Change Password</div>
         <div class="settings-card-desc">Enter your current password, then choose a new one.</div>
-        <div class="form-group">
-          <label class="form-label">Current Password</label>
-          <input class="form-input" type="password" id="pwCurrent" placeholder="Current password" autocomplete="current-password">
-        </div>
-        <div class="form-group">
-          <label class="form-label">New Password</label>
-          <input class="form-input" type="password" id="pwNew" placeholder="New password" autocomplete="new-password">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Confirm New Password</label>
-          <input class="form-input" type="password" id="pwConfirm" placeholder="Confirm new password" autocomplete="new-password">
-        </div>
-        <div id="pwError" style="color:var(--red);font-size:13px;margin-bottom:10px;display:none"></div>
-        <button class="btn btn-primary btn-full" onclick="changePassword()">Update Password</button>
+        <form onsubmit="event.preventDefault();changePassword()">
+          <input type="text" name="username" autocomplete="username"
+                 style="display:none" aria-hidden="true" tabindex="-1" value="admin">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input class="form-input" type="password" id="pwCurrent" name="current-password" placeholder="Current password" autocomplete="current-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">New Password</label>
+            <input class="form-input" type="password" id="pwNew" name="new-password" placeholder="New password" autocomplete="new-password">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Confirm New Password</label>
+            <input class="form-input" type="password" id="pwConfirm" name="confirm-password" placeholder="Confirm new password" autocomplete="new-password">
+          </div>
+          <div id="pwError" style="color:var(--red);font-size:13px;margin-bottom:10px;display:none"></div>
+          <button type="submit" class="btn btn-primary btn-full">Update Password</button>
+        </form>
       </div>
     </div>
   </div>

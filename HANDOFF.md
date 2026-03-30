@@ -434,6 +434,27 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.135
+**Finance CSV import — file browse + drag-drop:**
+
+Previous: paste-only textarea with cryptic format hint.
+Now:
+- "Browse" button + dashed drop zone → click to pick file OR drag .csv onto it
+- File name shown after selection
+- File content auto-loaded into textarea + auto-Preview fires
+- Paste textarea still available as fallback
+- Supported institutions listed at top: Chase · Schwab · Navy Fed · USAA · Wells Fargo · Capital One · Vanguard · TSP · BofA
+- Schwab CSV already fully supported (schwab_checking + schwab_brokerage parsers)
+  From Schwab: Accounts → History → Export → CSV
+
+**Schwab CSV format (for reference):**
+- Checking: Date, Type, Check #, Description, Withdrawal (-), Deposit (+), RunningBalance
+- Brokerage: Date, Action, Symbol, Description, Quantity, Price, Fees & Comm, Amount
+Both auto-detected by detectFormat() in parsers.js — no manual selection needed.
+
+**Settings fix (v202603.134):**
+- Password change fields wrapped in <form> to silence Bitwarden autofill warning
+
 ### v202603.133
 **Inventory fixes:**
 
