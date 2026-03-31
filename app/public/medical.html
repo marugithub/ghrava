@@ -89,6 +89,7 @@
     <button class="view-tab" onclick="switchView('notes',this)">Visits</button>
     
     <button class="view-tab" onclick="switchView('hw',this)">H&amp;W</button>
+    <button class="view-tab" onclick="switchView('eob',this)">EOB</button>
     <button class="view-tab" onclick="switchView('summary',this)">Summary</button>
 
   </div>
@@ -411,7 +412,7 @@ function switchView(view, btn) {
   document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const strip = $id('patientStrip');
-  strip.style.display = (view === 'summary') ? 'none' : 'flex';
+  strip.style.display = (view === 'summary' || view === 'eob') ? 'none' : 'flex';
   renderCurrentView();
 }
 
@@ -436,6 +437,7 @@ async function renderCurrentView() {
     else if (currentView === 'conditions') await renderConditions();
     else if (currentView === 'notes')   await renderNotes();
     else if (currentView === 'hw')      await renderHW();
+    else if (currentView === 'eob')     await renderEob();
   }
 }
 
@@ -978,6 +980,230 @@ function triggerVisitSuggest() {
   GH_TAGS.suggest('visitTagsWrap', ()=>visitFormTags, t=>addVisitTag(t), { category: cat, name });
 }
 
+}
+</script>
+
+<!-- ══ EOB IMPORT ══════════════════════════════════════════════ -->
+<script>
+const _eobApi = window.makeApi('');  // medical uses '' prefix
+
+// ── EOB state ─────────────────────────────────────────────────
+let _eobPreview = [];     // parsed statements from server
+let _eobFile    = null;   // selected File object
+
+// ── Render EOB panel ──────────────────────────────────────────
+async function renderEob() {
+  const el = $id('listArea');
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">EOB Import</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">MHBP · local parse · no data leaves NAS</div>
+        </div>
+      </div>
+
+      <!-- Upload zone -->
+      <div style="background:var(--bg2);border:1.5px dashed var(--border2);border-radius:10px;padding:20px 16px;text-align:center;cursor:pointer;margin-bottom:14px"
+           id="eobDropZone" onclick="document.getElementById('eobFileInput').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+           ondragleave="this.style.borderColor=''"
+           ondrop="event.preventDefault();this.style.borderColor='';_eobOnDrop(event)">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">Browse or drag an EOB PDF</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Single statement or combined multi-month PDF</div>
+        <input type="file" id="eobFileInput" accept=".pdf" style="display:none" onchange="_eobOnFileSelect(this)">
+      </div>
+      <div id="eobFileName" style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:10px"></div>
+
+      <!-- Preview table -->
+      <div id="eobPreview"></div>
+
+      <!-- Action buttons -->
+      <div id="eobActions" style="display:none;margin-top:12px">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="_eobClear()">Cancel</button>
+          <button class="btn btn-primary" id="eobImportBtn" style="flex:1" onclick="_eobImport()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Import Selected
+          </button>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div id="eobHistory" style="margin-top:20px"></div>
+    </div>`;
+
+  await _eobLoadHistory();
+}
+
+function _eobOnDrop(e) {
+  const f = e.dataTransfer?.files?.[0];
+  if (f) _eobSetFile(f);
+}
+function _eobOnFileSelect(input) {
+  if (input.files?.[0]) _eobSetFile(input.files[0]);
+}
+function _eobSetFile(f) {
+  _eobFile = f;
+  const el = $id('eobFileName');
+  if (el) el.textContent = '📄 ' + f.name;
+  _eobPreviewFile();
+}
+
+async function _eobPreviewFile() {
+  const prev = $id('eobPreview');
+  if (!prev || !_eobFile) return;
+  prev.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">⏳ Parsing PDF…</div>';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', _eobFile);
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const r = await fetch('/api/v1/medical/eob/preview', { method:'POST', headers:h, body:fd });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Parse failed');
+    _eobPreview = d.statements;
+    _renderEobPreviewTable(d.statements);
+    const act = $id('eobActions');
+    if (act) act.style.display = 'block';
+  } catch(e) {
+    prev.innerHTML = `<div style="color:var(--red);font-size:13px;padding:8px 0">⚠ ${esc(e.message)}</div>`;
+  }
+}
+
+function _renderEobPreviewTable(stmts) {
+  const el = $id('eobPreview'); if (!el) return;
+  if (!stmts?.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">No statements detected</div>'; return; }
+
+  el.innerHTML = `
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">${stmts.length} statement${stmts.length!==1?'s':''} detected — uncheck any you don't want to import:</div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:1.5px solid var(--border)">
+        <th style="padding:6px 8px;text-align:left;color:var(--text3);width:28px"></th>
+        <th style="padding:6px 8px;text-align:left;color:var(--text3)">Date</th>
+        <th style="padding:6px 8px;text-align:left;color:var(--text3)">Patients</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--text3)">Claims</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--text3)">Plan Paid</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--text3)">Your Share</th>
+        <th style="padding:6px 8px;text-align:center;color:var(--text3)">Status</th>
+      </tr></thead>
+      <tbody>
+        ${stmts.map((s,i) => `
+          <tr style="border-bottom:1px solid var(--border);${s.already_imported?'opacity:.5':''}">
+            <td style="padding:6px 8px">
+              <input type="checkbox" id="eobChk${i}" ${s.already_imported?'':'checked'} ${s.already_imported?'disabled':''}>
+            </td>
+            <td style="padding:6px 8px;font-family:var(--mono);white-space:nowrap">${s.statement_date||'—'}</td>
+            <td style="padding:6px 8px">${esc(s.patients||'—')}</td>
+            <td style="padding:6px 8px;text-align:right">${s.claims_count||0}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--green)">$${(s.plan_paid||0).toFixed(2)}</td>
+            <td style="padding:6px 8px;text-align:right;color:${(s.your_share||0)>0?'var(--red)':'var(--text3)'}">$${(s.your_share||0).toFixed(2)}</td>
+            <td style="padding:6px 8px;text-align:center">
+              ${s.already_imported
+                ? '<span style="color:var(--text3);font-size:11px">Already imported</span>'
+                : '<span style="color:var(--green);font-size:11px">New</span>'}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+async function _eobImport() {
+  if (!_eobFile) return;
+  const stmts = _eobPreview || [];
+  // Collect selected dates
+  const selected = stmts
+    .filter((s, i) => !s.already_imported && document.getElementById('eobChk'+i)?.checked)
+    .map(s => s.statement_date);
+  if (!selected.length) { if (window.toast) toast('Nothing selected', 'err'); return; }
+
+  const btn = $id('eobImportBtn');
+  btn.textContent = 'Importing…'; btn.disabled = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', _eobFile);
+    fd.append('selected_dates', JSON.stringify(selected));
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const r = await fetch('/api/v1/medical/eob/import', { method:'POST', headers:h, body:fd });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Import failed');
+    if (window.toast) toast(`✓ ${d.imported} EOB statement${d.imported!==1?'s':''} imported`);
+    _eobClear();
+    await _eobLoadHistory();
+  } catch(e) {
+    if (window.toast) toast(e.message || 'Import failed', 'err');
+  } finally {
+    if (btn) { btn.textContent = 'Import Selected'; btn.disabled = false; }
+  }
+}
+
+function _eobClear() {
+  _eobFile = null; _eobPreview = [];
+  const fi = $id('eobFileInput'); if (fi) fi.value = '';
+  const fn = $id('eobFileName'); if (fn) fn.textContent = '';
+  const prev = $id('eobPreview'); if (prev) prev.innerHTML = '';
+  const act = $id('eobActions'); if (act) act.style.display = 'none';
+}
+
+async function _eobLoadHistory() {
+  const el = $id('eobHistory'); if (!el) return;
+  try {
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const stmts = await fetch('/api/v1/medical/eob', {headers:h}).then(r=>r.json());
+    if (!stmts.length) {
+      el.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px">No EOBs imported yet</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Imported Statements</div>
+      ${stmts.map(s => `
+        <div class="card" style="padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="_eobShowDetail(${s.id})">
+          <div style="display:flex;align-items:center;justify-content:space-between">
+            <div>
+              <div style="font-weight:600;font-size:13px">${s.statement_date} · ${esc(s.group_name||'MHBP')}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(s.patients||'')} · ${s.claims_count||0} claim${s.claims_count!==1?'s':''}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-size:13px;font-weight:600;color:var(--green)">Plan: $${(s.plan_paid_total||0).toFixed(2)}</div>
+              <div style="font-size:11px;color:${(s.your_share_total||0)>0?'var(--red)':'var(--text3)'}">You: $${(s.your_share_total||0).toFixed(2)}</div>
+            </div>
+          </div>
+        </div>`).join('')}`;
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:12px">Could not load history</div>';
+  }
+}
+
+async function _eobShowDetail(id) {
+  const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+  const s = await fetch(`/api/v1/medical/eob/${id}`, {headers:h}).then(r=>r.json());
+  if (!s || s.error) return;
+
+  // Build detail modal using LT.confirm style — simple alert-style for now
+  let html = `<b>${s.statement_date} — ${esc(s.group_name||'MHBP')}</b><br>`;
+  html += `<small style="color:var(--text3)">${esc(s.plan_name||'')} · ${esc(s.member_id||'')}</small><br><br>`;
+
+  for (const c of (s.claims||[])) {
+    html += `<b>${esc(c.patient)}</b> — ${esc(c.provider||'')}<br>`;
+    html += `Plan paid: <b>$${(c.plan_paid||0).toFixed(2)}</b> &nbsp; Your share: <span style="color:var(--red)">$${(c.your_share||0).toFixed(2)}</span>`;
+    if (c.fund_paid) html += ` &nbsp; Fund: $${c.fund_paid.toFixed(2)}`;
+    html += '<br>';
+    for (const sv of (c.services||[])) {
+      html += `&nbsp;&nbsp;<small style="color:var(--text3)">${esc(sv.service_code||'')} ${esc(sv.service_description||'')} on ${sv.service_date||''} — $${(sv.amount_billed||0).toFixed(2)} billed</small><br>`;
+    }
+    html += '<br>';
+  }
+
+  if (s.deductible_annual) {
+    html += `<small>Deductible: $${(s.deductible_used||0).toFixed(2)} of $${s.deductible_annual.toFixed(2)} used</small><br>`;
+  }
+  if (s.healthfund_remaining != null) {
+    html += `<small>HealthFund remaining: $${(s.healthfund_remaining||0).toFixed(2)}</small><br>`;
+  }
+
+  alert(html.replace(/<[^>]+>/g, ''));
 }
 </script>
 </body>

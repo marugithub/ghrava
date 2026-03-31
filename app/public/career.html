@@ -851,12 +851,14 @@ function _reloadCurrentTab() {
   else if (currentTab === 'education') loadEdu();
   else if (currentTab === 'goals')     loadGoals();
 }
-</script>
-</body>
-</html>
 
 // Cert name debounce → suggest
 let _certNameTimer = null;
 document.addEventListener('input', e => {
   if (e.target?.id === 'certName') { clearTimeout(_certNameTimer); _certNameTimer = setTimeout(triggerCertSuggest, 600); }
 });
+
+</script>
+</body>
+</html>
+

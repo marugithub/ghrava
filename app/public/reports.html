@@ -70,20 +70,19 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
 <div id="app" style="padding-bottom:40px">
 
   <div class="view-tabs" id="rptTabs" style="--tab-color:#64748b">
-    <button class="view-tab active" data-tab="spending"   onclick="switchRpt('spending',this)">Spending</button>
+    <button class="view-tab active" data-tab="summary"    onclick="switchRpt('summary',this)">Summary</button>
+    <button class="view-tab"        data-tab="people"     onclick="switchRpt('people',this)">People</button>
+    <button class="view-tab"        data-tab="spending"   onclick="switchRpt('spending',this)">Spending</button>
     <button class="view-tab"        data-tab="health"     onclick="switchRpt('health',this)">Health</button>
     <button class="view-tab"        data-tab="networth"   onclick="switchRpt('networth',this)">Net Worth</button>
     <button class="view-tab"        data-tab="annual"     onclick="switchRpt('annual',this)">Annual</button>
-    <button class="view-tab"        data-tab="summary"    onclick="switchRpt('summary',this)">Summary</button>
-    <button class="view-tab"        data-tab="people"     onclick="switchRpt('people',this)">People</button>
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
-    <button class="view-tab"        data-tab="testing"    onclick="switchRpt('testing',this)">Testing</button>
     <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
   </div>
 
   <!-- ── SPENDING ─────────────────────────────────────────── -->
-  <div class="view-panel active" id="panel-spending">
+  <div class="view-panel" id="panel-spending">
     <div class="rpt-period-bar">
       <select id="spYearSel" onchange="loadSpending()"></select>
       <select id="spMonthSel" onchange="loadSpending()">
@@ -149,7 +148,7 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
   </div>
 
   <!-- Summary Panel -->
-  <div class="view-panel" id="panel-summary">
+  <div class="view-panel active" id="panel-summary">
     <div id="summaryContent" style="padding:0 16px 80px">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
@@ -292,7 +291,7 @@ async function api(path) {
 
 const COLORS = ['#5c72fa','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6'];
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-let activeTab = 'spending';
+let activeTab = 'summary';
 
 function switchRpt(tab, btn) {
   activeTab = tab;
@@ -613,7 +612,7 @@ async function loadPeople() {
   const el = $('peopleContent'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const members = await window.api('GET', '/settings/family');
+    const members = await window.api('GET', '/api/v1/settings/family');
     if (!members.length) {
       el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">No family members found</div>';
       return;
@@ -659,7 +658,7 @@ async function selectPerson(memberId) {
   const el = $('personReport'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const d = await window.api('GET', `/settings/family/${memberId}/report`);
+    const d = await window.api('GET', `/api/v1/settings/family/${memberId}/report`);
     const m = d.member;
     const s = d.summary;
 

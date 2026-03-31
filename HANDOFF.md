@@ -1,5 +1,5 @@
 # Ghrava — Project Handoff & System Reference
-**Last updated:** v202603.103
+**Last updated:** v202603.142
 **Purpose:** Complete context for continuing development in a new chat session.
 Read this file before writing any code.
 
@@ -652,8 +652,7 @@ New "EOB" tab in Medical module.
 1. ✅ Design confirmed — this document
 2. ⬜ Cancel buttons session first (🔴-A)
 3. ⬜ Auto-categorization session (🔴-B)
-4. ⬜ EOB build session (🔴-C)
-   Start by uploading a real MHBP EOB to test pdf-parse output before writing regex
+4. ✅ EOB build session complete — v202603.143
 
 
 ---
@@ -836,6 +835,107 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.144
+**Bug report fixes — 9 issues from user testing:**
+
+Issue 1 — Finance Import tab Add Account:
+  - "Not Found" was a UX confusion: Import Accounts is for brokerage/investment
+    (financial_accounts). Checking/savings go via Finance → Accounts tab.
+  - Added blue info banner to Import acctDrawer explaining this distinction.
+  - Cancel button fixed: closeDrawer() did not exist → wired to classList.remove()
+
+Issue 2 — Settings vs System nav overlap:
+  - Renamed "System" nav group → "Admin" to reduce confusion with Reports → System tab.
+  - Settings = user config (password, family, tags, dropdowns, backup)
+  - Data = data operations (export, import, bank statements)
+  - No actual overlap — just confusing label.
+
+Issue 3 — Data → Import Bank Statement link:
+  - href="/finance.html#import" now handled: finance.html DOMContentLoaded
+    checks window.location.hash === '#import' and clicks the Import tab button.
+
+Issue 4 — Sheet Reference in Data:
+  - Description updated to clarify it belongs to the export/import workflow.
+
+Issue 5 — Career shows raw JS code in top-right:
+  - Cert name debounce block was appended after </html>. Moved inside final <script>.
+
+Issue 6 — Property.html shows blank page:
+  - </style> tag was missing → entire <style> bled into body, hiding all content.
+  - Also missing: <body>, nav.js, lt-core.js. All inserted at correct position.
+
+Issue 7 — Kids "Add Child" not obvious:
+  - FAB button changed from bare "+" to "+ Add Child" with full label.
+  - The Add/Edit child drawer already works correctly (openKidDrawer via mainFab).
+
+Issue 8 — Reports Summary should be first; People gives API error:
+  - Tab order: Summary, People, Spending, Health, Net Worth, Annual, Data Quality, System, Tools
+  - Testing tab removed (developer-only, not user-facing).
+  - People API: window.api('/settings/family') → '/api/v1/settings/family' (missing prefix).
+  - activeTab default changed from spending → summary.
+  - panel-summary now active by default.
+
+Issue 9 — Reports grouped under Finance in left nav:
+  - Reports moved to its own nav group (was under Finance with Trading).
+  - Finance group now: Finance, Trading only.
+  - New Reports group: Reports only.
+
+### v202603.143
+**🔴-C EOB Import — MHBP complete:**
+
+New files:
+- app/features/medical/eob-parser.js — fully local MHBP PDF parser
+  pdf-parse extracts text → regex pulls all fields → structured data returned
+  Handles: single patient/visit, multi-visit, multi-patient (all 3 variants)
+  Combined PDFs: splits on "MHBP\nPO BOX" boundary, imports all statements at once
+  Dedup: UNIQUE(statement_date, member_id) — safe to re-upload
+- app/db/migrations/054-057 — 4 new tables (statements, claims, services, balances)
+
+Updated files:
+- app/features/medical/routes.js — EOB routes appended:
+    POST /api/v1/medical/eob/preview  (parse + dedup check, no DB write)
+    POST /api/v1/medical/eob/import   (write selected statements to 4 tables)
+    GET  /api/v1/medical/eob          (list all statements with claim counts)
+    GET  /api/v1/medical/eob/:id      (full detail with claims + services + balances)
+    DELETE /api/v1/medical/eob/:id    (cascades to claims/services/balances)
+- app/public/medical.html — new "EOB" tab:
+    Browse/drag PDF → auto-preview → check rows → Import Selected
+    Preview shows: date, patients, claim count, plan paid, your share, already-imported flag
+    History list of all imported statements with totals
+    Detail view (alert-based for now, full views planned separately)
+
+Requires docker compose --build (pdf-parse added to package.json).
+After build, restart with: docker compose up --build -d
+
+**🔴-A ✅  🔴-B ✅  🔴-C ✅ — all three priority sessions complete.**
+Next: Integrations Settings panel + NHTSA/OpenFDA small builds (🟢 backlog).
+
+### v202603.142
+**🔴-B Auto-categorization — all 3 parts complete:**
+
+**Part 1 — Migration 059 (expanded rules, ~113 entries total with 046):**
+Added DFAS/federal income, Sam's Club, Trader Joe's, regional grocers,
+30+ dining chains (Panera, Moe's, Domino's, Whataburger, etc.),
+gas stations (Marathon, Circle K, Pilot, Valero, etc.), Alabama Power/Alagasco/Spire,
+Xfinity/Spectrum, streaming (Disney+, HBO, YouTube), airlines/hotels for Travel,
+AETNA/BCBS → Healthcare, IRS → Taxes, Home Depot/Lowe's → Shopping.
+
+**Part 2 — applyCategoryRules() shared function in finance/routes.js:**
+Extracted from /import/confirm logic. Used by both import-file and recategorize.
+Pattern: LIKE syntax → regex, first match wins (sort_order).
+import-file endpoint now auto-categorizes every transaction on import.
+
+**Part 3 — Re-categorize button in Transactions tab (🏷 Auto-tag):**
+POST /api/v1/finance/transactions/recategorize
+Default: applies rules only where category IS NULL or empty (safe).
+overwrite:true applies to all rows.
+Returns {ok, updated, total}. Reloads transaction list on any updates.
+Button shows ⏳ Running… during execution, restores on complete.
+
+**🔴-A Cancel buttons confirmed complete** — all drawers audited v202603.141.
+**🔴-B Auto-categorization complete** — this version.
+**Next: 🔴-C EOB Import (MHBP)** — see Section 16 of HANDOFF.md for full spec.
+
 ### v202603.141
 **Integration config migration 058:**
 Seeds api_upcitemdb_key, api_openfoodfacts_enabled, api_nhtsa_enabled,

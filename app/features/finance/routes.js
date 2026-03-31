@@ -520,6 +520,20 @@ router.get('/categories', (req, res) => {
 });
 
 
+// ── Shared category rule matcher ──────────────────────────────
+// Used by import-file and recategorize endpoints
+function applyCategoryRules(description) {
+  const rules = db.prepare(
+    'SELECT pattern, category FROM import_category_rules WHERE is_active=1 ORDER BY sort_order'
+  ).all();
+  const desc = (description || '').toUpperCase();
+  for (const rule of rules) {
+    const regex = new RegExp('^' + rule.pattern.replace(/%/g,'.*').replace(/_/g,'.') + '$', 'i');
+    if (regex.test(desc)) return rule.category;
+  }
+  return null;
+}
+
 // POST /api/v1/finance/transactions/import-file
 // Multipart: file + account_id — uses same parsers as /api/v1/import
 // Writes to finance_transactions (not imported_transactions)
@@ -561,8 +575,9 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
       let count = 0;
       for (const t of txns) {
         if (!t.date || t.amount === null || t.amount === undefined) continue;
+        const autoCategory = t.category || applyCategoryRules(t.description) || null;
         insert.run(account_id, t.date, t.description || null,
-                   parseFloat(t.amount) || 0, t.category || null, t.memo || null);
+                   parseFloat(t.amount) || 0, autoCategory, t.memo || null);
         count++;
       }
       return count;
@@ -570,6 +585,28 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
 
     const imported = doImport();
     res.json({ ok: true, imported, format: parsed.format, total: txns.length });
+  } catch(e) { serverError(res, e); }
+});
+
+// POST /api/v1/finance/transactions/recategorize
+// Body: { overwrite: false } — applies rules to null-category rows (or all if overwrite=true)
+router.post('/transactions/recategorize', (req, res) => {
+  try {
+    const overwrite = req.body?.overwrite === true;
+    const where = overwrite
+      ? 'WHERE account_id IS NOT NULL'
+      : `WHERE (category IS NULL OR category = '')`;
+    const rows = db.prepare(`SELECT id, description FROM finance_transactions ${where}`).all();
+    let updated = 0;
+    const upd = db.prepare('UPDATE finance_transactions SET category=? WHERE id=?');
+    const doUpdate = db.transaction(() => {
+      for (const row of rows) {
+        const cat = applyCategoryRules(row.description);
+        if (cat) { upd.run(cat, row.id); updated++; }
+      }
+    });
+    doUpdate();
+    res.json({ ok: true, updated, total: rows.length });
   } catch(e) { serverError(res, e); }
 });
 

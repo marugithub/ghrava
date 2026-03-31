@@ -59,10 +59,11 @@
 
   const SIDEBAR_SECTIONS = [
     { label: 'Daily',     keys: ['dailylog', 'todos'] },
-    { label: 'Finance',   keys: ['finance', 'trading', 'reports'] },
+    { label: 'Finance',   keys: ['finance', 'trading'] },
     { label: 'Household', keys: ['inventory', 'medical', 'kids', 'property', 'documents'] },
     { label: 'Personal',  keys: ['career', 'books', 'resources'] },
-    { label: 'System',    keys: ['notifications', 'data', 'settings'] },
+    { label: 'Reports',   keys: ['reports'] },
+    { label: 'Admin',     keys: ['notifications', 'data', 'settings'] },
   ];
 
   const currentPath = window.location.pathname;

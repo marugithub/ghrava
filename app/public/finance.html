@@ -311,6 +311,7 @@
       <select class="form-select" id="txYearFilter" style="width:90px;font-size:13px" onchange="loadTransactions()">
       </select>
       <button class="btn btn-ghost" style="padding:5px 10px;font-size:13px" onclick="openCsvImport()" title="Import CSV">⬆️ CSV</button>
+      <button class="btn btn-ghost" style="padding:5px 10px;font-size:13px" onclick="runRecategorize()" id="recatBtn" title="Apply category rules to uncategorized transactions">🏷 Auto-tag</button>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openTxDrawer()">+ Add</button>
     </div>
     <div class="search-wrap" style="margin:6px 16px 0">
@@ -607,6 +608,10 @@
   <div class="drawer">
     <div class="drawer-handle"></div>
     <div class="drawer-title" id="acctDrawerTitle">Add Account</div>
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:12px">
+      📊 This is for <strong>investment &amp; brokerage accounts</strong> (Schwab brokerage, Vanguard, TSP).<br>
+      For checking/savings/credit cards → use the <strong>Accounts tab</strong>.
+    </div>
     <input type="hidden" id="acctId">
 
     <div class="form-group">
@@ -654,7 +659,7 @@
       <input id="acctNotes" class="form-input" placeholder="Optional">
     </div>
     <div style="display:flex;gap:8px;padding:12px 0 8px">
-      <button class="btn" onclick="closeDrawer('acctDrawer')" style="flex:1">Cancel</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('acctDrawer').classList.remove('open')" style="flex:1">Cancel</button>
       <button class="btn btn-primary" onclick="saveAcct()" style="flex:2">Save Account</button>
     </div>
   </div>
@@ -1710,7 +1715,16 @@ function openReceipt(id, entityType, title) {
 document.addEventListener('DOMContentLoaded', () => {
   if (typeof AttachmentManager !== 'undefined') AttachmentManager.injectStyles();
   initYearSel();
-  loadSharedData().then(() => loadHsaAll());
+  loadSharedData().then(() => {
+    loadHsaAll();
+    // Handle hash navigation — e.g. /finance.html#import from data.html
+    if (window.location.hash === '#import') {
+      setTimeout(() => {
+        const btn = document.querySelector('.view-tab[onclick*=\'import\']');
+        if (btn) btn.click();
+      }, 400);
+    }
+  });
 });
 
 // ════════════════════════════════════════════════════════════
@@ -1831,6 +1845,24 @@ async function populateTxAccountFilter() {
     const dSel = $('txAccount');
     if (dSel) dSel.innerHTML = accounts.map(a => `<option value="${a.id}">${esc(a.name)}</option>`).join('');
   } catch(e) {}
+}
+
+async function runRecategorize() {
+  const btn = document.getElementById('recatBtn');
+  const prev = btn.textContent;
+  btn.textContent = '⏳ Running…'; btn.disabled = true;
+  try {
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const r = await fetch('/api/v1/finance/transactions/recategorize', {
+      method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overwrite: false })
+    }).then(r => r.json());
+    if (r.ok) {
+      toast(`✓ ${r.updated} transaction${r.updated !== 1 ? 's' : ''} categorized`);
+      if (r.updated > 0) loadTransactions();
+    } else { toast(r.error || 'Failed', 'err'); }
+  } catch(e) { toast('Re-categorize failed', 'err'); }
+  finally { btn.textContent = prev; btn.disabled = false; }
 }
 
 async function loadTransactions() {
@@ -3331,7 +3363,7 @@ async function saveAcct() {
     if (_editAcctId) await api('PUT', '/api/v1/import/accounts/'+_editAcctId, body);
     else             await api('POST', '/api/v1/import/accounts', body);
     toast(_editAcctId?'Account updated':'Account added');
-    closeDrawer('acctDrawer');
+    document.getElementById('acctDrawer').classList.remove('open');
     loadImpAccounts();
     loadImpAccountSelect();
   } catch(e) { toast(e.message||'Save failed','err'); }

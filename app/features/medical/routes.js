@@ -273,3 +273,180 @@ router.get('/summary', (req, res) => {
 });
 
 module.exports = router;
+
+// ══════════════════════════════════════════════════════════════
+//  EOB IMPORT — MHBP (local pdf-parse, no API calls)
+// ══════════════════════════════════════════════════════════════
+
+const multer = require('multer');
+const uploadEob = multer({ storage: multer.memoryStorage() });
+
+// POST /api/v1/medical/eob/preview  — parse PDF, return summary (no DB write)
+router.post('/eob/preview', requireAuth, uploadEob.single('file'), async (req, res) => {
+  if (!req.file) return badRequest(res, 'No file uploaded');
+  try {
+    const { parseEobPdf } = require('./eob-parser');
+    const statements = await parseEobPdf(req.file.buffer, req.file.originalname);
+    if (!statements.length) return res.json({ ok: false, error: 'No MHBP statements detected in file' });
+
+    // Check which are already in DB
+    const preview = statements.map(s => {
+      const exists = s.statement_date && s.member_id
+        ? db.prepare('SELECT id FROM med_eob_statements WHERE statement_date=? AND member_id=?')
+            .get(s.statement_date, s.member_id)
+        : null;
+      return {
+        statement_date: s.statement_date,
+        member_name:    s.member_name,
+        member_id:      s.member_id,
+        plan_name:      s.plan_name,
+        claims_count:   s.claims?.length || 0,
+        patients:       [...new Set((s.claims||[]).map(c => c.patient.split(' (')[0]))].join(', '),
+        plan_paid:      s.plan_paid_total,
+        your_share:     s.your_share_total,
+        already_imported: !!exists,
+      };
+    });
+    res.json({ ok: true, statements: preview });
+  } catch(e) { serverError(res, e); }
+});
+
+// POST /api/v1/medical/eob/import  — parse + write to DB
+// Body (multipart): file + selected_dates (JSON array of statement_date strings to import)
+router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, res) => {
+  if (!req.file) return badRequest(res, 'No file uploaded');
+  try {
+    const { parseEobPdf } = require('./eob-parser');
+    const statements = await parseEobPdf(req.file.buffer, req.file.originalname);
+    if (!statements.length) return badRequest(res, 'No MHBP statements detected');
+
+    // Optional filter: only import selected dates
+    let selected = null;
+    try { selected = JSON.parse(req.body.selected_dates || 'null'); } catch {}
+
+    let imported = 0, skipped = 0;
+
+    const doImport = db.transaction(() => {
+      for (const s of statements) {
+        if (!s.statement_date || !s.member_id) { skipped++; continue; }
+        if (selected && !selected.includes(s.statement_date)) { skipped++; continue; }
+
+        // Dedup
+        const exists = db.prepare('SELECT id FROM med_eob_statements WHERE statement_date=? AND member_id=?')
+          .get(s.statement_date, s.member_id);
+        if (exists) { skipped++; continue; }
+
+        // Insert statement
+        const stmtId = db.prepare(`
+          INSERT INTO med_eob_statements
+            (insurer,plan_name,group_name,member_id,group_number,member_name,
+             statement_date,period_start,period_end,
+             amount_billed,allowed_amount,pending_not_payable,deductible_applied,
+             copay_total,coinsurance_total,plan_paid_total,your_share_total,
+             amount_saved,healthfund_applied,
+             deductible_annual,deductible_used,deductible_remaining,
+             oop_max_annual,oop_used,oop_remaining,
+             healthfund_total,healthfund_used,healthfund_remaining,source_filename)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(
+          s.insurer||'MHBP', s.plan_name||null, s.group_name||null,
+          s.member_id, s.group_number||null, s.member_name||null,
+          s.statement_date, s.period_start||null, s.period_end||null,
+          s.amount_billed||null, s.allowed_amount||null, s.pending_not_payable||null,
+          s.deductible_applied||null, s.copay_total||null, s.coinsurance_total||null,
+          s.plan_paid_total||null, s.your_share_total||null,
+          s.amount_saved||null, s.healthfund_applied||null,
+          s.deductible_annual||null, s.deductible_used||null, s.deductible_remaining||null,
+          s.oop_max_annual||null, s.oop_used||null, s.oop_remaining||null,
+          s.healthfund_total||null, s.healthfund_used||null, s.healthfund_remaining||null,
+          s.source_filename||null
+        ).lastInsertRowid;
+
+        // Insert claims
+        for (const c of (s.claims || [])) {
+          const claimId = db.prepare(`
+            INSERT INTO med_eob_claims
+              (eob_id,patient,claim_id,received_date,provider,network_status,send_date,
+               amount_billed,member_rate,pending_not_payable,applied_to_deductible,
+               copay,plan_paid,fund_paid,coinsurance,your_share)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          `).run(
+            stmtId, c.patient||'Unknown', c.claim_id||null, c.received_date||null,
+            c.provider||null, c.network_status||null, c.send_date||null,
+            c.amount_billed||null, c.member_rate||null, c.pending_not_payable||null,
+            c.applied_to_deductible||null, c.copay||null, c.plan_paid||null,
+            c.fund_paid||null, c.coinsurance||null, c.your_share||null
+          ).lastInsertRowid;
+
+          // Insert service lines
+          for (const sv of (c.services || [])) {
+            db.prepare(`
+              INSERT INTO med_eob_services
+                (claim_id,service_description,service_code,service_date,
+                 amount_billed,member_rate,plan_share,your_share)
+              VALUES (?,?,?,?,?,?,?,?)
+            `).run(
+              claimId, sv.service_description||null, sv.service_code||null,
+              sv.service_date||null, sv.amount_billed||null, sv.member_rate||null,
+              sv.plan_share||null, sv.your_share||null
+            );
+          }
+        }
+
+        // Insert balance rows
+        for (const b of (s.balances || [])) {
+          db.prepare(`
+            INSERT INTO med_eob_balances (eob_id,person,balance_type,annual_limit,amount_used,amount_remaining)
+            VALUES (?,?,?,?,?,?)
+          `).run(stmtId, b.person, b.balance_type, b.annual_limit||null, b.amount_used||null, b.amount_remaining||null);
+        }
+
+        imported++;
+      }
+    });
+    doImport();
+    res.json({ ok: true, imported, skipped });
+  } catch(e) { serverError(res, e); }
+});
+
+// GET /api/v1/medical/eob  — list all statements
+router.get('/eob', (req, res) => {
+  try {
+    const stmts = db.prepare(`
+      SELECT s.*,
+        COUNT(DISTINCT c.id) AS claims_count,
+        GROUP_CONCAT(DISTINCT REPLACE(c.patient, SUBSTR(c.patient, INSTR(c.patient,' (')), '')) AS patients
+      FROM med_eob_statements s
+      LEFT JOIN med_eob_claims c ON c.eob_id = s.id
+      GROUP BY s.id
+      ORDER BY s.statement_date DESC
+    `).all();
+    res.json(stmts);
+  } catch(e) { serverError(res, e); }
+});
+
+// GET /api/v1/medical/eob/:id  — statement + claims + services
+router.get('/eob/:id', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT * FROM med_eob_statements WHERE id=?').get(req.params.id);
+    if (!stmt) return notFound(res);
+    const claims = db.prepare('SELECT * FROM med_eob_claims WHERE eob_id=? ORDER BY id').all(stmt.id);
+    for (const c of claims) {
+      c.services = db.prepare('SELECT * FROM med_eob_services WHERE claim_id=? ORDER BY service_date').all(c.id);
+    }
+    stmt.claims = claims;
+    stmt.balances = db.prepare('SELECT * FROM med_eob_balances WHERE eob_id=? ORDER BY person,balance_type').all(stmt.id);
+    res.json(stmt);
+  } catch(e) { serverError(res, e); }
+});
+
+// DELETE /api/v1/medical/eob/:id
+router.delete('/eob/:id', requireAuth, (req, res) => {
+  try {
+    const s = db.prepare('SELECT id FROM med_eob_statements WHERE id=?').get(req.params.id);
+    if (!s) return notFound(res);
+    // Cascade handled by ON DELETE CASCADE on claims/services/balances
+    db.prepare('DELETE FROM med_eob_statements WHERE id=?').run(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
