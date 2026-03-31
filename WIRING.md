@@ -163,6 +163,7 @@ Two patterns exist — use the right one:
 | `/api/v1/settings` | features/settings/routes.js |
 | `/api/v1/hsa` | features/hsa/routes.js |
 | `/api/v1/medical` | features/medical/routes.js |
+| `/api/v1/medical/eob` | features/medical/routes.js — **PLANNED** (EOB import, pdf-parse, 4-table schema) |
 | `/api/v1/attachments` | features/attachments/routes.js |
 | `/api/v1/backup` | features/backup/routes.js |
 | `/api/v1/finance` | features/finance/routes.js |
@@ -229,6 +230,8 @@ Two patterns exist — use the right one:
 | Career skills | `career_skill` | ✓ |
 | Properties | `property` | ✓ |
 | Vehicles | `vehicle` | ✓ |
+| EOB statements | `eob_statement` | ⬜ planned |
+| EOB claims | `eob_claim` | ⬜ planned |
 
 **Rule: Use ONLY entity_types from this table. Never invent new strings.**
 
@@ -435,3 +438,17 @@ done
 # 3. Smoke test
 bash smoke-test.sh
 ```
+
+---
+
+## EOB Import — Wiring Notes (PLANNED — 🔴-C in backlog)
+
+**New tables:** med_eob_statements, med_eob_claims, med_eob_services, med_eob_balances
+**New route:** POST /api/v1/medical/eob/preview — returns parsed statement list (no DB write)
+**New route:** POST /api/v1/medical/eob/import — writes selected statements to 4 tables
+**File handling:** multer memoryStorage() — file never hits disk
+**Parser:** pdf-parse (local) → text → MHBP-specific regex extractor
+**New migration files:** 054_eob_statements.sql, 055_eob_claims.sql, 056_eob_services.sql, 057_eob_balances.sql
+
+**Read Section 16 of HANDOFF.md before building.**
+

@@ -299,38 +299,80 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 
 ## 13. Active Backlog
 
-**Last updated: v202603.115**
+**Last updated: v202603.140**
 
 ---
 
-### 🔴 BUILD — No design decision needed
+### 🔴 BUILD — Priority order (do in sequence)
 
-**1. Google Tasks sync on Todos**
-- `/api/v1/google` currently has Google Calendar OAuth — repurpose or replace for Tasks
-- Todos should push to Google Tasks and pull changes back
-- Design: one-way push on save, or full bidirectional sync?
-- **Ask before building** — sync strategy needs decision first
+---
 
-**2. vehicle_service table missing from unified XLSX export**
+#### 🔴-A  Cancel buttons — all drawers (ONE SESSION, do first)
+~15-20 drawers across 10 pages missing Cancel.
+`structureDrawer()` moves existing buttons but doesn't add missing ones.
+Pages to audit: todos, career, medical, property, books, documents, kids,
+resources, daily-log, finance, inventory.
+Mechanical work — no design decisions needed.
+Rule: this must be done BEFORE auto-categorization session.
+
+---
+
+#### 🔴-B  Auto-categorization — Finance Transactions (ONE SESSION, after A)
+Three parts in sequence:
+
+**Part 1 — Starter category rules migration (~60 rules):**
+Seed import_category_rules with common patterns:
+  DFAS / FEDERAL SALARY → Income
+  KROGER / PUBLIX / WALMART / COSTCO / ALDI → Groceries
+  AMAZON / AMZN → Shopping
+  NETFLIX / SPOTIFY / HULU / DISNEY → Subscriptions
+  SHELL / BP / CHEVRON / EXXON / GAS → Gas & Fuel
+  STARBUCKS / DUNKIN / MCDONALDS / CHICK-FIL-A → Dining
+  AUTOPAY / INSURANCE → Insurance
+  MORTGAGE / RENT → Housing
+  CVS / WALGREENS / PHARMACY → Health
+  ATM / WITHDRAWAL → Cash
+
+**Part 2 — Wire rules into CSV drawer import:**
+After parseFile() in /finance/transactions/import-file endpoint,
+run each transaction description through import_category_rules before INSERT.
+Same matching logic already in /import/confirm — extract as shared function.
+
+**Part 3 — On-demand Re-categorize button:**
+In Finance → Transactions tab.
+POST /api/v1/finance/transactions/recategorize
+Applies active rules to finance_transactions WHERE category IS NULL.
+Optional "overwrite existing" toggle.
+Returns {updated: N}, reloads transaction list.
+
+---
+
+#### 🔴-C  EOB Import — MHBP (ONE SESSION, after B)
+See Section 16 for full design spec.
+
+---
+
+#### 🔴-D  Remaining legacy backlog items
+
+**vehicle_service table missing from unified XLSX export**
 - `vehicle_service` records not in `/api/v1/data/export`
 - Add sheet to `app/features/data/routes.js`
 - Low risk: additive only
 
-**3. GH_VIEW Advanced Filters — wire to books, documents, resources**
-- Currently only inventory has GH_VIEW Advanced Filters
+**GH_VIEW Advanced Filters — wire to books, documents, resources**
 - Books: filter by genre, format, status, rating, tags
 - Documents: filter by category, expiry range, family member
-- Resources: already has basic category filter — add tag filter + favorites toggle
+- Resources: add tag filter + favorites toggle
 
-**4. Medical — physician export as contact_id not name**
-- Currently exports `physician` (freetext name); import can't resolve back to contact_id
+**Medical — physician export as contact_id not name**
+- Currently exports `physician` (freetext name); can't resolve back to contact_id on import
 - Fix: export `physician_contact_id`, add physician name as read-only column
 
-~~**5. Property — maintenance completion tracking** — DONE v202603.119~~
-
-**6. Dashboard attention widget — add property maintenance overdue**
+**Dashboard attention widget — add property maintenance overdue**
 - `/api/v1/dashboard/attention` doesn't include overdue property maintenance
-- Already tracked in completeness checks — wire to attention feed too
+
+**Google Tasks sync on Todos**
+- **Ask before building** — sync strategy (one-way vs bidirectional) needs decision first
 
 ---
 
@@ -354,6 +396,17 @@ in a new tab. Reports page polls every 30 seconds to update counts after fixes.
 ### 🔵 LOW / DESIGN NEEDED
 
 **Notifications email digest** — design conversation needed first
+**Gmail Gift Card Scanner** *(deferred — not worth building)*
+Rejected because: gift card emails contain redemption links, not usable card numbers/PINs.
+Most retailers require CAPTCHA/account login at the redemption URL before card details
+are shown. Auto-importing would only capture retailer + amount + date — user still has
+to manually retrieve the actual card number. Not enough value for the complexity.
+
+If revisited: only makes sense with Tier 2 (Claude API to parse HTML) + user manually
+confirming card number after redemption. Out of scope for now.
+
+**Auto-categorization** — moved to 🔴-B (active backlog, full spec there)
+
 ~~**Module Inventory Report**~~ — DONE v202603.127 (GET /api/v1/app/module-inventory, Reports → System tab)
 A system-wide snapshot report accessible from Reports → System tab (or a dedicated admin view).
 Per-module, per-version it should capture:
@@ -400,6 +453,175 @@ parsing HANDOFF.md — not at runtime. Runtime should only serve the live data c
 - Google Calendar removed — calendar.html dead, no nav entry, no dashboard widget
 - Stale backlog items 1-8 from prior sessions — all complete
 
+---
+
+## 16. EOB Import — MHBP Design Spec
+
+### Overview
+Upload EOB PDFs (one or many combined) to Medical module.
+All parsing is **100% local** — pdf-parse + regex. **No API calls. No data leaves NAS.**
+Files are **never stored** — memory-only via multer memoryStorage(). Only extracted data persists in SQLite.
+
+### Plan details
+- **Insurer:** MHBP (Mail Handlers Benefit Plan) — federal employee plan administered by Aetna
+- **Portal:** mhbp.com (NOT aetna.com — different portal, different PDF format than consumer Aetna)
+- **Health plan:** MHBP only. BCBS dental not in scope yet.
+- **Frequency:** Monthly statements, can combine multiple months into one PDF for bulk upload
+
+### EOB structure — all three variants handled by same parser
+One EOB statement can contain:
+- 1 patient, 1 visit (simplest)
+- 1 patient, multiple visits on different dates (multiple CPT sections, same claim)
+- Multiple patients, each with 1+ visits (multiple "Claim for [name]" sections)
+Parser scans for all claim sections dynamically — no hardcoded patient count.
+
+### Multi-statement PDF
+Combine any number of monthly EOBs into one PDF before uploading.
+Parser detects statement boundaries by "Page 1 of N" pattern — each occurrence = new statement start.
+Statement date + Member ID = unique key for dedup (re-upload is safe).
+
+### npm dependency to add
+```
+pdf-parse   (free, local, runs on QNAP, zero network calls)
+```
+Requires `docker compose up --build -d` after adding to package.json.
+Multer is already in the stack — use memoryStorage() (same as import module).
+
+### 4-table schema
+
+```sql
+-- One row per EOB statement (one PDF can have multiple statements)
+CREATE TABLE med_eob_statements (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  insurer               TEXT NOT NULL DEFAULT 'MHBP',
+  plan_name             TEXT,
+  group_name            TEXT,
+  member_id             TEXT,
+  group_number          TEXT,
+  member_name           TEXT,
+  statement_date        DATE NOT NULL,
+  period_start          DATE,
+  period_end            DATE,
+  amount_billed         REAL,
+  allowed_amount        REAL,
+  pending_not_payable   REAL,
+  deductible_applied    REAL,
+  copay_total           REAL,
+  coinsurance_total     REAL,
+  plan_paid_total       REAL,
+  your_share_total      REAL,
+  amount_saved          REAL,
+  healthfund_applied    REAL,
+  deductible_annual     REAL,
+  deductible_used       REAL,
+  deductible_remaining  REAL,
+  oop_max_annual        REAL,
+  oop_used              REAL,
+  oop_remaining         REAL,
+  healthfund_total      REAL,
+  healthfund_used       REAL,
+  healthfund_remaining  REAL,
+  source_filename       TEXT,
+  created_at            DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(statement_date, member_id)
+);
+
+-- One row per patient per claim block within a statement
+CREATE TABLE med_eob_claims (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  eob_id                INTEGER NOT NULL REFERENCES med_eob_statements(id),
+  patient               TEXT NOT NULL,
+  claim_id              TEXT,
+  received_date         DATE,
+  provider              TEXT,
+  network_status        TEXT,
+  send_date             DATE,
+  amount_billed         REAL,
+  member_rate           REAL,
+  pending_not_payable   REAL,
+  applied_to_deductible REAL,
+  copay                 REAL,
+  plan_paid             REAL,
+  fund_paid             REAL,
+  coinsurance           REAL,
+  your_share            REAL
+);
+
+-- One row per CPT code line within a claim
+CREATE TABLE med_eob_services (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  claim_id              INTEGER NOT NULL REFERENCES med_eob_claims(id),
+  service_description   TEXT,
+  service_code          TEXT,
+  service_date          DATE,
+  amount_billed         REAL,
+  member_rate           REAL,
+  pending_not_payable   REAL,
+  applied_to_deductible REAL,
+  copay                 REAL,
+  amount_remaining      REAL,
+  plan_share            REAL,
+  coinsurance           REAL,
+  your_share            REAL
+);
+
+-- Per-person/family YTD balance snapshot from each statement
+CREATE TABLE med_eob_balances (
+  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+  eob_id                INTEGER NOT NULL REFERENCES med_eob_statements(id),
+  person                TEXT NOT NULL,
+  balance_type          TEXT NOT NULL,
+  annual_limit          REAL,
+  amount_used           REAL,
+  amount_remaining      REAL
+);
+```
+
+### Key regex patterns (MHBP format)
+```
+Statement date:    /Statement date:\s*(\w+ \d+, \d{4})/
+Member ID:         /Member ID:\s*(\S+)/
+Group name:        /Group name:\s*(.+)/
+Period:            /for (\d+\/\d+\/\d+) to (\d+\/\d+\/\d+)/
+Boundary (new):    /Page 1 of \d+/  — each match = new statement start
+Amount billed:     /Amount billed:\s*\$([\d,.]+)/
+Allowed amount:    /Member rate\/\s*Allowed amount:.*?Your totals\s*\$([\d,.]+)/s
+Deductible annual: /Annual deductible\s*\$([\d,.]+)/
+Deductible used:   /Deductible used\s*-?\s*\$([\d,.]+)/
+Claim block start: /Claim for (.+?)\nProvider:\s*(.+?)\s*\((In-Network|Out-of-Network)\)/gs
+Claim ID:          /Claim ID:\s*(\S+)/
+Received date:     /Received on\s*(\S+)/
+Service line:      description + CPT code + "on MM/DD/YY" + amounts (table row)
+Balance rows:      /Medical (?:In|Out of) Network (?:Deductible|Out of Pocket Maximum)\s+\$([\d,.]+)\s+\$([\d,.]+)\s+\$([\d,.]+)/g
+HealthFund:        /Fund Benefit\s+\$([\d,.]+)\s+\$([\d,.]+)\s+\$([\d,.]+)/
+```
+
+### UI design
+New "EOB" tab in Medical module.
+- File picker (browse + drag) — accepts single PDF or combined multi-month PDF
+- Preview table: one summary row per detected statement
+  Columns: Statement Date | Patients | Claims | Plan Paid | Your Share
+- Checkboxes to deselect any statements (default all checked)
+- Import button — inserts all checked, skips any already in DB
+- Duplicate check: UNIQUE(statement_date, member_id) — safe to re-upload
+
+### Views enabled (build as separate session when needed)
+- Deductible tracker — family YTD progress toward annual limit
+- OOP max gauge — per person + family
+- Claim history — filter by patient, provider, date range
+- CPT spend breakdown — preventive vs specialist vs lab
+- Provider billing history
+- Pending/denied flag
+- HealthFund balance over time
+
+### Build dependency
+1. ✅ Design confirmed — this document
+2. ⬜ Cancel buttons session first (🔴-A)
+3. ⬜ Auto-categorization session (🔴-B)
+4. ⬜ EOB build session (🔴-C)
+   Start by uploading a real MHBP EOB to test pdf-parse output before writing regex
+
+
 ## 14. Known Issues
 
 1. **Tag input styles** — `tags-input-wrap` / `tags-input` / `tag-chip` CSS was only in `resources.html`. Fixed in this session — moved to `shared.css`. If any module still looks broken, force refresh.
@@ -434,6 +656,34 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.140
+**Finance Import tab — clarification banners:**
+
+Import tab Upload panel: blue banner at top explaining this tab is for
+investment/brokerage accounts (Schwab brokerage, Vanguard, TSP). Includes
+clickable link to switch to Transactions tab → CSV drawer for checking/savings.
+
+CSV drawer: header updated to "For checking, savings & credit cards" with note
+that transactions appear in Transactions tab under selected account.
+
+Added switchFinanceTab() helper for cross-tab navigation links.
+
+**EOB import design (backlog — new session):**
+
+Aetna email = notification only. No data in email. EOB PDF downloaded from
+aetna.com member portal manually, then uploaded to Ghrava.
+
+Architecture:
+- pdf-parse (free, local, already common in Node stacks) extracts PDF text
+- Claude API (claude-sonnet-4) extracts structured data from text
+- Cost: ~$0.01-0.02/EOB = ~$0.15-0.30/year. Negligible.
+- New med_claims table needed: patient, date_of_service, provider, service_type,
+  billed, plan_discount, plan_paid, your_responsibility, deductible_applied,
+  claim_number, deductible_ytd, oop_ytd, insurer, raw_text, source_filename
+- Upload button in Medical module
+- BCBS dental: same approach, separate insurer field, same table
+- Build after cancel buttons + auto-categorization sessions
+
 ### v202603.139
 **Finance — three more fixes:**
 

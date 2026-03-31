@@ -456,6 +456,14 @@
     <!-- ── Upload Statement ── -->
     <div id="imp-panel-upload" style="padding:12px 16px 100px">
 
+      <!-- Context banner -->
+      <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
+        <strong style="color:var(--text)">📊 This tab is for investment &amp; brokerage accounts</strong> — Schwab brokerage, Vanguard, TSP, and similar.
+        Transactions here are tracked separately for holdings, net worth, and statement history.<br>
+        <span style="color:var(--text3)">For checking, savings, and credit cards → use the
+          <strong style="color:var(--accent);cursor:pointer" onclick="switchFinanceTab('transactions')">Transactions tab → ⬆ CSV</strong> button instead.</span>
+      </div>
+
       <!-- Missing statement alerts -->
       <div id="impMissingAlerts"></div>
 
@@ -2748,7 +2756,9 @@ async function deleteGc() {
       <button class="btn btn-ghost" style="padding:4px 12px;font-size:12px" onclick="document.getElementById('csvDrawer').classList.remove('open')">Close</button>
     </div>
     <div style="font-size:13px;color:var(--text3);margin-bottom:12px;line-height:1.5">
-      Supports: <span style="font-family:var(--mono);color:var(--accent)">Chase · Schwab · Navy Fed · USAA · Wells Fargo · Capital One · Vanguard · TSP · BofA</span>
+      <strong style="color:var(--text)">For checking, savings &amp; credit cards.</strong>
+      Transactions appear in the Transactions tab under the selected account.<br>
+      <span style="font-size:11px">Supports: Chase · Schwab Checking · Navy Fed · USAA · Wells Fargo · Capital One · BofA</span>
     </div>
     <div class="form-group">
       <label class="form-label">Account <span class="req">*</span> <span style="font-weight:400;color:var(--text3);font-size:11px">required to import</span></label>
@@ -2960,6 +2970,13 @@ let _impSelectedAcct = null;
 let _impFile = null;
 let _impPreviewData = null;
 let _editAcctId = null;
+
+function switchFinanceTab(tab) {
+  // Switch main finance tabs — used by cross-tab links
+  const tabMap = { transactions: 'tab-tx', import: 'tab-import', accounts: 'tab-acct', gifts: 'tab-gifts', hsa: 'tab-hsa' };
+  const btnId = tabMap[tab];
+  if (btnId) document.getElementById(btnId)?.click();
+}
 
 function impSubTab(id, btn) {
   document.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
