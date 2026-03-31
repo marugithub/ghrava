@@ -376,6 +376,40 @@ See Section 16 for full design spec.
 
 ---
 
+### 🟢 SMALL — integration builds (after Integrations Settings panel is done)
+
+**NHTSA VIN Decoder + Recalls — Property module**
+- Add "Decode" button next to VIN field in vehicle drawer
+- GET https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/{VIN}?format=json
+- Auto-fills: Make, Model, Year, Trim, Engine, Fuel Type, Body Style
+- "Check Recalls" button: GET https://api.nhtsa.gov/recalls/recallsByVehicle?make=X&model=Y&modelYear=Z
+- Gate on: cfg('api_nhtsa_enabled') === '1'
+- ~2 hours. No key needed.
+
+**OpenFDA Drug Lookup — Medical medications drawer**
+- Add "Lookup" button in medication drawer
+- GET https://api.fda.gov/drug/label.json?search=openfda.brand_name:"{name}"
+- Auto-fills: generic name, standard dosage forms, manufacturer
+- Gate on: cfg('api_openfda_enabled') === '1'
+- ~2 hours. No key needed.
+
+**Open Food Facts — Inventory UPC fallback**
+- Add as second fallback in /api/v1/inventory/upc/:barcode route
+- Called only when UPCitemdb returns nothing (food/grocery items)
+- GET https://world.openfoodfacts.org/api/v0/product/{UPC}.json
+- Gate on: cfg('api_openfoodfacts_enabled') === '1'
+- ~30 min. No key needed.
+
+**Weather widget — home page top-right (DEFERRED)**
+- Small chip: ☀ 72°F — fixed position, top-right of index.html
+- GET https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code
+- Reads from app_config: api_openmeteo_enabled, lat, lon, units
+- WMO weather code → emoji icon mapping
+- Build as its own session. Do not mix into other sessions.
+- No key needed.
+
+---
+
 ### 🟡 MEDIUM
 
 **Finance net-worth snapshots**
@@ -622,6 +656,152 @@ New "EOB" tab in Medical module.
    Start by uploading a real MHBP EOB to test pdf-parse output before writing regex
 
 
+---
+
+## 17. Integrations & API Config — Design Standard
+
+### Core principle
+Every external API integration — keys, toggles, location config — lives in `app_config`.
+Settings → Integrations panel is the single place to configure all of them.
+If a module is refactored or moved, the config key name never changes.
+Routes always read from app_config at request time. Nothing is hardcoded.
+
+### app_config table (already exists — do not add columns)
+```sql
+CREATE TABLE IF NOT EXISTS app_config (
+  key        TEXT PRIMARY KEY,
+  value      TEXT,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+```
+Simple key/value is sufficient. Labels, descriptions, grouping live in the
+Settings UI code — not in the DB. DB is just storage, UI provides the context.
+
+### Naming convention for integration keys
+```
+api_{service}_{qualifier}
+```
+Examples:
+  api_google_books_key
+  api_upcitemdb_key
+  api_nhtsa_enabled
+  api_openfda_enabled
+  api_openmeteo_enabled
+  api_openmeteo_lat
+  api_openmeteo_lon
+  api_openmeteo_units      (imperial | metric)
+  api_openfoodfacts_enabled
+
+Toggle keys (enable/disable a no-key API): value is '1' or '0'.
+Key keys (optional paid upgrade): value is the key string, '' means use default/trial.
+Location keys: value is decimal string e.g. '33.4052'.
+
+### Migration 058 — seed all integration config keys
+```sql
+-- api/db/migrations/058_integration_config.sql
+INSERT OR IGNORE INTO app_config (key, value) VALUES
+  -- Inventory
+  ('api_upcitemdb_key',          ''),   -- empty = use trial endpoint
+  ('api_openfoodfacts_enabled',  '1'),  -- free fallback for food/grocery UPCs
+
+  -- Books (google_books_api_key already exists in config from earlier migration)
+
+  -- Property / Vehicles
+  ('api_nhtsa_enabled',          '1'),  -- VIN decode + recall check, no key needed
+  
+  -- Medical
+  ('api_openfda_enabled',        '1'),  -- drug lookup, no key needed
+
+  -- Weather (for home page widget — deferred feature)
+  ('api_openmeteo_enabled',      '0'),  -- off until widget is built
+  ('api_openmeteo_lat',          '33.4052'),  -- Hoover, AL
+  ('api_openmeteo_lon',         '-86.8278'),
+  ('api_openmeteo_units',        'imperial');
+```
+
+### Backend pattern — how routes must read integration config
+```javascript
+// At top of any route that calls an external API:
+const cfg = key => db.prepare('SELECT value FROM app_config WHERE key=?').get(key)?.value || '';
+
+// Toggle check:
+if (cfg('api_nhtsa_enabled') !== '1') return res.json({ disabled: true });
+
+// Key with trial fallback:
+const upcKey = cfg('api_upcitemdb_key');
+const upcUrl = upcKey
+  ? `https://api.upcitemdb.com/prod/v1/lookup?upc=${upc}`   // paid
+  : `https://api.upcitemdb.com/prod/trial/lookup?upc=${upc}`; // trial
+```
+
+### Settings → Integrations panel (new panel to build in settings.html)
+Grouped by module. Each row has: label, description, input or toggle, save button.
+
+```
+🔗 Inventory
+  UPCitemdb API Key  [______] (optional — free trial used if blank)
+  Open Food Facts    [toggle ON] food/grocery UPC fallback, no key needed
+
+🔗 Books
+  Google Books Key   [______] (optional — Open Library used if blank)
+
+🔗 Property / Vehicles
+  NHTSA VIN Decode   [toggle ON] free government API, auto-fills vehicle details
+  NHTSA Recalls      [same toggle — both features use same api_nhtsa_enabled key]
+
+🔗 Medical
+  OpenFDA Drug Lookup [toggle ON] free government API, medication name/dosage lookup
+
+🔗 Weather  (toggle only — data populated from home address in family settings)
+  Open-Meteo Weather  [toggle OFF] enables home page weather widget (deferred)
+  Location            Birmingham, AL (33.4052, -86.8278) — auto from home address
+  Units               [Imperial ▾]
+```
+
+### Settings read/write routes (already exist — use as-is)
+  GET  /api/v1/settings/config         — returns all config as {key: value} object
+  GET  /api/v1/settings/config/:key    — returns single value
+  PUT  /api/v1/settings/config/:key    — saves single value
+
+No new routes needed. Settings panel just calls PUT for each field on change.
+
+### Weather widget — home page top-right (DEFERRED)
+Location: index.html — fixed position top-right corner, small chip, e.g.:
+  ☀ 72°F  or  🌧 58°F  or  ⛅ 65°F
+Reads: api_openmeteo_enabled, api_openmeteo_lat, api_openmeteo_lon, api_openmeteo_units
+API: GET https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current=temperature_2m,weather_code&temperature_unit={unit}&timezone=auto
+No key needed. Fires once on page load, no polling.
+Weather code → icon mapping (WMO standard: 0=sunny, 1-3=partly cloudy, 45-48=fog,
+  51-67=rain, 71-77=snow, 80-82=showers, 95+=thunderstorm)
+Build this as part of the weather session, not mixed into other sessions.
+
+### Gmail integrations — DEFERRED (not worth partial)
+Per design decision: Gmail receipt scanning deferred until full implementation
+is possible (not just partial merchant + amount extraction).
+No config keys to add yet.
+
+### Current state of existing integrations
+| Service | Config key | Status | Notes |
+|---------|-----------|--------|-------|
+| Google Books | google_books_api_key | ✅ Live | optional, has Settings UI |
+| Google OAuth | google_client_id/secret | ✅ Live | has Settings UI |
+| UPCitemdb | api_upcitemdb_key | ⬜ key not in config | trial URL hardcoded in routes |
+| Open Library | (none needed) | ✅ Live | no key, always on |
+| Yahoo Finance | (none needed) | ✅ Live | Trading terminal only, no key |
+| NHTSA | api_nhtsa_enabled | ⬜ not yet built | free, no key |
+| OpenFDA | api_openfda_enabled | ⬜ not yet built | free, no key |
+| Open Food Facts | api_openfoodfacts_enabled | ⬜ not yet built | free, no key |
+| Open-Meteo | api_openmeteo_* | ⬜ not yet built | free, deferred |
+
+### Build order
+1. Migration 058 seeds all config keys (add to next deploy, zero risk)
+2. Integrations panel in Settings (one session, purely UI + config PUT calls)
+3. NHTSA wiring in Property vehicles drawer (small session)
+4. OpenFDA wiring in Medical medications drawer (small session)
+5. Open Food Facts wiring as UPC fallback in Inventory (30 min)
+6. Weather widget in index.html (own session, after config is in place)
+
+
 ## 14. Known Issues
 
 1. **Tag input styles** — `tags-input-wrap` / `tags-input` / `tag-chip` CSS was only in `resources.html`. Fixed in this session — moved to `shared.css`. If any module still looks broken, force refresh.
@@ -656,6 +836,23 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.141
+**Integration config migration 058:**
+Seeds api_upcitemdb_key, api_openfoodfacts_enabled, api_nhtsa_enabled,
+api_openfda_enabled, api_openmeteo_enabled/lat/lon/units into app_config.
+Zero-risk additive migration. Enables Integrations Settings panel to be
+built without any DB changes needed.
+
+**Cancel buttons — 3 drawers fixed:**
+- property.html #svcDrawer (maintenance record): was full-width "Add Record" only
+  → now Cancel + Save Record side by side
+- finance.html #txDrawer (transaction): was Save + Delete only → added Cancel first
+- finance.html #budgetDrawer (budget): was Save + Delete only → added Cancel first
+
+Full cancel button pass confirmed: career (certDrawer, jobDrawer ✓),
+todos, medical, property, books, documents, kids, resources all already have Cancel.
+finance acctDrawer already has Cancel. Only the 3 above were missing.
+
 ### v202603.140
 **Finance Import tab — clarification banners:**
 

@@ -452,3 +452,35 @@ bash smoke-test.sh
 
 **Read Section 16 of HANDOFF.md before building.**
 
+
+---
+
+## Integrations Architecture (see HANDOFF Section 17 for full spec)
+
+**All integration config lives in `app_config` table (key/value). Never hardcoded in routes.**
+
+Config helper pattern for every route that calls external API:
+```javascript
+const cfg = key => db.prepare('SELECT value FROM app_config WHERE key=?').get(key)?.value || '';
+```
+
+**Canonical integration config keys:**
+| Key | Default | Notes |
+|-----|---------|-------|
+| `google_books_api_key` | '' | existing |
+| `api_upcitemdb_key` | '' | '' = use trial URL |
+| `api_openfoodfacts_enabled` | '1' | UPC food fallback |
+| `api_nhtsa_enabled` | '1' | VIN + recalls |
+| `api_openfda_enabled` | '1' | drug lookup |
+| `api_openmeteo_enabled` | '0' | weather widget (deferred) |
+| `api_openmeteo_lat` | '33.4052' | Hoover AL |
+| `api_openmeteo_lon` | '-86.8278' | Hoover AL |
+| `api_openmeteo_units` | 'imperial' | imperial/metric |
+
+**Settings routes (already exist, use as-is):**
+  GET /api/v1/settings/config         all config
+  GET /api/v1/settings/config/:key    one value
+  PUT /api/v1/settings/config/:key    save one value
+
+**Migration to add:** 058_integration_config.sql — seeds all keys above with defaults.
+

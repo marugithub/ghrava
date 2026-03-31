@@ -2470,6 +2470,7 @@ async function deleteGc() {
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="$('txDrawer').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="txSave" style="flex:1" onclick="saveTx()">Save</button>
       <button class="btn btn-ghost" id="txDeleteBtn" style="color:var(--red);display:none" onclick="deleteTx()">Delete</button>
     </div>
@@ -2603,6 +2604,7 @@ async function deleteGc() {
       <input class="form-input" id="budNotes" placeholder="Optional">
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="$('budgetDrawer').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="budSave" style="flex:1" onclick="saveBudget()">Save</button>
       <button class="btn btn-ghost" id="budDeleteBtn" style="color:var(--red);display:none" onclick="deleteBudget()">Delete</button>
     </div>
