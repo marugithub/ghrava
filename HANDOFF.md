@@ -434,6 +434,31 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.139
+**Finance — three more fixes:**
+
+1. Import fails: CHECK constraint failed on txn_type
+   Root cause: parseSchawbChecking was returning raw Schwab type values (ACH, ATM, Check,
+   Transfer etc.) which fail imported_transactions.txn_type CHECK constraint.
+   Fix: classifySchawbCheckingType() maps raw values → valid types:
+     transfer/journal/wire → transfer
+     payment/autopay/bill pay → payment  
+     fee/service charge → fee
+     interest → interest
+     dividend → dividend
+     deposit/credit/direct dep → deposit
+     withdrawal/atm/check → withdrawal
+     everything else → transaction (safe default)
+
+2. Account type still showing ${t}:
+   The broken template literal saved ${t} as the actual type value in finance_accounts.
+   Migration 053 cleans this: UPDATE finance_accounts SET type='Checking' WHERE type='${t}'.
+   Runs automatically on container restart.
+
+3. Account type dropdown — static options now correctly include the types that
+   match what finance_accounts.type stores: Checking, Savings, Credit Card,
+   Investment, Loan, Cash, Other.
+
 ### v202603.138
 **Finance — three fixes:**
 

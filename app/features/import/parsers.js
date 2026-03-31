@@ -160,6 +160,21 @@ function parseNavyFed(rows) {
   }).filter(r => r.date && r.amount !== null);
 }
 
+
+function classifySchawbCheckingType(typeVal, statusVal) {
+  const t = typeVal.toLowerCase().trim();
+  const s = statusVal.toLowerCase().trim();
+  if (t.includes('transfer') || t.includes('journal') || t.includes('wire')) return 'transfer';
+  if (t.includes('payment') || t.includes('autopay') || t.includes('bill pay')) return 'payment';
+  if (t.includes('fee') || t.includes('charge') || t.includes('service charge')) return 'fee';
+  if (t.includes('interest') || t.includes('int ')) return 'interest';
+  if (t.includes('dividend') || t.includes('div ')) return 'dividend';
+  if (t.includes('deposit') || t.includes('credit') || t.includes('direct dep')) return 'deposit';
+  if (t.includes('withdrawal') || t.includes('debit') || t.includes('atm') || t.includes('check')) return 'withdrawal';
+  // ACH can be either — classify by amount sign (done later by consumer, default to transaction)
+  return 'transaction';
+}
+
 // ── Schwab Checking ────────────────────────────────────────────
 // Headers: Date, Type, Check #, Description, Withdrawal (-), Deposit (+), RunningBalance
 // Note: file may have a header row "Transactions for account..." to skip
@@ -199,7 +214,7 @@ function parseSchawbChecking(rows) {
       amount:      amt,
       balance:     parseAmount(r['RunningBalance'] || r['Running Balance'] || null),
       category:    null,
-      type:        (r['Type'] || r['type'] || r['Status'] || '').toLowerCase(),
+      type:        classifySchawbCheckingType(r['Type'] || r['type'] || '', r['Status'] || ''),
       memo:        null,
     };
   }).filter(r => r.date && r.amount !== null);
