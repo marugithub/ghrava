@@ -2783,21 +2783,25 @@ async function deleteGc() {
 
 <script>
 // ── CSV Import ──────────────────────────────────────────────
-function openCsvImport() {
-  // populate account dropdown
-  const sel = document.getElementById('csvAccount');
-  const txSel = document.getElementById('txAccFilter');
-  if (txSel) {
-    sel.innerHTML = '<option value="">No account</option>';
-    [...txSel.options].slice(1).forEach(o => {
-      sel.innerHTML += `<option value="${o.value}">${o.text}</option>`;
-    });
-  }
+async function openCsvImport() {
   document.getElementById('csvPaste').value = '';
   document.getElementById('csvPreview').innerHTML = '';
   document.getElementById('csvFileName').textContent = 'Choose a .csv file or drag here';
   document.getElementById('csvFileInput').value = '';
   document.getElementById('csvDrawer').classList.add('open');
+
+  // Load accounts fresh from API — don't rely on txAccFilter being populated
+  const sel = document.getElementById('csvAccount');
+  sel.innerHTML = '<option value="">— select account —</option>';
+  try {
+    const accounts = await api('GET', '/finance/accounts');
+    accounts.forEach(a => {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name + (a.institution ? ' — ' + a.institution : '') + (a.account_last4 ? ' ···' + a.account_last4 : '');
+      sel.appendChild(opt);
+    });
+  } catch(e) { sel.innerHTML += '<option disabled>Could not load accounts</option>'; }
 
   // Wire drag-drop on the drop zone
   const dz = document.getElementById('csvDropZone');
@@ -2838,7 +2842,6 @@ async function previewCsv() {
   const file = fileInput?.files?.[0];
   const el = document.getElementById('csvPreview');
 
-  // Need either a file or pasted text
   if (!file && !text) {
     el.innerHTML = '<div style="color:var(--red);font-size:13px">Select a file or paste CSV text first.</div>';
     return;
@@ -2848,15 +2851,11 @@ async function previewCsv() {
 
   try {
     const fd = new FormData();
-    const acct = document.getElementById('csvAccount').value;
-    if (acct) fd.append('account_id', acct);
-
+    // No account_id for preview — just detect format and show rows
     if (file) {
       fd.append('file', file);
     } else {
-      // Paste path: send text as a fake file
-      const blob = new Blob([text], { type: 'text/csv' });
-      fd.append('file', blob, 'pasted.csv');
+      fd.append('file', new Blob([text], { type: 'text/csv' }), 'pasted.csv');
     }
 
     const h = {};
@@ -2927,14 +2926,13 @@ async function importCsv() {
 
     const h = {};
     if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-    const res = await fetch('/api/v1/import/confirm', { method: 'POST', headers: h, body: fd });
+    const res = await fetch('/api/v1/finance/transactions/import-file', { method: 'POST', headers: h, body: fd });
     const d = await res.json();
 
-    if (d.error) throw new Error(d.error);
-    toast(`✓ ${d.imported} transactions imported`);
+    if (!d.ok) throw new Error(d.error || 'Import failed');
+    toast(`✓ ${d.imported} of ${d.total||d.imported} transactions imported${d.format?' ('+d.format.replace(/_/g,' ')+')':''}`);
     document.getElementById('csvDrawer').classList.remove('open');
     if (typeof loadTransactions === 'function') loadTransactions();
-    if (typeof loadImpHistory === 'function') loadImpHistory();
   } catch(e) {
     toast(e.message || 'Import failed', 'err');
   } finally {

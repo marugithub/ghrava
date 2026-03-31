@@ -434,6 +434,36 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.137
+**Finance CSV import — two table mismatch fixed:**
+
+Root cause: Two completely separate account/transaction systems exist:
+- finance_accounts + finance_transactions → Transactions tab (manual entry)
+- financial_accounts + imported_transactions → Import tab (bank statement imports)
+
+Previous fix incorrectly routed the CSV drawer to /api/v1/import/confirm which writes
+to imported_transactions using financial_accounts IDs. But the user's account was in
+finance_accounts, so "Account not found" was returned.
+
+Fix:
+1. New endpoint: POST /api/v1/finance/transactions/import-file (finance/routes.js)
+   - Accepts multipart file upload
+   - Uses the same parsers.js as the Import tab (Schwab, Chase, Navy Fed, USAA, etc.)
+   - Writes to finance_transactions with finance_accounts IDs
+   - Returns {ok, imported, total, format}
+
+2. CSV drawer account dropdown: loads from /finance/accounts (correct table) via fresh
+   API call — no longer copies from txAccFilter which may not be populated yet.
+   This also fixes the "${t}" showing in the dropdown (was copying un-rendered text).
+
+3. previewCsv: uses /api/v1/import/preview without account_id — just for format
+   detection and row preview display, no table lookup needed.
+
+4. importCsv: uses new /finance/transactions/import-file endpoint.
+
+Flow: Select account → Browse Schwab CSV → Preview (shows format + rows) → Import
+→ transactions appear in Transactions tab under selected account.
+
 ### v202603.135
 **Finance CSV import — file browse + drag-drop:**
 

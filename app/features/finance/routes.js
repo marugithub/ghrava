@@ -519,6 +519,60 @@ router.get('/categories', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+
+// POST /api/v1/finance/transactions/import-file
+// Multipart: file + account_id — uses same parsers as /api/v1/import
+// Writes to finance_transactions (not imported_transactions)
+const multerFinance = require('multer')({ storage: require('multer').memoryStorage() });
+const { parseFile: parseFinanceFile } = require('../import/parsers');
+
+router.post('/transactions/import-file', multerFinance.single('file'), (req, res) => {
+  try {
+    if (!req.file) return badRequest(res, 'No file uploaded');
+    const account_id = parseInt(req.body.account_id) || null;
+
+    let text = req.file.buffer.toString('utf-8');
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip BOM
+
+    // Try XLSX if needed
+    let parsed;
+    const ext = require('path').extname(req.file.originalname || '').toLowerCase();
+    if (['.xlsx','.xls'].includes(ext)) {
+      try {
+        const XLSX = require('xlsx');
+        const wb = XLSX.read(req.file.buffer);
+        text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
+      } catch(e) { return badRequest(res, 'Could not read Excel file: ' + e.message); }
+    }
+
+    parsed = parseFinanceFile(text, req.file.originalname || 'upload');
+    if (parsed.error) return badRequest(res, parsed.error);
+
+    const txns = parsed.transactions || [];
+    if (!txns.length) return res.json({ ok: true, imported: 0, format: parsed.format, message: 'No transactions found' });
+
+    const insert = db.prepare(`
+      INSERT OR IGNORE INTO finance_transactions
+        (account_id, date, description, amount, category, notes)
+      VALUES (?,?,?,?,?,?)
+    `);
+
+    const doImport = db.transaction(() => {
+      let count = 0;
+      for (const t of txns) {
+        if (!t.date || t.amount === null || t.amount === undefined) continue;
+        insert.run(account_id, t.date, t.description || null,
+                   parseFloat(t.amount) || 0, t.category || null, t.memo || null);
+        count++;
+      }
+      return count;
+    });
+
+    const imported = doImport();
+    res.json({ ok: true, imported, format: parsed.format, total: txns.length });
+  } catch(e) { serverError(res, e); }
+});
+
 // POST /api/v1/finance/transactions/import-csv
 // Body: { account_id, rows: [{date, description, amount, category}] }
 router.post('/transactions/import-csv', (req, res) => {
