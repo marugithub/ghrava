@@ -2401,7 +2401,16 @@ async function deleteGc() {
     <div class="form-row">
       <div class="form-group" style="flex:2"><label class="form-label">Name <span class="req">*</span></label><input class="form-input" id="accName" placeholder="e.g. Chase Checking"></div>
       <div class="form-group"><label class="form-label">Type</label>
-        <select class="form-select" id="accType">${ACCT_TYPES.map(t=>`<option>${t}</option>`).join('')}</select>
+        <select class="form-select" id="accType">
+          <option value="">— type —</option>
+          <option value="Checking">Checking</option>
+          <option value="Savings">Savings</option>
+          <option value="Credit Card">Credit Card</option>
+          <option value="Investment">Investment</option>
+          <option value="Loan">Loan</option>
+          <option value="Cash">Cash</option>
+          <option value="Other">Other</option>
+        </select>
       </div>
     </div>
     <div class="form-row">
@@ -2419,6 +2428,7 @@ async function deleteGc() {
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:60px"></textarea></div>
     <div id="accFamilyWrap" style="margin-bottom:12px"></div>
     <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="$('accountDrawer').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="accSave" style="flex:1" onclick="saveAccount()">Save</button>
       <button class="btn btn-ghost" id="accDeleteBtn" style="color:var(--red);display:none" onclick="deleteAccount()">Delete</button>
     </div>

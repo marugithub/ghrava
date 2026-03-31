@@ -77,7 +77,9 @@ function detectFormat(headers, rawText) {
     return 'chase';
   if (joined.includes('transaction date') && joined.includes('transaction amount') && joined.includes('transaction type') && joined.includes('transaction description'))
     return 'navyfed';
-  if (raw.includes('schwab bank') || (joined.includes('type') && joined.includes('check #') && joined.includes('withdrawal') && joined.includes('deposit') && joined.includes('runningbalance')))
+  if (raw.includes('schwab bank') ||
+      (joined.includes('type') && joined.includes('withdrawal') && joined.includes('deposit') && joined.includes('runningbalance')) ||
+      (joined.includes('checknumber') && joined.includes('withdrawal') && joined.includes('deposit')))
     return 'schwab_checking';
   if (raw.includes('transactions for account') || (joined.includes('action') && joined.includes('symbol') && joined.includes('fees & comm')))
     return 'schwab_brokerage';
@@ -164,22 +166,40 @@ function parseNavyFed(rows) {
 
 function parseSchawbChecking(rows) {
   return rows.map(r => {
-    const wd  = parseAmount(r['Withdrawal (-)'] || r['Withdrawal'] || r['withdrawal'] || null);
-    const dep = parseAmount(r['Deposit (+)']    || r['Deposit']    || r['deposit']    || null);
-    // Normalize to single signed amount: deposit = positive, withdrawal = negative
+    // Handle all known Schwab checking export variants:
+    // Old:    Withdrawal (-), Deposit (+)
+    // New:    Withdrawal, Deposit
+    // Also:   CheckNumber vs Check #
+    const wd  = parseAmount(
+      r['Withdrawal (-)'] || r['Withdrawal (- )'] ||
+      r['Withdrawal']     || r['withdrawal']       || null
+    );
+    const dep = parseAmount(
+      r['Deposit (+)']    || r['Deposit (+ )']     ||
+      r['Deposit']        || r['deposit']           || null
+    );
+
     let amt = null;
     if (dep !== null && dep !== 0) amt = Math.abs(dep);
     else if (wd !== null && wd !== 0) amt = -Math.abs(wd);
     else if (parseAmount(r['Amount'] || null) !== null) amt = parseAmount(r['Amount']);
 
+    const desc = (
+      r['Description'] || r['description'] || ''
+    ).trim();
+
+    // Include check number in description if present
+    const checkNo = r['CheckNumber'] || r['Check #'] || r['Check#'] || '';
+    const fullDesc = checkNo ? `${desc} (Check ${checkNo})`.trim() : desc;
+
     return {
       date:        parseDate(r['Date'] || r['date']),
       postDate:    null,
-      description: (r['Description'] || r['description'] || '').trim(),
+      description: fullDesc || desc,
       amount:      amt,
       balance:     parseAmount(r['RunningBalance'] || r['Running Balance'] || null),
       category:    null,
-      type:        (r['Type'] || r['type'] || '').toLowerCase(),
+      type:        (r['Type'] || r['type'] || r['Status'] || '').toLowerCase(),
       memo:        null,
     };
   }).filter(r => r.date && r.amount !== null);

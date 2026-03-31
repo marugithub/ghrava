@@ -434,6 +434,26 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.138
+**Finance — three fixes:**
+
+1. Account type dropdown (accType) showing literal "${t}":
+   The <select> had ${ACCT_TYPES.map(t=>`<option>${t}</option>`).join('')} as static
+   HTML text — template literals don't execute in plain HTML. Replaced with static
+   <option> elements: Checking, Savings, Credit Card, Investment, Loan, Cash, Other.
+
+2. Add Account drawer missing Cancel:
+   Cancel button added before Save in accountDrawer footer.
+
+3. Schwab CSV "No valid rows found" — headers now match:
+   Real Schwab export headers: Date,Status,Type,CheckNumber,Description,Withdrawal,Deposit,RunningBalance
+   Parser previously required: Check #, Withdrawal (-), Deposit (+)
+   
+   detectFormat: now matches on withdrawal+deposit+runningbalance without requiring "check #"
+   parseSchawbChecking: handles CheckNumber vs Check #, Withdrawal vs Withdrawal (-),
+   Deposit vs Deposit (+), and Status column (used as type fallback).
+   Check numbers now appended to description: "Starbucks (Check 1234)".
+
 ### v202603.137
 **Finance CSV import — two table mismatch fixed:**
 
