@@ -835,6 +835,29 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.150
+**Schwab positions CSV — full end-to-end fix:**
+
+The parser (v149) correctly detected and parsed the real CSV.
+Actual problem: preview UI in the CSV drawer blocked on totalRows=0.
+The positions-only file returns 0 transactions and N positions.
+Old code: if (!d.totalRows) → show "No valid rows found" error and return.
+This prevented the positions table from ever displaying.
+
+Fix: Preview now checks (hasTxns || hasPositions) before bailing.
+- If positions-only: shows holdings table (Symbol/Name/Shares/Price/Mkt Value/Type)
+  with "Holdings snapshot" badge instead of transaction counts
+- If transactions-only: existing table unchanged
+- If both (brokerage file with transactions + end-of-file positions): shows both
+
+The Import tab's own flow (impFileSelected → renderImpPreview → impConfirm)
+already handled positions correctly — positions showed and confirmed fine there.
+Only the CSV drawer's importCsvPreview function needed fixing.
+
+Use: Finance → Import → Upload Statement (NOT the CSV drawer which is for
+checking/savings transactions). Select the Schwab brokerage account, upload
+the positions CSV, preview shows holdings, confirm writes to imported_positions.
+
 ### v202603.149
 **Schwab Positions CSV import — new parser (schwab_positions):**
 

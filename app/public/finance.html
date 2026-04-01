@@ -2981,20 +2981,45 @@ async function previewCsv() {
     const d = await res.json();
 
     if (d.error) throw new Error(d.error);
-    if (!d.totalRows) { el.innerHTML = '<div style="color:var(--red);font-size:13px">No valid rows found. Check the file format.</div>'; return; }
 
-    const newR = d.newRows ?? d.totalRows;
+    const hasPositions = (d.positions || 0) > 0;
+    const hasTxns      = (d.totalRows || 0) > 0;
+
+    if (!hasTxns && !hasPositions) {
+      el.innerHTML = '<div style="color:var(--red);font-size:13px">⚠ No valid rows found. Check the file format.</div>';
+      return;
+    }
+
+    const newR = d.newRows ?? d.totalRows ?? 0;
     const dupe = d.duplicates ?? 0;
     const rows = d.preview || [];
+    const pos  = d.previewPositions || [];
 
-    el.innerHTML = `
-      <div style="font-size:12px;margin-bottom:8px;padding:8px 10px;background:var(--bg3);border-radius:6px">
-        <span style="font-weight:600;color:var(--text)">${esc(d.format||'').replace(/_/g,' ') || 'Detected'}</span>
-        &nbsp;·&nbsp;
-        <span style="color:var(--green);font-weight:600">${newR} new</span>
-        <span style="color:var(--text3)">&nbsp;/ ${d.totalRows} total</span>
-        ${dupe ? `<span style="color:var(--text3)">&nbsp;· ${dupe} dupes</span>` : ''}
+    // Format badge
+    const fmtLabel = esc((d.format||'').replace(/_/g,' ') || 'Detected');
+
+    // Positions preview table (for holdings snapshots)
+    const posHtml = hasPositions ? `
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin:10px 0 6px">
+        ${d.positions} Position${d.positions!==1?'s':''} detected
       </div>
+      <div style="overflow-x:auto">
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr style="border-bottom:1px solid var(--border)">
+          ${['Symbol','Name','Shares','Price','Mkt Value','Type'].map(h=>`<th style="text-align:left;padding:4px 6px;color:var(--text3)">${h}</th>`).join('')}
+        </tr></thead>
+        <tbody>${pos.map(p=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:4px 6px;font-family:var(--mono);font-weight:600">${esc(p.symbol||'')}</td>
+          <td style="padding:4px 6px;max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p.name||'')}</td>
+          <td style="padding:4px 6px;font-family:var(--mono)">${p.shares!=null?p.shares.toLocaleString():''}</td>
+          <td style="padding:4px 6px;font-family:var(--mono)">${p.price!=null?'$'+p.price.toFixed(2):''}</td>
+          <td style="padding:4px 6px;font-family:var(--mono);color:var(--green)">${p.marketValue!=null?'$'+p.marketValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):''}</td>
+          <td style="padding:4px 6px;color:var(--text3)">${esc(p.assetType||'')}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>` : '';
+
+    // Transactions preview table
+    const txHtml = hasTxns ? `
       <div style="overflow-x:auto">
       <table style="width:100%;border-collapse:collapse;font-size:12px">
         <thead><tr style="border-bottom:1px solid var(--border)">
@@ -3006,12 +3031,21 @@ async function previewCsv() {
           <td style="padding:4px 6px;font-family:var(--mono);color:${(r.amount||0)<0?'var(--red)':'var(--green)'}">${(r.amount||0).toFixed(2)}</td>
           <td style="padding:4px 6px">${r.isDuplicate?'⚠ dup':'—'}</td>
         </tr>`).join('')}</tbody>
-      </table></div>`;
+      </table></div>` : '';
+
+    el.innerHTML = `
+      <div style="font-size:12px;margin-bottom:8px;padding:8px 10px;background:var(--bg3);border-radius:6px">
+        <span style="font-weight:600;color:var(--text)">${fmtLabel}</span>
+        ${hasTxns ? `&nbsp;·&nbsp;<span style="color:var(--green);font-weight:600">${newR} new</span><span style="color:var(--text3)">&nbsp;/ ${d.totalRows} total</span>${dupe?`<span style="color:var(--text3)">&nbsp;· ${dupe} dupes</span>`:''}` : ''}
+        ${hasPositions && !hasTxns ? `&nbsp;·&nbsp;<span style="color:var(--accent)">Holdings snapshot</span>` : ''}
+      </div>
+      ${posHtml}${txHtml}`;
 
     // Store format for confirm step
-    el.dataset.format = d.format || '';
-    el.dataset.totalRows = d.totalRows;
-    el.dataset.newRows = newR;
+    el.dataset.format    = d.format || '';
+    el.dataset.totalRows = d.totalRows || 0;
+    el.dataset.newRows   = newR;
+    el.dataset.positions = d.positions || 0;
   } catch(e) {
     el.innerHTML = `<div style="color:var(--red);font-size:13px">⚠ ${esc(e.message)}</div>`;
   }
