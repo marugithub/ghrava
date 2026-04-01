@@ -1941,7 +1941,7 @@ async function loadTransactions() {
           if (sel.value === '__add__') return;
           popup.remove();
           try {
-            await api('PATCH', '/api/v1/import/transactions/' + id, { category: sel.value || null });
+            await api('PATCH', '/import/transactions/' + id, { category: sel.value || null });
             span.textContent = sel.value || 'Uncategorized';
             span.dataset.cat = sel.value || '';
           } catch(e) { toast('Could not update category', 'err'); }
@@ -2005,7 +2005,7 @@ async function txEditCat(span) {
     const cat = tmp.value || null;
     cleanup();
     try {
-      await api('PATCH', '/api/v1/import/transactions/' + id, { category: cat });
+      await api('PATCH', '/import/transactions/' + id, { category: cat });
       span.textContent = cat || 'No category';
       span.dataset.cat = cat || '';
       span.style.color = cat ? 'var(--text3)' : 'var(--amber)';
@@ -3441,7 +3441,7 @@ async function rollbackBatch(id, e) {
 
 async function loadHoldings() {
   const acctId = document.getElementById('holdingsAcctFilter')?.value||'';
-  const url = '/api/v1/import/holdings'+(acctId?'?account_id='+acctId:'');
+  const url = '/import/holdings'+(acctId?'?account_id='+acctId:'');
   const data = await api('GET', url).catch(()=>({holdings:[],summary:[]}));
   const holdings = data.holdings||[];
   const summary  = data.summary||[];

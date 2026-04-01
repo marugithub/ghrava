@@ -428,13 +428,20 @@ router.get('/batches', (req, res) => {
 });
 
 router.delete('/batches/:id', requireAuth, (req, res) => {
-  // Roll back a batch — delete its transactions and snapshots
+  // Roll back a batch — delete its transactions, snapshots, and holdings if no batches remain
   const batch = db.prepare('SELECT * FROM import_batches WHERE id=?').get(req.params.id);
   if (!batch) return err(res, 'Batch not found', 404);
   db.transaction(() => {
     db.prepare('DELETE FROM imported_transactions WHERE batch_id=?').run(req.params.id);
     db.prepare('DELETE FROM account_snapshots WHERE batch_id=?').run(req.params.id);
     db.prepare('DELETE FROM import_batches WHERE id=?').run(req.params.id);
+    // If no batches remain for this account, clear its holdings too
+    // Holdings have no batch_id — they are snapshot data from the latest import
+    const remaining = db.prepare('SELECT COUNT(*) AS n FROM import_batches WHERE account_id=?')
+      .get(batch.account_id);
+    if (remaining.n === 0) {
+      db.prepare('DELETE FROM holdings WHERE account_id=?').run(batch.account_id);
+    }
   })();
   res.json({ ok: true });
 });
