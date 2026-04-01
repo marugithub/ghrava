@@ -146,8 +146,12 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label">Medication Name <span class="req">*</span></label>
+      <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+        Medication Name <span class="req">*</span>
+        <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;font-weight:600" onclick="lookupDrug()" title="Look up drug info via OpenFDA">🔍 Lookup</button>
+      </label>
       <input class="form-input" type="text" id="mName" placeholder="e.g. Lisinopril 10mg">
+      <div id="drugFeedback" style="font-size:11px;color:var(--text3);margin-top:4px;display:none"></div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -1205,6 +1209,60 @@ async function _eobShowDetail(id) {
 
   alert(html.replace(/<[^>]+>/g, ''));
 }
+
+// ── OpenFDA Drug Lookup ──────────────────────────────────────
+async function lookupDrug() {
+  const name = document.getElementById('mName').value.trim();
+  if (!name) { if (window.toast) toast('Enter a drug name first', 'err'); return; }
+  const fb = document.getElementById('drugFeedback');
+  fb.textContent = '⏳ Looking up…'; fb.style.display = 'block'; fb.style.color = 'var(--text3)';
+  try {
+    // Search by brand name first, then generic
+    const clean = name.replace(/\s+\d+.*$/, '').trim(); // strip dosage for search
+    const url = `https://api.fda.gov/drug/label.json?search=openfda.brand_name:"${encodeURIComponent(clean)}"+openfda.generic_name:"${encodeURIComponent(clean)}"&limit=1`;
+    const r = await fetch(url, { mode: 'cors' });
+    const d = await r.json();
+    if (d.error || !d.results?.length) {
+      // Try generic name only
+      const r2 = await fetch(
+        `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${encodeURIComponent(clean)}"&limit=1`,
+        { mode: 'cors' }
+      );
+      const d2 = await r2.json();
+      if (d2.error || !d2.results?.length) {
+        fb.style.color = 'var(--amber)';
+        fb.textContent = '⚠ Not found in FDA database — check spelling';
+        return;
+      }
+      processResult(d2.results[0], fb);
+    } else {
+      processResult(d.results[0], fb);
+    }
+  } catch(e) {
+    fb.style.color = 'var(--red)';
+    fb.textContent = '⚠ Lookup failed — check connection';
+  }
+}
+
+function processResult(result, fb) {
+  const ofd = result.openfda || {};
+  const generic  = (ofd.generic_name || [])[0] || '';
+  const brand    = (ofd.brand_name || [])[0] || '';
+  const mfr      = (ofd.manufacturer_name || [])[0] || '';
+  const route    = (ofd.route || [])[0] || '';
+  const purpose  = (result.purpose || [])[0] || '';
+  // Auto-fill dosage field if empty and dosage info found
+  const dosage_info = (result.dosage_and_administration || [])[0] || '';
+  const parts = [
+    generic && generic.toLowerCase() !== brand.toLowerCase() ? `Generic: ${generic}` : '',
+    route ? `Route: ${route}` : '',
+    mfr ? `Mfr: ${mfr}` : '',
+  ].filter(Boolean).join(' · ');
+  fb.style.color = 'var(--green)';
+  fb.textContent = parts || '✓ Found in FDA database';
+  if (window.toast) toast('Drug info found ✓');
+}
+
 </script>
 </body>
 </html>

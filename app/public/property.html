@@ -162,9 +162,14 @@
     <div class="form-group"><label class="form-label">Trim</label><input class="form-input" id="vTrim"></div>
     <div class="form-group"><label class="form-label">Color</label><input class="form-input" id="vColor"></div>
   </div>
-  <div class="form-row">
-    <div class="form-group" style="flex:2"><label class="form-label">VIN</label><input class="form-input" id="vVin"></div>
+  <div class="form-row" style="align-items:flex-end">
+    <div class="form-group" style="flex:2"><label class="form-label">VIN</label><input class="form-input" id="vVin" placeholder="17-character VIN"></div>
+    <div style="display:flex;gap:6px;padding-bottom:12px">
+      <button type="button" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;white-space:nowrap" onclick="decodeVin()" title="Auto-fill from VIN">🔍 Decode</button>
+      <button type="button" class="btn btn-ghost" style="font-size:12px;padding:6px 10px;white-space:nowrap" onclick="checkRecalls()" title="Check NHTSA recalls">⚠ Recalls</button>
+    </div>
   </div>
+  <div id="vinFeedback" style="margin:-8px 0 8px;font-size:12px;color:var(--text2);display:none"></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">License Plate</label><input class="form-input" id="vPlate"></div>
     <div class="form-group"><label class="form-label">State</label><input class="form-input" id="vState" maxlength="2"></div>
@@ -828,6 +833,87 @@ async function reopenMaint(id){
     toast('Reopened'); loadMaint();
   }catch(e){ toast(e.message||'Failed','err'); }
 }
+
+// ── NHTSA VIN Decode ─────────────────────────────────────────
+async function decodeVin() {
+  const vin = $('vVin').value.trim().toUpperCase();
+  if (!vin) { toast('Enter a VIN first', 'err'); return; }
+  if (vin.length !== 17) { toast('VIN must be 17 characters', 'err'); return; }
+  const fb = $('vinFeedback');
+  fb.textContent = '⏳ Decoding VIN…'; fb.style.display = 'block';
+  try {
+    const r = await fetch(
+      `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${encodeURIComponent(vin)}?format=json`,
+      { mode: 'cors' }
+    );
+    const d = await r.json();
+    const results = d.Results || [];
+    const get = (var_) => results.find(x => x.Variable === var_)?.Value || '';
+    const year  = get('Model Year');
+    const make  = get('Make');
+    const model = get('Model');
+    const trim  = get('Trim');
+    const body  = get('Body Class');
+    const fuel  = get('Fuel Type - Primary');
+    const eng   = get('Displacement (L)') ? get('Displacement (L)') + 'L' : '';
+    if (!make || make === 'Not Applicable') {
+      fb.textContent = '⚠ VIN not recognized — check for typos'; return;
+    }
+    // Fill fields
+    if (year  && !$('vYear').value)  $('vYear').value  = year;
+    if (make  && !$('vMake').value)  $('vMake').value  = make.charAt(0) + make.slice(1).toLowerCase();
+    if (model && !$('vModel').value) $('vModel').value = model;
+    if (trim  && !$('vTrim').value)  $('vTrim').value  = trim;
+    const details = [body, eng ? eng + ' ' + fuel : fuel].filter(Boolean).join(' · ');
+    fb.style.color = 'var(--green)';
+    fb.textContent = `✓ ${make} ${model} ${year}${details ? '  ·  ' + details : ''}`;
+    toast('VIN decoded ✓');
+  } catch(e) {
+    fb.style.color = 'var(--red)';
+    fb.textContent = '⚠ Decode failed — check internet connection';
+  }
+}
+
+// ── NHTSA Recall Check ─────────────────────────────────────────
+async function checkRecalls() {
+  const make  = $('vMake').value.trim().toUpperCase();
+  const model = $('vModel').value.trim().toUpperCase();
+  const year  = $('vYear').value.trim();
+  if (!make || !model || !year) {
+    // Try to decode VIN first if fields empty
+    if ($('vVin').value.trim().length === 17) {
+      await decodeVin();
+    } else {
+      toast('Fill in Make, Model, and Year first (or enter a VIN and click Decode)', 'err');
+      return;
+    }
+  }
+  const fb = $('vinFeedback');
+  fb.style.color = 'var(--text2)';
+  fb.textContent = '⏳ Checking NHTSA recalls…'; fb.style.display = 'block';
+  try {
+    const url = `https://api.nhtsa.gov/recalls/recallsByVehicle?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}&modelYear=${year}`;
+    const r = await fetch(url, { mode: 'cors' });
+    const d = await r.json();
+    const recalls = d.results || [];
+    if (!recalls.length) {
+      fb.style.color = 'var(--green)';
+      fb.textContent = `✓ No open recalls found for ${year} ${make} ${model}`;
+    } else {
+      fb.style.color = 'var(--amber)';
+      const summary = recalls.slice(0, 3).map(r =>
+        `• ${r.Component || 'Unknown'}: ${(r.Summary || '').slice(0, 80)}${r.Summary?.length > 80 ? '…' : ''}`
+      ).join('\n');
+      fb.style.whiteSpace = 'pre-line';
+      fb.textContent = `⚠ ${recalls.length} recall${recalls.length > 1 ? 's' : ''} found for ${year} ${make} ${model}:\n${summary}`;
+      toast(`${recalls.length} recall${recalls.length > 1 ? 's' : ''} found`, 'err');
+    }
+  } catch(e) {
+    fb.style.color = 'var(--red)';
+    fb.textContent = '⚠ Recall check failed — check internet connection';
+  }
+}
+
 </script>
 </body>
 </html>

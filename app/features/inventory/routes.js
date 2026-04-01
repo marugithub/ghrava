@@ -182,6 +182,41 @@ function upcLookup(upc) {
   });
 }
 
+// Open Food Facts fallback — free, local, covers grocery/food items UPCitemdb misses
+function openFoodFactsLookup(upc) {
+  return new Promise(resolve => {
+    const url = `https://world.openfoodfacts.org/api/v0/product/${upc}.json`;
+    https.get(url, { headers: { 'User-Agent': 'Ghrava/1.0' } }, res => {
+      let data = '';
+      res.on('data', d => { data += d; });
+      res.on('end', () => {
+        try {
+          const json = JSON.parse(data);
+          if (json.status !== 1 || !json.product) return resolve(null);
+          const p = json.product;
+          const name = p.product_name || p.product_name_en || null;
+          if (!name) return resolve(null);
+          const images = [];
+          if (p.image_url) images.push(p.image_url);
+          if (p.image_front_url && p.image_front_url !== p.image_url)
+            images.push(p.image_front_url);
+          resolve({
+            name,
+            brand:        p.brands?.split(',')[0]?.trim() || null,
+            model_number: null,
+            manufacturer: p.brands?.split(',')[0]?.trim() || null,
+            description:  p.generic_name || p.categories?.split(',')[0]?.trim() || null,
+            upc_barcode:  upc,
+            category:     'Food & Beverage',
+            images:       [...new Set(images)],
+            source:       'open_food_facts',
+          });
+        } catch { resolve(null); }
+      });
+    }).on('error', () => resolve(null));
+  });
+}
+
 // ══════════════════════════════════════════════════════════════
 // STATS
 // ══════════════════════════════════════════════════════════════
@@ -627,7 +662,16 @@ router.post('/items/backfill-images', requireAuth, async (req, res) => {
 // ── UPC lookup (public — no auth needed to scan a barcode) ────
 router.get('/upc/:barcode', async (req, res) => {
   try {
-    const product = await upcLookup(req.params.barcode);
+    let product = await upcLookup(req.params.barcode);
+
+    // Open Food Facts fallback — good for grocery/food items UPCitemdb misses
+    if (!product) {
+      const offEnabled = db.prepare("SELECT value FROM app_config WHERE key='api_openfoodfacts_enabled'").get()?.value;
+      if (offEnabled !== '0') {
+        product = await openFoodFactsLookup(req.params.barcode);
+      }
+    }
+
     if (!product) return res.status(404).json({ error: 'Product not found' });
 
     // Attempt manual PDF find if Google API keys are set

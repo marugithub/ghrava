@@ -835,6 +835,46 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.145
+**Smoke test rewrite + 3 free API integrations:**
+
+**smoke-test.sh — fully rewritten:**
+Old version was checking status codes only and had multiple bugs:
+  - Duplicated assertions, tested non-existent routes (/finance/spending, /property/maintenance)
+  - recategorize curl code extraction was broken (appended http_code to body var)
+  - Used assert_json_array/object helpers that didn't validate body content
+
+New version:
+  - assert_json(): 200 + body starts with { or [
+  - assert_array(): 200 + starts with [, shows item count
+  - assert_key(): 200 + JSON has a specific required key
+  - assert_write(): empty POST → 400/422 (route reachable + validates)
+  - Tests 60+ endpoints across all modules
+  - Recategorize POST tested end-to-end with real body validation
+  - Pages tested: all 16 HTML pages checked for 200
+  - CSV exports tested for all modules
+
+**NHTSA VIN Decoder + Recalls (property.html):**
+  - "🔍 Decode" button next to VIN field in vehicle drawer
+    → calls vpic.nhtsa.dot.gov, fills Year/Make/Model/Trim/Engine/Fuel
+  - "⚠ Recalls" button → calls api.nhtsa.gov/recalls
+    → shows count + summary of open recalls inline
+  - Both free government APIs, no key needed
+  - vinFeedback div shows result inline below VIN row
+
+**OpenFDA Drug Lookup (medical.html):**
+  - "🔍 Lookup" button in medication name label row
+  - Searches openFDA by brand name then generic name
+  - Shows: generic name, route, manufacturer inline
+  - Free, no key, zero network from NAS (client-side fetch)
+  - drugFeedback div shows result under name field
+
+**Open Food Facts UPC fallback (inventory/routes.js):**
+  - Fires when UPCitemdb returns null (covers grocery/food items it misses)
+  - Gated on app_config api_openfoodfacts_enabled (default '1')
+  - Returns: name, brand, category='Food & Beverage', images
+  - Source field set to 'open_food_facts' for debugging
+
 ### v202603.144
 **Bug report fixes — 9 issues from user testing:**
 

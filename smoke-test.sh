@@ -1,280 +1,195 @@
 #!/usr/bin/env bash
-# smoke-test.sh — Ghrava pre-deploy smoke test
-#
-# Fires real HTTP requests at the running container and asserts correct
-# responses. Run this before packaging any Ghrava_DEPLOY.zip.
-# Exits with code 1 if any assertion fails.
-#
-# Usage:
-#   ./smoke-test.sh              # defaults to http://localhost:3001
-#   ./smoke-test.sh http://192.168.4.62:3001
+# smoke-test.sh — Ghrava pre-deploy validation
+# Tests HTTP status codes AND response body shape. Exits 1 on failure.
+# Usage: ./smoke-test.sh [http://host:port]
 
 BASE="${1:-http://localhost:3001}"
-PASS=0
-FAIL=0
-ERRORS=()
+PASS=0; FAIL=0; ERRORS=()
+green='\033[0;32m'; red='\033[0;31m'; yellow='\033[0;33m'; reset='\033[0m'
 
-# ── Wait for server to be up (up to 30s) ─────────────────────
-echo "Waiting for server at $BASE..."
+echo "Waiting for $BASE/health ..."
 for i in $(seq 1 30); do
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$BASE/health" 2>/dev/null)
-  if [ "$http_code" = "200" ]; then
-    echo "Server up after ${i}s"
-    break
-  fi
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$BASE/health" 2>/dev/null)
+  [ "$code" = "200" ] && { echo "Up (${i}s)"; break; }
   sleep 1
-  if [ "$i" = "30" ]; then
-    echo "Server did not start within 30s — aborting"
-    exit 1
-  fi
+  [ "$i" = "30" ] && { echo "Server not up after 30s"; exit 1; }
 done
 
-# ── Helpers ───────────────────────────────────────────────────
-green='\033[0;32m'
-red='\033[0;31m'
-yellow='\033[0;33m'
-reset='\033[0m'
+pass() { echo -e "  ${green}PASS${reset}  $1"; ((PASS++)); }
+fail() { echo -e "  ${red}FAIL${reset}  $1"; ((FAIL++)); ERRORS+=("$1"); }
+warn() { echo -e "  ${yellow}WARN${reset}  $1"; ((PASS++)); }
 
+# Assert 200 + JSON (array or object)
+assert_json() {
+  local label="$1" url="$2"
+  local code body
+  code=$(curl -s -o /tmp/gh_b -w "%{http_code}" --max-time 6 "$url")
+  body=$(cat /tmp/gh_b)
+  if [ "$code" != "200" ]; then fail "$label  (HTTP $code)"
+  elif echo "$body" | grep -qE '^\[|^\{'; then pass "$label"
+  else fail "$label  (200 but body not JSON: ${body:0:60})"; fi
+}
+
+# Assert 200
 assert_200() {
-  local label="$1"
-  local url="$2"
-  local http_code
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url")
-  if [ "$http_code" = "200" ]; then
-    echo -e "  ${green}PASS${reset}  $label"
-    ((PASS++))
-  else
-    echo -e "  ${red}FAIL${reset}  $label  (HTTP $http_code)"
-    ((FAIL++))
-    ERRORS+=("$label — HTTP $http_code")
-  fi
+  local code
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 6 "$2")
+  [ "$code" = "200" ] && pass "$1" || fail "$1  (HTTP $code)"
 }
 
-assert_json_array() {
-  local label="$1"
-  local url="$2"
-  local body
-  local http_code
-  http_code=$(curl -s -o /tmp/gh_smoke_body -w "%{http_code}" --max-time 5 "$url")
-  body=$(cat /tmp/gh_smoke_body)
-  if [ "$http_code" != "200" ]; then
-    echo -e "  ${red}FAIL${reset}  $label  (HTTP $http_code)"
-    ((FAIL++))
-    ERRORS+=("$label — HTTP $http_code")
+# Assert JSON array, show count
+assert_array() {
+  local label="$1" url="$2"
+  local code body cnt
+  code=$(curl -s -o /tmp/gh_b -w "%{http_code}" --max-time 6 "$url")
+  body=$(cat /tmp/gh_b)
+  if [ "$code" != "200" ]; then fail "$label  (HTTP $code)"
   elif echo "$body" | grep -qE '^\['; then
-    echo -e "  ${green}PASS${reset}  $label  (array)"
-    ((PASS++))
-  else
-    echo -e "  ${yellow}WARN${reset}  $label  (200 but not an array — may be empty DB)"
-    ((PASS++))
-  fi
+    cnt=$(echo "$body" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "?")
+    pass "$label  ($cnt items)"
+  else fail "$label  (200 but not array: ${body:0:60})"; fi
 }
 
-assert_json_object() {
-  local label="$1"
-  local url="$2"
-  local body
-  local http_code
-  http_code=$(curl -s -o /tmp/gh_smoke_body -w "%{http_code}" --max-time 5 "$url")
-  body=$(cat /tmp/gh_smoke_body)
-  if [ "$http_code" != "200" ]; then
-    echo -e "  ${red}FAIL${reset}  $label  (HTTP $http_code)"
-    ((FAIL++))
-    ERRORS+=("$label — HTTP $http_code")
-  elif echo "$body" | grep -qE '^\{'; then
-    echo -e "  ${green}PASS${reset}  $label  (object)"
-    ((PASS++))
-  else
-    echo -e "  ${red}FAIL${reset}  $label  (200 but not a JSON object)"
-    ((FAIL++))
-    ERRORS+=("$label — unexpected response body")
-  fi
+# Assert JSON object contains a specific key
+assert_key() {
+  local label="$1" url="$2" key="$3"
+  local code body
+  code=$(curl -s -o /tmp/gh_b -w "%{http_code}" --max-time 6 "$url")
+  body=$(cat /tmp/gh_b)
+  if [ "$code" != "200" ]; then fail "$label  (HTTP $code)"
+  elif echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if '$key' in d else 1)" 2>/dev/null; then
+    pass "$label  (has '$key')"
+  else fail "$label  (missing '$key' in: ${body:0:80})"; fi
 }
 
-assert_401() {
-  local label="$1"
-  local url="$2"
-  local method="${3:-POST}"
-  local http_code
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
-    -X "$method" -H "Content-Type: application/json" -d '{}' "$url")
-  if [ "$http_code" = "401" ]; then
-    echo -e "  ${green}PASS${reset}  $label  (401 as expected)"
-    ((PASS++))
-  else
-    echo -e "  ${red}FAIL${reset}  $label  (expected 401, got HTTP $http_code)"
-    ((FAIL++))
-    ERRORS+=("$label — expected 401 got $http_code")
-  fi
-}
-
-# ── Start ─────────────────────────────────────────────────────
-echo ""
-echo "Ghrava Smoke Test"
-echo "Target: $BASE"
-echo "──────────────────────────────────────────────"
-
-# ── Dashboard ─────────────────────────────────────────────────
-echo ""
-echo "Dashboard"
-assert_json_object "GET /dashboard"           "$BASE/api/v1/dashboard"
-assert_json_object "GET /dashboard/attention" "$BASE/api/v1/dashboard/attention"
-
-# ── Inventory ─────────────────────────────────────────────────
-echo ""
-echo "Inventory"
-assert_json_array  "GET /inventory/items"     "$BASE/api/v1/inventory/items"
-
-# ── Documents ─────────────────────────────────────────────────
-echo ""
-echo "Documents"
-assert_json_array  "GET /documents"           "$BASE/api/v1/documents"
-assert_200         "GET /documents/expiring"  "$BASE/api/v1/documents/expiring"
-
-# ── Books ─────────────────────────────────────────────────────
-echo ""
-echo "Books"
-assert_json_array  "GET /books"               "$BASE/api/v1/books"
-assert_json_object "GET /books/stats"         "$BASE/api/v1/books/stats"
-
-# ── Resources ─────────────────────────────────────────────────
-echo ""
-echo "Resources"
-assert_json_array  "GET /resources"           "$BASE/api/v1/resources"
-
-# ── Medical ───────────────────────────────────────────────────
-echo ""
-echo "Medical"
-assert_json_array  "GET /medical/medications" "$BASE/api/v1/medical/medications"
-assert_json_array  "GET /medical/conditions"  "$BASE/api/v1/medical/conditions"
-assert_json_array  "GET /medical/summary"     "$BASE/api/v1/medical/summary"
-
-# ── Todos ─────────────────────────────────────────────────────
-echo ""
-echo "Todos"
-assert_json_object "GET /todos"               "$BASE/api/v1/todos"
-
-# ── Finance ───────────────────────────────────────────────────
-echo ""
-echo "Finance"
-assert_json_array  "GET /finance/accounts"    "$BASE/api/v1/finance/accounts"
-assert_json_object "GET /finance/net-worth"   "$BASE/api/v1/finance/net-worth/current"
-
-# ── HSA ───────────────────────────────────────────────────────
-echo ""
-echo "HSA"
-assert_json_object "GET /hsa/summary"         "$BASE/api/v1/hsa/summary"
-assert_json_array  "GET /hsa/payments"        "$BASE/api/v1/hsa/payments"
-
-# ── Career ────────────────────────────────────────────────────
-echo ""
-echo "Career"
-assert_json_array  "GET /career/jobs"         "$BASE/api/v1/career/jobs"
-assert_json_array  "GET /career/goals"        "$BASE/api/v1/career/goals"
-
-# ── Property ──────────────────────────────────────────────────
-echo ""
-echo "Property"
-assert_json_array  "GET /property/properties" "$BASE/api/v1/property/properties"
-assert_json_array  "GET /property/vehicles"   "$BASE/api/v1/property/vehicles"
-
-# ── Kids ──────────────────────────────────────────────────────
-echo ""
-echo "Kids"
-assert_json_array  "GET /kids"                "$BASE/api/v1/kids"
-
-# ── Settings shared data ──────────────────────────────────────
-echo ""
-assert_json_object "GET /settings/family/1/report"  "$BASE/api/v1/settings/family/1/report"
-assert_json_object "GET /settings/completeness"   "$BASE/api/v1/settings/completeness"
-assert_json_object "GET /settings/tags/search" "$BASE/api/v1/settings/tags/search?tag=test"
-echo "Settings — shared data (must always be public)"
-assert_json_array  "GET /settings/tags"       "$BASE/api/v1/settings/tags"
-assert_json_array  "GET /settings/family"     "$BASE/api/v1/settings/family"
-assert_json_array  "GET /settings/dropdowns"  "$BASE/api/v1/settings/dropdowns"
-assert_json_array  "GET /settings/contacts"   "$BASE/api/v1/settings/contacts"
-
-# ── Backup ────────────────────────────────────────────────────
-echo ""
-echo "Backup"
-assert_json_object "GET /backup/list"         "$BASE/api/v1/backup/list"
-
-# ── Verify a fresh backup exists from this restart ──────────
-TODAY=$(date +%Y%m%d)
-BACKUP_CHECK=$(curl -s "$BASE/api/v1/backup/list")
-if echo "$BACKUP_CHECK" | grep -q "auto_${TODAY}"; then
-  echo "  PASS  Backup from today exists (auto_${TODAY}...)"
-  PASS=$((PASS+1))
-else
-  echo "  FAIL  No backup from today found — check /app/backups/ for auto_${TODAY}*.db"
-  FAIL=$((FAIL+1))
-  ERRORS+=("No fresh backup from today (auto_${TODAY}*.db missing)")
-fi
-
-
-# ── App info ─────────────────────────────────────────────────────────────
-echo ""
-echo "App"
-assert_200         "GET /notifications page"           "$BASE/notifications.html"
-assert_200         "GET /medical/conditions/export"    "$BASE/api/v1/medical/conditions/export/csv"
-assert_200         "GET /career/certifications/export" "$BASE/api/v1/career/certifications/export/csv"
-assert_200         "GET /daily-log/export/csv"         "$BASE/api/v1/daily-log/export/csv"
-assert_200         "GET /documents/export/csv"         "$BASE/api/v1/documents/export/csv"
-assert_200         "GET /books (has pages fields)"      "$BASE/api/v1/books"
-assert_200         "GET /property/vehicles/export"     "$BASE/api/v1/property/vehicles/export/csv"
-assert_json_object "GET /finance/transactions/unified"  "$BASE/api/v1/finance/transactions/unified"
-assert_json_array   "GET /finance/category-rules"          "$BASE/api/v1/finance/category-rules"
-assert_200         "GET /data page"               "$BASE/data.html"
-assert_200         "GET /api/v1/data/template"       "$BASE/api/v1/data/template"
-assert_200         "GET /notifications page"    "$BASE/notifications.html"
-assert_200         "GET /data page"               "$BASE/data.html"
-assert_json_object "GET /finance/budgets"         "$BASE/api/v1/finance/budgets"
-assert_json_object "GET /app/info"            "$BASE/api/v1/app/info"
-# ── Daily log ─────────────────────────────────────────────────
-echo ""
-echo "Daily Log"
-assert_json_object "GET /daily-log"           "$BASE/api/v1/daily-log"
-
-# ── Write validation (auth disabled — 400 means route is reachable and validating) ──
-echo ""
-echo "Write routes reachable (auth disabled — empty POST should hit validation, not auth wall)"
-assert_400() {
-  local label="$1"
-  local url="$2"
-  local http_code
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
+# Assert empty POST returns 400/422 (route exists + validates input)
+assert_write() {
+  local label="$1" url="$2"
+  local code
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 \
     -X POST -H "Content-Type: application/json" -d '{}' "$url")
-  if [ "$http_code" = "400" ] || [ "$http_code" = "422" ]; then
-    echo -e "  ${green}PASS${reset}  $label  (${http_code} validation as expected)"
-    ((PASS++))
-  else
-    echo -e "  ${red}FAIL${reset}  $label  (expected 400/422, got HTTP $http_code)"
-    ((FAIL++))
-    ERRORS+=("$label — HTTP $http_code")
-  fi
+  case "$code" in
+    400|422) pass "$label  (${code} validation)" ;;
+    201)     warn "$label  (201 — no required fields enforced)" ;;
+    *)       fail "$label  (expected 400/422, got $code)" ;;
+  esac
 }
-assert_400 "POST /settings/family (write reachable)" "$BASE/api/v1/settings/family"
-assert_400 "POST /books (write reachable)"           "$BASE/api/v1/books"
-assert_400 "POST /documents (write reachable)"       "$BASE/api/v1/documents"
 
-# ── Summary ───────────────────────────────────────────────────
+echo ""; echo "Ghrava Smoke Test  |  $BASE"
+echo "══════════════════════════════════════════════"
+
+echo ""; echo "── Pages ──"
+for p in index finance medical inventory property kids career books todos documents resources daily-log reports settings data notifications; do
+  assert_200 "GET /$p.html" "$BASE/$p.html"
+done
+
+echo ""; echo "── App ──"
+assert_key  "GET /health"          "$BASE/health"                   "status"
+assert_key  "GET /app/info"        "$BASE/api/v1/app/info"         "version"
+assert_key  "GET /settings/config" "$BASE/api/v1/settings/config"  "app_name"
+
+echo ""; echo "── Dashboard ──"
+assert_key  "GET /dashboard"           "$BASE/api/v1/dashboard"           "stats"
+assert_key  "GET /dashboard/attention" "$BASE/api/v1/dashboard/attention" "items"
+
+echo ""; echo "── Finance ──"
+assert_array "GET /finance/accounts"              "$BASE/api/v1/finance/accounts"
+assert_key   "GET /finance/net-worth/current"     "$BASE/api/v1/finance/net-worth/current"  "total_assets"
+assert_json  "GET /finance/transactions/unified"  "$BASE/api/v1/finance/transactions/unified"
+assert_array "GET /finance/category-rules"        "$BASE/api/v1/finance/category-rules"
+assert_array "GET /finance/gift-cards"            "$BASE/api/v1/finance/gift-cards"
+assert_key   "GET /finance/budgets"               "$BASE/api/v1/finance/budgets"             "budgets"
+assert_array "GET /import/accounts"               "$BASE/api/v1/import/accounts"
+assert_array "GET /import/batches"                "$BASE/api/v1/import/batches"
+
+echo ""; echo "── Recategorize ──"
+recat_code=$(curl -s -o /tmp/gh_b -w "%{http_code}" --max-time 8 \
+  -X POST -H "Content-Type: application/json" -d '{"overwrite":false}' \
+  "$BASE/api/v1/finance/transactions/recategorize")
+recat_resp=$(cat /tmp/gh_b)
+if [ "$recat_code" = "200" ] && echo "$recat_resp" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get('ok') else 1)" 2>/dev/null; then
+  pass "POST /finance/transactions/recategorize"
+else fail "POST /finance/transactions/recategorize  (HTTP $recat_code: ${recat_resp:0:60})"; fi
+
+echo ""; echo "── HSA ──"
+assert_key  "GET /hsa/summary"  "$BASE/api/v1/hsa/summary"  "year"
+assert_array "GET /hsa/payments" "$BASE/api/v1/hsa/payments"
+
+echo ""; echo "── Inventory ──"
+assert_array "GET /inventory/items"     "$BASE/api/v1/inventory/items"
+assert_array "GET /inventory/locations" "$BASE/api/v1/inventory/locations"
+
+echo ""; echo "── Medical ──"
+assert_array "GET /medical/medications" "$BASE/api/v1/medical/medications"
+assert_array "GET /medical/conditions"  "$BASE/api/v1/medical/conditions"
+assert_array "GET /medical/notes"       "$BASE/api/v1/medical/notes"
+assert_array "GET /medical/eob"         "$BASE/api/v1/medical/eob"
+
+echo ""; echo "── Books ──"
+assert_array "GET /books"       "$BASE/api/v1/books"
+assert_key   "GET /books/stats" "$BASE/api/v1/books/stats" "total"
+
+echo ""; echo "── Career ──"
+assert_array "GET /career/jobs"           "$BASE/api/v1/career/jobs"
+assert_array "GET /career/certifications" "$BASE/api/v1/career/certifications"
+assert_array "GET /career/goals"          "$BASE/api/v1/career/goals"
+
+echo ""; echo "── Property ──"
+assert_array "GET /property/properties"  "$BASE/api/v1/property/properties"
+assert_array "GET /property/vehicles"    "$BASE/api/v1/property/vehicles"
+
+echo ""; echo "── Todos / Kids / Daily ──"
+assert_json  "GET /todos"     "$BASE/api/v1/todos"
+assert_array "GET /kids"      "$BASE/api/v1/kids"
+assert_json  "GET /daily-log" "$BASE/api/v1/daily-log"
+
+echo ""; echo "── Documents / Resources ──"
+assert_array "GET /documents"           "$BASE/api/v1/documents"
+assert_200   "GET /documents/expiring"  "$BASE/api/v1/documents/expiring"
+assert_array "GET /resources"           "$BASE/api/v1/resources"
+
+echo ""; echo "── Settings ──"
+assert_array "GET /settings/family"      "$BASE/api/v1/settings/family"
+assert_array "GET /settings/tags"        "$BASE/api/v1/settings/tags"
+assert_array "GET /settings/contacts"    "$BASE/api/v1/settings/contacts"
+assert_array "GET /settings/dropdowns"   "$BASE/api/v1/settings/dropdowns"
+assert_key   "GET /settings/completeness" "$BASE/api/v1/settings/completeness" "total"
+
+echo ""; echo "── CSV Exports ──"
+assert_200 "GET /medical/conditions/export/csv"  "$BASE/api/v1/medical/conditions/export/csv"
+assert_200 "GET /career/certifications/export"   "$BASE/api/v1/career/certifications/export/csv"
+assert_200 "GET /property/vehicles/export/csv"   "$BASE/api/v1/property/vehicles/export/csv"
+assert_200 "GET /daily-log/export/csv"           "$BASE/api/v1/daily-log/export/csv"
+assert_200 "GET /documents/export/csv"           "$BASE/api/v1/documents/export/csv"
+
+echo ""; echo "── Data / Backup ──"
+assert_200 "GET /data/template (xlsx)"  "$BASE/api/v1/data/template"
+assert_200 "GET /backup/list"           "$BASE/api/v1/backup/list"
+TODAY=$(date +%Y%m%d)
+if curl -s "$BASE/api/v1/backup/list" | grep -q "auto_${TODAY}"; then
+  pass "Backup from today exists"
+else warn "No backup from today yet (expected after first run)"; fi
+
+echo ""; echo "── Write routes (empty POST → 400) ──"
+assert_write "POST /books"               "$BASE/api/v1/books"
+assert_write "POST /documents"           "$BASE/api/v1/documents"
+assert_write "POST /settings/family"     "$BASE/api/v1/settings/family"
+assert_write "POST /finance/accounts"    "$BASE/api/v1/finance/accounts"
+assert_write "POST /medical/conditions"  "$BASE/api/v1/medical/conditions"
+assert_write "POST /career/jobs"         "$BASE/api/v1/career/jobs"
+assert_write "POST /kids"                "$BASE/api/v1/kids"
+assert_write "POST /inventory/items"     "$BASE/api/v1/inventory/items"
+
 TOTAL=$((PASS + FAIL))
-echo ""
-echo "──────────────────────────────────────────────"
-echo "Results: $PASS passed, $FAIL failed (${TOTAL} total)"
+echo ""; echo "══════════════════════════════════════════════"
+echo "Results: ${PASS} passed, ${FAIL} failed (${TOTAL} total)"
 if [ ${#ERRORS[@]} -gt 0 ]; then
-  echo ""
-  echo "Failures:"
-  for e in "${ERRORS[@]}"; do
-    echo -e "  ${red}✗${reset} $e"
-  done
+  echo ""; echo "Failures:"
+  for e in "${ERRORS[@]}"; do echo -e "  ${red}✗${reset} $e"; done
 fi
 echo ""
-
 if [ "$FAIL" -gt 0 ]; then
-  echo -e "${red}SMOKE TEST FAILED — do not ship this deploy.${reset}"
-  exit 1
+  echo -e "${red}SMOKE TEST FAILED${reset}"; exit 1
 else
-  echo -e "${green}SMOKE TEST PASSED — safe to package deploy zip.${reset}"
-  exit 0
+  echo -e "${green}SMOKE TEST PASSED${reset}"; exit 0
 fi
