@@ -835,6 +835,31 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.146
+**Finance accounts — unified form + double-prefix bug fix:**
+
+Root cause of "Not Found": window.api already prepends /api/v1 to all paths.
+saveAcct() was calling api('POST', '/api/v1/import/accounts') →
+actual fetch to /api/v1/api/v1/import/accounts → 404.
+Fixed: stripped /api/v1 prefix from all 7 calls in the Import module.
+
+Unified account drawer (accountDrawer):
+- One form for ALL account types — no more two separate drawers
+- Type selector split into Banking group (Checking/Savings/Credit Card/Cash/Loan)
+  and Investment group (Brokerage/TSP/Investment other)
+- Banking types show: Balance, As of date, Include in Net Worth
+- Investment types show: Owner, Track statements?
+- saveAccount() routes to the correct table by type:
+  Banking → finance_accounts (Transactions tab)
+  Investment → financial_accounts (Import tab)
+- openAcctDrawer() shim: Import tab + New account still works, calls openAccountDrawer()
+- Old saveAcct() removed; acctDrawer replaced with hidden shim
+- Institution is a plain text input on both (not GH_SELECT dropdown)
+  to keep it consistent and not require dropdown_options maintenance
+
+Still two tables in SQLite — that is correct (different transaction schemas).
+The unification is at the UI level only.
+
 ### v202603.145
 **Smoke test rewrite + 3 free API integrations:**
 

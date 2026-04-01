@@ -604,66 +604,8 @@
 </div><!-- #app -->
 
 <!-- ── Account Drawer ─────────────────────────────────────── -->
-<div class="drawer-overlay" id="acctDrawer" onclick="onDrawerBg('acctDrawer')">
-  <div class="drawer">
-    <div class="drawer-handle"></div>
-    <div class="drawer-title" id="acctDrawerTitle">Add Account</div>
-    <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:6px;padding:8px 12px;font-size:12px;color:var(--text2);margin-bottom:12px">
-      📊 This is for <strong>investment &amp; brokerage accounts</strong> (Schwab brokerage, Vanguard, TSP).<br>
-      For checking/savings/credit cards → use the <strong>Accounts tab</strong>.
-    </div>
-    <input type="hidden" id="acctId">
-
-    <div class="form-group">
-      <label class="form-label">Nickname <span style="color:var(--red)">*</span></label>
-      <input id="acctNickname" class="form-input" placeholder="e.g. Al Checking, Joint Savings, Costco Visa">
-      <div style="font-size:11px;color:var(--text3);margin-top:3px">This is what shows everywhere — make it friendly</div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Institution <span style="color:var(--red)">*</span></label>
-      <select id="acctInstitution" class="form-input"></select>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Account Type <span style="color:var(--red)">*</span></label>
-        <select id="acctType" class="form-input">
-          <option value="">Select…</option>
-          <option value="checking">Checking</option>
-          <option value="savings">Savings</option>
-          <option value="brokerage">Brokerage</option>
-          <option value="credit_card">Credit Card</option>
-          <option value="tsp">TSP</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Last 4 digits</label>
-        <input id="acctLastFour" class="form-input" placeholder="1234" maxlength="4">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Owner</label>
-        <input id="acctOwner" class="form-input" placeholder="Al, Spouse, Joint…">
-      </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label">Track statements?</label>
-        <select id="acctTrack" class="form-input">
-          <option value="1">Yes — remind me if missing</option>
-          <option value="0">No</option>
-        </select>
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Notes</label>
-      <input id="acctNotes" class="form-input" placeholder="Optional">
-    </div>
-    <div style="display:flex;gap:8px;padding:12px 0 8px">
-      <button class="btn btn-ghost" onclick="document.getElementById('acctDrawer').classList.remove('open')" style="flex:1">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAcct()" style="flex:2">Save Account</button>
-    </div>
-  </div>
-</div>
+<!-- acctDrawer: shim — redirects to unified accountDrawer -->
+<div class="drawer-overlay" id="acctDrawer" style="display:none"></div>
 
 <!-- ── FAB ──────────────────────────────────────────────────── -->
 <button class="fab" id="fabBtn" onclick="onFab()" title="Add expense">+</button>
@@ -1775,44 +1717,118 @@ function renderNetWorthStrip(nw) {
   nwEl && (nwEl.style.color = nw.net_worth >= 0 ? 'var(--green)' : 'var(--red)');
 }
 
-async function openAccountDrawer(id) {
+// Investment account types stored in financial_accounts
+const ACC_INVEST_TYPES = new Set(['Brokerage','TSP','Investment']);
+
+function onAccTypeChange() {
+  const t = $('accType').value;
+  const isInvest = ACC_INVEST_TYPES.has(t);
+  $('accBankingFields').style.display = isInvest ? 'none' : '';
+  $('accInvestFields').style.display  = isInvest ? ''     : 'none';
+  $('accDeleteBtn').style.display     = 'none'; // reset on type change
+}
+
+async function openAccountDrawer(id, sourceTable) {
+  // sourceTable: 'finance' (checking/savings) | 'financial' (brokerage/TSP)
   editingAccountId = id || null;
+  window._accSourceTable = null; // will be determined on save by type
   let a = {};
-  if (id) { try { const all = await api('GET', '/finance/accounts'); a = all.find(x=>x.id===id)||{}; } catch(e){} }
+
+  if (id) {
+    try {
+      if (sourceTable === 'financial') {
+        const all = await api('GET', '/import/accounts');
+        a = all.find(x => x.id === id) || {};
+        window._accSourceTable = 'financial';
+        // Map financial_accounts fields to unified form IDs
+        a = {
+          name: a.nickname, type: ({'checking':'Checking','savings':'Savings',
+            'credit_card':'Credit Card','brokerage':'Brokerage','tsp':'TSP','other':'Other'})[a.account_type] || a.account_type,
+          institution: a.institution, account_last4: a.last_four,
+          notes: a.notes, _owner: a.owner, _track: a.track_statements,
+          include_net_worth: 1
+        };
+      } else {
+        const all = await api('GET', '/finance/accounts');
+        a = all.find(x => x.id === id) || {};
+        window._accSourceTable = 'finance';
+      }
+    } catch(e) {}
+  }
+
   $('accDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
-  $('accName').value        = a.name||'';
-  $('accType').value        = a.type||'Checking';
-  $('accInstitution').value = a.institution||'';
-  $('accLast4').value       = a.account_last4||'';
-  $('accBalance').value     = a.current_balance||'';
-  $('accAsOf').value        = a.balance_as_of||new Date().toISOString().slice(0,10);
+  $('accName').value        = a.name || '';
+  $('accType').value        = a.type || '';
+  $('accInstitution').value = a.institution || '';
+  $('accLast4').value       = a.account_last4 || '';
+  $('accBalance').value     = a.current_balance || '';
+  $('accAsOf').value        = a.balance_as_of || new Date().toISOString().slice(0,10);
   $('accInNw').checked      = a.include_net_worth !== 0;
-  $('accNotes').value       = a.notes||'';
-  GH_FAMILY.init('accFamilyWrap', a.family_members||[]);
+  $('accOwner').value       = a._owner || '';
+  $('accTrack').value       = a._track !== undefined ? a._track : '1';
+  $('accNotes').value       = a.notes || '';
+  $('accDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+  onAccTypeChange();
+  GH_FAMILY.init('accFamilyWrap', a.family_members || []);
   $('accountDrawer').classList.add('open');
 }
 
+// Shim: Import tab "+ New account" button still calls openAcctDrawer
+function openAcctDrawer(id) { openAccountDrawer(id, id ? 'financial' : null); }
+
 async function saveAccount() {
+  const name = $('accName').value.trim();
+  const type = $('accType').value;
+  if (!name) { toast('Name required', 'err'); return; }
+  if (!type) { toast('Account type required', 'err'); return; }
+
   const btn = $('accSave'); btn.textContent = 'Saving…'; btn.disabled = true;
   try {
-    const payload = {
-      name: $('accName').value.trim(), type: $('accType').value,
-      institution: $('accInstitution').value||null, account_last4: $('accLast4').value||null,
-      current_balance: parseFloat($('accBalance').value)||0,
-      balance_as_of: $('accAsOf').value||null,
-      include_net_worth: $('accInNw').checked,
-      notes: $('accNotes').value||null,
-      family_member_ids: GH_FAMILY.getIds('accFamilyWrap')
-    };
-    if (!payload.name) { toast('Name required','err'); return; }
-    const method = editingAccountId ? 'PUT' : 'POST';
-    const url = editingAccountId ? `/finance/accounts/${editingAccountId}` : '/finance/accounts';
-    await api(method, url, payload);
-    toast(editingAccountId ? 'Account updated' : 'Account added');
-    $('accountDrawer').classList.remove('open');
-    loadAccounts();
-  } catch(e) { toast(ghErrorMsg(e),'err'); }
-  finally { btn.textContent = 'Save'; btn.disabled = false; }
+    const isInvest = window.ACC_INVEST_TYPES?.has(type);
+    const inst = ($('accInstitution').value || '').trim();
+
+    if (isInvest) {
+      // → financial_accounts (Import tab / brokerage)
+      if (!inst) { toast('Institution required', 'err'); return; }
+      const typeMap = {'Brokerage':'brokerage','TSP':'tsp','Investment':'other'};
+      const payload = {
+        nickname: name, institution: inst,
+        account_type: typeMap[type] || 'other',
+        owner: $('accOwner').value.trim() || null,
+        last_four: $('accLast4').value.trim() || null,
+        notes: $('accNotes').value.trim() || null,
+        track_statements: parseInt($('accTrack').value),
+      };
+      if (editingAccountId && window._accSourceTable === 'financial') {
+        await api('PUT', '/import/accounts/' + editingAccountId, payload);
+      } else {
+        await api('POST', '/import/accounts', payload);
+      }
+      toast(editingAccountId ? 'Account updated' : 'Account added');
+      $('accountDrawer').classList.remove('open');
+      loadImpAccounts(); loadImpAccountSelect();
+    } else {
+      // → finance_accounts (Transactions tab / banking)
+      const payload = {
+        name, type, institution: inst || null,
+        account_last4: $('accLast4').value.trim() || null,
+        current_balance: parseFloat($('accBalance').value) || 0,
+        balance_as_of: $('accAsOf').value || null,
+        include_net_worth: $('accInNw').checked ? 1 : 0,
+        notes: $('accNotes').value.trim() || null,
+        family_member_ids: GH_FAMILY.getIds('accFamilyWrap'),
+      };
+            if (editingAccountId && window._accSourceTable === 'finance') {
+        await api('PUT', '/finance/accounts/' + editingAccountId, payload);
+      } else {
+        await api('POST', '/finance/accounts', payload);
+      }
+      toast(editingAccountId ? 'Account updated' : 'Account added');
+      $('accountDrawer').classList.remove('open');
+      loadAccounts(); populateTxAccountFilter();
+    }
+  } catch(e) { toast(ghErrorMsg(e), 'err'); }
+  finally { btn.textContent = 'Save Account'; btn.disabled = false; }
 }
 
 async function deleteAccount() {
@@ -2438,38 +2454,85 @@ async function deleteGc() {
   <div class="drawer">
     <div class="drawer-handle"></div>
     <div class="drawer-title" id="accDrawerTitle">Add Account</div>
+
     <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Name <span class="req">*</span></label><input class="form-input" id="accName" placeholder="e.g. Chase Checking"></div>
-      <div class="form-group"><label class="form-label">Type</label>
-        <select class="form-select" id="accType">
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Name <span class="req">*</span></label>
+        <input class="form-input" id="accName" placeholder="e.g. Chase Checking, Schwab Brokerage">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Type <span class="req">*</span></label>
+        <select class="form-select" id="accType" onchange="onAccTypeChange()">
           <option value="">— type —</option>
-          <option value="Checking">Checking</option>
-          <option value="Savings">Savings</option>
-          <option value="Credit Card">Credit Card</option>
-          <option value="Investment">Investment</option>
-          <option value="Loan">Loan</option>
-          <option value="Cash">Cash</option>
-          <option value="Other">Other</option>
+          <optgroup label="Banking">
+            <option value="Checking">Checking</option>
+            <option value="Savings">Savings</option>
+            <option value="Credit Card">Credit Card</option>
+            <option value="Cash">Cash</option>
+            <option value="Loan">Loan</option>
+          </optgroup>
+          <optgroup label="Investment">
+            <option value="Brokerage">Brokerage</option>
+            <option value="TSP">TSP</option>
+            <option value="Investment">Investment (other)</option>
+          </optgroup>
+          <optgroup label="Other">
+            <option value="Other">Other</option>
+          </optgroup>
         </select>
       </div>
     </div>
+
     <div class="form-row">
-      <div class="form-group" style="flex:2"><label class="form-label">Institution</label><input class="form-input" id="accInstitution" placeholder="Chase, Vanguard…"></div>
-      <div class="form-group"><label class="form-label">Last 4</label><input class="form-input" id="accLast4" maxlength="4" placeholder="····"></div>
+      <div class="form-group" style="flex:2">
+        <label class="form-label">Institution</label>
+        <input class="form-input" id="accInstitution" placeholder="Chase, Schwab, Vanguard…">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last 4</label>
+        <input class="form-input" id="accLast4" maxlength="4" placeholder="····">
+      </div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Balance</label><input class="form-input" type="number" id="accBalance" step="0.01" placeholder="0.00"></div>
-      <div class="form-group"><label class="form-label">As of</label><input class="form-input" type="date" id="accAsOf"></div>
+
+    <!-- Banking fields (Checking/Savings/Credit/Cash/Loan) -->
+    <div id="accBankingFields">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Balance</label><input class="form-input" type="number" id="accBalance" step="0.01" placeholder="0.00"></div>
+        <div class="form-group"><label class="form-label">As of</label><input class="form-input" type="date" id="accAsOf"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:4px 0 10px">
+        <input type="checkbox" id="accInNw" checked style="width:16px;height:16px;accent-color:var(--accent)">
+        <label for="accInNw" style="font-size:13px;color:var(--text2)">Include in Net Worth</label>
+      </div>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;padding:4px 0 10px">
-      <input type="checkbox" id="accInNw" checked style="width:16px;height:16px;accent-color:var(--accent)">
-      <label for="accInNw" style="font-size:13px;color:var(--text2)">Include in Net Worth</label>
+
+    <!-- Investment fields (Brokerage/TSP/Investment) -->
+    <div id="accInvestFields" style="display:none">
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Owner</label>
+          <input class="form-input" id="accOwner" placeholder="Al, Spouse, Joint…">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Track statements?</label>
+          <select class="form-select" id="accTrack">
+            <option value="1">Yes — remind me if missing</option>
+            <option value="0">No</option>
+          </select>
+        </div>
+      </div>
     </div>
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:60px"></textarea></div>
+
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:56px"></textarea></div>
     <div id="accFamilyWrap" style="margin-bottom:12px"></div>
-    <div style="display:flex;gap:8px;margin-top:8px">
+
+    <div style="font-size:11px;color:var(--text3);padding:4px 0 10px" id="accRoutingNote">
+      Checking/Savings/Credit → Transactions tab &nbsp;·&nbsp; Brokerage/TSP → Import tab
+    </div>
+
+    <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-ghost" onclick="$('accountDrawer').classList.remove('open')">Cancel</button>
-      <button class="btn btn-primary" id="accSave" style="flex:1" onclick="saveAccount()">Save</button>
+      <button class="btn btn-primary" id="accSave" style="flex:1" onclick="saveAccount()">Save Account</button>
       <button class="btn btn-ghost" id="accDeleteBtn" style="color:var(--red);display:none" onclick="deleteAccount()">Delete</button>
     </div>
   </div>
@@ -3095,7 +3158,7 @@ async function applyRulesNow() {
 
 async function loadImpAccountSelect() {
   try {
-    const data = await api('GET', '/api/v1/import/accounts');
+    const data = await api('GET', '/import/accounts');
     _impAccounts = Array.isArray(data) ? data : [];
   } catch { _impAccounts = []; }
 
@@ -3246,7 +3309,7 @@ function impReset() {
 
 async function loadImpMissingAlerts() {
   try {
-    const missing = await api('GET', '/api/v1/import/missing-statements');
+    const missing = await api('GET', '/import/missing-statements');
     const el = document.getElementById('impMissingAlerts');
     if (!el) return;
     if (!missing.length) { el.innerHTML=''; return; }
@@ -3261,7 +3324,7 @@ async function loadImpMissingAlerts() {
 
 async function loadImpAccounts() {
   try {
-    const accounts = await api('GET', '/api/v1/import/accounts');
+    const accounts = await api('GET', '/import/accounts');
     _impAccounts = accounts;
     const el = document.getElementById('impAcctList');
     if (!el) return;
@@ -3287,7 +3350,7 @@ async function loadImpAccounts() {
 
 async function loadImpHistory() {
   try {
-    const rows = await api('GET', '/api/v1/import/batches');
+    const rows = await api('GET', '/import/batches');
     const el = document.getElementById('impHistoryList');
     if (!el) return;
     if (!rows.length) {
@@ -3316,7 +3379,7 @@ async function rollbackBatch(id, e) {
   e.stopPropagation();
   if (!await LT.confirm('Undo this import? All its transactions will be removed.')) return;
   try {
-    await api('DELETE', '/api/v1/import/batches/'+id);
+    await api('DELETE', '/import/batches/'+id);
     toast('Import rolled back');
     loadImpHistory();
   } catch(e) { toast('Failed: '+e.message,'err'); }
@@ -3360,8 +3423,8 @@ async function saveAcct() {
     track_statements:parseInt(document.getElementById('acctTrack').value),
   };
   try {
-    if (_editAcctId) await api('PUT', '/api/v1/import/accounts/'+_editAcctId, body);
-    else             await api('POST', '/api/v1/import/accounts', body);
+    if (_editAcctId) await api('PUT', '/import/accounts/'+_editAcctId, body);
+    else             await api('POST', '/import/accounts', body);
     toast(_editAcctId?'Account updated':'Account added');
     document.getElementById('acctDrawer').classList.remove('open');
     loadImpAccounts();
