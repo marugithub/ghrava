@@ -219,36 +219,54 @@ function parseSchwabPositions(text) {
   const iMktV  = col('mkt val');    // "Mkt Val (Market Value)"
   const iAsset = col('asset type'); // "Asset Type"
 
+  // Parse data rows using csv-parse to handle quoted commas (e.g. "$22,927.02")
   const positions = [];
-  for (let i = headerIdx + 1; i < lines.length; i++) {
-    const raw = lines[i];
-    if (!raw.trim()) continue;
-    const cells = raw.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
-    const sym = iSym >= 0 ? cells[iSym] : '';
-    if (!sym || sym.toLowerCase() === 'symbol' || sym.toLowerCase() === 'account total') continue;
-    // Skip cash-like rows (symbols starting with ~$ or "Cash & Cash Investments")
-    if (sym.startsWith('~$') || sym.toLowerCase().includes('cash')) continue;
-
-    const qty    = iQty   >= 0 ? parseFloat(cells[iQty  ]?.replace(/,/g,''))  || null : null;
-    const price  = iPrice >= 0 ? parseFloat(cells[iPrice]?.replace(/[$,]/g,'')) || null : null;
-    const cost   = iCost  >= 0 ? parseFloat(cells[iCost ]?.replace(/[$,]/g,'')) || null : null;
-    const basis  = iBasis >= 0 ? parseFloat(cells[iBasis]?.replace(/[$,]/g,'')) || null : null;
-    const mktVal = iMktV  >= 0 ? parseFloat(cells[iMktV ]?.replace(/[$,]/g,'')) || null : null;
-    const asset  = iAsset >= 0 ? (cells[iAsset] || '').trim() : '';
-    const desc   = iDesc  >= 0 ? (cells[iDesc]  || '').trim() : '';
-
-    if (!qty) continue;
-
-    positions.push({
-      symbol:      sym,
-      name:        desc,
-      assetType:   classifySchawbAsset(asset),
-      shares:      qty,
-      price:       price,
-      costBasis:   cost,
-      totalCostBasis: basis,
-      marketValue: mktVal || (qty && price ? qty * price : null),
+  try {
+    const dataSection = lines.slice(headerIdx).join('\n');
+    const dataRows = parseCsv(dataSection, {
+      columns: true, skip_empty_lines: true, trim: true,
+      relax_column_count: true, relax_quotes: true
     });
+    for (const r of dataRows) {
+      // parseCsv uses the header row as keys — match by partial name
+      const getCell = (partial) => {
+        const key = Object.keys(r).find(k => k.toLowerCase().includes(partial.toLowerCase()));
+        return key ? (r[key] || '').trim() : '';
+      };
+      const sym = getCell('symbol');
+      if (!sym || sym.toLowerCase() === 'symbol' || sym.toLowerCase() === 'account total') continue;
+      if (sym.startsWith('~$') || sym.toLowerCase().includes('cash')) continue;
+
+      const parseNum = (partial) => {
+        const v = getCell(partial).replace(/[$,%]/g, '').replace(/,/g, '');
+        const n = parseFloat(v);
+        return isNaN(n) ? null : n;
+      };
+
+      const qty    = parseNum('qty');
+      if (!qty) continue;
+
+      const price  = parseNum('price');
+      const cost   = parseNum('cost/share');
+      const basis  = parseNum('cost basis');
+      const mktVal = parseNum('mkt val');
+      const asset  = getCell('asset type');
+      const desc   = getCell('description');
+
+      positions.push({
+        symbol:         sym,
+        name:           desc,
+        assetType:      classifySchawbAsset(asset),
+        shares:         qty,
+        price:          price,
+        costBasis:      cost,
+        totalCostBasis: basis,
+        marketValue:    mktVal || (qty && price ? qty * price : null),
+      });
+    }
+  } catch(e) {
+    // fallback: return empty positions rather than crashing
+    console.error('parseSchwabPositions error:', e.message);
   }
 
   return { transactions: [], positions };
@@ -788,6 +806,7 @@ function parseFile(content, filename) {
   const format  = detectFormat(headers, text);
 
   let transactions = [];
+  let positions = [];
   switch(format) {
     case 'chase':          transactions = parseChase(rows);       break;
     case 'bofa':           transactions = parseBofa(rows);        break;
@@ -819,7 +838,7 @@ function parseFile(content, filename) {
   return {
     format,
     transactions,
-    positions: [],
+    positions,
     statementDate: detectStatementDate(transactions, 'date'),
     lastFour: null,
   };

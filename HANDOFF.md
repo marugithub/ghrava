@@ -835,6 +835,23 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.151
+**Schwab positions CSV — two more bugs fixed (still 0 rows root cause):**
+
+Bug 1 (v149 was incomplete): parseSchwabPositions was added but parseFile returned
+positions: [] hardcoded at the bottom of the CSV detection branch.
+The variable `positions` was also never declared in that scope.
+Fix: added `let positions = [];` before the switch; changed return to `positions`.
+
+Bug 2: parseSchwabPositions used naive `row.split(",")` which breaks on quoted
+commas — e.g. `"$22,927.02"` became two cells, shifting all column indexes.
+AAPL market value was being read as `-2.17` (the Price Change column).
+Fix: replaced naive split with `parseCsv()` which handles RFC 4180 quoting.
+Uses key-based column lookup (getCell("mkt val")) instead of index-based.
+
+Verified: AAPL 887.48 shares @ $246.63 = $218,879.22 market value (correct).
+Cost basis $22,927.02 also correct (was broken before due to quoted comma split).
+
 ### v202603.150
 **Schwab positions CSV — full end-to-end fix:**
 
