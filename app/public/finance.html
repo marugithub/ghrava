@@ -310,7 +310,6 @@
       </select>
       <select class="form-select" id="txYearFilter" style="width:90px;font-size:13px" onchange="loadTransactions()">
       </select>
-      <button class="btn btn-ghost" style="padding:5px 10px;font-size:13px" onclick="openCsvImport()" title="Import CSV">⬆️ CSV</button>
       <button class="btn btn-ghost" style="padding:5px 10px;font-size:13px" onclick="runRecategorize()" id="recatBtn" title="Apply category rules to uncategorized transactions">🏷 Auto-tag</button>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openTxDrawer()">+ Add</button>
     </div>
@@ -3208,18 +3207,36 @@ async function applyRulesNow() {
 }
 
 async function loadImpAccountSelect() {
+  // Load BOTH account types — all imports go through one place
   try {
-    const data = await api('GET', '/import/accounts');
-    _impAccounts = Array.isArray(data) ? data : [];
+    const [invest, banking] = await Promise.all([
+      api('GET', '/import/accounts').catch(() => []),
+      api('GET', '/finance/accounts').catch(() => []),
+    ]);
+    // Normalize banking accounts to match investment shape for unified handling
+    const investNorm = (Array.isArray(invest) ? invest : []).map(a => ({
+      ...a, _table: 'financial', display: `${a.nickname} — ${a.institution} (${a.account_type})`
+    }));
+    const bankingNorm = (Array.isArray(banking) ? banking : []).map(a => ({
+      id: a.id, nickname: a.name, institution: a.institution || '',
+      account_type: a.type, _table: 'finance',
+      display: `${a.name}${a.institution ? ' — ' + a.institution : ''} (${a.type})`
+    }));
+    _impAccounts = [...investNorm, ...bankingNorm];
   } catch { _impAccounts = []; }
 
   const sel = document.getElementById('impAccountSel');
   if (sel) {
     const prev = sel.value;
+    const investAccts = _impAccounts.filter(a => a._table === 'financial');
+    const bankAccts   = _impAccounts.filter(a => a._table === 'finance');
     sel.innerHTML = '<option value="">Choose account…</option>' +
-      _impAccounts.map(a =>
-        `<option value="${a.id}">${esc(a.nickname)} — ${esc(a.institution)}</option>`
-      ).join('');
+      (investAccts.length ? `<optgroup label="Investment / Brokerage">` +
+        investAccts.map(a => `<option value="${a.id}|${a._table}">${esc(a.display)}</option>`).join('') +
+        `</optgroup>` : '') +
+      (bankAccts.length ? `<optgroup label="Checking / Savings / Credit">` +
+        bankAccts.map(a => `<option value="${a.id}|${a._table}">${esc(a.display)}</option>`).join('') +
+        `</optgroup>` : '');
     if (prev) sel.value = prev;
   }
 
@@ -3227,16 +3244,20 @@ async function loadImpAccountSelect() {
   if (hf) {
     const prev = hf.value;
     hf.innerHTML = '<option value="">All accounts</option>' +
-      _impAccounts.filter(a => ['brokerage','tsp'].includes(a.account_type))
+      _impAccounts.filter(a => a._table === 'financial' && ['brokerage','tsp','other'].includes(a.account_type))
         .map(a => `<option value="${a.id}">${esc(a.nickname)}</option>`).join('');
     if (prev) hf.value = prev;
   }
 }
 
 function impAccountChanged() {
-  const v = document.getElementById('impAccountSel').value;
-  _impSelectedAcct = v ? _impAccounts.find(a => a.id == v) : null;
-  document.getElementById('impStep2').style.display = v ? 'block' : 'none';
+  const raw = document.getElementById('impAccountSel').value;
+  if (!raw) { _impSelectedAcct = null; }
+  else {
+    const [id, table] = raw.split('|');
+    _impSelectedAcct = _impAccounts.find(a => a.id == id && a._table === table) || null;
+  }
+  document.getElementById('impStep2').style.display = _impSelectedAcct ? 'block' : 'none';
   document.getElementById('impStep3').style.display = 'none';
   document.getElementById('impStep4').style.display = 'none';
   _impFile = null; _impPreviewData = null;
@@ -3327,24 +3348,37 @@ async function impConfirm() {
   const fd = new FormData();
   fd.append('file', _impFile);
   fd.append('account_id', _impSelectedAcct.id);
+
+  // Route to correct endpoint based on account type
+  const isBanking = _impSelectedAcct._table === 'finance';
+  const endpoint  = isBanking
+    ? '/api/v1/finance/transactions/import-file'
+    : '/api/v1/import/confirm';
+
   try {
     const h = {};
     if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-    const res = await fetch('/api/v1/import/confirm', { method:'POST', headers:h, body:fd });
+    const res = await fetch(endpoint, { method:'POST', headers:h, body:fd });
     const d = await res.json();
     if (d.error) throw new Error(d.error);
+
     document.getElementById('impStep3').style.display = 'none';
     document.getElementById('impStep4').style.display = 'block';
+
+    const count = d.inserted ?? d.imported ?? 0;
     document.getElementById('impResultBox').innerHTML = `
-      <div class="imp-count">${d.inserted}</div>
-      <div style="color:var(--text2);font-size:13px;margin:4px 0 12px">transactions imported</div>
+      <div class="imp-count">${count}</div>
+      <div style="color:var(--text2);font-size:13px;margin:4px 0 12px">
+        ${isBanking ? 'transactions imported' : 'records imported'}
+      </div>
       <div style="display:flex;gap:12px;justify-content:center;font-size:12px;color:var(--text3);flex-wrap:wrap">
         ${d.skipped?`<span>⏭ ${d.skipped} skipped</span>`:''}
         ${d.flagged?`<span style="color:#f59e0b">⚠ ${d.flagged} flagged</span>`:''}
         ${d.positions?`<span style="color:var(--accent)">📊 ${d.positions} positions</span>`:''}
+        ${d.batch_id?`<span style="color:var(--text3)">batch #${d.batch_id}</span>`:''}
       </div>`;
-    toast(`✓ ${d.inserted} transactions imported`);
-    loadImpMissingAlerts();
+    toast(`✓ ${count} ${isBanking?'transactions':'records'} imported`);
+    if (!isBanking) loadImpMissingAlerts();
   } catch(e) { toast('Import failed: '+e.message,'err'); }
   finally { btn.textContent='✓ Import'; btn.disabled=false; }
 }

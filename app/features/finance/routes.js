@@ -546,10 +546,8 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
     const account_id = parseInt(req.body.account_id) || null;
 
     let text = req.file.buffer.toString('utf-8');
-    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1); // strip BOM
+    if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
 
-    // Try XLSX if needed
-    let parsed;
     const ext = require('path').extname(req.file.originalname || '').toLowerCase();
     if (['.xlsx','.xls'].includes(ext)) {
       try {
@@ -559,16 +557,23 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
       } catch(e) { return badRequest(res, 'Could not read Excel file: ' + e.message); }
     }
 
-    parsed = parseFinanceFile(text, req.file.originalname || 'upload');
+    const parsed = parseFinanceFile(text, req.file.originalname || 'upload');
     if (parsed.error) return badRequest(res, parsed.error);
 
     const txns = parsed.transactions || [];
     if (!txns.length) return res.json({ ok: true, imported: 0, format: parsed.format, message: 'No transactions found' });
 
+    // Create batch record for rollback support
+    const batch = db.prepare(`
+      INSERT INTO fin_import_batches (account_id, account_type, filename, format, rows_total)
+      VALUES (?, 'banking', ?, ?, ?)
+    `).run(account_id, req.file.originalname || 'upload', parsed.format || 'unknown', txns.length);
+    const batchId = batch.lastInsertRowid;
+
     const insert = db.prepare(`
       INSERT OR IGNORE INTO finance_transactions
-        (account_id, date, description, amount, category, notes)
-      VALUES (?,?,?,?,?,?)
+        (account_id, date, description, amount, category, notes, batch_id)
+      VALUES (?,?,?,?,?,?,?)
     `);
 
     const doImport = db.transaction(() => {
@@ -576,15 +581,48 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
       for (const t of txns) {
         if (!t.date || t.amount === null || t.amount === undefined) continue;
         const autoCategory = t.category || applyCategoryRules(t.description) || null;
-        insert.run(account_id, t.date, t.description || null,
-                   parseFloat(t.amount) || 0, autoCategory, t.memo || null);
-        count++;
+        const r = insert.run(account_id, t.date, t.description || null,
+                   parseFloat(t.amount) || 0, autoCategory, t.memo || null, batchId);
+        if (r.changes) count++;
       }
       return count;
     });
 
     const imported = doImport();
-    res.json({ ok: true, imported, format: parsed.format, total: txns.length });
+    // Update actual imported count
+    db.prepare('UPDATE fin_import_batches SET rows_imported=? WHERE id=?').run(imported, batchId);
+
+    res.json({ ok: true, imported, format: parsed.format, total: txns.length, batch_id: batchId });
+  } catch(e) { serverError(res, e); }
+});
+
+// GET /api/v1/finance/import-batches — list banking import history for rollback
+router.get('/import-batches', (req, res) => {
+  try {
+    const { account_id } = req.query;
+    const where = account_id ? 'WHERE b.account_id=?' : '';
+    const rows = db.prepare(`
+      SELECT b.*, fa.name AS account_name
+      FROM fin_import_batches b
+      LEFT JOIN finance_accounts fa ON fa.id = b.account_id
+      ${where}
+      ORDER BY b.imported_at DESC
+      LIMIT 50
+    `).all(...(account_id ? [account_id] : []));
+    res.json(rows);
+  } catch(e) { serverError(res, e); }
+});
+
+// DELETE /api/v1/finance/import-batches/:id — roll back a banking import
+router.delete('/import-batches/:id', requireAuth, (req, res) => {
+  try {
+    const batch = db.prepare('SELECT * FROM fin_import_batches WHERE id=?').get(req.params.id);
+    if (!batch) return notFound(res);
+    db.transaction(() => {
+      db.prepare('DELETE FROM finance_transactions WHERE batch_id=?').run(req.params.id);
+      db.prepare('DELETE FROM fin_import_batches WHERE id=?').run(req.params.id);
+    })();
+    res.json({ ok: true });
   } catch(e) { serverError(res, e); }
 });
 

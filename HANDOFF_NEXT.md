@@ -277,3 +277,27 @@ Once SSH account is created on QNAP:
 - Log tailing: `docker logs -f ghrava`
 - Container restart: `docker restart ghrava`
 - Run smoke test against live: `./smoke-test.sh http://192.168.4.62:3001`
+
+---
+
+## Update — v202603.156 changes
+
+### Unified import flow
+- **One upload point** — Finance → Import tab → Upload Statement
+- Account dropdown now shows ALL accounts grouped: Investment/Brokerage on top, Checking/Savings/Credit below
+- `impAccountChanged()` stores `_table: 'financial'|'finance'` on the selected account
+- `impConfirm()` routes to correct endpoint by `_table`:
+  - Investment → `/api/v1/import/confirm` (existing)
+  - Banking → `/api/v1/finance/transactions/import-file` (now with batch tracking)
+- ⬆️ CSV button removed from Transactions toolbar
+
+### Banking import rollback (migration 062)
+- New table: `fin_import_batches` — tracks every banking CSV import
+- `finance_transactions.batch_id` column added
+- `DELETE /api/v1/finance/import-batches/:id` — rolls back all transactions from that import
+- `GET /api/v1/finance/import-batches` — list banking import history
+
+### Still TODO
+- Wire the History sub-tab to show fin_import_batches alongside import_batches
+  so users can undo banking imports just like investment imports
+- EOB undo — add Delete button per statement in EOB history list
