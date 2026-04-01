@@ -228,15 +228,32 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
     for (const p of (parsed.positions || [])) {
       if (!p.symbol || !p.shares) continue;
       db.prepare(`
-        INSERT INTO holdings (account_id, symbol, name, asset_type, shares, cost_basis, price, price_date, market_value, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO holdings (account_id, symbol, name, asset_type, shares,
+          cost_basis, total_cost_basis, price, price_date, market_value,
+          gain_loss_dollar, gain_loss_pct, day_change_dollar, day_change_pct,
+          week52_low, week52_high, reinvest_dividends, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
         ON CONFLICT(account_id, symbol) DO UPDATE SET
-          name=excluded.name, shares=excluded.shares, cost_basis=COALESCE(excluded.cost_basis, cost_basis),
+          name=excluded.name, shares=excluded.shares,
+          cost_basis=COALESCE(excluded.cost_basis, cost_basis),
+          total_cost_basis=COALESCE(excluded.total_cost_basis, total_cost_basis),
           price=excluded.price, price_date=excluded.price_date,
-          market_value=excluded.market_value, updated_at=CURRENT_TIMESTAMP
+          market_value=excluded.market_value,
+          gain_loss_dollar=excluded.gain_loss_dollar,
+          gain_loss_pct=excluded.gain_loss_pct,
+          day_change_dollar=excluded.day_change_dollar,
+          day_change_pct=excluded.day_change_pct,
+          week52_low=excluded.week52_low,
+          week52_high=excluded.week52_high,
+          reinvest_dividends=excluded.reinvest_dividends,
+          updated_at=CURRENT_TIMESTAMP
       `).run(accountId, p.symbol, p.name || null, p.assetType || 'stock',
-             p.shares, p.costBasis || null, p.price || null,
-             parsed.statementDate || null, p.marketValue || null);
+             p.shares, p.costBasis || null, p.totalCostBasis || null,
+             p.price || null, parsed.statementDate || null, p.marketValue || null,
+             p.gainLossDollar || null, p.gainLossPct || null,
+             p.dayChangeDollar || null, p.dayChangePct || null,
+             p.week52Low || null, p.week52High || null,
+             p.reinvestDividends ?? null);
     }
 
     // Record account snapshot (ending balance)

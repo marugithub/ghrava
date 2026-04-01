@@ -835,6 +835,31 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.152
+**Holdings — all CSV fields captured (was missing cost basis, gain/loss, 52-wk, etc.):**
+
+Migration 061 adds 7 columns to holdings table:
+  total_cost_basis   REAL  -- Cost Basis (total position cost, not per share)
+  gain_loss_dollar   REAL  -- Gain $ (unrealized gain/loss)
+  gain_loss_pct      REAL  -- Gain % (unrealized gain/loss %)
+  day_change_dollar  REAL  -- Day Chng $ (today's price change)
+  day_change_pct     REAL  -- Day Chng % (today's price change %)
+  week52_low         REAL  -- 52 Wk Low
+  week52_high        REAL  -- 52 Wk High
+  reinvest_dividends INTEGER -- Reinvest? (1=yes, 0=no)
+
+parseSchwabPositions now captures all 15 meaningful fields from the CSV.
+/import/confirm upsert writes all new fields.
+GET /holdings returns them via SELECT h.* (no route change needed).
+
+Fields now stored per holding: symbol, name, asset_type, shares, price,
+cost_basis (per share), total_cost_basis, market_value, gain_loss_dollar,
+gain_loss_pct, day_change_dollar, day_change_pct, week52_low, week52_high,
+reinvest_dividends, price_date.
+
+Enough data for: gain/loss chart, 52-week range bar, cost vs market value,
+day gainers/losers, portfolio allocation by asset type.
+
 ### v202603.151
 **Schwab positions CSV — two more bugs fixed (still 0 rows root cause):**
 

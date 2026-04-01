@@ -253,15 +253,31 @@ function parseSchwabPositions(text) {
       const asset  = getCell('asset type');
       const desc   = getCell('description');
 
+      const gainDollar  = parseNum('gain $');
+      const gainPct     = parseNum('gain %');
+      const dayChgDol   = parseNum('day chng $');
+      const dayChgPct   = parseNum('day chng %');
+      const low52       = parseNum('52 wk low');
+      const high52      = parseNum('52 wk high');
+      const reinvestRaw = getCell('reinvest?').toLowerCase();
+      const reinvest    = reinvestRaw === 'yes' ? 1 : reinvestRaw === 'no' ? 0 : null;
+
       positions.push({
-        symbol:         sym,
-        name:           desc,
-        assetType:      classifySchawbAsset(asset),
-        shares:         qty,
-        price:          price,
-        costBasis:      cost,
-        totalCostBasis: basis,
-        marketValue:    mktVal || (qty && price ? qty * price : null),
+        symbol:            sym,
+        name:              desc,
+        assetType:         classifySchawbAsset(asset),
+        shares:            qty,
+        price:             price,
+        costBasis:         cost,          // per share
+        totalCostBasis:    basis,         // total cost
+        marketValue:       mktVal || (qty && price ? qty * price : null),
+        gainLossDollar:    gainDollar,    // unrealized gain $
+        gainLossPct:       gainPct,       // unrealized gain %
+        dayChangeDollar:   dayChgDol,     // today's change $
+        dayChangePct:      dayChgPct,     // today's change %
+        week52Low:         low52,
+        week52High:        high52,
+        reinvestDividends: reinvest,
       });
     }
   } catch(e) {
