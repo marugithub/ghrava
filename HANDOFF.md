@@ -835,6 +835,19 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.147
+**Import → Accounts → Add button not working:**
+
+Root cause: Two `openAcctDrawer` function definitions existed in finance.html.
+The shim (line 1777) redirects to the unified `openAccountDrawer()`.
+But the original `openAcctDrawer` (line ~3388) was never removed in v146 —
+it overrode the shim and tried to open the now-removed `acctDrawer` DOM
+(which had been replaced with a hidden shim div), causing silent failure.
+
+Fix: Removed the duplicate old `openAcctDrawer` and its paired `saveAcct`
+function. The shim at line 1777 is now the only definition and correctly
+routes Add → openAccountDrawer(null, null) and Edit → openAccountDrawer(id, 'financial').
+
 ### v202603.146
 **Finance accounts — unified form + double-prefix bug fix:**
 

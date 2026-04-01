@@ -3385,52 +3385,8 @@ async function rollbackBatch(id, e) {
   } catch(e) { toast('Failed: '+e.message,'err'); }
 }
 
-async function openAcctDrawer(id) {
-  _editAcctId = id;
-  document.getElementById('acctDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
-  if (id) {
-    const a = _impAccounts.find(x => x.id==id);
-    if (a) {
-      document.getElementById('acctNickname').value    = a.nickname||'';
-      await GH_SELECT.init('acctInstitution','financial_institution',a.institution||null,{placeholder:'Select institution…',allowAdd:true});
-      document.getElementById('acctType').value        = a.account_type||'';
-      document.getElementById('acctLastFour').value    = a.last_four||'';
-      document.getElementById('acctOwner').value       = a.owner||'';
-      document.getElementById('acctTrack').value       = a.track_statements??1;
-      document.getElementById('acctNotes').value       = a.notes||'';
-    }
-  } else {
-    ['acctNickname','acctLastFour','acctOwner','acctNotes'].forEach(i=>document.getElementById(i).value='');
-    document.getElementById('acctType').value='';
-    document.getElementById('acctTrack').value='1';
-    await GH_SELECT.init('acctInstitution','financial_institution',null,{placeholder:'Select institution…',allowAdd:true});
-  }
-  document.getElementById('acctDrawer').classList.add('open');
-}
+// openAcctDrawer and saveAcct removed — replaced by unified openAccountDrawer/saveAccount
 
-async function saveAcct() {
-  const nickname    = document.getElementById('acctNickname').value.trim();
-  const institution = document.getElementById('acctInstitution').value.trim();
-  const account_type= document.getElementById('acctType').value;
-  if (!nickname)     { toast('Nickname required','err'); return; }
-  if (!institution)  { toast('Institution required','err'); return; }
-  if (!account_type) { toast('Account type required','err'); return; }
-  const body = {
-    nickname, institution, account_type,
-    owner:           document.getElementById('acctOwner').value.trim()||null,
-    last_four:       document.getElementById('acctLastFour').value.trim()||null,
-    notes:           document.getElementById('acctNotes').value.trim()||null,
-    track_statements:parseInt(document.getElementById('acctTrack').value),
-  };
-  try {
-    if (_editAcctId) await api('PUT', '/import/accounts/'+_editAcctId, body);
-    else             await api('POST', '/import/accounts', body);
-    toast(_editAcctId?'Account updated':'Account added');
-    document.getElementById('acctDrawer').classList.remove('open');
-    loadImpAccounts();
-    loadImpAccountSelect();
-  } catch(e) { toast(e.message||'Save failed','err'); }
-}
 
 async function loadHoldings() {
   const acctId = document.getElementById('holdingsAcctFilter')?.value||'';
