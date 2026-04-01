@@ -835,6 +835,36 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.149
+**Schwab Positions CSV import — new parser (schwab_positions):**
+
+Problem: Schwab "Positions" tab export (holdings snapshot) was not detected.
+Three root causes:
+  1. detectFormat looked for "transactions for account" but file says "Positions for account"
+  2. Parser looked for column header "Quantity" but file has "Qty (Quantity)"
+  3. File is tab-separated (TSV), not comma-separated
+
+Fix: New parseSchwabPositions() function + detection rule:
+  Detection: raw.includes("positions for account") OR
+             joined has symbol + qty + mkt val
+  Parsing: auto-detects tab vs comma separator
+           column mapping by partial name match (handles parenthetical variants)
+           skips cash rows (symbol starts with ~$ or contains "cash")
+           skips Account Total summary row
+  Output: positions[] only (no transactions — it's a snapshot, not a history)
+          Each row: symbol, name, assetType, shares, price, costBasis,
+                    totalCostBasis, marketValue
+
+Fields mapped:
+  Symbol → symbol
+  Description → name
+  Qty (Quantity) → shares
+  Price → price
+  Cost/Share → costBasis (per share)
+  Cost Basis → totalCostBasis
+  Mkt Val (Market Value) → marketValue
+  Asset Type → assetType (classified via classifySchwabAsset)
+
 ### v202603.148
 **Institution dropdown restored + expanded in unified account drawer:**
 

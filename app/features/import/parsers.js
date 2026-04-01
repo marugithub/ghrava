@@ -83,6 +83,8 @@ function detectFormat(headers, rawText) {
     return 'schwab_checking';
   if (raw.includes('transactions for account') || (joined.includes('action') && joined.includes('symbol') && joined.includes('fees & comm')))
     return 'schwab_brokerage';
+  if (raw.includes('positions for account') || (joined.includes('symbol') && joined.includes('qty') && joined.includes('mkt val')))
+    return 'schwab_positions';
   if (joined.includes('trade date') && joined.includes('settlement date') && joined.includes('net amount') && joined.includes('investment name'))
     return 'vanguard_brokerage';
   if (raw.includes('thrift savings') || (joined.includes('fund') && joined.includes('share price') && joined.includes('shares/unit')))
@@ -173,6 +175,83 @@ function classifySchawbCheckingType(typeVal, statusVal) {
   if (t.includes('withdrawal') || t.includes('debit') || t.includes('atm') || t.includes('check')) return 'withdrawal';
   // ACH can be either — classify by amount sign (done later by consumer, default to transaction)
   return 'transaction';
+}
+
+// ── Schwab Positions (Holdings Snapshot) ──────────────────────
+// Format: TSV export from Schwab "Positions" tab
+// Row 0: "Positions for account X as of DATE"
+// Row 1: blank
+// Row 2+: Symbol, Description, Qty (Quantity), Price, Cost/Share, Cost Basis,
+//          Price Chng $, Mkt Val (Market Value), ..., Asset Type
+//
+// This is a holdings snapshot — no transactions. Returns positions[] only.
+
+function parseSchwabPositions(text) {
+  const lines = text.split(/\r?\n/);
+
+  // Find the header row (contains Symbol and Qty)
+  let headerIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const low = lines[i].toLowerCase();
+    if (low.includes('symbol') && (low.includes('qty') || low.includes('quantity'))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx < 0) return { transactions: [], positions: [] };
+
+  // Detect separator (TSV or CSV)
+  const sep = lines[headerIdx].includes('\t') ? '\t' : ',';
+  const headers = lines[headerIdx].split(sep).map(h => h.trim().replace(/^"|"$/g, ''));
+
+  // Column index helpers — match on partial name (handles parenthetical variants)
+  const col = (partial) => {
+    const idx = headers.findIndex(h => h.toLowerCase().includes(partial.toLowerCase()));
+    return idx >= 0 ? idx : -1;
+  };
+
+  const iSym   = col('symbol');
+  const iDesc  = col('description');
+  const iQty   = col('qty');        // "Qty (Quantity)"
+  const iPrice = col('price');      // "Price"
+  const iCost  = col('cost/share'); // "Cost/Share"
+  const iBasis = col('cost basis'); // "Cost Basis"
+  const iMktV  = col('mkt val');    // "Mkt Val (Market Value)"
+  const iAsset = col('asset type'); // "Asset Type"
+
+  const positions = [];
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const raw = lines[i];
+    if (!raw.trim()) continue;
+    const cells = raw.split(sep).map(v => v.trim().replace(/^"|"$/g, ''));
+    const sym = iSym >= 0 ? cells[iSym] : '';
+    if (!sym || sym.toLowerCase() === 'symbol' || sym.toLowerCase() === 'account total') continue;
+    // Skip cash-like rows (symbols starting with ~$ or "Cash & Cash Investments")
+    if (sym.startsWith('~$') || sym.toLowerCase().includes('cash')) continue;
+
+    const qty    = iQty   >= 0 ? parseFloat(cells[iQty  ]?.replace(/,/g,''))  || null : null;
+    const price  = iPrice >= 0 ? parseFloat(cells[iPrice]?.replace(/[$,]/g,'')) || null : null;
+    const cost   = iCost  >= 0 ? parseFloat(cells[iCost ]?.replace(/[$,]/g,'')) || null : null;
+    const basis  = iBasis >= 0 ? parseFloat(cells[iBasis]?.replace(/[$,]/g,'')) || null : null;
+    const mktVal = iMktV  >= 0 ? parseFloat(cells[iMktV ]?.replace(/[$,]/g,'')) || null : null;
+    const asset  = iAsset >= 0 ? (cells[iAsset] || '').trim() : '';
+    const desc   = iDesc  >= 0 ? (cells[iDesc]  || '').trim() : '';
+
+    if (!qty) continue;
+
+    positions.push({
+      symbol:      sym,
+      name:        desc,
+      assetType:   classifySchawbAsset(asset),
+      shares:      qty,
+      price:       price,
+      costBasis:   cost,
+      totalCostBasis: basis,
+      marketValue: mktVal || (qty && price ? qty * price : null),
+    });
+  }
+
+  return { transactions: [], positions };
 }
 
 // ── Schwab Checking ────────────────────────────────────────────
@@ -714,6 +793,12 @@ function parseFile(content, filename) {
     case 'bofa':           transactions = parseBofa(rows);        break;
     case 'navyfed':        transactions = parseNavyFed(rows);     break;
     case 'schwab_checking':transactions = parseSchawbChecking(rows); break;
+    case 'schwab_positions': {
+      const posResult = parseSchwabPositions(text);
+      transactions = posResult.transactions;
+      positions    = posResult.positions;
+      break;
+    }
     case 'capital_one':    transactions = parseCapitalOne(rows);  break;
     case 'usaa':           transactions = parseUSAA(rows);        break;
     case 'wells_fargo':    transactions = parseWellsFargo(rows);  break;
