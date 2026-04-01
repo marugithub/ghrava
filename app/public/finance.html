@@ -2990,6 +2990,23 @@ async function previewCsv() {
       return;
     }
 
+    // Positions-only file (e.g. Schwab holdings snapshot) — can't import here
+    if (hasPositions && !hasTxns) {
+      el.innerHTML = `
+        <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:8px;padding:12px 14px;font-size:13px">
+          <div style="font-weight:700;color:var(--accent);margin-bottom:6px">📊 Holdings Snapshot Detected — ${d.positions} position${d.positions!==1?'s':''}</div>
+          <div style="color:var(--text2);margin-bottom:10px">
+            This is a <strong>${esc((d.format||'').replace(/_/g,' '))}</strong> file (portfolio holdings, not transactions).
+            It must be imported via the <strong>Import tab</strong>, not the CSV drawer.
+          </div>
+          <button class="btn btn-primary" style="font-size:12px;padding:6px 14px"
+            onclick="document.getElementById('csvDrawer').classList.remove('open');setTimeout(()=>switchFinTab('import',document.querySelector('.view-tab[onclick*=import]')),200)">
+            Go to Import tab →
+          </button>
+        </div>`;
+      return;
+    }
+
     const newR = d.newRows ?? d.totalRows ?? 0;
     const dupe = d.duplicates ?? 0;
     const rows = d.preview || [];
