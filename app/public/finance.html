@@ -1718,7 +1718,7 @@ function renderNetWorthStrip(nw) {
 }
 
 // Investment account types stored in financial_accounts
-const ACC_INVEST_TYPES = new Set(['Brokerage','TSP','Investment']);
+window.ACC_INVEST_TYPES = new Set(['Brokerage','TSP','Investment']);
 
 function onAccTypeChange() {
   const t = $('accType').value;
@@ -1759,7 +1759,7 @@ async function openAccountDrawer(id, sourceTable) {
   $('accDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
   $('accName').value        = a.name || '';
   $('accType').value        = a.type || '';
-  $('accInstitution').value = a.institution || '';
+  await GH_SELECT.init('accInstitution', 'financial_institution', a.institution || null, { placeholder: 'Select institution…', allowAdd: true });
   $('accLast4').value       = a.account_last4 || '';
   $('accBalance').value     = a.current_balance || '';
   $('accAsOf').value        = a.balance_as_of || new Date().toISOString().slice(0,10);
@@ -2486,7 +2486,7 @@ async function deleteGc() {
     <div class="form-row">
       <div class="form-group" style="flex:2">
         <label class="form-label">Institution</label>
-        <input class="form-input" id="accInstitution" placeholder="Chase, Schwab, Vanguard…">
+        <select class="form-input" id="accInstitution"></select>
       </div>
       <div class="form-group">
         <label class="form-label">Last 4</label>

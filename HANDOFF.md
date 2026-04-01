@@ -835,6 +835,23 @@ zip /home/claude/Ghrava_DEPLOY.zip app/path/to/file1 app/path/to/file2 app/versi
 ```
 Always include `app/version.txt` and `HANDOFF.md` in every zip.
 HANDOFF.md-only
+### v202603.148
+**Institution dropdown restored + expanded in unified account drawer:**
+
+Migration 060: 41 new entries added to financial_institution dropdown_options.
+List now covers: Chase, BofA, Wells Fargo, Schwab, Vanguard, Fidelity,
+Navy Federal, TSP, USAA, Ally, Discover, Citi, Capital One + 27 more
+including Regions, Truist, PNC, SoFi, AmEx, Apple Card, Robinhood,
+Pentagon FCU, store cards, and neobanks. allowAdd:true so any
+institution not in the list can be typed in manually.
+
+Institution field changed from plain <input> to <select> backed by GH_SELECT.
+openAccountDrawer() now calls GH_SELECT.init() for the institution field.
+
+Also includes v202603.147 fix: window.ACC_INVEST_TYPES (was const, now on window
+so saveAccount cross-block reference resolves correctly — Brokerage/TSP/Investment
+now route to financial_accounts instead of incorrectly to finance_accounts).
+
 ### v202603.147
 **Import → Accounts → Add button not working:**
 
