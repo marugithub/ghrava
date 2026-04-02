@@ -9,7 +9,7 @@ const db = require('../../db/db');
 const GOOGLE_TOKEN_URL   = 'https://oauth2.googleapis.com/token';
 const GOOGLE_AUTH_URL    = 'https://accounts.google.com/o/oauth2/v2/auth';
 const SCOPES = [
-  'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/tasks',
   'https://www.googleapis.com/auth/contacts.readonly',
 ].join(' ');
 
@@ -114,8 +114,7 @@ async function getValidToken() {
 
 function disconnect() {
   ['google_access_token','google_refresh_token','google_token_expiry'].forEach(k => setCfg(k,''));
-  db.prepare("DELETE FROM calendar_events WHERE source='google'").run();
-  db.prepare("DELETE FROM google_calendars").run();
+  // calendar_events and google_calendars left intact (historical data)
 }
 
 module.exports = { getCredentials, isConfigured, isConnected, buildAuthUrl, exchangeCode, getValidToken, getCfg, setCfg, disconnect };

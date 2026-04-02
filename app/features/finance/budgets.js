@@ -29,15 +29,19 @@ router.get('/', (req, res) => {
       ORDER BY monthly_limit DESC
     `).all(year);
 
-    // Get actual spending from finance_transactions for this month
+    // Get actual spending — UNION banking + investment (B7)
     const actuals = db.prepare(`
       SELECT category, COALESCE(SUM(ABS(amount)),0) AS spent
-      FROM finance_transactions
-      WHERE strftime('%Y-%m', date) = ?
-        AND amount < 0
-        AND category IS NOT NULL
+      FROM (
+        SELECT category, amount FROM finance_transactions
+          WHERE strftime('%Y-%m', date) = ? AND amount < 0 AND category IS NOT NULL
+        UNION ALL
+        SELECT category, amount FROM imported_transactions
+          WHERE strftime('%Y-%m', txn_date) = ? AND amount < 0
+            AND category IS NOT NULL AND is_transfer = 0
+      )
       GROUP BY category
-    `).all(monthStr);
+    `).all(monthStr, monthStr);
 
     const actualMap = {};
     actuals.forEach(a => { actualMap[a.category] = a.spent; });
