@@ -22,27 +22,34 @@ router.get('/spending-by-category', (req, res) => {
       params.push(String(month).padStart(2,'0'));
     }
 
-    // Spending by category (debits only — negative amounts)
+    // Spending by category — UNION banking + investment (B6)
+    const unionCond = dateCond.replace('date', 'txn_date');
     const cats = db.prepare(`
       SELECT
         COALESCE(category, 'Uncategorized') AS category,
         ROUND(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 2) AS spent,
         ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2)      AS income,
         COUNT(*)                                                         AS tx_count
-      FROM finance_transactions
-      WHERE ${dateCond}
+      FROM (
+        SELECT category, amount FROM finance_transactions WHERE ${dateCond}
+        UNION ALL
+        SELECT category, amount FROM imported_transactions WHERE ${unionCond} AND is_transfer=0
+      )
       GROUP BY COALESCE(category, 'Uncategorized')
       ORDER BY spent DESC
-    `).all(...params);
+    `).all(...params, ...params);
 
     const totals = db.prepare(`
       SELECT
         ROUND(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 2) AS total_spent,
         ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2)      AS total_income,
         COUNT(*) AS tx_count
-      FROM finance_transactions
-      WHERE ${dateCond}
-    `).get(...params);
+      FROM (
+        SELECT amount FROM finance_transactions WHERE ${dateCond}
+        UNION ALL
+        SELECT amount FROM imported_transactions WHERE ${unionCond} AND is_transfer=0
+      )
+    `).get(...params, ...params);
 
     res.json({ year, month: month||null, categories: cats, totals });
   } catch(e) { serverError(res, e); }
@@ -55,14 +62,19 @@ router.get('/monthly-totals', (req, res) => {
     const year = req.query.year || new Date().getFullYear().toString();
     const rows = db.prepare(`
       SELECT
-        CAST(strftime('%m', date) AS INTEGER)                             AS month,
+        CAST(strftime('%m', dt) AS INTEGER)                               AS month,
         ROUND(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 2)  AS spent,
         ROUND(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 2)       AS income
-      FROM finance_transactions
-      WHERE strftime('%Y', date) = ?
-      GROUP BY strftime('%m', date)
+      FROM (
+        SELECT date AS dt, amount FROM finance_transactions
+          WHERE strftime('%Y', date) = ?
+        UNION ALL
+        SELECT txn_date AS dt, amount FROM imported_transactions
+          WHERE strftime('%Y', txn_date) = ? AND is_transfer=0
+      )
+      GROUP BY strftime('%m', dt)
       ORDER BY month ASC
-    `).all(year);
+    `).all(year, year);
 
     // Fill in all 12 months even if no data
     const months = Array.from({length:12},(_,i) => {
@@ -73,11 +85,15 @@ router.get('/monthly-totals', (req, res) => {
     // Previous year for comparison
     const prevYear = String(+year - 1);
     const prevRows = db.prepare(`
-      SELECT CAST(strftime('%m', date) AS INTEGER) AS month,
+      SELECT CAST(strftime('%m', dt) AS INTEGER) AS month,
         ROUND(ABS(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END)), 2) AS spent
-      FROM finance_transactions WHERE strftime('%Y', date) = ?
-      GROUP BY strftime('%m', date)
-    `).all(prevYear);
+      FROM (
+        SELECT date AS dt, amount FROM finance_transactions WHERE strftime('%Y', date) = ?
+        UNION ALL
+        SELECT txn_date AS dt, amount FROM imported_transactions WHERE strftime('%Y', txn_date) = ? AND is_transfer=0
+      )
+      GROUP BY strftime('%m', dt)
+    `).all(prevYear, prevYear);
 
     months.forEach(m => {
       const prev = prevRows.find(r => r.month === m.month);
@@ -135,6 +151,7 @@ router.get('/hsa-summary', (req, res) => {
 // GET /api/v1/finance/reports/net-worth-trend
 router.get('/net-worth-trend', (req, res) => {
   try {
+    // Manual snapshots (user-entered)
     let snapshots = [];
     try {
       snapshots = db.prepare(`
@@ -142,6 +159,30 @@ router.get('/net-worth-trend', (req, res) => {
         FROM net_worth_snapshots ORDER BY snapshot_date ASC LIMIT 24
       `).all();
     } catch { /* table may not exist yet */ }
+
+    // C7: Auto snapshots from investment imports (account_snapshots table)
+    let investmentHistory = [];
+    try {
+      investmentHistory = db.prepare(`
+        SELECT
+          s.snapshot_date,
+          fa.nickname AS account_name,
+          fa.institution,
+          s.balance AS account_balance
+        FROM account_snapshots s
+        JOIN financial_accounts fa ON fa.id = s.account_id
+        ORDER BY s.snapshot_date ASC, fa.nickname ASC
+      `).all();
+    } catch { /* table may not exist */ }
+
+    // Aggregate investment history by date
+    const invByDate = {};
+    for (const r of investmentHistory) {
+      if (!invByDate[r.snapshot_date]) invByDate[r.snapshot_date] = { date: r.snapshot_date, total: 0, accounts: [] };
+      invByDate[r.snapshot_date].total += (r.account_balance || 0);
+      invByDate[r.snapshot_date].accounts.push({ name: r.account_name, balance: r.account_balance });
+    }
+    const investmentTrend = Object.values(invByDate).sort((a,b) => a.date.localeCompare(b.date));
 
     // Detect whether include_net_worth column exists (may be missing on older DBs)
     const cols = db.prepare("PRAGMA table_info(finance_accounts)").all().map(c => c.name);
@@ -165,6 +206,7 @@ router.get('/net-worth-trend', (req, res) => {
 
     res.json({
       snapshots,
+      investment_trend: investmentTrend,
       current: { ...current, net_worth: (current.assets||0) - (current.liabilities||0) },
       accounts,
     });

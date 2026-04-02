@@ -130,6 +130,10 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
     <div class="form-group"><label class="form-label">Author</label><input class="form-input" id="bkAuthor"></div>
     <div class="form-group"><label class="form-label">ISBN</label><input class="form-input" id="bkIsbn" placeholder="e.g. 9780743273565" style="font-family:var(--mono)"></div>
     <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Publisher</label><input class="form-input" id="bkPublisher" placeholder="Publisher name"></div>
+      <div class="form-group"><label class="form-label">Year</label><input class="form-input" type="number" id="bkPublishYear" placeholder="2024" min="1000" max="2099"></div>
+    </div>
+    <div class="form-row">
       <div class="form-group"><label class="form-label">Genre</label><select class="form-select" id="bkGenre" onchange="triggerBookSuggest()"></select></div>
       <div class="form-group"><label class="form-label">Format</label>
         <select class="form-select" id="bkFormat">
@@ -330,7 +334,9 @@ async function openBookDrawer(id) {
   const b = id ? (_allBooks.find(x=>x.id===id)||{}) : {};
   $('bkTitle').value    = b.title||'';
   $('bkAuthor').value   = b.author||'';
-  $('bkIsbn').value     = b.isbn||'';
+  $('bkIsbn').value        = b.isbn||'';
+  $('bkPublisher').value   = b.publisher||'';
+  $('bkPublishYear').value = b.publish_year||'';
   await GH_SELECT.init('bkGenre', 'book_genre', b.genre||'', { allowAdd: true, placeholder: '— select genre —' });
   $('bkFormat').value   = b.format||'Physical';
   $('bkStatus').value   = b.status||'Want to Read';
@@ -367,6 +373,8 @@ async function saveBook() {
     date_started:$('bkStarted').value||null,
     date_finished:$('bkFinished').value||null,
     pages_total:$('bkPagesTotal').value ? parseInt($('bkPagesTotal').value) : null,
+    publisher:$('bkPublisher').value.trim()||null,
+    publish_year:$('bkPublishYear').value ? parseInt($('bkPublishYear').value) : null,
     pages_read:$('bkPagesRead').value  ? parseInt($('bkPagesRead').value)  : null,
     notes:$('bkNotes').value.trim()||null,
     tags:bookFormTags,
@@ -653,11 +661,15 @@ async function lookupIsbn(isbn) {
       const b = d[key];
       bookData = {
         isbn,
-        title:     b.title || '',
-        author:    (b.authors||[]).map(a=>a.name).join(', '),
-        cover_url: b.cover?.large || b.cover?.medium || b.cover?.small || null,
-        genre:     (b.subjects||[])[0]?.name || '',
-        source:    'Open Library',
+        title:        b.title || '',
+        author:       (b.authors||[]).map(a=>a.name).join(', '),
+        cover_url:    b.cover?.large || b.cover?.medium || b.cover?.small || null,
+        genre:        (b.subjects||[])[0]?.name || '',
+        publisher:    b.publishers?.[0]?.name || null,
+        publish_year: b.publish_date ? parseInt(b.publish_date.match(/\d{4}/)?.[0]) || null : null,
+        language:     b.languages?.[0]?.key?.replace('/languages/','') || null,
+        pages:        b.number_of_pages || null,
+        source:       'Open Library',
       };
     }
   } catch {}
@@ -675,11 +687,15 @@ async function lookupIsbn(isbn) {
         if (item) {
           bookData = {
             isbn,
-            title:     item.title || '',
-            author:    (item.authors||[]).join(', '),
-            cover_url: item.imageLinks?.thumbnail?.replace('http://','https://') || null,
-            genre:     (item.categories||[])[0] || '',
-            source:    'Google Books',
+            title:        item.title || '',
+            author:       (item.authors||[]).join(', '),
+            cover_url:    item.imageLinks?.thumbnail?.replace('http://','https://') || null,
+            genre:        (item.categories||[])[0] || '',
+            publisher:    item.publisher || null,
+            publish_year: item.publishedDate ? parseInt(item.publishedDate.slice(0,4)) || null : null,
+            language:     item.language || null,
+            pages:        item.pageCount || null,
+            source:       'Google Books',
           };
         }
       }
@@ -736,6 +752,18 @@ function showIsbnConfirmPanel(b) {
         <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">ISBN</div>
         <input class="form-input" id="ic_isbn" value="${esc(b.isbn)}" style="font-size:13px;padding:8px 10px;font-family:var(--mono)">
       </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Publisher</div>
+        <input class="form-input" id="ic_publisher" value="${esc(b.publisher||'')}" style="font-size:13px;padding:8px 10px">
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Year</div>
+        <input class="form-input" id="ic_year" value="${b.publish_year||''}" style="font-size:13px;padding:8px 10px" type="number">
+      </div>
+      <div>
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Pages</div>
+        <input class="form-input" id="ic_pages" value="${b.pages||''}" style="font-size:13px;padding:8px 10px" type="number">
+      </div>
     </div>
     <input type="hidden" id="ic_cover_url" value="${esc(b.cover_url||'')}">
     <div style="display:flex;gap:8px">
@@ -756,9 +784,16 @@ async function applyIsbnFields() {
   const isbn     = _$('ic_isbn')?.value?.trim() || '';
   const coverUrl = _$('ic_cover_url')?.value?.trim() || '';
 
+  const publisher   = _$('ic_publisher')?.value?.trim() || '';
+  const publishYear = parseInt(_$('ic_year')?.value) || null;
+  const pages       = parseInt(_$('ic_pages')?.value) || null;
+
   if (title)  _$('bkTitle').value  = title;
   if (author) _$('bkAuthor').value = author;
   if (isbn)   _$('bkIsbn').value   = isbn;
+  if (publisher && _$('bkPublisher')) _$('bkPublisher').value = publisher;
+  if (publishYear && _$('bkPublishYear')) _$('bkPublishYear').value = publishYear;
+  if (pages && _$('bkPagesTotal')) _$('bkPagesTotal').value = pages;
 
   // Apply genre via GH_SELECT
   if (genre) {

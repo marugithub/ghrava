@@ -1321,6 +1321,7 @@ async function triggerConSync() {
   // Used when GH_REFS opens Settings in an iframe to add a new record.
   const drawerParam = params.get('drawer');
   const typeParam   = params.get('type');
+  const nameParam   = params.get('name');
 
   // When loaded inside the GH_REFS iframe overlay, suppress the full
   // settings UI — drawers live outside #app so hiding #app is not enough.
@@ -1340,7 +1341,14 @@ async function triggerConSync() {
   }
 
   if (drawerParam === 'contact') {
-    setTimeout(() => openContactDrawer(null, typeParam || null), 400);
+    setTimeout(() => {
+      openContactDrawer(null, typeParam || null);
+      // Prepopulate name from calling module context
+      if (nameParam) {
+        const nameEl = document.getElementById('ct_name');
+        if (nameEl && !nameEl.value) nameEl.value = decodeURIComponent(nameParam);
+      }
+    }, 400);
   } else if (drawerParam === 'family') {
     setTimeout(() => {
       loadFamily();

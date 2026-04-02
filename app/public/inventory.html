@@ -2862,9 +2862,9 @@ async function applyParsedFields() {
     onCatChange($('itm_cat').value);
   }
 
-  // Build notes: size, description, and UPC category context (if different from mapped)
+  // Size goes to dedicated column (migration 074), desc + upcCat to notes
+  if (size && $('itm_size')) $('itm_size').value = size;
   const notesParts = [];
-  if (size) notesParts.push(`Size: ${size}`);
   if (desc) notesParts.push(desc);
   if (upcCat) notesParts.push(`Product category (from barcode): ${upcCat}`);
 

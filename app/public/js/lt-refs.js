@@ -200,7 +200,7 @@ window.GH_REFS = (function () {
   // ?drawer=contact and suppresses its main UI, showing only the drawer.
   // When the drawer saves, settings.html postMessages the record back.
 
-  function _openSettingsDrawer(drawerType, presetType, onSave) {
+  function _openSettingsDrawer(drawerType, presetType, onSave, presetName) {
     document.getElementById('gh-refs-overlay')?.remove();
 
     const overlay = document.createElement('div');
@@ -213,7 +213,8 @@ window.GH_REFS = (function () {
 
     const frame = document.createElement('iframe');
     frame.src = '/settings.html?drawer=' + drawerType +
-      (presetType ? '&type=' + encodeURIComponent(presetType) : '');
+      (presetType ? '&type=' + encodeURIComponent(presetType) : '') +
+      (presetName ? '&name=' + encodeURIComponent(presetName) : '');
     frame.style.cssText = [
       'width:min(560px,100vw)', 'height:92vh',
       'border:none', 'border-radius:20px 20px 0 0',
@@ -242,7 +243,7 @@ window.GH_REFS = (function () {
   }
 
   function openContactDrawer(opts = {}) {
-    _openSettingsDrawer('contact', opts.type || '', opts.onSave);
+    _openSettingsDrawer('contact', opts.type || '', opts.onSave, opts.name || '');
   }
 
   function openFamilyDrawer(opts = {}) {

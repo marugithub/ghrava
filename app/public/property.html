@@ -22,11 +22,12 @@
 .view-panel{display:none}.view-panel.active{display:block}
 /* prop/veh cards use shared .card */
 </style>
+<body>
   <!-- header injected by nav.js -->
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
-<body>
+<script src="/js/lt-messages.js"></script>
 <div id="app" style="padding-bottom:100px">
   <div class="view-tabs" style="--tab-color:#ef4444">
     <button class="view-tab active" onclick="switchTab('props',this)">🏠 Properties</button>
@@ -231,7 +232,7 @@
     <div class="form-group"><label class="form-label">Mileage</label><input class="form-input" type="number" id="sMiles"></div>
     <div class="form-group"><label class="form-label">Cost</label><input class="form-input" type="number" id="sCost" step="0.01"></div>
   </div>
-  <div class="form-group"><label class="form-label">Shop</label><input class="form-input" id="sShop"></div>
+  <div class="form-group"><label class="form-label">Shop / Provider</label><select class="form-select" id="sShop"></select></div>
   <div class="form-row">
     <div class="form-group"><label class="form-label">Next Due Date</label><input class="form-input" type="date" id="sNextDate"></div>
     <div class="form-group"><label class="form-label">Next Due Miles</label><input class="form-input" type="number" id="sNextMiles"></div>
@@ -525,9 +526,10 @@ async function openSvcDrawer(vid,name){
   svcVehId=vid;
   $('svcDrawerTitle').textContent=name+' — Service Log';
   $('sDate').value=new Date().toISOString().slice(0,10);
-  ['sShop','sNotes'].forEach(id=>$(id).value='');
+  ['sNotes'].forEach(id=>$(id).value='');
   ['sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
   await GH_SELECT.init('sType','vehicle_service_type','Oil Change',{allowAdd:true});
+  await GH_REFS.populateContact('sShop', null, { type: 'Vendor', placeholder: '— select shop —' });
   await loadSvcLog();
   $('svcDrawer').classList.add('open');
 }
@@ -553,12 +555,16 @@ async function saveSvc(){
   const payload={
     service_date:$('sDate').value,service_type:$('sType').value,
     mileage:parseInt($('sMiles').value)||null,cost:parseFloat($('sCost').value)||null,
-    shop:$('sShop').value||null,notes:$('sNotes').value||null,
+    contact_id:$('sShop').value?parseInt($('sShop').value):null,
+    shop:$('sShop').options[$('sShop').selectedIndex]?.text||null,
+    notes:$('sNotes').value||null,
     next_due_date:$('sNextDate').value||null,next_due_miles:parseInt($('sNextMiles').value)||null
   };
   await api('POST', `/vehicles/${svcVehId}/service`, payload);
   toast('Record added');
-  ['sType','sShop','sNotes','sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
+  ['sNotes','sMiles','sCost','sNextDate','sNextMiles'].forEach(id=>$(id).value='');
+  await GH_SELECT.init('sType','vehicle_service_type','Oil Change',{allowAdd:true});
+  await GH_REFS.populateContact('sShop', null, { type: 'Vendor', placeholder: '— select shop —' });
   await loadSvcLog();
 }
 async function delSvc(id){

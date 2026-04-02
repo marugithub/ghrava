@@ -165,8 +165,8 @@
       </div>`;
 
     nav.innerHTML = logoBlock + sections + bottom;
-    applyCollapsed(nav);
     document.body.insertBefore(nav, document.body.firstChild);
+    applyCollapsed(nav);
 
     // Mobile overlay
     const overlay = document.createElement('div');

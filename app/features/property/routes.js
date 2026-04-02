@@ -35,7 +35,7 @@ const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../
 
 router.get('/properties', (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM properties WHERE is_active=1 ORDER BY property_type, nickname').all().map(p => withTagNames(p, 'property')));
+    res.json(db.prepare('SELECT * FROM properties WHERE is_active=1 ORDER BY property_type, nickname').all().map(p => withFamilyMembers(withTagNames(p, 'property'), 'property')));
   } catch (e) { serverError(res, e); }
 });
 
@@ -57,7 +57,8 @@ router.post('/properties', requireAuth, (req, res) => {
            parseFloat(d.mortgage_rate)||null, parseFloat(d.mortgage_monthly)||null, d.mortgage_end_date||null,
            parseFloat(d.hoa_monthly)||null, parseFloat(d.property_tax_annual)||null,
            parseFloat(d.insurance_annual)||null, d.insurance_company||null, d.insurance_policy||null, d.notes||null);
-    if (d.tags) saveTagsByName(r.lastInsertRowid, 'property', d.tags);
+    if (d.tags)           saveTagsByName(r.lastInsertRowid, 'property', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'property', d.family_member_ids);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -84,6 +85,7 @@ router.put('/properties/:id', requireAuth, (req, res) => {
            parseFloat(d.insurance_annual)||null, d.insurance_company||null, d.insurance_policy||null, d.notes||null,
            req.params.id);
     clearReview('properties', req.params.id);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'property', d.family_member_ids);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
@@ -193,10 +195,11 @@ router.post('/vehicles/:id/service', requireAuth, (req, res) => {
     const d = req.body;
     if (!d.service_date || !d.service_type) return badRequest(res, 'service_date and service_type required');
     const r = db.prepare(`
-      INSERT INTO vehicle_service (vehicle_id, service_date, service_type, mileage, cost, shop, notes, next_due_date, next_due_miles)
-      VALUES (?,?,?,?,?,?,?,?,?)
+      INSERT INTO vehicle_service (vehicle_id, service_date, service_type, mileage, cost, shop, contact_id, notes, next_due_date, next_due_miles)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
     `).run(req.params.id, d.service_date, d.service_type,
-           parseInt(d.mileage)||null, parseFloat(d.cost)||null, d.shop||null, d.notes||null,
+           parseInt(d.mileage)||null, parseFloat(d.cost)||null, d.shop||null,
+           d.contact_id||null, d.notes||null,
            d.next_due_date||null, parseInt(d.next_due_miles)||null);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch (e) { serverError(res, e); }

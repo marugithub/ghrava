@@ -880,7 +880,7 @@ router.post('/items', async (req, res) => {
 
     const r = db.prepare(`INSERT INTO items
       (item_ref,name,description,category,parent_type,parent_id,is_container,quantity,
-       brand,model_number,serial_number,manufacturer,upc_barcode,manufacturer_country,
+       brand,model_number,serial_number,manufacturer,upc_barcode,size,manufacturer_country,
        manufacturer_support_phone,manufacturer_support_url,
        purchase_date,purchase_price,purchased_from,store_name,purchase_method,order_number,
        replacement_value,appraised_value,appraised_date,condition,
@@ -888,13 +888,13 @@ router.post('/items', async (req, res) => {
        warranty_expires,lifetime_warranty,warranty_vendor,warranty_vendor_contact_id,warranty_phone,warranty_claim_url,warranty_notes,
        sold_date,sold_price,sold_to,
        qr_code_path,notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
       .run(
         ref, d.name, d.description||null, d.category||null, d.parent_type, d.parent_id,
         d.is_container?1:0, d.quantity||1,
         d.brand||null, d.model_number||null, d.serial_number||null, d.manufacturer||null,
-        d.upc_barcode||null, d.manufacturer_country||null,
+        d.upc_barcode||null, d.size||null, d.manufacturer_country||null,
         d.manufacturer_support_phone||null, d.manufacturer_support_url||null,
         d.purchase_date||null, d.purchase_price||null, d.purchased_from||null,
         d.store_name||null, d.purchase_method||null, d.order_number||null,
@@ -910,6 +910,7 @@ router.post('/items', async (req, res) => {
     const newItem = db.prepare('SELECT * FROM items WHERE id=?').get(r.lastInsertRowid);
     logEvent(newItem.id, 'created', { new_value: newItem.name });
     if (d.tags && d.tags.length) saveTagsByName(newItem.id, 'item', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(newItem.id, 'item', d.family_member_ids);
     res.status(201).json(newItem);
 
     // Auto-fetch product image in background if UPC present (non-blocking)
@@ -939,7 +940,7 @@ router.put('/items/:id', (req, res) => {
         d.name, d.description||null, d.category||null, d.parent_type, d.parent_id,
         d.is_container?1:0, d.quantity||1,
         d.brand||null, d.model_number||null, d.serial_number||null, d.manufacturer||null,
-        d.upc_barcode||null, d.manufacturer_country||null,
+        d.upc_barcode||null, d.size||null, d.manufacturer_country||null,
         d.manufacturer_support_phone||null, d.manufacturer_support_url||null,
         d.purchase_date||null, d.purchase_price||null, d.purchased_from||null,
         d.store_name||null, d.purchase_method||null, d.order_number||null,
@@ -968,7 +969,8 @@ router.put('/items/:id', (req, res) => {
       }
     });
 
-    if (d.tags !== undefined) saveTagsByName(req.params.id, 'item', d.tags);
+    if (d.tags !== undefined)           saveTagsByName(req.params.id, 'item', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'item', d.family_member_ids);
     clearReview('items', req.params.id);
     res.json(db.prepare('SELECT * FROM items WHERE id=?').get(req.params.id));
   } catch (err) { serverError(res, err); }

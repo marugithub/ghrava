@@ -535,13 +535,40 @@ async function loadNetWorth() {
         </div>
       </div>`).join('') || '<div style="color:var(--text3);text-align:center;padding:16px">No accounts</div>';
 
-    // Historical chart
+    // C7: Investment trend from account_snapshots (auto from imports)
+    const invTrend = d.investment_trend || [];
+    if (invTrend.length > 1) {
+      const invSection = document.createElement('div');
+      invSection.style.cssText = 'margin-top:12px';
+      invSection.innerHTML = `
+        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
+          Investment Account History (from imports)
+        </div>
+        <canvas id="invTrendChart" height="120"></canvas>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
+          ${invTrend.slice(-1)[0]?.accounts?.map(a=>
+            `<div style="background:var(--bg2);border-radius:var(--r);padding:4px 10px;font-size:12px">
+              <span style="color:var(--text3)">${esc(a.name)}</span>
+              <span style="font-family:var(--mono);color:var(--accent);margin-left:6px">${fmt$(a.balance)}</span>
+            </div>`
+          ).join('') || ''}
+        </div>`;
+      $('nwAccounts').insertAdjacentElement('afterend', invSection);
+      drawBarChart('invTrendChart',
+        invTrend.map(s=>s.date.slice(0,7)),
+        [{ label: 'Investment Total', color: '#10b981', data: invTrend.map(s=>s.total) }],
+        { beginAtZero: false }
+      );
+    }
+
+    // Historical net worth chart (manual snapshots)
     if (d.snapshots.length > 1) {
       drawBarChart('nwChart', d.snapshots.map(s=>s.snapshot_date.slice(0,7)),
         [{ label: 'Net Worth', color: '#5c72fa', data: d.snapshots.map(s=>Math.max(0,s.net_worth)) }]);
     } else {
       $('nwChart').style.display = 'none';
-      $('nwSnapshotList').innerHTML = '<div style="color:var(--text3);text-align:center;padding:16px;font-size:13px">No historical snapshots yet.<br>Take a snapshot monthly to track trends.</div>';
+      const noSnap = '<div style="color:var(--text3);text-align:center;padding:16px;font-size:13px">No historical snapshots yet.<br>Take a snapshot monthly to track trends.</div>';
+      if ($('nwSnapshotList')) $('nwSnapshotList').innerHTML = noSnap;
     }
   } catch(e) {
     $('nwSummary').innerHTML = errorState(e.message, 'loadNetWorth()');
