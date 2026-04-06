@@ -2723,7 +2723,7 @@ async function triggerUPCLookup() {
     // Show confirm panel — user reviews before fields are populated
     showUpcConfirmPanel(d, parsed);
 
-  } catch(err) { toast(ghErrorMsg(e),'err'); }
+  } catch(err) { toast(ghErrorMsg(err),'err'); }
   finally { btn.textContent='Lookup'; btn.disabled=false; }
 }
 
@@ -3242,6 +3242,7 @@ $('itemSave').addEventListener('click', async ()=>{
       parent_type:pt, parent_id:+pid,
       brand:$('itm_brand').value||null, model_number:$('itm_model').value||null,
       serial_number:$('itm_serial').value||null, upc_barcode:$('upc_input').value||null,
+      size:$('itm_size')?.value?.trim()||null,
       purchase_date:$('itm_pdate').value||null,
       purchase_price:$('itm_price').value?parseFloat($('itm_price').value):null,
       store_name:$('itm_store').value||null, purchase_method:$('itm_method').value||null,

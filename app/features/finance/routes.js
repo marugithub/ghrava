@@ -35,6 +35,7 @@ const router  = express.Router();
 const db      = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
+const { flagRecords } = require('../../shared/needs-review');
 const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
 
@@ -303,20 +304,25 @@ router.get('/transactions', (req, res) => {
 // Returns both finance_transactions and imported_transactions in one sorted list.
 router.get('/transactions/unified', (req, res) => {
   try {
-    const { account_id, year, month, search, limit = 200, offset = 0 } = req.query;
+    const { account_id, account_type, year, month, search, limit = 200, offset = 0 } = req.query;
     const params = [];
     const impParams = [];
+    // account_type: 'banking' | 'investment' | undefined (both)
+    const showBanking    = !account_type || account_type === 'banking';
+    const showInvestment = !account_type || account_type === 'investment';
 
     // Build WHERE for manual transactions
     let manWhere = 'WHERE 1=1';
-    if (account_id) { manWhere += ' AND t.account_id=?'; params.push(account_id); }
+    if (account_id && showBanking) { manWhere += ' AND t.account_id=?'; params.push(account_id); }
+    if (!showBanking) { manWhere += ' AND 1=0'; } // exclude banking entirely
     if (year)       { manWhere += " AND strftime('%Y',t.date)=?"; params.push(String(year)); }
     if (month)      { manWhere += " AND strftime('%Y-%m',t.date)=?"; params.push(String(month)); }
     if (search)     { manWhere += ' AND (t.description LIKE ? OR t.notes LIKE ?)'; params.push(`%${search}%`,`%${search}%`); }
 
     // Build WHERE for imported transactions
     let impWhere = 'WHERE t.is_transfer=0';
-    if (account_id) { impWhere += ' AND t.account_id=?'; impParams.push(account_id); }
+    if (!showInvestment) { impWhere += ' AND 1=0'; } // exclude investment entirely
+    if (account_id && showInvestment) { impWhere += ' AND t.account_id=?'; impParams.push(account_id); }
     if (year)       { impWhere += " AND strftime('%Y',t.txn_date)=?"; impParams.push(String(year)); }
     if (month)      { impWhere += " AND strftime('%Y-%m',t.txn_date)=?"; impParams.push(String(month)); }
     if (search)     { impWhere += ' AND t.description LIKE ?'; impParams.push(`%${search}%`); }
@@ -471,11 +477,24 @@ router.get('/net-worth/current', (req, res) => {
     const totalAssets = assets.reduce((s, a) => s + a.current_balance, 0);
     const totalLiab   = liabilities.reduce((s, a) => s + Math.abs(a.current_balance), 0);
 
+    // B8: Include investment holdings market value
+    const holdingsSummary = db.prepare(`
+      SELECT fa.id AS account_id, fa.nickname, fa.institution,
+             COALESCE(SUM(h.market_value), 0) AS total_value,
+             COUNT(h.id) AS positions
+      FROM financial_accounts fa
+      LEFT JOIN holdings h ON h.account_id = fa.id
+      GROUP BY fa.id
+    `).all();
+    const investmentTotal = holdingsSummary.reduce((s, a) => s + (a.total_value || 0), 0);
+
     res.json({
       total_assets:      totalAssets,
       total_liabilities: totalLiab,
-      net_worth:         totalAssets - totalLiab,
+      investment_total:  investmentTotal,
+      net_worth:         totalAssets - totalLiab + investmentTotal,
       accounts,
+      investment_accounts: holdingsSummary,
       as_of: new Date().toISOString().slice(0, 10),
     });
   } catch (e) { serverError(res, e); }
@@ -592,7 +611,14 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
     // Update actual imported count
     db.prepare('UPDATE fin_import_batches SET rows_imported=? WHERE id=?').run(imported, batchId);
 
-    res.json({ ok: true, imported, format: parsed.format, total: txns.length, batch_id: batchId });
+    // Flag batch if rows were skipped (partial import)
+    const skipped = txns.length - imported;
+    if (skipped > 0) {
+      // Can't flag individual finance_transactions easily without IDs — log on batch record
+      db.prepare("UPDATE fin_import_batches SET rows_skipped=? WHERE id=?").run(skipped, batchId);
+    }
+
+    res.json({ ok: true, imported, skipped, format: parsed.format, total: txns.length, batch_id: batchId });
   } catch(e) { serverError(res, e); }
 });
 
@@ -648,31 +674,7 @@ router.post('/transactions/recategorize', (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
-// POST /api/v1/finance/transactions/import-csv
-// Body: { account_id, rows: [{date, description, amount, category}] }
-router.post('/transactions/import-csv', (req, res) => {
-  try {
-    const { account_id, rows } = req.body;
-    if (!Array.isArray(rows) || !rows.length) return badRequest(res, 'rows array required');
-    const insert = db.prepare(`
-      INSERT OR IGNORE INTO finance_transactions
-        (account_id, date, description, amount, category, notes)
-      VALUES (?,?,?,?,?,?)
-    `);
-    const importMany = db.transaction((items) => {
-      let count = 0;
-      for (const r of items) {
-        if (!r.date || r.amount === undefined) continue;
-        insert.run(account_id||null, r.date, r.description||null,
-                   parseFloat(r.amount)||0, r.category||null, r.notes||null);
-        count++;
-      }
-      return count;
-    });
-    const imported = importMany(rows);
-    res.json({ ok: true, imported });
-  } catch (e) { serverError(res, e); }
-});
+// import-csv route removed — use /transactions/import-file (has batch tracking, dedup, rollback)
 
 // Budgets subrouter
 router.use('/budgets', require('./budgets'));

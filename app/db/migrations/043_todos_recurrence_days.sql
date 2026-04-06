@@ -45,6 +45,7 @@ CREATE TABLE todos_new (
   needs_review      INTEGER  NOT NULL DEFAULT 0,
   review_flagged_at DATETIME,
   review_reason     TEXT,
+  review_category   TEXT,
 
   -- Timestamps
   created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -58,7 +59,7 @@ INSERT INTO todos_new (
   is_auto, auto_type, auto_source_type, auto_source_id,
   reminder_date, reminder_sent,
   recurrence,
-  needs_review, review_flagged_at, review_reason,
+  needs_review, review_flagged_at, review_reason, review_category,
   created_at, updated_at
 )
 SELECT
@@ -68,7 +69,7 @@ SELECT
   is_auto, auto_type, auto_source_type, auto_source_id,
   reminder_date, reminder_sent,
   recurrence,
-  needs_review, review_flagged_at, review_reason,
+  needs_review, review_flagged_at, review_reason, NULL,
   created_at, updated_at
 FROM todos;
 

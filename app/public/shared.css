@@ -830,19 +830,35 @@ html, body {
 /* ── Color swatch picker ────────────────────────────────────── */
 .color-swatches {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+  padding: 2px 0;
 }
 
 .color-swatch {
-  width: 28px; height: 28px;
-  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px 3px 7px;
+  border-radius: 20px;
   cursor: pointer;
   border: 2px solid transparent;
   transition: all 0.15s;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  opacity: 0.7;
+  white-space: nowrap;
 }
-
-.color-swatch.selected { border-color: #fff; transform: scale(1.15); }
+.color-swatch::before {
+  content: '';
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.6);
+  flex-shrink: 0;
+}
+.color-swatch:hover { opacity: 0.9; transform: translateY(-1px); }
+.color-swatch.selected { opacity: 1; border-color: rgba(255,255,255,0.5); transform: translateY(-1px); }
 
 /* ── Breadcrumb ─────────────────────────────────────────────── */
 .breadcrumb {
@@ -1398,9 +1414,10 @@ html, body {
   background: var(--bg2);
   border: 1px solid var(--border2);
   border-radius: var(--r-lg);
-  width: min(420px, 92vw);
-  max-height: 88vh;
-  overflow-y: auto;
+  width: min(var(--gh-modal-w, 480px), 94vw);
+  max-height: 90vh;
+  display: flex; flex-direction: column;
+  overflow: hidden;
   box-shadow: 0 20px 60px rgba(0,0,0,.25);
   transform: translateY(12px) scale(.97);
   transition: transform .18s;
@@ -1412,9 +1429,12 @@ html, body {
   font-size: 15px; font-weight: 700; color: var(--text);
   padding: 16px 18px 12px;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .gh-modal-body {
   padding: 14px 18px;
+  overflow-y: auto;
+  flex: 1;
 }
 .gh-modal-foot {
   display: flex; gap: 8px;

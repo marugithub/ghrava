@@ -213,14 +213,13 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
       db.prepare(`
         INSERT INTO imported_transactions
           (account_id, batch_id, txn_date, post_date, description, amount, balance,
-           category, txn_type, is_transfer, memo, symbol, shares, price_per_share,
+           category, txn_type, is_transfer, memo,
            fingerprint, flagged)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
       `).run(accountId, batchId, t.date, t.postDate || null, t.description,
              t.amount, t.balance || null, autoCategory,
              t.type || 'transaction', isTransfer ? 1 : 0,
-             t.memo || null, t.symbol || null,
-             t.shares || null, t.price || null,
+             t.memo || null,
              fp, probable ? 1 : 0);
 
       if (probable) flagged++;

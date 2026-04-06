@@ -92,6 +92,11 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
         <option value="7">July</option><option value="8">August</option><option value="9">September</option>
         <option value="10">October</option><option value="11">November</option><option value="12">December</option>
       </select>
+      <select id="spSourceSel" onchange="loadSpending()" style="font-size:12px;padding:4px 8px">
+        <option value="combined">All accounts</option>
+        <option value="banking">Banking only</option>
+        <option value="investment">Investment only</option>
+      </select>
     </div>
     <div class="summary-strip" id="spSummary">
       <div class="sum-card"><div class="sum-val" id="spTotalSpent">—</div><div class="sum-lbl">Spent</div></div>
@@ -421,12 +426,23 @@ function drawBarChart(canvasId, labels, datasets, opts = {}) {
 
 // ── SPENDING TAB ─────────────────────────────────────────────
 async function loadSpending() {
-  const year  = $('spYearSel')?.value  || new Date().getFullYear();
-  const month = $('spMonthSel')?.value || '';
+  const year   = $('spYearSel')?.value  || new Date().getFullYear();
+  const month  = $('spMonthSel')?.value || '';
+  const source = $('spSourceSel')?.value || 'combined';
+
+  // C8: investment-only uses /import/spending, others use /spending-by-category
+  let catPromise;
+  if (source === 'investment') {
+    catPromise = window.api('GET', `/import/spending?from=${year}-01-01&to=${year}-12-31`)
+      .then(rows => ({ categories: rows, totals: { total_spent: rows.reduce((s,r)=>s+r.total,0), total_income:0, tx_count: rows.reduce((s,r)=>s+r.count,0) } }))
+      .catch(() => ({ categories: [], totals: {} }));
+  } else {
+    catPromise = api(`/spending-by-category?year=${year}${month?'&month='+month:''}${source==='banking'?'&account_type=banking':''}`);
+  }
 
   try {
     const [cat, monthly] = await Promise.all([
-      api(`/spending-by-category?year=${year}${month?'&month='+month:''}`),
+      catPromise,
       api(`/monthly-totals?year=${year}`)
     ]);
 
@@ -639,7 +655,7 @@ async function loadPeople() {
   const el = $('peopleContent'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const members = await window.api('GET', '/api/v1/settings/family');
+    const members = await window.api('GET', '/settings/family');
     if (!members.length) {
       el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">No family members found</div>';
       return;
@@ -685,7 +701,7 @@ async function selectPerson(memberId) {
   const el = $('personReport'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const d = await window.api('GET', `/api/v1/settings/family/${memberId}/report`);
+    const d = await window.api('GET', `/settings/family/${memberId}/report`);
     const m = d.member;
     const s = d.summary;
 

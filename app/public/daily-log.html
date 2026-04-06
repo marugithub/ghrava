@@ -225,8 +225,12 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
     </button>
 
+    <button class="icon-btn" id="tagFilterBtn" title="Filter by tag" style="position:relative">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+    </button>
     <span class="entry-count-badge" id="entryCount" style="flex-shrink:0">—</span>
   </div>
+  <div id="tagFilterBar" style="display:none;padding:4px 16px;display:flex;flex-wrap:wrap;gap:4px;align-items:center"></div>
 
   <!-- Finance-style tab bar for categories -->
   <div class="view-tabs" id="catScroll" style="margin:8px 16px 0">
@@ -343,7 +347,7 @@
 const API = '/api/v1/daily-log';
 const api = window.makeApi('/daily-log');
 let entries = [], total = 0, editingId = null, deletingId = null;
-let filterCat = '', filterSearch = '', filterFollowup = false;
+let filterCat = '', filterSearch = '', filterFollowup = false, filterTag = '';
 let searchTimer;
 let dlFormTags = []; // tags on current log entry form
 
@@ -427,22 +431,25 @@ function entryCardHtml(e) {
 }
 
 function render() {
-  const label = (filterSearch||filterCat||filterFollowup) ? `${total} found` : `${total}`;
+  // B17: apply tag filter client-side
+  let displayed = filterTag
+    ? entries.filter(e => (e.tags||[]).includes(filterTag))
+    : entries;
+
+  const label = (filterSearch||filterCat||filterFollowup||filterTag) ? `${displayed.length} found` : `${total}`;
   $('entryCount').textContent = label;
   const el = $('entriesList');
 
-  if (!entries.length) {
-    el.innerHTML = filterSearch||filterCat
+  if (!displayed.length) {
+    el.innerHTML = filterSearch||filterCat||filterTag
       ? emptyState('🔍', 'No entries found', 'Try a different filter or search term', '')
       : emptyState(...GH_EMPTY.logEntries);
-    // legacy placeholder start;
     return;
   }
 
-  // Group by date but sort: overdue first globally, then by date desc within groups
   const today = new Date().toISOString().slice(0,10);
-  const overdue = entries.filter(e => e.follow_up_needed && e.follow_up_date && e.follow_up_date < today);
-  const rest    = entries.filter(e => !(e.follow_up_needed && e.follow_up_date && e.follow_up_date < today));
+  const overdue = displayed.filter(e => e.follow_up_needed && e.follow_up_date && e.follow_up_date < today);
+  const rest    = displayed.filter(e => !(e.follow_up_needed && e.follow_up_date && e.follow_up_date < today));
 
   let html = '';
 
@@ -545,7 +552,12 @@ async function markFollowupDone() {
 function startDelete(id) {
   deletingId = id;
   $('detailDrawer').classList.remove('open');
-  LT.confirm({ onConfirm: doDelete });
+  // Delay so drawer-close pointer events don't accidentally dismiss the confirm
+  setTimeout(() => LT.confirm({
+    title: 'Delete entry?',
+    msg: 'This log entry will be permanently removed.',
+    onConfirm: doDelete
+  }), 150);
 }
 
 $('fabBtn').addEventListener('click', openAdd);
@@ -637,6 +649,29 @@ document.addEventListener('DOMContentLoaded', () => {
     filterFollowup = !filterFollowup;
     fuBtn.classList.toggle('active', filterFollowup);
     load();
+  });
+
+  // Tag filter button — shows all used tags as clickable chips
+  const tfBtn = $('tagFilterBtn');
+  if (tfBtn) tfBtn.addEventListener('click', async () => {
+    const bar = $('tagFilterBar');
+    if (!bar) return;
+    if (bar.style.display === 'flex') { bar.style.display = 'none'; filterTag = ''; tfBtn.classList.remove('active'); render(); return; }
+    const tags = await api('GET', '/settings/tags/entity?entity_type=dailylog').catch(()=>[]);
+    if (!tags.length) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    tfBtn.classList.add('active');
+    bar.innerHTML = '<span style="font-size:11px;color:var(--text3);margin-right:4px">Tag:</span>' +
+      tags.map(t => {
+        const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t.name) : '';
+        return `<button class="tag-chip${filterTag===t.name?' active':''}" data-tag="${esc(t.name)}"
+          style="cursor:pointer;font-size:10px;padding:2px 8px${cs?';'+cs:''}" onclick="
+            filterTag = filterTag===this.dataset.tag?'':this.dataset.tag;
+            document.querySelectorAll('#tagFilterBar .tag-chip').forEach(c=>c.classList.toggle('active',c.dataset.tag===filterTag));
+            render();">${esc(t.name)}</button>`;
+      }).join('') +
+      `<button class="btn btn-ghost" style="font-size:10px;padding:1px 8px;margin-left:4px"
+        onclick="filterTag='';document.querySelectorAll('#tagFilterBar .tag-chip').forEach(c=>c.classList.remove('active'));render()">Clear</button>`;
   });
 
   // Tag input wiring

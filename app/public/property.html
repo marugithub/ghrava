@@ -346,7 +346,14 @@ function onFab(){
 async function loadProps(){
   const el=$('propList'); if(!el) return;
   try{
-    const ps=await api('GET', '/properties');
+    let ps=await api('GET', '/properties');
+    // B17: apply tag filter from GH_VIEW
+    if (window._propFilters?.tags?.length) {
+      ps = ps.filter(p => window._propFilters.tags.every(t => (p.tags||[]).includes(t)));
+    }
+    if (window._propFilters?.type) {
+      ps = ps.filter(p => p.property_type === window._propFilters.type);
+    }
     const tv=ps.reduce((s,p)=>s+(parseFloat(p.current_est_value)||0),0);
     const tm=ps.reduce((s,p)=>s+(parseFloat(p.mortgage_balance)||0),0);
     const eq=tv-tm;

@@ -200,16 +200,14 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
     const data = await resp.json();
 
     try { db.prepare('ALTER TABLE contacts ADD COLUMN google_id TEXT').run(); } catch {}
-    try { db.prepare('ALTER TABLE contacts ADD COLUMN organization TEXT').run(); } catch {}
-    try { db.prepare('ALTER TABLE contacts ADD COLUMN address TEXT').run(); } catch {}
 
     const upsert = db.prepare(`
-      INSERT OR IGNORE INTO contacts (name, contact_type, email, phone, google_id, organization, address, notes)
-      VALUES (?, 'other', ?, ?, ?, ?, ?, 'Imported from Google Contacts')
+      INSERT OR IGNORE INTO contacts (name, contact_type, email, phone, google_id, company, notes)
+      VALUES (?, 'other', ?, ?, ?, ?, 'Imported from Google Contacts')
     `);
     const update = db.prepare(`
       UPDATE contacts SET email=COALESCE(?,email), phone=COALESCE(?,phone),
-        organization=COALESCE(?,organization), address=COALESCE(?,address)
+        company=COALESCE(?,company)
       WHERE google_id=?
     `);
 
@@ -227,10 +225,10 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
 
       const existing = db.prepare('SELECT id FROM contacts WHERE google_id=?').get(person.resourceName);
       if (!existing) {
-        upsert.run(name, email, phone, person.resourceName, org, addr);
+        upsert.run(name, email, phone, person.resourceName, org);
         imported++;
       } else {
-        update.run(email, phone, org, addr, person.resourceName);
+        update.run(email, phone, org, person.resourceName);
       }
     }
 

@@ -69,13 +69,13 @@ router.post('/', requireAuth, (req, res) => {
     const d = req.body;
     if (!d.title) return badRequest(res, 'title required');
     const r = db.prepare(`
-      INSERT INTO books (title, author, genre, status, rating, format, date_started, date_finished, notes, isbn, cover_url, pages_total, pages_read, publisher, publish_year)
+      INSERT INTO books (title, author, genre, status, rating, format, date_started, date_finished, notes, isbn, cover_url, pages_total, pages_read)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(d.title, d.author||null, d.genre||null, d.status||'Want to Read',
            d.rating||null, d.format||'Physical',
            d.date_started||null, d.date_finished||null, d.notes||null,
            d.isbn||null, d.cover_url||null,
-           d.pages_total||null, d.pages_read||null, d.publisher||null, d.publish_year||null);
+           d.pages_total||null, d.pages_read||null);
     if (d.tags) saveTagsByName(r.lastInsertRowid, 'book', d.tags);
     if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'book', d.family_member_ids);
     res.status(201).json(withFamilyMembers(withTagNames(db.prepare('SELECT * FROM books WHERE id=?').get(r.lastInsertRowid), 'book'), 'book'));
@@ -91,17 +91,15 @@ router.put('/:id', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE books SET title=?, author=?, genre=?, status=?, rating=?, format=?,
         date_started=?, date_finished=?, notes=?, isbn=?, cover_url=?,
-        pages_total=?, pages_read=?, publisher=?, publish_year=?, updated_at=CURRENT_TIMESTAMP
+        pages_total=?, pages_read=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
       d.title||existing.title, d.author||null, d.genre||null,
       d.status||existing.status, d.rating||null, d.format||existing.format,
       d.date_started||null, d.date_finished||null, d.notes||null,
       d.isbn||null, d.cover_url||null,
-      d.pages_total   !== undefined ? d.pages_total||null   : existing.pages_total,
-      d.pages_read    !== undefined ? d.pages_read||null    : existing.pages_read,
-      d.publisher     !== undefined ? d.publisher||null     : existing.publisher,
-      d.publish_year  !== undefined ? d.publish_year||null  : existing.publish_year,
+      d.pages_total !== undefined ? d.pages_total||null : existing.pages_total,
+      d.pages_read  !== undefined ? d.pages_read||null  : existing.pages_read,
       req.params.id
     );
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'book', d.tags);

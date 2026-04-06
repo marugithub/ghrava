@@ -118,7 +118,7 @@ router.post('/', (req, res) => {
            link_type||'website', category?.trim()||null,
            access_note?.trim()||null, is_favorite?1:0);
     saveTagsByName(r.lastInsertRowid, 'resource', tags || []);
-    if (body.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'resource', body.family_member_ids);
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'resource', req.body.family_member_ids);
     res.status(201).json(attachTags(db.prepare('SELECT * FROM resources WHERE id=?').get(r.lastInsertRowid)));
   } catch (err) { serverError(res, err); }
 });
@@ -138,7 +138,7 @@ router.put('/:id', (req, res) => {
            link_type||'website', category?.trim()||null,
            access_note?.trim()||null, is_favorite?1:0, req.params.id);
     saveTagsByName(req.params.id, 'resource', tags || []);
-    if (body.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'resource', body.family_member_ids);
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'resource', req.body.family_member_ids);
     clearReview('resources', req.params.id);
     res.json(attachTags(db.prepare('SELECT * FROM resources WHERE id=?').get(req.params.id)));
   } catch (err) { serverError(res, err); }

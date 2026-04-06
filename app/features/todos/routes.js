@@ -432,17 +432,16 @@ router.post('/', (req, res) => {
     if (!title?.trim()) return badRequest(res, 'title required');
     const info = db.prepare(`
       INSERT INTO todos
-        (title, notes, due_date, priority, category, is_auto, reminder_date, recurrence, recurrence_days, status)
-      VALUES (?,?,?,?,?,0,?,?,?,'open')
+        (title, notes, due_date, priority, category, is_auto, reminder_date, recurrence, status)
+      VALUES (?,?,?,?,?,0,?,?,'open')
     `).run(
       title.trim(), notes || null, due_date || null,
       priority || 'medium', category || 'General',
-      reminder_date || null, recurrence || null,
-      (recurrence === 'every_n_days' && recurrence_days) ? parseInt(recurrence_days) : null
+      reminder_date || null, recurrence || null
     );
     const newId = info.lastInsertRowid;
     if (tags && tags.length) saveTagsByName(newId, 'todo', tags);
-    if (body.family_member_ids !== undefined) saveFamilyMembers(newId, 'todo', body.family_member_ids);
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(newId, 'todo', req.body.family_member_ids);
     res.status(201).json(withFamilyMembers(withTagNames(db.prepare('SELECT * FROM todos WHERE id=?').get(newId), 'todo'), 'todo'));
   } catch (e) { serverError(res, e); }
 });
@@ -458,7 +457,7 @@ router.put('/:id', (req, res) => {
     db.prepare(`
       UPDATE todos SET
         title=?, notes=?, due_date=?, priority=?, category=?,
-        status=?, reminder_date=?, recurrence=?, recurrence_days=?,
+        status=?, reminder_date=?, recurrence=?,
         completed_at=CASE WHEN ? IN ('done','dismissed') THEN CURRENT_TIMESTAMP ELSE completed_at END,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
@@ -467,15 +466,12 @@ router.put('/:id', (req, res) => {
       priority ?? todo.priority, category ?? todo.category,
       status ?? todo.status, reminder_date ?? todo.reminder_date,
       recurrence ?? todo.recurrence,
-      (recurrence !== undefined)
-        ? ((recurrence === 'every_n_days' && recurrence_days) ? parseInt(recurrence_days) : null)
-        : todo.recurrence_days,
       status ?? todo.status,
       req.params.id
     );
-    if (body.tags !== undefined) saveTagsByName(req.params.id, 'todo', body.tags);
+    if (req.body.tags !== undefined) saveTagsByName(req.params.id, 'todo', req.body.tags);
     clearReview('todos', req.params.id);
-    if (body.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'todo', body.family_member_ids);
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'todo', req.body.family_member_ids);
     res.json(withFamilyMembers(withTagNames(db.prepare('SELECT * FROM todos WHERE id=?').get(req.params.id), 'todo'), 'todo'));
   } catch (e) { serverError(res, e); }
 });
