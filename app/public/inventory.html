@@ -1391,23 +1391,7 @@ const $ = id => document.getElementById(id);
 
 // ── authFetch — like fetch() but adds Authorization header and
 // handles 401 the same way window.api does (prompt + retry once).
-async function authFetch(url, opts = {}, _isRetry = false) {
-  opts.headers = Object.assign({}, opts.headers, {
-    'Authorization': `Bearer ${LT.authToken}`
-  });
-  const res = await fetch(url, opts);
-  if (res.status === 401 && !_isRetry) {
-    try {
-      await window.reAuthPrompt();
-      // Token refreshed — retry with new token
-      opts.headers['Authorization'] = `Bearer ${LT.authToken}`;
-      return fetch(url, opts);
-    } catch {
-      throw new Error('Not authenticated');
-    }
-  }
-  return res;
-}
+// authFetch removed — use window.api() instead
 
 
 let view = 'browse';
@@ -1429,21 +1413,14 @@ let familyMembers  = [];
 let medicalContacts = [];
 let invCategories  = []; // loaded from dropdown_options
 
-// ── Silent fetch (no 401 redirect) ────────────────────────────
-async function silentGet(path) {
-  try {
-    const r = await fetch('/api/v1' + path, { headers: { 'Authorization': `Bearer ${authToken}` } });
-    if (!r.ok) return [];
-    return await r.json();
-  } catch { return []; }
-}
+// silentGet removed — use window.window.silentGet() from lt-core
 
 // ── Load shared data ───────────────────────────────────────────
 async function loadSharedData() {
   [familyMembers, medicalContacts, invCategories] = await Promise.all([
-    silentGet('/settings/family'),
-    silentGet('/settings/contacts?type=Medical'),
-    silentGet('/settings/dropdowns/inventory_category'),
+    window.silentGet('/settings/family'),
+    window.silentGet('/settings/contacts?type=Medical'),
+    window.silentGet('/settings/dropdowns/inventory_category'),
   ]);
   // GH_SELECT loads inventory_category on demand when drawer opens
 }
@@ -1505,7 +1482,7 @@ async function initInvView() {
   const locOptions = (window._roomLocs||[]).map(l => ({ value: l.id, label: l.name }));
   let catOptions = [];
   try {
-    const cats = await fetch('/api/v1/settings/dropdowns/inventory_category').then(r=>r.ok?r.json():[]);
+    const cats = await window.api('GET', '/settings/dropdowns/inventory_category').catch(()=>[]);
     catOptions = cats.map(c => ({ value: c.value||c.label, label: c.label }));
   } catch(e) {}
 
@@ -1839,7 +1816,7 @@ function setBizFilter(mode) {
 let roomFilter = ''; // location id or ''
 async function loadRooms() {
   try {
-    const locs = await fetch('/api/v1/inventory/locations').then(r=>r.ok?r.json():[]);
+    const locs = await window.api('GET', '/inventory/locations').catch(()=>[]);
     window._roomLocs = locs;
   } catch(e) { window._roomLocs = []; }
 }
@@ -1857,7 +1834,7 @@ async function renderRoomTiles() {
 
   let counts = {};
   try {
-    const items = await fetch('/api/v1/inventory/items').then(r=>r.ok?r.json():[]);
+    const items = await window.api('GET', '/inventory/items').catch(()=>[]);
     items.forEach(i => {
       if (i.parent_type === 'location') counts[i.parent_id] = (counts[i.parent_id]||0) + 1;
     });
@@ -2905,7 +2882,7 @@ async function editLoc(id) {
 
 function delLoc(id,name) {
   confirm('Delete location?',`"${name}" will be deleted. It must be empty first.`,async()=>{
-    const r=await authFetch(`${API}/locations/${id}`,{method:'DELETE'});
+    const r=await window.api('DELETE', `/inventory/locations/${id}`);
     const d=await r.json();
     if(d.error){toast(d.error,'err');return;}
     toast('Deleted'); await loadStats(); goHome();
@@ -2925,17 +2902,12 @@ $('locSave').addEventListener('click', async () => {
   const btn = $('locSave'); btn.textContent = 'Saving…'; btn.disabled = true;
   try {
     const url = editingId ? `${API}/locations/${editingId}` : `${API}/locations`;
-    const r = await authFetch(url, { method: editingId ? 'PUT' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    const saved = await window.api(editingId ? 'PUT' : 'POST', editingId ? `/inventory/locations/${editingId}` : '/inventory/locations', {
         name,
         location_type: $('loc_type').value,
         description:   $('loc_desc').value.trim() || null,
         notes:         $('loc_notes').value || null
-      })
-    });
-    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
-    const saved = await r.json();
+      });
     $('locationDrawer').classList.remove('open');
     $('locationDrawer').style.zIndex = '';
 
@@ -3006,9 +2978,7 @@ $('ctnSave').addEventListener('click', async () => {
     const method = editingId ? 'PUT' : 'POST';
     const body = { name, subtype: $('ctn_sub').value, notes: $('ctn_notes').value||null };
     if (!editingId) { body.parent_type = pt; body.parent_id = +pid; }
-    const r = await authFetch(url, { method, headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
-    if (!r.ok) throw new Error((await r.json()).error || 'Save failed');
-    const saved = await r.json();
+    const saved = await window.api(method, editingId ? `/inventory/containers/${editingId}` : '/inventory/containers', body);
     $('containerDrawer').classList.remove('open');
     $('containerDrawer').style.zIndex = '';
 
@@ -3237,7 +3207,7 @@ $('itemSave').addEventListener('click', async ()=>{
   try{
     const url=editingId?`${API}/items/${editingId}`:`${API}/items`;
     const method=editingId?'PUT':'POST';
-    const r=await authFetch(url,{method,headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    const r=await window.api(method, url.replace('/api/v1',''), {
       name, category:$('itm_cat').value||null, quantity:+$('itm_qty').value||1,
       parent_type:pt, parent_id:+pid,
       brand:$('itm_brand').value||null, model_number:$('itm_model').value||null,
@@ -3255,9 +3225,8 @@ $('itemSave').addEventListener('click', async ()=>{
       notes:$('itm_notes').value||null,
       is_business: $('itm_is_business').checked ? 1 : 0,
       tags:itmFormTags
-    })});
-    if(!r.ok) throw new Error((await r.json()).error||'Save failed');
-    const saved=await r.json();
+    });
+    const saved=r;
     // Save H&W details if category is Health & Wellness
     if (isHW($('itm_cat').value)) {
       await saveHWDetails(saved.id);
@@ -3285,14 +3254,13 @@ function openArchive(id) {
 
 $('archiveSave').addEventListener('click', async ()=>{
   const id=$('arch_item_id').value;
-  await authFetch(`${API}/items/${id}/archive`,{method:'PUT',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({reason:$('arch_reason').value||null})});
+  await window.api('PUT', `/inventory/items/${id}/archive`, {reason:$('arch_reason').value||null});
   $('archiveDrawer').classList.remove('open');
   toast('Item archived'); await loadStats(); renderBrowse();
 });
 
 async function doUnarchive(id) {
-  await authFetch(`${API}/items/${id}/unarchive`,{method:'PUT',headers:{'Content-Type':'application/json'},body:'{}'});
+  await window.api('PUT', `/inventory/items/${id}/unarchive`, {});
   $('detailDrawer').classList.remove('open');
   toast('Item unarchived'); await loadStats(); renderBrowse();
 }
@@ -3307,9 +3275,9 @@ function openSell(id) {
 
 $('sellSave').addEventListener('click', async ()=>{
   const id=$('sell_item_id').value;
-  await authFetch(`${API}/items/${id}/sell`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+  await window.api('PUT', `/inventory/items/${id}/sell`, {
     sold_date:$('sell_date').value||null, sold_price:$('sell_price').value?parseFloat($('sell_price').value):null, sold_to:$('sell_to').value||null
-  })});
+  });
   $('sellDrawer').classList.remove('open');
   toast('Item marked sold & archived'); await loadStats(); renderBrowse();
 });
@@ -3331,12 +3299,11 @@ $('maintSave').addEventListener('click', async ()=>{
   if(!desc){toast('Description required','err');return;}
   const btn=$('maintSave'); btn.textContent='Saving…'; btn.disabled=true;
   try{
-    const r=await authFetch(`${API}/items/${id}/maintenance`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    const r=await window.api('POST', `/inventory/items/${id}/maintenance`, {
       log_date:$('maint_date').value, maintenance_type:$('maint_type').value, description:desc,
       cost:$('maint_cost').value?parseFloat($('maint_cost').value):null,
       provider:$('maint_provider').value||null, next_due_date:$('maint_next').value||null
-    })});
-    if(!r.ok) throw new Error((await r.json()).error||'Save failed');
+    });
     $('maintDrawer').classList.remove('open');
     toast('Maintenance logged');
     if(currentDetailId===+id) await openDetail(+id);
@@ -3351,8 +3318,8 @@ async function openMove(ctnId) {
   $('move_ctn_id').value=ctnId;
   $('move_target_type').value=''; $('move_target_id').value='';
   $('moveConfirmBtn').disabled=true;
-  const [preR,locR]=await Promise.all([fetch(`${API}/containers/${ctnId}/move-preview`),fetch(`${API}/locations/flat`)]);
-  const prev=await preR.json(), locs=await locR.json();
+  const [prev,locs]=await Promise.all([window.api('GET', `/inventory/containers/${ctnId}/move-preview`),window.api('GET', '/inventory/locations/flat')]);
+  // prev and locs already resolved above
   $('movePreviewBox').innerHTML=`<div style="background:var(--amber-bg);border:1px solid rgba(245,158,11,.3);border-radius:var(--r);padding:10px 12px;font-size:13px;color:var(--amber)">Moving <strong>${prev.container.name}</strong> · ${prev.total_children} sub-items will also move</div>`;
   $('moveTargetsList').innerHTML=locs.map(l=>`
     <div class="card" style="margin-bottom:6px;cursor:pointer" data-mt-type="location" data-mt-id="${l.id}">
@@ -3374,10 +3341,9 @@ async function openMove(ctnId) {
 $('moveConfirmBtn').addEventListener('click', async ()=>{
   const btn=$('moveConfirmBtn'); btn.textContent='Moving…'; btn.disabled=true;
   try{
-    const r=await authFetch(`${API}/containers/${$('move_ctn_id').value}/move`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    const r=await window.api('PUT', `/inventory/containers/${$('move_ctn_id').value}/move`, {
       new_parent_type:$('move_target_type').value, new_parent_id:+$('move_target_id').value, confirm:true
-    })});
-    if(!r.ok) throw new Error((await r.json()).error||'Move failed');
+    });
     $('moveDrawer').classList.remove('open');
     toast('Container moved'); renderBrowse();
   }catch(err){toast(err.message,'err');}
@@ -3477,7 +3443,7 @@ async function loadCategoryChips() {
     'Office':'🖊️','Garden':'🌻','Automotive':'🚗','Art & Crafts':'🎨'
   };
   try {
-    const opts = await fetch('/api/v1/settings/dropdowns/inventory_category').then(r => r.ok ? r.json() : []);
+    const opts = await window.api('GET', '/settings/dropdowns/inventory_category').catch(()=>[]);
     const strip = $('catChips');
     if (!strip || !opts.length) return;
     strip.innerHTML = '<div class="chip active" data-cat="">All</div>';

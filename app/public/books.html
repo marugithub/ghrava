@@ -675,7 +675,7 @@ async function lookupIsbn(isbn) {
   // 2. Fallback: Google Books (if API key configured)
   if (!bookData) {
     try {
-      const cfgR = await fetch('/api/v1/settings/config/google_books_api_key');
+      const cfgR = await window.api('GET', '/settings/config/google_books_api_key').catch(()=>null);
       const cfg  = cfgR.ok ? await cfgR.json() : null;
       const key  = cfg?.value;
       if (key) {

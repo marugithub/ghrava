@@ -596,7 +596,7 @@ function refreshAll() {
 // ── Load family members for form ──────────────────────────────
 async function loadFamilyOpts() {
   try {
-    const fam = await fetch('/api/v1/settings/family').then(r=>r.ok?r.json():[]);
+    const fam = await window.api('GET', '/settings/family').catch(()=>[]);
     const sel = $('fFamilyMember');
     fam.forEach(f => {
       const opt = document.createElement('option');

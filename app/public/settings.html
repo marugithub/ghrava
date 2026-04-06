@@ -1015,8 +1015,7 @@ async function checkAuth() {
   if (LT.authToken) {
     // Already have a token — verify it's still valid
     try {
-      const r = await fetch('/api/v1/auth/status', {headers:{'Authorization':`Bearer ${LT.authToken}`}});
-      const d = await r.json();
+      const d = await window.api('GET', '/auth/status');
       if (d.authenticated) { showMain(); return; }
     } catch {}
     // Token invalid — clear it and show login
@@ -1040,7 +1039,7 @@ function showMain() {
   const ts = $('themeSwitch');
   if (ts && window.LTTheme) ts.innerHTML = LTTheme.switcherHTML();
   // Update version badge
-  fetch('/api/v1/app/info').then(r=>r.json()).then(d=>{
+  window.api('GET', '/app/info').then(d=>{
     if ($('badge-version')) $('badge-version').textContent = 'v' + d.version;
   }).catch(()=>{});
 }
@@ -1079,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Logout
   const lbtn = $('logoutBtn');
   if (lbtn) lbtn.addEventListener('click', () => {
-    fetch('/api/v1/auth/logout', {method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}}).catch(()=>{});
+    window.api('POST', '/auth/logout', {}).catch(()=>{});
     LT.authToken = null; localStorage.removeItem('lt_token'); showLogin();
   });
 
@@ -1092,11 +1091,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btn = $('restoreConfirmBtn');
     btn.textContent = 'Restoring…'; btn.disabled = true;
     try {
-      const r = await fetch('/api/v1/backup/restore', {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` },
-        body: JSON.stringify({ filename: _restoreTarget })
-      });
-      if (!r.ok) throw new Error((await r.json()).error||'Restore failed');
+      await window.api('POST', '/backup/restore', { filename: _restoreTarget });
       $('restoreConfirm').style.display = 'none';
       $('restoreSuccess').style.display = 'block';
       await loadBackups();
@@ -1132,7 +1127,7 @@ async function loadGooglePanel() {
   if (rUri) rUri.textContent = `${baseUrl}/api/v1/google/oauth/callback`;
 
   try {
-    const s = await fetch('/api/v1/google/status').then(r=>r.json());
+    const s = await window.api('GET', '/google/status');
 
     // Update nav badge
     const badge = document.getElementById('badge-google');
@@ -1176,7 +1171,7 @@ async function loadGooglePanel() {
     if (document.getElementById('googleSyncCon'))   document.getElementById('googleSyncCon').checked   = s.services.contacts.enabled;
 
     // Pre-fill credentials
-    const creds = s.configured ? await fetch('/api/v1/google/status').then(()=>({})) : {};
+    const creds = s.configured ? {} : {};
     // (We don't return secrets — just leave fields blank if already saved)
 
     // Sync action buttons
@@ -1201,12 +1196,7 @@ async function saveGoogleCredentials() {
   const clientSecret = document.getElementById('googleClientSecret')?.value.trim();
   if (!clientId || !clientSecret) { toast('Both Client ID and Client Secret are required', 'err'); return; }
   try {
-    const r = await fetch('/api/v1/google/credentials', {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
-      body: JSON.stringify({ client_id: clientId, client_secret: clientSecret }),
-    });
-    if (!r.ok) throw new Error(await r.text());
+    await window.api('PUT', '/google/credentials', { client_id: clientId, client_secret: clientSecret });
     toast('Credentials saved', 'ok');
     document.getElementById('googleClientSecret').value = '';
     loadGooglePanel();
@@ -1217,49 +1207,30 @@ async function saveGoogleBooksKey() {
   const key = document.getElementById('googleBooksApiKey')?.value.trim();
   const res = document.getElementById('googleBooksKeyResult');
   try {
-    const r = await fetch('/api/v1/settings/config/google_books_api_key', {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
-      body: JSON.stringify({ value: key }),
-    });
-    if (!r.ok) throw new Error('Save failed');
-    res.textContent = key ? '✓ API key saved' : '✓ Key cleared';
-    res.style.color = 'var(--green)';
-    res.style.display = 'block';
-    document.getElementById('googleBooksApiKey').value = '';
-    setTimeout(() => { res.style.display = 'none'; }, 3000);
+    await window.api('PUT', '/settings/config/google_books_api_key', { value: key });
+    if (res) { res.textContent = key ? '✓ Key saved' : '✓ Key cleared'; res.style.color='var(--green)'; }
+    toast('Books API key saved', 'ok');
   } catch(e) { toast('Failed to save key', 'err'); }
 }
 
 async function loadGoogleBooksKey() {
   try {
-    const r = await fetch('/api/v1/settings/config/google_books_api_key', {
-      headers: {'Authorization':'Bearer '+LT.authToken}
-    });
-    if (!r.ok) return;
-    const d = await r.json();
-    const input = document.getElementById('googleBooksApiKey');
-    if (input && d.value) input.placeholder = '••••••••••••••••••••••••••• (set)';
+    const data = await window.api('GET', '/settings/config/google_books_api_key');
+    const el = document.getElementById('googleBooksApiKey');
+    if (el && data?.value) el.value = data.value;
   } catch {}
 }
 
 async function saveGooglePrefs() {
   try {
-    await fetch('/api/v1/google/prefs', {
-      method: 'PUT',
-      headers: {'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken},
-      body: JSON.stringify({
-        sync_tasks:    document.getElementById('googleSyncTasks')?.checked,
-        sync_contacts:  document.getElementById('googleSyncCon')?.checked,
-      }),
-    });
+    await window.api('PUT', '/google/prefs', { sync_tasks: document.getElementById('googleSyncTasks')?.checked, sync_contacts: document.getElementById('googleSyncCon')?.checked });
   } catch {}
 }
 
 async function startGoogleOAuth() {
   try {
-    const r = await fetch('/api/v1/google/oauth/start', { headers:{'Authorization':'Bearer '+LT.authToken} });
-    const d = await r.json();
+    const r = await window.api('GET', '/google/oauth/start');
+    const d = r;
     if (d.auth_url) window.location.href = d.auth_url;
     else toast(d.error || 'Failed to start OAuth', 'err');
   } catch { toast('Failed', 'err'); }
@@ -1268,9 +1239,7 @@ async function startGoogleOAuth() {
 async function disconnectGoogle() {
   if (!confirm('Disconnect Google? Synced todos will keep their google_task_id but stop syncing.')) return;
   try {
-    await fetch('/api/v1/google/disconnect', {
-      method: 'DELETE', headers:{'Authorization':'Bearer '+LT.authToken}
-    });
+    await window.api('DELETE', '/google/disconnect', {}).catch(()=>{});
     toast('Disconnected from Google', 'ok');
     loadGooglePanel();
   } catch { toast('Failed', 'err'); }
@@ -1279,12 +1248,8 @@ async function disconnectGoogle() {
 async function triggerTaskSync() {
   const btn = document.getElementById('taskSyncBtn'); if (btn) { btn.disabled=true; btn.textContent='Syncing…'; }
   try {
-    const r = await fetch('/api/v1/google/sync/tasks', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken}
-    });
-    const d = await r.json();
-    if (r.ok) toast(`Synced ${d.synced} tasks (${d.created} new, ${d.updated} updated) from ${d.lists} list${d.lists!==1?'s':''}`, 'ok');
-    else toast(d.error || 'Sync failed', 'err');
+    const d = await window.api('POST', '/google/sync/tasks', {});
+    toast(`Synced ${d.synced||0} tasks (${d.created||0} new, ${d.updated||0} updated) from ${d.lists||0} list${(d.lists||0)!==1?'s':''}`, 'ok');
     loadGooglePanel();
   } catch { toast('Sync failed', 'err'); }
   finally { if (btn) { btn.disabled=false; btn.textContent='✅ Sync Tasks'; } }
@@ -1293,12 +1258,8 @@ async function triggerTaskSync() {
 async function triggerConSync() {
   const btn = document.getElementById('conSyncBtn'); if (btn) { btn.disabled=true; btn.textContent='Syncing…'; }
   try {
-    const r = await fetch('/api/v1/google/sync/contacts', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+LT.authToken}
-    });
-    const d = await r.json();
-    if (r.ok) toast(`Imported ${d.imported} new contacts (${d.total} total)`, 'ok');
-    else toast(d.error || 'Sync failed', 'err');
+    const d = await window.api('POST', '/google/sync/contacts', {});
+    toast(`Imported ${d.imported||0} new contacts (${d.total||0} total)`, 'ok');
     loadGooglePanel();
   } catch { toast('Sync failed', 'err'); }
   finally { if (btn) { btn.disabled=false; btn.textContent='👥 Sync Contacts'; } }
@@ -1359,7 +1320,7 @@ async function triggerConSync() {
 
 async function loadAbout() {
   try {
-    const d = await fetch('/api/v1/app/info').then(r => r.json());
+    const d = await window.api('GET', '/app/info');
     if ($('aboutVersion'))  $('aboutVersion').textContent  = 'v' + d.version;
     if ($('badge-version')) $('badge-version').textContent = 'v' + d.version;
     if ($('aboutBuildDate'))$('aboutBuildDate').textContent= 'Build ' + (d.build_date||'');
@@ -1402,29 +1363,8 @@ async function runCleanup() {
   log.style.display = 'block';
   log.textContent = 'Running cleanup…';
   try {
-    const d = await fetch('/api/v1/settings/cleanup/run', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LT.authToken }
-    }).then(r => r.json());
-
-    const lines = [];
-    if (d.titles > 0)     lines.push(`✓ ${d.titles} item name(s) cleaned — fields extracted`);
-    else                  lines.push(`✓ No bloated item names found`);
-    if (d.quantities > 0) lines.push(`✓ ${d.quantities} item quantity/quantities set to 1`);
-    else                  lines.push(`✓ No missing quantities found`);
-    if (d.errors?.length) lines.push(`⚠ ${d.errors.length} error(s): ${d.errors.slice(0,3).join('; ')}`);
-
-    const totalChanged = (d.titles||0) + (d.quantities||0);
-    lines.push('');
-    if (totalChanged > 0) {
-      lines.push(`${totalChanged} record(s) updated — check Settings → Data Review to verify changes.`);
-      loadReviewSummary(); // refresh the review dashboard
-    } else {
-      lines.push('Everything looks clean.');
-    }
-    log.innerHTML = lines.map(l =>
-      `<span style="color:${l.startsWith('⚠') ? 'var(--amber)' : l.startsWith('✓') ? 'var(--green)' : 'var(--text3)'}">${esc(l)}</span>`
-    ).join('\n');
+    const d = await window.api('POST', '/settings/cleanup/run', {});
+    log.innerHTML = `<pre>${JSON.stringify(d,null,2)}</pre>`;
   } catch(e) {
     log.innerHTML = `<span style="color:var(--red)">${ghErrorMsg(e)}</span>`;
   } finally {
@@ -1440,22 +1380,8 @@ async function runImageBackfill() {
   log.style.display = 'block';
   log.innerHTML = '<span style="color:var(--text3)">Scanning for items with UPC but no photo…</span>';
   try {
-    const r = await fetch('/api/v1/inventory/items/backfill-images', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LT.authToken }
-    });
-    if (!r.ok) throw new Error((await r.json()).error || `HTTP ${r.status}`);
-    const d = await r.json();
-    const lines = [];
-    if (d.succeeded > 0) lines.push(`✓ ${d.succeeded} image(s) downloaded`);
-    if (d.skipped  > 0) lines.push(`⏭ ${d.skipped} already had a photo`);
-    if (d.failed   > 0) lines.push(`⚠ ${d.failed} failed (no image found for UPC)`);
-    if (d.remaining > 0) lines.push(`${d.remaining} item(s) still need images — tap again to continue`);
-    else if (d.processed > 0) lines.push('All done — no more items need images.');
-    else lines.push('No items found with a UPC barcode but no photo.');
-    log.innerHTML = lines.map(l =>
-      `<span style="color:${l.startsWith('⚠') ? 'var(--amber)' : l.startsWith('✓') ? 'var(--green)' : 'var(--text3)'}">${esc(l)}</span>`
-    ).join('\n');
+    const d = await window.api('POST', '/inventory/items/backfill-images', {});
+    log.innerHTML = `<span style="color:var(--green)">✓ Done: ${d?.updated||0} updated</span>`;
   } catch(e) {
     log.innerHTML = `<span style="color:var(--red)">${ghErrorMsg(e)}</span>`;
   } finally {
@@ -1468,7 +1394,7 @@ async function loadReviewSummary() {
   if (!el) return;
   el.innerHTML = spinnerHtml('Checking…');
   try {
-    const d = await fetch('/api/v1/settings/review/summary').then(r => r.json());
+    const d = await window.api('GET', '/settings/review/summary');
     if (!d.total) {
       el.innerHTML = `<div style="color:var(--green);font-size:13px;padding:8px 0">✓ No records need review</div>`;
       return;
@@ -1524,17 +1450,8 @@ async function loadLogs(n) {
   el.style.display = 'block';
   el.textContent = 'Loading…';
   try {
-    const d = await fetch(`/api/v1/app/logs?lines=${n}`, {
-      headers: { 'Authorization': 'Bearer ' + LT.authToken }
-    }).then(r => r.json());
-    if (!d.lines?.length) { el.textContent = 'No log entries yet.'; return; }
-    // Colour-code by level
-    el.innerHTML = d.lines.map(line => {
-      const col = line.includes('[ERROR]') ? 'var(--red)' :
-                  line.includes('[WARN]')  ? 'var(--amber)' : 'var(--text2)';
-      return `<span style="color:${col}">${esc(line)}</span>`;
-    }).join('\n');
-    el.scrollTop = el.scrollHeight;
+    const d = await window.api('GET', `/app/logs?lines=${n}`);
+    renderLogs(d);
   } catch(e) {
     el.textContent = 'Could not load logs: ' + e.message;
   }
@@ -1568,25 +1485,8 @@ async function runOrphanCheck() {
   el.style.display = 'block';
   el.innerHTML = '<span style="color:var(--text3)">Checking…</span>';
   try {
-    const r = await fetch('/api/v1/settings/diagnostics/orphans', {
-      headers: { 'Authorization': 'Bearer ' + (LT.authToken || '') }
-    }).then(r => r.json());
-
-    const rows = r.checks.map(c => {
-      const icon  = c.ok ? '✓' : (c.warning ? '⚠' : '✗');
-      const color = c.ok ? 'var(--green)' : (c.warning ? 'var(--amber)' : 'var(--red)');
-      return `<div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)">
-        <span style="color:${color};width:14px;flex-shrink:0">${icon}</span>
-        <span style="flex:1;color:var(--text)">${esc(c.check)}</span>
-        <span style="color:var(--text3)">${esc(c.detail||'')}</span>
-      </div>`;
-    }).join('');
-
-    const summary = r.ok
-      ? '<div style="color:var(--green);padding:6px 0;font-weight:600">✓ No orphaned records found</div>'
-      : '<div style="color:var(--red);padding:6px 0;font-weight:600">✗ Orphaned records detected — see details below</div>';
-
-    el.innerHTML = summary + rows;
+    const r = await window.api('GET', '/settings/diagnostics/orphans');
+    renderOrphans(r);
   } catch(e) {
     el.innerHTML = '<span style="color:var(--red)">Check failed: ' + esc(e.message) + '</span>';
   }
@@ -1603,7 +1503,7 @@ async function runOrphanCheck() {
     const t0 = Date.now();
     return fetch(path, opts).then(async r => {
       const ms = Date.now()-t0;
-      let data; try { data = await r.json(); } catch { data = null; }
+      let data; try { data = r; } catch { data = null; }
       return {status:r.status, data, ms};
     }).catch(e => ({status:0, data:null, ms:0, error:e.message}));
   }
@@ -1951,12 +1851,9 @@ async function runOrphanCheck() {
     // Hard-delete all _diag_* test rows created during this run.
     // Soft-delete (is_active=0) leaves ghost rows that inflate record counts.
     try {
-      const p = await fetch('/api/v1/settings/diagnostics/purge', {
-        method: 'POST',
-        headers: { 'Content-Type':'application/json', 'Authorization':'Bearer '+LT.authToken }
-      }).then(r => r.json());
-      if (p.total > 0) diagAppendLog(`Cleanup: removed ${p.total} test record(s)`);
-    } catch(e) { diagAppendLog(`Cleanup warning: ${e.message}`); }
+      const p = await window.api('POST', '/settings/diagnostics/purge', {table:$('purgeTable').value});
+      diagAppendLog(`✓ Purged ${p?.deleted||0} records from ${$('purgeTable').value}`);
+  } catch(e) { diagAppendLog(`Cleanup warning: ${e.message}`); }
 
     _running=false;
     if(btn){btn.textContent='▶ Run All Tests';btn.onclick=diagStartRun;}
@@ -1974,20 +1871,9 @@ async function changePassword() {
   if (nw !== conf) { errEl.textContent = 'New passwords do not match'; errEl.style.display = 'block'; return; }
   if (nw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = 'block'; return; }
   try {
-    const r = await fetch('/api/v1/auth/change-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + LT.authToken },
-      body: JSON.stringify({ current_password: cur, new_password: nw }),
-    });
-    if (r.ok) {
-      toast('Password updated');
-      $('pwCurrent').value = $('pwNew').value = $('pwConfirm').value = '';
-      closePanel('account');
-    } else {
-      const d = await r.json();
-      errEl.textContent = d.error || 'Incorrect current password';
-      errEl.style.display = 'block';
-    }
+    await window.api('POST', '/auth/change-password', { current: $('pwCurrent').value, newPass: $('pwNew').value });
+    toast('Password changed', 'ok');
+    $('pwCurrent').value = ''; $('pwNew').value = ''; $('pwConfirm').value = '';
   } catch(e) { errEl.textContent = 'Request failed'; errEl.style.display = 'block'; }
 }
 
@@ -2017,9 +1903,9 @@ window.addEventListener('popstate', (e) => {
 async function loadBadges() {
   try {
     const [fam, con, tags] = await Promise.all([
-      fetch('/api/v1/settings/family', {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json()),
-      fetch('/api/v1/settings/contacts', {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json()),
-      fetch('/api/v1/settings/tags').then(r=>r.ok?r.json():[]),
+      window.api('GET', '/settings/family'),
+      window.api('GET', '/settings/contacts'),
+      window.api('GET', '/settings/tags').catch(()=>[]),
     ]);
     const show = (id, n) => { const el=$(id); if(n>0){el.textContent=n;el.style.display='inline-block';}else el.style.display='none'; };
     show('badge-family', fam.length);
@@ -2028,7 +1914,7 @@ async function loadBadges() {
 
     // Google badge (non-auth endpoint)
     try {
-      const gs = await fetch('/api/v1/google/status').then(r=>r.ok?r.json():null);
+      const gs = await window.api('GET', '/google/status').catch(()=>null);
       const gb = $('badge-google');
       if (gb && gs) {
         gb.textContent = gs.connected ? '● Connected' : (gs.configured ? 'Needs auth' : 'Not connected');
@@ -2052,8 +1938,7 @@ document.getElementById('panel-contacts').querySelector('div div').addEventListe
 // FAMILY
 // ══════════════════════════════════════════════════════════════
 async function loadFamily() {
-  const r = await fetch('/api/v1/settings/family', {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-  const members = await r.json();
+  const members = await window.api('GET', '/settings/family');
   const el = $('familyList');
   if (!members.length) {
     el.innerHTML='<div class="empty"><div class="empty-icon">👨‍👩‍👧‍👦</div><h3>No family members yet</h3><p>Add the people who appear throughout Ghrava.</p></div>';
@@ -2092,8 +1977,7 @@ function openFamilyDrawer(member=null) {
 }
 
 async function editFamily(id) {
-  const r = await fetch(`/api/v1/settings/family/${id}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-  openFamilyDrawer(await r.json());
+  openFamilyDrawer(await window.api('GET', `/settings/family/${id}`));
 }
 
 $('familyCancel').addEventListener('click', () => $('familyDrawer').classList.remove('open'));
@@ -2104,9 +1988,8 @@ $('familySave').addEventListener('click', async () => {
   if (!name) { toast('Display name required','err'); return; }
   const btn=$('familySave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const url = editingId ? `/api/v1/settings/family/${editingId}` : '/api/v1/settings/family';
-    const method = editingId ? 'PUT' : 'POST';
-    const r = await fetch(url, {method, headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({
+    const _fpath = editingId ? `/settings/family/${editingId}` : '/settings/family';
+    const saved = await window.api(editingId ? 'PUT' : 'POST', _fpath, {
       display_name:$('fm_display_name').value.trim(),
       full_legal_name:$('fm_legal_name').value.trim()||null,
       relationship:$('fm_relationship').value||null,
@@ -2114,9 +1997,7 @@ $('familySave').addEventListener('click', async () => {
       ssn_last4:$('fm_ssn4').value||null,
       is_primary_user:$('fm_primary').checked,
       notes:$('fm_notes').value.trim()||null
-    })});
-    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
-    const saved = await r.json();
+    });
     $('familyDrawer').classList.remove('open');
     toast(editingId?'Updated':'Added');
     await loadFamily();
@@ -2133,13 +2014,12 @@ $('familySave').addEventListener('click', async () => {
 // CONTACTS
 // ══════════════════════════════════════════════════════════════
 async function loadContacts() {
-  const url = contactTypeFilter ? `/api/v1/settings/contacts?type=${contactTypeFilter}` : '/api/v1/settings/contacts';
+  const _cpath = contactTypeFilter ? `/settings/contacts?type=${contactTypeFilter}` : '/settings/contacts';
   const el = $('contactsList');
   try {
-    const r = await fetch(url, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-    if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    const contacts = await r.json();
-    if (!Array.isArray(contacts) || !contacts.length) {
+    const contacts = await window.api('GET', _cpath);
+    if (!Array.isArray(contacts)) throw new Error('Bad response');
+    if (!contacts.length) {
       el.innerHTML='<div class="empty"><div class="empty-icon">📇</div><h3>No contacts yet</h3><p>Add doctors, vendors, services, and more.</p></div>';
       return;
     }
@@ -2278,8 +2158,8 @@ $('ct_type').addEventListener('change', () => {
 });
 
 async function editContact(id) {
-  const r = await fetch(`/api/v1/settings/contacts/${id}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-  openContactDrawer(await r.json());
+  const r = await window.api('GET', `/settings/contacts/${id}`);
+  openContactDrawer(r);
 }
 
 $('contactCancel').addEventListener('click', () => {
@@ -2297,9 +2177,8 @@ $('contactSave').addEventListener('click', async () => {
   if (!type) { toast('Contact type required','err'); return; }
   const btn=$('contactSave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const url = editingId ? `/api/v1/settings/contacts/${editingId}` : '/api/v1/settings/contacts';
-    const method = editingId ? 'PUT' : 'POST';
-    const r = await fetch(url, {method, headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({
+    const _cpath2 = editingId ? `/settings/contacts/${editingId}` : '/settings/contacts';
+    const saved = await window.api(editingId ? 'PUT' : 'POST', _cpath2, {
       contact_type: type, name,
       specialty:         $('ct_specialty')?.value||null,
       company:           $('ct_company').value||null,
@@ -2330,9 +2209,7 @@ $('contactSave').addEventListener('click', async () => {
       institution_type:      $('ct_inst_type')?.value||null,
       rep_name:              $('ct_rep_name')?.value||null,
       account_types_served:  $('ct_acct_types')?.value||null,
-    })});
-    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
-    const saved = await r.json();
+    });
     $('contactDrawer').classList.remove('open');
     toast(editingId?'Updated':'Added');
     await loadContacts();
@@ -2364,12 +2241,7 @@ function selectTagColor(c) {
 
 async function loadTags() {
   // GET /tags is now public — no auth needed for reads
-  const r = await fetch('/api/v1/settings/tags');
-  if (!r.ok) {
-    $('tagsList').innerHTML='<div class="empty"><div class="empty-icon">⚠️</div><h3>Could not load tags</h3><p>'+r.status+'</p></div>';
-    return;
-  }
-  const tags = await r.json();
+  const tags = await window.api('GET', '/settings/tags');
   const el = $('tagsList');
   if (!Array.isArray(tags) || !tags.length) {
     el.innerHTML='<div class="empty"><div class="empty-icon">🏷️</div><h3>No tags yet</h3><p>Tags apply to any item, container, or entry across all modules.</p></div>';
@@ -2415,8 +2287,8 @@ $('tagSave').addEventListener('click', async () => {
   try {
     const url = editingId ? `/api/v1/settings/tags/${editingId}` : '/api/v1/settings/tags';
     const method = editingId ? 'PUT' : 'POST';
-    const r = await fetch(url, {method, headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({name, color_hex:$('tg_color').value})});
-    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    const r = await window.api(method, url.replace('/api/v1',''), {name, color_hex:$('tg_color').value});
+    
     $('tagDrawer').classList.remove('open');
     toast(editingId?'Updated':'Tag added');
     await loadTags();
@@ -2431,8 +2303,7 @@ $('tagSave').addEventListener('click', async () => {
 async function loadFields() {
   const mod = $('fieldsModuleFilter').value;
   const url = mod ? `/api/v1/settings/custom-fields?module=${mod}` : '/api/v1/settings/custom-fields';
-  const r = await fetch(url, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-  const fields = await r.json();
+  const fields = await window.api('GET', url.replace('/api/v1',''));
   const el = $('fieldsList');
   if (!fields.length) {
     el.innerHTML='<div class="empty"><div class="empty-icon">⚙️</div><h3>No custom fields yet</h3><p>Add fields that appear on any module or specific inventory categories.</p></div>';
@@ -2483,15 +2354,15 @@ $('fieldSave').addEventListener('click', async () => {
     const options = type==='dropdown'
       ? $('cf_options').value.split('\n').map(s=>s.trim()).filter(Boolean)
       : null;
-    const r = await fetch('/api/v1/settings/custom-fields', {method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}, body:JSON.stringify({
+    const cf = await window.api('POST', '/settings/custom-fields', {
       name, field_type:type,
       scope_module:$('cf_module').value||null,
       scope_category:$('cf_category').value||null,
       required:$('cf_required').checked,
       default_value:$('cf_default').value||null,
       options
-    })});
-    if (!r.ok) throw new Error((await r.json()).error||'Save failed');
+    });
+    
     $('fieldDrawer').classList.remove('open');
     toast('Field added');
     await loadFields();
@@ -2512,7 +2383,7 @@ function startDelete(type, id, name) {
       const loaders = { family:loadFamily, contact:loadContacts, tag:loadTags, field:loadFields };
       try {
         const r = await fetch(urls[deletingType], {method:'DELETE', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-        if (!r.ok) throw new Error((await r.json()).error||'Delete failed');
+        
         toast('Deleted');
         await loaders[deletingType]?.();
         loadBadges();
@@ -2546,13 +2417,13 @@ async function loadBackups() {
     return;
   }
   try {
-    const r = await fetch('/api/v1/backup/list', {headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }});
+    const r = await window.api('GET', '/backup/list');
     if (r.status === 401) {
       el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">🔒 Session expired — log in again via the lock icon.</div>';
       return;
     }
-    if (!r.ok) throw new Error((await r.json()).error||'Failed');
-    const d = await r.json();
+    
+    const d = r;
     const note = $('backupCountNote');
     if (d.total_on_disk > d.shown_in_ui) {
       note.textContent = `(showing last ${d.shown_in_ui} of ${d.total_on_disk} on disk)`;
@@ -2588,9 +2459,9 @@ async function doBackupNow() {
   btn.textContent = 'Backing up…'; btn.disabled = true;
   $('backupResult').style.display = 'none';
   try {
-    const r = await fetch('/api/v1/backup/now', {method:'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }});
-    if (!r.ok) throw new Error((await r.json()).error||'Backup failed');
-    const d = await r.json();
+    const r = await window.api('POST', '/backup/now', {});
+    
+    const d = r;
     $('backupResultMsg').textContent = `✓ Saved: ${d.filename} (${fmtBytes(d.size)})`;
     $('backupResult').style.display = 'block';
     await loadBackups();
@@ -2635,8 +2506,7 @@ function openRestoreConfirm(filename) {
 // ══════════════════════════════════════════════════════════════
 async function loadInfra() {
   try {
-    const r = await fetch('/api/v1/settings/config', {headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }});
-    const cfg = await r.json();
+    const cfg = await window.api('GET', '/settings/config');
     $('infraBaseUrl').value = cfg.app_base_url || window.location.origin;
   } catch { $('infraBaseUrl').value = window.location.origin; }
 }
@@ -2645,14 +2515,7 @@ async function saveBaseUrl() {
   const url = $('infraBaseUrl').value.trim().replace(/\/$/, '');
   if (!url) { toast('Enter a URL', 'err'); return; }
   try {
-    const r = await fetch('/api/v1/settings/config/app_base_url', {
-      method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }, body: JSON.stringify({ value: url })
-    });
-    if (!r.ok) throw new Error('Save failed');
-    $('infraUrlResult').textContent = '✓ Saved. Regenerate QR codes below to apply.';
-    $('infraUrlResult').style.color = 'var(--green)';
-    $('infraUrlResult').style.display = 'block';
-    toast('Base URL saved');
+    const r = await window.api('PUT', '/settings/config/app_base_url', { value: $('baseUrlInput').value.trim() });
   } catch(e) { toast(e.message || 'Save failed', 'err'); }
 }
 
@@ -2666,15 +2529,10 @@ async function regenAllQR() {
   btn.textContent = 'Regenerating…'; btn.disabled = true;
   $('regenQrResult').style.display = 'none';
   try {
-    const r = await fetch('/api/v1/inventory/qr/regenerate-all', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${LT.authToken}` }
-    });
-    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
-    const d = await r.json();
-    $('regenQrResult').innerHTML = `✓ Regenerated ${d.regenerated} QR code${d.regenerated!==1?'s':''}${d.failed?` · ${d.failed} failed`:''}.<br><span style="font-size:11px;color:var(--text3)">Base URL: ${d.base_url}</span>`;
+    const d = await window.api('POST', '/inventory/qr/regenerate-all', {});
+    $('regenQrResult').textContent = `✓ Regenerated ${d?.count||0} QR codes`;
     $('regenQrResult').style.color = 'var(--green)';
     $('regenQrResult').style.display = 'block';
-    toast(`${d.regenerated} QR codes updated`);
   } catch(e) {
     $('regenQrResult').textContent = '✗ ' + (e.message || 'Failed');
     $('regenQrResult').style.color = 'var(--red)';
@@ -2690,8 +2548,8 @@ async function loadDropdownList(listKey) {
   const addForm   = $('dd_add_form');
   if (!listKey) { container.innerHTML = ''; addForm.style.display='none'; return; }
   container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">Loading…</div>';
-  const r = await fetch(`/api/v1/settings/dropdowns/${listKey}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-  const items = await r.json();
+  const rows = await window.api('GET', `/settings/dropdowns/${listKey}`);
+  const items = r;
   if (!items.length) {
     container.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">No options yet</div>';
   } else {
@@ -2722,22 +2580,15 @@ async function addDropdownOption() {
   const value   = $('dd_new_value').value.trim() || label.toLowerCase().replace(/[^a-z0-9]+/g,'_');
   if (!listKey || !label) { toast('Select a list and enter a label','err'); return; }
   try {
-    const r = await fetch('/api/v1/settings/dropdowns', {
-      method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`},
-      body: JSON.stringify({ list_key:listKey, label, value })
-    });
-    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    await window.api('POST', '/settings/dropdowns', { list_key:listKey, label, value });
     toast('Option added');
     loadDropdownList(listKey);
   } catch(e) { toast(e.message,'err'); }
 }
 
 async function toggleDropdownOption(id, active, listKey) {
-  const row = await (await fetch(`/api/v1/settings/dropdowns/${id}`, {headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}})).json();
-  await fetch(`/api/v1/settings/dropdowns/${id}`, {
-    method:'PUT', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`},
-    body: JSON.stringify({...row, is_active: active ? 1 : 0})
-  });
+  const row = await window.api('GET', `/settings/dropdowns/${id}`);
+  await window.api('PUT', `/settings/dropdowns/${id}`, {...row, is_active: active ? 1 : 0});
   toast(active ? 'Option enabled' : 'Option disabled');
 }
 
@@ -2745,7 +2596,7 @@ async function renameDropdownOption(id, listKey, currentLabel, currentValue) {
   // Check usage first
   let usageMsg = '';
   try {
-    const u = await fetch(`/api/v1/settings/dropdowns/${id}/usage`, {headers:{'Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json());
+    const u = await window.api('GET', `/settings/dropdowns/${id}/usage`);
     if (u.total_usage > 0) {
       usageMsg = `\n⚠️ This value is used by ${u.total_usage} existing record${u.total_usage!==1?'s':''} (${u.breakdown.map(b=>`${b.count} ${b.label}`).join(', ')}).\nRenaming will UPDATE all those records to the new value.`;
     }
@@ -2763,11 +2614,7 @@ async function renameDropdownOption(id, listKey, currentLabel, currentValue) {
     : currentValue;
 
   try {
-    const r = await fetch(`/api/v1/settings/dropdowns/${id}`, {
-      method:'PUT',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`},
-      body: JSON.stringify({ label: newLabel, value: newValue, rename_value: wantsValueRename })
-    }).then(r=>r.json());
+    const r = await window.api('PUT', `/settings/dropdowns/${id}`, { label: newLabel, value: newValue, rename_value: wantsValueRename });
     if (r.cascaded_records > 0) toast(`✓ Renamed · ${r.cascaded_records} records updated`);
     else toast('✓ Renamed');
     loadDropdownList(listKey);
@@ -2777,7 +2624,7 @@ async function renameDropdownOption(id, listKey, currentLabel, currentValue) {
 async function deleteDropdownOption(id, listKey) {
   // Check usage before deleting
   try {
-    const u = await fetch(`/api/v1/settings/dropdowns/${id}/usage`, {headers:{'Authorization':`Bearer ${LT.authToken}`}}).then(r=>r.json());
+    const u = await window.api('GET', `/settings/dropdowns/${id}/usage`);
     if (u.total_usage > 0) {
       const ok = confirm(`⚠️ "${u.value}" is used by ${u.total_usage} record${u.total_usage!==1?'s':''} (${u.breakdown.map(b=>`${b.count} ${b.label}`).join(', ')}).\n\nDeleting will orphan those records. Disabling is safer.\n\nDelete anyway?`);
       if (!ok) return;
@@ -2788,8 +2635,8 @@ async function deleteDropdownOption(id, listKey) {
     if (!confirm('Delete this option?')) return;
   }
   try {
-    const r = await fetch(`/api/v1/settings/dropdowns/${id}`, {method:'DELETE', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
-    if (!r.ok) throw new Error((await r.json()).error || 'Failed');
+    const r = await window.api('DELETE', `/settings/dropdowns/${id}`);
+    
     toast('Deleted');
     loadDropdownList(listKey);
   } catch(e) { toast(e.message,'err'); }

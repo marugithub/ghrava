@@ -1894,11 +1894,8 @@ async function runRecategorize() {
   btn.textContent = '⏳ Running…'; btn.disabled = true;
   try {
     const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-    const r = await fetch('/api/v1/finance/transactions/recategorize', {
-      method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overwrite: false })
-    }).then(r => r.json());
-    if (r.ok) {
+    const r = await window.api('POST', '/finance/transactions/recategorize', { overwrite: false });
+    if (r) {
       toast(`✓ ${r.updated} transaction${r.updated !== 1 ? 's' : ''} categorized`);
       if (r.updated > 0) loadTransactions();
     } else { toast(r.error || 'Failed', 'err'); }

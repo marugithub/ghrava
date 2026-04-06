@@ -116,7 +116,7 @@ async function loadNotifs() {
   const el = document.getElementById('notifList');
   el.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
   try {
-    const notifs = await fetch('/api/v1/notifications').then(r => r.json());
+    const notifs = await window.api('GET', '/notifications');
     const unread = notifs.filter(n => !n.is_read).length;
     const badge  = document.getElementById('unreadBadge');
     badge.textContent = unread;
@@ -171,7 +171,7 @@ function notifCard(n) {
 }
 
 async function markRead(id) {
-  await fetch(`/api/v1/notifications/${id}/read`, { method: 'PATCH' }).catch(()=>{});
+  await window.api('PATCH', `/notifications/${id}/read`).catch(()=>{});
   const card = document.getElementById('notif-' + id);
   if (card) card.classList.add('is-read');
   // Update badge
@@ -182,7 +182,7 @@ async function markRead(id) {
 }
 
 async function markAllRead() {
-  await fetch('/api/v1/notifications/read-all', { method: 'PATCH' }).catch(()=>{});
+  await window.api('PATCH', '/notifications/read-all').catch(()=>{});
   document.querySelectorAll('.notif-card').forEach(c => c.classList.add('is-read'));
   const badge = document.getElementById('unreadBadge');
   badge.textContent = '0';
@@ -190,7 +190,7 @@ async function markAllRead() {
 }
 
 async function dismiss(id) {
-  await fetch(`/api/v1/notifications/${id}`, { method: 'DELETE' }).catch(()=>{});
+  await window.api('DELETE', `/notifications/${id}`).catch(()=>{});
   const card = document.getElementById('notif-' + id);
   if (card) { card.style.opacity = '0'; setTimeout(() => card.remove(), 200); }
 }

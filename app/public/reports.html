@@ -289,9 +289,7 @@ function authH() {
   return h;
 }
 async function api(path) {
-  const r = await fetch('/api/v1/finance/reports' + path, {headers: authH()});
-  if (!r.ok) throw new Error('API error');
-  return r.json();
+  return window.api('GET', '/finance/reports' + path);
 }
 
 const COLORS = ['#5c72fa','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6'];
@@ -815,7 +813,7 @@ async function loadSummary() {
   const el = $('summaryContent'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
-    const d = await fetch('/api/v1/dashboard').then(r => r.json());
+    const d = await window.api('GET', '/dashboard');
     const inv   = d.inventory   || {};
     const med   = d.medical     || {};
     const books = d.books       || {};
@@ -942,8 +940,8 @@ async function loadQuality() {
   el.innerHTML = spinnerHtml();
   try {
     const [reviewResp, completenessResp] = await Promise.all([
-      fetch('/api/v1/settings/review/summary'),
-      fetch('/api/v1/settings/completeness'),
+      window.api('GET', '/settings/review/summary'),
+      window.api('GET', '/settings/completeness'),
     ]);
     const reviewData      = await reviewResp.json();
     const completenessData = await completenessResp.json();
@@ -1026,9 +1024,9 @@ async function loadSystem() {
   el.innerHTML = spinnerHtml();
   try {
     const [info, dash, inv] = await Promise.all([
-      fetch('/api/v1/app/info').then(r => r.json()),
-      fetch('/api/v1/dashboard').then(r => r.json()),
-      fetch('/api/v1/app/module-inventory').then(r => r.json()),
+      window.api('GET', '/app/info'),
+      window.api('GET', '/dashboard'),
+      window.api('GET', '/app/module-inventory'),
     ]);
     const bkp = dash.backup || {};
 
@@ -1104,12 +1102,7 @@ async function takeNwSnapshot() {
   const btn = document.querySelector('[onclick="takeNwSnapshot()"]');
   if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
   try {
-    const r = await fetch('/api/v1/finance/net-worth/snapshot', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+(window.LT?.authToken||'')}
-    });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error||'Snapshot failed');
+    const data = await window.api('POST', '/finance/net-worth/snapshot', {});
     toast('Snapshot saved');
     loadNetWorth();
   } catch(e) { toast(e.message||'Snapshot failed','err'); }
@@ -1122,7 +1115,7 @@ async function loadTesting() {
   detailEl.style.display = 'none';
   listEl.innerHTML = spinnerHtml();
   try {
-    const runs = await fetch('/api/v1/app/test-results').then(r => r.json());
+    const runs = await window.api('GET', '/app/test-results');
     if (!runs.length) {
       listEl.innerHTML = `
         <div style="padding:24px 0;text-align:center;color:var(--text3)">
@@ -1168,7 +1161,7 @@ async function showTestRun(filename) {
   detailEl.innerHTML = spinnerHtml();
   detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
   try {
-    const run = await fetch(`/api/v1/app/test-results/${encodeURIComponent(filename)}`).then(r => r.json());
+    const run = await window.api('GET', `/app/test-results/${encodeURIComponent(filename)}`);
     const dt = run.started_at ? new Date(run.started_at).toLocaleString() : filename;
     const dur = run.duration_ms ? (run.duration_ms/1000).toFixed(1)+'s' : '—';
 
@@ -1246,7 +1239,7 @@ async function rpt_loadLogs(n) {
   const el = $('rpt_logViewer'); if (!el) return;
   el.style.display = 'block'; el.textContent = 'Loading…';
   try {
-    const d = await fetch(`/api/v1/app/logs?lines=${n}`).then(r => r.json());
+    const d = await window.api('GET', `/app/logs?lines=${n}`);
     if (!d.lines?.length) { el.textContent = 'No log entries yet.'; return; }
     el.innerHTML = d.lines.map(line => {
       const col = line.includes('[ERROR]') ? 'var(--red)' : line.includes('[WARN]') ? 'var(--amber)' : 'var(--text2)';
@@ -1275,7 +1268,7 @@ async function rpt_runCleanup() {
   btn.disabled = true; btn.textContent = 'Running…';
   log.style.display = 'block'; log.textContent = 'Running cleanup…';
   try {
-    const d = await fetch('/api/v1/settings/cleanup/run', { method: 'POST', headers: { 'Content-Type': 'application/json' } }).then(r => r.json());
+    const d = await window.api('POST', '/settings/cleanup/run', {});
     const lines = [];
     if (d.titles > 0)     lines.push(`✓ ${d.titles} item name(s) cleaned`);
     else                  lines.push('✓ No bloated item names found');
@@ -1294,7 +1287,7 @@ async function rpt_runImageBackfill() {
   btn.disabled = true; btn.textContent = 'Fetching…';
   log.style.display = 'block'; log.innerHTML = '<span style="color:var(--text3)">Scanning…</span>';
   try {
-    const r = await fetch('/api/v1/inventory/items/backfill-images', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    const r = await window.api('POST', '/inventory/items/backfill-images', {}).then(d=>({ok:true,json:()=>Promise.resolve(d)}));
     if (!r.ok) throw new Error((await r.json()).error || `HTTP ${r.status}`);
     const d = await r.json();
     const lines = [];
@@ -1313,7 +1306,7 @@ async function rpt_loadReviewSummary() {
   const el = $('rpt_reviewDashboard'); if (!el) return;
   el.innerHTML = spinnerHtml('Checking…');
   try {
-    const d = await fetch('/api/v1/settings/review/summary').then(r => r.json());
+    const d = await window.api('GET', '/settings/review/summary').then(r => r.json());
     if (!d.total) { el.innerHTML = `<div style="color:var(--green);font-size:13px;padding:8px 0">✓ No records need review</div>`; return; }
     el.innerHTML = `<div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:14px">
       <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:12px">⚠️ ${d.total} record(s) need review</div>
@@ -1335,8 +1328,7 @@ async function rpt_purgeE2E() {
   btn.disabled = true; btn.textContent = 'Scanning…';
   if (el) { el.style.display = 'block'; el.innerHTML = '<span style="color:var(--text3)">Checking for _e2e_ test data…</span>'; }
   try {
-    const r = await fetch('/api/v1/settings/diagnostics/purge-e2e', { method: 'POST',
-      headers: { 'Content-Type': 'application/json' } }).then(r => r.json());
+    const r = await window.api('POST', '/settings/diagnostics/purge-e2e', {});
     if (el) {
       if (r.total === 0) {
         el.innerHTML = '<span style="color:var(--green)">✓ No _e2e_ test records found — database is clean</span>';
@@ -1359,7 +1351,7 @@ async function rpt_runOrphanCheck() {
   const el = $('rpt_orphanResults'); if (!el) return;
   el.style.display = 'block'; el.innerHTML = '<span style="color:var(--text3)">Checking…</span>';
   try {
-    const r = await fetch('/api/v1/settings/diagnostics/orphans').then(r => r.json());
+    const r = await window.api('GET', '/settings/diagnostics/orphans');
     const rows = r.checks.map(c => {
       const icon = c.ok ? '✓' : (c.warning ? '⚠' : '✗');
       const color = c.ok ? 'var(--green)' : (c.warning ? 'var(--amber)' : 'var(--red)');
@@ -1612,7 +1604,7 @@ async function rpt_runOrphanCheck() {
     _appendLog(''); _appendLog('─'.repeat(44));
     _appendLog(`Done: ${passed} passed, ${failed} failed`);
     try {
-      const p=await fetch('/api/v1/settings/diagnostics/purge',{method:'POST',headers:{'Content-Type':'application/json'}}).then(r=>r.json());
+      const p=await window.api('POST', '/settings/diagnostics/purge', {table:$('purgeTable').value});
       if(p.total>0)_appendLog(`Cleanup: removed ${p.total} test record(s)`);
     }catch(e){_appendLog(`Cleanup warning: ${e.message}`);}
     _running=false;

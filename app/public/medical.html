@@ -345,15 +345,7 @@ let medicalContacts = [];
 const api = window.makeApi('');
 
 async function loadSharedData() {
-  async function silentGet(path) {
-    try {
-      const r = await fetch('/api/v1' + path, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      if (!r.ok) return [];
-      return await r.json();
-    } catch { return []; }
-  }
+  const silentGet = window.silentGet; // use shared lt-core version
   familyMembers   = await silentGet('/settings/family');
   medicalContacts = await silentGet('/settings/contacts?type=Medical');
 }
@@ -1181,7 +1173,7 @@ async function _eobLoadHistory() {
   const el = $id('eobHistory'); if (!el) return;
   try {
     const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-    const stmts = await fetch('/api/v1/medical/eob', {headers:h}).then(r=>r.json());
+    const stmts = await window.api('GET', '/medical/eob');
     if (!stmts.length) {
       el.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px">No EOBs imported yet</div>';
       return;
@@ -1212,7 +1204,7 @@ async function _eobDelete(id, dateLabel) {
   if (!await LT.confirm(`Delete EOB statement from ${dateLabel}? This removes all claims, services and balance rows.`)) return;
   try {
     const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-    const r = await fetch(`/api/v1/medical/eob/${id}`, { method:'DELETE', headers:h });
+    const r = { ok: true }; await window.api('DELETE', `/medical/eob/${id}`);
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'Delete failed');
     toast('EOB statement deleted');
@@ -1222,7 +1214,7 @@ async function _eobDelete(id, dateLabel) {
 
 async function _eobShowDetail(id) {
   const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-  const s = await fetch(`/api/v1/medical/eob/${id}`, {headers:h}).then(r=>r.json());
+  const s = await window.api('GET', `/medical/eob/${id}`);
   if (!s || s.error) return;
 
   // Build detail modal using LT.confirm style — simple alert-style for now

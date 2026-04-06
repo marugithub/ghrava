@@ -199,7 +199,7 @@ async function fileSelected(file) {
   fd.append('file', file);
 
   try {
-    const res = await fetch('/api/v1/data/import', { method: 'POST', body: fd });
+    const res = await fetch('/api/v1/data/import', { method: 'POST', body: fd, headers: { 'Authorization': `Bearer ${LT.authToken}` } });
     const d   = await res.json();
     if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
     renderResult(d, file.name);
