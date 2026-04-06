@@ -138,10 +138,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
-        <select class="form-select" id="mStatus" onchange="triggerMedSuggest()">
-          <option>Active</option><option>As Needed</option>
-          <option>Discontinued</option><option>Completed</option>
-        </select>
+        <select class="form-select" id="mStatus"></select>
       </div>
     </div>
 
@@ -216,10 +213,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
-        <select class="form-select" id="cStatus">
-          <option>Active</option><option>Chronic</option>
-          <option>Monitoring</option><option>Resolved</option>
-        </select>
+        <select class="form-select" id="cStatus"></select>
       </div>
     </div>
     <div class="form-group">
@@ -716,12 +710,12 @@ function openAddDrawer() {
 }
 
 // ── Medication CRUD ────────────────────────────────────────────
-function openMedDrawer(r) {
+async function openMedDrawer(r) {
   editingId = r?.id || null;
   $id('medDrawerTitle').textContent = editingId ? 'Edit Medication' : 'Add Medication';
   GH_REFS.populateFamily('mPatient', r?.patient || currentPatient || 'Self');
   GH_REFS.populateContact('mPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
-  $id('mStatus').value = r?.status || 'Active';
+  await GH_SELECT.init('mStatus', 'med_medication_status', r?.status||'Active', { placeholder: '— status —' });
   $id('mName').value = r?.name || '';
   $id('mDosage').value = r?.dosage || '';
   $id('mFreq').value = r?.frequency || '';
@@ -768,12 +762,12 @@ async function deleteMed(id) {
 }
 
 // ── Condition CRUD ──────────────────────────────────────────────
-function openCondDrawer(r) {
+async function openCondDrawer(r) {
   editingId = r?.id || null;
   $id('condDrawerTitle').textContent = editingId ? 'Edit Condition' : 'Add Condition';
   GH_REFS.populateFamily('cPatient', r?.patient || currentPatient || 'Self');
   GH_REFS.populateContact('cPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
-  $id('cStatus').value = r?.status || 'Active';
+  await GH_SELECT.init('cStatus', 'med_condition_status', r?.status||'Active', { placeholder: '— status —' });
   $id('cName').value = r?.condition_name || '';
   $id('cStart').value = r?.start_date || '';
   $id('cEnd').value = r?.end_date || '';
@@ -1136,11 +1130,43 @@ async function _eobImport() {
     if (window.toast) toast(`✓ ${d.imported} EOB statement${d.imported!==1?'s':''} imported`);
     _eobClear();
     await _eobLoadHistory();
+    // Show name-match prompt if any flags were raised (S3/A10)
+    if (d.name_flags && d.name_flags.length) {
+      _showNameFlagPrompt(d.name_flags);
+    }
   } catch(e) {
     if (window.toast) toast(e.message || 'Import failed', 'err');
   } finally {
     if (btn) { btn.textContent = 'Import Selected'; btn.disabled = false; }
   }
+}
+
+function _showNameFlagPrompt(flags) {
+  const rows = flags.map(f => {
+    const icon = f.confidence === 'none' ? '🔴' :
+                 f.confidence === 'ambiguous' ? '🟡' : '🟠';
+    const detail = f.confidence === 'none'
+      ? `No family member found for <strong>${esc(f.raw)}</strong>`
+      : f.confidence === 'ambiguous'
+        ? `<strong>${esc(f.raw)}</strong> — could be: ${f.candidates.map(esc).join(', ')}`
+        : `<strong>${esc(f.raw)}</strong> → auto-matched to <strong>${esc(f.matched)}</strong>`;
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">${icon} ${detail}</div>`;
+  }).join('');
+
+  GH_MODAL.open({
+    title: '⚠ Patient Names Need Review',
+    wide: false,
+    body: `<div style="margin-bottom:10px;font-size:13px;color:var(--text2)">
+      ${flags.length} patient name${flags.length!==1?'s':''} could not be exactly matched to a family member.
+      Records have been flagged in Data Quality review.
+    </div>${rows}`,
+    saveLabel: 'Go to Review',
+    cancelLabel: 'Dismiss',
+    onSave: () => {
+      GH_MODAL.close();
+      window.open('/reports.html#quality', '_blank');
+    }
+  });
 }
 
 function _eobClear() {
@@ -1163,21 +1189,35 @@ async function _eobLoadHistory() {
     el.innerHTML = `
       <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Imported Statements</div>
       ${stmts.map(s => `
-        <div class="card" style="padding:12px 14px;margin-bottom:8px;cursor:pointer" onclick="_eobShowDetail(${s.id})">
-          <div style="display:flex;align-items:center;justify-content:space-between">
-            <div>
+        <div class="card" style="padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div style="flex:1;cursor:pointer;min-width:0" onclick="_eobShowDetail(${s.id})">
               <div style="font-weight:600;font-size:13px">${s.statement_date} · ${esc(s.group_name||'MHBP')}</div>
               <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(s.patients||'')} · ${s.claims_count||0} claim${s.claims_count!==1?'s':''}</div>
             </div>
-            <div style="text-align:right;flex-shrink:0">
+            <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
               <div style="font-size:13px;font-weight:600;color:var(--green)">Plan: $${(s.plan_paid_total||0).toFixed(2)}</div>
               <div style="font-size:11px;color:${(s.your_share_total||0)>0?'var(--red)':'var(--text3)'}">You: $${(s.your_share_total||0).toFixed(2)}</div>
+              <button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--red);border-color:var(--red);margin-top:2px"
+                onclick="event.stopPropagation();_eobDelete(${s.id},'${esc(s.statement_date)}')">Delete</button>
             </div>
           </div>
         </div>`).join('')}`;
   } catch(e) {
     el.innerHTML = '<div style="color:var(--red);font-size:12px">Could not load history</div>';
   }
+}
+
+async function _eobDelete(id, dateLabel) {
+  if (!await LT.confirm(`Delete EOB statement from ${dateLabel}? This removes all claims, services and balance rows.`)) return;
+  try {
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const r = await fetch(`/api/v1/medical/eob/${id}`, { method:'DELETE', headers:h });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Delete failed');
+    toast('EOB statement deleted');
+    await _eobLoadHistory();
+  } catch(e) { toast(e.message || 'Delete failed', 'err'); }
 }
 
 async function _eobShowDetail(id) {

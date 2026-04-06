@@ -136,15 +136,11 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
     <div class="form-row">
       <div class="form-group"><label class="form-label">Genre</label><select class="form-select" id="bkGenre" onchange="triggerBookSuggest()"></select></div>
       <div class="form-group"><label class="form-label">Format</label>
-        <select class="form-select" id="bkFormat">
-          <option>Physical</option><option>Kindle</option><option>Audible</option>
-        </select>
+        <select class="form-select" id="bkFormat"></select>
       </div>
     </div>
     <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-select" id="bkStatus">
-        <option>Want to Read</option><option>Currently Reading</option><option>Read</option>
-      </select>
+      <select class="form-select" id="bkStatus"></select>
     </div>
 
     <!-- Rating stars -->
@@ -337,6 +333,8 @@ async function openBookDrawer(id) {
   $('bkIsbn').value        = b.isbn||'';
   $('bkPublisher').value   = b.publisher||'';
   $('bkPublishYear').value = b.publish_year||'';
+  await GH_SELECT.init('bkStatus', 'book_status', b.status||'Want to Read', { placeholder: '— status —' });
+  await GH_SELECT.init('bkFormat', 'book_format', b.format||'Physical', { allowAdd: true, placeholder: '— format —' });
   await GH_SELECT.init('bkGenre', 'book_genre', b.genre||'', { allowAdd: true, placeholder: '— select genre —' });
   $('bkFormat').value   = b.format||'Physical';
   $('bkStatus').value   = b.status||'Want to Read';

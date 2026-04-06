@@ -181,9 +181,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
       <div class="form-group"><label class="form-label">Expiry Date</label><input class="form-input" type="date" id="certExpiry"></div>
     </div>
     <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-select" id="certStatus">
-        <option>Active</option><option>In Progress</option><option>Expired</option>
-      </select>
+      <select class="form-select" id="certStatus"></select>
     </div>
 
     <!-- CE / Renewal tracking -->
@@ -259,9 +257,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <div class="form-group"><label class="form-label">Skill Name <span class="req">*</span></label><input class="form-input" id="skillName" placeholder="e.g. Python, Project Management"></div>
     <div class="form-group"><label class="form-label">Category</label><select class="form-select" id="skillCat"></select></div>
     <div class="form-group"><label class="form-label">Proficiency</label>
-      <select class="form-select" id="skillProf">
-        <option>Beginner</option><option>Intermediate</option><option>Advanced</option><option>Expert</option>
-      </select>
+      <select class="form-select" id="skillProf"></select>
     </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Years Experience</label><input class="form-input" type="number" id="skillYears" min="0" step="0.5"></div>
@@ -293,12 +289,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Type</label>
-        <select class="form-select" id="lnType">
-          <option>Course</option><option>Seminar</option><option>Conference</option>
-          <option>Webinar</option><option>Reading</option><option>On-the-Job</option>
-          <option>Volunteering</option><option>Presenting/Teaching</option>
-          <option>Self-Study</option><option>Other</option>
-        </select>
+        <select class="form-select" id="lnType"></select>
       </div>
       <div class="form-group"><label class="form-label">Hours</label><input class="form-input" type="number" id="lnHours" placeholder="8" step="0.5" min="0"></div>
     </div>
@@ -353,21 +344,11 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Category</label>
-        <select class="form-select" id="goalCategory">
-          <option>Short-term</option>
-          <option>Long-term</option>
-          <option>Skill</option>
-          <option>Financial</option>
-          <option>General</option>
-        </select>
+        <select class="form-select" id="goalCategory"></select>
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
-        <select class="form-select" id="goalStatus">
-          <option value="active">Active</option>
-          <option value="achieved">Achieved</option>
-          <option value="dropped">Dropped</option>
-        </select>
+        <select class="form-select" id="goalStatus"></select>
       </div>
     </div>
     <div class="form-group">
@@ -492,6 +473,7 @@ async function openCertDrawer(id) {
   $('certIssueDate').value     = c.issue_date||'';
   $('certExpiry').value        = c.expiry_date||'';
   $('certStatus').value        = c.status||'Active';
+  await GH_SELECT.init('certStatus', 'career_cert_status', c.status||'Active', { placeholder: '— status —' });
   $('certCeHours').value       = c.ce_hours_required != null ? c.ce_hours_required : '';
   $('certRenewalMonths').value = c.renewal_period_months != null ? c.renewal_period_months : '';
   $('certCycleStart').value    = c.current_cycle_start||'';
@@ -643,7 +625,7 @@ async function openSkillDrawer(id) {
   $('skillDrawerTitle').textContent = id ? 'Edit Skill' : 'Add Skill';
   $('skillName').value     = s.name||'';
   $('skillCat').value      = s.category||'';
-  $('skillProf').value     = s.proficiency||'Intermediate';
+  await GH_SELECT.init('skillProf', 'skill_proficiency', s.proficiency||'Intermediate', { placeholder: '— proficiency —' });
   $('skillYears').value    = s.years_experience||'';
   $('skillLastUsed').value = s.last_used_year||'';
   $('skillNotes').value    = s.notes||'';
@@ -734,7 +716,7 @@ async function openLearningDrawer(id) {
   if (id) { try { r = await api('GET', `/learning/${id}`); } catch(e){} }
   $('learningDrawerTitle').textContent = id ? 'Edit Learning Record' : 'Add Learning Record';
   $('lnTitle').value     = r.title||'';
-  $('lnType').value      = r.learning_type||'Course';
+  await GH_SELECT.init('lnType', 'learning_type', r.learning_type||'Course', { placeholder: '— type —' });
   $('lnProvider').value  = r.provider||'';
   $('lnStartDate').value = r.start_date||'';
   $('lnEndDate').value   = r.end_date||'';
@@ -905,31 +887,20 @@ async function loadGoals() {
   } catch(e) { el.innerHTML = errorState(e.message, ''); }
 }
 
-function openGoalDrawer(id) {
+async function openGoalDrawer(id) {
   _editGoalId = id || null;
   $('goalDrawerTitle').textContent = id ? 'Edit Goal' : 'Add Goal';
   $('goalDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+  let g = {};
   if (id) {
-    // Find from DOM data — re-fetch if needed
-    api(`${API}/goals`).then(goals => {
-      const g = goals.find(x => x.id === id);
-      if (!g) return;
-      $('goalTitle').value      = g.title || '';
-      $('goalCategory').value   = g.category || 'General';
-      $('goalStatus').value     = g.status || 'active';
-      $('goalTargetDate').value = g.target_date || '';
-      $('goalNotes').value      = g.notes || '';
-    });
-  } else {
-    $('goalTitle').value = $('goalTargetDate').value = $('goalNotes').value = '';
-    $('goalCategory').value = 'Short-term';
-    $('goalStatus').value   = 'active';
+    try { const goals = await api('GET', `${API}/goals`); g = goals.find(x => x.id === id) || {}; } catch {}
   }
-  api(`${API}/goals`).then(goals => {
-    const g2 = goals.find(x => x.id === id);
-    if (g2) GH_FAMILY.init('goalFamilyWrap', g2.family_members||[]);
-  });
-  if (!id) GH_FAMILY.init('goalFamilyWrap', []);
+  $('goalTitle').value      = g.title || '';
+  $('goalTargetDate').value = g.target_date || '';
+  $('goalNotes').value      = g.notes || '';
+  await GH_SELECT.init('goalCategory', 'career_goal_category', g.category||'Short-term', { allowAdd: true, placeholder: '— category —' });
+  await GH_SELECT.init('goalStatus',   'career_goal_status',   g.status||'active',        { placeholder: '— status —' });
+  GH_FAMILY.init('goalFamilyWrap', g.family_members || []);
   $('goalDrawer').classList.add('open');
 }
 

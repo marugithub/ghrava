@@ -2429,7 +2429,7 @@ async function openGcDrawer(id) {
   $('gcInitBal').value            = c.initial_balance||'';
   $('gcCurBal').value             = c.current_balance||'';
   $('gcExpiry').value             = c.expiry_date||'';
-  $('gcWhere').value              = c.where_stored||'Wallet';
+    await GH_SELECT.init('gcWhere', 'gift_card_location', c.where_stored||'Wallet', { placeholder: '— location —' });
   $('gcNotes').value              = c.notes||'';
   $('gcCardNumber').value         = c.card_number||'';
   $('gcCardPin').value            = c.card_pin||'';
@@ -2672,9 +2672,7 @@ async function deleteGc() {
     <div class="form-row">
       <div class="form-group" style="flex:2"><label class="form-label">Retailer <span class="req">*</span></label><input class="form-input" id="gcRetailer" placeholder="Amazon, Target…"></div>
       <div class="form-group"><label class="form-label">Stored</label>
-        <select class="form-select" id="gcWhere">
-          <option>Wallet</option><option>Email</option><option>App</option><option>Physical</option>
-        </select>
+        <select class="form-select" id="gcWhere"></select>
       </div>
     </div>
     <div class="form-row">
