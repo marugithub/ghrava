@@ -517,11 +517,20 @@ router.post('/net-worth/snapshot', (req, res) => {
     `).get();
     const nw = (current.assets || 0) - (current.liabilities || 0);
     const today = req.body.date || new Date().toISOString().slice(0,10);
-    const r = db.prepare(`
-      INSERT INTO net_worth_snapshots (snapshot_date, total_assets, total_liabilities, net_worth, notes)
-      VALUES (?,?,?,?,?)
-    `).run(today, current.assets, current.liabilities, nw, req.body.notes||null);
-    res.status(201).json({ id: r.lastInsertRowid, net_worth: nw });
+    let snapshotId = null;
+    try {
+      const r = db.prepare(`
+        INSERT INTO net_worth_snapshots (snapshot_date, total_assets, total_liabilities, net_worth, notes)
+        VALUES (?,?,?,?,?)
+      `).run(today, current.assets, current.liabilities, nw, req.body.notes||null);
+      snapshotId = r.lastInsertRowid;
+    } catch {
+      // Columns added by migration 076 — snapshot saved without summary cols until restart
+      const r = db.prepare(`INSERT INTO net_worth_snapshots (snapshot_date, notes) VALUES (?,?)`)
+        .run(today, req.body.notes||null);
+      snapshotId = r.lastInsertRowid;
+    }
+    res.status(201).json({ id: snapshotId, net_worth: nw });
   } catch (e) { serverError(res, e); }
 });
 
@@ -615,7 +624,8 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
     const skipped = txns.length - imported;
     if (skipped > 0) {
       // Can't flag individual finance_transactions easily without IDs — log on batch record
-      db.prepare("UPDATE fin_import_batches SET rows_skipped=? WHERE id=?").run(skipped, batchId);
+      // rows_skipped added by migration — safe to skip if col not yet present
+    try { db.prepare("UPDATE fin_import_batches SET rows_skipped=? WHERE id=?").run(skipped, batchId); } catch {}
     }
 
     res.json({ ok: true, imported, skipped, format: parsed.format, total: txns.length, batch_id: batchId });

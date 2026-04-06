@@ -1070,7 +1070,7 @@ router.post('/items/:id/attach-url', async (req, res) => {
     const dest = path.join(dir, fname);
     await downloadFile(url, dest);
     const stat = fs.statSync(dest);
-    const r = db.prepare(`INSERT INTO attachments (entity_type,entity_id,attachment_type,file_name,file_path,file_size,mime_type,label)
+    const r = db.prepare(`INSERT INTO attachments (entity_type,entity_id,module,original_filename,stored_path,file_size,mime_type,label)
       VALUES ('item',?,'document',?,?,?,'application/pdf',?)`)
       .run(req.params.id, fname, dest, stat.size, label||'Manual');
     logEvent(req.params.id, 'document_added', { new_value: label||'Manual (auto-downloaded)' });

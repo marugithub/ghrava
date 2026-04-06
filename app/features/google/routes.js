@@ -202,11 +202,11 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
     try { db.prepare('ALTER TABLE contacts ADD COLUMN google_id TEXT').run(); } catch {}
 
     const upsert = db.prepare(`
-      INSERT OR IGNORE INTO contacts (name, contact_type, email, phone, google_id, company, notes)
+      INSERT OR IGNORE INTO contacts (name, contact_type, email, phone_primary, google_id, company, notes)
       VALUES (?, 'other', ?, ?, ?, ?, 'Imported from Google Contacts')
     `);
     const update = db.prepare(`
-      UPDATE contacts SET email=COALESCE(?,email), phone=COALESCE(?,phone),
+      UPDATE contacts SET email=COALESCE(?,email), phone_primary=COALESCE(?,phone_primary),
         company=COALESCE(?,company)
       WHERE google_id=?
     `);

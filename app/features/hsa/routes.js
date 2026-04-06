@@ -256,13 +256,13 @@ router.post('/payments', (req, res) => {
     const info = db.prepare(`
       INSERT INTO hsa_payments
         (date, patient, provider, category, payment_type, total_bill, insurance_paid, you_paid,
-         hsa_eligible, receipt_saved, receipt_location, reimbursed, reimbursement_date, notes)
+         hsa_eligible, receipt_saved, reimbursed, reimbursement_date, notes)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.date, d.patient||'Self', d.provider||null, d.category||null, d.payment_type||null,
       d.total_bill||0, d.insurance_paid||0, d.you_paid||0,
       d.hsa_eligible !== false ? 1 : 0,
-      d.receipt_saved ? 1 : 0, d.receipt_location||null,
+      d.receipt_saved ? 1 : 0,
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null
     );
     saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
@@ -279,14 +279,14 @@ router.put('/payments/:id', (req, res) => {
       UPDATE hsa_payments SET
         date=?, patient=?, provider=?, category=?, payment_type=?,
         total_bill=?, insurance_paid=?, you_paid=?,
-        hsa_eligible=?, receipt_saved=?, receipt_location=?,
+        hsa_eligible=?, receipt_saved=?,
         reimbursed=?, reimbursement_date=?, notes=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
       d.date, d.patient||'Self', d.provider||null, d.category||null, d.payment_type||null,
       d.total_bill||0, d.insurance_paid||0, d.you_paid||0,
       d.hsa_eligible !== false ? 1 : 0,
-      d.receipt_saved ? 1 : 0, d.receipt_location||null,
+      d.receipt_saved ? 1 : 0,
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null,
       req.params.id
     );
@@ -313,7 +313,7 @@ router.get('/payments/export/csv', (req, res) => {
     const rows = db.prepare(`SELECT * FROM hsa_payments WHERE strftime('%Y', date)=? ORDER BY date`).all(String(year));
     const headers = ['id','date','patient','provider','category','payment_type',
                      'total_bill','insurance_paid','you_paid','hsa_eligible',
-                     'receipt_saved','receipt_location','reimbursed','reimbursement_date','notes'];
+                     'receipt_saved','reimbursed','reimbursement_date','notes'];
     const lines = rows.map(r => headers.map(h => escCsv(r[h])).join(','));
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="hsa_payments_${year}.csv"`);
@@ -356,13 +356,13 @@ router.post('/otc', (req, res) => {
     const info = db.prepare(`
       INSERT INTO hsa_otc
         (date, item_name, otc_category, store, amount, quantity,
-         hsa_eligible, receipt_saved, receipt_location, reimbursed, reimbursement_date, notes)
+         hsa_eligible, receipt_saved, reimbursed, reimbursement_date, notes)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.date, d.item_name, d.otc_category||'OTC Medicine', d.store||null,
       d.amount||0, d.quantity||1,
       d.hsa_eligible !== false ? 1 : 0,
-      d.receipt_saved ? 1 : 0, d.receipt_location||null,
+      d.receipt_saved ? 1 : 0,
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null
     );
     saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
@@ -377,14 +377,14 @@ router.put('/otc/:id', (req, res) => {
     db.prepare(`
       UPDATE hsa_otc SET
         date=?, item_name=?, otc_category=?, store=?, amount=?, quantity=?,
-        hsa_eligible=?, receipt_saved=?, receipt_location=?,
+        hsa_eligible=?, receipt_saved=?,
         reimbursed=?, reimbursement_date=?, notes=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
       d.date, d.item_name, d.otc_category||'OTC Medicine', d.store||null,
       d.amount||0, d.quantity||1,
       d.hsa_eligible !== false ? 1 : 0,
-      d.receipt_saved ? 1 : 0, d.receipt_location||null,
+      d.receipt_saved ? 1 : 0,
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null,
       req.params.id
     );
@@ -406,7 +406,7 @@ router.get('/otc/export/csv', (req, res) => {
     const year = req.query.year || currentYear();
     const rows = db.prepare(`SELECT * FROM hsa_otc WHERE strftime('%Y', date)=? ORDER BY date`).all(String(year));
     const headers = ['id','date','item_name','otc_category','store','amount','quantity',
-                     'hsa_eligible','receipt_saved','receipt_location','reimbursed','reimbursement_date','notes'];
+                     'hsa_eligible','receipt_saved','reimbursed','reimbursement_date','notes'];
     const lines = rows.map(r => headers.map(h => escCsv(r[h])).join(','));
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', `attachment; filename="hsa_otc_${year}.csv"`);
