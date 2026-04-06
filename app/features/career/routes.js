@@ -35,6 +35,7 @@ const { badRequest, notFound, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
 const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
+const { router: learningRouter, certPreset, addCycleEnd } = require('./learning');
 
 
 
@@ -50,7 +51,18 @@ auth.use(requireAuth);
 pub.get('/certifications', (req, res) => {
   try {
     const rows = db.prepare(`
-      SELECT * FROM career_certifications ORDER BY
+      SELECT c.*,
+        (SELECT COALESCE(SUM(lc.hours_applied), 0)
+         FROM career_learning_certs lc
+         JOIN career_learning l ON l.id = lc.learning_id
+         WHERE lc.certification_id = c.id
+           AND (c.current_cycle_start IS NULL OR l.start_date >= c.current_cycle_start)
+           AND (c.current_cycle_end   IS NULL OR l.start_date <= c.current_cycle_end)
+        ) AS pdu_applied_this_cycle,
+        (SELECT COUNT(*)
+         FROM career_learning_certs lc
+         WHERE lc.certification_id = c.id) AS learning_count
+      FROM career_certifications c ORDER BY
         CASE status WHEN 'Active' THEN 0 WHEN 'In Progress' THEN 1 ELSE 2 END,
         expiry_date ASC NULLS LAST
     `).all();
@@ -63,11 +75,23 @@ auth.post('/certifications', (req, res) => {
     const d = req.body;
     if (!d.name) return badRequest(res, 'name required');
     const r = db.prepare(`
-      INSERT INTO career_certifications (name, issuing_body, credential_id, issue_date, expiry_date, status, notes)
-      VALUES (?,?,?,?,?,?,?)
-    `).run(d.name, d.issuing_body||null, d.credential_id||null,
-           d.issue_date||null, d.expiry_date||null,
-           d.status||'Active', d.notes||null);
+      INSERT INTO career_certifications
+        (name, issuing_body, credential_id, cert_number, issue_date, expiry_date, status,
+         ce_hours_required, renewal_period_months, current_cycle_start, notes)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+    `).run(
+      d.name,
+      d.issuing_body || certPreset(d.name)?.issuing_body || null,
+      d.credential_id || null,
+      d.cert_number || null,
+      d.issue_date || null,
+      d.expiry_date || null,
+      d.status || 'Active',
+      d.ce_hours_required != null ? parseFloat(d.ce_hours_required) : (certPreset(d.name)?.ce_hours_required ?? null),
+      d.renewal_period_months != null ? parseInt(d.renewal_period_months) : (certPreset(d.name)?.renewal_period_months ?? null),
+      d.current_cycle_start || d.issue_date || null,
+      d.notes || null
+    );
 
     // Auto-create renewal Todo 60 days before expiry
     let todoId = null;
@@ -87,17 +111,28 @@ auth.put('/certifications/:id', (req, res) => {
     if (!existing) return notFound(res, 'Certification');
     db.prepare(`
       UPDATE career_certifications SET
-        name=?, issuing_body=?, credential_id=?, issue_date=?, expiry_date=?, status=?, notes=?,
+        name=?, issuing_body=?, credential_id=?, cert_number=?,
+        issue_date=?, expiry_date=?, status=?,
+        ce_hours_required=?, renewal_period_months=?,
+        current_cycle_start=?, notes=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
-      d.name||existing.name, d.issuing_body||null, d.credential_id||null,
-      d.issue_date||null, d.expiry_date||null,
-      d.status||existing.status, d.notes||null, req.params.id
+      d.name ?? existing.name,
+      d.issuing_body ?? existing.issuing_body,
+      d.credential_id ?? existing.credential_id,
+      d.cert_number ?? existing.cert_number,
+      d.issue_date ?? existing.issue_date,
+      d.expiry_date ?? existing.expiry_date,
+      d.status ?? existing.status,
+      d.ce_hours_required != null ? parseFloat(d.ce_hours_required) : existing.ce_hours_required,
+      d.renewal_period_months != null ? parseInt(d.renewal_period_months) : existing.renewal_period_months,
+      d.current_cycle_start ?? existing.current_cycle_start,
+      d.notes ?? existing.notes,
+      req.params.id
     );
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'career_cert', d.tags);
     clearReview('career_certifications', req.params.id);
-    clearReview('career_education', req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
@@ -233,45 +268,29 @@ auth.delete('/skills/:id', (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
-// EDUCATION
+// LEARNING & DEVELOPMENT  (replaces education — see learning.js)
+// Mounted at /career/learning/* via learningRouter below
 // ══════════════════════════════════════════════════════════════
 
-pub.get('/education', (req, res) => {
+// ── POST /certifications/:id/renew — advance to next cycle ───
+auth.post('/certifications/:id/renew', (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM career_education ORDER BY end_year DESC NULLS FIRST').all();
-    res.json(rows);
-  } catch (e) { serverError(res, e); }
+    const cert = db.prepare('SELECT * FROM career_certifications WHERE id=?').get(req.params.id);
+    if (!cert) return notFound(res, 'Certification');
+    if (!cert.renewal_period_months) return badRequest(res, 'renewal_period_months not set on this cert');
+    const newStart = cert.current_cycle_end
+      ? (() => { const d = new Date(cert.current_cycle_end + 'T00:00:00'); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })()
+      : new Date().toISOString().slice(0,10);
+    db.prepare('UPDATE career_certifications SET current_cycle_start=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
+      .run(newStart, req.params.id);
+    const updated = db.prepare('SELECT * FROM career_certifications WHERE id=?').get(req.params.id);
+    res.json(addCycleEnd(updated));
+  } catch(e) { serverError(res, e); }
 });
 
-auth.post('/education', (req, res) => {
-  try {
-    const d = req.body;
-    if (!d.institution) return badRequest(res, 'institution required');
-    const r = db.prepare(`
-      INSERT INTO career_education (institution, degree, field_of_study, start_year, end_year, gpa, notes)
-      VALUES (?,?,?,?,?,?,?)
-    `).run(d.institution, d.degree||null, d.field_of_study||null,
-           d.start_year||null, d.end_year||null, d.gpa||null, d.notes||null);
-    res.status(201).json({ id: r.lastInsertRowid });
-  } catch (e) { serverError(res, e); }
-});
-
-auth.put('/education/:id', (req, res) => {
-  try {
-    const d = req.body;
-    db.prepare(`
-      UPDATE career_education SET institution=?, degree=?, field_of_study=?, start_year=?, end_year=?, gpa=?, notes=? WHERE id=?
-    `).run(d.institution, d.degree||null, d.field_of_study||null,
-           d.start_year||null, d.end_year||null, d.gpa||null, d.notes||null, req.params.id);
-    res.json({ ok: true });
-  } catch (e) { serverError(res, e); }
-});
-
-auth.delete('/education/:id', (req, res) => {
-  try {
-    db.prepare('DELETE FROM career_education WHERE id=?').run(req.params.id);
-    res.json({ ok: true });
-  } catch (e) { serverError(res, e); }
+// ── GET /certifications/preset?name=PMP ─────────────────────
+pub.get('/certifications/preset', (req, res) => {
+  res.json(certPreset(req.query.name || '') || {});
 });
 
 // ── CSV Exports ───────────────────────────────────────────────
@@ -318,6 +337,9 @@ pub.get('/goals/export/csv', (req, res) => {
 
 router.use('/', pub);
 router.use('/', auth);
+// Mount learning sub-router
+router.use('/learning', learningRouter);
+
 module.exports = router;
 
 // ── Career Goals ─────────────────────────────────────────────

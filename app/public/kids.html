@@ -271,23 +271,11 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
   <!-- Hero banner + sub-tabs — shown after a kid is selected -->
   <div id="kidSectionHeader" style="display:none"></div>
 
-  <!-- Content sub-tabs -->
-  <div class="view-tabs" id="kidDetailTabs" style="--tab-color:#ec4899;display:none">
-    <button class="view-tab active" onclick="setDetailTab('profile',this)">Profile</button>
-    <button class="view-tab" onclick="setDetailTab('activities',this)">Activities</button>
-    <button class="view-tab" onclick="setDetailTab('notes',this)">Notes</button>
-  </div>
-
-  <div id="kidDetailView">
-    <div id="dtab-profile" class="view-panel active"><div id="kidProfileContent"></div></div>
-    <div id="dtab-activities" class="view-panel">
-      <div id="kidActivitiesContent"></div>
-      <button class="fab" id="actFab" onclick="openActivityDrawer()" style="display:none">+</button>
-    </div>
-    <div id="dtab-notes" class="view-panel">
-      <div id="kidNotesContent"></div>
-      <button class="fab" id="noteFab" onclick="openNoteDrawer()" style="display:none">+</button>
-    </div>
+  <!-- Single scrollable detail view — no tabs -->
+  <div id="kidDetailView" style="display:none;padding-bottom:100px">
+    <div id="kidProfileContent"></div>
+    <div id="kidActivitiesContent"></div>
+    <div id="kidNotesContent"></div>
   </div>
 
   <button class="fab" id="mainFab" onclick="openKidDrawer()" title="Add a child profile" style="display:flex;align-items:center;gap:4px;padding:0 18px;font-size:16px;border-radius:28px;width:auto">+ Add Child</button>
@@ -300,6 +288,7 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
     <div class="drawer-title" id="kidDrawerTitle">Add Child</div>
     <div class="drawer-body">
       <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="kfName" placeholder="e.g. Emma" autocomplete="off"></div>
+      <div class="form-group"><label class="form-label">Link to Family Member</label><select class="form-select" id="kfFamilyMember"><option value="">— not linked —</option></select></div>
       <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" type="date" id="kfDob"></div>
       <div class="form-group"><label class="form-label">Grade</label><input class="form-input" id="kfGrade" placeholder="e.g. 3rd Grade, Pre-K"></div>
       <div class="form-group"><label class="form-label">Teacher</label><input class="form-input" id="kfTeacher" placeholder="Homeroom teacher name"></div>
@@ -454,31 +443,20 @@ async function openKidDetail(id){
         </div>`:''}
       </div>`;
 
-    // Show detail area
-    $('kidDetailTabs').style.display='flex';
+    // Show detail area (no tabs — single scroll)
     $('kidsSearchWrap').style.display='';
     $('kidDetailView').style.display='block';
     $('mainFab').style.display='none';
-    $('actFab').style.display='none';
-    $('noteFab').style.display='none';
-
-    // Reset sub-tabs to Profile
-    document.querySelectorAll('#kidDetailTabs .view-tab').forEach((b,i)=>b.classList.toggle('active',i===0));
-    document.querySelectorAll('#kidDetailView .view-panel').forEach((p,i)=>p.classList.toggle('active',i===0));
 
     renderProfile();
   }catch(e){toast(ghErrorMsg(e),'err');}
 }
 
 function setDetailTab(tab,btn){
-  document.querySelectorAll('#kidDetailTabs .view-tab').forEach(b=>b.classList.remove('active'));
-  document.querySelectorAll('#kidDetailView .view-panel').forEach(p=>p.classList.remove('active'));
-  if(btn)btn.classList.add('active');
-  $('dtab-'+tab).classList.add('active');
-  $('actFab').style.display=tab==='activities'?'':'none';
-  $('noteFab').style.display=tab==='notes'?'':'none';
-  const _kt=$('kidsViewToolbar');
-  if(_kt) _kt.style.display=(tab==='activities'||tab==='notes')?'flex':'none';
+  // tabs removed — single scrollable view, scroll to section
+  const sectionMap = { profile: 'kidProfileContent', activities: 'kidActivitiesContent', notes: 'kidNotesContent' };
+  const el = $(sectionMap[tab]);
+  if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
   if(tab==='activities')renderActivities();
   if(tab==='notes')renderNotes();
 }
@@ -533,6 +511,9 @@ function renderProfile(){
   }
 
   $('kidProfileContent').innerHTML = html;
+  // No tabs — render activities and notes below profile on same scroll
+  renderActivities();
+  renderNotes();
 }
 
 function renderActivities(q=''){
@@ -541,11 +522,12 @@ function renderActivities(q=''){
     (a.name||'').toLowerCase().includes(_q)||(a.category||'').toLowerCase().includes(_q)||(a.location||'').toLowerCase().includes(_q));
   if(window._kidsFilters?.category) acts=acts.filter(a=>a.category===window._kidsFilters.category);
   if(window._kidsFilters?.tags?.length) acts=acts.filter(a=>window._kidsFilters.tags.every(t=>(a.tags||[]).includes(t)));
-  if(!acts.length&&!_q){$('kidActivitiesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">🏅</div><div style="color:var(--text3);font-size:14px">No activities yet — tap + to add one</div></div>';return;}
+  const actsHeader = `<div class="kid-section-label" style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">Activities <button class="btn btn-ghost" style="font-size:11px;padding:2px 10px" onclick="openActivityDrawer()">+ Add</button></div>`;
+  if(!acts.length&&!_q){$('kidActivitiesContent').innerHTML=actsHeader+'<div style="padding:20px 24px;text-align:center"><div style="font-size:28px;margin-bottom:6px">🏅</div><div style="color:var(--text3);font-size:13px">No activities yet</div></div>';return;}
   const active=acts.filter(a=>a.is_active),inactive=acts.filter(a=>!a.is_active);
-  let html='';
-  if(active.length){html+='<div class="detail-section-label" style="padding-top:8px">Active</div><div class="card card-static" style="margin:0 16px;padding:0">'+active.map(a=>actRow(a)).join('')+'</div>';}
-  if(inactive.length){html+='<div class="detail-section-label">Past / Inactive</div><div class="card card-static" style="margin:0 16px;padding:0">'+inactive.map(a=>actRow(a,true)).join('')+'</div>';}
+  let html=actsHeader;
+  if(active.length){html+='<div class="card card-static" style="margin:0 16px;padding:0">'+active.map(a=>actRow(a)).join('')+'</div>';}
+  if(inactive.length){html+='<div class="kid-section-label" style="font-size:10px;opacity:.7">Past / Inactive</div><div class="card card-static" style="margin:0 16px;padding:0">'+inactive.map(a=>actRow(a,true)).join('')+'</div>';}
   $('kidActivitiesContent').innerHTML=html;
   $('kidActivitiesContent').querySelectorAll('[data-aid]').forEach(el=>el.addEventListener('click',()=>openActivityDrawer(parseInt(el.dataset.aid))));
 }
@@ -560,21 +542,35 @@ function actRow(a,inactive){
 function renderNotes(q=''){
   const notes=(_currentKid?.notes||[]).filter(n=>!q||
     (n.title||'').toLowerCase().includes(q)||(n.body||'').toLowerCase().includes(q)||(n.category||'').toLowerCase().includes(q));
-  if(!notes.length&&!q){$('kidNotesContent').innerHTML='<div style="padding:40px 24px;text-align:center"><div style="font-size:36px;margin-bottom:8px">📝</div><div style="color:var(--text3);font-size:14px">No notes yet — tap + to add one</div></div>';return;}
-  $('kidNotesContent').innerHTML='<div class="card card-static" style="margin:8px 16px;padding:0">'+notes.map(n=>{
+  const notesHeader = `<div class="kid-section-label" style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">Notes <button class="btn btn-ghost" style="font-size:11px;padding:2px 10px" onclick="openNoteDrawer()">+ Add</button></div>`;
+  if(!notes.length&&!q){$('kidNotesContent').innerHTML=notesHeader+'<div style="padding:20px 24px;text-align:center"><div style="font-size:28px;margin-bottom:6px">📝</div><div style="color:var(--text3);font-size:13px">No notes yet</div></div>';return;}
+  $('kidNotesContent').innerHTML=notesHeader+'<div class="card card-static" style="margin:0 16px;padding:0">'+notes.map(n=>{
     const color=NOTE_COLORS[n.category]||'var(--text3)';
     return `<div class="note-row" data-nid="${n.id}"><div class="note-header"><span class="note-title">${esc(n.title||n.body.slice(0,40))}</span><span class="note-date">${n.note_date||''}</span></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span class="note-cat-badge" style="border:1px solid ${color};color:${color}">${n.category}</span>${n.title?`<span class="note-body" style="margin-top:0">${esc(n.body.slice(0,80))}</span>`:''}</div></div>`;
   }).join('')+'</div>';
   $('kidNotesContent').querySelectorAll('[data-nid]').forEach(el=>el.addEventListener('click',()=>openNoteDrawer(parseInt(el.dataset.nid))));
 }
 
-function openKidDrawer(kid){
+async function openKidDrawer(kid){
   _editingKidId=kid?.id||null;
   $('kidDrawerTitle').textContent=_editingKidId?'Edit Child':'Add Child';
   $('kfName').value=kid?.display_name||'';$('kfDob').value=kid?.date_of_birth||'';$('kfGrade').value=kid?.grade||'';
   $('kfTeacher').value=kid?.teacher_name||'';$('kfHomeroom').value=kid?.homeroom||'';$('kfAllergies').value=kid?.allergies||'';
   $('kfMeds').value=kid?.medications_note||'';$('kfEmergency').value=kid?.emergency_note||'';$('kfNotes').value=kid?.notes||'';
   $('kidDelete').style.display=_editingKidId?'inline-flex':'none';
+  // Populate family member selector — children only
+  try {
+    const members = await api('GET', '/api/v1/settings/family');
+    const children = members.filter(m => ['Son','Daughter','Child','Stepson','Stepdaughter'].includes(m.relationship));
+    const sel = $('kfFamilyMember');
+    sel.innerHTML = '<option value="">— not linked —</option>' +
+      children.map(m => `<option value="${m.id}"${kid?.family_member_id===m.id?' selected':''}>${esc(m.display_name)}</option>`).join('');
+    // If no children in family yet, show all non-primary members
+    if (!children.length) {
+      sel.innerHTML = '<option value="">— not linked —</option>' +
+        members.filter(m=>!m.is_primary_user).map(m=>`<option value="${m.id}"${kid?.family_member_id===m.id?' selected':''}>${esc(m.display_name)}</option>`).join('');
+    }
+  } catch { /* silently skip */ }
   $('kidDrawer').classList.add('open');setTimeout(()=>$('kfName').focus(),300);
 }
 
@@ -589,13 +585,13 @@ $('kidDelete').addEventListener('click',async()=>{
 $('kidSave').addEventListener('click',async()=>{
   const name=$('kfName').value.trim();if(!name){toast('Name is required','err');return;}
   $('kidSave').disabled=true;$('kidSave').textContent='Saving…';
-  const body={display_name:name,date_of_birth:$('kfDob').value||null,grade:$('kfGrade').value.trim()||null,teacher_name:$('kfTeacher').value.trim()||null,homeroom:$('kfHomeroom').value.trim()||null,allergies:$('kfAllergies').value.trim()||null,medications_note:$('kfMeds').value.trim()||null,emergency_note:$('kfEmergency').value.trim()||null,notes:$('kfNotes').value.trim()||null};
+  const body={display_name:name,date_of_birth:$('kfDob').value||null,grade:$('kfGrade').value.trim()||null,teacher_name:$('kfTeacher').value.trim()||null,homeroom:$('kfHomeroom').value.trim()||null,allergies:$('kfAllergies').value.trim()||null,medications_note:$('kfMeds').value.trim()||null,emergency_note:$('kfEmergency').value.trim()||null,notes:$('kfNotes').value.trim()||null,family_member_id:$('kfFamilyMember').value?parseInt($('kfFamilyMember').value):null};
   try{
     const saved=await api(_editingKidId?'PUT':'POST', _editingKidId?`/${_editingKidId}`:'/', body);
     $('kidDrawer').classList.remove('open');toast(_editingKidId?'Saved':'Child added','ok');
     if(_currentKid){_currentKid=await api('GET', `/${saved.id}`);renderProfile();$('detailKidName').textContent=_currentKid.display_name;}
     else loadKids();
-  }catch{toast(ghErrorMsg(e),'err');}
+  }catch(err){toast(ghErrorMsg(err),'err');}
   finally{$('kidSave').disabled=false;$('kidSave').textContent='Save';}
 });
 
@@ -735,19 +731,15 @@ document.addEventListener('DOMContentLoaded', () => {
   if (searchEl) {
     searchEl.addEventListener('input', e => {
       const q = e.target.value.trim().toLowerCase();
-      const tab = document.querySelector('#kidDetailTabs .view-tab.active');
-      const tabName = tab ? tab.textContent.trim().toLowerCase() : '';
-      if (tabName.includes('activit')) renderActivities(q);
-      else if (tabName.includes('note')) renderNotes(q);
+      renderActivities(q);
+      renderNotes(q);
     });
   }
   window._kidsFilters = {};
   GH_VIEW.init('kidsViewToolbar', 'kids', state => {
     window._kidsFilters = state.filters || {};
-    const tab = document.querySelector('#kidDetailTabs .view-tab.active');
-    const tabName = tab ? tab.textContent.trim().toLowerCase() : '';
-    if (tabName.includes('activit')) renderActivities();
-    else if (tabName.includes('note')) renderNotes();
+    renderActivities();
+    renderNotes();
   }, {
     defaultView: 'list',
     filterFields: [

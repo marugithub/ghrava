@@ -64,7 +64,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <button class="view-tab active" onclick="switchTab('certs',this)">Certs</button>
     <button class="view-tab" onclick="switchTab('jobs',this)">Jobs</button>
     <button class="view-tab" onclick="switchTab('skills',this)">Skills</button>
-    <button class="view-tab" onclick="switchTab('education',this)">Education</button>
+    <button class="view-tab" onclick="switchTab('learning',this)">Learning</button>
     <button class="view-tab" onclick="switchTab('goals',this)">Goals</button>
 
   </div>
@@ -114,12 +114,24 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
   <!-- ══════════════════════════════════════════════
        EDUCATION
        ══════════════════════════════════════════════ -->
-  <div class="view-panel" id="panel-education">
-    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Education</span>
-      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openEduDrawer()">+ Add</button>
+  <div class="view-panel" id="panel-learning">
+    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <div style="display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1">
+        <button class="filter-chip active" onclick="setLearningType('',this)">All</button>
+        <button class="filter-chip" onclick="setLearningType('Course',this)">Course</button>
+        <button class="filter-chip" onclick="setLearningType('Seminar',this)">Seminar</button>
+        <button class="filter-chip" onclick="setLearningType('Conference',this)">Conference</button>
+        <button class="filter-chip" onclick="setLearningType('Webinar',this)">Webinar</button>
+        <button class="filter-chip" onclick="setLearningType('Reading',this)">Reading</button>
+        <button class="filter-chip" onclick="setLearningType('On-the-Job',this)">On-the-Job</button>
+        <button class="filter-chip" onclick="setLearningType('Volunteering',this)">Volunteering</button>
+        <button class="filter-chip" onclick="setLearningType('Presenting/Teaching',this)">Presenting</button>
+        <button class="filter-chip" onclick="setLearningType('Self-Study',this)">Self-Study</button>
+        <button class="filter-chip" onclick="setLearningType('Other',this)">Other</button>
+      </div>
+      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px;flex-shrink:0" onclick="openLearningDrawer()">+ Add</button>
     </div>
-    <div id="eduList" style="padding:8px 16px 0"></div>
+    <div id="learningList" style="padding:8px 16px 100px"></div>
   </div>
 
   <!-- ══════════════════════════════════════════════
@@ -154,28 +166,44 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
   <div class="drawer">
     <div class="drawer-handle"></div>
     <div class="drawer-title" id="certDrawerTitle">Add Certification</div>
-    <div class="form-group"><label class="form-label">Name <span class="req">*</span></label><input class="form-input" id="certName" placeholder="e.g. AWS Solutions Architect"></div>
-    <div class="form-group"><label class="form-label">Issuing Body</label><input class="form-input" id="certIssuer" placeholder="Amazon, PMI, CompTIA…"></div>
-    <div class="form-group"><label class="form-label">Credential / Badge #</label><input class="form-input" id="certCredId"></div>
+    <div class="form-group">
+      <label class="form-label">Name <span class="req">*</span></label>
+      <input class="form-input" id="certName" placeholder="e.g. PMP, Security+, FAC-PPM Level II"
+        oninput="onCertNameInput(this.value)">
+      <div id="certPresetBanner" style="display:none;margin-top:6px;padding:8px 10px;background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r);font-size:12px;color:var(--text2)"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Issuing Body</label><input class="form-input" id="certIssuer" placeholder="PMI, DAU, CompTIA…"></div>
+      <div class="form-group"><label class="form-label">Cert / Badge #</label><input class="form-input" id="certCredId"></div>
+    </div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Issue Date</label><input class="form-input" type="date" id="certIssueDate"></div>
       <div class="form-group"><label class="form-label">Expiry Date</label><input class="form-input" type="date" id="certExpiry"></div>
     </div>
     <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-select" id="certStatus" onchange="triggerCertSuggest()">
+      <select class="form-select" id="certStatus">
         <option>Active</option><option>In Progress</option><option>Expired</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="certNotes" style="min-height:60px"></textarea></div>
-    <div style="font-size:12px;color:var(--text3);padding:0 0 10px">⏰ A renewal reminder Todo will be created 60 days before expiry.</div>
-    <div style="display:flex;gap:8px">
-          <div class="form-group">
+
+    <!-- CE / Renewal tracking -->
+    <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:12px 0 6px">Renewal &amp; CE Tracking</div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">CE Hours Required</label><input class="form-input" type="number" id="certCeHours" placeholder="60" min="0" step="1"></div>
+      <div class="form-group"><label class="form-label">Cycle (months)</label><input class="form-input" type="number" id="certRenewalMonths" placeholder="36" min="0" step="1"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Current Cycle Start</label><input class="form-input" type="date" id="certCycleStart"></div>
+
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="certNotes" style="min-height:50px"></textarea></div>
+    <div style="font-size:12px;color:var(--text3);padding:0 0 8px">⏰ A renewal reminder Todo will be created 60 days before expiry.</div>
+    <div class="form-group">
       <label class="form-label">Tags</label>
       <div class="tags-input-wrap" id="certTagsWrap" onclick="document.getElementById('certTagInput').focus()">
         <input id="certTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
       </div>
     </div>
-<button class="btn btn-primary" id="certSave" style="flex:1" onclick="saveCert()">Save</button>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" id="certSave" style="flex:1" onclick="saveCert()">Save</button>
       <button class="btn btn-ghost" id="certDeleteBtn" style="color:var(--red);display:none" onclick="deleteCert()">Delete</button>
       <button class="btn btn-ghost" onclick="$('certDrawer').classList.remove('open')">Cancel</button>
     </div>
@@ -255,25 +283,58 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
 </div>
 
 <!-- ════════════════════════════════════════════════════════════
-     EDUCATION DRAWER
+     LEARNING DRAWER
      ════════════════════════════════════════════════════════════ -->
-<div class="drawer-overlay" id="eduDrawer" onclick="onDrawerBg('eduDrawer')">
+<div class="drawer-overlay" id="learningDrawer" onclick="onDrawerBg('learningDrawer')">
   <div class="drawer">
     <div class="drawer-handle"></div>
-    <div class="drawer-title" id="eduDrawerTitle">Add Education</div>
-    <div class="form-group"><label class="form-label">Institution <span class="req">*</span></label><select class="form-select" id="eduInstitution"></select></div>
-    <div class="form-group"><label class="form-label">Degree</label><input class="form-input" id="eduDegree" placeholder="B.S., M.S., Associate…"></div>
-    <div class="form-group"><label class="form-label">Field of Study</label><input class="form-input" id="eduField"></div>
+    <div class="drawer-title" id="learningDrawerTitle">Add Learning Record</div>
+    <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-input" id="lnTitle" placeholder="e.g. PMP Exam Prep, AWS Cloud Practitioner"></div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Start Year</label><input class="form-input" type="number" id="eduStart" placeholder="2010"></div>
-      <div class="form-group"><label class="form-label">End Year</label><input class="form-input" type="number" id="eduEnd" placeholder="2014"></div>
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select class="form-select" id="lnType">
+          <option>Course</option><option>Seminar</option><option>Conference</option>
+          <option>Webinar</option><option>Reading</option><option>On-the-Job</option>
+          <option>Volunteering</option><option>Presenting/Teaching</option>
+          <option>Self-Study</option><option>Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Hours</label><input class="form-input" type="number" id="lnHours" placeholder="8" step="0.5" min="0"></div>
     </div>
-    <div class="form-group"><label class="form-label">GPA</label><input class="form-input" id="eduGpa" placeholder="3.8"></div>
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="eduNotes" style="min-height:60px"></textarea></div>
-    <div style="display:flex;gap:8px">
-      <button class="btn btn-primary" id="eduSave" style="flex:1" onclick="saveEdu()">Save</button>
-      <button class="btn btn-ghost" id="eduDeleteBtn" style="color:var(--red);display:none" onclick="deleteEdu()">Delete</button>
-      <button class="btn btn-ghost" onclick="$('eduDrawer').classList.remove('open')">Cancel</button>
+    <div class="form-group"><label class="form-label">Provider / Organization</label><input class="form-input" id="lnProvider" placeholder="PMI, Coursera, DAU, employer…"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="lnStartDate"></div>
+      <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="lnEndDate" placeholder="leave blank if ongoing"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="lnLocation" placeholder="Online, Washington DC…"></div>
+      <div class="form-group"><label class="form-label">Cost</label><input class="form-input" type="number" id="lnCost" placeholder="0.00" step="0.01" min="0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Link / URL</label><input class="form-input" type="url" id="lnUrl" placeholder="https://…"></div>
+    <div class="form-group"><label class="form-label">Description</label><textarea class="form-textarea" id="lnDesc" style="min-height:60px" placeholder="What was covered, key takeaways…"></textarea></div>
+
+    <!-- Applies toward certifications -->
+    <div class="form-group">
+      <label class="form-label" style="display:flex;justify-content:space-between">
+        Applies Toward Certifications
+        <span style="font-size:11px;color:var(--text3);font-weight:400">Optional</span>
+      </label>
+      <div id="lnCertLinks" style="display:flex;flex-direction:column;gap:6px;margin-bottom:6px"></div>
+      <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="addCertLinkRow()">+ Add Cert</button>
+    </div>
+
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="lnNotes" style="min-height:50px"></textarea></div>
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="lnTagsWrap" onclick="document.getElementById('lnTagInput').focus()">
+        <input id="lnTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="btn btn-primary" id="lnSave" style="flex:1" onclick="saveLearning()">Save</button>
+      <button class="btn btn-ghost" id="lnDeleteBtn" style="color:var(--red);display:none" onclick="deleteLearning()">Delete</button>
+      <button class="btn btn-ghost" onclick="$('learningDrawer').classList.remove('open')">Cancel</button>
     </div>
   </div>
 </div>
@@ -344,18 +405,18 @@ function switchTab(tab, btn) {
   document.querySelectorAll('#careerTabs .view-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('#app .view-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
-  if (tab === 'certs')     loadCerts();
-  else if (tab === 'jobs') loadJobs();
-  else if (tab === 'skills') loadSkills();
-  else if (tab === 'education') loadEdu();
-  else if (tab === 'goals') loadGoals();
+  if (tab === 'certs')        loadCerts();
+  else if (tab === 'jobs')    loadJobs();
+  else if (tab === 'skills')  loadSkills();
+  else if (tab === 'learning') loadLearning();
+  else if (tab === 'goals')   loadGoals();
 }
 
 function onFab() {
   if (currentTab === 'certs')          openCertDrawer();
   else if (currentTab === 'jobs')      openJobDrawer();
   else if (currentTab === 'skills')    openSkillDrawer();
-  else if (currentTab === 'education') openEduDrawer();
+  else if (currentTab === 'learning')  openLearningDrawer();
   else if (currentTab === 'goals')     openGoalDrawer();
 }
 
@@ -379,15 +440,41 @@ async function loadCerts() {
         : 'No expiry';
       const expColor = daysLeft !== null && daysLeft < 60 ? 'var(--red)' : 'var(--text3)';
       const badgeClass = c.status === 'Active' ? 'badge-active' : c.status === 'In Progress' ? 'badge-progress' : 'badge-expired';
+
+      // CE / PDU progress bar
+      let pduHtml = '';
+      if (c.ce_hours_required > 0 && c.current_cycle_start) {
+        const applied = parseFloat(c.pdu_applied_this_cycle) || 0;
+        const required = parseFloat(c.ce_hours_required);
+        const pct = Math.min(100, Math.round(applied / required * 100));
+        const remaining = Math.max(0, required - applied);
+        const cycleEnd = c.current_cycle_end
+          ? (() => { const d=new Date(c.current_cycle_end+'T00:00:00'); const days=Math.ceil((d-today)/864e5); return days>0?`${days}d left in cycle`:'Cycle ended'; })()
+          : '';
+        pduHtml = `
+          <div style="margin-top:8px">
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px">
+              <span>${applied} / ${required} hrs applied</span>
+              <span>${cycleEnd}</span>
+            </div>
+            <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--green)':'var(--accent)'};border-radius:3px;transition:width .3s"></div>
+            </div>
+            <div style="font-size:11px;color:var(--text3);margin-top:2px">${remaining > 0 ? remaining + ' hrs remaining' : '✓ Requirement met'}</div>
+          </div>`;
+      }
+
       return `<div class="card" onclick="openCertDrawer(${c.id})">
-        <div class="card-body">
-          <div class="card-title">${esc(c.name)}</div>
-          <div class="card-sub">${c.issuing_body ? esc(c.issuing_body)+' · ' : ''}${c.credential_id ? '#'+esc(c.credential_id) : ''}</div>
-          <div style="font-size:12px;color:${expColor};margin-top:4px">${expStr}</div>
-          ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
-        </div>
-        <div class="card-right">
-          <span class="${badgeClass}">${esc(c.status)}</span>
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+          <div style="flex:1;min-width:0">
+            <div class="card-title">${esc(c.name)}</div>
+            <div class="card-sub">${c.issuing_body ? esc(c.issuing_body)+' · ' : ''}${c.credential_id ? '#'+esc(c.credential_id) : ''}</div>
+            <div style="font-size:12px;color:${expColor};margin-top:2px">${expStr}</div>
+            ${pduHtml}
+            ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+            ${c.learning_count>0?`<div style="font-size:11px;color:var(--text3);margin-top:4px">${c.learning_count} learning record${c.learning_count!==1?'s':''} linked</div>`:''}
+          </div>
+          <span class="${badgeClass}" style="flex-shrink:0">${esc(c.status)}</span>
         </div>
       </div>`;
     }).join('');
@@ -399,27 +486,42 @@ async function openCertDrawer(id) {
   let c = {};
   if (id) { try { const all = await api('GET', '/certifications'); c = all.find(x=>x.id===id)||{}; } catch(e){} }
   $('certDrawerTitle').textContent = id ? 'Edit Certification' : 'Add Certification';
-  $('certName').value    = c.name||'';
-  $('certIssuer').value  = c.issuing_body||'';
-  $('certCredId').value  = c.credential_id||'';
-  $('certIssueDate').value = c.issue_date||'';
-  $('certExpiry').value  = c.expiry_date||'';
-  $('certStatus').value  = c.status||'Active';
-  $('certNotes').value   = c.notes||'';
+  $('certName').value          = c.name||'';
+  $('certIssuer').value        = c.issuing_body||'';
+  $('certCredId').value        = c.credential_id||'';
+  $('certIssueDate').value     = c.issue_date||'';
+  $('certExpiry').value        = c.expiry_date||'';
+  $('certStatus').value        = c.status||'Active';
+  $('certCeHours').value       = c.ce_hours_required != null ? c.ce_hours_required : '';
+  $('certRenewalMonths').value = c.renewal_period_months != null ? c.renewal_period_months : '';
+  $('certCycleStart').value    = c.current_cycle_start||'';
+  $('certNotes').value         = c.notes||'';
+  $('certPresetBanner').style.display = 'none';
   $('certDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   initCertTags(c?.tags||[]);
   await loadCareerDropdowns();
-  $('certDrawer').classList.add('open')
-  setTimeout(triggerCertSuggest, 100);;
+  // Show renew button if cert has an active cycle
+  const renewBtn = $('certRenewBtn');
+  if (renewBtn) renewBtn.style.display = (id && c.current_cycle_start && c.renewal_period_months) ? 'inline-flex' : 'none';
+  $('certDrawer').classList.add('open');
+  setTimeout(() => $('certName').focus(), 300);
 }
 
 async function saveCert() {
   const btn = $('certSave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const payload = { name:$('certName').value.trim(), issuing_body:$('certIssuer').value||null,
-      credential_id:$('certCredId').value||null, issue_date:$('certIssueDate').value||null,
-      expiry_date:$('certExpiry').value||null, status:$('certStatus').value, notes:$('certNotes').value||null ,
-      tags: certFormTags
+    const payload = {
+      name:                $('certName').value.trim(),
+      issuing_body:        $('certIssuer').value||null,
+      credential_id:       $('certCredId').value||null,
+      issue_date:          $('certIssueDate').value||null,
+      expiry_date:         $('certExpiry').value||null,
+      status:              $('certStatus').value,
+      ce_hours_required:   $('certCeHours').value ? parseFloat($('certCeHours').value) : null,
+      renewal_period_months: $('certRenewalMonths').value ? parseInt($('certRenewalMonths').value) : null,
+      current_cycle_start: $('certCycleStart').value||null,
+      notes:               $('certNotes').value||null,
+      tags:                certFormTags
     };
     if (!payload.name) { toast('Name required','err'); return; }
     const url = editingCertId ? `/certifications/${editingCertId}` : '/certifications';
@@ -574,62 +676,191 @@ async function deleteSkill() {
   toast('Deleted'); $('skillDrawer').classList.remove('open'); loadSkills();
 }
 
-// ── EDUCATION ────────────────────────────────────────────────
-async function loadEdu() {
-  const el = $('eduList'); if (!el) return;
+// ── LEARNING & DEVELOPMENT ───────────────────────────────────
+let _learningType = '';
+let editingLearningId = null;
+let lnFormTags = [];
+let _allCerts = []; // cache for cert link dropdowns
+
+function setLearningType(type, btn) {
+  _learningType = type;
+  document.querySelectorAll('#panel-learning .filter-chip').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  loadLearning();
+}
+
+async function loadLearning() {
+  const el = $('learningList'); if (!el) return;
   try {
-    const rows = await api('GET', '/education');
-    const _filtered_education = _careerSearch
-      ? rows.filter(r => ['institution','degree','field_of_study','notes'].some(k => (r[k]||'').toLowerCase().includes(_careerSearch)))
-      : rows;
-    if (!_filtered_education.length) { el.innerHTML = emptyState(...GH_EMPTY.education); return; }
-    el.innerHTML = _filtered_skills.map(e => `
-      <div class="card" onclick="openEduDrawer(${e.id})">
-        <div class="card-body">
-          <div class="card-title">${esc(e.institution)}</div>
-          <div class="card-sub">${[e.degree, e.field_of_study].filter(Boolean).map(esc).join(' · ')}</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:4px">${e.start_year||''}${e.end_year?' – '+e.end_year:''}${e.gpa?' · GPA '+esc(e.gpa):''}</div>
+    let url = '/learning';
+    const params = [];
+    if (_learningType) params.push('type=' + encodeURIComponent(_learningType));
+    if (_careerSearch) params.push('search=' + encodeURIComponent(_careerSearch));
+    if (params.length) url += '?' + params.join('&');
+    const rows = await api('GET', url);
+    if (!rows.length) { el.innerHTML = emptyState('📚', 'No learning records', 'Track courses, seminars, reading, and any continuing education.', ''); return; }
+
+    const TYPE_ICONS = {
+      'Course':'🎓','Seminar':'📋','Conference':'🏛','Webinar':'💻',
+      'Reading':'📖','On-the-Job':'💼','Volunteering':'🤝',
+      'Presenting/Teaching':'🎤','Self-Study':'🧠','Other':'📝'
+    };
+
+    el.innerHTML = rows.map(r => {
+      const icon = TYPE_ICONS[r.learning_type] || '📝';
+      const dateStr = r.start_date
+        ? r.start_date + (r.end_date && r.end_date !== r.start_date ? ' → ' + r.end_date : '')
+        : '';
+      const meta = [r.provider, dateStr, r.hours_total ? r.hours_total + ' hrs' : ''].filter(Boolean).join(' · ');
+      return `<div class="card" onclick="openLearningDrawer(${r.id})">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div style="font-size:22px;flex-shrink:0;padding-top:2px">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div class="card-title">${esc(r.title)}</div>
+            <div class="card-sub">${esc(r.learning_type)}${meta?' · '+esc(meta):''}</div>
+            ${r.linked_certs ? `<div style="font-size:11px;color:var(--accent);margin-top:3px">→ ${esc(r.linked_certs)}</div>` : ''}
+            ${r.tags&&r.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${r.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+          </div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch(e) { el.innerHTML = errorState(e.message, ''); }
 }
 
-async function openEduDrawer(id) {
-  editingEduId = id||null;
-  let e = {};
-  if (id) { try { const all = await api('GET', '/education'); e = all.find(x=>x.id===id)||{}; } catch(e){} }
-  $('eduDrawerTitle').textContent = id ? 'Edit Education' : 'Add Education';
-  await GH_SELECT.init('eduInstitution', 'school_name', e.institution||null, { placeholder: '— select or add school —', allowAdd: true });
-  $('eduDegree').value = e.degree||'';
-  $('eduField').value  = e.field_of_study||'';
-  $('eduStart').value  = e.start_year||'';
-  $('eduEnd').value    = e.end_year||'';
-  $('eduGpa').value    = e.gpa||'';
-  $('eduNotes').value  = e.notes||'';
-  $('eduDeleteBtn').style.display = id ? 'inline-flex' : 'none';
-  $('eduDrawer').classList.add('open');
+async function openLearningDrawer(id) {
+  editingLearningId = id||null;
+  lnFormTags = [];
+  let r = {};
+  if (id) { try { r = await api('GET', `/learning/${id}`); } catch(e){} }
+  $('learningDrawerTitle').textContent = id ? 'Edit Learning Record' : 'Add Learning Record';
+  $('lnTitle').value     = r.title||'';
+  $('lnType').value      = r.learning_type||'Course';
+  $('lnProvider').value  = r.provider||'';
+  $('lnStartDate').value = r.start_date||'';
+  $('lnEndDate').value   = r.end_date||'';
+  $('lnHours').value     = r.hours_total != null ? r.hours_total : '';
+  $('lnLocation').value  = r.location||'';
+  $('lnUrl').value       = r.url||'';
+  $('lnCost').value      = r.cost != null ? r.cost : '';
+  $('lnDesc').value      = r.description||'';
+  $('lnNotes').value     = r.notes||'';
+  $('lnDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+  lnFormTags = r.tags || [];
+  renderLnTags();
+  // Load certs for link rows
+  if (!_allCerts.length) {
+    try { _allCerts = await api('GET', '/certifications'); } catch {}
+  }
+  renderCertLinkRows(r.cert_links || []);
+  GH_TAGS.init({ inputId:'lnTagInput', wrapId:'lnTagsWrap', module:'career_learning', getFormTags:()=>lnFormTags, addTag:t=>{ lnFormTags.push(t); renderLnTags(); }, allowCreate:true });
+  $('learningDrawer').classList.add('open');
+  setTimeout(() => $('lnTitle').focus(), 300);
 }
 
-async function saveEdu() {
-  const btn = $('eduSave'); btn.textContent='Saving…'; btn.disabled=true;
+function renderLnTags() {
+  const wrap = $('lnTagsWrap'); if (!wrap) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  const input = $('lnTagInput');
+  lnFormTags.forEach(t => {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.textContent = t;
+    const rm = document.createElement('span');
+    rm.className = 'tag-chip-remove';
+    rm.textContent = '×';
+    rm.onclick = () => { lnFormTags = lnFormTags.filter(x=>x!==t); renderLnTags(); };
+    chip.appendChild(rm);
+    wrap.insertBefore(chip, input);
+  });
+}
+
+function renderCertLinkRows(links) {
+  const container = $('lnCertLinks'); if (!container) return;
+  container.innerHTML = '';
+  (links.length ? links : []).forEach((lk, i) => addCertLinkRow(lk));
+}
+
+function addCertLinkRow(existing) {
+  const container = $('lnCertLinks'); if (!container) return;
+  const row = document.createElement('div');
+  row.style.cssText = 'display:flex;gap:6px;align-items:center';
+  const opts = _allCerts.map(c => `<option value="${c.id}"${existing?.certification_id===c.id?' selected':''}>${esc(c.name)}</option>`).join('');
+  row.innerHTML = `
+    <select class="form-select" style="flex:2" data-ln-cert-id>
+      <option value="">— select cert —</option>${opts}
+    </select>
+    <input class="form-input" type="number" step="0.5" min="0" placeholder="hrs" style="flex:1" data-ln-hours
+      value="${existing?.hours_applied != null ? existing.hours_applied : ''}">
+    <input class="form-input" placeholder="category" style="flex:1;font-size:12px" data-ln-category
+      value="${esc(existing?.ce_category||'')}">
+    <button class="btn btn-ghost" style="padding:4px 8px;color:var(--red);flex-shrink:0"
+      onclick="this.parentElement.remove()">×</button>`;
+  container.appendChild(row);
+}
+
+function getCertLinks() {
+  return Array.from($('lnCertLinks')?.children||[]).map(row => ({
+    certification_id: parseInt(row.querySelector('[data-ln-cert-id]')?.value)||null,
+    hours_applied:    parseFloat(row.querySelector('[data-ln-hours]')?.value)||null,
+    ce_category:      row.querySelector('[data-ln-category]')?.value?.trim()||null,
+  })).filter(lk => lk.certification_id);
+}
+
+async function saveLearning() {
+  const btn = $('lnSave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const payload = { institution:$('eduInstitution').value.trim(), degree:$('eduDegree').value||null,
-      field_of_study:$('eduField').value||null, start_year:parseInt($('eduStart').value)||null,
-      end_year:parseInt($('eduEnd').value)||null, gpa:$('eduGpa').value||null, notes:$('eduNotes').value||null };
-    if (!payload.institution) { toast('Institution required','err'); return; }
-    const url = editingEduId ? `/education/${editingEduId}` : '/education';
-    const method = editingEduId ? 'PUT' : 'POST';
-    await api(method, url, payload);
-    toast(editingEduId ? 'Updated' : 'Education added');
-    $('eduDrawer').classList.remove('open'); loadEdu();
-  } catch(e) { toast(ghErrorMsg(e),'err'); }
+    const title = $('lnTitle').value.trim();
+    if (!title) { toast('Title required','err'); return; }
+    const payload = {
+      title, learning_type: $('lnType').value,
+      provider:   $('lnProvider').value.trim()||null,
+      start_date: $('lnStartDate').value||null,
+      end_date:   $('lnEndDate').value||null,
+      hours_total: $('lnHours').value ? parseFloat($('lnHours').value) : null,
+      location:   $('lnLocation').value.trim()||null,
+      url:        $('lnUrl').value.trim()||null,
+      cost:       $('lnCost').value ? parseFloat($('lnCost').value) : null,
+      description: $('lnDesc').value.trim()||null,
+      notes:      $('lnNotes').value.trim()||null,
+      tags:       lnFormTags,
+      cert_links: getCertLinks(),
+    };
+    const url = editingLearningId ? `/learning/${editingLearningId}` : '/learning';
+    await api(editingLearningId ? 'PUT' : 'POST', url, payload);
+    toast(editingLearningId ? 'Updated' : 'Learning record added');
+    $('learningDrawer').classList.remove('open');
+    loadLearning();
+    // Refresh cert cards if we linked something
+    if (payload.cert_links.length && currentTab === 'certs') loadCerts();
+  } catch(err) { toast(ghErrorMsg(err),'err'); }
   finally { btn.textContent='Save'; btn.disabled=false; }
 }
 
-async function deleteEdu() {
-  if (!await LT.confirm('Delete this entry?')) return;
-  await api('DELETE', `/education/${editingEduId}`);
-  toast('Deleted'); $('eduDrawer').classList.remove('open'); loadEdu();
+async function deleteLearning() {
+  if (!await LT.confirm('Delete this learning record?')) return;
+  await api('DELETE', `/learning/${editingLearningId}`);
+  toast('Deleted'); $('learningDrawer').classList.remove('open'); loadLearning();
+}
+
+// ── Cert name auto-fill preset ────────────────────────────────
+let _certPresetTimer = null;
+async function onCertNameInput(val) {
+  clearTimeout(_certPresetTimer);
+  if (!val || val.length < 3) { $('certPresetBanner').style.display='none'; return; }
+  _certPresetTimer = setTimeout(async () => {
+    try {
+      const p = await api('GET', '/certifications/preset?name=' + encodeURIComponent(val));
+      if (p && (p.ce_hours_required != null || p.renewal_period_months)) {
+        $('certCeHours').value       = p.ce_hours_required ?? '';
+        $('certRenewalMonths').value  = p.renewal_period_months ?? '';
+        $('certIssuer').value         = $('certIssuer').value || p.issuing_body || '';
+        $('certPresetBanner').textContent = `✦ Auto-filled from ${p.issuing_body||val} — edit if needed`;
+        $('certPresetBanner').style.display = 'block';
+      } else {
+        $('certPresetBanner').style.display = 'none';
+      }
+    } catch {}
+  }, 500);
 }
 
 // ── GOALS ────────────────────────────────────────────────────
@@ -848,7 +1079,7 @@ function _reloadCurrentTab() {
   if (currentTab === 'certs')          loadCerts();
   else if (currentTab === 'jobs')      loadJobs();
   else if (currentTab === 'skills')    loadSkills();
-  else if (currentTab === 'education') loadEdu();
+  else if (currentTab === 'learning') loadLearning();
   else if (currentTab === 'goals')     loadGoals();
 }
 
