@@ -1246,6 +1246,7 @@ async function _eobShowDetail(id) {
 async function lookupDrug() {
   const name = document.getElementById('mName').value.trim();
   if (!name) { if (window.toast) toast('Enter a drug name first', 'err'); return; }
+  try { const cfg = await window.api('GET', '/settings/config'); if (cfg.api_openfda_enabled === '0') { toast('FDA lookup is disabled in Settings → Free APIs', 'err'); return; } } catch {}
   const fb = document.getElementById('drugFeedback');
   fb.textContent = '⏳ Looking up…'; fb.style.display = 'block'; fb.style.color = 'var(--text3)';
   try {

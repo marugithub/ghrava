@@ -284,6 +284,16 @@
             <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
           </div>
         </div>
+        <div class="settings-row" onclick="openPanel('apis')">
+          <div class="settings-row-icon" style="background:rgba(20,184,166,.1);color:#14b8a6">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Free APIs</div>
+            <div class="settings-row-desc">Auto-fill, lookups &amp; enrichment</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
       </div>
 
       <!-- ── DATA ───────────────────────────────────────── -->
@@ -589,7 +599,108 @@
   </div>
 
   <!-- GOOGLE SERVICES -->
-  <div class="sub-panel" id="panel-google">
+    <!-- ═══════════════════════════════════════════════════════
+       FREE APIs PANEL
+       ═══════════════════════════════════════════════════════ -->
+  <div class="sub-panel" id="panel-apis">
+    <div class="sub-panel-header">
+      <button class="sub-panel-back" onclick="closePanel()">&#8592;</button>
+      <div class="sub-panel-title">Free APIs</div>
+    </div>
+    <div style="padding:16px">
+
+      <p style="font-size:13px;color:var(--text2);margin:0 0 16px;line-height:1.6">
+        These are free, no-key APIs that enrich your data automatically.
+        Toggle any off if you prefer to skip the network call.
+      </p>
+
+      <!-- NHTSA VIN Decode -->
+      <div class="card card-static" style="margin-bottom:10px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:22px;flex-shrink:0">🚗</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">NHTSA VIN Decoder</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Auto-fills Make, Model, Year, Trim when you enter a VIN on the Vehicles form.</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">vpic.nhtsa.dot.gov · US Government · No key required</div>
+          </div>
+          <label class="toggle-switch" title="Enable NHTSA VIN decode">
+            <input type="checkbox" id="api_nhtsa_enabled" onchange="saveApiToggle('api_nhtsa_enabled',this.checked)" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Open Food Facts -->
+      <div class="card card-static" style="margin-bottom:10px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:22px;flex-shrink:0">🥫</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">Open Food Facts</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Fallback product lookup for grocery and food barcodes when the primary UPC database has no result.</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">world.openfoodfacts.org · Open database · No key required</div>
+          </div>
+          <label class="toggle-switch" title="Enable Open Food Facts fallback">
+            <input type="checkbox" id="api_openfoodfacts_enabled" onchange="saveApiToggle('api_openfoodfacts_enabled',this.checked)" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- OpenFDA Drug Lookup -->
+      <div class="card card-static" style="margin-bottom:10px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:22px;flex-shrink:0">💊</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">OpenFDA Drug Lookup</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Look up drug information (generic name, manufacturer, route) when adding a medication.</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">api.fda.gov · US FDA · No key required</div>
+          </div>
+          <label class="toggle-switch" title="Enable FDA drug lookup">
+            <input type="checkbox" id="api_openfda_enabled" onchange="saveApiToggle('api_openfda_enabled',this.checked)" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Zippopotam ZIP lookup -->
+      <div class="card card-static" style="margin-bottom:10px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:22px;flex-shrink:0">📍</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">ZIP Code Auto-Fill</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Auto-fills City and State when you type a ZIP code in Property and Contact address fields.</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">api.zippopotam.us · Free · No key required</div>
+          </div>
+          <label class="toggle-switch" title="Enable ZIP auto-fill">
+            <input type="checkbox" id="api_zip_autofill_enabled" onchange="saveApiToggle('api_zip_autofill_enabled',this.checked)" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Google Books API (key required) -->
+      <div class="card card-static" style="margin-bottom:10px;padding:14px 16px">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:22px;flex-shrink:0">📚</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">Google Books</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">ISBN lookup for book details (title, author, publisher, cover). Requires a free Google API key.</div>
+            <div style="font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)">googleapis.com · Free tier · API key required</div>
+            <div style="margin-top:8px;display:flex;gap:6px">
+              <input class="form-input" id="googleBooksApiKeyApisPanel" type="password"
+                placeholder="Paste Google Books API key…" style="font-family:var(--mono);font-size:12px;flex:1">
+              <button class="btn btn-ghost" style="font-size:12px;padding:4px 12px"
+                onclick="saveBooksKeyFromPanel()">Save</button>
+            </div>
+            <div id="booksKeyStatus" style="font-size:11px;margin-top:4px;color:var(--text3)"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+<div class="sub-panel" id="panel-google">
     <div class="sub-panel-header">
       <button class="sub-back" onclick="closePanel('google')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -886,7 +997,7 @@
       </div>
       <div class="form-group" style="flex:1">
         <label class="form-label">ZIP</label>
-        <input class="form-input" id="ct_zip" placeholder="12345" inputmode="numeric">
+        <input class="form-input" id="ct_zip" placeholder="12345" inputmode="numeric" maxlength="5" oninput="autoFillZip(this.value,'ct_city','ct_state')">
       </div>
     </div>
     <div class="form-group">
@@ -2385,7 +2496,7 @@ function startDelete(type, id, name) {
     msg: `"${name}" will be permanently deleted.`,
     onConfirm: async () => {
       const urls = { family:`/api/v1/settings/family/${deletingId}`, contact:`/api/v1/settings/contacts/${deletingId}`, tag:`/api/v1/settings/tags/${deletingId}`, field:`/api/v1/settings/custom-fields/${deletingId}` };
-      const loaders = { family:loadFamily, contact:loadContacts, tag:loadTags, field:loadFields };
+      const loaders = { family:loadFamily, contact:loadContacts, tag:loadTags, field:loadFields, apis:loadApisPanel };
       try {
         const r = await fetch(urls[deletingType], {method:'DELETE', headers:{'Content-Type':'application/json','Authorization':`Bearer ${LT.authToken}`}});
         
@@ -2665,4 +2776,42 @@ function showCsvExportMenu() {
 // ── Boot ──────────────────────────────────────────────────────
 checkAuth();
 
+
+// ── Free APIs panel ──────────────────────────────────────────
+async function loadApisPanel() {
+  const keys = ['api_nhtsa_enabled','api_openfoodfacts_enabled',
+                 'api_openfda_enabled','api_zip_autofill_enabled'];
+  try {
+    const cfg = await window.api('GET', '/settings/config');
+    keys.forEach(k => {
+      const el = document.getElementById(k);
+      if (el) el.checked = cfg[k] !== '0'; // default on unless explicitly '0'
+    });
+    // Load books key status
+    const keyEl = document.getElementById('googleBooksApiKeyApisPanel');
+    if (keyEl && cfg.google_books_api_key) {
+      keyEl.placeholder = 'Key saved (hidden)';
+      document.getElementById('booksKeyStatus').textContent = '✓ Key configured';
+    }
+  } catch {}
+}
+
+async function saveApiToggle(key, enabled) {
+  try {
+    await window.api('PUT', `/settings/config/${key}`, { value: enabled ? '1' : '0' });
+    toast(enabled ? 'Enabled' : 'Disabled');
+  } catch(e) { toast(ghErrorMsg(e), 'err'); }
+}
+
+async function saveBooksKeyFromPanel() {
+  const key = document.getElementById('googleBooksApiKeyApisPanel').value.trim();
+  if (!key) { toast('Enter an API key', 'err'); return; }
+  try {
+    await window.api('PUT', '/settings/config/google_books_api_key', { value: key });
+    document.getElementById('googleBooksApiKeyApisPanel').value = '';
+    document.getElementById('googleBooksApiKeyApisPanel').placeholder = 'Key saved (hidden)';
+    document.getElementById('booksKeyStatus').textContent = '✓ Key configured';
+    toast('Google Books API key saved');
+  } catch(e) { toast(ghErrorMsg(e), 'err'); }
+}
 </script>

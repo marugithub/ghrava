@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use strict';
 /**
  * features/property/routes.js
@@ -183,9 +184,13 @@ router.delete('/vehicles/:id', requireAuth, (req, res) => {
 
 router.get('/vehicles/:id/service', (req, res) => {
   try {
-    const rows = db.prepare(
-      'SELECT * FROM vehicle_service WHERE vehicle_id=? ORDER BY service_date DESC'
-    ).all(req.params.id);
+    const rows = db.prepare(`
+      SELECT vs.*, c.name AS contact_name
+      FROM vehicle_service vs
+      LEFT JOIN contacts c ON c.id = vs.contact_id
+      WHERE vs.vehicle_id=?
+      ORDER BY vs.service_date DESC
+    `).all(req.params.id);
     res.json(rows);
   } catch (e) { serverError(res, e); }
 });
@@ -264,9 +269,13 @@ module.exports = router;
 // ── Property Maintenance ──────────────────────────────────────
 router.get('/properties/:id/maintenance', (req, res) => {
   try {
-    const rows = db.prepare(
-      'SELECT * FROM property_maintenance WHERE property_id=? ORDER BY maint_date DESC'
-    ).all(req.params.id);
+    const rows = db.prepare(`
+      SELECT pm.*, c.name AS vendor_name
+      FROM property_maintenance pm
+      LEFT JOIN contacts c ON c.id = pm.vendor_contact_id
+      WHERE pm.property_id=?
+      ORDER BY pm.maint_date DESC
+    `).all(req.params.id);
     res.json(rows);
   } catch(e) { serverError(res, e); }
 });

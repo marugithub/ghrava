@@ -103,7 +103,7 @@
   <div class="form-row">
     <div class="form-group" style="flex:2"><input class="form-input" id="pCity" placeholder="City"></div>
     <div class="form-group"><input class="form-input" id="pState" placeholder="ST" maxlength="2"></div>
-    <div class="form-group"><input class="form-input" id="pZip" placeholder="ZIP"></div>
+    <div class="form-group"><input class="form-input" id="pZip" placeholder="ZIP" maxlength="5" inputmode="numeric" oninput="autoFillZip(this.value,'pCity','pState')"></div>
   </div>
   <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Financials</div>
   <div class="form-row">
@@ -729,7 +729,7 @@ async function loadMaint(){
               <span style="font-weight:600;color:${col}">${esc(r.category)}</span>
               <span>${r.maint_date}</span>
               ${r._propName?`<span>📍 ${esc(r._propName)}</span>`:''}
-              ${r.vendor?`<span>🔧 ${esc(r.vendor)}</span>`:''}
+              ${(r.vendor_name||r.vendor)?`<span>🔧 ${esc(r.vendor_name||r.vendor)}</span>`:''}
               ${r.next_due_date?`<span>Next: ${r.next_due_date}</span>`:''}
             </div>
           </div>
