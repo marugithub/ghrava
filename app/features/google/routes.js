@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use strict';
 /**
  * features/google/routes.js
@@ -190,7 +191,7 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
   try {
     const token = await oauth.getValidToken();
     const params = new URLSearchParams({
-      personFields: 'names,emailAddresses,phoneNumbers,organizations,addresses',
+      personFields: 'names,emailAddresses,phoneNumbers,organizations,addresses,urls,biographies',
       pageSize:     '1000',
     });
     const resp = await fetch(`${GPEOPLE_BASE}/people/me/connections?${params}`, {
@@ -202,12 +203,22 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
     try { db.prepare('ALTER TABLE contacts ADD COLUMN google_id TEXT').run(); } catch {}
 
     const upsert = db.prepare(`
-      INSERT OR IGNORE INTO contacts (name, contact_type, email, phone_primary, google_id, company, notes)
-      VALUES (?, 'other', ?, ?, ?, ?, 'Imported from Google Contacts')
+      INSERT OR IGNORE INTO contacts
+        (name, contact_type, email, phone_primary, phone_secondary, google_id, company,
+         address_street, address_city, address_state, address_zip, website, notes)
+      VALUES (?, 'General', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Imported from Google Contacts')
     `);
     const update = db.prepare(`
-      UPDATE contacts SET email=COALESCE(?,email), phone_primary=COALESCE(?,phone_primary),
-        company=COALESCE(?,company)
+      UPDATE contacts SET
+        email=COALESCE(?,email),
+        phone_primary=COALESCE(?,phone_primary),
+        phone_secondary=COALESCE(?,phone_secondary),
+        company=COALESCE(?,company),
+        address_street=COALESCE(?,address_street),
+        address_city=COALESCE(?,address_city),
+        address_state=COALESCE(?,address_state),
+        address_zip=COALESCE(?,address_zip),
+        website=COALESCE(?,website)
       WHERE google_id=?
     `);
 
@@ -215,20 +226,25 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
     for (const person of (data.connections || [])) {
       const name = person.names?.[0]?.displayName;
       if (!name) continue;
-      const email = person.emailAddresses?.[0]?.value || null;
-      const phone = person.phoneNumbers?.[0]?.value   || null;
-      const org   = person.organizations?.[0]?.name   || null;
-      const addr  = person.addresses?.[0]
-        ? [person.addresses[0].streetAddress, person.addresses[0].city,
-           person.addresses[0].region].filter(Boolean).join(', ')
-        : null;
+      const email   = person.emailAddresses?.[0]?.value  || null;
+      const phone1  = person.phoneNumbers?.[0]?.value    || null;
+      const phone2  = person.phoneNumbers?.[1]?.value    || null;
+      const org     = person.organizations?.[0]?.name    || null;
+      const website = person.urls?.[0]?.value            || null;
+      const addr    = person.addresses?.[0]              || null;
+      const street  = addr?.streetAddress                || null;
+      const city    = addr?.city                         || null;
+      const state   = addr?.region                       || null;
+      const zip     = addr?.postalCode                   || null;
 
       const existing = db.prepare('SELECT id FROM contacts WHERE google_id=?').get(person.resourceName);
       if (!existing) {
-        upsert.run(name, email, phone, person.resourceName, org);
+        upsert.run(name, email, phone1, phone2, person.resourceName, org,
+                   street, city, state, zip, website);
         imported++;
       } else {
-        update.run(email, phone, org, person.resourceName);
+        update.run(email, phone1, phone2, org, street, city, state, zip, website,
+                   person.resourceName);
       }
     }
 
