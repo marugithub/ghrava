@@ -1003,6 +1003,7 @@
 let activePanel = null;
 let contactTypeFilter = '';
 let editingId = null;
+let _familyCache = [];
 let deletingType = null, deletingId = null;
 const TAG_COLORS = ['5c72fa','22c55e','f59e0b','ef4444','a78bfa','ec4899','14b8a6','f97316','6366f1','94a3b8'];
 
@@ -1938,7 +1939,8 @@ document.getElementById('panel-contacts').querySelector('div div').addEventListe
 // FAMILY
 // ══════════════════════════════════════════════════════════════
 async function loadFamily() {
-  const members = await window.api('GET', '/settings/family');
+  const members = await window.api('GET', '/settings/family').catch(()=>[]);
+  _familyCache = members;
   const el = $('familyList');
   if (!members.length) {
     el.innerHTML='<div class="empty"><div class="empty-icon">👨‍👩‍👧‍👦</div><h3>No family members yet</h3><p>Add the people who appear throughout Ghrava.</p></div>';
@@ -1976,8 +1978,11 @@ function openFamilyDrawer(member=null) {
   setTimeout(()=>$('fm_display_name').focus(), 300);
 }
 
-async function editFamily(id) {
-  openFamilyDrawer(await window.api('GET', `/settings/family/${id}`));
+function editFamily(id) {
+  const m = (_familyCache||[]).find(x => x.id === id);
+  if (m) { openFamilyDrawer(m); return; }
+  // fallback: fetch if cache miss
+  window.api('GET', `/settings/family/${id}`).then(openFamilyDrawer).catch(err => toast('Could not load member: ' + err.message, 'err'));
 }
 
 $('familyCancel').addEventListener('click', () => $('familyDrawer').classList.remove('open'));

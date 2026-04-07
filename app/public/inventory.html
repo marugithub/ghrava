@@ -1599,8 +1599,7 @@ async function resetHWForm() {
 
 async function loadHWDetails(itemId) {
   try {
-    const r = await fetch(`${API}/items/${itemId}/hw-details`);
-    const hw = await r.json();
+    const hw = await window.api('GET', `/inventory/items/${itemId}/hw-details`);
     if (!hw || !hw.hw_subcategory) return;
     await GH_SELECT.init('hw_subcat', 'hw_subcategory', hw.hw_subcategory||'OTC', { allowAdd: true });
     onHwSubcatChange(hw.hw_subcategory);
@@ -1635,11 +1634,7 @@ async function saveHWDetails(itemId) {
     refills_remaining:    isRx && $('hw_refills').value !== '' ? +$('hw_refills').value : null,
     next_refill_date:     isRx ? ($('hw_next_refill').value || null) : null,
   };
-  await fetch(`${API}/items/${itemId}/hw-details`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  await window.api('POST', `/inventory/items/${itemId}/hw-details`, body);
 }
 
 // Expiry badge helper
@@ -1671,7 +1666,7 @@ function showAllItems() {
   const p = new URLSearchParams();
   if (bizFilter === 'home') p.set('is_business', '0');
   if (bizFilter === 'business') p.set('is_business', '1');
-  fetch(`${API}/items?${p}`).then(r=>r.json()).then(items => {
+  window.api('GET', `/inventory/items?${p}`).then(items => {
     const el = $('searchResults'); if(!el) return;
     $('invCount').style.display = 'block';
     $('invCount').textContent = items.length + ' items';
@@ -1685,7 +1680,7 @@ function showAllItems() {
 function showUnassigned() {
   setView('search');
   $('invSearch').value = '';
-  fetch(`${API}/items`).then(r=>r.json()).then(all => {
+  window.api('GET', `/inventory/items`).then(all => {
     const items = all.filter(i => !i.parent_type || i.parent_type === 'none');
     const el = $('searchResults'); if(!el) return;
     $('invCount').style.display = 'block';
@@ -1700,7 +1695,7 @@ function showUnassigned() {
 function showAllContainers() {
   setView('search');
   $('invSearch').value = '';
-  fetch(`${API}/containers`).then(r=>r.json()).then(ctns => {
+  window.api('GET', `/inventory/containers`).then(ctns => {
     const el = $('searchResults'); if(!el) return;
     $('invCount').style.display = 'block';
     $('invCount').textContent = ctns.length + ' containers';
@@ -1722,9 +1717,8 @@ function showAllContainers() {
 
 async function loadStats() {
   try {
-    const r = await fetch(`${API}/stats`);
-    if (!r.ok) return;
-    const d = await r.json();
+    const d = await window.api('GET', '/inventory/stats').catch(()=>null);
+    if (!d) return;
     const si = $('stItems'), sc = $('stCtns'), sv = $('stValue'), sa = $('stArchived');
     if (si) si.textContent = d.items;
     if (sc) sc.textContent = d.containers;
@@ -1896,7 +1890,7 @@ async function renderBrowse() {
 async function renderAllItemsFlat(el) {
   try {
     const bizQ = bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':'';
-    let items = await fetch(`${API}/items?${bizQ}`).then(r=>r.ok?r.json():[]);
+    let items = await window.api('GET', `/inventory/items?${bizQ}`).catch(()=>[]);
     items.sort((a,b) => b.id - a.id);
 
     // Apply search text
@@ -1982,8 +1976,7 @@ function changeAllItemsPage(dir) {
 }
 
 async function renderLocationTree(el) {
-  const r = await fetch(`${API}/locations`);
-  const locs = await r.json();
+  const locs = await window.api('GET', '/inventory/locations');
   if (!locs.length) {
     el.innerHTML = emptyState(...GH_EMPTY.locations);
     return;
@@ -1992,9 +1985,9 @@ async function renderLocationTree(el) {
   // Check for items with no location (unassigned)
   let unassignedHtml = '';
   try {
-    const unassigned = await fetch(`${API}/items?parent_type=none`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const unassigned = await window.api('GET', `/inventory/items?parent_type=none`).catch(()=>[]);
     // Also check for null parent_type
-    const noPt = await fetch(`${API}/items`).then(r=>r.ok?r.json():[]).catch(()=>[]);
+    const noPt = await window.api('GET', `/inventory/items`).catch(()=>[]);
     const orphans = noPt.filter(i => !i.parent_type || i.parent_type === 'none');
     if (orphans.length) {
       unassignedHtml = `<div class="loc-card" style="border-left:3px solid var(--amber)">
@@ -2049,16 +2042,15 @@ function drillLoc(id, name) {
 
 async function renderLocationContents(el, locId) {
   const [cr, ir] = await Promise.all([
-    fetch(`${API}/containers?parent_type=location&parent_id=${locId}`),
-    fetch(`${API}/items?parent_type=location&parent_id=${locId}${catFilter?'&category='+catFilter:''}${showArchived?'&archived=1':''}${bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':''}`)
+    window.api('GET', `/inventory/containers?parent_type=location&parent_id=${locId}`),
+    window.api('GET', `/inventory/items?parent_type=location&parent_id=${locId}${catFilter?'&category='+catFilter:''}${showArchived?'&archived=1':''}${bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':''}`)
   ]);
-  const ctns = await cr.json(), items = await ir.json();
+  const [ctns, items] = [cr, ir];
   renderContainerItemList(el, ctns, items);
 }
 
 async function renderContainerContents(el, ctnId) {
-  const r = await fetch(`${API}/containers/${ctnId}`);
-  const data = await r.json();
+  const data = await window.api('GET', `/inventory/containers/${ctnId}`);
   const items = catFilter
     ? (data.contents.items||[]).filter(i=>i.category===catFilter)
     : (data.contents.items||[]);
@@ -2229,8 +2221,7 @@ async function doSearch(q) {
   const el=$('searchResults');
   if(!q||q.length<2){el.innerHTML='<div class="empty"><div class="empty-icon" style="color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><h3>Search inventory</h3><p>Type at least 2 characters.</p></div>';return;}
   el.innerHTML='<div class="spinner"><div class="spin"></div>Searching…</div>';
-  const r=await fetch(`${API}/search?q=${encodeURIComponent(q)}${searchTypeFilter?'&type='+searchTypeFilter:''}`);
-  const results=await r.json();
+  const results=await window.api('GET', `/inventory/search?q=${encodeURIComponent(q)}${searchTypeFilter?'&type='+searchTypeFilter:''}`);
   if(!results.length){el.innerHTML=`<div class="empty"><div class="empty-icon" style="color:var(--text3)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><h3>No results for "${esc(q)}"</h3></div>`;return;}
   el.innerHTML=results.map(r=>{
     const cfg=catCfg(r.category||r.type);
@@ -2255,8 +2246,7 @@ async function doSearch(q) {
 // ══════════════════════════════════════════════════════════════
 async function openDetail(id) {
   currentDetailId = id;
-  const r = await fetch(`${API}/items/${id}`);
-  const item = await r.json();
+  const item = await window.api('GET', `/inventory/items/${id}`);
   currentPhotos = item.photos||[];
 
   const cfg = catCfg(item.category);
@@ -2408,7 +2398,7 @@ async function openDetail(id) {
 
   // Append H&W section if applicable
   if (isHW(item.category)) {
-    fetch(`${API}/items/${id}/hw-details`).then(r=>r.json()).then(hw => {
+    window.api('GET', `/inventory/items/${id}/hw-details`).then(hw => {
       if (!hw || !hw.hw_subcategory) return;
       const rxRows = hw.hw_subcategory === 'Prescription' ? `
         ${hw.rx_number ? `<div class="det-row"><span class="det-label">Rx #</span><span>${hw.rx_number}</span></div>` : ''}
@@ -2679,7 +2669,7 @@ async function triggerUPCLookup() {
   const btn = $('upcBtn'); btn.textContent='…'; btn.disabled=true;
   $('upcFeedback').style.display='none';
   try {
-    const r = await fetch(`${API}/upc/${upc}`);
+    const r = await window.api('GET', `/inventory/upc/${upc}`);
     if (!r.ok) {
       $('upcFeedback').innerHTML=`<div class="upc-manual-link">Product not found. <a href="https://www.manualslib.com/search/?q=${encodeURIComponent(upc)}" target="_blank">Search ManualsLib ↗</a></div>`;
       $('upcFeedback').style.display='block';
@@ -2707,13 +2697,7 @@ async function triggerUPCLookup() {
 /** Call parse-title endpoint — falls back gracefully */
 async function parseTitleToFields(rawTitle, upcData) {
   try {
-    const r = await fetch(`${API}/parse-title`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: rawTitle })
-    });
-    if (!r.ok) throw new Error('parse failed');
-    const parsed = await r.json();
+    const parsed = await window.api('POST', '/inventory/parse-title', { title: rawTitle });
     // Merge: UPC data wins for brand/model if already set
     return {
       name:         parsed.name         || upcData.name        || '',
@@ -2876,14 +2860,13 @@ async function openLocDrawer(loc=null, fromItemDrawer=false) {
 }
 
 async function editLoc(id) {
-  const locs = await (await fetch(`${API}/locations/flat`)).json();
+  const locs = await window.api('GET', '/inventory/locations/flat');
   openLocDrawer(locs.find(l=>l.id===id), false);
 }
 
 function delLoc(id,name) {
   confirm('Delete location?',`"${name}" will be deleted. It must be empty first.`,async()=>{
-    const r=await window.api('DELETE', `/inventory/locations/${id}`);
-    const d=await r.json();
+    const d = await window.api('DELETE', `/inventory/locations/${id}`);
     if(d.error){toast(d.error,'err');return;}
     toast('Deleted'); await loadStats(); goHome();
   });
@@ -2932,8 +2915,8 @@ $('locSave').addEventListener('click', async () => {
 // CONTAINER CRUD
 // ══════════════════════════════════════════════════════════════
 async function populateCtnParent(selectedType, selectedId) {
-  const [locR,ctnR]=await Promise.all([fetch(`${API}/locations/flat`),fetch(`${API}/containers`)]);
-  const locs=await locR.json(), ctns=await ctnR.json();
+  const [locR,ctnR]=await Promise.all([window.api('GET','/inventory/locations/flat'),window.api('GET','/inventory/containers')]);
+  const locs=locR, ctns=ctnR;
   let opts='<option value="">— select —</option><optgroup label="Locations">';
   locs.forEach(l=>{ opts+=`<option value="location:${l.id}"${selectedType==='location'&&+selectedId===l.id?' selected':''}>${LOC_ICONS[l.location_type]||'📍'} ${l.name}</option>`; });
   opts+='</optgroup><optgroup label="Containers (nested)">';
@@ -2964,7 +2947,7 @@ async function openCtnDrawer(ctn=null, fromItemDrawer=false) {
 }
 
 async function editCtn(id) {
-  const r=await fetch(`${API}/containers/${id}`); openCtnDrawer(await r.json(), false);
+  openCtnDrawer(await window.api('GET', `/inventory/containers/${id}`), false);
 }
 
 $('ctnSave').addEventListener('click', async () => {
@@ -3074,7 +3057,7 @@ async function openItemDrawer(item=null) {
 
 async function editItem(id) {
   $('detailDrawer').classList.remove('open');
-  const r=await fetch(`${API}/items/${id}`); openItemDrawer(await r.json());
+  openItemDrawer(await window.api('GET', `/inventory/items/${id}`));
 }
 
 $('itm_insured').addEventListener('change',()=>{
@@ -3087,7 +3070,7 @@ let _whereCtns = [];
 
 async function loadWhereLists(force=false) {
   if (!force && _whereLocs.length) return; // already loaded
-  const [locR, ctnR] = await Promise.all([fetch(`${API}/locations/flat`), fetch(`${API}/containers`)]);
+  const [locR, ctnR] = await Promise.all([window.api('GET','/inventory/locations/flat'), window.api('GET','/inventory/containers')]);
   _whereLocs = locR.ok ? await locR.json() : [];
   _whereCtns = ctnR.ok ? await ctnR.json() : [];
 }
@@ -3422,8 +3405,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Deep-link: /inventory.html?open=ITM-0004 or CNT-0002 (from QR scan)
     const openRef = new URLSearchParams(window.location.search).get('open');
     if (openRef) {
-      fetch(`${API}/by-ref/${encodeURIComponent(openRef)}`)
-        .then(r => r.ok ? r.json() : null)
+      window.api('GET', `/inventory/by-ref/${encodeURIComponent(openRef)}`)
         .then(data => {
           if (!data) { toast(`Item not found: ${openRef}`, 'err'); return; }
           if (data.type === 'item') openDetail(data.id);
