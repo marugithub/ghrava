@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * features/settings/routes.js
  * PRIVATE — requireAuth applied at top, covers all routes in this file.
@@ -15,7 +16,7 @@ const { getEntitiesByTag } = require('../../shared/tags');
 // ── Data Cleanup endpoint (manual run) ───────────────────────
 router.post('/cleanup/run', requireAuth, (req, res) => {
   try {
-    const results = runDataCleanup({ source: 'manual' });
+    const results = runDataCleanup({ source: 'manual', itemIds: [] });
     res.json({ ok: true, ...results });
   } catch(err) { serverError(res, err); }
 });
@@ -49,7 +50,7 @@ router.get('/completeness', (req, res) => {
       try {
         const rows = db.prepare(sql).all();
         if (rows.length) issues.push({ module, label, href, field, count: rows.length,
-          samples: rows.slice(0, 3).map(r => r.name || r.title || r.display_name || String(r.id)) });
+          samples: rows.slice(0, 3).map(r => (/** @type {any} */(r)).name || (/** @type {any} */(r)).title || (/** @type {any} */(r)).display_name || String((/** @type {any} */(r)).id)) });
       } catch { /* table may not exist */ }
     }
 
@@ -141,7 +142,7 @@ router.get('/completeness', (req, res) => {
 router.get('/tags/suggest', (req, res) => {
   try {
     const { module: mod, entity_type, category, name = '', current = '' } = req.query;
-    const currentTags = current ? current.split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
+    const currentTags = current ? String(current).split(',').map(t => t.trim().toLowerCase()).filter(Boolean) : [];
     const suggestions = new Map(); // name → { name, color_hex, score, source }
 
     // ── Co-occurrence: tags most used on records with same category ──────────
@@ -175,7 +176,7 @@ router.get('/tags/suggest', (req, res) => {
           LIMIT 10
         `).all(entity_type || meta.entityType, category);
 
-        coRows.forEach(r => {
+        /** @type {any[]} */ (coRows).forEach(/** @param {any} r */ r => {
           const key = r.name.toLowerCase();
           if (!currentTags.includes(key) && !suggestions.has(key)) {
             suggestions.set(key, { name: r.name, color_hex: r.color_hex, score: r.freq + 10, source: 'co' });
@@ -186,7 +187,7 @@ router.get('/tags/suggest', (req, res) => {
 
     // ── Keyword match: name words vs existing tag names ──────────────────────
     if (name && suggestions.size < 5) {
-      const nameWords = name.toLowerCase()
+      const nameWords = String(name).toLowerCase()
         .replace(/[^a-z0-9 ]/g, ' ')
         .split(/\s+/)
         .filter(w => w.length > 2);
@@ -194,7 +195,7 @@ router.get('/tags/suggest', (req, res) => {
       if (nameWords.length) {
         try {
           const allTags = db.prepare('SELECT name, color_hex FROM tags ORDER BY name').all();
-          allTags.forEach(t => {
+          /** @type {any[]} */ (allTags).forEach(/** @param {any} t */ t => {
             const key = t.name.toLowerCase();
             if (currentTags.includes(key) || suggestions.has(key)) return;
             const matches = nameWords.filter(w =>
@@ -222,11 +223,11 @@ router.get('/tags', (req, res) => {
   try {
     const tags = db.prepare('SELECT * FROM tags ORDER BY name').all();
     // Include usage count per tag
-    const withCounts = tags.map(t => {
-      const usage = db.prepare(
+    const withCounts = /** @type {any[]} */ (tags).map(/** @param {any} t */ t => {
+      const usage = /** @type {{n: number}|null} */ (db.prepare(
         'SELECT COUNT(*) as n FROM taggables WHERE tag_id = ?'
-      ).get(t.id);
-      return { ...t, usage_count: usage.n };
+      ).get(t.id));
+      return { ...t, usage_count: usage?.n ?? 0 };
     });
     res.json(withCounts);
   } catch (err) { serverError(res, err); }
@@ -238,9 +239,9 @@ router.get('/tags', (req, res) => {
 router.get('/tags/search', (req, res) => {
   try {
     const { tag } = req.query;
-    if (!tag?.trim()) return badRequest(res, 'tag parameter required');
+    if (!tag || !String(tag).trim()) return badRequest(res, 'tag parameter required');
 
-    const entities = getEntitiesByTag(tag.trim());
+    const entities = getEntitiesByTag(String(tag).trim());
     if (!entities.length) return res.json({ tag, results: [] });
 
     // For each entity_type, map to: module label, page URL, and a title query
@@ -269,14 +270,14 @@ router.get('/tags/search', (req, res) => {
         const row = db.prepare(
           `SELECT ${meta.col} AS t FROM ${meta.table} WHERE id = ?`
         ).get(entity_id);
-        title = row?.t ? String(row.t).slice(0, 80) : null;
+        title = (/** @type {any} */(row))?.t ? String((/** @type {any} */(row)).t).slice(0, 80) : null;
       } catch { /* table may not exist yet */ }
       return { entity_type, entity_id, label: meta.label, href: meta.href, title };
     }).filter(Boolean);
 
     // Group by module label for tidy frontend rendering
-    const grouped = {};
-    results.forEach(r => {
+    const grouped = /** @type {Record<string,any>} */ ({});
+    /** @type {any[]} */ (results).forEach(r => {
       if (!grouped[r.label]) grouped[r.label] = { label: r.label, href: r.href, items: [] };
       grouped[r.label].items.push({ entity_type: r.entity_type, entity_id: r.entity_id, title: r.title });
     });
@@ -359,7 +360,7 @@ router.get('/family/:id', (req, res) => {
 // All other modules use record_family_members junction table.
 router.get('/family/:id/report', (req, res) => {
   try {
-    const member = db.prepare('SELECT * FROM family_members WHERE id = ?').get(req.params.id);
+    const member = /** @type {any} */ (db.prepare('SELECT * FROM family_members WHERE id = ?').get(req.params.id));
     if (!member) return notFound(res, 'Family member');
     const fid = member.id;
     const name = member.display_name;
@@ -404,8 +405,8 @@ router.get('/family/:id/report', (req, res) => {
     const medConds  = medical('med_conditions',   'id, condition_name, status, start_date');
 
     // Open todos for this member (urgency summary)
-    const openTodos  = todos.filter(t => t.status === 'open' || t.status === 'in_progress');
-    const overdueTodos = openTodos.filter(t => t.due_date && t.due_date < new Date().toISOString().slice(0,10));
+    const openTodos  = /** @type {any[]} */ (todos).filter(/** @param {any} t */ t => t.status === 'open' || t.status === 'in_progress');
+    const overdueTodos = openTodos.filter(/** @param {any} t */ t => t.due_date && t.due_date < new Date().toISOString().slice(0,10));
 
     res.json({
       member,
@@ -415,10 +416,10 @@ router.get('/family/:id/report', (req, res) => {
         books:         books.length,
         documents:     docs.length,
         medical_visits:medVisits.length,
-        medications_active: medMeds.filter(m => m.status === 'Active').length,
-        conditions_active:  medConds.filter(c => c.status === 'Active').length,
-        hsa_unreimbursed: hsaItems.filter(h => h.hsa_eligible && !h.reimbursed)
-                           .reduce((s, h) => s + (parseFloat(h.you_paid)||0), 0),
+        medications_active: /** @type {any[]} */ (medMeds).filter(/** @param {any} m */ m => m.status === 'Active').length,
+        conditions_active:  /** @type {any[]} */ (medConds).filter(/** @param {any} c */ c => c.status === 'Active').length,
+        hsa_unreimbursed: /** @type {any[]} */ (hsaItems).filter(/** @param {any} h */ h => h.hsa_eligible && !h.reimbursed)
+                           .reduce((s, /** @param {any} h */ h) => s + (parseFloat(h.you_paid)||0), 0),
       },
       todos, books, documents: docs, resources, hsa: hsaItems,
       career: { jobs: careerJobs, goals: careerGoals },
@@ -490,8 +491,8 @@ router.post('/contacts', (req, res) => {
       d.principal_name||null, d.grade_range||null, d.enrolled_kids||null,
       d.institution_type||null, d.rep_name||null, d.account_types_served||null
     );
-    if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'contact', d.family_member_ids);
-    res.status(201).json(withFamilyMembers(db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid), 'contact'));
+    if (d.family_member_ids !== undefined) saveFamilyMembers(Number(r.lastInsertRowid), 'contact', d.family_member_ids);
+    res.status(201).json(withFamilyMembers(/** @type {any} */ (db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid)), 'contact'));
   } catch (err) { serverError(res, err); }
 });
 
@@ -520,8 +521,8 @@ router.put('/contacts/:id', (req, res) => {
       d.institution_type||null, d.rep_name||null, d.account_types_served||null,
       req.params.id
     );
-    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'contact', d.family_member_ids);
-    const contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(req.params.id);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(Number(req.params.id), 'contact', d.family_member_ids);
+    const contact = /** @type {any} */ (db.prepare('SELECT * FROM contacts WHERE id=?').get(req.params.id));
     if (!contact) return notFound(res, 'Contact');
     res.json(withFamilyMembers(contact, 'contact'));
   } catch (err) { serverError(res, err); }
@@ -529,7 +530,7 @@ router.put('/contacts/:id', (req, res) => {
 
 router.delete('/contacts/:id', (req, res) => {
   try {
-    clearFamilyMembers(req.params.id, 'contact');
+    clearFamilyMembers(Number(req.params.id), 'contact');
     db.prepare('DELETE FROM contacts WHERE id=?').run(req.params.id);
     res.json({ deleted: true });
   } catch (err) { serverError(res, err); }
@@ -640,7 +641,7 @@ router.get('/config', (req, res) => {
   try {
     const rows = db.prepare("SELECT key,value FROM app_config WHERE key != 'app_password_hash'").all();
     const cfg = {};
-    rows.forEach(r => { cfg[r.key] = r.value; });
+    /** @type {any[]} */ (rows).forEach(/** @param {any} r */ r => { cfg[r.key] = r.value; });
     res.json(cfg);
   } catch (err) { serverError(res, err); }
 });
@@ -679,7 +680,7 @@ router.post('/dropdowns', (req, res) => {
     const maxOrder = db.prepare('SELECT MAX(sort_order) as m FROM dropdown_options WHERE list_key=?').get(list_key);
     const r = db.prepare(
       'INSERT INTO dropdown_options (list_key, label, value, sort_order) VALUES (?,?,?,?)'
-    ).run(list_key, label, value, sort_order || (maxOrder.m || 0) + 10);
+    ).run(list_key, label, value, sort_order || ((/** @type {any} */(maxOrder))?.m || 0) + 10);
     res.status(201).json(db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(r.lastInsertRowid));
   } catch (err) { serverError(res, err); }
 });
@@ -689,13 +690,14 @@ router.put('/dropdowns/:id', (req, res) => {
   try {
     const { label, value, sort_order, is_active, rename_value } = req.body;
     const existing = db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(req.params.id);
-    if (!existing) return badRequest(res, 'Not found');
+    const ex = /** @type {import('../../shared/types').DropdownOption|null} */ (/** @type {any} */(existing));
+    if (!ex) return badRequest(res, 'Not found');
 
     // If value is changing AND rename_value=true, cascade to all records that reference the old value
-    if (rename_value && value && value !== existing.value) {
-      const oldVal = existing.value;
+    if (rename_value && value && value !== ex.value) {
+      const oldVal = ex.value;
       const newVal = value;
-      const listKey = existing.list_key;
+      const listKey = ex.list_key;
 
       // Cascade map: list_key → [{table, column}]
       const CASCADE = {
@@ -713,7 +715,7 @@ router.put('/dropdowns/:id', (req, res) => {
       const doRename = db.transaction(() => {
         // Update dropdown option
         db.prepare('UPDATE dropdown_options SET label=?, value=?, sort_order=?, is_active=? WHERE id=?')
-          .run(label ?? existing.label, newVal, sort_order ?? existing.sort_order, is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active, req.params.id);
+          .run(label ?? ex.label, newVal, sort_order ?? ex.sort_order, is_active !== undefined ? (is_active ? 1 : 0) : ex.is_active, req.params.id);
         // Cascade updates
         let totalUpdated = 0;
         targets.forEach(({ t, c }) => {
@@ -724,13 +726,14 @@ router.put('/dropdowns/:id', (req, res) => {
       });
 
       const cascaded = doRename();
-      return res.json({ ...db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(req.params.id), cascaded_records: cascaded });
+      const updated = /** @type {any} */ (db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(req.params.id));
+      return res.json({ ...updated, cascaded_records: cascaded });
     }
 
     // Normal update (no cascade)
     db.prepare('UPDATE dropdown_options SET label=?, value=?, sort_order=?, is_active=? WHERE id=?')
-      .run(label ?? existing.label, value ?? existing.value, sort_order ?? existing.sort_order,
-           is_active !== undefined ? (is_active ? 1 : 0) : existing.is_active, req.params.id);
+      .run(label ?? ex.label, value ?? ex.value, sort_order ?? ex.sort_order,
+           is_active !== undefined ? (is_active ? 1 : 0) : ex.is_active, req.params.id);
     res.json(db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(req.params.id));
   } catch (err) { serverError(res, err); }
 });
@@ -752,24 +755,26 @@ router.get('/dropdowns/:id/usage', (req, res) => {
       'transaction_category':   [{ t: 'finance_transactions', c: 'category', label: 'Transactions' }],
     };
 
-    const targets = CASCADE[row.list_key] || [];
+    const row2 = /** @type {any} */ (row);
+    const targets = CASCADE[row2.list_key] || [];
     let total = 0;
     const breakdown = [];
     targets.forEach(({ t, c, label }) => {
       try {
-        const { n } = db.prepare(`SELECT COUNT(*) as n FROM ${t} WHERE ${c}=?`).get(row.value);
+        const _cnt = /** @type {any} */ (db.prepare(`SELECT COUNT(*) as n FROM ${t} WHERE ${c}=?`).get(row2.value));
+        const n = _cnt?.n ?? 0;
         if (n > 0) { breakdown.push({ table: t, label, count: n }); total += n; }
       } catch(e) {}
     });
 
-    res.json({ value: row.value, list_key: row.list_key, total_usage: total, breakdown });
+    res.json({ value: row2.value, list_key: row2.list_key, total_usage: total, breakdown });
   } catch (err) { serverError(res, err); }
 });
 
 // DELETE /api/v1/settings/dropdowns/:id  (only non-system options)
 router.delete('/dropdowns/:id', (req, res) => {
   try {
-    const row = db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(req.params.id);
+    const row = /** @type {any} */ (db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(req.params.id));
     if (!row) return badRequest(res, 'Not found');
     if (row.is_system) return badRequest(res, 'Cannot delete system options — disable instead');
     db.prepare('DELETE FROM dropdown_options WHERE id=?').run(req.params.id);
@@ -823,12 +828,12 @@ router.post('/diagnostics/purge-e2e', (req, res) => {
   try {
     // Check first — what's there
     const counts = {
-      items:      db.prepare("SELECT COUNT(*) AS n FROM items WHERE name LIKE '%_e2e_%'").get().n,
-      books:      db.prepare("SELECT COUNT(*) AS n FROM books WHERE title LIKE '%_e2e_%'").get().n,
-      documents:  db.prepare("SELECT COUNT(*) AS n FROM documents WHERE title LIKE '%_e2e_%'").get().n,
-      todos:      db.prepare("SELECT COUNT(*) AS n FROM todos WHERE title LIKE '%_e2e_%'").get().n,
-      contacts:   db.prepare("SELECT COUNT(*) AS n FROM contacts WHERE name LIKE '%_e2e_%'").get().n,
-      hsa:        db.prepare("SELECT COUNT(*) AS n FROM hsa_payments WHERE provider LIKE '%_e2e_%'").get().n,
+      items:      /** @type {any} */ (db.prepare("SELECT COUNT(*) AS n FROM items WHERE name LIKE '%_e2e_%'").get()).n,
+      books:      /** @type {any} */ (db.prepare("SELECT COUNT(*) AS n FROM books WHERE title LIKE '%_e2e_%'").get()).n,
+      documents:  /** @type {any} */ (db.prepare("SELECT COUNT(*) AS n FROM documents WHERE title LIKE '%_e2e_%'").get()).n,
+      todos:      /** @type {any} */ (db.prepare("SELECT COUNT(*) AS n FROM todos WHERE title LIKE '%_e2e_%'").get()).n,
+      contacts:   /** @type {any} */ (db.prepare("SELECT COUNT(*) AS n FROM contacts WHERE name LIKE '%_e2e_%'").get()).n,
+      hsa:        /** @type {any} */ (db.prepare("SELECT COUNT(*) AS n FROM hsa_payments WHERE provider LIKE '%_e2e_%'").get()).n,
     };
     const totalFound = Object.values(counts).reduce((s, n) => s + n, 0);
 
@@ -876,10 +881,10 @@ router.get('/diagnostics/orphans', (req, res) => {
     const checks = [];
 
     // Taggables pointing to non-existent tags
-    const orphanTagRefs = db.prepare(`
+    const orphanTagRefs = /** @type {any} */ (db.prepare(`
       SELECT COUNT(*) as n FROM taggables tb
       WHERE NOT EXISTS (SELECT 1 FROM tags t WHERE t.id = tb.tag_id)
-    `).get().n;
+    `).get()).n;
     checks.push({ check: 'taggables → tags', orphans: orphanTagRefs,
       ok: orphanTagRefs === 0, detail: `${orphanTagRefs} taggables with missing tag` });
 
@@ -903,11 +908,11 @@ router.get('/diagnostics/orphans', (req, res) => {
 
     for (const { type, table, id_col } of entityChecks) {
       try {
-        const n = db.prepare(`
+        const n = /** @type {any} */ (db.prepare(`
           SELECT COUNT(*) as n FROM taggables tb
           WHERE tb.entity_type = ?
             AND NOT EXISTS (SELECT 1 FROM ${table} t WHERE t.${id_col} = tb.entity_id)
-        `).get(type).n;
+        `).get(type)).n;
         checks.push({ check: `taggables → ${table} (${type})`, orphans: n,
           ok: n === 0, detail: `${n} orphaned taggable(s)` });
       } catch(e) {
@@ -922,24 +927,24 @@ router.get('/diagnostics/orphans', (req, res) => {
       GROUP BY entity_type
     `).all();
     checks.push({ check: 'attachments entity summary', orphans: 0, ok: true,
-      detail: orphanAttach.map(r => `${r.entity_type}:${r.n}`).join(', ') || 'none' });
+      detail: /** @type {any[]} */ (orphanAttach).map(/** @param {any} r */ r => `${r.entity_type}:${r.n}`).join(', ') || 'none' });
 
     // Documents with freetext tags not yet migrated
-    const unmigrated = db.prepare(`
+    const unmigrated = /** @type {any} */ (db.prepare(`
       SELECT COUNT(*) as n FROM documents
       WHERE tags IS NOT NULL AND trim(tags) != ''
         AND id NOT IN (SELECT entity_id FROM taggables WHERE entity_type='document')
-    `).get().n;
+    `).get()).n;
     checks.push({ check: 'documents: freetext tags migrated', orphans: unmigrated,
       ok: unmigrated === 0,
       detail: unmigrated > 0 ? `${unmigrated} document(s) have freetext tags not yet in taggables` : 'all migrated' });
 
     // Items with no location (unassigned)
-    const unassigned = db.prepare(`
+    const unassigned = /** @type {any} */ (db.prepare(`
       SELECT COUNT(*) as n FROM items
       WHERE is_active=1 AND is_archived=0
         AND (parent_type IS NULL OR parent_type='none' OR parent_type='')
-    `).get().n;
+    `).get()).n;
     checks.push({ check: 'inventory: unassigned items', orphans: unassigned,
       ok: unassigned === 0, warning: true,
       detail: `${unassigned} item(s) not assigned to a location or container` });

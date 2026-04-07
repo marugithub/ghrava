@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 /**
  * features/kids/routes.js — Mounted at /api/v1/kids
@@ -58,11 +59,11 @@ router.get('/', (req, res) => {
 
 router.get('/:id', (req, res) => {
   try {
-    const kid = db.prepare(`
+    const kid = /** @type {any} */ (db.prepare(`
       SELECT k.*, c.name AS school_name
       FROM kids k LEFT JOIN contacts c ON c.id = k.school_id
       WHERE k.id = ?
-    `).get(req.params.id);
+    `).get(req.params.id));
     if (!kid) return notFound(res, 'Kid');
     enrichKid(kid);
     // Attach related records inline so the UI needs only one request
@@ -73,6 +74,7 @@ router.get('/:id', (req, res) => {
       'SELECT * FROM kid_notes WHERE kid_id=? ORDER BY note_date DESC, id DESC LIMIT 20'
     ).all(kid.id).map(n => withFamilyMembers(withTagNames(n, 'kid_note'), 'kid_note'));
     try {
+      // Cross-module read: recent medical visits for this child (read-only context, no writes)
       kid.medical_visits = db.prepare(
         'SELECT * FROM med_visit_notes WHERE patient = ? ORDER BY visit_date DESC LIMIT 5'
       ).all(kid.display_name);
@@ -99,7 +101,7 @@ router.post('/', requireAuth, (req, res) => {
 
 router.put('/:id', requireAuth, (req, res) => {
   try {
-    const kid = db.prepare('SELECT * FROM kids WHERE id=?').get(req.params.id);
+    const kid = /** @type {any} */ (db.prepare('SELECT * FROM kids WHERE id=?').get(req.params.id));
     if (!kid) return notFound(res, 'Kid');
     const { display_name, date_of_birth, grade, school_id, teacher_name, homeroom,
             allergies, medications_note, emergency_note, notes, family_member_id } = req.body;
@@ -145,8 +147,8 @@ router.post('/:id/activities', requireAuth, (req, res) => {
     `).run(req.params.id, name.trim(), category||'Other', day_of_week||null,
            start_time||null, end_time||null, location||null, contact_id||null,
            cost_per_month||null, season||null, start_date||null, end_date||null, notes||null);
-    if (tags) saveTagsByName(r.lastInsertRowid, 'kid_activity', tags);
-    if (req.body.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'kid_activity', req.body.family_member_ids);
+    if (tags) saveTagsByName(Number(r.lastInsertRowid), 'kid_activity', tags);
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(Number(r.lastInsertRowid), 'kid_activity', req.body.family_member_ids);
     res.status(201).json(withFamilyMembers(withTagNames(
       db.prepare('SELECT * FROM kid_activities WHERE id=?').get(r.lastInsertRowid),
       'kid_activity'
@@ -156,7 +158,7 @@ router.post('/:id/activities', requireAuth, (req, res) => {
 
 router.put('/:id/activities/:aid', requireAuth, (req, res) => {
   try {
-    const act = db.prepare('SELECT * FROM kid_activities WHERE id=? AND kid_id=?').get(req.params.aid, req.params.id);
+    const act = /** @type {any} */ (db.prepare('SELECT * FROM kid_activities WHERE id=? AND kid_id=?').get(req.params.aid, req.params.id));
     if (!act) return notFound(res, 'Activity');
     const { name, category, day_of_week, start_time, end_time, location,
             contact_id, cost_per_month, season, start_date, end_date, notes, is_active, tags } = req.body;
@@ -178,8 +180,8 @@ router.put('/:id/activities/:aid', requireAuth, (req, res) => {
 
 router.delete('/:id/activities/:aid', requireAuth, (req, res) => {
   try {
-    clearFamilyMembers(req.params.aid, 'kid_activity');
-    clearTags(req.params.aid, 'kid_activity');
+    clearFamilyMembers(Number(req.params.aid), 'kid_activity');
+    clearTags(Number(req.params.aid), 'kid_activity');
     db.prepare('DELETE FROM kid_activities WHERE id=? AND kid_id=?').run(req.params.aid, req.params.id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
@@ -203,8 +205,8 @@ router.post('/:id/notes', requireAuth, (req, res) => {
       VALUES (?,?,?,?,?)
     `).run(req.params.id, note_date||new Date().toISOString().slice(0,10),
            category||'General', title||null, body.trim());
-    if (tags) saveTagsByName(r.lastInsertRowid, 'kid_note', tags);
-    if (req.body.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'kid_note', req.body.family_member_ids);
+    if (tags) saveTagsByName(Number(r.lastInsertRowid), 'kid_note', tags);
+    if (req.body.family_member_ids !== undefined) saveFamilyMembers(Number(r.lastInsertRowid), 'kid_note', req.body.family_member_ids);
     res.status(201).json(withFamilyMembers(withTagNames(
       db.prepare('SELECT * FROM kid_notes WHERE id=?').get(r.lastInsertRowid),
       'kid_note'
@@ -214,7 +216,7 @@ router.post('/:id/notes', requireAuth, (req, res) => {
 
 router.put('/:id/notes/:nid', requireAuth, (req, res) => {
   try {
-    const note = db.prepare('SELECT * FROM kid_notes WHERE id=? AND kid_id=?').get(req.params.nid, req.params.id);
+    const note = /** @type {any} */ (db.prepare('SELECT * FROM kid_notes WHERE id=? AND kid_id=?').get(req.params.nid, req.params.id));
     if (!note) return notFound(res, 'Note');
     const { note_date, category, title, body, tags } = req.body;
     db.prepare('UPDATE kid_notes SET note_date=?, category=?, title=?, body=? WHERE id=?')
@@ -227,7 +229,7 @@ router.put('/:id/notes/:nid', requireAuth, (req, res) => {
 
 router.delete('/:id/notes/:nid', requireAuth, (req, res) => {
   try {
-    clearTags(req.params.nid, 'kid_note');
+    clearTags(Number(req.params.nid), 'kid_note');
     db.prepare('DELETE FROM kid_notes WHERE id=? AND kid_id=?').run(req.params.nid, req.params.id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
@@ -237,8 +239,8 @@ router.delete('/:id/notes/:nid', requireAuth, (req, res) => {
 // Returns lightweight data for the dashboard panel — not full profiles.
 router.get('/summary/dashboard', (req, res) => {
   try {
-    const kids = db.prepare('SELECT id, display_name, date_of_birth, grade FROM kids WHERE is_active=1').all().map(enrichKid);
-    const actCount = db.prepare('SELECT COUNT(*) AS n FROM kid_activities WHERE is_active=1').get().n;
+    const kids = /** @type {any[]} */ (db.prepare('SELECT id, display_name, date_of_birth, grade FROM kids WHERE is_active=1').all()).map(enrichKid);
+    const actCount = /** @type {any} */ (db.prepare('SELECT COUNT(*) AS n FROM kid_activities WHERE is_active=1').get()).n;
     res.json({ kids, active_activities: actCount });
   } catch(e) { serverError(res, e); }
 });

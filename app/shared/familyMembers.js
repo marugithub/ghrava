@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 /**
  * shared/familyMembers.js — Family member association utilities
@@ -65,7 +66,7 @@ function saveFamilyMembers(entityId, entityType, ids) {
  * @returns {{ id, display_name, relationship }[]}
  */
 function getFamilyMembers(entityId, entityType) {
-  return stmt.getAll.all(entityType, entityId);
+  return /** @type {import('./types').FamilyMember[]} */ (/** @type {any} */ (stmt.getAll.all(entityType, entityId)));
 }
 
 /**

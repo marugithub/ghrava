@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * shared/tags.js — Central tag utilities for all feature modules
  *
@@ -83,10 +84,10 @@ const stmt = {
 function getOrCreate(name, entityType) {
   const n = name.trim().toLowerCase();
   if (!n) return null;
-  const existing = stmt.findTag.get(n);
+  const existing = /** @type {any} */ (stmt.findTag.get(n));
   if (existing) return existing.id;
   const color = MODULE_COLORS[entityType] || '64748b';
-  return stmt.createTag.run(n, color).lastInsertRowid;
+  return /** @type {number} */ (Number(stmt.createTag.run(n, color).lastInsertRowid));
 }
 
 /**
@@ -116,7 +117,7 @@ function saveTagsByName(entityId, entityType, names) {
  * @returns {string[]}
  */
 function getTagNames(entityId, entityType) {
-  return stmt.getNames.all(entityType, entityId).map(r => r.name);
+  return /** @type {any[]} */ (stmt.getNames.all(entityType, entityId)).map(/** @param {any} r */ r => r.name);
 }
 
 /**
@@ -153,7 +154,7 @@ function clearTags(entityId, entityType) {
  * @returns {{ entity_type: string, entity_id: number }[]}
  */
 function getEntitiesByTag(tagName) {
-  return stmt.getEntities.all(tagName);
+  return /** @type {{ entity_type: string, entity_id: number }[]} */ (/** @type {any} */ (stmt.getEntities.all(tagName)));
 }
 
 // ── Legacy exports (kept for any code using the old API) ──────

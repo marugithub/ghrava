@@ -1,3 +1,4 @@
+// @ts-check
 'use strict';
 /**
  * career/learning.js — Learning & Development routes
@@ -110,7 +111,7 @@ router.post('/', requireAuth, (req, res) => {
       d.cost != null ? parseFloat(d.cost) : null,
       d.description || null, d.notes || null
     );
-    const newId = r.lastInsertRowid;
+    const newId = Number(r.lastInsertRowid);
 
     if (d.tags) saveTagsByName(newId, 'career_learning', d.tags);
     saveCertLinks(newId, d.cert_links || []);
@@ -123,7 +124,7 @@ router.post('/', requireAuth, (req, res) => {
 router.put('/:id', requireAuth, (req, res) => {
   try {
     const d = req.body;
-    const existing = db.prepare('SELECT * FROM career_learning WHERE id=?').get(req.params.id);
+    const existing = /** @type {import('../../shared/types').CareerLearning|null} */ (db.prepare('SELECT * FROM career_learning WHERE id=?').get(req.params.id));
     if (!existing) return notFound(res, 'Learning record');
 
     db.prepare(`
@@ -147,8 +148,8 @@ router.put('/:id', requireAuth, (req, res) => {
       req.params.id
     );
 
-    if (d.tags !== undefined) saveTagsByName(req.params.id, 'career_learning', d.tags);
-    if (d.cert_links !== undefined) saveCertLinks(req.params.id, d.cert_links);
+    if (d.tags !== undefined) saveTagsByName(Number(req.params.id), 'career_learning', d.tags);
+    if (d.cert_links !== undefined) saveCertLinks(Number(req.params.id), d.cert_links);
 
     res.json(db.prepare('SELECT * FROM career_learning WHERE id=?').get(req.params.id));
   } catch(e) { serverError(res, e); }
