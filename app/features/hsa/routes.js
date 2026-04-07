@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * features/hsa/routes.js
  * PRIVATE module — requireAuth on all write routes.
@@ -468,7 +469,7 @@ router.post('/reimbursements', (req, res) => {
       INSERT INTO hsa_reimbursement_items (reimbursement_id, expense_type, expense_id, amount)
       VALUES (?,?,?,?)
     `);
-    const markPayment  = db.prepare(`UPDATE hsa_payments SET reimbursed=1, reimbursement_date=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`);
+    const markPayment  = db.prepare(`UPDATE hsa_payments SET reimbursed=1, reimbursement_date=?, reimbursement_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`);
     const markOtc      = db.prepare(`UPDATE hsa_otc SET reimbursed=1, reimbursement_date=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`);
 
     const txn = db.transaction(() => {
@@ -480,7 +481,7 @@ router.post('/reimbursements', (req, res) => {
       if (Array.isArray(d.items)) {
         for (const item of d.items) {
           insertItem.run(reimbId, item.expense_type, item.expense_id, item.amount||0);
-          if (item.expense_type === 'payment') markPayment.run(d.reimbursement_date, item.expense_id);
+          if (item.expense_type === 'payment') markPayment.run(d.reimbursement_date, reimbId, item.expense_id);
           if (item.expense_type === 'otc')     markOtc.run(d.reimbursement_date, item.expense_id);
         }
       }
@@ -499,7 +500,7 @@ router.delete('/reimbursements/:id', (req, res) => {
     const txn = db.transaction(() => {
       for (const item of items) {
         if (item.expense_type === 'payment')
-          db.prepare('UPDATE hsa_payments SET reimbursed=0, reimbursement_date=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(item.expense_id);
+          db.prepare('UPDATE hsa_payments SET reimbursed=0, reimbursement_date=NULL, reimbursement_id=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(item.expense_id);
         if (item.expense_type === 'otc')
           db.prepare('UPDATE hsa_otc SET reimbursed=0, reimbursement_date=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(item.expense_id);
       }

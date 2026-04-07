@@ -76,6 +76,7 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <button class="view-tab"        data-tab="health"     onclick="switchRpt('health',this)">Health</button>
     <button class="view-tab"        data-tab="networth"   onclick="switchRpt('networth',this)">Net Worth</button>
     <button class="view-tab"        data-tab="annual"     onclick="switchRpt('annual',this)">Annual</button>
+    <button class="view-tab"        data-tab="checklist"  onclick="switchRpt('checklist',this)">Checklist</button>
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
     <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
@@ -150,6 +151,12 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <div id="annCats"></div>
     <div class="section-hdr">10 Biggest Expenses</div>
     <div id="annExpenses" style="padding:0 16px"></div>
+  </div>
+
+  <!-- Checklist Panel -->
+  <div class="view-panel" id="panel-checklist">
+    <div style="padding:12px 16px 4px;font-size:13px;color:var(--text3)">Annual household tasks by category. Mark items complete to track progress.</div>
+    <div id="checklistContent" style="padding:0 16px 80px"></div>
   </div>
 
   <!-- Summary Panel -->
@@ -310,6 +317,7 @@ function loadTab(tab) {
   else if (tab === 'health') loadHealth();
   else if (tab === 'networth') loadNetWorth();
   else if (tab === 'annual') loadAnnual();
+  else if (tab === 'checklist') loadChecklist();
   else if (tab === 'summary') loadSummary();
   else if (tab === 'people') loadPeople();
   else if (tab === 'quality') loadQuality();
@@ -1626,6 +1634,84 @@ function init() {
 // Wait for auth
 if (window.LT?.ready) { LT.ready(() => init()); }
 else { document.addEventListener('DOMContentLoaded', () => setTimeout(init, 200)); }
+
+// ── CHECKLIST TAB ─────────────────────────────────────────────
+let _checklistDone = new Set(JSON.parse(localStorage.getItem('ghrava_checklist') || '[]'));
+
+function saveChecklist() {
+  localStorage.setItem('ghrava_checklist', JSON.stringify([..._checklistDone]));
+}
+
+async function loadChecklist() {
+  const el = $('checklistContent');
+  if (!el) return;
+  try {
+    const items = await window.api('GET', '/settings/checklist');
+    if (!items.length) { el.innerHTML = emptyState('✅','No checklist items',''); return; }
+
+    // Group by category
+    const groups = {};
+    items.forEach(item => {
+      (groups[item.category] = groups[item.category] || []).push(item);
+    });
+
+    const year = new Date().getFullYear();
+    const totalDone = items.filter(i => _checklistDone.has(`${year}_${i.id}`)).length;
+    const pct = Math.round(totalDone / items.length * 100);
+
+    el.innerHTML = `
+      <div style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:4px">
+          <span>${totalDone} / ${items.length} completed for ${year}</span>
+          <span>${pct}%</span>
+        </div>
+        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px;transition:width .3s"></div>
+        </div>
+      </div>
+      ${Object.entries(groups).sort(([a],[b])=>a.localeCompare(b)).map(([cat, catItems]) => {
+        const doneCnt = catItems.filter(i => _checklistDone.has(`${year}_${i.id}`)).length;
+        return `
+          <div style="margin-bottom:2px">
+            <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:10px 0 4px;display:flex;justify-content:space-between">
+              <span>${esc(cat)}</span><span>${doneCnt}/${catItems.length}</span>
+            </div>
+            <div class="card card-static" style="padding:0">
+              ${catItems.map(item => {
+                const key = `${year}_${item.id}`;
+                const done = _checklistDone.has(key);
+                return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleCheck(${item.id})">
+                  <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${done?'var(--green)':'var(--border)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${done?'var(--green)':'transparent'}">
+                    ${done?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
+                  </div>
+                  <span style="font-size:13px;color:${done?'var(--text3)':'var(--text)'};text-decoration:${done?'line-through':'none'}">${esc(item.task)}</span>
+                </div>`;
+              }).join('')}
+            </div>
+          </div>`;
+      }).join('')}
+      <div style="padding:12px 0 4px;text-align:center">
+        <button class="btn btn-ghost" style="font-size:12px;color:var(--text3)" onclick="resetChecklist()">Reset ${year} progress</button>
+      </div>
+    `;
+  } catch(e) { el.innerHTML = errorState(e.message, 'loadChecklist()'); }
+}
+
+function toggleCheck(id) {
+  const year = new Date().getFullYear();
+  const key = `${year}_${id}`;
+  if (_checklistDone.has(key)) _checklistDone.delete(key);
+  else _checklistDone.add(key);
+  saveChecklist();
+  loadChecklist();
+}
+
+function resetChecklist() {
+  const year = new Date().getFullYear();
+  _checklistDone = new Set([..._checklistDone].filter(k => !k.startsWith(`${year}_`)));
+  saveChecklist();
+  loadChecklist();
+}
 </script>
 </body>
 </html>

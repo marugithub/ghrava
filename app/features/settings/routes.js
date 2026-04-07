@@ -338,6 +338,16 @@ router.get('/dropdowns/:listKey', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+// ── GET /checklist — annual checklist items (public) ─────────
+router.get('/checklist', (req, res) => {
+  try {
+    const rows = db.prepare(
+      'SELECT id, category, task, sort_order FROM annual_checklist_items ORDER BY category, sort_order'
+    ).all();
+    res.json(rows);
+  } catch(e) { serverError(res, e); }
+});
+
 // ── All routes below this line require authentication ──────────
 router.use(requireAuth);
 
