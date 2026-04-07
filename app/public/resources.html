@@ -391,14 +391,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Type</label>
-        <select class="form-select" id="fLinkType">
-          <option value="website">🌐 Website</option>
-          <option value="folder">📁 Folder</option>
-          <option value="file">📄 File</option>
-          <option value="drive">☁️ Cloud Drive</option>
-          <option value="network">🖧 Network Share</option>
-          <option value="other">📎 Other</option>
-        </select>
+        <select class="form-select" id="fLinkType"></select>
       </div>
       <div class="form-group">
         <label class="form-label">Category</label>
@@ -746,13 +739,13 @@ function triggerResSuggest() {
 }
 
 // ── Open add form ─────────────────────────────────────────────
-function openAdd() {
+async function openAdd() {
   editingId = null;
   formTags = [];
   $('formTitle').textContent = 'Add Resource';
   $('fName').value = '';
   $('fUrl').value = '';
-  $('fLinkType').value = 'website';
+  await GH_SELECT.init('fLinkType', 'resource_link_type', '🌐 Website', { placeholder: '— type —' });
   $('fDesc').value = '';
   $('fAccess').value = '';
   $('fFavorite').checked = false;
@@ -765,7 +758,7 @@ function openAdd() {
 }
 
 // ── Open edit form ────────────────────────────────────────────
-function openEdit(id) {
+async function openEdit(id) {
   const r = resources.find(x => x.id === id);
   if (!r) return;
   editingId = id;
@@ -773,7 +766,7 @@ function openEdit(id) {
   $('formTitle').textContent = 'Edit Resource';
   $('fName').value = r.name || '';
   $('fUrl').value = r.url || '';
-  $('fLinkType').value = r.link_type || 'website';
+  await GH_SELECT.init('fLinkType', 'resource_link_type', r.link_type || '🌐 Website', { placeholder: '— type —' });
   $('fDesc').value = r.description || '';
   $('fAccess').value = r.access_note || '';
   $('fFavorite').checked = !!r.is_favorite;

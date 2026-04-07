@@ -4,7 +4,6 @@
 BEGIN;
 
 ALTER TABLE books                ADD COLUMN review_category TEXT;
-ALTER TABLE career_certifications ADD COLUMN review_category TEXT;
 ALTER TABLE career_goals          ADD COLUMN review_category TEXT;
 ALTER TABLE career_jobs           ADD COLUMN review_category TEXT;
 ALTER TABLE career_skills         ADD COLUMN review_category TEXT;

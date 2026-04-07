@@ -1134,6 +1134,7 @@
 
     <div class="form-group">
       <label class="form-label">Tags</label>
+      <div id="itmFamilyWrap" style="margin-bottom:10px"></div>
       <div class="tags-input-wrap" id="itmTagsWrap" onclick="document.getElementById('itmTagInput').focus()">
         <input class="tags-text-input" id="itmTagInput" placeholder="Type tag, Enter to add…" autocomplete="off">
       </div>
@@ -2669,13 +2670,14 @@ async function triggerUPCLookup() {
   const btn = $('upcBtn'); btn.textContent='…'; btn.disabled=true;
   $('upcFeedback').style.display='none';
   try {
-    const r = await window.api('GET', `/inventory/upc/${upc}`);
-    if (!r.ok) {
+    let d;
+    try {
+      d = await window.api('GET', `/inventory/upc/${upc}`);
+    } catch {
       $('upcFeedback').innerHTML=`<div class="upc-manual-link">Product not found. <a href="https://www.manualslib.com/search/?q=${encodeURIComponent(upc)}" target="_blank">Search ManualsLib ↗</a></div>`;
       $('upcFeedback').style.display='block';
       return;
     }
-    const d = await r.json();
 
     // Store manual URL for later
     if (d.manual_url) $('upc_input').dataset.manualUrl = d.manual_url;
@@ -2992,6 +2994,7 @@ async function openItemDrawer(item=null) {
   $('itemDrawerTitle').textContent = item?'Edit Item':'Add Item';
   $('upc_input').value=''; $('upcFeedback').style.display='none';
   $('upc_input').dataset.manualUrl='';
+  GH_FAMILY.init('itmFamilyWrap', []);
   $('itm_name').value=''; $('itm_qty').value=1;
   await populateCategoryDropdown('');
   $('itm_brand').value=''; $('itm_model').value=''; $('itm_serial').value='';
@@ -3009,6 +3012,7 @@ async function openItemDrawer(item=null) {
 
   if (item) {
     $('upc_input').value=item.upc_barcode||'';
+  GH_FAMILY.init('itmFamilyWrap', item.family_members||[]);
     $('itm_name').value=item.name;
     await populateCategoryDropdown(item.category||'');
     $('itm_qty').value=item.quantity||1;
@@ -3188,9 +3192,9 @@ $('itemSave').addEventListener('click', async ()=>{
   if(!pt||!pid){toast('Pick a location first','err');return;}
   const btn=$('itemSave'); btn.textContent='Saving…'; btn.disabled=true;
   try{
-    const url=editingId?`${API}/items/${editingId}`:`${API}/items`;
+    const url=editingId?`/inventory/items/${editingId}`:`/inventory/items`;
     const method=editingId?'PUT':'POST';
-    const r=await window.api(method, url.replace('/api/v1',''), {
+    const r=await window.api(method, url, {
       name, category:$('itm_cat').value||null, quantity:+$('itm_qty').value||1,
       parent_type:pt, parent_id:+pid,
       brand:$('itm_brand').value||null, model_number:$('itm_model').value||null,
@@ -3207,7 +3211,8 @@ $('itemSave').addEventListener('click', async ()=>{
       insured_value:$('itm_insval').value?parseFloat($('itm_insval').value):null,
       notes:$('itm_notes').value||null,
       is_business: $('itm_is_business').checked ? 1 : 0,
-      tags:itmFormTags
+      tags:itmFormTags,
+      family_member_ids: GH_FAMILY.getIds('itmFamilyWrap')
     });
     const saved=r;
     // Save H&W details if category is Health & Wellness

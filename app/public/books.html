@@ -676,8 +676,7 @@ async function lookupIsbn(isbn) {
   if (!bookData) {
     try {
       const cfgR = await window.api('GET', '/settings/config/google_books_api_key').catch(()=>null);
-      const cfg  = cfgR.ok ? await cfgR.json() : null;
-      const key  = cfg?.value;
+      const key  = cfgR?.value;
       if (key) {
         const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}&key=${key}`);
         const d = await r.json();

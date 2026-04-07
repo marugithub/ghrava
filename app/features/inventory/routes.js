@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * features/inventory/routes.js  — v3
  * PUBLIC module (no login required).
@@ -276,7 +277,8 @@ router.get('/items/:id', (req, res) => {
     const documents    = attachments.filter(a => !a.is_image);
     const maintenance  = db.prepare(`SELECT * FROM item_maintenance_log WHERE item_id=? ORDER BY log_date DESC`).all(req.params.id);
     const events       = getEvents(req.params.id, 30);
-    res.json({ ...item, location_path: getPath(item.parent_type, item.parent_id), tags, attachments, photos, documents, maintenance, events });
+    const family_members = db.prepare(`SELECT fm.* FROM family_members fm JOIN record_family_members rfm ON rfm.family_member_id=fm.id WHERE rfm.entity_type='item' AND rfm.entity_id=?`).all(req.params.id);
+    res.json({ ...item, location_path: getPath(item.parent_type, item.parent_id), tags, attachments, photos, documents, maintenance, events, family_members });
   } catch (err) { serverError(res, err); }
 });
 
@@ -1232,8 +1234,9 @@ router.get('/export', (req, res) => {
     `).all();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ctns.length ? ctns : [{}]), 'Containers');
 
-    // Daily Log sheet
-    const logs = db.prepare('SELECT log_date,category,entry_text,follow_up_needed,follow_up_date FROM daily_log ORDER BY log_date DESC').all();
+    // Daily Log sheet — query lives in shared/exportQueries.js (dailylog module owns this table)
+    const { EXPORT_QUERIES: EQ } = require('../../shared/exportQueries');
+    const logs = EQ.daily_log ? db.prepare(EQ.daily_log).all() : [];
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(logs.length ? logs : [{}]), 'Daily Log');
 
     // Maintenance sheet

@@ -1,8 +1,7 @@
 -- Migration 081: Add family_member_id to properties, vehicles, items
--- Enables "everything about a person" report to include these modules.
--- Uses record_family_members junction table (already exists).
--- These columns are convenience FKs for single-owner linking;
--- full multi-member linking goes through record_family_members.
+-- properties.family_member_id is genuinely new (not covered by 063-079)
+-- vehicles.family_member_id and items.family_member_id are also new
+-- record_family_members junction table already exists (migration 042)
 
 BEGIN;
 

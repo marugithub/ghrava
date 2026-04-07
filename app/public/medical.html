@@ -1204,8 +1204,7 @@ async function _eobDelete(id, dateLabel) {
   if (!await LT.confirm(`Delete EOB statement from ${dateLabel}? This removes all claims, services and balance rows.`)) return;
   try {
     const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-    const r = { ok: true }; await window.api('DELETE', `/medical/eob/${id}`);
-    const d = await r.json();
+    const d = await window.api('DELETE', `/medical/eob/${id}`);
     if (!d.ok) throw new Error(d.error || 'Delete failed');
     toast('EOB statement deleted');
     await _eobLoadHistory();

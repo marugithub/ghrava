@@ -109,6 +109,7 @@ router.get('/vehicles', (req, res) => {
     // Attach recent service record and tags to each vehicle
     vehicles.forEach(v => {
       v.tags = withTagNames(v, 'vehicle').tags;
+      v.family_members = withFamilyMembers(v, 'vehicle').family_members;
       v.last_service = db.prepare(
         'SELECT * FROM vehicle_service WHERE vehicle_id=? ORDER BY service_date DESC LIMIT 1'
       ).get(v.id) || null;
@@ -140,7 +141,8 @@ router.post('/vehicles', requireAuth, (req, res) => {
            parseFloat(d.loan_rate)||null, parseFloat(d.loan_monthly)||null, d.loan_end_date||null,
            d.insurance_company||null, d.insurance_policy||null, parseFloat(d.insurance_annual)||null,
            d.registration_expires||null, d.inspection_expires||null, d.notes||null);
-    if (d.tags) saveTagsByName(r.lastInsertRowid, 'vehicle', d.tags);
+    if (d.tags) saveTagsByName(Number(r.lastInsertRowid), 'vehicle', d.tags);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(Number(r.lastInsertRowid), 'vehicle', d.family_member_ids);
     res.status(201).json({ id: r.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -167,14 +169,17 @@ router.put('/vehicles/:id', requireAuth, (req, res) => {
            parseFloat(d.loan_rate)||null, parseFloat(d.loan_monthly)||null, d.loan_end_date||null,
            d.insurance_company||null, d.insurance_policy||null, parseFloat(d.insurance_annual)||null,
            d.registration_expires||null, d.inspection_expires||null, d.notes||null, req.params.id);
-    clearReview('vehicles', req.params.id);
+    if (d.family_member_ids !== undefined) saveFamilyMembers(Number(req.params.id), 'vehicle', d.family_member_ids);
+    if (d.tags !== undefined) saveTagsByName(Number(req.params.id), 'vehicle', d.tags);
+    clearReview('vehicles', Number(req.params.id));
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
 
 router.delete('/vehicles/:id', requireAuth, (req, res) => {
   try {
-    clearTags(req.params.id, 'vehicle');
+    clearTags(Number(req.params.id), 'vehicle');
+    clearFamilyMembers(Number(req.params.id), 'vehicle');
     db.prepare('UPDATE vehicles SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }

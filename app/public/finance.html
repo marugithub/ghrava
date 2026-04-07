@@ -649,9 +649,7 @@
         </div>
         <div class="form-group">
           <label class="form-label">Payment Type</label>
-          <select class="form-select" id="fPaymentType">
-            <option>Out of Pocket</option><option>Insurance Paid</option><option>HSA Card</option>
-          </select>
+          <select class="form-select" id="fPaymentType"></select>
         </div>
       </div>
       <div class="form-row">
@@ -1360,7 +1358,7 @@ async function openAddDrawer(type = 'payment') {
   if (type === 'payment') {
     $('fProvider').value = '';
     await GH_SELECT.init('fCategory', 'hsa_category', 'Doctor', { allowAdd: true });
-    $('fPaymentType').value = 'Out of Pocket';
+    await GH_SELECT.init('fPaymentType', 'hsa_payment_type', 'Out of Pocket', { placeholder: '— type —' });
     $('fTotalBill').value = ''; $('fInsPaid').value = ''; $('fYouPaid').value = '';
   } else {
     $('fItemName').value = ''; $('fOtcCategory').value = 'OTC Medicine';
@@ -1781,6 +1779,7 @@ async function openAccountDrawer(id, sourceTable) {
   $('accNotes').value       = a.notes || '';
   $('accDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   onAccTypeChange();
+  GH_REFS.populateContact('accContactId', a.contact_id || null, { type: 'Financial', placeholder: '— none —' });
   GH_FAMILY.init('accFamilyWrap', a.family_members || []);
   $('accountDrawer').classList.add('open');
 }
@@ -1828,6 +1827,7 @@ async function saveAccount() {
         balance_as_of: $('accAsOf').value || null,
         include_net_worth: $('accInNw').checked ? 1 : 0,
         notes: $('accNotes').value.trim() || null,
+        contact_id: $('accContactId').value ? parseInt($('accContactId').value) : null,
         family_member_ids: GH_FAMILY.getIds('accFamilyWrap'),
       };
             if (editingAccountId && window._accSourceTable === 'finance') {
@@ -2553,6 +2553,7 @@ async function deleteGc() {
 
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:56px"></textarea></div>
     <div id="accFamilyWrap" style="margin-bottom:12px"></div>
+    <div class="form-group"><label class="form-label" style="font-size:12px">Bank Contact <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label><select class="form-select" id="accContactId"></select></div>
 
     <div style="font-size:11px;color:var(--text3);padding:4px 0 10px" id="accRoutingNote">
       Checking/Savings/Credit → Transactions tab &nbsp;·&nbsp; Brokerage/TSP → Import tab

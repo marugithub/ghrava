@@ -189,6 +189,10 @@
         <label class="form-label">File / Location</label>
         <input class="form-input" id="dFileName" placeholder="Z:\Docs\tax_2024.pdf  or  \\NAS\Docs\...  or  https://...">
       </div>
+      <div class="form-group">
+        <label class="form-label">External Link <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
+        <input class="form-input" type="url" id="dUrlLink" placeholder="https://portal.irs.gov/…">
+      </div>
 
       <div class="form-row">
         <div class="form-group" style="flex:1">
@@ -323,6 +327,7 @@ function renderDocs() {
             ${d.description?`<div style="font-size:12px;color:var(--text3);margin-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(d.description)}</div>`:''}
             ${tagHtml?`<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px">${tagHtml}</div>`:''}
             ${d.file_name ? `<div style="margin-top:3px">${fileLink(d.file_name)}</div>` : ''}
+            ${d.url_link ? `<div style="margin-top:3px"><a href="${esc(d.url_link)}" target="_blank" rel="noopener" style="font-size:11px;color:var(--accent)" onclick="event.stopPropagation()">🔗 ${esc(d.url_link.replace(/^https?:\/\//, '').slice(0, 50))}</a></div>` : ''}
           </div>
         </div>
       </div>`;
@@ -393,6 +398,7 @@ async function openDocDrawer(id) {
   $('dIssueDate').value = d.issue_date||'';
   $('dExpiry').value    = d.expiry_date||'';
   $('dFileName').value  = d.file_name||'';
+  $('dUrlLink').value   = d.url_link||'';
   $('dDelBtn').style.display = id?'inline-flex':'none';
 
   await loadDrawerDropdowns();
@@ -437,7 +443,7 @@ async function saveDoc() {
   if (!title){toast('Title required','err');return;}
   const btn=$('dSave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const payload={title,category:$('dCat').value||'Other',subcategory:$('dSubcat').value||null,issuer:$('dIssuer').value||null,description:$('dDesc').value||null,issue_date:$('dIssueDate').value||null,expiry_date:$('dExpiry').value||null,file_name:$('dFileName').value||null,family_member:$('dMember').value||null,tags:docFormTags,family_member_ids:GH_FAMILY.getIds('docFamilyWrap')};
+    const payload={title,category:$('dCat').value||'Other',subcategory:$('dSubcat').value||null,issuer:$('dIssuer').value||null,description:$('dDesc').value||null,issue_date:$('dIssueDate').value||null,expiry_date:$('dExpiry').value||null,file_name:$('dFileName').value||null,url_link:$('dUrlLink').value.trim()||null,family_member:$('dMember').value||null,tags:docFormTags,family_member_ids:GH_FAMILY.getIds('docFamilyWrap')};
     if (editDocId) { await window.api('PUT',`/documents/${editDocId}`,payload); toast('Updated'); }
     else           { await window.api('POST','/documents/',payload); toast('Document saved'); }
     $('docDrawer').classList.remove('open'); loadDocs();

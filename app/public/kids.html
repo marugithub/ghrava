@@ -221,8 +221,6 @@
   display: inline-block; margin-top: 4px;
 }
 
-/* Points placeholder — shown on profile, wired when gamification lands */
-.kid-points-banner {
   margin: 12px 16px 0;
   background: linear-gradient(135deg, rgba(236,72,153,.1) 0%, rgba(139,92,246,.1) 100%);
   border: 1px solid rgba(236,72,153,.2);
@@ -230,17 +228,13 @@
   padding: 12px 16px;
   display: flex; align-items: center; gap: 12px;
 }
-.kid-points-star {
   font-size: 28px; flex-shrink: 0;
 }
-.kid-points-val {
   font-size: 24px; font-weight: 800; color: #ec4899; line-height: 1;
 }
-.kid-points-lbl {
   font-size: 11px; color: var(--text3); margin-top: 2px;
   font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em;
 }
-.kid-points-placeholder {
   font-size: 13px; color: var(--text3); font-style: italic;
 }
 </style>
@@ -480,16 +474,6 @@ function renderProfile(){
 
   let html = '';
 
-  // Points placeholder — will be wired when gamification is built
-  html += `<div class="kid-points-banner" style="margin:12px 16px 0">
-    <div class="kid-points-star">⭐</div>
-    <div>
-      <div class="kid-points-val">—</div>
-      <div class="kid-points-lbl">Points</div>
-    </div>
-    <div class="kid-points-placeholder" style="margin-left:8px">Gamification coming soon</div>
-  </div>`;
-
   html += '<div class="kid-section-label">Info</div>';
   html += '<div class="card card-static" style="margin:0 16px;padding:0">';
   html += rows.map(r=>`<div class="info-row"><span class="info-label">${r[0]}</span><span class="info-value">${esc(r[1])}</span></div>`).join('');
@@ -560,7 +544,7 @@ async function openKidDrawer(kid){
   $('kidDelete').style.display=_editingKidId?'inline-flex':'none';
   // Populate family member selector — children only
   try {
-    const members = await api('GET', '/api/v1/settings/family');
+    const members = await api('GET', '/settings/family');
     const children = members.filter(m => ['Son','Daughter','Child','Stepson','Stepdaughter'].includes(m.relationship));
     const sel = $('kfFamilyMember');
     sel.innerHTML = '<option value="">— not linked —</option>' +

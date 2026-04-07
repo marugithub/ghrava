@@ -2401,9 +2401,9 @@ $('tagSave').addEventListener('click', async () => {
   if (!name) { toast('Tag name required','err'); return; }
   const btn=$('tagSave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const url = editingId ? `/api/v1/settings/tags/${editingId}` : '/api/v1/settings/tags';
+    const tagUrl = editingId ? `/settings/tags/${editingId}` : '/settings/tags';
     const method = editingId ? 'PUT' : 'POST';
-    const r = await window.api(method, url.replace('/api/v1',''), {name, color_hex:$('tg_color').value});
+    const r = await window.api(method, tagUrl, {name, color_hex:$('tg_color').value});
     
     $('tagDrawer').classList.remove('open');
     toast(editingId?'Updated':'Tag added');
@@ -2418,8 +2418,8 @@ $('tagSave').addEventListener('click', async () => {
 // ══════════════════════════════════════════════════════════════
 async function loadFields() {
   const mod = $('fieldsModuleFilter').value;
-  const url = mod ? `/api/v1/settings/custom-fields?module=${mod}` : '/api/v1/settings/custom-fields';
-  const fields = await window.api('GET', url.replace('/api/v1',''));
+  const fieldsUrl = mod ? `/settings/custom-fields?module=${mod}` : '/settings/custom-fields';
+  const fields = await window.api('GET', fieldsUrl);
   const el = $('fieldsList');
   if (!fields.length) {
     el.innerHTML='<div class="empty"><div class="empty-icon">⚙️</div><h3>No custom fields yet</h3><p>Add fields that appear on any module or specific inventory categories.</p></div>';

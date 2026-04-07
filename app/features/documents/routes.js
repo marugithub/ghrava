@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use strict';
 /**
  * features/documents/routes.js
@@ -35,7 +36,24 @@ router.get('/', (req, res) => {
     let sql = 'SELECT * FROM documents WHERE is_active=1';
     const p = [];
     if (req.query.category) { sql += ' AND category=?'; p.push(req.query.category); }
-    if (req.query.member)   { sql += ' AND (family_member=? OR family_member IS NULL)'; p.push(req.query.member); }
+    if (req.query.member) {
+      // Check legacy TEXT column OR junction table (record_family_members)
+      // member param can be display_name (legacy) or family_member_id (numeric)
+      const memParam = req.query.member;
+      const memId    = parseInt(memParam) || null;
+      if (memId) {
+        sql += ` AND (family_member=? OR id IN (
+                  SELECT entity_id FROM record_family_members
+                  WHERE entity_type='document' AND family_member_id=?))`;
+        p.push(memParam, memId);
+      } else {
+        sql += ` AND (family_member=? OR id IN (
+                  SELECT entity_id FROM record_family_members rfm
+                  JOIN family_members fm ON fm.id=rfm.family_member_id
+                  WHERE rfm.entity_type='document' AND fm.display_name=?))`;
+        p.push(memParam, memParam);
+      }
+    }
     if (req.query.q) {
       const like = `%${req.query.q}%`;
       // Also search tags
@@ -84,11 +102,11 @@ router.post('/', requireAuth, (req, res) => {
     if (!d.title) return badRequest(res, 'title required');
     const r = db.prepare(`
       INSERT INTO documents
-        (title, category, subcategory, description, file_name, attachment_id,
+        (title, category, subcategory, description, file_name, url_link, attachment_id,
          issuer, issue_date, expiry_date, family_member)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
     `).run(d.title, d.category||'Other', d.subcategory||null, d.description||null,
-           d.file_name||null, d.attachment_id||null,
+           d.file_name||null, d.url_link||null, d.attachment_id||null,
            d.issuer||null, d.issue_date||null, d.expiry_date||null,
            d.family_member||null);
     const newId = r.lastInsertRowid;
@@ -107,13 +125,13 @@ router.put('/:id', requireAuth, (req, res) => {
     if (!existing) return notFound(res, 'Document');
     db.prepare(`
       UPDATE documents SET
-        title=?, category=?, subcategory=?, description=?, file_name=?, attachment_id=?,
+        title=?, category=?, subcategory=?, description=?, file_name=?, url_link=?, attachment_id=?,
         issuer=?, issue_date=?, expiry_date=?, family_member=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(d.title||existing.title, d.category||existing.category,
            d.subcategory||null, d.description||null, d.file_name||null,
-           d.attachment_id||null, d.issuer||null, d.issue_date||null,
+           d.url_link||null, d.attachment_id||null, d.issuer||null, d.issue_date||null,
            d.expiry_date||null, d.family_member||null,
            req.params.id);
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'document', d.tags);

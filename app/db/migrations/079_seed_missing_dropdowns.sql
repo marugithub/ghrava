@@ -84,4 +84,22 @@ VALUES
   ('gift_card_location','Physical Card','Physical Card',1,1,4),
   ('gift_card_location','Other','Other',1,1,5);
 
+
+-- hsa_payment_type (was hardcoded in finance.html HSA section)
+INSERT OR IGNORE INTO dropdown_options (list_key, label, value, is_system, is_active, sort_order)
+VALUES
+  ('hsa_payment_type','Out of Pocket','Out of Pocket',1,1,1),
+  ('hsa_payment_type','Insurance Paid','Insurance Paid',1,1,2),
+  ('hsa_payment_type','HSA Card','HSA Card',1,1,3),
+  ('hsa_payment_type','Other','Other',1,1,4);
+
+-- resource_link_type (was hardcoded in resources.html)
+INSERT OR IGNORE INTO dropdown_options (list_key, label, value, is_system, is_active, sort_order)
+VALUES
+  ('resource_link_type','Website','🌐 Website',1,1,1),
+  ('resource_link_type','Folder','📁 Folder',1,1,2),
+  ('resource_link_type','File','📄 File',1,1,3),
+  ('resource_link_type','App','📱 App',1,1,4),
+  ('resource_link_type','Other','📎 Other',1,1,5);
+
 COMMIT;

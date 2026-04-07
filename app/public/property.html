@@ -134,6 +134,7 @@
   </div>
   <div class="form-group"><label class="form-label">Annual Premium</label><input class="form-input" type="number" id="pInsAmt"></div>
   <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="pNotes" style="min-height:60px"></textarea></div>
+  <div class="form-group" id="propFamilyWrap" style="margin-bottom:8px"></div>
   <div style="display:flex;gap:8px;margin-top:8px">
         <div class="form-group">
       <label class="form-label">Tags</label>
@@ -201,6 +202,7 @@
   </div>
   <div class="form-group"><label class="form-label">Annual Premium</label><input class="form-input" type="number" id="vInsAmt"></div>
   <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="vNotes" style="min-height:60px"></textarea></div>
+  <div class="form-group" id="vehFamilyWrap" style="margin-bottom:8px"></div>
   <div style="display:flex;gap:8px;margin-top:8px">
         <div class="form-group">
       <label class="form-label">Tags</label>
@@ -422,7 +424,8 @@ async function saveProp(){
       mortgage_end_date:$('pMEnd').value||null,hoa_monthly:parseFloat($('pHoa').value)||null,
       insurance_company:$('pInsComp').value||null,insurance_policy:$('pInsPol').value||null,
       insurance_annual:parseFloat($('pInsAmt').value)||null,notes:$('pNotes').value||null,
-      tags:propFormTags
+      tags:propFormTags,
+      family_member_ids:GH_FAMILY.getIds('propFamilyWrap')
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editProp?`/properties/${editProp}`:'/properties';
@@ -512,7 +515,8 @@ async function saveVeh(){
       registration_expires:$('vRegExp').value||null,inspection_expires:$('vInspExp').value||null,
       insurance_company:$('vInsComp').value||null,insurance_policy:$('vInsPol').value||null,
       insurance_annual:parseFloat($('vInsAmt').value)||null,notes:$('vNotes').value||null,
-      tags:vehFormTags
+      tags:vehFormTags,
+      family_member_ids:GH_FAMILY.getIds('vehFamilyWrap')
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editVeh?`/vehicles/${editVeh}`:'/vehicles';
