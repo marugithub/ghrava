@@ -29,20 +29,26 @@ function escCsv(v) {
 // GET /api/v1/medical/medications?patient=Self&status=Active
 router.get('/medications', (req, res) => {
   try {
-    let sql = `
-      SELECT m.*, fm.display_name AS family_member_name,
-        pharm.name AS pharmacy_name,
-        cond.condition_name AS condition_name_text
-      FROM med_medications m
-      LEFT JOIN family_members fm   ON fm.id    = m.family_member_id
-      LEFT JOIN contacts pharm      ON pharm.id = m.pharmacy_contact_id
-      LEFT JOIN med_conditions cond ON cond.id  = m.condition_id
-      WHERE 1=1`;
+    // Check which FK columns exist (added by migration 086)
+    const medCols = db.prepare("PRAGMA table_info(med_medications)").all().map(r => r.name);
+    const hasPharmacy  = medCols.includes('pharmacy_contact_id');
+    const hasFamilyMed = medCols.includes('family_member_id');
+    const hasCondition = medCols.includes('condition_id');
+
+    let sql = `SELECT m.*` +
+      (hasFamilyMed  ? `, fm.display_name AS family_member_name` : `, NULL AS family_member_name`) +
+      (hasPharmacy   ? `, pharm.name AS pharmacy_name` : `, NULL AS pharmacy_name`) +
+      (hasCondition  ? `, cond.condition_name AS condition_name_text` : `, NULL AS condition_name_text`) +
+      ` FROM med_medications m` +
+      (hasFamilyMed  ? ` LEFT JOIN family_members fm   ON fm.id    = m.family_member_id` : ``) +
+      (hasPharmacy   ? ` LEFT JOIN contacts pharm      ON pharm.id = m.pharmacy_contact_id` : ``) +
+      (hasCondition  ? ` LEFT JOIN med_conditions cond ON cond.id  = m.condition_id` : ``) +
+      ` WHERE 1=1`;
     const p = [];
     if (req.query.patient)          { sql += ' AND (m.patient=? OR fm.display_name=?)'; p.push(req.query.patient, req.query.patient); }
-    if (req.query.family_member_id) { sql += ' AND m.family_member_id=?'; p.push(req.query.family_member_id); }
+    if (req.query.family_member_id && hasFamilyMed) { sql += ' AND m.family_member_id=?'; p.push(req.query.family_member_id); }
     if (req.query.status)           { sql += ' AND m.status=?'; p.push(req.query.status); }
-    sql += ' ORDER BY fm.display_name, m.status, m.name COLLATE NOCASE';
+    sql += hasFamilyMed ? ' ORDER BY fm.display_name, m.status, m.name COLLATE NOCASE' : ' ORDER BY m.patient, m.status, m.name COLLATE NOCASE';
     res.json(db.prepare(sql).all(...p).map(m => withTagNames(m, 'medical_medication')));
   } catch (e) { serverError(res, e); }
 });
