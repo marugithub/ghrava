@@ -91,17 +91,16 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <input class="search-input" id="careerSearch" type="search" placeholder="Search certs, jobs, skills…" autocomplete="off">
   </div>
-  <div id="careerViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
 
   <!-- ══════════════════════════════════════════════
        CERTIFICATIONS
        ══════════════════════════════════════════════ -->
   <div class="view-panel active" id="panel-certs">
-    <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Certifications & Renewals</span>
+    <div style="padding:10px 16px 0;display:flex;align-items:center;gap:8px">
+      <div style="flex:1"></div>
+      <div id="certViewToolbar" style="display:flex;align-items:center"></div>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openCertDrawer()">+ Add</button>
     </div>
-    <div id="certViewToolbar" style="padding:4px 16px 0"></div>
     <div id="certsList" style="padding:8px 16px 0;box-sizing:border-box">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
@@ -457,11 +456,13 @@ async function loadCerts() {
           ? (() => { const d=new Date(c.current_cycle_end+'T00:00:00'); const days=Math.ceil((d-today)/864e5); return days>0?`${days}mo left`:'Cycle ended'; })()
           : '';
         const barColor = pct>=100 ? 'var(--green)' : pct<30 ? 'var(--amber)' : 'var(--accent)';
-        barHtml = `<div style="margin-top:8px">
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px">
-            <span>${applied} / ${required} PDUs</span><span>${cycleStr ? cycleEnd : ''}</span>
+        const remaining = Math.max(0, required - applied);
+        barHtml = `<div style="margin-top:6px">
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:2px">
+            <span>${applied}/${required} PDUs${cycleEnd?' · '+cycleEnd:''}</span>
+            <span style="color:${barColor}">${pct}%</span>
           </div>
-          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+          <div style="height:3px;background:var(--bg3);border-radius:2px;overflow:hidden">
             <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px"></div>
           </div>
         </div>`;
@@ -470,21 +471,18 @@ async function loadCerts() {
       const certIdSafe = parseInt(c.id);
       const certNameSafe = c.name.replace(/'/g, "\'");
 
-      return `<div class="card" style="padding:14px 16px" onclick="openCertDrawer(${certIdSafe})">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
-          <div style="flex:1;min-width:0">
-            <div class="card-title" style="font-size:14px">${esc(c.name)}</div>
-            <div class="card-sub" style="margin-top:2px">${c.issuing_body ? esc(c.issuing_body) : ''}</div>
-          </div>
-          <span class="${badgeClass}" style="flex-shrink:0">${esc(c.status)}</span>
+      return `<div class="card" style="padding:12px 14px" onclick="openCertDrawer(${certIdSafe})">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:3px">
+          <div class="card-title" style="font-size:13px;font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</div>
+          <span class="${badgeClass}" style="flex-shrink:0;font-size:10px">${esc(c.status)}</span>
         </div>
-        <div style="font-size:11px;color:${expColor};margin-top:6px">${expStr}${cycleStr}</div>
+        <div style="font-size:11px;color:var(--text3);display:flex;gap:6px;flex-wrap:wrap">
+          ${c.issuing_body?`<span>${esc(c.issuing_body)}</span><span>·</span>`:''}
+          <span style="color:${expColor}">${expStr}</span>
+        </div>
         ${barHtml}
-        ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
-        <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border)">
-          ${c.ce_hours_required>0?`<div class="cert-cycle-rows" data-cert-id="${certIdSafe}" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>`:''}
-          <button class="btn btn-ghost" style="width:100%;font-size:12px;padding:6px;color:var(--text3)" data-cert-id="${certIdSafe}" onclick="event.stopPropagation();logHoursFromCard(this)">+ Log training hours</button>
-        </div>
+        ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 5px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+        <button class="btn btn-ghost" style="width:100%;font-size:11px;padding:5px;color:var(--text3);margin-top:8px;border-color:var(--border)" data-cert-id="${certIdSafe}" onclick="event.stopPropagation();logHoursFromCard(this)">+ Log training hours</button>
       </div>`;
     }).join('')
     }</div>`;
@@ -1072,17 +1070,7 @@ document.addEventListener('DOMContentLoaded', () => {
     _careerSearch = e.target.value.trim().toLowerCase();
     _reloadCurrentTab();
   });
-  GH_VIEW.init('careerViewToolbar', 'career', state => {
-    window._careerFilters = state.filters || {};
-    _reloadCurrentTab();
-  }, {
-    defaultView: 'list',
-    filterFields: [
-      { key: 'status', type: 'select', label: 'Status',
-        options: [{value:'',label:'All'},{value:'Active',label:'Active'},{value:'In Progress',label:'In Progress'},{value:'Expired',label:'Expired'},{value:'Completed',label:'Completed'}] },
-      { key: 'tags', type: 'tags', label: 'Tags' },
-    ]
-  });
+
 });
 
 function _reloadCurrentTab() {
