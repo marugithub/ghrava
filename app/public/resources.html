@@ -43,20 +43,9 @@
   .res-list { grid-template-columns: repeat(var(--res-cols, 2), 1fr); padding: 10px 16px 60px; gap: 8px; }
 }
 
-.res-card {
-  background: var(--bg2);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
-  border-radius: var(--r);
-  padding: 6px 8px 6px 10px;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, transform 0.12s;
-  position: relative;
-  overflow: hidden;
-}
-.res-card:hover { border-color: var(--accent); border-left-color: var(--accent); background: var(--bg3); transform: translateY(-1px); }
-.res-card.is-fav { border-left-color: var(--amber); }
-.res-card.is-fav:hover { border-color: rgba(245,158,11,.4); border-left-color: var(--amber); }
+/* res-card now uses gh-card base from shared.css */
+.res-card { padding: 6px 8px 6px 10px; }
+.res-card.is-fav { border-left-color: var(--amber) !important; }
 
 .res-top {
   display: flex;
@@ -599,7 +588,7 @@ function resCard(r) {
   const hiddenCount = tags.length - visibleTags.length;
 
   return `
-  <div class="res-card${r.is_favorite ? ' is-fav' : ''}" data-id="${r.id}">
+  <div class="gh-card gh-s-blue res-card${r.is_favorite ? ' is-fav' : ''}" data-id="${r.id}">
     <div class="res-top">
       <div class="res-type-icon ${cfg.cls}">${cfg.icon}</div>
       <div class="res-meta">

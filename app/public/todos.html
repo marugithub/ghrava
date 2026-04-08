@@ -37,26 +37,17 @@
 /* Todo item — has checkbox + priority stripe, justified specialization */
 .todo-item {
   display: flex; align-items: flex-start; gap: 10px;
-  background: var(--bg2); border: 1px solid var(--border);
-  border-radius: var(--r-lg); padding: 11px 12px;
-  cursor: pointer; transition: border-color .15s, background .15s;
-  position: relative; overflow: hidden;
+  padding: 11px 12px;
   -webkit-tap-highlight-color: transparent;
 }
-.todo-item:hover { border-color: var(--border2); background: var(--bg3); }
 .todo-item.selected { border-color: var(--accent) !important; background: var(--accent-bg); }
 .todo-item.done-item { opacity: .5; }
 .todo-item.done-item .td-name { text-decoration: line-through; color: var(--text3); }
-
-/* Priority stripe */
-.todo-item::before {
-  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
-  width: 3px; border-radius: 3px 0 0 3px;
-}
-.todo-item.prio-urgent::before  { background: var(--red); }
-.todo-item.prio-high::before    { background: var(--amber); }
-.todo-item.prio-medium::before  { background: var(--accent); }
-.todo-item.prio-low::before     { background: var(--text3); }
+/* Priority via gh-s-* on gh-card wrapper */
+.todo-item.prio-urgent  { border-left-color: var(--red) !important; }
+.todo-item.prio-high    { border-left-color: var(--amber) !important; }
+.todo-item.prio-medium  { border-left-color: var(--accent) !important; }
+.todo-item.prio-low     { border-left-color: var(--text3) !important; }
 
 /* Checkbox */
 .todo-check {
@@ -480,7 +471,7 @@ function todoHTML(t, isDone) {
   const autoBadge = t.is_auto && icons.length === 0
     ? `<span class="td-auto-badge">AUTO</span>` : '';
 
-  return `<div class="todo-item prio-${t.priority}${t.is_auto?' is-auto':''}${isDone?' done-item':''}"
+  return `<div class="gh-card todo-item prio-${t.priority}${t.is_auto?' is-auto':''}${isDone?' done-item':''}"
                data-id="${t.id}" role="button" tabindex="0">
     <div class="todo-check${isChecked?' checked':''}" data-check="${t.id}" onclick="event.stopPropagation(); toggleDone(${t.id}, ${isChecked?0:1})"></div>
     <div class="todo-body">
