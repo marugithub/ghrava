@@ -85,6 +85,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Certifications & Renewals</span>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openCertDrawer()">+ Add</button>
     </div>
+    <div id="certViewToolbar" style="padding:4px 16px 0"></div>
     <div id="certsList" style="padding:8px 16px 0">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
@@ -380,6 +381,8 @@ function $id(id) { return document.getElementById(id); }
 let _careerSearch = '';
 window._careerFilters = {};
 let currentTab = 'certs';
+let certView = localStorage.getItem('career_cert_view') || 'grid';
+let certCols = parseInt(localStorage.getItem('career_cert_cols')) || (window.innerWidth >= 600 ? 2 : 1);
 let editingCertId = null, editingJobId = null, editingSkillId = null, editingEduId = null;
 
 function switchTab(tab, btn) {
@@ -416,59 +419,59 @@ async function loadCerts() {
     // Render cards, then async-fill cycle detail rows
     setTimeout(() => loadCertCycleDetails(_filtered_certifications), 0);
     const today = new Date();
-    el.innerHTML = _filtered_certifications.map(c => {
+    const isGrid = certView !== 'list';
+    const wrapCls = isGrid ? 'cert-grid-wrap' : 'cert-list-wrap';
+    el.innerHTML = `<div class="${wrapCls}" style="--cert-cols:${certCols}">${
+      _filtered_certifications.map(c => {
       const exp = c.expiry_date ? new Date(c.expiry_date) : null;
       const daysLeft = exp ? Math.ceil((exp-today)/(1000*60*60*24)) : null;
       const expStr = daysLeft !== null
-        ? (daysLeft < 0 ? '⚠️ Expired' : daysLeft < 60 ? `⚠️ ${daysLeft}d left` : `Expires ${c.expiry_date}`)
-        : 'No expiry';
+        ? (daysLeft < 0 ? 'Expired' : `Expires ${formatDate(c.expiry_date)}`)
+        : 'No renewal required';
       const expColor = daysLeft !== null && daysLeft < 60 ? 'var(--red)' : 'var(--text3)';
       const badgeClass = c.status === 'Active' ? 'badge-active' : c.status === 'In Progress' ? 'badge-progress' : 'badge-expired';
+      const cycleStr = c.renewal_period_months ? ` · ${c.renewal_period_months}mo cycle` : '';
 
-      // CE / PDU progress bar
-      let pduHtml = '';
+      let barHtml = '';
       if (c.ce_hours_required > 0 && c.current_cycle_start) {
         const applied = parseFloat(c.pdu_applied_this_cycle) || 0;
         const required = parseFloat(c.ce_hours_required);
         const pct = Math.min(100, Math.round(applied / required * 100));
-        const remaining = Math.max(0, required - applied);
         const cycleEnd = c.current_cycle_end
-          ? (() => { const d=new Date(c.current_cycle_end+'T00:00:00'); const days=Math.ceil((d-today)/864e5); return days>0?`${days}d left in cycle`:'Cycle ended'; })()
+          ? (() => { const d=new Date(c.current_cycle_end+'T00:00:00'); const days=Math.ceil((d-today)/864e5); return days>0?`${days}mo left`:'Cycle ended'; })()
           : '';
-        pduHtml = `
-          <div style="margin-top:8px">
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px">
-              <span>${applied} / ${required} hrs applied</span>
-              <span>${cycleEnd}</span>
-            </div>
-            <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
-              <div style="height:100%;width:${pct}%;background:${pct>=100?'var(--green)':'var(--accent)'};border-radius:3px;transition:width .3s"></div>
-            </div>
-            <div style="font-size:11px;color:var(--text3);margin-top:2px">${remaining > 0 ? remaining + ' hrs remaining' : '✓ Requirement met'}</div>
-          </div>`;
+        const barColor = pct>=100 ? 'var(--green)' : pct<30 ? 'var(--amber)' : 'var(--accent)';
+        barHtml = `<div style="margin-top:8px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px">
+            <span>${applied} / ${required} PDUs</span><span>${cycleStr ? cycleEnd : ''}</span>
+          </div>
+          <div style="height:4px;background:var(--bg3);border-radius:2px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${barColor};border-radius:2px"></div>
+          </div>
+        </div>`;
       }
 
-      return `<div class="card" onclick="openCertDrawer(${c.id})">
-        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
+      const certIdSafe = parseInt(c.id);
+      const certNameSafe = c.name.replace(/'/g, "\'");
+
+      return `<div class="card" style="padding:14px 16px" onclick="openCertDrawer(${certIdSafe})">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:10px">
           <div style="flex:1;min-width:0">
-            <div class="card-title">${esc(c.name)}</div>
-            <div class="card-sub">${c.issuing_body ? esc(c.issuing_body)+' · ' : ''}${c.credential_id ? '#'+esc(c.credential_id) : ''}</div>
-            <div style="font-size:12px;color:${expColor};margin-top:2px">${expStr}</div>
-            ${pduHtml}
-            ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+            <div class="card-title" style="font-size:14px">${esc(c.name)}</div>
+            <div class="card-sub" style="margin-top:2px">${c.issuing_body ? esc(c.issuing_body) : ''}</div>
           </div>
           <span class="${badgeClass}" style="flex-shrink:0">${esc(c.status)}</span>
         </div>
-        <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-          ${c.ce_hours_required>0 ? `
-          <div id="certCycleDetail_${c.id}" style="margin-bottom:8px">
-            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Applied this cycle</div>
-            <div class="cert-cycle-rows" data-cert-id="${c.id}" style="font-size:12px;color:var(--text3)">Loading…</div>
-          </div>` : ''}
-          <button class="btn btn-ghost" style="width:100%;font-size:13px;padding:7px" onclick="event.stopPropagation();logHoursForCert(${c.id},${JSON.stringify(esc(c.name))})">+ Log Training Hours</button>
+        <div style="font-size:11px;color:${expColor};margin-top:6px">${expStr}${cycleStr}</div>
+        ${barHtml}
+        ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:8px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+        <div style="margin-top:10px;padding-top:10px;border-top:0.5px solid var(--border)">
+          ${c.ce_hours_required>0?`<div class="cert-cycle-rows" data-cert-id="${certIdSafe}" style="font-size:12px;color:var(--text3);margin-bottom:8px"></div>`:''}
+          <button class="btn btn-ghost" style="width:100%;font-size:12px;padding:6px;color:var(--text3)" data-cert-id="${certIdSafe}" onclick="event.stopPropagation();logHoursFromCard(this)">+ Log training hours</button>
         </div>
       </div>`;
-    }).join('');
+    }).join('')
+    }</div>`;
   } catch(e) { el.innerHTML = errorState(e.message, ''); }
 }
 
@@ -1044,6 +1047,11 @@ async function loadCareerDropdowns(currentJobType, currentGoalCat, currentSkillC
 }
 document.addEventListener('DOMContentLoaded', () => {
   loadCerts();
+  GH_VIEW.init('certViewToolbar', 'career_cert', state => {
+    certView = state.view;
+    certCols = state.cols;
+    loadCerts();
+  }, { defaultView: 'grid' });
   $('careerSearch').addEventListener('input', e => {
     _careerSearch = e.target.value.trim().toLowerCase();
     _reloadCurrentTab();
@@ -1100,6 +1108,11 @@ async function loadCertCycleDetails(certs) {
 }
 
 // ── Log training hours pre-linked to a cert ────────────────────
+function logHoursFromCard(btn) {
+  const certId = parseInt(btn.dataset.certId);
+  const certName = _allCerts.find(c => c.id === certId)?.name || '';
+  logHoursForCert(certId, certName);
+}
 function logHoursForCert(certId, certName) {
   openLearningDrawer(null, [{ certification_id: certId, cert_name: certName, hours_applied: null }]);
 }
