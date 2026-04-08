@@ -140,6 +140,8 @@ auth.put('/certifications/:id', (req, res) => {
 
 auth.delete('/certifications/:id', (req, res) => {
   try {
+    // Nullify cert link on any training records — never delete training
+    db.prepare('UPDATE career_learning_certs SET certification_id=NULL WHERE certification_id=?').run(req.params.id);
     clearTags(req.params.id, 'career_cert');
     db.prepare('DELETE FROM career_certifications WHERE id=?').run(req.params.id);
     res.json({ ok: true });
