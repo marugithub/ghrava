@@ -413,6 +413,8 @@ async function loadCerts() {
     if (window._careerFilters?.status) _filtered_certifications = _filtered_certifications.filter(r => r.status === window._careerFilters.status);
     if (window._careerFilters?.tags?.length) _filtered_certifications = _filtered_certifications.filter(r => window._careerFilters.tags.every(t => (r.tags||[]).includes(t)));
     if (!_filtered_certifications.length) { el.innerHTML = emptyState(...GH_EMPTY.certs); return; }
+    // Render cards, then async-fill cycle detail rows
+    setTimeout(() => loadCertCycleDetails(_filtered_certifications), 0);
     const today = new Date();
     el.innerHTML = _filtered_certifications.map(c => {
       const exp = c.expiry_date ? new Date(c.expiry_date) : null;
@@ -454,10 +456,17 @@ async function loadCerts() {
             <div style="font-size:12px;color:${expColor};margin-top:2px">${expStr}</div>
             ${pduHtml}
             ${c.tags&&c.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px">${c.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
-            ${c.learning_count>0?`<div style="font-size:11px;color:var(--text3);margin-top:4px">${c.learning_count} learning record${c.learning_count!==1?'s':''} linked</div>`:''}
           </div>
           <span class="${badgeClass}" style="flex-shrink:0">${esc(c.status)}</span>
         </div>
+        ${c.ce_hours_required>0 ? `
+        <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+          <div id="certCycleDetail_${c.id}" style="margin-bottom:8px">
+            <div style="font-size:11px;color:var(--text3);margin-bottom:4px;text-transform:uppercase;letter-spacing:.05em">Applied this cycle</div>
+            <div class="cert-cycle-rows" data-cert-id="${c.id}" style="font-size:12px;color:var(--text3)">Loading…</div>
+          </div>
+          <button class="btn btn-ghost" style="width:100%;font-size:13px;padding:7px" onclick="event.stopPropagation();logHoursForCert(${c.id},${JSON.stringify(esc(c.name))})">+ Log Training Hours</button>
+        </div>` : ''}
       </div>`;
     }).join('');
   } catch(e) { el.innerHTML = errorState(e.message, ''); }
@@ -713,11 +722,13 @@ async function loadLearning() {
   } catch(e) { el.innerHTML = errorState(e.message, ''); }
 }
 
-async function openLearningDrawer(id) {
+async function openLearningDrawer(id, preLinkCerts) {
   editingLearningId = id||null;
   lnFormTags = [];
   let r = {};
   if (id) { try { r = await api('GET', `/learning/${id}`); } catch(e){} }
+  // Pre-link certs passed from cert card button
+  if (!id && preLinkCerts) r.cert_links = preLinkCerts;
   $('learningDrawerTitle').textContent = id ? 'Edit Learning Record' : 'Add Learning Record';
   $('lnTitle').value     = r.title||'';
   await GH_SELECT.init('lnType', 'learning_type', r.learning_type||'Course', { placeholder: '— type —' });
@@ -1064,6 +1075,34 @@ document.addEventListener('input', e => {
   if (e.target?.id === 'certName') { clearTimeout(_certNameTimer); _certNameTimer = setTimeout(triggerCertSuggest, 600); }
 });
 
+
+// ── Cert cycle detail: load linked learning per cert ──────────
+async function loadCertCycleDetails(certs) {
+  for (const c of certs) {
+    if (!c.ce_hours_required) continue;
+    const el = document.querySelector(`.cert-cycle-rows[data-cert-id="${c.id}"]`);
+    if (!el) continue;
+    try {
+      const rows = await api('GET', `/learning?cert_id=${c.id}&in_cycle=1`);
+      if (!rows.length) {
+        el.textContent = 'No training logged this cycle yet.';
+        continue;
+      }
+      el.innerHTML = rows.map(r => {
+        const hrs = r.hours_applied_to_cert != null ? r.hours_applied_to_cert : (r.hours_total||0);
+        return `<div style="display:flex;justify-content:space-between;padding:2px 0">
+          <span style="color:var(--text)">${esc(r.title)}</span>
+          <span style="font-weight:500;color:var(--text2)">${hrs} hrs</span>
+        </div>`;
+      }).join('');
+    } catch { el.textContent = ''; }
+  }
+}
+
+// ── Log training hours pre-linked to a cert ────────────────────
+function logHoursForCert(certId, certName) {
+  openLearningDrawer(null, [{ certification_id: certId, cert_name: certName, hours_applied: null }]);
+}
 </script>
 </body>
 </html>

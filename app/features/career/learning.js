@@ -51,13 +51,15 @@ function addCycleEnd(cert) {
 // ── GET /api/v1/career/learning ───────────────────────────────
 router.get('/', (req, res) => {
   try {
-    const { type, search } = req.query;
+    const { type, search, cert_id, in_cycle } = req.query;
     let where = 'WHERE 1=1';
     const params = [];
     if (type)   { where += ' AND l.learning_type=?'; params.push(type); }
     if (search) { where += ' AND (l.title LIKE ? OR l.provider LIKE ? OR l.description LIKE ?)';
                   params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+    if (cert_id) { where += ' AND EXISTS (SELECT 1 FROM career_learning_certs lc2 WHERE lc2.learning_id=l.id AND lc2.certification_id=?)'; params.push(cert_id); }
 
+    const certIdParam = cert_id ? parseInt(/** @type {string} */(cert_id)) : null;
     const rows = db.prepare(`
       SELECT l.*,
         (SELECT GROUP_CONCAT(c.name, ', ')
@@ -65,13 +67,26 @@ router.get('/', (req, res) => {
          JOIN career_certifications c ON c.id = lc.certification_id
          WHERE lc.learning_id = l.id) AS linked_certs,
         (SELECT COALESCE(SUM(lc.hours_applied), 0)
-         FROM career_learning_certs lc WHERE lc.learning_id = l.id) AS hours_linked
+         FROM career_learning_certs lc WHERE lc.learning_id = l.id) AS hours_linked,
+        (SELECT lc.hours_applied FROM career_learning_certs lc
+         WHERE lc.learning_id = l.id AND lc.certification_id = ${certIdParam || 'NULL'}) AS hours_applied_to_cert
       FROM career_learning l
       ${where}
       ORDER BY l.start_date DESC, l.created_at DESC
     `).all(...params).map(r => withTagNames(r, 'career_learning'));
+    // Filter to current cycle if requested
+    let result = rows;
+    if (cert_id && in_cycle) {
+      const cert = /** @type {{current_cycle_start:string|null,current_cycle_end:string|null}|null} */ (db.prepare('SELECT current_cycle_start, current_cycle_end FROM career_certifications WHERE id=?').get(cert_id));
+      if (cert && cert.current_cycle_start) {
+        result = rows.filter(r =>
+          r.start_date >= (cert.current_cycle_start || '') &&
+          (!cert.current_cycle_end || r.start_date <= cert.current_cycle_end)
+        );
+      }
+    }
 
-    res.json(rows);
+    res.json(result);
   } catch(e) { serverError(res, e); }
 });
 
