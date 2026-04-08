@@ -1,2 +1,4 @@
--- Migration 067: family_member_id on medical tables (already applied via 085)
-SELECT 1;
+-- Migration 067
+ALTER TABLE med_medications ADD COLUMN family_member_id INTEGER;
+ALTER TABLE med_conditions  ADD COLUMN family_member_id INTEGER;
+ALTER TABLE med_visit_notes ADD COLUMN family_member_id INTEGER;
