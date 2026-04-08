@@ -1,2 +1,2 @@
--- Migration 067: Add family_member_id to medical tables
--- patient TEXT kept for display cache; family_member_id is the proper FK
+-- Migration 067: family_member_id on medical tables (already applied via 085)
+SELECT 1;
