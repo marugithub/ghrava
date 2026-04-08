@@ -353,4 +353,59 @@ function syncAutoTodos() {
   } catch (e) { console.error('[todos] property_maint_due:', e.message); }
 }
 
-module.exports = { syncAutoTodos };
+
+// ── Medication Refill Reminders ──────────────────────────────
+function syncMedRefillTodos(db) {
+  const upsert = db.prepare(`
+    INSERT INTO todos (title, notes, due_date, priority, status, category, is_auto, auto_type, auto_source_type, auto_source_id)
+    VALUES (?,?,?,?,  'open','Medical',1,'med_refill','med_medication',?)
+    ON CONFLICT(auto_type, auto_source_id) DO UPDATE SET
+      title=excluded.title, notes=excluded.notes, due_date=excluded.due_date,
+      priority=excluded.priority, status=CASE WHEN status='done' THEN 'open' ELSE status END,
+      updated_at=CURRENT_TIMESTAMP
+  `);
+  const resolve = db.prepare(`
+    UPDATE todos SET status='done', updated_at=CURRENT_TIMESTAMP
+    WHERE auto_type='med_refill' AND auto_source_id=? AND status!='done'
+  `);
+
+  const today = new Date().toISOString().slice(0,10);
+  const in14  = new Date(Date.now() + 14*86400000).toISOString().slice(0,10);
+
+  // Active meds with refills info
+  const meds = /** @type {any[]} */ (db.prepare(`
+    SELECT m.id, m.name, m.dosage, m.refills_remaining, m.next_refill_date, m.end_date,
+           fm.display_name AS member_name
+    FROM med_medications m
+    LEFT JOIN family_members fm ON fm.id = m.family_member_id
+    WHERE m.status = 'Active'
+      AND (m.next_refill_date IS NOT NULL OR m.refills_remaining IS NOT NULL)
+  `).all());
+
+  for (const med of meds) {
+    const label = med.dosage ? `${med.name} ${med.dosage}` : med.name;
+    const who   = med.member_name ? ` — ${med.member_name}` : '';
+
+    // Resolve if discontinued or end_date passed
+    if (med.end_date && med.end_date < today) {
+      resolve.run(med.id); continue;
+    }
+
+    const needsRefill =
+      (med.refills_remaining !== null && med.refills_remaining <= 1) ||
+      (med.next_refill_date  && med.next_refill_date <= in14);
+
+    if (!needsRefill) { resolve.run(med.id); continue; }
+
+    const priority = med.refills_remaining === 0 ? 'high' : 'medium';
+    const refillNote = med.refills_remaining === 0
+      ? 'No refills remaining — contact prescriber for renewal.'
+      : (med.refills_remaining === 1 ? '1 refill remaining.' : '');
+    const title = `Refill: ${label}${who}`;
+    const notes = [refillNote, med.next_refill_date ? `Due: ${med.next_refill_date}` : ''].filter(Boolean).join(' ');
+
+    upsert.run(title, notes||null, med.next_refill_date||in14, priority, med.id);
+  }
+}
+
+module.exports = { syncAutoTodos, syncMedRefillTodos };

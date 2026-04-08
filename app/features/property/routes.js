@@ -131,8 +131,9 @@ router.post('/vehicles', requireAuth, (req, res) => {
          purchase_date, purchase_price, current_est_value, odometer, odometer_date,
          loan_balance, loan_lender, loan_rate, loan_monthly, loan_end_date,
          insurance_company, insurance_policy, insurance_annual,
-         registration_expires, inspection_expires, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         registration_expires, inspection_expires, notes,
+         loan_lender_contact_id, insurance_contact_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(d.nickname, parseInt(d.year)||null, d.make||null, d.model||null, d.trim||null, d.color||null,
            d.vin||null, d.license_plate||null, d.state||null,
            d.purchase_date||null, parseFloat(d.purchase_price)||null, parseFloat(d.current_est_value)||null,
@@ -140,7 +141,8 @@ router.post('/vehicles', requireAuth, (req, res) => {
            parseFloat(d.loan_balance)||null, d.loan_lender||null,
            parseFloat(d.loan_rate)||null, parseFloat(d.loan_monthly)||null, d.loan_end_date||null,
            d.insurance_company||null, d.insurance_policy||null, parseFloat(d.insurance_annual)||null,
-           d.registration_expires||null, d.inspection_expires||null, d.notes||null);
+           d.registration_expires||null, d.inspection_expires||null, d.notes||null,
+           d.loan_lender_contact_id||null, d.insurance_contact_id||null);
     if (d.tags) saveTagsByName(Number(r.lastInsertRowid), 'vehicle', d.tags);
     if (d.family_member_ids !== undefined) saveFamilyMembers(Number(r.lastInsertRowid), 'vehicle', d.family_member_ids);
     res.status(201).json({ id: r.lastInsertRowid });
@@ -159,6 +161,7 @@ router.put('/vehicles/:id', requireAuth, (req, res) => {
         loan_balance=?, loan_lender=?, loan_rate=?, loan_monthly=?, loan_end_date=?,
         insurance_company=?, insurance_policy=?, insurance_annual=?,
         registration_expires=?, inspection_expires=?, notes=?,
+        loan_lender_contact_id=?, insurance_contact_id=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(d.nickname||existing.nickname, parseInt(d.year)||null, d.make||null, d.model||null,
@@ -168,7 +171,8 @@ router.put('/vehicles/:id', requireAuth, (req, res) => {
            parseFloat(d.loan_balance)||null, d.loan_lender||null,
            parseFloat(d.loan_rate)||null, parseFloat(d.loan_monthly)||null, d.loan_end_date||null,
            d.insurance_company||null, d.insurance_policy||null, parseFloat(d.insurance_annual)||null,
-           d.registration_expires||null, d.inspection_expires||null, d.notes||null, req.params.id);
+           d.registration_expires||null, d.inspection_expires||null, d.notes||null,
+           d.loan_lender_contact_id||null, d.insurance_contact_id||null, req.params.id);
     if (d.family_member_ids !== undefined) saveFamilyMembers(Number(req.params.id), 'vehicle', d.family_member_ids);
     if (d.tags !== undefined) saveTagsByName(Number(req.params.id), 'vehicle', d.tags);
     clearReview('vehicles', Number(req.params.id));

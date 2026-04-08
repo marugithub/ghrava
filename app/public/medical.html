@@ -132,9 +132,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Patient <span class="req">*</span></label>
-        <select class="form-select" id="mPatient">
-          <option>Self</option>
-        </select>
+        <div id="mFamilyWrap"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
@@ -181,6 +179,29 @@
       <input class="form-input" type="text" id="mPurpose" placeholder="Why prescribed">
     </div>
     <div class="form-group">
+      <label class="form-label">Treats Condition <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
+      <select class="form-select" id="mCondition"><option value="">— none —</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Pharmacy</label>
+      <select class="form-select" id="mPharmacy"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Rx #</label><input class="form-input" id="mRxNum" placeholder="Rx number"></div>
+      <div class="form-group"><label class="form-label">Refills Left</label><input class="form-input" type="number" id="mRefills" min="0" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Next Refill</label><input class="form-input" type="date" id="mNextRefill"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Controlled Schedule <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
+      <select class="form-select" id="mSchedule">
+        <option value="">— none —</option>
+        <option value="II">Schedule II</option>
+        <option value="III">Schedule III</option>
+        <option value="IV">Schedule IV</option>
+        <option value="V">Schedule V</option>
+      </select>
+    </div>
+    <div class="form-group">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="mNotes" rows="2"></textarea>
     </div>
@@ -207,9 +228,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Patient <span class="req">*</span></label>
-        <select class="form-select" id="cPatient">
-          <option>Self</option><option>Spouse</option><option>Dependent</option>
-        </select>
+        <div id="cFamilyWrap"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Status</label>
@@ -261,9 +280,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Patient <span class="req">*</span></label>
-        <select class="form-select" id="nPatient">
-          <option>Self</option><option>Spouse</option><option>Dependent</option>
-        </select>
+        <div id="nFamilyWrap"></div>
       </div>
       <div class="form-group">
         <label class="form-label">Visit Date <span class="req">*</span></label>
@@ -597,6 +614,7 @@ async function renderMedications() {
             <span class="status-dot ${statusDotClass(r.status)}"></span>
             ${esc(r.name)}
             <span class="badge badge-grey">${r.status}</span>
+            ${r.refills_remaining===0?'<span style="color:var(--red);font-size:11px;font-weight:700" title="No refills remaining">⚠ No refills</span>':r.refills_remaining===1?'<span style="color:var(--amber);font-size:11px" title="1 refill left">⚠ 1 refill</span>':''}
           </div>
           ${r.dosage||r.frequency ? `<div class="card-meta">
             ${r.dosage ? `<span>${esc(r.dosage)}</span>` : ''}
@@ -611,9 +629,57 @@ async function renderMedications() {
         </div>
       `).join('')}
     `).join('');
+    // Non-blocking interaction check — fires after render
+    checkInteractionsForAll(rows);
   } catch (e) {
     area.innerHTML = errorState(e.message, '');
   }
+}
+
+// Drug interaction check — runs after medications render
+// Shows a small orange/red badge; clicking opens a detail sheet
+async function checkInteractionsForAll(meds) {
+  // Group active meds by family_member_id
+  const byMember = {};
+  meds.filter(m => m.status === 'Active' && m.family_member_id).forEach(m => {
+    (byMember[m.family_member_id] = byMember[m.family_member_id] || []).push(m);
+  });
+  for (const [memberId, memberMeds] of Object.entries(byMember)) {
+    if (memberMeds.length < 2) continue;
+    try {
+      const result = await window.api('GET', `/medical/interactions/${memberId}`);
+      if (!result.count) continue;
+      // Find the section header for this member and append badge
+      const headers = document.querySelectorAll('.section-label');
+      headers.forEach(h => {
+        const memberName = memberMeds[0].family_member_name || memberMeds[0].patient;
+        if (h.textContent.trim() === memberName) {
+          const color = result.high_count > 0 ? 'var(--red)' : 'var(--amber)';
+          const existing = h.querySelector('.interaction-badge');
+          if (existing) existing.remove();
+          const badge = document.createElement('span');
+          badge.className = 'interaction-badge';
+          badge.style.cssText = `margin-left:8px;font-size:11px;font-weight:600;color:${color};cursor:pointer`;
+          badge.textContent = result.high_count > 0 ? `⚠ ${result.count} interaction${result.count>1?'s':''}` : `ⓘ ${result.count} interaction${result.count>1?'s':''}`;
+          badge.title = 'Click to view drug interactions';
+          badge.onclick = (e) => { e.stopPropagation(); showInteractionDetail(result, memberName); };
+          h.appendChild(badge);
+        }
+      });
+    } catch { /* non-fatal */ }
+  }
+}
+
+function showInteractionDetail(result, memberName) {
+  const rows = result.interactions.map(i => {
+    const color = i.severity?.toLowerCase()==='high' ? 'var(--red)' : 'var(--amber)';
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;font-size:13px;color:${color}">${esc(i.drug1||'')} + ${esc(i.drug2||'')}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(i.severity||'')} severity</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${esc(i.description||'')}</div>
+    </div>`;
+  }).join('');
+  LT.modal(`<div style="padding:16px"><div style="font-size:16px;font-weight:700;margin-bottom:12px">Drug Interactions — ${esc(memberName)}</div>${rows}<div style="font-size:10px;color:var(--text3);margin-top:12px">Source: NLM RxNav API. Always consult your pharmacist or physician.</div></div>`);
 }
 
 // ── Conditions ─────────────────────────────────────────────────
@@ -705,8 +771,9 @@ function openAddDrawer() {
 async function openMedDrawer(r) {
   editingId = r?.id || null;
   $id('medDrawerTitle').textContent = editingId ? 'Edit Medication' : 'Add Medication';
-  GH_REFS.populateFamily('mPatient', r?.patient || currentPatient || 'Self');
+  GH_FAMILY.init('mFamilyWrap', r?.family_member_id ? [r.family_member_id] : (currentPatient ? [] : []));
   GH_REFS.populateContact('mPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
+  await GH_REFS.populateContact('mPharmacy', r?.pharmacy_contact_id || null, { type: 'General', placeholder: '— none —' });
   await GH_SELECT.init('mStatus', 'med_medication_status', r?.status||'Active', { placeholder: '— status —' });
   $id('mName').value = r?.name || '';
   $id('mDosage').value = r?.dosage || '';
@@ -714,6 +781,12 @@ async function openMedDrawer(r) {
   $id('mStart').value = r?.start_date || '';
   $id('mEnd').value = r?.end_date || '';
   $id('mPurpose').value = r?.purpose || '';
+  $id('mRxNum').value = r?.rx_number || '';
+  $id('mRefills').value = r?.refills_remaining ?? '';
+  $id('mNextRefill').value = r?.next_refill_date || '';
+  $id('mSchedule').value = r?.controlled_schedule || '';
+  // Populate condition dropdown with active conditions for this patient
+  await loadConditionsForPatient($id('mCondition'), r?.condition_id);
   $id('mNotes').value = r?.notes || '';
   initMedTags(r?.tags||[]);
   $id('medDrawer').classList.add('open');
@@ -731,11 +804,19 @@ async function editMedication(id) {
 async function saveMedication() {
   if (!$id('mName').value.trim()) { showToast('Name required','err'); return; }
   const body = {
-    patient: $id('mPatient').value, status: $id('mStatus').value,
+    family_member_id: GH_FAMILY.getIds('mFamilyWrap')[0] || null,
+    patient: GH_FAMILY.getIds('mFamilyWrap').length ? null : (currentPatient || 'Self'),
+    status: $id('mStatus').value,
     name: $id('mName').value.trim(), dosage: $id('mDosage').value.trim()||null,
     frequency: $id('mFreq').value.trim()||null,
     physician_contact_id: $id('mPhysician').value ? parseInt($id('mPhysician').value) : null,
+    pharmacy_contact_id: $id('mPharmacy').value ? parseInt($id('mPharmacy').value) : null,
+    condition_id: $id('mCondition').value ? parseInt($id('mCondition').value) : null,
     start_date: $id('mStart').value||null, end_date: $id('mEnd').value||null,
+    rx_number: $id('mRxNum').value.trim()||null,
+    refills_remaining: $id('mRefills').value !== '' ? parseInt($id('mRefills').value) : null,
+    next_refill_date: $id('mNextRefill').value||null,
+    controlled_schedule: $id('mSchedule').value||null,
     purpose: $id('mPurpose').value.trim()||null, notes: $id('mNotes').value.trim()||null,
     tags: medFormTags,
   };
@@ -757,7 +838,7 @@ async function deleteMed(id) {
 async function openCondDrawer(r) {
   editingId = r?.id || null;
   $id('condDrawerTitle').textContent = editingId ? 'Edit Condition' : 'Add Condition';
-  GH_REFS.populateFamily('cPatient', r?.patient || currentPatient || 'Self');
+  GH_FAMILY.init('cFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
   GH_REFS.populateContact('cPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
   await GH_SELECT.init('cStatus', 'med_condition_status', r?.status||'Active', { placeholder: '— status —' });
   $id('cName').value = r?.condition_name || '';
@@ -779,7 +860,9 @@ async function editCondition(id) {
 async function saveCondition() {
   if (!$id('cName').value.trim()) { showToast('Condition name required','err'); return; }
   const body = {
-    patient: $id('cPatient').value, status: $id('cStatus').value,
+    family_member_id: GH_FAMILY.getIds('cFamilyWrap')[0] || null,
+    patient: GH_FAMILY.getIds('cFamilyWrap').length ? null : (currentPatient || 'Self'),
+    status: $id('cStatus').value,
     condition_name: $id('cName').value.trim(), start_date: $id('cStart').value||null,
     end_date: $id('cEnd').value||null,
     physician_contact_id: $id('cPhysician').value ? parseInt($id('cPhysician').value) : null,
@@ -804,7 +887,7 @@ function toggleFollowDate() {
 async function openNoteDrawer(r) {
   editingId = r?.id || null;
   $id('noteDrawerTitle').textContent = editingId ? 'Edit Visit Note' : 'Add Visit Note';
-  GH_REFS.populateFamily('nPatient', r?.patient || currentPatient || 'Self');
+  GH_FAMILY.init('nFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
   await GH_REFS.populateContact('nPhysician', r?.contact_id || null, { type: 'Medical', placeholder: '— Select or leave blank —' });
   $id('nDate').value = r?.visit_date || new Date().toISOString().split('T')[0];
   $id('nQuestions').value = r?.questions || '';
@@ -828,7 +911,9 @@ async function editNote(id) {
 async function saveNote() {
   if (!$id('nDate').value) { showToast('Visit date required','err'); return; }
   const body = {
-    patient: $id('nPatient').value, visit_date: $id('nDate').value,
+    family_member_id: GH_FAMILY.getIds('nFamilyWrap')[0] || null,
+    patient: GH_FAMILY.getIds('nFamilyWrap').length ? null : (currentPatient || 'Self'),
+    visit_date: $id('nDate').value,
     contact_id: $id('nPhysician').value ? parseInt($id('nPhysician').value) : null,
     questions: $id('nQuestions').value.trim()||null,
     doctors_response: $id('nResponse').value.trim()||null,
@@ -1295,6 +1380,16 @@ function processResult(result, fb) {
   if (window.toast) toast('Drug info found ✓');
 }
 
+
+// Populate condition dropdown for medication form
+async function loadConditionsForPatient(selectEl, selectedId) {
+  try {
+    const conds = await api('GET', '/medical/conditions');
+    const active = conds.filter(c => c.status === 'Active' || c.status === 'Chronic');
+    selectEl.innerHTML = '<option value="">— none —</option>' +
+      active.map(c => `<option value="${c.id}"${c.id === selectedId?' selected':''}>${esc(c.condition_name)}</option>`).join('');
+  } catch { /* non-fatal */ }
+}
 </script>
 </body>
 </html>

@@ -197,14 +197,15 @@ router.post('/accounts', (req, res) => {
     if (!d.name) return badRequest(res, 'name required');
     const r = db.prepare(`
       INSERT INTO finance_accounts
-        (name, type, institution, account_last4, current_balance, balance_as_of, include_net_worth, notes, contact_id, sort_order)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
+        (name, type, institution, account_last4, current_balance, balance_as_of, include_net_worth, notes, contact_id, institution_contact_id, sort_order)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.name, d.type||'Checking', d.institution||null, d.account_last4||null,
       parseFloat(d.current_balance)||0, d.balance_as_of||null,
       d.include_net_worth !== false ? 1 : 0,
       d.notes||null,
       d.contact_id||null,
+      d.institution_contact_id||null,
       parseInt(d.sort_order)||0
     );
     saveFamilyMembers(r.lastInsertRowid, 'finance_account', d.family_member_ids || []);
@@ -221,7 +222,8 @@ router.put('/accounts/:id', (req, res) => {
     db.prepare(`
       UPDATE finance_accounts SET
         name=?, type=?, institution=?, account_last4=?,
-        current_balance=?, balance_as_of=?, include_net_worth=?, notes=?, contact_id=?, sort_order=?,
+        current_balance=?, balance_as_of=?, include_net_worth=?, notes=?, contact_id=?,
+        institution_contact_id=?, sort_order=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
@@ -233,6 +235,7 @@ router.put('/accounts/:id', (req, res) => {
       d.include_net_worth!==undefined ? (d.include_net_worth ? 1 : 0) : existing.include_net_worth,
       d.notes!==undefined ? d.notes : existing.notes,
       d.contact_id!==undefined ? d.contact_id||null : existing.contact_id||null,
+      d.institution_contact_id!==undefined ? d.institution_contact_id||null : existing.institution_contact_id||null,
       d.sort_order!==undefined ? parseInt(d.sort_order) : existing.sort_order,
       req.params.id
     );

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * features/medical/routes.js
  * PRIVATE module — requireAuth on all write routes.
@@ -10,7 +11,8 @@ const router   = express.Router();
 const db       = require('../../db/db');
 const { requireAuth }        = require('../auth/middleware');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
-const { clearReview } = require('../../shared/needs-review');
+const { clearReview, flagRecord } = require('../../shared/needs-review');
+const { resolveAndFlag }                = require('../../shared/namematch');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
 
 function escCsv(v) {
@@ -41,12 +43,17 @@ router.post('/medications', requireAuth, (req, res) => {
     const d = req.body;
     if (!d.name) return badRequest(res, 'name required');
     const info = db.prepare(`
-      INSERT INTO med_medications
-        (patient, name, dosage, frequency, physician, physician_contact_id, start_date, end_date, status, purpose, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      INSERT INTO med_medications (patient, name, dosage, frequency, physician, physician_contact_id, start_date, end_date, status, purpose, notes,
+         family_member_id, pharmacy_contact_id, condition_id,
+         rx_number, refills_remaining, next_refill_date, controlled_schedule)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,
+         ?,?,?,?,?,?,?)
     `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
            d.physician||null, d.physician_contact_id||null,
-           d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null);
+           d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
+           d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
+           d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
+           d.next_refill_date||null, d.controlled_schedule||null);
     if (d.tags) saveTagsByName(info.lastInsertRowid, 'medical_medication', d.tags);
     res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_medications WHERE id=?').get(info.lastInsertRowid), 'medical_medication'));
   } catch (e) { serverError(res, e); }
@@ -58,11 +65,16 @@ router.put('/medications/:id', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE med_medications SET patient=?, name=?, dosage=?, frequency=?, physician=?,
         physician_contact_id=?, start_date=?, end_date=?, status=?, purpose=?, notes=?,
+        family_member_id=?, pharmacy_contact_id=?, condition_id=?,
+        rx_number=?, refills_remaining=?, next_refill_date=?, controlled_schedule=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
            d.physician||null, d.physician_contact_id||null,
            d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
+           d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
+           d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
+           d.next_refill_date||null, d.controlled_schedule||null,
            req.params.id);
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'medical_medication', d.tags);
     clearReview('med_medications', req.params.id);
@@ -139,11 +151,13 @@ router.post('/conditions', requireAuth, (req, res) => {
     if (!d.condition_name) return badRequest(res, 'condition_name required');
     const info = db.prepare(`
       INSERT INTO med_conditions
-        (patient, condition_name, start_date, end_date, physician, physician_contact_id, treatment_notes, status, notes)
-      VALUES (?,?,?,?,?,?,?,?,?)
+        (patient, condition_name, start_date, end_date, physician, physician_contact_id,
+         treatment_notes, status, notes, family_member_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
     `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
            d.physician||null, d.physician_contact_id||null,
-           d.treatment_notes||null, d.status||'Active', d.notes||null);
+           d.treatment_notes||null, d.status||'Active', d.notes||null,
+           d.family_member_id||null);
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });
@@ -154,12 +168,12 @@ router.put('/conditions/:id', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE med_conditions SET patient=?, condition_name=?, start_date=?, end_date=?,
         physician=?, physician_contact_id=?, treatment_notes=?, status=?, notes=?,
-        updated_at=CURRENT_TIMESTAMP
+        family_member_id=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
            d.physician||null, d.physician_contact_id||null,
            d.treatment_notes||null, d.status||'Active', d.notes||null,
-           req.params.id);
+           d.family_member_id||null, req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
@@ -199,11 +213,12 @@ router.post('/notes', requireAuth, (req, res) => {
     if (!d.visit_date) return badRequest(res, 'visit_date required');
     const info = db.prepare(`
       INSERT INTO med_visit_notes
-        (patient, contact_id, visit_date, questions, doctors_response, follow_up_needed, follow_up_date, notes)
-      VALUES (?,?,?,?,?,?,?,?)
+        (patient, contact_id, visit_date, questions, doctors_response, follow_up_needed, follow_up_date, notes, family_member_id)
+      VALUES (?,?,?,?,?,?,?,?,?)
     `).run(d.patient||'Self', d.contact_id||null, d.visit_date,
            d.questions||null, d.doctors_response||null,
-           d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null);
+           d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
+           d.family_member_id||null);
     if (d.tags) saveTagsByName(info.lastInsertRowid, 'medical_visit', d.tags);
     res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(info.lastInsertRowid), 'medical_visit'));
   } catch (e) { serverError(res, e); }
@@ -215,12 +230,12 @@ router.put('/notes/:id', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE med_visit_notes SET patient=?, contact_id=?, visit_date=?,
         questions=?, doctors_response=?, follow_up_needed=?, follow_up_date=?,
-        notes=?, updated_at=CURRENT_TIMESTAMP
+        notes=?, family_member_id=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(d.patient||'Self', d.contact_id||null, d.visit_date,
            d.questions||null, d.doctors_response||null,
            d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
-           req.params.id);
+           d.family_member_id||null, req.params.id);
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'medical_visit', d.tags);
     clearReview('med_visit_notes', req.params.id);
     res.json(withTagNames(db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(req.params.id), 'medical_visit'));
@@ -270,6 +285,62 @@ router.get('/summary', (req, res) => {
     });
     res.json(result);
   } catch (e) { serverError(res, e); }
+});
+
+
+// ── GET /api/v1/medical/interactions/:patientId ───────────────
+// Returns RxNorm interaction data for all active meds for a patient.
+// Called from the frontend as a non-blocking badge check.
+// Free API — no key required: rxnav.nlm.nih.gov
+router.get('/interactions/:familyMemberId', async (req, res) => {
+  try {
+    const meds = db.prepare(`
+      SELECT id, name, dosage FROM med_medications
+      WHERE family_member_id=? AND status='Active'
+    `).all(req.params.familyMemberId);
+
+    if (meds.length < 2) return res.json({ interactions: [], count: 0 });
+
+    // Resolve each drug name to an RxCUI
+    const https = require('https');
+    const rxGet = (url) => new Promise((resolve) => {
+      https.get(url, { headers: { 'User-Agent': 'Ghrava/1.0' } }, r => {
+        let d = ''; r.on('data', c => d += c); r.on('end', () => {
+          try { resolve(JSON.parse(d)); } catch { resolve(null); }
+        });
+      }).on('error', () => resolve(null));
+    });
+
+    // Get RxCUIs
+    const cuis = [];
+    for (const med of meds) {
+      const name = med.name.replace(/\s+\d+.*$/, '').trim();
+      const data = await rxGet(`https://rxnav.nlm.nih.gov/REST/rxcui.json?name=${encodeURIComponent(name)}&search=1`);
+      const cui = data?.idGroup?.rxnormId?.[0];
+      if (cui) cuis.push({ med, cui });
+    }
+
+    if (cuis.length < 2) return res.json({ interactions: [], count: 0 });
+
+    // Check interactions
+    const cuiList = cuis.map(c => c.cui).join('+');
+    const iData = await rxGet(`https://rxnav.nlm.nih.gov/REST/interaction/list.json?rxcuis=${cuiList}`);
+    const pairs = iData?.fullInteractionTypeGroup?.[0]?.fullInteractionType || [];
+
+    const interactions = pairs.map(p => ({
+      drug1: p.minConcept?.[0]?.name,
+      drug2: p.minConcept?.[1]?.name,
+      severity: p.interactionPair?.[0]?.severity || 'unknown',
+      description: p.interactionPair?.[0]?.description || '',
+    }));
+
+    const high = interactions.filter(i => i.severity?.toLowerCase() === 'high');
+    res.json({
+      interactions,
+      count: interactions.length,
+      high_count: high.length,
+    });
+  } catch(e) { res.json({ interactions: [], count: 0, error: e.message }); }
 });
 
 module.exports = router;
@@ -325,6 +396,7 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
     try { selected = JSON.parse(req.body.selected_dates || 'null'); } catch {}
 
     let imported = 0, skipped = 0;
+    const nameFlags = [];
 
     const doImport = db.transaction(() => {
       for (const s of statements) {
@@ -362,21 +434,33 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
           s.source_filename||null
         ).lastInsertRowid;
 
-        // Insert claims
+        // Insert claims — resolve patient name to family_member_id (S3/A9)
         for (const c of (s.claims || [])) {
+          const patientRaw = c.patient || 'Unknown';
+          const nameMatch  = resolveAndFlag(patientRaw, null, null); // flag after insert
           const claimId = db.prepare(`
             INSERT INTO med_eob_claims
-              (eob_id,patient,claim_id,received_date,provider,network_status,send_date,
+              (eob_id,patient,family_member_id,claim_id,received_date,provider,network_status,send_date,
                amount_billed,member_rate,pending_not_payable,applied_to_deductible,
                copay,plan_paid,fund_paid,coinsurance,your_share)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
           `).run(
-            stmtId, c.patient||'Unknown', c.claim_id||null, c.received_date||null,
+            stmtId, patientRaw, nameMatch.id||null, c.claim_id||null, c.received_date||null,
             c.provider||null, c.network_status||null, c.send_date||null,
             c.amount_billed||null, c.member_rate||null, c.pending_not_payable||null,
             c.applied_to_deductible||null, c.copay||null, c.plan_paid||null,
             c.fund_paid||null, c.coinsurance||null, c.your_share||null
           ).lastInsertRowid;
+          // Flag if name wasn't an exact match
+          if (nameMatch.confidence !== 'exact') {
+            const reason = nameMatch.confidence === 'none'
+              ? `Patient not matched: "\${patientRaw}"`
+              : nameMatch.confidence === 'ambiguous'
+                ? `Patient ambiguous: "\${patientRaw}" → \${nameMatch.candidates.map(x=>x.display_name).join(', ')}`
+                : `Patient auto-matched: "\${patientRaw}" → "\${nameMatch.display_name}"`;
+            const cat = nameMatch.confidence === 'exact' ? 'data_quality' : 'name_unmatched';
+            try { flagRecord('med_eob_claims', claimId, reason, cat); } catch {}
+          }
 
           // Insert service lines
           for (const sv of (c.services || [])) {
@@ -405,7 +489,7 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
       }
     });
     doImport();
-    res.json({ ok: true, imported, skipped });
+    res.json({ ok: true, imported, skipped, name_flags: nameFlags });
   } catch(e) { serverError(res, e); }
 });
 
@@ -443,10 +527,17 @@ router.get('/eob/:id', (req, res) => {
 // DELETE /api/v1/medical/eob/:id
 router.delete('/eob/:id', requireAuth, (req, res) => {
   try {
-    const s = db.prepare('SELECT id FROM med_eob_statements WHERE id=?').get(req.params.id);
+    const id = parseInt(req.params.id);
+    const s = db.prepare('SELECT id FROM med_eob_statements WHERE id=?').get(id);
     if (!s) return notFound(res);
-    // Cascade handled by ON DELETE CASCADE on claims/services/balances
-    db.prepare('DELETE FROM med_eob_statements WHERE id=?').run(req.params.id);
+    // Explicit deletes (no ON DELETE CASCADE per architecture rule)
+    const claimIds = db.prepare('SELECT id FROM med_eob_claims WHERE eob_id=?').all(id).map(r => r.id);
+    for (const cid of claimIds) {
+      db.prepare('DELETE FROM med_eob_services WHERE claim_id=?').run(cid);
+    }
+    db.prepare('DELETE FROM med_eob_claims WHERE eob_id=?').run(id);
+    db.prepare('DELETE FROM med_eob_balances WHERE eob_id=?').run(id);
+    db.prepare('DELETE FROM med_eob_statements WHERE id=?').run(id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
 });

@@ -257,14 +257,14 @@ router.post('/payments', (req, res) => {
     const info = db.prepare(`
       INSERT INTO hsa_payments
         (date, patient, provider, category, payment_type, total_bill, insurance_paid, you_paid,
-         hsa_eligible, receipt_saved, reimbursed, reimbursement_date, notes)
+         hsa_eligible, receipt_saved, reimbursed, reimbursement_date, notes, provider_contact_id)
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.date, d.patient||'Self', d.provider||null, d.category||null, d.payment_type||null,
       d.total_bill||0, d.insurance_paid||0, d.you_paid||0,
       d.hsa_eligible !== false ? 1 : 0,
       d.receipt_saved ? 1 : 0,
-      d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null
+      d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null, d.provider_contact_id||null
     );
     saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
     if (d.tags?.length) saveTagsByName(info.lastInsertRowid, 'hsa_payment', d.tags);
@@ -281,7 +281,8 @@ router.put('/payments/:id', (req, res) => {
         date=?, patient=?, provider=?, category=?, payment_type=?,
         total_bill=?, insurance_paid=?, you_paid=?,
         hsa_eligible=?, receipt_saved=?,
-        reimbursed=?, reimbursement_date=?, notes=?, updated_at=CURRENT_TIMESTAMP
+        reimbursed=?, reimbursement_date=?, notes=?, provider_contact_id=?,
+        updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
       d.date, d.patient||'Self', d.provider||null, d.category||null, d.payment_type||null,
@@ -289,7 +290,7 @@ router.put('/payments/:id', (req, res) => {
       d.hsa_eligible !== false ? 1 : 0,
       d.receipt_saved ? 1 : 0,
       d.reimbursed ? 1 : 0, d.reimbursement_date||null, d.notes||null,
-      req.params.id
+      d.provider_contact_id||null, req.params.id
     );
     if (d.tags !== undefined) saveTagsByName(parseInt(req.params.id), 'hsa_payment', d.tags);
     clearReview('hsa_payments', req.params.id);

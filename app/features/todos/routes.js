@@ -26,7 +26,7 @@ const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembe
 const { badRequest, notFound, serverError } = require('../../shared/errors');
 const { clearReview, checkAndCompleteTodo } = require('../../shared/needs-review');
 
-const { syncAutoTodos } = require('../../shared/autoTodos');
+const { syncAutoTodos, syncMedRefillTodos } = require('../../shared/autoTodos');
 
 // ── GET /api/v1/todos ──────────────────────────────────────────
 // ?status=open  ?category=HSA  ?priority=urgent  ?auto=1|0
@@ -81,6 +81,7 @@ router.get('/', (req, res) => {
 router.get('/count', (req, res) => {
   try {
     syncAutoTodos();
+    try { syncMedRefillTodos(db); } catch(e) { /* non-fatal */ }
     const { n } = /** @type {{n:number}} */ (db.prepare(
       `SELECT COUNT(*) AS n FROM todos WHERE status IN ('open','in_progress')`
     ).get());

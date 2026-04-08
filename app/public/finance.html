@@ -629,15 +629,15 @@
       </div>
       <div class="form-group">
         <label class="form-label">Patient</label>
-        <select class="form-select" id="fPatient"><option>Self</option></select>
+        <div id="hsaExpFamilyWrap"></div>
       </div>
     </div>
 
     <div id="paymentFields">
       <div class="form-group">
         <label class="form-label">Provider / Description <span class="req">*</span></label>
-        <input class="form-input" type="text" id="fProvider"
-               placeholder="e.g. Dr. Smith, CVS Pharmacy"
+        <select class="form-select" id="fProvider"></select>
+        <input class="form-input" type="text" id="fProviderText" placeholder="Or type provider name…"
                list="providerSuggestions" autocomplete="off">
         <datalist id="providerSuggestions"></datalist>
       </div>
@@ -1352,10 +1352,12 @@ async function openAddDrawer(type = 'payment') {
   $('otcFields').style.display     = type === 'otc' ? 'block' : 'none';
 
   $('fDate').value = new Date().toISOString().slice(0,10);
-  GH_REFS.populateFamily('fPatient', 'Self');
+  GH_FAMILY.init('hsaExpFamilyWrap', []);
   populateProviderDatalist();
 
   if (type === 'payment') {
+    await GH_REFS.populateContact('fProvider', null, { type: 'Medical', placeholder: '— select or type below —' });
+    $('fProviderText').value = '';
     $('fProvider').value = '';
     await GH_SELECT.init('fCategory', 'hsa_category', 'Doctor', { allowAdd: true });
     await GH_SELECT.init('fPaymentType', 'hsa_payment_type', 'Out of Pocket', { placeholder: '— type —' });
@@ -1387,11 +1389,13 @@ async function editExpense(id, type) {
     $('paymentFields').style.display = type === 'otc' ? 'none' : 'block';
     $('otcFields').style.display     = type === 'otc' ? 'block' : 'none';
     $('fDate').value = r.date || '';
-  GH_REFS.populateFamily('fPatient', r.patient || 'Self');
+  GH_FAMILY.init('hsaExpFamilyWrap', r.family_member_id ? [r.family_member_id] : []);
     populateProviderDatalist();
 
     if (type === 'payment') {
-      $('fProvider').value    = r.provider    || '';
+      await GH_REFS.populateContact('fProvider', r.provider_contact_id||null, { type: 'Medical', placeholder: '— select or type below —' });
+      $('fProviderText').value = (r.provider_contact_id ? '' : (r.provider || ''));
+      $('fProvider').value = '';
       await GH_SELECT.init('fCategory', 'hsa_category', r.category || 'Doctor', { allowAdd: true });
       $('fPaymentType').value = r.payment_type|| 'Out of Pocket';
       $('fTotalBill').value   = r.total_bill  || '';
@@ -1443,14 +1447,17 @@ async function saveExpense() {
       receipt_saved: $('fReceiptSaved').checked,
       receipt_location: $('fReceiptLoc').value.trim()||null,
       notes: $('fNotes').value.trim()||null,
-      patient: $('fPatient').value,
+      family_member_id: GH_FAMILY.getIds('hsaExpFamilyWrap')[0] || null,
+      patient: null,
     };
   } else {
     if (!$('fProvider').value.trim()) { toast('Provider required','err'); return; }
     body = {
       date: $('fDate').value,
-      patient: $('fPatient').value,
-      provider: $('fProvider').value.trim(),
+      family_member_id: GH_FAMILY.getIds('hsaExpFamilyWrap')[0] || null,
+      patient: null,
+      provider_contact_id: $('fProvider').value ? parseInt($('fProvider').value) : null,
+      provider: $('fProvider').value ? ($('fProvider').options[$('fProvider').selectedIndex]?.text || null) : ($('fProviderText').value.trim() || null),
       category: $('fCategory').value,
       payment_type: $('fPaymentType').value,
       total_bill: parseFloat($('fTotalBill').value)||0,

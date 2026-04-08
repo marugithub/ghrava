@@ -120,7 +120,7 @@
     <div class="form-group"><label class="form-label">Monthly Pmt</label><input class="form-input" type="number" id="pMPmt"></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Lender</label><input class="form-input" id="pMLender"></div>
+    <div class="form-group"><label class="form-label">Lender</label><select class="form-select" id="pMLender"></select></div>
     <div class="form-group"><label class="form-label">Rate %</label><input class="form-input" type="number" id="pMRate" step="0.001" placeholder="6.750"></div>
   </div>
   <div class="form-row">
@@ -186,7 +186,7 @@
     <div class="form-group"><label class="form-label">Monthly Pmt</label><input class="form-input" type="number" id="vLoanPmt"></div>
   </div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Lender</label><input class="form-input" id="vLender"></div>
+    <div class="form-group"><label class="form-label">Lender</label><select class="form-select" id="vLender"></select></div>
     <div class="form-group"><label class="form-label">Rate %</label><input class="form-input" type="number" id="vRate" step="0.001"></div>
   </div>
   <div class="form-group"><label class="form-label">Odometer</label><input class="form-input" type="number" id="vOdo"></div>
@@ -197,7 +197,7 @@
   </div>
   <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 4px">Insurance</div>
   <div class="form-row">
-    <div class="form-group"><label class="form-label">Company</label><input class="form-input" id="vInsComp"></div>
+    <div class="form-group"><label class="form-label">Company</label><select class="form-select" id="vInsComp"></select></div>
     <div class="form-group"><label class="form-label">Policy #</label><input class="form-input" id="vInsPol"></div>
   </div>
   <div class="form-group"><label class="form-label">Annual Premium</label><input class="form-input" type="number" id="vInsAmt"></div>
@@ -394,13 +394,15 @@ async function openPropDrawer(id){
   $('pNick').value=p.nickname||''; $('pType').value=p.property_type||'Primary Residence';
   $('pStreet').value=p.address_street||''; $('pCity').value=p.address_city||'';
   $('pState').value=p.address_state||''; $('pZip').value=p.address_zip||'';
+  await GH_REFS.populateContact('pMLender', p.mortgage_lender_contact_id||null, { type: 'Financial', placeholder: '— none —' });
+  await GH_REFS.populateContact('pInsComp', p.insurance_contact_id||null, { type: 'General', placeholder: '— none —' });
   $('pPurchDate').value=p.purchase_date||''; $('pPurchPrice').value=p.purchase_price||'';
   $('pEstVal').value=p.current_est_value||''; $('pTax').value=p.property_tax_annual||'';
   $('pMBal').value=p.mortgage_balance||''; $('pMPmt').value=p.mortgage_monthly||'';
-  $('pMLender').value=p.mortgage_lender||'';
+
   $('pMRate').value=p.mortgage_rate?(p.mortgage_rate*100).toFixed(3):'';
   $('pMEnd').value=p.mortgage_end_date||''; $('pHoa').value=p.hoa_monthly||'';
-  $('pInsComp').value=p.insurance_company||''; $('pInsPol').value=p.insurance_policy||'';
+ $('pInsPol').value=p.insurance_policy||'';
   $('pInsAmt').value=p.insurance_annual||''; $('pNotes').value=p.notes||'';
   $('pDelBtn').style.display=id?'inline-flex':'none';
   initPropTags(p?.tags||[]);
@@ -420,12 +422,14 @@ async function saveProp(){
       purchase_date:$('pPurchDate').value||null,purchase_price:parseFloat($('pPurchPrice').value)||null,
       current_est_value:parseFloat($('pEstVal').value)||null,property_tax_annual:parseFloat($('pTax').value)||null,
       mortgage_balance:parseFloat($('pMBal').value)||null,mortgage_monthly:parseFloat($('pMPmt').value)||null,
-      mortgage_lender:$('pMLender').value||null,mortgage_rate:r?r/100:null,
+mortgage_rate:r?r/100:null,
       mortgage_end_date:$('pMEnd').value||null,hoa_monthly:parseFloat($('pHoa').value)||null,
-      insurance_company:$('pInsComp').value||null,insurance_policy:$('pInsPol').value||null,
+insurance_policy:$('pInsPol').value||null,
       insurance_annual:parseFloat($('pInsAmt').value)||null,notes:$('pNotes').value||null,
       tags:propFormTags,
-      family_member_ids:GH_FAMILY.getIds('propFamilyWrap')
+      family_member_ids:GH_FAMILY.getIds('propFamilyWrap'),
+      mortgage_lender_contact_id: $('pMLender').value ? parseInt($('pMLender').value) : null,
+      insurance_contact_id:       $('pInsComp').value ? parseInt($('pInsComp').value) : null
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editProp?`/properties/${editProp}`:'/properties';
@@ -484,15 +488,17 @@ async function openVehDrawer(id){
   if(id){try{const all=await api('GET', '/vehicles');v=all.find(x=>x.id===id)||{};}catch(e){}}
   $('vehDrawerTitle').textContent=id?'Edit Vehicle':'Add Vehicle';
   $('vNick').value=v.nickname||''; $('vYear').value=v.year||''; $('vMake').value=v.make||'';
+  await GH_REFS.populateContact('vLender', v.loan_lender_contact_id||null, { type: 'Financial', placeholder: '— none —' });
+  await GH_REFS.populateContact('vInsComp', v.insurance_contact_id||null, { type: 'General', placeholder: '— none —' });
   $('vModel').value=v.model||''; $('vTrim').value=v.trim||''; $('vColor').value=v.color||'';
   $('vVin').value=v.vin||''; $('vPlate').value=v.license_plate||''; $('vState').value=v.state||'';
   $('vPurchPrice').value=v.purchase_price||''; $('vEstVal').value=v.current_est_value||'';
   $('vLoanBal').value=v.loan_balance||''; $('vLoanPmt').value=v.loan_monthly||'';
-  $('vLender').value=v.loan_lender||'';
+
   $('vRate').value=v.loan_rate?(v.loan_rate*100).toFixed(3):'';
   $('vOdo').value=v.odometer||'';
   $('vRegExp').value=v.registration_expires||''; $('vInspExp').value=v.inspection_expires||'';
-  $('vInsComp').value=v.insurance_company||''; $('vInsPol').value=v.insurance_policy||'';
+  $('vInsPol').value=v.insurance_policy||'';
   $('vInsAmt').value=v.insurance_annual||''; $('vNotes').value=v.notes||'';
   $('vDelBtn').style.display=id?'inline-flex':'none';
   initVehTags(v?.tags||[]);
@@ -510,13 +516,15 @@ async function saveVeh(){
       vin:$('vVin').value||null,license_plate:$('vPlate').value||null,state:$('vState').value||null,
       purchase_price:parseFloat($('vPurchPrice').value)||null,current_est_value:parseFloat($('vEstVal').value)||null,
       loan_balance:parseFloat($('vLoanBal').value)||null,loan_monthly:parseFloat($('vLoanPmt').value)||null,
-      loan_lender:$('vLender').value||null,loan_rate:r?r/100:null,
+loan_rate:r?r/100:null,
       odometer:parseInt($('vOdo').value)||null,
       registration_expires:$('vRegExp').value||null,inspection_expires:$('vInspExp').value||null,
-      insurance_company:$('vInsComp').value||null,insurance_policy:$('vInsPol').value||null,
+insurance_policy:$('vInsPol').value||null,
       insurance_annual:parseFloat($('vInsAmt').value)||null,notes:$('vNotes').value||null,
       tags:vehFormTags,
-      family_member_ids:GH_FAMILY.getIds('vehFamilyWrap')
+      family_member_ids:GH_FAMILY.getIds('vehFamilyWrap'),
+      loan_lender_contact_id: $('vLender').value ? parseInt($('vLender').value) : null,
+      insurance_contact_id:   $('vInsComp').value ? parseInt($('vInsComp').value) : null
     };
     if(!payload.nickname){toast('Nickname required','err');return;}
     const url=editVeh?`/vehicles/${editVeh}`:'/vehicles';
