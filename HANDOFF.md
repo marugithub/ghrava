@@ -152,6 +152,16 @@ All free-text person/org fields now have contact/family FK columns. Key column n
 3. **Inline add for all GH_SELECT dropdowns** — type + "+ Add" → saves and selects, without leaving the form. Applied globally to `GH_SELECT`.
 4. **Shared form components audit** — confirm Contact picker, Family Member picker, Tag picker each have exactly one implementation used everywhere.
 
+### Tier 1.5 — Icon & action standardization (do before Tier 2)
+- **Attachment button** — paperclip icon everywhere, no text label. Cert cards already have it — use that as the pattern. Apply to all modules that have attachments.
+- **Delete button** — red trash icon, no word "Delete". Sized to match `gh-card-btn` (26×26). Stays in edit drawer footer only, never on cards. Text removal is the goal — icon alone is sufficient once consistent.
+- **Archive vs Delete** — design conversation required before any code. Key decisions:
+  - Archive = primary soft-delete (hidden from default views, recoverable)
+  - Hard delete = rare, only reachable from archived state (archive-first policy)
+  - Which modules need archive (certs, jobs, vehicles, properties, medical records, books) vs completion (todos) vs neither (dropdown options → deactivate)
+  - UI: "Show archived" toggle per module, or a global archived view in Reports?
+  - Card-level archive action (icon in footer) or drawer-only?
+
 ### Tier 2 — UI completeness
 5. **GH_VIEW on remaining modules** — Medical, Property, HSA, Kids, Books, Documents, Contacts, Resources, Career Learning. One pass, all at once.
 6. **Delete button pattern** — trash icon left-aligned + Cancel/Save right-aligned, same row. Delete only from edit drawer. Requires cascade audit first.
