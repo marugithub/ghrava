@@ -1102,6 +1102,7 @@
       </button>`,
   };
 </script>
+<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
@@ -2136,22 +2137,18 @@ async function loadContacts() {
       return;
     }
   el.innerHTML = contacts.map(c => `
-    <div class="card">
-      <div class="flex-between">
-        <div class="card-title">${esc(c.name)}</div>
-        <div style="display:flex;gap:6px">
-          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editContact(${c.id});event.stopPropagation()">Edit</button>
-          <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="startDelete('contact',${c.id},'${c.name}');event.stopPropagation()">Del</button>
+    <div class="gh-card gh-s-blue" onclick="editContact(${c.id})">
+      <div class="gh-card-head">
+        <span class="gh-card-title">${esc(c.name)}</span>
+        <span class="gh-badge gh-badge-blue">${esc(c.contact_type)}</span>
+      </div>
+      ${c.specialty||c.company ? `<div class="gh-card-meta">${[c.specialty,c.company].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
+      ${c.phone_primary||c.email ? `<div class="gh-card-meta">${[c.phone_primary,c.email].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
+      <div class="gh-card-footer">
+        <div>${c.attachment_count?AttachmentManager.staticBadge('contact',c.id,c.attachment_count):''}</div>
+        <div class="gh-card-actions">
+          <div class="gh-card-btn" title="Edit" onclick="editContact(${c.id});event.stopPropagation()">${'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'}</div>
         </div>
-      </div>
-      <div class="card-meta">
-        <span class="ctype-badge">${esc(c.contact_type)}</span>
-        ${c.specialty?`<span class="text-sm text-muted">${esc(c.specialty)}</span>`:''}
-        ${c.company?`<span class="text-sm text-muted">${esc(c.company)}</span>`:''}
-      </div>
-      <div class="card-meta" style="margin-top:4px">
-        ${c.phone_primary?`<span class="text-mono text-sm">${esc(c.phone_primary)}</span>`:''}
-        ${c.email?`<span class="text-sm text-muted">${esc(c.email)}</span>`:''}
       </div>
     </div>`).join('');
   } catch(err) {

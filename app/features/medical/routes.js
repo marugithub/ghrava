@@ -49,7 +49,12 @@ router.get('/medications', (req, res) => {
     if (req.query.family_member_id && hasFamilyMed) { sql += ' AND m.family_member_id=?'; p.push(req.query.family_member_id); }
     if (req.query.status)           { sql += ' AND m.status=?'; p.push(req.query.status); }
     sql += hasFamilyMed ? ' ORDER BY fm.display_name, m.status, m.name COLLATE NOCASE' : ' ORDER BY m.patient, m.status, m.name COLLATE NOCASE';
-    res.json(db.prepare(sql).all(...p).map(m => withTagNames(m, 'medical_medication')));
+    const stmtMedAtt = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='med_medication' AND entity_id=?");
+    res.json(db.prepare(sql).all(...p).map(m => {
+      const r = withTagNames(m, 'medical_medication');
+      r.attachment_count = stmtMedAtt.get(m.id)?.cnt || 0;
+      return r;
+    }));
   } catch (e) { serverError(res, e); }
 });
 
@@ -159,7 +164,11 @@ router.get('/conditions', (req, res) => {
     if (req.query.patient) { sql += ' AND patient=?'; p.push(req.query.patient); }
     if (req.query.status)  { sql += ' AND status=?';  p.push(req.query.status); }
     sql += ' ORDER BY patient, status, condition_name COLLATE NOCASE';
-    res.json(db.prepare(sql).all(...p));
+    const stmtCondAtt = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='med_condition' AND entity_id=?");
+    res.json(db.prepare(sql).all(...p).map(r => ({
+      ...r,
+      attachment_count: stmtCondAtt.get(r.id)?.cnt || 0
+    })));
   } catch (e) { serverError(res, e); }
 });
 
@@ -221,7 +230,12 @@ router.get('/notes', (req, res) => {
     if (req.query.patient)    { sql += ' AND n.patient=?';          params.push(req.query.patient); }
     if (req.query.follow_up)  { sql += ' AND n.follow_up_needed=?'; params.push(req.query.follow_up); }
     sql += ' ORDER BY n.visit_date DESC, n.id DESC';
-    res.json(db.prepare(sql).all(...params).map(n => withTagNames(n, 'medical_visit')));
+    const stmtNoteAtt = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='med_visit' AND entity_id=?");
+    res.json(db.prepare(sql).all(...params).map(n => {
+      const r = withTagNames(n, 'medical_visit');
+      r.attachment_count = stmtNoteAtt.get(n.id)?.cnt || 0;
+      return r;
+    }));
   } catch (e) { serverError(res, e); }
 });
 

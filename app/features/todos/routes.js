@@ -72,7 +72,12 @@ router.get('/', (req, res) => {
       FROM todos
     `).get();
 
-    res.json({ todos: todos.map(t => withFamilyMembers(withTagNames(t, 'todo'), 'todo')), stats });
+    const stmtTodoAtt = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='todo' AND entity_id=?");
+    res.json({ todos: todos.map(t => {
+      const r = withFamilyMembers(withTagNames(t, 'todo'), 'todo');
+      r.attachment_count = stmtTodoAtt.get(t.id)?.cnt || 0;
+      return r;
+    }), stats });
   } catch (e) { serverError(res, e); }
 });
 

@@ -27,9 +27,13 @@ const { clearReview } = require('../../shared/needs-review');
 const stmtBookPhoto = db.prepare(
   "SELECT id FROM attachments WHERE entity_type='book' AND entity_id=? AND is_primary_photo=1 LIMIT 1"
 );
+const stmtBookAttachCount = db.prepare(
+  "SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='book' AND entity_id=?"
+);
 function withBookPhoto(b) {
   const row = stmtBookPhoto.get(b.id);
-  return { ...b, primary_photo_id: row ? row.id : null };
+  const att = stmtBookAttachCount.get(b.id);
+  return { ...b, primary_photo_id: row ? row.id : null, attachment_count: att?.cnt || 0 };
 }
 
 router.get('/', (req, res) => {

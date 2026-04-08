@@ -75,6 +75,7 @@
 <script>
 window.GH_PAGE = { module: 'career', title: 'Career' };
 </script>
+<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
@@ -224,8 +225,18 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
         <input id="certTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
       </div>
     </div>
-    <div style="display:flex;gap:8px">
+    <div id="certAttachmentsSection" style="display:none;margin-top:4px">
+      <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:10px 0 6px">Attachments</div>
+      <div id="certAttachmentsList" style="margin-bottom:8px"></div>
+      <label class="btn btn-ghost" style="cursor:pointer;font-size:12px;width:100%;justify-content:center;box-sizing:border-box">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        Add file
+        <input type="file" id="certFileInput" multiple style="display:none">
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn btn-primary" id="certSave" style="flex:1" onclick="saveCert()">Save</button>
+      <button class="btn btn-ghost" id="certRenewBtn" style="display:none" onclick="renewCert()">Renew Cycle</button>
       <button class="btn btn-ghost" id="certDeleteBtn" style="color:var(--red);display:none" onclick="deleteCert()">Delete</button>
       <button class="btn btn-ghost" onclick="$('certDrawer').classList.remove('open')">Cancel</button>
     </div>
@@ -507,7 +518,6 @@ async function loadCerts() {
         : `<span style="font-size:11px;color:var(--text3)">no tags</span>`;
 
       const icoLogHours = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
-      const icoAttach   = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
       const icoEdit     = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`;
 
       const issuerParts = [c.issuing_body, c.credential_id ? '#' + c.credential_id : null].filter(Boolean);
@@ -524,7 +534,10 @@ async function loadCerts() {
           <div class="gh-card-tags">${tagsHtml}</div>
           <div class="gh-card-actions">
             <div class="gh-card-btn" title="Log hours" onclick="event.stopPropagation();logHoursForCert(${certIdSafe})">${icoLogHours}</div>
-            <div class="gh-card-btn" title="Attachments" onclick="event.stopPropagation();openCertDrawer(${certIdSafe})">${icoAttach}</div>
+            <div class="gh-card-btn" title="Attachments" style="position:relative" onclick="event.stopPropagation();AttachmentManager.open('career_cert',${certIdSafe},'${esc(c.name).replace(/'/g,"\\'")}')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+              ${c.attachment_count>0?`<span style="position:absolute;top:-4px;right:-4px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 2px;pointer-events:none">${c.attachment_count}</span>`:''}
+            </div>
             <div class="gh-card-btn" title="Edit" onclick="event.stopPropagation();openCertDrawer(${certIdSafe})">${icoEdit}</div>
           </div>
         </div>
@@ -557,8 +570,78 @@ async function openCertDrawer(id) {
   // Show renew button if cert has an active cycle
   const renewBtn = $('certRenewBtn');
   if (renewBtn) renewBtn.style.display = (id && c.current_cycle_start && c.renewal_period_months) ? 'inline-flex' : 'none';
+
+  // Attachments section — only when editing an existing cert
+  const attSection = $('certAttachmentsSection');
+  if (attSection) {
+    if (id) {
+      attSection.style.display = 'block';
+      loadCertAttachments(id);
+      // Wire file input once
+      const inp = $('certFileInput');
+      if (inp && !inp._wired) {
+        inp._wired = true;
+        inp.addEventListener('change', async () => {
+          if (!inp.files.length || !editingCertId) return;
+          const fd = new FormData();
+          Array.from(inp.files).forEach(f => fd.append('files', f));
+          try {
+            const r = await fetch('/api/v1/attachments/career_cert/' + editingCertId, {
+              method: 'POST',
+              headers: { 'Authorization': 'Bearer ' + (window.LT?.authToken || '') },
+              body: fd,
+            });
+            if (!r.ok) throw new Error((await r.json().catch(()=>({}))).error || 'Upload failed');
+            toast('File added');
+            loadCertAttachments(editingCertId);
+          } catch(err) { toast(err.message, 'err'); }
+          finally { inp.value = ''; }
+        });
+      }
+    } else {
+      attSection.style.display = 'none';
+    }
+  }
+
   $('certDrawer').classList.add('open');
   setTimeout(() => $('certName').focus(), 300);
+}
+
+async function loadCertAttachments(certId) {
+  const list = $('certAttachmentsList');
+  if (!list) return;
+  try {
+    const rows = await api('GET', '/attachments/career_cert/' + certId);
+    if (!rows.length) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--text3)">No files yet.</div>';
+      return;
+    }
+    list.innerHTML = rows.map(a => `
+      <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <a href="/api/v1/attachments/file/${a.id}" target="_blank" rel="noopener"
+           style="flex:1;font-size:12px;color:var(--accent);text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+           onclick="event.stopPropagation()">
+          ${esc(a.label || a.original_filename)}
+        </a>
+        <span style="font-size:11px;color:var(--text3);flex-shrink:0">${a.file_size > 1048576 ? (a.file_size/1048576).toFixed(1)+'MB' : a.file_size > 1024 ? Math.round(a.file_size/1024)+'KB' : (a.file_size||'')+'B'}</span>
+        <button onclick="deleteCertAttachment(${a.id},${certId})"
+          style="width:22px;height:22px;border-radius:5px;border:1px solid var(--border);background:var(--bg3);cursor:pointer;color:var(--red);display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="font-size:12px;color:var(--red)">${esc(e.message)}</div>`;
+  }
+}
+
+async function deleteCertAttachment(attId, certId) {
+  if (!confirm('Delete this file?')) return;
+  try {
+    await api('DELETE', '/attachments/' + attId);
+    toast('Deleted');
+    loadCertAttachments(certId);
+    loadCerts(); // refresh card count
+  } catch(e) { toast(e.message, 'err'); }
 }
 
 async function saveCert() {
@@ -1106,7 +1189,8 @@ async function loadCareerDropdowns(currentJobType, currentGoalCat, currentSkillC
 }
 document.addEventListener('DOMContentLoaded', () => {
   loadCerts();
-  GH_VIEW.init('certViewToolbar', 'career_cert', state => {
+  AttachmentManager.injectStyles();
+GH_VIEW.init('certViewToolbar', 'career_cert', state => {
     certView = state.view;
     certCols = state.cols;
     loadCerts();

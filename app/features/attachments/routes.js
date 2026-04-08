@@ -36,7 +36,7 @@ const THUMB_DIR = 'thumbs';
 const UNC_BASE  = '\\\\soninas\\Backups\\MyAppAttachments';
 
 // ── Allowed modules ───────────────────────────────────────────
-const MODULES = ['inventory','hsa','medical','finance','estate','daily-log'];
+const MODULES = ['inventory','hsa','medical','finance','estate','daily-log','career','books','property','todos','resources','contacts','kids'];
 
 // ── Image MIME types ──────────────────────────────────────────
 const IMAGE_MIMES = new Set(['image/jpeg','image/jpg','image/png','image/gif','image/webp']);
@@ -47,14 +47,24 @@ const IMAGE_MIMES = new Set(['image/jpeg','image/jpg','image/png','image/gif','i
 
 /** Derive module from entity_type */
 function moduleFor(entityType) {
-  if (entityType.startsWith('hsa'))     return 'hsa';
-  if (entityType.startsWith('med'))     return 'medical';
+  if (entityType.startsWith('hsa'))                                          return 'hsa';
+  if (entityType.startsWith('med'))                                          return 'medical';
   if (entityType === 'item' || entityType === 'container' || entityType === 'location')
-                                        return 'inventory';
-  if (entityType.startsWith('fin'))     return 'finance';
-  if (entityType.startsWith('estate'))  return 'estate';
-  if (entityType === 'daily_log')       return 'daily-log';
-  return entityType; // fallback — use as-is
+                                                                             return 'inventory';
+  if (entityType.startsWith('fin'))                                          return 'finance';
+  if (entityType.startsWith('estate'))                                       return 'estate';
+  if (entityType === 'daily_log')                                            return 'daily-log';
+  if (entityType.startsWith('career'))                                       return 'career';
+  if (entityType === 'book')                                                 return 'books';
+  if (entityType === 'property' || entityType === 'vehicle' ||
+      entityType === 'property_maintenance' || entityType === 'vehicle_service')
+                                                                             return 'property';
+  if (entityType === 'todo')                                                 return 'todos';
+  if (entityType === 'resource')                                             return 'resources';
+  if (entityType === 'contact')                                              return 'contacts';
+  if (entityType === 'kid' || entityType === 'kid_activity' || entityType === 'kid_note')
+                                                                             return 'kids';
+  return entityType;
 }
 
 /** Ensure module dir and thumbs subdir exist */
@@ -112,12 +122,24 @@ function toUncPath(storedPath) {
 /** Look up a record title from the DB given entity_type and entity_id */
 function getRecordTitle(entityType, entityId) {
   try {
-    if (entityType === 'item')         return db.prepare('SELECT name FROM items WHERE id=?').get(entityId)?.name;
-    if (entityType === 'hsa_payment')  return db.prepare('SELECT provider FROM hsa_payments WHERE id=?').get(entityId)?.provider;
-    if (entityType === 'hsa_otc')      return db.prepare('SELECT item_name FROM hsa_otc WHERE id=?').get(entityId)?.item_name;
-    if (entityType === 'med_visit')    return db.prepare('SELECT visit_date FROM med_visit_notes WHERE id=?').get(entityId)?.visit_date;
-    if (entityType === 'med_condition')return db.prepare('SELECT condition_name FROM med_conditions WHERE id=?').get(entityId)?.condition_name;
-    if (entityType === 'med_medication')return db.prepare('SELECT name FROM med_medications WHERE id=?').get(entityId)?.name;
+    if (entityType === 'item')              return db.prepare('SELECT name FROM items WHERE id=?').get(entityId)?.name;
+    if (entityType === 'hsa_payment')       return db.prepare('SELECT provider FROM hsa_payments WHERE id=?').get(entityId)?.provider;
+    if (entityType === 'hsa_otc')           return db.prepare('SELECT item_name FROM hsa_otc WHERE id=?').get(entityId)?.item_name;
+    if (entityType === 'med_visit')         return db.prepare('SELECT visit_date FROM med_visit_notes WHERE id=?').get(entityId)?.visit_date;
+    if (entityType === 'med_condition')     return db.prepare('SELECT condition_name FROM med_conditions WHERE id=?').get(entityId)?.condition_name;
+    if (entityType === 'med_medication')    return db.prepare('SELECT name FROM med_medications WHERE id=?').get(entityId)?.name;
+    if (entityType === 'career_cert')       return db.prepare('SELECT name FROM career_certifications WHERE id=?').get(entityId)?.name;
+    if (entityType === 'career_job')        return db.prepare('SELECT title FROM career_jobs WHERE id=?').get(entityId)?.title;
+    if (entityType === 'career_learning')   return db.prepare('SELECT title FROM career_learning WHERE id=?').get(entityId)?.title;
+    if (entityType === 'book')              return db.prepare('SELECT title FROM books WHERE id=?').get(entityId)?.title;
+    if (entityType === 'property')          return db.prepare('SELECT nickname FROM properties WHERE id=?').get(entityId)?.nickname;
+    if (entityType === 'vehicle')           return db.prepare('SELECT nickname FROM vehicles WHERE id=?').get(entityId)?.nickname;
+    if (entityType === 'property_maintenance') return db.prepare('SELECT description FROM property_maintenance WHERE id=?').get(entityId)?.description;
+    if (entityType === 'vehicle_service')   return db.prepare('SELECT service_type FROM vehicle_service WHERE id=?').get(entityId)?.service_type;
+    if (entityType === 'todo')              return db.prepare('SELECT title FROM todos WHERE id=?').get(entityId)?.title;
+    if (entityType === 'resource')          return db.prepare('SELECT name FROM resources WHERE id=?').get(entityId)?.name;
+    if (entityType === 'contact')           return db.prepare('SELECT name FROM contacts WHERE id=?').get(entityId)?.name;
+    if (entityType === 'kid')               return db.prepare('SELECT display_name FROM kids WHERE id=?').get(entityId)?.display_name;
   } catch { /* ignore */ }
   return null;
 }

@@ -65,6 +65,7 @@
 <script>
 window.GH_PAGE = { module: 'books', title: 'Books' };
 </script>
+<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
@@ -297,6 +298,7 @@ function bookCardHtml(b) {
         ${stars?`<div class="stars">${stars}</div>`:''}
       </div>
       ${b.date_finished?`<div style="font-size:11px;color:var(--text3);margin-top:4px">Finished ${b.date_finished}</div>`:''}
+      ${b.attachment_count?AttachmentManager.staticBadge('book',b.id,b.attachment_count):''}
       ${b.status==='Currently Reading'&&b.pages_total>0?`
         <div style="margin-top:5px">
           <div style="background:var(--bg3);border-radius:99px;height:4px;overflow:hidden">
@@ -436,6 +438,7 @@ function triggerBookSuggest() {
 
 }
 document.addEventListener('DOMContentLoaded', ()=>{
+  AttachmentManager.injectStyles();
   GH_VIEW.init('bookViewToolbar', 'bk', state => {
     _bkView    = state.view;
     _bkCols    = state.cols;

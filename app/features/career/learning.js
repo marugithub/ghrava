@@ -69,7 +69,8 @@ router.get('/', (req, res) => {
         (SELECT COALESCE(SUM(lc.hours_applied), 0)
          FROM career_learning_certs lc WHERE lc.learning_id = l.id) AS hours_linked,
         (SELECT lc.hours_applied FROM career_learning_certs lc
-         WHERE lc.learning_id = l.id AND lc.certification_id = ${certIdParam || 'NULL'}) AS hours_applied_to_cert
+         WHERE lc.learning_id = l.id AND lc.certification_id = ${certIdParam || 'NULL'}) AS hours_applied_to_cert,
+        (SELECT COUNT(*) FROM attachments WHERE entity_type='career_learning' AND entity_id=l.id) AS attachment_count
       FROM career_learning l
       ${where}
       ORDER BY l.start_date DESC, l.created_at DESC

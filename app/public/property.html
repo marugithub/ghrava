@@ -24,6 +24,7 @@
 </style>
 <body>
   <!-- header injected by nav.js -->
+<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
@@ -377,6 +378,7 @@ async function loadProps(){
         </div>
         ${p.mortgage_monthly?`<div style="padding:8px 16px;font-size:12px;color:var(--text3);border-top:1px solid var(--border)">${fmt$(p.mortgage_monthly)}/mo${p.hoa_monthly?' · HOA '+fmt$(p.hoa_monthly)+'/mo':''}</div>`:''}
         ${p.tags&&p.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 16px;border-top:1px solid var(--border)">${p.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+      ${p.attachment_count?AttachmentManager.staticBadge('property',p.id,p.attachment_count):''}
       </div>`;
     }).join('');
   }catch(e){el.innerHTML = errorState(e.message, '');}
@@ -473,6 +475,7 @@ async function loadVehs(){
           <button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" onclick="openSvcDrawer(${v.id},'${esc(v.nickname)}')">🔧 Service Log</button>
         </div>
         ${v.tags&&v.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;padding:6px 16px;border-top:1px solid var(--border)">${v.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+        ${v.attachment_count?AttachmentManager.staticBadge('vehicle',v.id,v.attachment_count):''}
       </div>`;
     }).join('');
   }catch(e){el.innerHTML = errorState(e.message, '');}
@@ -653,7 +656,7 @@ async function loadPropertyDropdowns(currentPType, currentMCat) {
   await GH_SELECT.init('pType', 'property_type',                  currentPType ||'Primary Residence', { allowAdd: true });
   await GH_SELECT.init('mCat',  'property_maintenance_category',  currentMCat  ||'Roof',               { allowAdd: true });
 }
-document.addEventListener('DOMContentLoaded',()=>{ loadProps();   $('propSearch').addEventListener('input', e => {
+document.addEventListener('DOMContentLoaded',()=>{ AttachmentManager.injectStyles(); loadProps();   $('propSearch').addEventListener('input', e => {
     _propSearch = e.target.value.trim().toLowerCase();
     _reloadPropTab();
   });

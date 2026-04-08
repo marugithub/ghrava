@@ -36,7 +36,12 @@ const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../
 
 router.get('/properties', (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM properties WHERE is_active=1 ORDER BY property_type, nickname').all().map(p => withFamilyMembers(withTagNames(p, 'property'), 'property')));
+    const props = db.prepare(`
+      SELECT p.*,
+        (SELECT COUNT(*) FROM attachments WHERE entity_type='property' AND entity_id=p.id) AS attachment_count
+      FROM properties p WHERE p.is_active=1 ORDER BY p.property_type, p.nickname
+    `).all();
+    res.json(props.map(p => withFamilyMembers(withTagNames(p, 'property'), 'property')));
   } catch (e) { serverError(res, e); }
 });
 
@@ -120,6 +125,7 @@ router.get('/vehicles', (req, res) => {
       v.upcoming_service = db.prepare(
         'SELECT * FROM vehicle_service WHERE vehicle_id=? AND next_due_date >= date("now") ORDER BY next_due_date ASC LIMIT 1'
       ).get(v.id) || null;
+      v.attachment_count = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='vehicle' AND entity_id=?").get(v.id)?.cnt || 0;
     });
     res.json(vehicles);
   } catch (e) { serverError(res, e); }

@@ -346,6 +346,7 @@
 <script>
   window.GH_PAGE = { module: 'medical', title: 'Medical' };
 </script>
+<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
@@ -420,7 +421,8 @@ function switchView(view, btn) {
   btn.classList.add('active');
   const strip = $id('patientStrip');
   strip.style.display = (view === 'summary' || view === 'eob') ? 'none' : 'flex';
-  renderCurrentView();
+  AttachmentManager.injectStyles();
+renderCurrentView();
 }
 
 function setPatient(btn, val) {
@@ -626,6 +628,7 @@ async function renderMedications() {
             ${r.purpose ? `<span style="color:var(--text2)">${esc(r.purpose)}</span>` : ''}
           </div>
           ${r.tags&&r.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${r.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+          ${r.attachment_count?AttachmentManager.staticBadge('med_medication',r.id,r.attachment_count):''}
         </div>
       `).join('')}
     `).join('');
@@ -711,6 +714,7 @@ async function renderConditions() {
           ${r.end_date ? `<span>→ ${formatDate(r.end_date)}</span>` : ''}
         </div>
         ${r.treatment_notes ? `<div class="med-card-sub">${esc(r.treatment_notes)}</div>` : ''}
+        ${r.attachment_count?AttachmentManager.staticBadge('med_condition',r.id,r.attachment_count):''}
       </div>
     `).join('');
   } catch (e) {
@@ -752,6 +756,7 @@ async function renderNotes() {
         ${r.doctors_response ? `<div class="med-card-sub">
           <span style="color:var(--text3);font-size:11px">A: </span>${esc(r.doctors_response).substring(0,120)}${r.doctors_response.length>120?'…':''}
         </div>` : ''}
+        ${r.attachment_count?AttachmentManager.staticBadge('med_visit',r.id,r.attachment_count):''}
       </div>
     `).join('');
   } catch (e) {

@@ -153,8 +153,8 @@ All free-text person/org fields now have contact/family FK columns. Key column n
 4. **Shared form components audit** — confirm Contact picker, Family Member picker, Tag picker each have exactly one implementation used everywhere.
 
 ### Tier 1.5 — Icon & action standardization (do before Tier 2)
-- **Attachment button** — paperclip icon everywhere, no text label. Cert cards already have it — use that as the pattern. Apply to all modules that have attachments.
-- **Delete button** — red trash icon, no word "Delete". Sized to match `gh-card-btn` (26×26). Stays in edit drawer footer only, never on cards. Text removal is the goal — icon alone is sufficient once consistent.
+- **Attachment button** — paperclip icon everywhere, no text label. Cert cards already have it — use that as the pattern. Apply to all modules that have attachments. Show attachment count as a small badge overlaid top-right of the icon when count > 0; no badge when zero.
+- **Delete button** — red trash icon, no word "Delete". 26×26 to match `gh-card-btn` and all other icon buttons. Stays in edit drawer footer only, never on cards.
 - **Archive vs Delete** — design conversation required before any code. Key decisions:
   - Archive = primary soft-delete (hidden from default views, recoverable)
   - Hard delete = rare, only reachable from archived state (archive-first policy)

@@ -315,9 +315,11 @@ router.get('/contacts', (req, res) => {
   try {
     const { type } = req.query;
     if (type) {
-      res.json(db.prepare('SELECT * FROM contacts WHERE contact_type=? ORDER BY name').all(type));
+      const stmtCtAtt = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='contact' AND entity_id=?");
+      res.json(db.prepare('SELECT * FROM contacts WHERE contact_type=? ORDER BY name').all(type).map(ct => ({ ...ct, attachment_count: stmtCtAtt.get(ct.id)?.cnt || 0 })));
     } else {
-      res.json(db.prepare('SELECT * FROM contacts ORDER BY contact_type, name').all());
+      const stmtCtAtt2 = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='contact' AND entity_id=?");
+      res.json(db.prepare('SELECT * FROM contacts ORDER BY contact_type, name').all().map(ct => ({ ...ct, attachment_count: stmtCtAtt2.get(ct.id)?.cnt || 0 })));
     }
   } catch (err) { serverError(res, err); }
 });

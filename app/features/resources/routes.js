@@ -56,7 +56,12 @@ router.get('/', (req, res) => {
       params.push(tag.toLowerCase());
     }
     sql += ' ORDER BY is_favorite DESC, sort_order ASC, name ASC';
-    const rows = db.prepare(sql).all(...params).map(r => attachTags(r));
+    const stmtResAtt = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='resource' AND entity_id=?");
+    const rows = db.prepare(sql).all(...params).map(r => {
+      const tagged = attachTags(r);
+      tagged.attachment_count = stmtResAtt.get(r.id)?.cnt || 0;
+      return tagged;
+    });
     res.json(rows);
   } catch (err) { serverError(res, err); }
 });

@@ -62,7 +62,8 @@ pub.get('/certifications', (req, res) => {
         ) AS pdu_applied_this_cycle,
         (SELECT COUNT(*)
          FROM career_learning_certs lc
-         WHERE lc.certification_id = c.id) AS learning_count
+         WHERE lc.certification_id = c.id) AS learning_count,
+        (SELECT COUNT(*) FROM attachments WHERE entity_type='career_cert' AND entity_id=c.id) AS attachment_count
       FROM career_certifications c ORDER BY
         CASE status WHEN 'Active' THEN 0 WHEN 'In Progress' THEN 1 ELSE 2 END,
         expiry_date ASC NULLS LAST
@@ -172,7 +173,11 @@ function createRenewalTodo(certId, name, expiryDate) {
 
 pub.get('/jobs', (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM career_jobs ORDER BY is_current DESC, start_date DESC').all();
+    const rows = db.prepare(`
+      SELECT j.*,
+        (SELECT COUNT(*) FROM attachments WHERE entity_type='career_job' AND entity_id=j.id) AS attachment_count
+      FROM career_jobs j ORDER BY is_current DESC, start_date DESC
+    `).all();
     res.json(rows.map(r => withFamilyMembers(withTagNames(r, 'career_job'), 'career_job')));
   } catch (e) { serverError(res, e); }
 });

@@ -468,6 +468,7 @@
       </button>`,
   };
 </script>
+<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
@@ -611,6 +612,7 @@ function resCard(r) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>` : ''}
     </div>
+    ${r.attachment_count ? AttachmentManager.staticBadge('resource', r.id, r.attachment_count) : ''}
   </div>`;
 }
 
@@ -850,6 +852,7 @@ window.openEdit = function(id) {
 
 
 document.addEventListener('DOMContentLoaded', () => {
+  AttachmentManager.injectStyles();
   GH_VIEW.init('resViewToolbar', 'res', state => {
     _resView    = state.view;
     _resCols    = state.cols;
