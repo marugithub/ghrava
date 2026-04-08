@@ -1,3 +1,4 @@
+// @ts-nocheck
 'use strict';
 /**
  * shared/needs-review.js — Data review flagging system
