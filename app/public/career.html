@@ -45,6 +45,22 @@
 .prof-dots { display:flex;gap:3px;margin-top:4px; }
 .prof-dot { width:8px;height:8px;border-radius:50%;background:var(--bg3); }
 .prof-dot.lit { background:var(--accent); }
+
+.cert-grid-wrap {
+  display: grid;
+  grid-template-columns: repeat(var(--cert-cols, 2), 1fr);
+  gap: 10px;
+  padding: 4px 0 100px;
+}
+.cert-list-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0 100px;
+}
+@media (max-width: 500px) {
+  .cert-grid-wrap { grid-template-columns: repeat(1, 1fr); }
+}
 </style>
 </head>
 <body>
@@ -86,7 +102,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openCertDrawer()">+ Add</button>
     </div>
     <div id="certViewToolbar" style="padding:4px 16px 0"></div>
-    <div id="certsList" style="padding:8px 16px 0">
+    <div id="certsList" style="padding:8px 16px 0;box-sizing:border-box">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
   </div>
@@ -382,7 +398,7 @@ let _careerSearch = '';
 window._careerFilters = {};
 let currentTab = 'certs';
 let certView = localStorage.getItem('career_cert_view') || 'grid';
-let certCols = parseInt(localStorage.getItem('career_cert_cols')) || (window.innerWidth >= 600 ? 2 : 1);
+let certCols = parseInt(localStorage.getItem('career_cert_cols')) || (window.innerWidth >= 600 ? 3 : 2);
 let editingCertId = null, editingJobId = null, editingSkillId = null, editingEduId = null;
 
 function switchTab(tab, btn) {
