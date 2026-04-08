@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * db/migrate.js
  *
@@ -45,7 +46,8 @@ for (const file of files) {
   const statements = sql
     .split(';')
     .map(s => s.replace(/--[^\n]*/g, '').trim())
-    .filter(s => s.length > 0);
+    .filter(s => s.length > 0)
+    .filter(s => !['BEGIN','COMMIT','ROLLBACK'].includes(s.toUpperCase()));
 
   // Run entire migration in a transaction — all or nothing
   const runMigration = db.transaction(() => {

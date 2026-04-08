@@ -2,4 +2,3 @@
 ALTER TABLE properties ADD COLUMN mortgage_lender_contact_id  INTEGER REFERENCES contacts(id);
 ALTER TABLE properties ADD COLUMN insurance_contact_id        INTEGER REFERENCES contacts(id);
 ALTER TABLE vehicles   ADD COLUMN lender_contact_id           INTEGER REFERENCES contacts(id);
-ALTER TABLE vehicles   ADD COLUMN insurance_contact_id        INTEGER REFERENCES contacts(id);

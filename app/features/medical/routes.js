@@ -12,7 +12,7 @@ const db       = require('../../db/db');
 const { requireAuth }        = require('../auth/middleware');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
 const { clearReview, flagRecord } = require('../../shared/needs-review');
-const { resolveAndFlag }                = require('../../shared/namematch');
+const { resolvePatient }                = require('../../shared/namematch');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
 
 function escCsv(v) {
@@ -449,7 +449,7 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
         // Insert claims — resolve patient name to family_member_id (S3/A9)
         for (const c of (s.claims || [])) {
           const patientRaw = c.patient || 'Unknown';
-          const nameMatch  = resolveAndFlag(patientRaw, null, null); // flag after insert
+          const nameMatch  = resolvePatient(patientRaw);
           const claimId = db.prepare(`
             INSERT INTO med_eob_claims
               (eob_id,patient,family_member_id,claim_id,received_date,provider,network_status,send_date,
