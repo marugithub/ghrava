@@ -2516,6 +2516,11 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   box-sizing: border-box;
 }
 .tags-input-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(92,114,250,.12); }
+/* Canonical tag wrap size — use this class for consistency across all modules */
+.gh-tags-wrap {
+  min-height: 44px;
+  font-size: 13px;
+}
 .tags-text-input {
   flex: 1;
   min-width: 90px;
@@ -2573,11 +2578,26 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 }
 .tag-chip-suggested:hover { opacity: 1; }
 
-/* Floating dropdown — overlays content below the tag field */
+/* Standardized tag input wrap — use this class on all tag wrap elements */
+.gh-tags-input-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 5px 8px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  cursor: text;
+  transition: border-color .15s;
+}
+.gh-tags-input-wrap:focus-within { border-color: var(--accent); }
+
+/* Floating dropdown — fixed positioning escapes overflow/scroll clipping.
+   top/left/width are set dynamically by GH_TAGS._positionDropdown(). */
 .gh-tags-dropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0; right: 0;
+  position: fixed;
   background: var(--bg2);
   border: 1px solid var(--border2);
   border-radius: 6px;

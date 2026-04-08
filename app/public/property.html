@@ -263,12 +263,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Category <span class="req">*</span></label>
-      <select class="form-select" id="mCat">
-        <option>Roof</option><option>HVAC</option><option>Plumbing</option>
-        <option>Electrical</option><option>Landscaping</option><option>Pest Control</option>
-        <option>Foundation</option><option>Windows/Doors</option><option>Appliances</option>
-        <option>General</option><option>Other</option>
-      </select>
+      <select class="form-select" id="mCat"></select>
     </div>
   </div>
   <div class="form-group">
@@ -367,7 +362,7 @@ async function loadProps(){
     const ICONS={'Primary Residence':'🏠',Rental:'🏢',Vacation:'🏖️',Land:'🌳',Other:'🏗️'};
     el.innerHTML=ps.map(p=>{
       const v=parseFloat(p.current_est_value)||0, m=parseFloat(p.mortgage_balance)||0, eq=v-m;
-      return `<div class="gh-card ${p.is_active===0?'gh-s-gray':'gh-s-green'} card" onclick="openPropDrawer(${p.id})">
+      return `<div class="card" onclick="openPropDrawer(${p.id})">
         <div class="card-header">
           <div class="card-icon" style="background:rgba(239,68,68,.12)">${ICONS[p.property_type]||'🏠'}</div>
           <div style="flex:1;min-width:0">
@@ -457,7 +452,7 @@ async function loadVehs(){
       const reg=v.registration_expires, ins=v.inspection_expires;
       const regPill=reg&&reg<=today?'pill pill-red':reg&&reg<=warn30?'pill pill-amber':'';
       const insPill=ins&&ins<=today?'pill pill-red':ins&&ins<=warn30?'pill pill-amber':'';
-      return `<div class="gh-card gh-s-blue card">
+      return `<div class="card">
         <div class="card-header" onclick="openVehDrawer(${v.id})">
           <div class="card-icon" style="background:rgba(99,102,241,.12)">🚗</div>
           <div style="flex:1;min-width:0">
@@ -728,7 +723,7 @@ async function loadMaint(){
       const today = new Date().toISOString().slice(0,10);
       const warrantyOk = r.warranty_expiry && r.warranty_expiry >= today;
       const nextDue    = r.next_due_date && r.next_due_date <= today;
-      return `<div class="gh-card" style="border-left-color:${col}"
+      return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px 14px;margin-bottom:8px;cursor:pointer;border-left:3px solid ${col}"
               onclick="openMaintDrawer(${r.id})">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:8px">
           <div style="flex:1;min-width:0">
@@ -760,7 +755,7 @@ async function loadMaint(){
   } catch(e){ el.innerHTML = errorState(e.message, ''); }
 }
 
-function openMaintDrawer(id){
+async function openMaintDrawer(id){
   _editMaintId = id||null;
   $('maintDrawerTitle').textContent = id?'Edit Maintenance':'Add Maintenance Record';
   $('maintDeleteBtn').style.display = id?'inline-flex':'none';
@@ -791,16 +786,16 @@ function openMaintDrawer(id){
   } else {
     $('mDate').value=new Date().toISOString().slice(0,10);
     ['mDesc','mCost','mWarranty','mNextDue','mNotes'].forEach(i=>{ if($(i)) $(i).value=''; });
-    $('mCat').value='General';
+    await GH_SELECT.init('mCat', 'property_maintenance_category', 'General', { allowAdd: true });
     GH_REFS.populateContact('mVendor', null, { type: 'Contractor', placeholder: '— none —' });
   }
   $('maintDrawer').classList.add('open');
 }
 
-function populateMaintForm(r){
+async function populateMaintForm(r){
   $('mProp').value    = r.property_id;
   $('mDate').value    = r.maint_date||'';
-  $('mCat').value     = r.category||'General';
+  await GH_SELECT.init('mCat', 'property_maintenance_category', r.category||'General', { allowAdd: true });
   $('mDesc').value    = r.description||'';
   $('mCost').value    = r.cost||'';
   GH_REFS.populateContact('mVendor', r.vendor_contact_id||null, { type: 'Contractor', placeholder: '— none —' });

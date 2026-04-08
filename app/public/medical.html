@@ -774,7 +774,7 @@ async function openMedDrawer(r) {
   GH_FAMILY.init('mFamilyWrap', r?.family_member_id ? [r.family_member_id] : (currentPatient ? [] : []));
   GH_REFS.populateContact('mPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
   await GH_REFS.populateContact('mPharmacy', r?.pharmacy_contact_id || null, { type: 'General', placeholder: '— none —' });
-  await GH_SELECT.init('mStatus', 'med_medication_status', r?.status||'Active', { placeholder: '— status —' });
+  await GH_SELECT.init('mStatus', 'med_medication_status', r?.status||'Active', { placeholder: '— status —', allowAdd: true });
   $id('mName').value = r?.name || '';
   $id('mDosage').value = r?.dosage || '';
   $id('mFreq').value = r?.frequency || '';
@@ -840,7 +840,7 @@ async function openCondDrawer(r) {
   $id('condDrawerTitle').textContent = editingId ? 'Edit Condition' : 'Add Condition';
   GH_FAMILY.init('cFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
   GH_REFS.populateContact('cPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
-  await GH_SELECT.init('cStatus', 'med_condition_status', r?.status||'Active', { placeholder: '— status —' });
+  await GH_SELECT.init('cStatus', 'med_condition_status', r?.status||'Active', { placeholder: '— status —', allowAdd: true });
   $id('cName').value = r?.condition_name || '';
   $id('cStart').value = r?.start_date || '';
   $id('cEnd').value = r?.end_date || '';

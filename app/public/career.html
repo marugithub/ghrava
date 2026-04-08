@@ -545,7 +545,7 @@ async function openCertDrawer(id) {
   $('certIssueDate').value     = c.issue_date||'';
   $('certExpiry').value        = c.expiry_date||'';
   $('certStatus').value        = c.status||'Active';
-  await GH_SELECT.init('certStatus', 'career_cert_status', c.status||'Active', { placeholder: '— status —' });
+  await GH_SELECT.init('certStatus', 'career_cert_status', c.status||'Active', { placeholder: '— status —', allowAdd: true });
   $('certCeHours').value       = c.ce_hours_required != null ? c.ce_hours_required : '';
   $('certRenewalMonths').value = c.renewal_period_months != null ? c.renewal_period_months : '';
   $('certCycleStart').value    = c.current_cycle_start||'';
@@ -700,7 +700,7 @@ async function openSkillDrawer(id) {
   $('skillDrawerTitle').textContent = id ? 'Edit Skill' : 'Add Skill';
   $('skillName').value     = s.name||'';
   $('skillCat').value      = s.category||'';
-  await GH_SELECT.init('skillProf', 'skill_proficiency', s.proficiency||'Intermediate', { placeholder: '— proficiency —' });
+  await GH_SELECT.init('skillProf', 'skill_proficiency', s.proficiency||'Intermediate', { placeholder: '— proficiency —', allowAdd: true });
   $('skillYears').value    = s.years_experience||'';
   $('skillLastUsed').value = s.last_used_year||'';
   $('skillNotes').value    = s.notes||'';
@@ -793,7 +793,7 @@ async function openLearningDrawer(id, preLinkCerts) {
   if (!id && preLinkCerts) r.cert_links = preLinkCerts;
   $('learningDrawerTitle').textContent = id ? 'Edit Learning Record' : 'Add Learning Record';
   $('lnTitle').value     = r.title||'';
-  await GH_SELECT.init('lnType', 'learning_type', r.learning_type||'Course', { placeholder: '— type —' });
+  await GH_SELECT.init('lnType', 'learning_type', r.learning_type||'Course', { placeholder: '— type —', allowAdd: true });
   $('lnProvider').value  = r.provider||'';
   $('lnStartDate').value = r.start_date||'';
   $('lnEndDate').value   = r.end_date||'';
@@ -976,7 +976,7 @@ async function openGoalDrawer(id) {
   $('goalTargetDate').value = g.target_date || '';
   $('goalNotes').value      = g.notes || '';
   await GH_SELECT.init('goalCategory', 'career_goal_category', g.category||'Short-term', { allowAdd: true, placeholder: '— category —' });
-  await GH_SELECT.init('goalStatus',   'career_goal_status',   g.status||'active',        { placeholder: '— status —' });
+  await GH_SELECT.init('goalStatus',   'career_goal_status',   g.status||'active',        { placeholder: '— status —', allowAdd: true });
   GH_FAMILY.init('goalFamilyWrap', g.family_members || []);
   $('goalDrawer').classList.add('open');
 }

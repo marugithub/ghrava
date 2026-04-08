@@ -734,7 +734,7 @@ async function openAdd() {
   $('formTitle').textContent = 'Add Resource';
   $('fName').value = '';
   $('fUrl').value = '';
-  await GH_SELECT.init('fLinkType', 'resource_link_type', '🌐 Website', { placeholder: '— type —' });
+  await GH_SELECT.init('fLinkType', 'resource_link_type', '🌐 Website', { placeholder: '— type —', allowAdd: true });
   $('fDesc').value = '';
   $('fAccess').value = '';
   $('fFavorite').checked = false;
@@ -755,7 +755,7 @@ async function openEdit(id) {
   $('formTitle').textContent = 'Edit Resource';
   $('fName').value = r.name || '';
   $('fUrl').value = r.url || '';
-  await GH_SELECT.init('fLinkType', 'resource_link_type', r.link_type || '🌐 Website', { placeholder: '— type —' });
+  await GH_SELECT.init('fLinkType', 'resource_link_type', r.link_type || '🌐 Website', { placeholder: '— type —', allowAdd: true });
   $('fDesc').value = r.description || '';
   $('fAccess').value = r.access_note || '';
   $('fFavorite').checked = !!r.is_favorite;

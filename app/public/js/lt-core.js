@@ -529,12 +529,27 @@ window.GH_TAGS = (function() {
     return clean;
   }
 
-  // ── Floating dropdown ────────────────────────────────────────
+  // ── Floating dropdown — fixed-position to escape overflow:hidden ──
+  function positionDropdown(dd, anchor) {
+    const r = anchor.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - r.bottom;
+    const spaceAbove = r.top;
+    const dropH = Math.min(200, dd.scrollHeight || 200);
+    if (spaceBelow >= dropH || spaceBelow >= spaceAbove) {
+      dd.style.top  = (r.bottom + 4) + 'px';
+      dd.style.bottom = 'auto';
+    } else {
+      dd.style.bottom = (window.innerHeight - r.top + 4) + 'px';
+      dd.style.top = 'auto';
+    }
+    dd.style.left  = r.left + 'px';
+    dd.style.width = r.width + 'px';
+  }
+
   function openDropdown(wrap, allTags, currentTags, typedVal, onPick, allowCreate) {
     closeDropdown();
     const q = typedVal.trim().toLowerCase();
 
-    // Filter: exclude already-selected, filter by typed text
     let visible = allTags.filter(t => {
       const n = t.name.toLowerCase();
       return !currentTags.includes(n) && (!q || n.includes(q));
@@ -543,7 +558,6 @@ window.GH_TAGS = (function() {
     const showCreate = allowCreate && q.length > 0
       && !allTags.find(t => t.name.toLowerCase() === q);
 
-    // Always show dropdown on focus — even if empty, show "Type to create" hint
     const dd = document.createElement('div');
     dd.className = 'gh-tags-dropdown';
     dd.id = 'gh-tags-dd';
@@ -552,13 +566,13 @@ window.GH_TAGS = (function() {
     inner.className = 'gh-tags-dropdown-inner';
 
     if (!visible.length && !showCreate) {
-      // Show a helpful hint instead of nothing
       const hint = allowCreate
         ? `<span class="gh-tags-dropdown-empty">Type a name to create a tag</span>`
         : `<span class="gh-tags-dropdown-empty">No tags available</span>`;
       inner.innerHTML = hint;
       dd.appendChild(inner);
-      wrap.appendChild(dd);
+      document.body.appendChild(dd);
+      positionDropdown(dd, wrap);
       return;
     }
 
@@ -588,12 +602,31 @@ window.GH_TAGS = (function() {
     }
 
     dd.appendChild(inner);
-    wrap.appendChild(dd);
+    document.body.appendChild(dd);
+    positionDropdown(dd, wrap);
+
+    // Reposition on scroll or resize, close if anchor scrolled out of view
+    const onScroll = () => {
+      const el = document.getElementById('gh-tags-dd');
+      if (!el) return;
+      const r = wrap.getBoundingClientRect();
+      if (r.bottom < 0 || r.top > window.innerHeight) { closeDropdown(); return; }
+      positionDropdown(el, wrap);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+    window.addEventListener('resize', onScroll, { passive: true });
+    dd._cleanupListeners = () => {
+      window.removeEventListener('scroll', onScroll, { capture: true });
+      window.removeEventListener('resize', onScroll);
+    };
   }
 
   function closeDropdown() {
     const el = document.getElementById('gh-tags-dd');
-    if (el) el.remove();
+    if (el) {
+      if (el._cleanupListeners) el._cleanupListeners();
+      el.remove();
+    }
   }
 
   // ── Build confirmed chip element ─────────────────────────────

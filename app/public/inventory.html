@@ -912,17 +912,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Type</label>
-      <select class="form-select" id="loc_type">
-        <option value="house">🏠 House</option>
-        <option value="room" selected>🚪 Room</option>
-        <option value="garage">🏗️ Garage</option>
-        <option value="attic">📦 Attic</option>
-        <option value="basement">⬇️ Basement</option>
-        <option value="storage_unit">🗄️ Storage Unit</option>
-        <option value="shed">🏚️ Shed</option>
-        <option value="office">💼 Office</option>
-        <option value="other">📍 Other</option>
-      </select>
+      <select class="form-select" id="loc_type"></select>
     </div>
     <div class="form-group">
       <label class="form-label">Description</label>
@@ -1093,10 +1083,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Condition</label>
-        <select class="form-select" id="itm_cond">
-          <option value="">—</option>
-          <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
-        </select>
+        <select class="form-select" id="itm_cond"></select>
       </div>
       <div class="form-group"><label class="form-label">Warranty Expires</label><input class="form-input" type="date" id="itm_warranty"></div>
     </div>
@@ -2852,7 +2839,7 @@ async function openLocDrawer(loc=null, fromItemDrawer=false) {
   editingId = loc?.id||null;
   $('locDrawerTitle').textContent = loc ? 'Edit Location' : 'Add Location';
   await GH_SELECT.init('loc_name_sel', 'location_name', loc?.name||'', { allowAdd: true });
-  $('loc_type').value  = loc?.location_type||'room';
+  await GH_SELECT.init('loc_type', 'location_type', loc?.location_type||'Room', { allowAdd: true, placeholder: '— type —' });
   $('loc_desc').value  = loc?.description||'';
   $('loc_notes').value = loc?.notes||'';
   // Raise z-index when stacking over item drawer
@@ -3000,7 +2987,8 @@ async function openItemDrawer(item=null) {
   $('itm_brand').value=''; $('itm_model').value=''; $('itm_serial').value='';
   $('itm_pdate').value=''; $('itm_price').value=''; $('itm_store').value='';
   $('itm_method').value=''; $('itm_order').value='';
-  $('itm_cond').value=''; $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
+  await GH_SELECT.init('itm_cond', 'item_condition', '', { placeholder: '— condition —' });
+  $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
   GH_REFS.populateContact('itm_wvendor', null, { placeholder: '— none —' });
   $('itm_insured').checked=false; $('insuranceFields').style.display='none';
   $('itm_policy').value=''; $('itm_insval').value='';
@@ -3021,7 +3009,8 @@ async function openItemDrawer(item=null) {
     $('itm_pdate').value=item.purchase_date||''; $('itm_price').value=item.purchase_price||'';
     $('itm_store').value=item.store_name||''; $('itm_method').value=item.purchase_method||'';
     $('itm_order').value=item.order_number||'';
-    $('itm_cond').value=item.condition||''; $('itm_warranty').value=item.warranty_expires||'';
+    await GH_SELECT.init('itm_cond', 'item_condition', item.condition||'', { placeholder: '— condition —' });
+    $('itm_warranty').value=item.warranty_expires||'';
     GH_REFS.populateContact('itm_wvendor', item.warranty_vendor_contact_id||null, { placeholder: '— none —' });
     $('itm_lifewrnt').checked=!!item.lifetime_warranty;
     $('itm_insured').checked=!!item.insured;

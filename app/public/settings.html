@@ -900,11 +900,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Relationship</label>
-        <select class="form-select" id="fm_relationship">
-          <option value="">— select —</option>
-          <option>Self</option><option>Spouse</option><option>Son</option>
-          <option>Daughter</option><option>Parent</option><option>Other</option>
-        </select>
+        <select class="form-select" id="fm_relationship"></select>
       </div>
       <div class="form-group">
         <label class="form-label">Date of Birth</label>
@@ -2075,12 +2071,12 @@ async function loadFamily() {
     </div>`).join('');
 }
 
-function openFamilyDrawer(member=null) {
+async function openFamilyDrawer(member=null) {
   editingId = member?.id || null;
   $('familyDrawerTitle').textContent = member ? 'Edit Family Member' : 'Add Family Member';
   $('fm_display_name').value = member?.display_name || '';
   $('fm_legal_name').value   = member?.full_legal_name || '';
-  $('fm_relationship').value = member?.relationship || '';
+  await GH_SELECT.init('fm_relationship', 'family_relationship', member?.relationship || '', { allowAdd: true, placeholder: '— select —' });
   $('fm_dob').value          = member?.date_of_birth || '';
   $('fm_ssn4').value         = member?.ssn_last4 || '';
   $('fm_primary').checked    = !!member?.is_primary_user;
@@ -2258,7 +2254,7 @@ function openContactDrawer(contact=null, presetType=null) {
     $('ct_state').value   = contact?.address_state  || '';
     $('ct_zip').value     = contact?.address_zip    || '';
     $('ct_notes').value   = contact?.notes || '';
-    GH_SELECT.init('ct_specialty', 'contact_specialty', contact?.specialty||null, { placeholder: '— select —' });
+    GH_SELECT.init('ct_specialty', 'contact_specialty', contact?.specialty||null, { placeholder: '— select —', allowAdd: true });
     if (contact) _fillExtFields(contact);
     GH_FAMILY.init('contactFamilyWrap', contact?.family_members||[]);
     $('contactDrawer').classList.add('open');

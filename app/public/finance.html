@@ -2435,7 +2435,7 @@ async function openGcDrawer(id) {
   $('gcInitBal').value            = c.initial_balance||'';
   $('gcCurBal').value             = c.current_balance||'';
   $('gcExpiry').value             = c.expiry_date||'';
-    await GH_SELECT.init('gcWhere', 'gift_card_location', c.where_stored||'Wallet', { placeholder: '— location —' });
+    await GH_SELECT.init('gcWhere', 'gift_card_location', c.where_stored||'Wallet', { placeholder: '— location —', allowAdd: true });
   $('gcNotes').value              = c.notes||'';
   $('gcCardNumber').value         = c.card_number||'';
   $('gcCardPin').value            = c.card_pin||'';

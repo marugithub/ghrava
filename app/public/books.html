@@ -329,7 +329,7 @@ async function openBookDrawer(id) {
   $('bkIsbn').value        = b.isbn||'';
   $('bkPublisher').value   = b.publisher||'';
   $('bkPublishYear').value = b.publish_year||'';
-  await GH_SELECT.init('bkStatus', 'book_status', b.status||'Want to Read', { placeholder: '— status —' });
+  await GH_SELECT.init('bkStatus', 'book_status', b.status||'Want to Read', { placeholder: '— status —', allowAdd: true });
   await GH_SELECT.init('bkFormat', 'book_format', b.format||'Physical', { allowAdd: true, placeholder: '— format —' });
   await GH_SELECT.init('bkGenre', 'book_genre', b.genre||'', { allowAdd: true, placeholder: '— select genre —' });
   $('bkFormat').value   = b.format||'Physical';
