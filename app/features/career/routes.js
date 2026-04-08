@@ -181,12 +181,12 @@ auth.post('/jobs', (req, res) => {
     if (!d.company || !d.title) return badRequest(res, 'company and title required');
     if (d.is_current) db.prepare('UPDATE career_jobs SET is_current=0').run();
     const r = db.prepare(`
-      INSERT INTO career_jobs (company, title, employment_type, start_date, end_date, location, description, is_current, employer_contact_id)
+      INSERT INTO career_jobs (company, title, employment_type, start_date, end_date, location, description, is_current, company_contact_id)
       VALUES (?,?,?,?,?,?,?,?,?)
     `).run(d.company, d.title, d.employment_type||'Full-time',
            d.start_date||null, d.end_date||null,
            d.location||null, d.description||null, d.is_current?1:0,
-           d.employer_contact_id||null);
+           d.company_contact_id||null);
     if (d.tags) saveTagsByName(r.lastInsertRowid, 'career_job', d.tags);
     if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'career_job', d.family_member_ids);
     res.status(201).json({ id: r.lastInsertRowid });
@@ -201,11 +201,11 @@ auth.put('/jobs/:id', (req, res) => {
     if (d.is_current) db.prepare('UPDATE career_jobs SET is_current=0 WHERE id!=?').run(req.params.id);
     db.prepare(`
       UPDATE career_jobs SET company=?, title=?, employment_type=?, start_date=?, end_date=?,
-        location=?, description=?, is_current=?, employer_contact_id=? WHERE id=?
+        location=?, description=?, is_current=?, company_contact_id=? WHERE id=?
     `).run(d.company||existing.company, d.title||existing.title,
            d.employment_type||existing.employment_type,
            d.start_date||null, d.end_date||null, d.location||null, d.description||null,
-           d.is_current?1:0, d.employer_contact_id||null, req.params.id);
+           d.is_current?1:0, d.company_contact_id||null, req.params.id);
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'career_job', d.tags);
     if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'career_job', d.family_member_ids);
     clearReview('career_jobs', req.params.id);
