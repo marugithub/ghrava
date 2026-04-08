@@ -112,13 +112,16 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
 <div id="app" style="padding-bottom:80px">
 
   <!-- Tabs -->
-  <div class="view-tabs" style="--tab-color:#f97316;display:flex;align-items:center" id="careerTabs">
+  <div class="view-tabs" style="--tab-color:#f97316;display:flex;align-items:center;gap:0;flex-wrap:nowrap" id="careerTabs">
     <button class="view-tab active" onclick="switchTab('certs',this)">Certs</button>
     <button class="view-tab" onclick="switchTab('jobs',this)">Jobs</button>
     <button class="view-tab" onclick="switchTab('skills',this)">Skills</button>
     <button class="view-tab" onclick="switchTab('learning',this)">Learning</button>
     <button class="view-tab" onclick="switchTab('goals',this)">Goals</button>
-
+    <div style="margin-left:auto;display:flex;align-items:center;gap:6px;padding-right:12px;flex-shrink:0">
+      <div id="certViewToolbar" style="display:flex;align-items:center"></div>
+      <button id="tabAddBtn" class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="onFab()">+ Add</button>
+    </div>
   </div>
 
   <!-- Search bar -->
@@ -131,11 +134,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
        CERTIFICATIONS
        ══════════════════════════════════════════════ -->
   <div class="view-panel active" id="panel-certs">
-    <div style="padding:10px 16px 0;display:flex;align-items:center;gap:8px">
-      <div style="flex:1"></div>
-      <div id="certViewToolbar" style="display:flex;align-items:center"></div>
-      <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openCertDrawer()">+ Add</button>
-    </div>
+
     <div id="certsList" style="padding:8px 16px 0;box-sizing:border-box">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
@@ -440,11 +439,14 @@ function switchTab(tab, btn) {
   document.querySelectorAll('#careerTabs .view-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('#app .view-panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + tab));
-  if (tab === 'certs')        loadCerts();
-  else if (tab === 'jobs')    loadJobs();
-  else if (tab === 'skills')  loadSkills();
+  // Show cert toolbar only on Certs tab
+  const cvt = $('certViewToolbar');
+  if (cvt) cvt.style.display = tab === 'certs' ? 'flex' : 'none';
+  if (tab === 'certs')         loadCerts();
+  else if (tab === 'jobs')     loadJobs();
+  else if (tab === 'skills')   loadSkills();
   else if (tab === 'learning') loadLearning();
-  else if (tab === 'goals')   loadGoals();
+  else if (tab === 'goals')    loadGoals();
 }
 
 function onFab() {
