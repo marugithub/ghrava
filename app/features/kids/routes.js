@@ -86,15 +86,16 @@ router.get('/:id', (req, res) => {
 router.post('/', requireAuth, (req, res) => {
   try {
     const { display_name, date_of_birth, grade, school_id, teacher_name, homeroom,
-            allergies, medications_note, emergency_note, notes, family_member_id } = req.body;
+            allergies, medications_note, emergency_note, notes, family_member_id,
+            teacher_contact_id } = req.body;
     if (!display_name?.trim()) return res.status(400).json({ error: 'display_name required' });
     const r = db.prepare(`
       INSERT INTO kids (display_name, date_of_birth, grade, school_id, teacher_name, homeroom,
-        allergies, medications_note, emergency_note, notes, family_member_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+        allergies, medications_note, emergency_note, notes, family_member_id, teacher_contact_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(display_name.trim(), date_of_birth||null, grade||null, school_id||null,
            teacher_name||null, homeroom||null, allergies||null, medications_note||null,
-           emergency_note||null, notes||null, family_member_id||null);
+           emergency_note||null, notes||null, family_member_id||null, teacher_contact_id||null);
     res.status(201).json(enrichKid(db.prepare('SELECT * FROM kids WHERE id=?').get(r.lastInsertRowid)));
   } catch(e) { serverError(res, e); }
 });
@@ -104,16 +105,18 @@ router.put('/:id', requireAuth, (req, res) => {
     const kid = /** @type {any} */ (db.prepare('SELECT * FROM kids WHERE id=?').get(req.params.id));
     if (!kid) return notFound(res, 'Kid');
     const { display_name, date_of_birth, grade, school_id, teacher_name, homeroom,
-            allergies, medications_note, emergency_note, notes, family_member_id } = req.body;
+            allergies, medications_note, emergency_note, notes, family_member_id,
+            teacher_contact_id } = req.body;
     db.prepare(`
       UPDATE kids SET display_name=?, date_of_birth=?, grade=?, school_id=?, teacher_name=?,
         homeroom=?, allergies=?, medications_note=?, emergency_note=?, notes=?,
-        family_member_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?
+        family_member_id=?, teacher_contact_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?
     `).run(display_name??kid.display_name, date_of_birth??kid.date_of_birth, grade??kid.grade,
            school_id??kid.school_id, teacher_name??kid.teacher_name, homeroom??kid.homeroom,
            allergies??kid.allergies, medications_note??kid.medications_note,
            emergency_note??kid.emergency_note, notes??kid.notes,
-           family_member_id??kid.family_member_id, kid.id);
+           family_member_id??kid.family_member_id,
+           teacher_contact_id??kid.teacher_contact_id??null, kid.id);
     clearReview('kids', kid.id);
     res.json(enrichKid(db.prepare('SELECT * FROM kids WHERE id=?').get(kid.id)));
   } catch(e) { serverError(res, e); }

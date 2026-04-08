@@ -29,11 +29,20 @@ function escCsv(v) {
 // GET /api/v1/medical/medications?patient=Self&status=Active
 router.get('/medications', (req, res) => {
   try {
-    let sql = 'SELECT * FROM med_medications WHERE 1=1';
+    let sql = `
+      SELECT m.*, fm.display_name AS family_member_name,
+        pharm.name AS pharmacy_name,
+        cond.condition_name AS condition_name_text
+      FROM med_medications m
+      LEFT JOIN family_members fm   ON fm.id    = m.family_member_id
+      LEFT JOIN contacts pharm      ON pharm.id = m.pharmacy_contact_id
+      LEFT JOIN med_conditions cond ON cond.id  = m.condition_id
+      WHERE 1=1`;
     const p = [];
-    if (req.query.patient) { sql += ' AND patient=?'; p.push(req.query.patient); }
-    if (req.query.status)  { sql += ' AND status=?';  p.push(req.query.status); }
-    sql += ' ORDER BY patient, status, name COLLATE NOCASE';
+    if (req.query.patient)          { sql += ' AND (m.patient=? OR fm.display_name=?)'; p.push(req.query.patient, req.query.patient); }
+    if (req.query.family_member_id) { sql += ' AND m.family_member_id=?'; p.push(req.query.family_member_id); }
+    if (req.query.status)           { sql += ' AND m.status=?'; p.push(req.query.status); }
+    sql += ' ORDER BY fm.display_name, m.status, m.name COLLATE NOCASE';
     res.json(db.prepare(sql).all(...p).map(m => withTagNames(m, 'medical_medication')));
   } catch (e) { serverError(res, e); }
 });
@@ -136,7 +145,10 @@ router.get('/notes/export/csv', (req, res) => {
 // GET /api/v1/medical/conditions?patient=Self&status=Active
 router.get('/conditions', (req, res) => {
   try {
-    let sql = 'SELECT * FROM med_conditions WHERE 1=1';
+    let sql = `SELECT c.*, fm.display_name AS family_member_name
+      FROM med_conditions c
+      LEFT JOIN family_members fm ON fm.id = c.family_member_id
+      WHERE 1=1`;
     const p = [];
     if (req.query.patient) { sql += ' AND patient=?'; p.push(req.query.patient); }
     if (req.query.status)  { sql += ' AND status=?';  p.push(req.query.status); }

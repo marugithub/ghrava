@@ -215,7 +215,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
   <div class="drawer">
     <div class="drawer-handle"></div>
     <div class="drawer-title" id="jobDrawerTitle">Add Job</div>
-    <div class="form-group"><label class="form-label">Company <span class="req">*</span></label><input class="form-input" id="jobCompany"></div>
+    <div class="form-group"><label class="form-label">Company <span class="req">*</span></label><select class="form-select" id="jobCompany"></select></div>
     <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-input" id="jobTitle"></div>
     <div class="form-group"><label class="form-label">Employment Type</label>
       <select class="form-select" id="jobType" onchange="triggerJobSuggest()">
@@ -549,7 +549,7 @@ async function openJobDrawer(id) {
   let j = {};
   if (id) { try { const all = await api('GET', '/jobs'); j = all.find(x=>x.id===id)||{}; } catch(e){} }
   $('jobDrawerTitle').textContent = id ? 'Edit Job' : 'Add Job';
-  $('jobCompany').value  = j.company||'';
+  await GH_REFS.populateContact('jobCompany', j.employer_contact_id||null, { type: 'Employer', placeholder: '— select or add company —', allowAdd: true });
   $('jobTitle').value    = j.title||'';
   $('jobType').value     = j.employment_type||'Full-time';
   $('jobStart').value    = j.start_date||'';
@@ -567,7 +567,10 @@ async function openJobDrawer(id) {
 async function saveJob() {
   const btn = $('jobSave'); btn.textContent='Saving…'; btn.disabled=true;
   try {
-    const payload = { company:$('jobCompany').value.trim(), title:$('jobTitle').value.trim(),
+    const payload = {
+      employer_contact_id: $('jobCompany').value ? parseInt($('jobCompany').value) : null,
+      company: $('jobCompany').value ? ($('jobCompany').options[$('jobCompany').selectedIndex]?.text || '') : '',
+      title:$('jobTitle').value.trim(),
       employment_type:$('jobType').value, start_date:$('jobStart').value||null,
       end_date:$('jobEnd').value||null, location:$('jobLocation').value||null,
       description:$('jobDesc').value||null, is_current:$('jobIsCurrent').checked,

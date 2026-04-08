@@ -285,7 +285,7 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
       <div class="form-group"><label class="form-label">Link to Family Member</label><select class="form-select" id="kfFamilyMember"><option value="">— not linked —</option></select></div>
       <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" type="date" id="kfDob"></div>
       <div class="form-group"><label class="form-label">Grade</label><input class="form-input" id="kfGrade" placeholder="e.g. 3rd Grade, Pre-K"></div>
-      <div class="form-group"><label class="form-label">Teacher</label><input class="form-input" id="kfTeacher" placeholder="Homeroom teacher name"></div>
+      <div class="form-group"><label class="form-label">Teacher</label><select class="form-select" id="kfTeacher"></select></div>
       <div class="form-group"><label class="form-label">Homeroom / Class</label><input class="form-input" id="kfHomeroom" placeholder="e.g. Room 12"></div>
       <div class="form-group"><label class="form-label">Allergies</label><input class="form-input" id="kfAllergies" placeholder="e.g. Peanuts, Penicillin"></div>
       <div class="form-group"><label class="form-label">Medications Note</label><textarea class="form-input" id="kfMeds" rows="2" style="resize:vertical"></textarea></div>
@@ -539,7 +539,7 @@ async function openKidDrawer(kid){
   _editingKidId=kid?.id||null;
   $('kidDrawerTitle').textContent=_editingKidId?'Edit Child':'Add Child';
   $('kfName').value=kid?.display_name||'';$('kfDob').value=kid?.date_of_birth||'';$('kfGrade').value=kid?.grade||'';
-  $('kfTeacher').value=kid?.teacher_name||'';$('kfHomeroom').value=kid?.homeroom||'';$('kfAllergies').value=kid?.allergies||'';
+  await GH_REFS.populateContact('kfTeacher', kid?.teacher_contact_id||null, { type: 'School', placeholder: '— none —', allowAdd: true });$('kfHomeroom').value=kid?.homeroom||'';$('kfAllergies').value=kid?.allergies||'';
   $('kfMeds').value=kid?.medications_note||'';$('kfEmergency').value=kid?.emergency_note||'';$('kfNotes').value=kid?.notes||'';
   $('kidDelete').style.display=_editingKidId?'inline-flex':'none';
   // Populate family member selector — children only
@@ -569,7 +569,8 @@ $('kidDelete').addEventListener('click',async()=>{
 $('kidSave').addEventListener('click',async()=>{
   const name=$('kfName').value.trim();if(!name){toast('Name is required','err');return;}
   $('kidSave').disabled=true;$('kidSave').textContent='Saving…';
-  const body={display_name:name,date_of_birth:$('kfDob').value||null,grade:$('kfGrade').value.trim()||null,teacher_name:$('kfTeacher').value.trim()||null,homeroom:$('kfHomeroom').value.trim()||null,allergies:$('kfAllergies').value.trim()||null,medications_note:$('kfMeds').value.trim()||null,emergency_note:$('kfEmergency').value.trim()||null,notes:$('kfNotes').value.trim()||null,family_member_id:$('kfFamilyMember').value?parseInt($('kfFamilyMember').value):null};
+  const body={display_name:name,date_of_birth:$('kfDob').value||null,grade:$('kfGrade').value.trim()||null,teacher_contact_id:$('kfTeacher').value?parseInt($('kfTeacher').value):null,
+      teacher_name:$('kfTeacher').value?($('kfTeacher').options[$('kfTeacher').selectedIndex]?.text||null):null,homeroom:$('kfHomeroom').value.trim()||null,allergies:$('kfAllergies').value.trim()||null,medications_note:$('kfMeds').value.trim()||null,emergency_note:$('kfEmergency').value.trim()||null,notes:$('kfNotes').value.trim()||null,family_member_id:$('kfFamilyMember').value?parseInt($('kfFamilyMember').value):null};
   try{
     const saved=await api(_editingKidId?'PUT':'POST', _editingKidId?`/${_editingKidId}`:'/', body);
     $('kidDrawer').classList.remove('open');toast(_editingKidId?'Saved':'Child added','ok');

@@ -49,15 +49,17 @@ router.post('/properties', requireAuth, (req, res) => {
         (nickname, property_type, address_street, address_city, address_state, address_zip,
          purchase_date, purchase_price, current_est_value,
          mortgage_balance, mortgage_lender, mortgage_rate, mortgage_monthly, mortgage_end_date,
-         hoa_monthly, property_tax_annual, insurance_annual, insurance_company, insurance_policy, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         hoa_monthly, property_tax_annual, insurance_annual, insurance_company, insurance_policy, notes,
+         mortgage_lender_contact_id, insurance_contact_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(d.nickname, d.property_type||'Primary Residence',
            d.address_street||null, d.address_city||null, d.address_state||null, d.address_zip||null,
            d.purchase_date||null, parseFloat(d.purchase_price)||null, parseFloat(d.current_est_value)||null,
            parseFloat(d.mortgage_balance)||null, d.mortgage_lender||null,
            parseFloat(d.mortgage_rate)||null, parseFloat(d.mortgage_monthly)||null, d.mortgage_end_date||null,
            parseFloat(d.hoa_monthly)||null, parseFloat(d.property_tax_annual)||null,
-           parseFloat(d.insurance_annual)||null, d.insurance_company||null, d.insurance_policy||null, d.notes||null);
+           parseFloat(d.insurance_annual)||null, d.insurance_company||null, d.insurance_policy||null, d.notes||null,
+           d.mortgage_lender_contact_id||null, d.insurance_contact_id||null);
     if (d.tags)           saveTagsByName(r.lastInsertRowid, 'property', d.tags);
     if (d.family_member_ids !== undefined) saveFamilyMembers(r.lastInsertRowid, 'property', d.family_member_ids);
     res.status(201).json({ id: r.lastInsertRowid });
@@ -75,6 +77,7 @@ router.put('/properties/:id', requireAuth, (req, res) => {
         purchase_date=?, purchase_price=?, current_est_value=?,
         mortgage_balance=?, mortgage_lender=?, mortgage_rate=?, mortgage_monthly=?, mortgage_end_date=?,
         hoa_monthly=?, property_tax_annual=?, insurance_annual=?, insurance_company=?, insurance_policy=?, notes=?,
+        mortgage_lender_contact_id=?, insurance_contact_id=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(d.nickname||existing.nickname, d.property_type||existing.property_type,
@@ -84,6 +87,7 @@ router.put('/properties/:id', requireAuth, (req, res) => {
            parseFloat(d.mortgage_rate)||null, parseFloat(d.mortgage_monthly)||null, d.mortgage_end_date||null,
            parseFloat(d.hoa_monthly)||null, parseFloat(d.property_tax_annual)||null,
            parseFloat(d.insurance_annual)||null, d.insurance_company||null, d.insurance_policy||null, d.notes||null,
+           d.mortgage_lender_contact_id||null, d.insurance_contact_id||null,
            req.params.id);
     clearReview('properties', req.params.id);
     if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'property', d.family_member_ids);
