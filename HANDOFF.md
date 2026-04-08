@@ -145,13 +145,38 @@ All free-text person/org fields now have contact/family FK columns. Key column n
 ---
 
 ## Pending features (priority order)
-1. **Cert card visual redesign** — match the approved mockup (see above)
-2. **GH_VIEW on remaining modules** — one pass, all at once
-3. **Delete button pattern** — after cascade audit
-4. **Family member report** ("Everything about a person") — goes in Reports, new-tab + polling
-5. **Notifications module** — design-first
-6. **Scheduled backup**
-7. **Global search** — last
+
+### Tier 1 — Standardization sprint (do together, one session)
+1. **Dropdown audit + consolidation** — map every dropdown across all modules, identify duplicates, consolidate to single `dropdown_options` list per concept. Same real-world concept = one list, managed in Settings.
+2. **Tag field standardization + dropdown clipping fix** — tag suggestion list gets clipped by overflow containers. Fix: render in `position:fixed` layer in `GH_TAGS` core. Also move tag input sizing to `.gh-tags` in `shared.css`.
+3. **Inline add for all GH_SELECT dropdowns** — type + "+ Add" → saves and selects, without leaving the form. Applied globally to `GH_SELECT`.
+4. **Shared form components audit** — confirm Contact picker, Family Member picker, Tag picker each have exactly one implementation used everywhere.
+
+### Tier 2 — UI completeness
+5. **GH_VIEW on remaining modules** — Medical, Property, HSA, Kids, Books, Documents, Contacts, Resources, Career Learning. One pass, all at once.
+6. **Delete button pattern** — trash icon left-aligned + Cancel/Save right-aligned, same row. Delete only from edit drawer. Requires cascade audit first.
+7. **Card appearance customization** (Settings → Appearance → Cards) — border thickness, corner radius, density, background elevation. CSS variables on `<body>`, stored in settings DB.
+8. **Tag appearance customization** (Settings → Appearance → Tags) — pill radius, size, global color toggle. CSS variables in `shared.css`.
+
+### Tier 3 — New modules/features
+9. **Family member report** (“Everything about a person”) — goes in Reports, new-tab + polling
+10. **Notifications module** — design-first conversation before any code
+11. **Scheduled backup**
+12. **Global search** across all modules
+
+---
+
+## UI standardization principles (established v202604)
+**Single Source of Truth** — every piece of data, UI, and behavior exists in exactly one place.
+- **Data**: one dropdown list per real-world concept; one table per entity type
+- **References**: person field = Contact FK; family member = `family_members` FK; no free-text name fields for lookups
+- **UI components**: one HTML implementation per form/picker/component, wired everywhere via shared utility
+- **Styles**: `.gh-card` in `shared.css` is canonical. `.gh-tags` will be canonical tag input. All customization via CSS variables.
+
+## gh-card system (completed v202604)
+Base class `.gh-card` + status modifiers in `shared.css`. Layout helpers: `.gh-card-head/title/meta/divider/body/row/footer/tags/actions/btn`. Value helpers: `.ghv/.ghv-ok/.ghv-warn/.ghv-err/.ghv-dim`. Badges: `.gh-badge` + `.gh-badge-green/amber/red/blue/gray/purple`.
+Status colors: green=active/current, amber=expiring/pending, red=expired/overdue, blue=info/default, gray=neutral/former.
+Modules updated: career, books, todos, property, medical, documents, resources, kids.
 
 ---
 
