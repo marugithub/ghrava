@@ -451,7 +451,7 @@ async function renderCurrentView() {
 async function renderSummary() {
   const el = document.getElementById('summaryContent'); if (!el) return;
   try {
-    const data = await api('GET', '/summary');
+    const data = await api('GET', '/medical/summary');
     if (!data.length) { el.innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center">No family members found</div>'; return; }
     el.innerHTML = data.map(item => {
       const m = item.member;
