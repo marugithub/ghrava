@@ -151,24 +151,8 @@
 <div id="app">
 
   <!-- ── Login gate (only shown if no active session) ─────────── -->
-  <div id="loginGate" style="display:none">
-    <div class="login-icon">🔐</div>
-    <div class="login-title">Settings</div>
-    <div class="login-sub">Enter your Ghrava password to continue.</div>
-    <form class="pin-wrap" onsubmit="event.preventDefault(); doSettingsLogin()">
-      <input type="text" name="username" autocomplete="username"
-             style="display:none" aria-hidden="true" tabindex="-1" value="admin">
-      <input class="pin-input" type="password" id="pinInput"
-             name="password" placeholder="Enter password" autocomplete="current-password">
-      <div style="margin-top:12px">
-        <button type="submit" class="btn btn-primary" id="pinSubmit" style="width:180px">Unlock</button>
-      </div>
-    </form>
-    <div id="pinError" style="color:var(--red);font-size:13px;margin-top:10px;display:none">Incorrect password</div>
-  </div>
-
   <!-- ── Main settings home ──────────────────────────────────── -->
-  <div id="mainContent" style="display:none">
+  <div id="mainContent">
     <!-- header injected by nav.js -->
 
     <div class="settings-page-bg">
@@ -1120,28 +1104,10 @@ function toast(msg, type='ok') {
   setTimeout(()=>el.className='toast',2600);
 }
 
-async function checkAuth() {
-  try {
-    const d = await window.api('GET', '/auth/status');
-    // No password set — open mode, skip login gate entirely
-    if (!d.has_password) { showMain(); return; }
-    // Has password and valid token
-    if (d.authenticated) { showMain(); return; }
-  } catch {}
-  // No valid token — clear stale token and show login
-  LT.authToken = null;
-  localStorage.removeItem('lt_token');
-  showLogin();
-}
-
-function showLogin() {
-  $('loginGate').style.display = 'flex';
-  $('mainContent').style.display = 'none';
-  setTimeout(() => { const p = $('pinInput'); if (p) p.focus(); }, 100);
-}
-
+// Auth gate removed — settings always accessible.
+// Password protection to be re-added later scoped to specific actions only.
+// See session 2 decision: "password comes back later for specific screens."
 function showMain() {
-  $('loginGate').style.display = 'none';
   $('mainContent').style.display = 'block';
   loadBadges();
   // Render theme switcher
@@ -1153,35 +1119,7 @@ function showMain() {
   }).catch(()=>{});
 }
 
-async function doSettingsLogin() {
-  const pw = $('pinInput').value;
-  if (!pw) return;
-  const btn = $('pinSubmit');
-  btn.disabled = true; btn.textContent = '…';
-  try {
-    const r = await fetch('/api/v1/auth/login', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({password: pw})
-    });
-    if (r.ok) {
-      const d = await r.json();
-      LT.authToken = d.token;
-      localStorage.setItem('lt_token', d.token);
-      $('pinError').style.display = 'none';
-      showMain();
-    } else {
-      $('pinInput').classList.add('err');
-      $('pinError').style.display = 'block';
-      $('pinInput').value = '';
-      setTimeout(() => { $('pinInput').classList.remove('err'); $('pinInput').focus(); }, 500);
-    }
-  } catch(e) {
-    $('pinError').textContent = 'Connection error — ' + e.message;
-    $('pinError').style.display = 'block';
-  }
-  btn.disabled = false; btn.textContent = 'Unlock';
-}
+
 
 document.addEventListener('DOMContentLoaded', () => {
   // Logout
@@ -2792,7 +2730,7 @@ function showCsvExportMenu() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────
-checkAuth();
+showMain();
 
 
 // ── Free APIs panel ──────────────────────────────────────────
