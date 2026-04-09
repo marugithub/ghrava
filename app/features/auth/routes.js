@@ -27,12 +27,20 @@ router.post('/login', async (req, res) => {
   if (!password) return res.status(400).json({ error: 'Password required' });
   const token = await login(password);
   if (!token) return res.status(401).json({ error: 'Invalid password' });
-  res.json({ token, expires_in_hours: 720 }); // 30-day sessions
+  // Set HttpOnly cookie — survives browser storage clears, works in APK WebView
+  res.cookie('lt_token', token, {
+    httpOnly: true,
+    maxAge: 365 * 24 * 60 * 60 * 1000, // 365 days in ms
+    sameSite: 'lax',
+    path: '/'
+  });
+  res.json({ token, expires_in_hours: 8760 }); // 365 days
 });
 
 // POST /api/v1/auth/logout
 router.post('/logout', requireAuth, (req, res) => {
   logout(req.sessionToken);
+  res.clearCookie('lt_token', { path: '/' });
   res.json({ message: 'Logged out' });
 });
 
@@ -55,12 +63,24 @@ router.post('/change-password', requireAuth, async (req, res) => {
   res.json({ message: 'Password updated' });
 });
 
+// DELETE /api/v1/auth/password — remove password (open mode)
+router.delete('/password', requireAuth, (req, res) => {
+  try {
+    db.prepare("DELETE FROM app_config WHERE key='app_password_hash'").run();
+    db.prepare('DELETE FROM _sessions').run();
+    res.clearCookie('lt_token', { path: '/' });
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 // GET /api/v1/auth/status
 router.get('/status', (req, res) => {
   const setupDone  = db.prepare("SELECT value FROM app_config WHERE key = 'setup_complete'").get();
   const hasPassword = db.prepare("SELECT 1 FROM app_config WHERE key = 'app_password_hash'").get();
-  const token      = req.headers.authorization?.replace('Bearer ', '');
-  const session    = token ? sessionInfo(token) : null;
+  const cookies = Object.fromEntries((req.headers.cookie||'').split(';').map(s=>{const[k,...v]=s.trim().split('=');return[k,v.join('=')]}).filter(([k])=>k));
+  const token = cookies.lt_token ||
+                req.headers.authorization?.replace('Bearer ', '') || '';
+  const session = token ? sessionInfo(token) : null;
   res.json({ setup_complete: setupDone?.value === '1', has_password: !!hasPassword, authenticated: !!session?.valid, session });
 });
 

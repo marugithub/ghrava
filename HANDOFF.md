@@ -152,6 +152,45 @@ All free-text person/org fields now have contact/family FK columns. Key column n
 3. **Inline add for all GH_SELECT dropdowns** — type + "+ Add" → saves and selects, without leaving the form. Applied globally to `GH_SELECT`.
 4. **Shared form components audit** — confirm Contact picker, Family Member picker, Tag picker each have exactly one implementation used everywhere.
 
+### Password reset — backend commands (emergency use)
+If locked out and can't access Settings UI, SSH to NAS and run:
+
+**Change password:**
+```bash
+docker exec ghrava node -e "
+const db = require('/app/db/db');
+const bcrypt = require('bcryptjs');
+const hash = bcrypt.hashSync('yournewpassword', 10);
+db.prepare("UPDATE app_config SET value=? WHERE key='app_password_hash'").run(hash);
+console.log('Password updated');
+"
+```
+
+**Clear password (open mode — no login required):**
+```bash
+docker exec ghrava node -e "
+const db = require('/app/db/db');
+db.prepare("DELETE FROM app_config WHERE key='app_password_hash'").run();
+db.prepare("DELETE FROM _sessions").run();
+console.log('Password cleared, all sessions ended');
+"
+```
+
+No restart needed. Takes effect immediately.
+
+### Auth — when ready to add password back
+Single login page (`login.html`). One token, stored in DB (`_sessions` table already exists). **No localStorage, no sessionStorage** — cookie only so browser storage clears never lose the session.
+
+Implementation:
+- `login.html` — password form → POST `/auth/login` → server sets `HttpOnly` cookie → redirect to `?next=` param
+- `nav.js` — check token once per page load via `GET /auth/status`. Invalid → redirect to `login.html?next=<current url>`
+- `requireAuth` in `middleware.js` — re-enable, check cookie (primary) OR Authorization header (APK WebView fallback)
+- Login route — add `Set-Cookie: lt_token=<token>; HttpOnly; Max-Age=31536000; Path=/` to response
+- Remove `_reAuthPrompt` from `lt-core.js` — nav.js redirect handles everything
+- Session duration: one constant in `middleware.js` (currently 365 days)
+- APK WebView: cookies work natively, no change needed
+- Form data loss on expiry: non-issue with 365-day cookie. During dev, password stays off
+
 ### Tier 1.5 — Icon & action standardization (do before Tier 2)
 - **Attachment button** — paperclip icon everywhere, no text label. Cert cards already have it — use that as the pattern. Apply to all modules that have attachments. Show attachment count as a small badge overlaid top-right of the icon when count > 0; no badge when zero.
 - **Delete button** — red trash icon, no word "Delete". 26×26 to match `gh-card-btn` and all other icon buttons. Stays in edit drawer footer only, never on cards.

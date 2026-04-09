@@ -12,6 +12,15 @@ const db     = require('../../db/db');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 
+// Inline cookie parser — avoids cookie-parser dependency
+function parseCookies(req) {
+  const raw = req.headers.cookie || '';
+  return Object.fromEntries(raw.split(';').map(s => {
+    const [k, ...v] = s.trim().split('=');
+    return [k, decodeURIComponent(v.join('='))];
+  }).filter(([k]) => k));
+}
+
 const SESSION_TIMEOUT_MS = 365 * 24 * 60 * 60 * 1000; // 365 days — stay logged in on home network
 
 // Ensure sessions table exists (runs at startup before migrations)
@@ -42,10 +51,12 @@ function isValidToken(token) {
 }
 
 function requireAuth(req, res, next) {
-  // AUTH DISABLED — passes all requests through unconditionally.
-  // Route-level middleware is intentionally preserved so SSO (Authelia/OIDC)
-  // can be wired in here later without touching any route files.
-  // To re-enable: replace this body with real token/session validation.
+  // Check cookie first (browser), then Authorization header (APK/API)
+  const token = parseCookies(req).lt_token ||
+                req.headers.authorization?.replace('Bearer ', '') || '';
+  if (!token) return res.status(401).json({ error: 'Authentication required' });
+  if (!isValidToken(token)) return res.status(401).json({ error: 'Session expired' });
+  req.sessionToken = token;
   next();
 }
 

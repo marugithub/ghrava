@@ -345,14 +345,10 @@
     <div style="padding:16px 20px 80px">
       <div class="settings-card">
         <div class="settings-card-title">Change Password</div>
-        <div class="settings-card-desc">Enter your current password, then choose a new one.</div>
+        <div id="pwDesc" class="settings-card-desc">Choose a password to protect Ghrava.</div>
         <form onsubmit="event.preventDefault();changePassword()">
           <input type="text" name="username" autocomplete="username"
                  style="display:none" aria-hidden="true" tabindex="-1" value="admin">
-          <div class="form-group">
-            <label class="form-label">Current Password</label>
-            <input class="form-input" type="password" id="pwCurrent" name="current-password" placeholder="Current password" autocomplete="current-password">
-          </div>
           <div class="form-group">
             <label class="form-label">New Password</label>
             <input class="form-input" type="password" id="pwNew" name="new-password" placeholder="New password" autocomplete="new-password">
@@ -362,8 +358,13 @@
             <input class="form-input" type="password" id="pwConfirm" name="confirm-password" placeholder="Confirm new password" autocomplete="new-password">
           </div>
           <div id="pwError" style="color:var(--red);font-size:13px;margin-bottom:10px;display:none"></div>
-          <button type="submit" class="btn btn-primary btn-full">Update Password</button>
+          <button type="submit" class="btn btn-primary btn-full">Set Password</button>
         </form>
+      </div>
+      <div class="settings-card" id="clearPwCard" style="display:none;margin-top:12px">
+        <div class="settings-card-title">Clear Password</div>
+        <div class="settings-card-desc">Remove password protection. Anyone on the network can access Ghrava.</div>
+        <button class="btn btn-ghost" style="color:var(--red);width:100%" onclick="clearPassword()">Remove Password</button>
       </div>
     </div>
   </div>
@@ -1125,8 +1126,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Logout
   const lbtn = $('logoutBtn');
   if (lbtn) lbtn.addEventListener('click', () => {
-    window.api('POST', '/auth/logout', {}).catch(()=>{});
-    LT.authToken = null; localStorage.removeItem('lt_token'); showLogin();
+    fetch('/api/v1/auth/logout', { method:'POST', credentials:'include' }).catch(()=>{});
+    location.href = '/login.html';
   });
 
   // Backup buttons — guarded so a missing element never crashes the page
@@ -1153,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Panel navigation ──────────────────────────────────────────
 const PANEL_LOADERS = {
-  account:   () => { $('pwCurrent').value=$('pwNew').value=$('pwConfirm').value=''; $('pwError').style.display='none'; },
+  account:   () => { $('pwNew').value=$('pwConfirm').value=''; $('pwError').style.display='none'; loadAccountPanel(); },
   family:    () => { loadFamily(); },
   contacts:  () => { loadContacts(); },
   tags:      () => { loadTags(); },
@@ -1909,19 +1910,39 @@ async function runOrphanCheck() {
 })();
 
 async function changePassword() {
-  const cur  = $('pwCurrent').value;
-  const nw   = $('pwNew').value;
-  const conf = $('pwConfirm').value;
+  const nw    = $('pwNew').value;
+  const conf  = $('pwConfirm').value;
   const errEl = $('pwError');
   errEl.style.display = 'none';
-  if (!cur || !nw || !conf) { errEl.textContent = 'All fields required'; errEl.style.display = 'block'; return; }
-  if (nw !== conf) { errEl.textContent = 'New passwords do not match'; errEl.style.display = 'block'; return; }
-  if (nw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = 'block'; return; }
+  if (!nw || !conf) { errEl.textContent = 'All fields required'; errEl.style.display = 'block'; return; }
+  if (nw !== conf)  { errEl.textContent = 'Passwords do not match'; errEl.style.display = 'block'; return; }
+  if (nw.length < 6){ errEl.textContent = 'Minimum 6 characters'; errEl.style.display = 'block'; return; }
   try {
-    await window.api('POST', '/auth/change-password', { current: $('pwCurrent').value, newPass: $('pwNew').value });
-    toast('Password changed', 'ok');
-    $('pwCurrent').value = ''; $('pwNew').value = ''; $('pwConfirm').value = '';
-  } catch(e) { errEl.textContent = 'Request failed'; errEl.style.display = 'block'; }
+    await window.api('POST', '/auth/change-password', { new_password: nw });
+    toast('Password set');
+    $('pwNew').value = ''; $('pwConfirm').value = '';
+    loadAccountPanel();
+  } catch(e) { errEl.textContent = ghErrorMsg(e); errEl.style.display = 'block'; }
+}
+
+async function clearPassword() {
+  if (!await LT.confirm('Remove password protection? Anyone on your network can access Ghrava.')) return;
+  try {
+    await window.api('DELETE', '/auth/password');
+    toast('Password removed');
+    loadAccountPanel();
+  } catch(e) { toast(ghErrorMsg(e), 'err'); }
+}
+
+async function loadAccountPanel() {
+  try {
+    const d = await window.api('GET', '/auth/status');
+    const hasP = d.has_password;
+    if ($('pwDesc')) $('pwDesc').textContent = hasP
+      ? 'Update the password for Ghrava.'
+      : 'No password set — anyone on the network can access Ghrava.';
+    if ($('clearPwCard')) $('clearPwCard').style.display = hasP ? 'block' : 'none';
+  } catch(e) {}
 }
 
 function openPanel(name) {

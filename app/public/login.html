@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ghrava — Login</title>
+<link rel="stylesheet" href="/shared.css">
+<style>
+body { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg); margin:0; }
+.login-wrap { width:min(340px,92vw); }
+.login-logo { text-align:center; margin-bottom:24px; }
+.login-logo svg { width:48px; height:48px; color:var(--accent); }
+.login-title { font-size:22px; font-weight:700; color:var(--text); text-align:center; margin-bottom:4px; }
+.login-sub { font-size:13px; color:var(--text3); text-align:center; margin-bottom:24px; }
+.login-card { background:var(--bg2); border:1px solid var(--border2); border-radius:var(--r-xl); padding:24px; }
+.login-err { color:var(--red); font-size:13px; margin-bottom:12px; display:none; }
+</style>
+</head>
+<body>
+<div class="login-wrap">
+  <div class="login-logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+      <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  </div>
+  <div class="login-title">Ghrava</div>
+  <div class="login-sub">Home Management</div>
+  <div class="login-card">
+    <div class="login-err" id="loginErr"></div>
+    <div class="form-group">
+      <label class="form-label">Password</label>
+      <input class="form-input" type="password" id="pw" placeholder="Enter password"
+        autocomplete="current-password" autofocus>
+    </div>
+    <button class="btn btn-primary" id="loginBtn" style="width:100%;margin-top:4px" onclick="doLogin()">
+      Unlock
+    </button>
+  </div>
+</div>
+<script>
+async function doLogin() {
+  const pw = document.getElementById('pw').value.trim();
+  if (!pw) return;
+  const btn = document.getElementById('loginBtn');
+  const err = document.getElementById('loginErr');
+  btn.textContent = '…'; btn.disabled = true;
+  err.style.display = 'none';
+  try {
+    const r = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    });
+    if (r.ok) {
+      // Cookie is set by server — redirect to ?next or home
+      const next = new URLSearchParams(location.search).get('next') || '/';
+      location.href = next;
+    } else {
+      const d = await r.json().catch(() => ({}));
+      err.textContent = d.error || 'Incorrect password';
+      err.style.display = 'block';
+      document.getElementById('pw').value = '';
+      document.getElementById('pw').focus();
+    }
+  } catch(e) {
+    err.textContent = 'Connection error';
+    err.style.display = 'block';
+  }
+  btn.textContent = 'Unlock'; btn.disabled = false;
+}
+document.getElementById('pw').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>

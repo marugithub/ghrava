@@ -148,6 +148,7 @@ window.api = async function(method, path, body, _isRetry) {
   const start = Date.now();
   const opts = {
     method,
+    credentials: 'include',  // send HttpOnly cookie on every request
     headers: {
       'Content-Type':  'application/json',
       'Authorization': `Bearer ${LT.authToken}`
@@ -168,15 +169,9 @@ window.api = async function(method, path, body, _isRetry) {
 
   // ── 401: session expired — prompt for password, then retry ──
   if (res.status === 401 && !_isRetry) {
-    GH_LOG.warn(`401 on ${method} ${path} — showing re-auth prompt`);
-    try {
-      await _reAuthPrompt();
-      // After successful re-auth, retry the original request once
-      return window.api(method, path, body, true);
-    } catch (authErr) {
-      // User dismissed or auth failed — throw so caller's catch runs
-      throw new Error('Not authenticated');
-    }
+    GH_LOG.warn(`401 on ${method} ${path} — redirecting to login`);
+    location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+    throw new Error('Not authenticated');
   }
 
   if (!res.ok) {

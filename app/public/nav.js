@@ -2,6 +2,23 @@
  * nav.js — Ghrava navigation
  * Builds: left sidebar (collapsible to icon-only), shared sticky page header
  */
+// ── Auth check — runs before nav builds ──────────────────────
+// If password is set and no valid session cookie, redirect to login.html.
+// Cookie is HttpOnly so JS cannot read it directly — we check via /auth/status.
+// If no password is set, always allow through (open mode).
+(function() {
+  // Skip auth check on login page itself
+  if (location.pathname === '/login.html') return;
+  fetch('/api/v1/auth/status', { credentials: 'include' })
+    .then(r => r.json())
+    .then(d => {
+      if (d.has_password && !d.authenticated) {
+        location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
+      }
+    })
+    .catch(() => {}); // if check fails, don't block the page
+})();
+
 (function() {
 
   // ── SVG icon library — thin-stroke outlined style ────────────
