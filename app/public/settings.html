@@ -2086,11 +2086,16 @@ async function openFamilyDrawer(member=null) {
   setTimeout(()=>$('fm_display_name').focus(), 300);
 }
 
-function editFamily(id) {
-  const m = (_familyCache||[]).find(x => x.id === id);
-  if (m) { openFamilyDrawer(m); return; }
-  // fallback: fetch if cache miss
-  window.api('GET', `/settings/family/${id}`).then(openFamilyDrawer).catch(err => toast('Could not load member: ' + err.message, 'err'));
+async function editFamily(id) {
+  try {
+    const m = (_familyCache||[]).find(x => x.id === id);
+    if (m) { await openFamilyDrawer(m); return; }
+    // fallback: fetch if cache miss — use public list endpoint instead of :id route
+    const all = await window.api('GET', '/settings/family');
+    const found = all.find(x => x.id === id);
+    if (found) { await openFamilyDrawer(found); }
+    else { toast('Member not found', 'err'); }
+  } catch(err) { toast('Could not open member: ' + (err.message||err), 'err'); }
 }
 
 $('familyCancel').addEventListener('click', () => $('familyDrawer').classList.remove('open'));
