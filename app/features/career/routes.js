@@ -281,6 +281,38 @@ auth.delete('/skills/:id', (req, res) => {
 // Mounted at /career/learning/* via learningRouter below
 // ══════════════════════════════════════════════════════════════
 
+// ── POST /certifications/:id/link-training ───────────────────
+// Body: [{ learning_id, hours_applied, ce_category }]
+// Adds links from the cert side — used by Option A multi-select modal.
+// Existing links for the same learning_id are replaced (upsert).
+auth.post('/certifications/:id/link-training', (req, res) => {
+  try {
+    const certId = parseInt(req.params.id);
+    if (!db.prepare('SELECT 1 FROM career_certifications WHERE id=?').get(certId))
+      return notFound(res, 'Certification');
+    const links = Array.isArray(req.body) ? req.body : [];
+    const upsert = db.prepare(`
+      INSERT INTO career_learning_certs (learning_id, certification_id, hours_applied, ce_category)
+      VALUES (?,?,?,?)
+      ON CONFLICT(learning_id, certification_id) DO UPDATE SET
+        hours_applied=excluded.hours_applied,
+        ce_category=excluded.ce_category
+    `);
+    const txn = db.transaction(() => {
+      for (const lk of links) {
+        if (!lk.learning_id) continue;
+        upsert.run(
+          parseInt(lk.learning_id), certId,
+          lk.hours_applied != null ? parseFloat(lk.hours_applied) : null,
+          lk.ce_category || null
+        );
+      }
+    });
+    txn();
+    res.json({ ok: true, linked: links.length });
+  } catch(e) { serverError(res, e); }
+});
+
 // ── POST /certifications/:id/renew — advance to next cycle ───
 auth.post('/certifications/:id/renew', (req, res) => {
   try {

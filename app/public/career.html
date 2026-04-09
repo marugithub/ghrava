@@ -225,6 +225,15 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
         <input id="certTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
       </div>
     </div>
+    <div id="certLinkedTraining" style="display:none;margin-top:4px">
+      <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:10px 0 6px;display:flex;align-items:center;justify-content:space-between">
+        <span>Linked Training</span>
+        <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px" onclick="openTrainingLinkModal()">+ Link Training</button>
+      </div>
+      <div id="certLinkedTrainingList"></div>
+      <div id="certNoCycle" style="display:none;font-size:12px;color:var(--amber);padding:4px 0">⚠ No renewal cycle set — showing all training. Set cycle start above to filter by date.</div>
+    </div>
+
     <div id="certAttachmentsSection" style="display:none;margin-top:4px">
       <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:10px 0 6px">Attachments</div>
       <div id="certAttachmentsList" style="margin-bottom:8px"></div>
@@ -329,6 +338,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
       <div class="form-group"><label class="form-label">Hours</label><input class="form-input" type="number" id="lnHours" placeholder="8" step="0.5" min="0"></div>
     </div>
     <div class="form-group"><label class="form-label">Provider / Organization</label><input class="form-input" id="lnProvider" placeholder="PMI, Coursera, DAU, employer…"></div>
+    <div class="form-group"><label class="form-label">Instructor</label><select class="form-select" id="lnInstructor"></select></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Start Date</label><input class="form-input" type="date" id="lnStartDate"></div>
       <div class="form-group"><label class="form-label">End Date</label><input class="form-input" type="date" id="lnEndDate" placeholder="leave blank if ongoing"></div>
@@ -572,6 +582,20 @@ async function openCertDrawer(id) {
   if (renewBtn) renewBtn.style.display = (id && c.current_cycle_start && c.renewal_period_months) ? 'inline-flex' : 'none';
 
   // Attachments section — only when editing an existing cert
+  // Linked training section
+  const ltSection = $('certLinkedTraining');
+  if (ltSection) {
+    if (id) {
+      ltSection.style.display = 'block';
+      _currentCertForModal = { id, cycleStart: c.current_cycle_start || null };
+      loadLinkedTraining(id);
+      const noCycle = $('certNoCycle');
+      if (noCycle) noCycle.style.display = c.current_cycle_start ? 'none' : 'block';
+    } else {
+      ltSection.style.display = 'none';
+    }
+  }
+
   const attSection = $('certAttachmentsSection');
   if (attSection) {
     if (id) {
@@ -878,6 +902,7 @@ async function openLearningDrawer(id, preLinkCerts) {
   $('lnTitle').value     = r.title||'';
   await GH_SELECT.init('lnType', 'learning_type', r.learning_type||'Course', { placeholder: '— type —', allowAdd: true });
   $('lnProvider').value  = r.provider||'';
+  await GH_REFS.populateContact('lnInstructor', r.instructor_contact_id||null, { placeholder: '— none —' });
   $('lnStartDate').value = r.start_date||'';
   $('lnEndDate').value   = r.end_date||'';
   $('lnHours').value     = r.hours_total != null ? r.hours_total : '';
@@ -964,6 +989,7 @@ async function saveLearning() {
       cost:       $('lnCost').value ? parseFloat($('lnCost').value) : null,
       description: $('lnDesc').value.trim()||null,
       notes:      $('lnNotes').value.trim()||null,
+      instructor_contact_id: $('lnInstructor').value ? parseInt($('lnInstructor').value) : null,
       tags:       lnFormTags,
       cert_links: getCertLinks(),
     };
@@ -977,6 +1003,167 @@ async function saveLearning() {
   } catch(err) { toast(ghErrorMsg(err),'err'); }
   finally { btn.textContent='Save'; btn.disabled=false; }
 }
+
+// ── Linked training on cert drawer ───────────────────────────
+let _currentCertForModal = null;
+let _tlAllTraining = [];  // cache for modal
+
+async function loadLinkedTraining(certId) {
+  const list = $('certLinkedTrainingList');
+  if (!list) return;
+  list.innerHTML = '<div style="font-size:12px;color:var(--text3)">Loading…</div>';
+  try {
+    const rows = await api('GET', `/learning?cert_id=${certId}`);
+    if (!rows.length) {
+      list.innerHTML = '<div style="font-size:12px;color:var(--text3)">No training linked yet.</div>';
+      return;
+    }
+    list.innerHTML = rows.map(r => {
+      const hrs = r.hours_applied_to_cert != null ? r.hours_applied_to_cert : (r.hours_linked || 0);
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</div>
+          <div style="font-size:11px;color:var(--text3)">${r.start_date||''} · ${hrs} hrs applied</div>
+        </div>
+        <button onclick="openLearningDrawer(${r.id})" style="width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text3);flex-shrink:0;padding:0" title="Edit">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    list.innerHTML = `<div style="font-size:12px;color:var(--red)">${esc(e.message)}</div>`;
+  }
+}
+
+async function openTrainingLinkModal() {
+  if (!_currentCertForModal) return;
+  const { id: certId, cycleStart } = _currentCertForModal;
+
+  // Load all available training
+  const allRows = await api('GET', '/learning').catch(() => []);
+  // Load already-linked IDs for this cert
+  const linked = await api('GET', `/learning?cert_id=${certId}`).catch(() => []);
+  const linkedIds = new Set(linked.map(r => r.id));
+
+  // Filter: within cycle if cycle start set; exclude already linked
+  _tlAllTraining = allRows.filter(r => {
+    if (linkedIds.has(r.id)) return false;
+    if (cycleStart && r.start_date && r.start_date < cycleStart) return false;
+    return true;
+  });
+
+  renderTrainingRows(_tlAllTraining);
+  $('tlSearch').value = '';
+  $('trainLinkModal').classList.add('open');
+  setTimeout(() => $('tlSearch').focus(), 200);
+}
+
+function renderTrainingRows(rows) {
+  const list = $('tlList');
+  const empty = $('tlEmpty');
+  if (!list) return;
+  if (!rows.length) {
+    list.innerHTML = '';
+    if (empty) empty.style.display = 'block';
+    return;
+  }
+  if (empty) empty.style.display = 'none';
+  list.innerHTML = rows.map(r => `
+    <div class="tl-row" data-id="${r.id}" style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleTlRow(${r.id})">
+      <div id="tlCb_${r.id}" style="width:16px;height:16px;border:1px solid var(--border2);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center"></div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.title)}</div>
+        <div style="font-size:11px;color:var(--text3)">${r.learning_type||''} · ${r.start_date||'no date'} · ${r.hours_total != null ? r.hours_total+' hrs total' : ''}</div>
+      </div>
+      <input type="number" id="tlHrs_${r.id}" step="0.5" min="0" placeholder="hrs"
+        style="width:56px;border:0.5px solid var(--border2);border-radius:6px;padding:4px 6px;font-size:12px;background:var(--bg3);color:var(--text);opacity:0.3;pointer-events:none"
+        onclick="event.stopPropagation()" oninput="event.stopPropagation()">
+    </div>`).join('');
+}
+
+function toggleTlRow(id) {
+  const cb = $('tlCb_' + id);
+  const inp = $('tlHrs_' + id);
+  if (!cb || !inp) return;
+  const selected = cb.dataset.selected === '1';
+  if (selected) {
+    cb.dataset.selected = '0';
+    cb.innerHTML = '';
+    cb.style.background = '';
+    cb.style.borderColor = '';
+    inp.style.opacity = '0.3';
+    inp.style.pointerEvents = 'none';
+    inp.value = '';
+  } else {
+    cb.dataset.selected = '1';
+    cb.style.background = 'var(--accent-bg)';
+    cb.style.borderColor = 'var(--accent)';
+    cb.innerHTML = '<svg width="10" height="10" viewBox="0 0 12 12" fill="none" stroke="var(--accent)" stroke-width="2.5"><polyline points="2 6 5 9 10 3"/></svg>';
+    inp.style.opacity = '1';
+    inp.style.pointerEvents = 'auto';
+    // Pre-fill with training's total hours as a starting point
+    const row = _tlAllTraining.find(r => r.id === id);
+    if (row && row.hours_total) inp.value = row.hours_total;
+    inp.focus();
+  }
+  updateTlConfirmBtn();
+}
+
+function filterTrainingRows(q) {
+  const lower = q.trim().toLowerCase();
+  const filtered = lower
+    ? _tlAllTraining.filter(r => r.title.toLowerCase().includes(lower) || (r.provider||'').toLowerCase().includes(lower))
+    : _tlAllTraining;
+  renderTrainingRows(filtered);
+}
+
+function updateTlConfirmBtn() {
+  const selected = document.querySelectorAll('#tlList [data-selected="1"]');
+  const btn = $('tlConfirm');
+  if (!btn) return;
+  const totalHrs = Array.from(selected).reduce((sum, cb) => {
+    const hrs = parseFloat($('tlHrs_' + cb.closest('[data-id]')?.dataset.id)?.value || 0);
+    return sum + (isNaN(hrs) ? 0 : hrs);
+  }, 0);
+  btn.textContent = selected.length
+    ? `Link ${selected.length} selected (${totalHrs % 1 === 0 ? totalHrs : totalHrs.toFixed(1)} hrs)`
+    : 'Link selected';
+  btn.disabled = selected.length === 0;
+}
+
+async function confirmTrainingLinks() {
+  if (!_currentCertForModal) return;
+  const certId = _currentCertForModal.id;
+  const rows = document.querySelectorAll('#tlList [data-id]');
+  const links = [];
+  rows.forEach(row => {
+    const cb = row.querySelector('[data-selected="1"]');
+    if (!cb) return;
+    const id = parseInt(row.dataset.id);
+    const hrs = parseFloat($('tlHrs_' + id)?.value);
+    links.push({ learning_id: id, hours_applied: isNaN(hrs) ? null : hrs });
+  });
+  if (!links.length) return;
+  const btn = $('tlConfirm');
+  btn.textContent = 'Saving…'; btn.disabled = true;
+  try {
+    await api('POST', `/certifications/${certId}/link-training`, links);
+    toast(`Linked ${links.length} training record${links.length > 1 ? 's' : ''}`);
+    closeTrainingLinkModal();
+    loadLinkedTraining(certId);
+    loadCerts(); // refresh PDU count on cards
+  } catch(e) { toast(ghErrorMsg(e), 'err'); }
+  finally { btn.textContent = 'Link selected'; btn.disabled = false; }
+}
+
+function closeTrainingLinkModal() {
+  $('trainLinkModal')?.classList.remove('open');
+}
+
+// delegated listener for hours inputs in modal
+document.addEventListener('input', e => {
+  if (e.target?.id?.startsWith('tlHrs_')) updateTlConfirmBtn();
+});
 
 async function deleteLearning() {
   if (!await LT.confirm('Delete this learning record?')) return;
@@ -1250,6 +1437,25 @@ function logHoursForCert(certId, certName) {
   openLearningDrawer(null, [{ certification_id: certId, cert_name: certName, hours_applied: null }]);
 }
 </script>
+
+<!-- Training Link Modal (Option A) -->
+<div class="drawer-overlay" id="trainLinkModal" onclick="if(event.target===this)closeTrainingLinkModal()">
+  <div class="drawer" style="width:min(520px,96vw)">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Link training to cert</div>
+    <div class="drawer-body">
+      <input class="form-input" id="tlSearch" placeholder="Search training…" autocomplete="off" style="margin-bottom:10px"
+        oninput="filterTrainingRows(this.value)">
+      <div id="tlList" style="display:flex;flex-direction:column;gap:0"></div>
+      <div id="tlEmpty" style="font-size:13px;color:var(--text3);text-align:center;padding:16px 0;display:none">No matching training found in this cycle.</div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn btn-primary" id="tlConfirm" style="flex:1" onclick="confirmTrainingLinks()">Link selected</button>
+      <button class="btn btn-ghost" onclick="closeTrainingLinkModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
 

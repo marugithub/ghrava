@@ -61,7 +61,7 @@ router.get('/', (req, res) => {
 
     const certIdParam = cert_id ? parseInt(/** @type {string} */(cert_id)) : null;
     const rows = db.prepare(`
-      SELECT l.*,
+      SELECT l.*, ct.name AS instructor_name,
         (SELECT GROUP_CONCAT(c.name, ', ')
          FROM career_learning_certs lc
          JOIN career_certifications c ON c.id = lc.certification_id
@@ -72,6 +72,7 @@ router.get('/', (req, res) => {
          WHERE lc.learning_id = l.id AND lc.certification_id = ${certIdParam || 'NULL'}) AS hours_applied_to_cert,
         (SELECT COUNT(*) FROM attachments WHERE entity_type='career_learning' AND entity_id=l.id) AS attachment_count
       FROM career_learning l
+      LEFT JOIN contacts ct ON ct.id = l.instructor_contact_id
       ${where}
       ORDER BY l.start_date DESC, l.created_at DESC
     `).all(...params).map(r => withTagNames(r, 'career_learning'));
@@ -94,7 +95,12 @@ router.get('/', (req, res) => {
 // ── GET /api/v1/career/learning/:id ──────────────────────────
 router.get('/:id', (req, res) => {
   try {
-    const row = db.prepare('SELECT * FROM career_learning WHERE id=?').get(req.params.id);
+    const row = db.prepare(`
+      SELECT l.*, ct.name AS instructor_name
+      FROM career_learning l
+      LEFT JOIN contacts ct ON ct.id = l.instructor_contact_id
+      WHERE l.id=?
+    `).get(req.params.id);
     if (!row) return notFound(res, 'Learning record');
 
     const certs = db.prepare(`
@@ -117,15 +123,16 @@ router.post('/', requireAuth, (req, res) => {
     const r = db.prepare(`
       INSERT INTO career_learning
         (title, learning_type, provider, start_date, end_date, hours_total,
-         location, url, cost, description, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+         location, url, cost, description, notes, instructor_contact_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.title.trim(), d.learning_type || 'Course', d.provider || null,
       d.start_date || null, d.end_date || null,
       d.hours_total != null ? parseFloat(d.hours_total) : null,
       d.location || null, d.url || null,
       d.cost != null ? parseFloat(d.cost) : null,
-      d.description || null, d.notes || null
+      d.description || null, d.notes || null,
+      d.instructor_contact_id || null
     );
     const newId = Number(r.lastInsertRowid);
 
@@ -147,7 +154,7 @@ router.put('/:id', requireAuth, (req, res) => {
       UPDATE career_learning SET
         title=?, learning_type=?, provider=?, start_date=?, end_date=?,
         hours_total=?, location=?, url=?, cost=?, description=?, notes=?,
-        updated_at=CURRENT_TIMESTAMP
+        instructor_contact_id=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
       d.title?.trim() ?? existing.title,
@@ -161,6 +168,7 @@ router.put('/:id', requireAuth, (req, res) => {
       d.cost != null ? parseFloat(d.cost) : existing.cost,
       d.description ?? existing.description,
       d.notes ?? existing.notes,
+      d.instructor_contact_id !== undefined ? (d.instructor_contact_id || null) : existing.instructor_contact_id,
       req.params.id
     );
 
