@@ -79,8 +79,8 @@ auth.post('/certifications', (req, res) => {
     const r = db.prepare(`
       INSERT INTO career_certifications
         (name, issuing_body, credential_id, cert_number, issue_date, expiry_date, status,
-         ce_hours_required, renewal_period_months, current_cycle_start, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+         ce_hours_required, renewal_period_months, current_cycle_start, notes, renewal_fee)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.name,
       d.issuing_body || certPreset(d.name)?.issuing_body || null,
@@ -92,7 +92,8 @@ auth.post('/certifications', (req, res) => {
       d.ce_hours_required != null ? parseFloat(d.ce_hours_required) : (certPreset(d.name)?.ce_hours_required ?? null),
       d.renewal_period_months != null ? parseInt(d.renewal_period_months) : (certPreset(d.name)?.renewal_period_months ?? null),
       d.current_cycle_start || d.issue_date || null,
-      d.notes || null
+      d.notes || null,
+      d.renewal_fee != null ? parseFloat(d.renewal_fee) : null
     );
 
     // Auto-create renewal Todo 60 days before expiry
@@ -116,7 +117,7 @@ auth.put('/certifications/:id', (req, res) => {
         name=?, issuing_body=?, credential_id=?, cert_number=?,
         issue_date=?, expiry_date=?, status=?,
         ce_hours_required=?, renewal_period_months=?,
-        current_cycle_start=?, notes=?,
+        current_cycle_start=?, notes=?, renewal_fee=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
@@ -131,6 +132,7 @@ auth.put('/certifications/:id', (req, res) => {
       d.renewal_period_months != null ? parseInt(d.renewal_period_months) : existing.renewal_period_months,
       d.current_cycle_start ?? existing.current_cycle_start,
       d.notes ?? existing.notes,
+      d.renewal_fee != null ? parseFloat(d.renewal_fee) : existing.renewal_fee,
       req.params.id
     );
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'career_cert', d.tags);
@@ -318,13 +320,41 @@ auth.post('/certifications/:id/renew', (req, res) => {
   try {
     const cert = db.prepare('SELECT * FROM career_certifications WHERE id=?').get(req.params.id);
     if (!cert) return notFound(res, 'Certification');
-    if (!cert.renewal_period_months) return badRequest(res, 'renewal_period_months not set on this cert');
+    if (!cert.renewal_period_months) return badRequest(res, 'Renewal period (months) not set on this cert');
+    if (!cert.current_cycle_start)   return badRequest(res, 'Current cycle start not set on this cert');
+
+    // Validate: hours applied this cycle must meet requirement
+    if (cert.ce_hours_required > 0) {
+      const cycleEnd = cert.current_cycle_end;
+      const applied = db.prepare(`
+        SELECT COALESCE(SUM(lc.hours_applied), 0) AS total
+        FROM career_learning_certs lc
+        JOIN career_learning l ON l.id = lc.learning_id
+        WHERE lc.certification_id = ?
+          AND l.start_date >= ?
+          ${cycleEnd ? 'AND l.start_date <= ?' : ''}
+      `).get(...[cert.id, cert.current_cycle_start, ...(cycleEnd ? [cycleEnd] : [])])?.total || 0;
+
+      if (applied < cert.ce_hours_required) {
+        return res.status(400).json({
+          error: `Not enough CE hours: ${applied} applied, ${cert.ce_hours_required} required (${cert.ce_hours_required - applied} still needed)`
+        });
+      }
+    }
+
+    // Validate: renewal fee must be provided in request body
+    const fee = req.body?.renewal_fee;
+    if (fee == null || isNaN(parseFloat(fee))) {
+      return badRequest(res, 'Renewal fee is required to complete the cycle renewal');
+    }
+
     const newStart = cert.current_cycle_end
       ? (() => { const d = new Date(cert.current_cycle_end + 'T00:00:00'); d.setDate(d.getDate()+1); return d.toISOString().slice(0,10); })()
       : new Date().toISOString().slice(0,10);
-    db.prepare('UPDATE career_certifications SET current_cycle_start=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
-      .run(newStart, req.params.id);
-    const updated = db.prepare('SELECT * FROM career_certifications WHERE id=?').get(req.params.id);
+
+    db.prepare('UPDATE career_certifications SET current_cycle_start=?, renewal_fee=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
+      .run(newStart, parseFloat(fee), cert.id);
+    const updated = db.prepare('SELECT * FROM career_certifications WHERE id=?').get(cert.id);
     res.json(addCycleEnd(updated));
   } catch(e) { serverError(res, e); }
 });

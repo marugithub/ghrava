@@ -69,6 +69,19 @@
 .cc-ring svg { width:48px; height:48px; }
 .cc-ring-lbl { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:11px; font-weight:600; color:var(--text); text-align:center; line-height:1; pointer-events:none; }
 .cc-kv { flex:1; display:flex; flex-direction:column; gap:4px; min-width:0; }
+.drawer-section-label {
+  font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;
+  color:var(--text3);padding:6px 0 5px;border-bottom:1px solid var(--border);margin-bottom:10px;
+}
+.cert-act-btn {
+  display:flex;align-items:center;gap:8px;flex:1;padding:8px 12px;
+  border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);
+  cursor:pointer;text-align:left;transition:background .12s;color:var(--text);
+}
+.cert-act-btn:hover { background:var(--bg2); border-color:var(--border2); }
+.cert-act-btn svg { flex-shrink:0;color:var(--text3); }
+.cert-act-title { display:block;font-size:12px;font-weight:600;color:var(--text); }
+.cert-act-sub   { display:block;font-size:10px;color:var(--text3); }
 </style>
 </head>
 <body>
@@ -189,64 +202,93 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
      ════════════════════════════════════════════════════════════ -->
 <div class="drawer-overlay" id="certDrawer" onclick="onDrawerBg('certDrawer')">
   <div class="drawer">
-    <div class="drawer-handle"></div>
-    <div class="drawer-title" id="certDrawerTitle">Add Certification</div>
-    <div class="form-group">
-      <label class="form-label">Name <span class="req">*</span></label>
-      <input class="form-input" id="certName" placeholder="e.g. PMP, Security+, FAC-PPM Level II"
-        oninput="onCertNameInput(this.value)">
-      <div id="certPresetBanner" style="display:none;margin-top:6px;padding:8px 10px;background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r);font-size:12px;color:var(--text2)"></div>
+    <div class="drawer-header">
+      <div class="drawer-handle"></div>
+      <div class="drawer-title" id="certDrawerTitle">Add Certification</div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Issuing Body</label><input class="form-input" id="certIssuer" placeholder="PMI, DAU, CompTIA…"></div>
-      <div class="form-group"><label class="form-label">Cert / Badge #</label><input class="form-input" id="certCredId"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Issue Date</label><input class="form-input" type="date" id="certIssueDate"></div>
-      <div class="form-group"><label class="form-label">Expiry Date</label><input class="form-input" type="date" id="certExpiry"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-select" id="certStatus"></select>
-    </div>
+    <div class="drawer-body">
 
-    <!-- CE / Renewal tracking -->
-    <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:12px 0 6px">Renewal &amp; CE Tracking</div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">CE Hours Required</label><input class="form-input" type="number" id="certCeHours" placeholder="60" min="0" step="1"></div>
-      <div class="form-group"><label class="form-label">Cycle (months)</label><input class="form-input" type="number" id="certRenewalMonths" placeholder="36" min="0" step="1"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Current Cycle Start</label><input class="form-input" type="date" id="certCycleStart"></div>
-
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="certNotes" style="min-height:50px"></textarea></div>
-    <div style="font-size:12px;color:var(--text3);padding:0 0 8px">⏰ A renewal reminder Todo will be created 60 days before expiry.</div>
-    <div class="form-group">
-      <label class="form-label">Tags</label>
-      <div class="tags-input-wrap" id="certTagsWrap" onclick="document.getElementById('certTagInput').focus()">
-        <input id="certTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      <!-- ── CORE INFO ─────────────────────────────────────── -->
+      <div class="drawer-section-label">Core info</div>
+      <div class="form-group">
+        <label class="form-label">Name <span class="req">*</span></label>
+        <input class="form-input" id="certName" placeholder="e.g. PMP, Security+, FAC-PPM Level II" oninput="onCertNameInput(this.value)">
+        <div id="certPresetBanner" style="display:none;margin-top:6px;padding:8px 10px;background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r);font-size:12px;color:var(--text2)"></div>
       </div>
-    </div>
-    <div id="certLinkedTraining" style="display:none;margin-top:4px">
-      <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:10px 0 6px;display:flex;align-items:center;justify-content:space-between">
-        <span>Linked Training</span>
-        <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px" onclick="openTrainingLinkModal()">+ Link Training</button>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Issuing body</label><input class="form-input" id="certIssuer" placeholder="PMI, DAU, CompTIA…"></div>
+        <div class="form-group"><label class="form-label">Cert / badge #</label><input class="form-input" id="certCredId"></div>
       </div>
-      <div id="certLinkedTrainingList"></div>
-      <div id="certNoCycle" style="display:none;font-size:12px;color:var(--amber);padding:4px 0">⚠ No renewal cycle set — showing all training. Set cycle start above to filter by date.</div>
-    </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Issue date</label><input class="form-input" type="date" id="certIssueDate"></div>
+        <div class="form-group"><label class="form-label">Expiry date</label><input class="form-input" type="date" id="certExpiry"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="certStatus"></select>
+      </div>
+      <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="certNotes" style="min-height:50px"></textarea></div>
+      <div class="form-group">
+        <label class="form-label">Tags</label>
+        <div class="tags-input-wrap" id="certTagsWrap" onclick="document.getElementById('certTagInput').focus()">
+          <input id="certTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+        </div>
+      </div>
 
-    <div id="certAttachmentsSection" style="display:none;margin-top:4px">
-      <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin:10px 0 6px">Attachments</div>
-      <div id="certAttachmentsList" style="margin-bottom:8px"></div>
-      <label class="btn btn-ghost" style="cursor:pointer;font-size:12px;width:100%;justify-content:center;box-sizing:border-box">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:5px"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
-        Add file
+      <!-- ── CE & TRAINING ─────────────────────────────────── -->
+      <div class="drawer-section-label" style="margin-top:8px">CE &amp; Training</div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">CE hours required</label><input class="form-input" type="number" id="certCeHours" placeholder="60" min="0" step="1"></div>
+        <div class="form-group"><label class="form-label">Cycle (months)</label><input class="form-input" type="number" id="certRenewalMonths" placeholder="36" min="0" step="1"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Cycle start</label><input class="form-input" type="date" id="certCycleStart"></div>
+        <div class="form-group"><label class="form-label">Renewal fee ($)</label><input class="form-input" type="number" id="certRenewalFee" placeholder="0.00" min="0" step="0.01"></div>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:4px">⏰ A renewal reminder todo will be created 60 days before expiry.</div>
+
+      <!-- PDU progress bar — only shown when editing with CE configured -->
+      <div id="certPduProgress" style="display:none;margin-bottom:6px">
+        <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text3);margin-bottom:3px">
+          <span>PDU progress — current cycle</span>
+          <span id="certPduLabel" style="font-weight:600;color:var(--green)"></span>
+        </div>
+        <div style="height:5px;background:var(--bg3);border-radius:3px;overflow:hidden">
+          <div id="certPduBar" style="height:100%;width:0%;border-radius:3px;transition:width .3s"></div>
+        </div>
+      </div>
+
+      <!-- Training action buttons + linked list — only shown when editing -->
+      <div id="certLinkedTraining" style="display:none">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <button class="cert-act-btn" onclick="logHoursForCert(editingCertId)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+            <div><span class="cert-act-title">Add training</span><span class="cert-act-sub">Create new record</span></div>
+          </button>
+          <button class="cert-act-btn" onclick="openTrainingLinkModal()">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            <div><span class="cert-act-title">Link existing</span><span class="cert-act-sub">Pick from training list</span></div>
+          </button>
+        </div>
+        <div id="certLinkedTrainingList"></div>
+        <div id="certNoCycle" style="display:none;font-size:12px;color:var(--amber);padding:4px 0">⚠ No cycle start set — showing all training.</div>
+      </div>
+
+      <!-- ── ATTACHMENTS ────────────────────────────────────── -->
+      <div id="certAttachmentsSection" style="display:none;margin-top:8px">
+        <div class="drawer-section-label">Attachments</div>
+        <div id="certAttachmentsList" style="margin-bottom:8px"></div>
+        <button class="cert-act-btn" onclick="$('certFileInput').click()" style="width:100%">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+          <div><span class="cert-act-title">Add attachment</span><span class="cert-act-sub">PDF, image, or any file</span></div>
+        </button>
         <input type="file" id="certFileInput" multiple style="display:none">
-      </label>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button class="btn btn-primary" id="certSave" style="flex:1" onclick="saveCert()">Save</button>
-      <button class="btn btn-ghost" id="certRenewBtn" style="display:none" onclick="renewCert()">Renew Cycle</button>
-      <button class="btn btn-ghost" id="certDeleteBtn" style="color:var(--red);display:none" onclick="deleteCert()">Delete</button>
+      </div>
+
+    </div><!-- /drawer-body -->
+    <div class="drawer-foot">
+      <button class="btn btn-primary" id="certSave" onclick="saveCert()">Save</button>
+      <button class="btn btn-ghost" id="certRenewBtn" style="display:none" onclick="renewCert()">Renew cycle</button>
       <button class="btn btn-ghost" onclick="$('certDrawer').classList.remove('open')">Cancel</button>
     </div>
   </div>
@@ -544,6 +586,9 @@ async function loadCerts() {
           <div class="gh-card-tags">${tagsHtml}</div>
           <div class="gh-card-actions">
             <div class="gh-card-btn" title="Log hours" onclick="event.stopPropagation();logHoursForCert(${certIdSafe})">${icoLogHours}</div>
+            <div class="gh-card-btn" title="Link existing training" onclick="event.stopPropagation();openTrainingLinkModalFromCard(${certIdSafe},c.current_cycle_start||null)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+            </div>
             <div class="gh-card-btn" title="Attachments" style="position:relative" onclick="event.stopPropagation();AttachmentManager.open('career_cert',${certIdSafe},'${esc(c.name).replace(/'/g,"\\'")}')">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
               ${c.attachment_count>0?`<span style="position:absolute;top:-4px;right:-4px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;min-width:14px;height:14px;border-radius:7px;display:flex;align-items:center;justify-content:center;padding:0 2px;pointer-events:none">${c.attachment_count}</span>`:''}
@@ -572,9 +617,26 @@ async function openCertDrawer(id) {
   $('certCeHours').value       = c.ce_hours_required != null ? c.ce_hours_required : '';
   $('certRenewalMonths').value = c.renewal_period_months != null ? c.renewal_period_months : '';
   $('certCycleStart').value    = c.current_cycle_start||'';
+  $('certRenewalFee').value    = c.renewal_fee != null ? c.renewal_fee : '';
   $('certNotes').value         = c.notes||'';
   $('certPresetBanner').style.display = 'none';
-  $('certDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+
+  // PDU progress bar
+  const pduDiv = $('certPduProgress');
+  if (pduDiv && id && c.ce_hours_required > 0) {
+    const applied   = parseFloat(c.pdu_applied_this_cycle) || 0;
+    const required  = parseFloat(c.ce_hours_required);
+    const pct       = Math.min(100, Math.round(applied / required * 100));
+    const remaining = Math.max(0, required - applied);
+    const barColor  = pct >= 100 ? 'var(--green)' : pct < 30 ? 'var(--amber)' : 'var(--accent)';
+    $('certPduBar').style.width      = pct + '%';
+    $('certPduBar').style.background = barColor;
+    $('certPduLabel').style.color    = barColor;
+    $('certPduLabel').textContent    = `${applied} / ${required} · ${remaining} needed`;
+    pduDiv.style.display = 'block';
+  } else if (pduDiv) {
+    pduDiv.style.display = 'none';
+  }
   initCertTags(c?.tags||[]);
   await loadCareerDropdowns();
   // Show renew button if cert has an active cycle
@@ -681,6 +743,7 @@ async function saveCert() {
       ce_hours_required:   $('certCeHours').value ? parseFloat($('certCeHours').value) : null,
       renewal_period_months: $('certRenewalMonths').value ? parseInt($('certRenewalMonths').value) : null,
       current_cycle_start: $('certCycleStart').value||null,
+      renewal_fee:         $('certRenewalFee').value ? parseFloat($('certRenewalFee').value) : null,
       notes:               $('certNotes').value||null,
       tags:                certFormTags
     };
@@ -692,6 +755,28 @@ async function saveCert() {
     $('certDrawer').classList.remove('open'); loadCerts();
   } catch(e) { toast(ghErrorMsg(e),'err'); }
   finally { btn.textContent='Save'; btn.disabled=false; }
+}
+
+async function renewCert() {
+  if (!editingCertId) return;
+  // Check fee field is filled
+  const feeVal = $('certRenewalFee').value;
+  if (!feeVal || isNaN(parseFloat(feeVal))) {
+    toast('Enter a renewal fee amount before renewing the cycle', 'err');
+    $('certRenewalFee').focus();
+    return;
+  }
+  const confirmed = await LT.confirm(
+    'Renew certification cycle?',
+    `This will advance the current cycle start date. Renewal fee: $${parseFloat(feeVal).toFixed(2)}. Make sure all CE hours are logged first.`
+  );
+  if (!confirmed) return;
+  try {
+    const res = await api('POST', `/certifications/${editingCertId}/renew`, { renewal_fee: parseFloat(feeVal) });
+    toast('Cycle renewed');
+    $('certDrawer').classList.remove('open');
+    loadCerts();
+  } catch(e) { toast(ghErrorMsg(e), 'err'); }
 }
 
 async function deleteCert() {
@@ -1033,6 +1118,11 @@ async function loadLinkedTraining(certId) {
   } catch(e) {
     list.innerHTML = `<div style="font-size:12px;color:var(--red)">${esc(e.message)}</div>`;
   }
+}
+
+function openTrainingLinkModalFromCard(certId, cycleStart) {
+  _currentCertForModal = { id: certId, cycleStart: cycleStart || null };
+  openTrainingLinkModal();
 }
 
 async function openTrainingLinkModal() {
