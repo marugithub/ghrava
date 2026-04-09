@@ -586,7 +586,7 @@ async function loadCerts() {
           <div class="gh-card-tags">${tagsHtml}</div>
           <div class="gh-card-actions">
             <div class="gh-card-btn" title="Log hours" onclick="event.stopPropagation();logHoursForCert(${certIdSafe})">${icoLogHours}</div>
-            <div class="gh-card-btn" title="Link existing training" onclick="event.stopPropagation();openTrainingLinkModalFromCard(${certIdSafe},c.current_cycle_start||null)">
+            <div class="gh-card-btn" title="Link existing training" onclick="event.stopPropagation();openTrainingLinkModalFromCard(${certIdSafe},${c.current_cycle_start ? `'${c.current_cycle_start}'` : 'null'})">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
             </div>
             <div class="gh-card-btn" title="Attachments" style="position:relative" onclick="event.stopPropagation();AttachmentManager.open('career_cert',${certIdSafe},'${esc(c.name).replace(/'/g,"\\'")}')">
