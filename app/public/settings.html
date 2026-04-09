@@ -2077,7 +2077,27 @@ async function openFamilyDrawer(member=null) {
   $('familyDrawerTitle').textContent = member ? 'Edit Family Member' : 'Add Family Member';
   $('fm_display_name').value = member?.display_name || '';
   $('fm_legal_name').value   = member?.full_legal_name || '';
-  await GH_SELECT.init('fm_relationship', 'family_relationship', member?.relationship || '', { allowAdd: true, placeholder: '— select —' });
+  // Populate relationship — try GH_SELECT first, fall back to hardcoded options
+  try {
+    const relRows = await fetch('/api/v1/settings/dropdowns/family_relationship').then(r => r.json()).catch(() => []);
+    const relSel = $('fm_relationship');
+    relSel.innerHTML = '<option value="">— select —</option>';
+    const defaults = ['Self','Spouse','Son','Daughter','Parent','Sibling','Other'];
+    const opts = relRows.length ? relRows.map(r => r.value) : defaults;
+    opts.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      if (v === (member?.relationship || '')) o.selected = true;
+      relSel.appendChild(o);
+    });
+    // If current value not in list, add it
+    const cur = member?.relationship || '';
+    if (cur && !opts.includes(cur)) {
+      const o = document.createElement('option');
+      o.value = cur; o.textContent = cur; o.selected = true;
+      relSel.appendChild(o);
+    }
+  } catch(e) { /* silently skip — field still usable */ }
   $('fm_dob').value          = member?.date_of_birth || '';
   $('fm_ssn4').value         = member?.ssn_last4 || '';
   $('fm_primary').checked    = !!member?.is_primary_user;
