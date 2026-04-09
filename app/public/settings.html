@@ -1121,16 +1121,16 @@ function toast(msg, type='ok') {
 }
 
 async function checkAuth() {
-  if (LT.authToken) {
-    // Already have a token — verify it's still valid
-    try {
-      const d = await window.api('GET', '/auth/status');
-      if (d.authenticated) { showMain(); return; }
-    } catch {}
-    // Token invalid — clear it and show login
-    LT.authToken = null;
-    localStorage.removeItem('lt_token');
-  }
+  try {
+    const d = await window.api('GET', '/auth/status');
+    // No password set — open mode, skip login gate entirely
+    if (!d.has_password) { showMain(); return; }
+    // Has password and valid token
+    if (d.authenticated) { showMain(); return; }
+  } catch {}
+  // No valid token — clear stale token and show login
+  LT.authToken = null;
+  localStorage.removeItem('lt_token');
   showLogin();
 }
 
