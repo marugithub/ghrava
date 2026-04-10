@@ -10,7 +10,7 @@ const GOOGLE_TOKEN_URL   = 'https://oauth2.googleapis.com/token';
 const GOOGLE_AUTH_URL    = 'https://accounts.google.com/o/oauth2/v2/auth';
 const SCOPES = [
   'https://www.googleapis.com/auth/tasks',
-  'https://www.googleapis.com/auth/contacts.readonly',
+  'https://www.googleapis.com/auth/contacts',
 ].join(' ');
 
 function getCfg(key) {
