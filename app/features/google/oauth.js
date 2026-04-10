@@ -117,4 +117,11 @@ function disconnect() {
   // calendar_events and google_calendars left intact (historical data)
 }
 
-module.exports = { getCredentials, isConfigured, isConnected, buildAuthUrl, exchangeCode, getValidToken, getCfg, setCfg, disconnect };
+function saveRefreshToken(refreshToken) {
+  setCfg('google_refresh_token', refreshToken);
+  // Clear old access token so it gets refreshed on next use
+  setCfg('google_access_token', '');
+  setCfg('google_token_expiry', '0');
+}
+
+module.exports = { getCredentials, isConfigured, isConnected, buildAuthUrl, exchangeCode, getValidToken, getCfg, setCfg, disconnect, saveRefreshToken };

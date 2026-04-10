@@ -21,6 +21,18 @@ const { serverError, badRequest, notFound } = require('../../shared/errors');
 const GTASKS_BASE  = 'https://tasks.googleapis.com/tasks/v1';
 const GPEOPLE_BASE = 'https://people.googleapis.com/v1';
 
+// ── Save refresh token (from OAuth Playground) ───────────────
+router.put('/refresh-token', requireAuth, (req, res) => {
+  try {
+    const { refresh_token } = req.body;
+    if (!refresh_token?.trim()) return badRequest(res, 'refresh_token required');
+    oauth.setCfg('google_refresh_token', refresh_token.trim());
+    oauth.setCfg('google_access_token',  '');
+    oauth.setCfg('google_token_expiry',  '0');
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
 // ── Status ────────────────────────────────────────────────────
 router.get('/status', (req, res) => {
   try {
