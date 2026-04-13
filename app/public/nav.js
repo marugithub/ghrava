@@ -158,24 +158,70 @@
         </a>
       </div>`;
 
-    const sections = SIDEBAR_SECTIONS.map(s => `
+    // Load collapsed section state from localStorage
+    function isSectionCollapsed(label) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('gh_nav_sections') || '{}');
+        return !!stored[label];
+      } catch { return false; }
+    }
+    function toggleSection(label, btn) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('gh_nav_sections') || '{}');
+        stored[label] = !stored[label];
+        localStorage.setItem('gh_nav_sections', JSON.stringify(stored));
+        const section = btn.closest('.side-nav-section');
+        const items = section.querySelector('.side-nav-section-items');
+        const chevron = btn.querySelector('.sec-chevron');
+        const collapsed = stored[label];
+        items.style.display = collapsed ? 'none' : '';
+        if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
+      } catch {}
+    }
+
+    const NEWTAB_ICON = `<span style="display:inline-flex;align-items:center;margin-left:5px;padding:1px 3px;border:1px solid #378ADD;border-radius:3px;line-height:1"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>`;
+
+    const sections = SIDEBAR_SECTIONS.map(s => {
+      const collapsed = isSectionCollapsed(s.label);
+      return `
       <div class="side-nav-section">
-        <div class="side-nav-section-label">${s.label}</div>
+        <div class="side-nav-section-label" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none"
+          onclick="(function(btn){
+            var stored=JSON.parse(localStorage.getItem('gh_nav_sections')||'{}');
+            stored['${s.label}']=!stored['${s.label}'];
+            localStorage.setItem('gh_nav_sections',JSON.stringify(stored));
+            var section=btn.closest('.side-nav-section');
+            var items=section.querySelector('.side-nav-section-items');
+            var chev=btn.querySelector('.sec-chevron');
+            var col=stored['${s.label}'];
+            items.style.display=col?'none':'';
+            if(chev)chev.style.transform=col?'rotate(-90deg)':'rotate(0deg)';
+          })(this)">
+          <span>${s.label}</span>
+          <svg class="sec-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;transition:transform .2s;transform:${collapsed ? 'rotate(-90deg)' : 'rotate(0deg)'}"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+        <div class="side-nav-section-items" style="${collapsed ? 'display:none' : ''}">
         ${s.keys.map(k => {
           const m = MODULES[k];
           const active = isActive(m.href);
           const isTodos = k === 'todos';
+          const isTerminal = k === 'trading';
+          const labelHtml = isTerminal
+            ? `Terminal${NEWTAB_ICON}`
+            : m.label;
           return `<a href="${m.href}"
             ${m.newTab ? 'target="_blank" rel="noopener"' : ''}
             class="side-nav-item${active ? ' active' : ''}"
             data-label="${m.label}"
             style="${active ? `color:${m.color}` : ''}">
             <span class="side-nav-icon" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${active ? m.color : 'currentColor'}">${SVG[m.svgKey]||''}</span>
-            <span class="side-nav-item-label">${m.label}</span>
+            <span class="side-nav-item-label" style="display:flex;align-items:center">${labelHtml}</span>
             ${isTodos ? `<span class="gh-todo-badge" style="display:none;margin-left:auto;background:var(--amber);color:#000;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;font-family:var(--mono)">0</span>` : ''}
           </a>`;
         }).join('')}
-      </div>`).join('');
+        </div>
+      </div>`;
+    }).join('');
 
     const bottom = `
       <div class="side-nav-spacer"></div>

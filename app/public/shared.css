@@ -174,9 +174,14 @@ html, body {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--text3);
-  padding: 0 8px;
-  margin-bottom: 3px;
+  padding: 2px 8px 3px;
+  margin-bottom: 2px;
+  border-radius: 5px;
+  transition: background .12s;
 }
+.side-nav-section-label:hover { background: var(--bg3); }
+.side-nav-section-items { overflow: hidden; }
+.sec-chevron { color: var(--text3); opacity: .6; }
 
 .side-nav-item {
   display: flex;
