@@ -65,9 +65,13 @@
     documents: { href:'/documents.html',  label:'Documents', color:'#6366f1', bg:'rgba(99,102,241,.1)',    svgKey:'documents' },
     career:    { href:'/career.html',     label:'Career',    color:'#f97316', bg:'rgba(249,115,22,.1)',    svgKey:'career' },
     books:     { href:'/books.html',      label:'Books',     color:'#8b5cf6', bg:'rgba(139,92,246,.1)',    svgKey:'books' },
-    reports:   { href:'/reports.html',    label:'Reports',       color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
-    data:      { href:'/data.html',       label:'Data',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'database' },
-    notifications: { href:'/notifications.html', label:'Alerts', color:'#ef4444', bg:'rgba(239,68,68,.1)',   svgKey:'bell' },
+    reports:      { href:'/reports.html',       label:'Reports',       color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
+    data:         { href:'/data.html',          label:'Data',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'database' },
+    notifications:{ href:'/notifications.html', label:'Alerts',        color:'#ef4444', bg:'rgba(239,68,68,.1)',    svgKey:'bell' },
+    wardrobe:     { href:'/wardrobe.html',      label:'Wardrobe',      color:'#a78bfa', bg:'rgba(167,139,250,.12)', svgKey:'inventory' },
+    perfume:      { href:'/perfume.html',       label:'Perfume',       color:'#ec4899', bg:'rgba(236,72,153,.1)',   svgKey:'inventory' },
+    insurance:    { href:'/insurance.html',     label:'Insurance',     color:'#14b8a6', bg:'rgba(20,184,166,.12)',  svgKey:'documents' },
+    subscriptions:{ href:'/subscriptions.html', label:'Subscriptions', color:'#22c55e', bg:'rgba(34,197,94,.12)',  svgKey:'finance' },
   };
 
   function moduleIcon(m, sizePx) {
@@ -75,12 +79,13 @@
   }
 
   const SIDEBAR_SECTIONS = [
-    { label: 'Daily',     keys: ['dailylog', 'todos'] },
-    { label: 'Finance',   keys: ['finance', 'trading'] },
-    { label: 'Household', keys: ['inventory', 'medical', 'kids', 'property', 'documents'] },
-    { label: 'Personal',  keys: ['career', 'books', 'resources'] },
-    { label: 'Reports',   keys: ['reports'] },
-    { label: 'Admin',     keys: ['notifications', 'data', 'settings'] },
+    { label: 'Focus',    keys: ['dailylog', 'todos', 'resources'] },
+    { label: 'Finance',  keys: ['finance', 'trading', 'subscriptions'] },
+    { label: 'Home',     keys: ['inventory', 'property', 'documents', 'wardrobe', 'perfume'] },
+    { label: 'Family',   keys: ['medical', 'kids', 'insurance'] },
+    { label: 'Personal', keys: ['career', 'books'] },
+    { label: 'Reports',  keys: ['reports'] },
+    { label: 'Admin',    keys: ['notifications', 'data', 'settings'] },
   ];
 
   const currentPath = window.location.pathname;

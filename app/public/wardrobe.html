@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Wardrobe — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <script>
+    if (localStorage.getItem('gh_nav_collapsed') === '1') {
+      document.documentElement.classList.add('nav-collapsed-init');
+    }
+  </script>
+  <style>
+    .member-pills { display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 0; }
+    .member-pill { padding:5px 14px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;transition:.15s; }
+    .member-pill.active { background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd); }
+    .weather-strip { display:flex;gap:10px;overflow-x:auto;padding:10px 16px 0;scrollbar-width:none; }
+    .weather-strip::-webkit-scrollbar { display:none; }
+    .weather-col { flex-shrink:0;width:200px; }
+    .weather-cell { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:13px; }
+    .weather-cell.today { border-color:var(--accent);background:var(--accent-bg);color:var(--accent); }
+    .day-scroll-wrap { position:relative;margin:10px 0 0; }
+    .day-scroll { display:flex;gap:10px;overflow-x:auto;padding:0 16px 12px;scrollbar-width:none; }
+    .day-scroll::-webkit-scrollbar { display:none; }
+    .day-col { flex-shrink:0;width:200px; }
+    .day-hdr { font-size:12px;font-weight:600;color:var(--text);padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px; }
+    .outfit-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px;margin-bottom:8px; }
+    .outfit-name { font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px; }
+    .outfit-thumbs { display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px; }
+    .outfit-thumb { width:38px;height:38px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;overflow:hidden; }
+    .outfit-thumb img { width:100%;height:100%;object-fit:cover; }
+    .outfit-tags { display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px; }
+    .outfit-tag { font-size:10px;padding:2px 7px;border-radius:20px;background:var(--bg3);color:var(--text3);border:1px solid var(--border); }
+    .outfit-tag.weather { background:var(--green-bg,#eaf3de);color:var(--green,#3b6d11); }
+    .outfit-tag.missing { background:#faeeda;color:#854f0b; }
+    .outfit-foot { display:flex;gap:6px; }
+    .scroll-arrow { position:absolute;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;color:var(--text3); }
+    .scroll-arrow.left { left:2px; }
+    .scroll-arrow.right { right:2px; }
+    .add-outfit-btn { width:100%;padding:8px;border-radius:var(--r);border:1px dashed var(--border2);background:none;font-size:12px;color:var(--text3);cursor:pointer;text-align:center; }
+    .insights-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 16px; }
+    .ins-card { background:var(--bg3);border-radius:var(--r);padding:10px 12px; }
+    .ins-val { font-size:20px;font-weight:700;color:var(--text); }
+    .ins-lbl { font-size:11px;color:var(--text3);margin-top:2px; }
+    .highlight-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;display:flex;align-items:center;gap:10px;margin:0 16px 8px; }
+    .highlight-thumb { width:40px;height:40px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
+    .badge-pill { font-size:10px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0; }
+    .badge-blue { background:var(--accent-bg);color:var(--accent); }
+    .badge-amber { background:#faeeda;color:#854f0b; }
+    .section-label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:14px 16px 6px; }
+  </style>
+</head>
+<body>
+<script src="/nav.js"></script>
+<script>window.GH_PAGE = { key:'wardrobe', title:'Wardrobe' };</script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/attachments.js"></script>
+
+<div id="app">
+  <div class="gh-page-header"></div>
+
+  <!-- Family member filter -->
+  <div class="member-pills" id="memberPills">
+    <div class="member-pill active" data-id="">All</div>
+  </div>
+
+  <!-- Weather strip (aligned with day columns) -->
+  <div class="section-label">This week</div>
+  <div class="weather-strip" id="weatherStrip"></div>
+
+  <!-- Day scroll -->
+  <div class="section-label">Outfits — scroll for full week</div>
+  <div class="day-scroll-wrap">
+    <div class="scroll-arrow left" id="scrollLeft">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+    </div>
+    <div class="day-scroll" id="dayScroll"></div>
+    <div class="scroll-arrow right" id="scrollRight">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </div>
+  </div>
+
+  <!-- Insights -->
+  <div class="section-label" id="insightsLabel">Wardrobe insights — All</div>
+  <div class="insights-grid" id="insightsGrid">
+    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Items in wardrobe</div></div>
+    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Outfits saved</div></div>
+    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Not worn 30+ days</div></div>
+    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Total value</div></div>
+  </div>
+
+  <div style="margin-top:10px">
+    <div class="highlight-card">
+      <div class="highlight-thumb">👕</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:var(--text)">No wear data yet</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Add items and log wear to see insights</div>
+      </div>
+      <div class="badge-pill badge-blue">Most worn</div>
+    </div>
+  </div>
+
+  <div style="height:40px"></div>
+</div>
+
+<script>
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const WEATHER_ICONS = { Clear:'☀', Clouds:'⛅', Rain:'🌧', Drizzle:'🌦', Thunderstorm:'⛈', Snow:'❄', Mist:'🌫' };
+
+let _members = [];
+let _activeMember = '';
+let _weather = [];
+
+async function init() {
+  await loadMembers();
+  renderDays();
+  loadWeather();
+}
+
+async function loadMembers() {
+  try {
+    const members = await window.api('GET', '/settings/family');
+    _members = members;
+    const pills = document.getElementById('memberPills');
+    members.forEach(m => {
+      const pill = document.createElement('div');
+      pill.className = 'member-pill';
+      pill.dataset.id = m.id;
+      pill.textContent = m.display_name;
+      pill.onclick = () => selectMember(m.id, m.display_name);
+      pills.appendChild(pill);
+    });
+  } catch(e) {}
+}
+
+function selectMember(id, name) {
+  _activeMember = id;
+  document.querySelectorAll('.member-pill').forEach(p => {
+    p.classList.toggle('active', p.dataset.id == id);
+  });
+  document.getElementById('insightsLabel').textContent =
+    'Wardrobe insights — ' + (name || 'All');
+}
+
+function renderDays() {
+  const scroll = document.getElementById('dayScroll');
+  const strip  = document.getElementById('weatherStrip');
+  const today  = new Date();
+  scroll.innerHTML = '';
+  strip.innerHTML  = '';
+
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(today.getDate() + i);
+    const isToday = i === 0;
+    const dayName = isToday ? 'Today' : DAYS[d.getDay()];
+    const dateStr = (d.getMonth()+1) + '/' + d.getDate();
+
+    // Weather cell (in strip — same width as day col)
+    const wCol = document.createElement('div');
+    wCol.className = 'weather-col';
+    wCol.innerHTML = `<div class="weather-cell${isToday?' today':''}">
+      <span style="font-size:20px" id="wicon_${i}">—</span>
+      <div><div style="font-weight:600">${'—'}°F</div><div style="font-size:11px;opacity:.8">${'Loading…'}</div></div>
+    </div>`;
+    wCol.id = 'wcol_' + i;
+    strip.appendChild(wCol);
+
+    // Day column
+    const col = document.createElement('div');
+    col.className = 'day-col';
+    col.innerHTML = `<div class="day-hdr">${dayName} · ${dateStr}</div>
+      <button class="add-outfit-btn" onclick="addOutfit(${i})">+ Add outfit</button>`;
+    scroll.appendChild(col);
+  }
+
+  // Scroll arrows
+  const sc = scroll;
+  const la = document.getElementById('scrollLeft');
+  const ra = document.getElementById('scrollRight');
+  function upd() {
+    la.style.opacity = sc.scrollLeft > 10 ? '1' : '0.3';
+    ra.style.opacity = sc.scrollLeft < sc.scrollWidth - sc.clientWidth - 10 ? '1' : '0.3';
+  }
+  sc.addEventListener('scroll', upd); upd();
+  la.onclick = () => sc.scrollBy({left:-210,behavior:'smooth'});
+  ra.onclick = () => sc.scrollBy({left:210,behavior:'smooth'});
+}
+
+async function loadWeather() {
+  try {
+    const d = await window.api('GET', '/app/weather');
+    if (!d || !d.daily) return;
+    d.daily.slice(0, 7).forEach((day, i) => {
+      const icon = WEATHER_ICONS[day.weather?.[0]?.main] || '—';
+      const temp = Math.round((day.temp?.day - 273.15) * 9/5 + 32);
+      const desc = day.weather?.[0]?.description || '';
+      const wcol = document.getElementById('wcol_' + i);
+      if (wcol) {
+        wcol.querySelector('.weather-cell').innerHTML = `
+          <span style="font-size:20px">${icon}</span>
+          <div><div style="font-weight:600">${temp}°F</div><div style="font-size:11px;opacity:.8">${desc}</div></div>`;
+        if (i === 0) wcol.querySelector('.weather-cell').classList.add('today');
+      }
+    });
+  } catch(e) {}
+}
+
+function addOutfit(dayIndex) {
+  // Shell — no functionality yet
+  alert('Outfit builder coming soon. Design phase complete.');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>

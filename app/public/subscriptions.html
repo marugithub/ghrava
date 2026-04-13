@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Subscriptions — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <script>
+    if (localStorage.getItem('gh_nav_collapsed') === '1') {
+      document.documentElement.classList.add('nav-collapsed-init');
+    }
+  </script>
+  <style>
+    .summary-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 16px 0; }
+    .sum-card { background:var(--bg3);border-radius:var(--r);padding:10px 12px; }
+    .sum-val { font-size:18px;font-weight:700;color:var(--text); }
+    .sum-lbl { font-size:11px;color:var(--text3);margin-top:2px; }
+    .sub-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:.15s; }
+    .sub-card:hover { border-color:var(--border2); }
+    .sub-icon { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0; }
+    .sub-name { font-size:13px;font-weight:600;color:var(--text); }
+    .sub-meta { font-size:11px;color:var(--text3);margin-top:1px; }
+    .sub-cost { font-size:14px;font-weight:700;color:var(--text);text-align:right; }
+    .sub-cycle { font-size:10px;color:var(--text3);text-align:right; }
+    .sub-status { font-size:10px;padding:2px 7px;border-radius:20px;white-space:nowrap; }
+    .sub-active { background:#eaf3de;color:#3b6d11; }
+    .sub-paused { background:#faeeda;color:#854f0b; }
+    .sub-cancelled { background:var(--bg3);color:var(--text3);text-decoration:line-through; }
+    .section-label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:14px 16px 4px; }
+    .cat-section { padding:0 16px 4px; }
+    .member-pills { display:flex;gap:6px;padding:10px 16px 0;flex-wrap:wrap; }
+    .member-pill { padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer; }
+    .member-pill.active { background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd); }
+  </style>
+</head>
+<body>
+<script src="/nav.js"></script>
+<script>window.GH_PAGE = { key:'subscriptions', title:'Subscriptions' };</script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+
+<div id="app">
+  <div class="gh-page-header"></div>
+
+  <!-- Family filter -->
+  <div class="member-pills" id="memberPills">
+    <div class="member-pill active" data-id="">All members</div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-grid" style="margin-top:10px">
+    <div class="sum-card"><div class="sum-val" id="sumMonthly">—</div><div class="sum-lbl">Monthly total</div></div>
+    <div class="sum-card"><div class="sum-val" id="sumAnnual">—</div><div class="sum-lbl">Annual total</div></div>
+    <div class="sum-card"><div class="sum-val" id="sumCount">—</div><div class="sum-lbl">Active</div></div>
+  </div>
+
+  <!-- Streaming -->
+  <div class="section-label">Streaming</div>
+  <div class="cat-section">
+    <div class="sub-card">
+      <div class="sub-icon" style="background:#FCEBEB">📺</div>
+      <div style="flex:1;min-width:0">
+        <div class="sub-name">Netflix</div>
+        <div class="sub-meta">All members · Visa ••4521 · Renews Jan 15</div>
+      </div>
+      <div>
+        <div class="sub-cost">$22.99</div>
+        <div class="sub-cycle">/ month</div>
+      </div>
+      <span class="sub-status sub-active">Active</span>
+    </div>
+    <div class="sub-card">
+      <div class="sub-icon" style="background:#E6F1FB">🎬</div>
+      <div style="flex:1;min-width:0">
+        <div class="sub-name">Disney+</div>
+        <div class="sub-meta">Arnav, Risha · Visa ••4521 · Renews Feb 3</div>
+      </div>
+      <div>
+        <div class="sub-cost">$13.99</div>
+        <div class="sub-cycle">/ month</div>
+      </div>
+      <span class="sub-status sub-active">Active</span>
+    </div>
+  </div>
+
+  <!-- Software -->
+  <div class="section-label">Software</div>
+  <div class="cat-section">
+    <div class="sub-card">
+      <div class="sub-icon" style="background:#EAF3DE">💻</div>
+      <div style="flex:1;min-width:0">
+        <div class="sub-name">Microsoft 365</div>
+        <div class="sub-meta">All members · Visa ••4521 · Renews Apr 2026</div>
+      </div>
+      <div>
+        <div class="sub-cost">$99.99</div>
+        <div class="sub-cycle">/ year</div>
+      </div>
+      <span class="sub-status sub-active">Active</span>
+    </div>
+  </div>
+
+  <!-- Music -->
+  <div class="section-label">Music</div>
+  <div class="cat-section">
+    <div class="sub-card">
+      <div class="sub-icon" style="background:#EEEDFE">🎵</div>
+      <div style="flex:1;min-width:0">
+        <div class="sub-name">Spotify Family</div>
+        <div class="sub-meta">All members · Visa ••4521 · Renews Jan 22</div>
+      </div>
+      <div>
+        <div class="sub-cost">$17.99</div>
+        <div class="sub-cycle">/ month</div>
+      </div>
+      <span class="sub-status sub-active">Active</span>
+    </div>
+  </div>
+
+  <div style="height:40px"></div>
+</div>
+
+<script>
+async function loadMembers() {
+  try {
+    const members = await window.api('GET', '/settings/family');
+    const pills = document.getElementById('memberPills');
+    members.forEach(m => {
+      const pill = document.createElement('div');
+      pill.className = 'member-pill';
+      pill.dataset.id = m.id;
+      pill.textContent = m.display_name;
+      pill.onclick = () => {
+        document.querySelectorAll('.member-pill').forEach(p => p.classList.remove('active'));
+        pill.classList.add('active');
+      };
+      pills.appendChild(pill);
+    });
+  } catch(e) {}
+}
+
+function loadSummary() {
+  // Shell placeholder — real data from API when module is built
+  document.getElementById('sumMonthly').textContent = '$54.97';
+  document.getElementById('sumAnnual').textContent = '$759.63';
+  document.getElementById('sumCount').textContent = '4';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadMembers();
+  loadSummary();
+});
+</script>
+</body>
+</html>
