@@ -191,6 +191,7 @@
  * @property {number|null} cost
  * @property {string|null} description
  * @property {string|null} notes
+ * @property {number|null} instructor_contact_id
  */
 
 /**
