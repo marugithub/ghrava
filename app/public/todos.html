@@ -28,7 +28,7 @@
 
 /* 2-column grid layout */
 .todo-grid {
-  display: grid; grid-template-columns: 1fr 1fr;
+  display: grid; grid-template-columns: repeat(var(--td-cols, 2), minmax(0, 1fr));
   gap: 8px; padding: 0 16px 4px;
 }
 @media (max-width: 700px) { .todo-grid { grid-template-columns: 1fr; } }
@@ -421,7 +421,7 @@ function render() {
     sectionHTML(p.label, p.items, false)
   ).join('');
 
-  list.className = 'todo-grid';
+  list.className = 'todo-list-wrap';
   wireItems();
 }
 
@@ -682,6 +682,9 @@ AttachmentManager.injectStyles();
   GH_VIEW.init('todoViewToolbar', 'td', state => {
   _todoView    = state.view;
   _todoFilters = state.filters || {};
+  // Apply cols as CSS variable — cascades to all inner .todo-grid divs
+  const cols = state.cols || 2;
+  document.documentElement.style.setProperty('--td-cols', cols);
   render();
 }, {
   defaultView: 'list',
