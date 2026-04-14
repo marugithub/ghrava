@@ -56,7 +56,7 @@
     inventory: { href:'/inventory.html',  label:'Inventory', color:'#f59e0b', bg:'rgba(245,158,11,.12)',   svgKey:'inventory' },
     medical:   { href:'/medical.html',    label:'Medical',   color:'#14b8a6', bg:'rgba(20,184,166,.12)',   svgKey:'medical' },
     finance:   { href:'/finance.html',    label:'Finance',   color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance' },
-    trading:   { href:'/trade.html',      label:'↗ Terminal', color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance', newTab: true },
+    trading:   { href:'/trade.html',      label:'Terminal', color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance', newTab: true },
     resources: { href:'/resources.html',  label:'Resources', color:'#64748b', bg:'rgba(100,116,139,.12)', svgKey:'resources' },
     todos:     { href:'/todos.html',      label:'To Do',     color:'#a78bfa', bg:'rgba(167,139,250,.12)', svgKey:'todos' },
     settings:  { href:'/settings.html',   label:'Settings',  color:'#8fa3bf', bg:'rgba(143,163,191,.1)',   svgKey:'settings' },
@@ -179,7 +179,7 @@
       } catch {}
     }
 
-    const NEWTAB_ICON = `<span style="display:inline-flex;align-items:center;margin-left:5px;padding:1px 3px;border:1px solid #378ADD;border-radius:3px;line-height:1"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>`;
+    const NEWTAB_ICON = `<span style="display:inline-flex;align-items:center;margin-left:4px;padding:1px 2px;border:1px solid #378ADD;border-radius:3px;line-height:1"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>`;
 
     const sections = SIDEBAR_SECTIONS.map(s => {
       const collapsed = isSectionCollapsed(s.label);
