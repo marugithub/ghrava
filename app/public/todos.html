@@ -434,7 +434,7 @@ function sectionHTML(label, items, isDone) {
       <span class="todo-section-count">${items.length}</span>
       <span class="todo-section-line"></span>
     </div>
-    <div class="todo-grid">
+    <div class="todo-grid" style="grid-template-columns:repeat(${_todoCols},minmax(0,1fr))">
       ${items.map(t => todoHTML(t, isDone)).join('')}
     </div>
   `;
@@ -677,14 +677,12 @@ $('todoSearch').addEventListener('input', e => {
   renderTodos();
 });
 window._todoSearch = '';
-let _todoView = 'list', _todoFilters = {};
+let _todoView = 'list', _todoFilters = {}, _todoCols = parseInt(localStorage.getItem('td_cols') || '2', 10) || 2;
 AttachmentManager.injectStyles();
   GH_VIEW.init('todoViewToolbar', 'td', state => {
   _todoView    = state.view;
   _todoFilters = state.filters || {};
-  // Apply cols as CSS variable — cascades to all inner .todo-grid divs
-  const cols = state.cols || 2;
-  document.documentElement.style.setProperty('--td-cols', cols);
+  _todoCols    = state.cols || 2;
   render();
 }, {
   defaultView: 'list',
