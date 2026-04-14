@@ -1,161 +1,83 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/icon-192.png">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#f0f4f8">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Subscriptions — Ghrava</title>
-  <link rel="stylesheet" href="/shared.css">
-  <script src="/theme.js"></script>
-  <script>
-    if (localStorage.getItem('gh_nav_collapsed') === '1') {
-      document.documentElement.classList.add('nav-collapsed-init');
-    }
-  </script>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Subscriptions — Ghrava</title><link rel="stylesheet" href="/shared.css"><script src="/theme.js"></script>
+  <script>if (localStorage.getItem('gh_nav_collapsed') === '1') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .summary-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 16px 0; }
-    .sum-card { background:var(--bg3);border-radius:var(--r);padding:10px 12px; }
-    .sum-val { font-size:18px;font-weight:700;color:var(--text); }
-    .sum-lbl { font-size:11px;color:var(--text3);margin-top:2px; }
-    .sub-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:11px 13px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer;transition:.15s; }
-    .sub-card:hover { border-color:var(--border2); }
-    .sub-icon { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0; }
-    .sub-name { font-size:13px;font-weight:600;color:var(--text); }
-    .sub-meta { font-size:11px;color:var(--text3);margin-top:1px; }
-    .sub-cost { font-size:14px;font-weight:700;color:var(--text);text-align:right; }
-    .sub-cycle { font-size:10px;color:var(--text3);text-align:right; }
-    .sub-status { font-size:10px;padding:2px 7px;border-radius:20px;white-space:nowrap; }
-    .sub-active { background:#eaf3de;color:#3b6d11; }
-    .sub-paused { background:#faeeda;color:#854f0b; }
-    .sub-cancelled { background:var(--bg3);color:var(--text3);text-decoration:line-through; }
-    .section-label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:14px 16px 4px; }
-    .cat-section { padding:0 16px 4px; }
-    .member-pills { display:flex;gap:6px;padding:10px 16px 0;flex-wrap:wrap; }
-    .member-pill { padding:4px 12px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer; }
-    .member-pill.active { background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd); }
+    .summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 16px 0}.sum-card{background:var(--bg3);border-radius:var(--r);padding:10px 12px}
+    .sum-val{font-size:18px;font-weight:700}.sum-lbl{font-size:11px;color:var(--text3)}
+    .sub-grid{display:grid;grid-template-columns:repeat(var(--sub-cols,2),minmax(0,1fr));gap:10px;padding:10px 16px 90px}
+    .sub-list{display:flex;flex-direction:column;gap:8px;padding:10px 16px 90px}
+    .sub-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px}
+    .sub-head{display:flex;align-items:center;gap:10px}.sub-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--bg3)}
+    .sub-name{font-size:14px;font-weight:700}.sub-meta{font-size:12px;color:var(--text3)}.sub-price{font-size:16px;font-weight:700}
+    .status-pill{font-size:10px;border:1px solid var(--border2);border-radius:999px;padding:2px 8px;margin-left:auto}
+    @media(max-width:700px){.summary-grid{grid-template-columns:1fr}.sub-grid{grid-template-columns:1fr!important}}
   </style>
 </head>
 <body>
-<script src="/nav.js"></script>
-<script>window.GH_PAGE = { key:'subscriptions', title:'Subscriptions' };</script>
-<script src="/js/lt-core.js"></script>
-<script src="/js/lt-refs.js"></script>
+<script src="/nav.js"></script><script>window.GH_PAGE = { key:'subscriptions', title:'Subscriptions' };</script>
+<script src="/js/lt-core.js"></script><script src="/js/lt-messages.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
-
-  <!-- Family filter -->
-  <div class="member-pills" id="memberPills">
-    <div class="member-pill active" data-id="">All members</div>
+  <div style="padding:10px 16px 0"><input id="subSearch" class="search-input" type="search" placeholder="Search service, category, owner..."></div>
+  <div id="subViewToolbar" style="display:flex;align-items:center;padding:6px 16px 0"></div>
+  <div class="summary-grid">
+    <div class="sum-card"><div class="sum-val" id="mTotal">—</div><div class="sum-lbl">Monthly spend</div></div>
+    <div class="sum-card"><div class="sum-val" id="aTotal">—</div><div class="sum-lbl">Annualized spend</div></div>
+    <div class="sum-card"><div class="sum-val" id="sCount">—</div><div class="sum-lbl">Active subscriptions</div></div>
   </div>
-
-  <!-- Summary -->
-  <div class="summary-grid" style="margin-top:10px">
-    <div class="sum-card"><div class="sum-val" id="sumMonthly">—</div><div class="sum-lbl">Monthly total</div></div>
-    <div class="sum-card"><div class="sum-val" id="sumAnnual">—</div><div class="sum-lbl">Annual total</div></div>
-    <div class="sum-card"><div class="sum-val" id="sumCount">—</div><div class="sum-lbl">Active</div></div>
-  </div>
-
-  <!-- Streaming -->
-  <div class="section-label">Streaming</div>
-  <div class="cat-section">
-    <div class="sub-card">
-      <div class="sub-icon" style="background:#FCEBEB">📺</div>
-      <div style="flex:1;min-width:0">
-        <div class="sub-name">Netflix</div>
-        <div class="sub-meta">All members · Visa ••4521 · Renews Jan 15</div>
-      </div>
-      <div>
-        <div class="sub-cost">$22.99</div>
-        <div class="sub-cycle">/ month</div>
-      </div>
-      <span class="sub-status sub-active">Active</span>
-    </div>
-    <div class="sub-card">
-      <div class="sub-icon" style="background:#E6F1FB">🎬</div>
-      <div style="flex:1;min-width:0">
-        <div class="sub-name">Disney+</div>
-        <div class="sub-meta">Arnav, Risha · Visa ••4521 · Renews Feb 3</div>
-      </div>
-      <div>
-        <div class="sub-cost">$13.99</div>
-        <div class="sub-cycle">/ month</div>
-      </div>
-      <span class="sub-status sub-active">Active</span>
-    </div>
-  </div>
-
-  <!-- Software -->
-  <div class="section-label">Software</div>
-  <div class="cat-section">
-    <div class="sub-card">
-      <div class="sub-icon" style="background:#EAF3DE">💻</div>
-      <div style="flex:1;min-width:0">
-        <div class="sub-name">Microsoft 365</div>
-        <div class="sub-meta">All members · Visa ••4521 · Renews Apr 2026</div>
-      </div>
-      <div>
-        <div class="sub-cost">$99.99</div>
-        <div class="sub-cycle">/ year</div>
-      </div>
-      <span class="sub-status sub-active">Active</span>
-    </div>
-  </div>
-
-  <!-- Music -->
-  <div class="section-label">Music</div>
-  <div class="cat-section">
-    <div class="sub-card">
-      <div class="sub-icon" style="background:#EEEDFE">🎵</div>
-      <div style="flex:1;min-width:0">
-        <div class="sub-name">Spotify Family</div>
-        <div class="sub-meta">All members · Visa ••4521 · Renews Jan 22</div>
-      </div>
-      <div>
-        <div class="sub-cost">$17.99</div>
-        <div class="sub-cycle">/ month</div>
-      </div>
-      <span class="sub-status sub-active">Active</span>
-    </div>
-  </div>
-
-  <div style="height:40px"></div>
+  <div id="subList"></div>
 </div>
 
 <script>
-async function loadMembers() {
-  try {
-    const members = await window.api('GET', '/settings/family');
-    const pills = document.getElementById('memberPills');
-    members.forEach(m => {
-      const pill = document.createElement('div');
-      pill.className = 'member-pill';
-      pill.dataset.id = m.id;
-      pill.textContent = m.display_name;
-      pill.onclick = () => {
-        document.querySelectorAll('.member-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-      };
-      pills.appendChild(pill);
-    });
-  } catch(e) {}
+const SUB_DATA=[
+  {id:1,name:'Netflix',icon:'📺',category:'Streaming',owner:'All members',amount:22.99,cycle:'month',status:'active',renews:'Jan 15'},
+  {id:2,name:'Disney+',icon:'🎬',category:'Streaming',owner:'Kids',amount:13.99,cycle:'month',status:'active',renews:'Feb 3'},
+  {id:3,name:'Microsoft 365',icon:'💻',category:'Software',owner:'All members',amount:99.99,cycle:'year',status:'active',renews:'Apr 2026'},
+  {id:4,name:'Spotify Family',icon:'🎵',category:'Music',owner:'All members',amount:17.99,cycle:'month',status:'active',renews:'Jan 22'},
+  {id:5,name:'iCloud+',icon:'☁️',category:'Storage',owner:'Primary',amount:9.99,cycle:'month',status:'paused',renews:'Paused'}
+];
+let subView='grid', subCols=parseInt(localStorage.getItem('sub_cols')) || (window.innerWidth>=600?2:1), subFilters={};
+function fmt$(n){return '$'+Number(n||0).toFixed(2)}
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function monthly(v){return v.cycle==='year' ? (v.amount/12) : v.amount;}
+
+function initView(){
+  GH_VIEW.init('subViewToolbar','sub',s=>{subView=s.view;subCols=s.cols;subFilters=s.filters||{};renderSubs();},{
+    defaultView:'grid',
+    filterFields:[
+      {key:'category',type:'select',label:'Category',options:['Streaming','Software','Music','Storage']},
+      {key:'status',type:'select',label:'Status',options:['active','paused','cancelled']},
+      {key:'owner',type:'text',label:'Owner',placeholder:'e.g. Kids'}
+    ]
+  });
+}
+function rows(){
+  const q=(document.getElementById('subSearch').value||'').toLowerCase();
+  return SUB_DATA.filter(r=>{
+    if(q && !(`${r.name} ${r.category} ${r.owner}`.toLowerCase().includes(q))) return false;
+    if(subFilters.category && r.category!==subFilters.category) return false;
+    if(subFilters.status && r.status!==subFilters.status) return false;
+    if(subFilters.owner && !r.owner.toLowerCase().includes(subFilters.owner.toLowerCase())) return false;
+    return true;
+  });
+}
+function renderSubs(){
+  const out=rows();
+  const m=out.filter(x=>x.status==='active').reduce((a,b)=>a+monthly(b),0);
+  document.getElementById('mTotal').textContent=fmt$(m); document.getElementById('aTotal').textContent=fmt$(m*12); document.getElementById('sCount').textContent=out.filter(x=>x.status==='active').length;
+  if(!out.length){document.getElementById('subList').innerHTML=emptyState('🧾','No subscriptions found','Try adjusting your filters.');return;}
+  const cls=subView==='list'?'sub-list':'sub-grid';
+  document.getElementById('subList').innerHTML=`<div class="${cls}" style="--sub-cols:${subCols}">${out.map(r=>`<div class="sub-card"><div class="sub-head"><div class="sub-icon">${r.icon}</div><div style="flex:1;min-width:0"><div class="sub-name">${esc(r.name)}</div><div class="sub-meta">${esc(r.category)} · ${esc(r.owner)} · Renews ${esc(r.renews)}</div></div><span class="status-pill">${esc(r.status)}</span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><div class="sub-price">${fmt$(r.amount)}</div><div class="sub-meta">per ${esc(r.cycle)}</div></div></div>`).join('')}</div>`;
 }
 
-function loadSummary() {
-  // Shell placeholder — real data from API when module is built
-  document.getElementById('sumMonthly').textContent = '$54.97';
-  document.getElementById('sumAnnual').textContent = '$759.63';
-  document.getElementById('sumCount').textContent = '4';
-}
-
-document.addEventListener('DOMContentLoaded', () => {
-  loadMembers();
-  loadSummary();
-});
+document.getElementById('subSearch').addEventListener('input', renderSubs);
+document.addEventListener('DOMContentLoaded',()=>{initView();renderSubs();});
 </script>
 </body>
 </html>

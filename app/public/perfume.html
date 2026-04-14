@@ -1,157 +1,75 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/icon-192.png">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#f0f4f8">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Perfume — Ghrava</title>
-  <link rel="stylesheet" href="/shared.css">
-  <script src="/theme.js"></script>
-  <script>
-    if (localStorage.getItem('gh_nav_collapsed') === '1') {
-      document.documentElement.classList.add('nav-collapsed-init');
-    }
-  </script>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Perfume — Ghrava</title><link rel="stylesheet" href="/shared.css"><script src="/theme.js"></script>
+  <script>if (localStorage.getItem('gh_nav_collapsed') === '1') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .filter-bar { display:flex;gap:8px;padding:10px 16px 0;overflow-x:auto;scrollbar-width:none; }
-    .filter-bar::-webkit-scrollbar { display:none; }
-    .filter-pill { padding:5px 14px;border-radius:20px;font-size:12px;font-weight:500;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;white-space:nowrap; }
-    .filter-pill.active { background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd); }
-    .perfume-grid { display:grid;grid-template-columns:repeat(var(--perf-cols,2),1fr);gap:10px;padding:12px 16px; }
-    .perfume-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px;cursor:pointer;transition:.15s; }
-    .perfume-card:hover { border-color:var(--border2); }
-    .perf-img { width:100%;aspect-ratio:1;border-radius:var(--r);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:36px;margin-bottom:8px;overflow:hidden; }
-    .perf-img img { width:100%;height:100%;object-fit:cover; }
-    .perf-name { font-size:13px;font-weight:600;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
-    .perf-brand { font-size:11px;color:var(--text3);margin-bottom:6px; }
-    .perf-tags { display:flex;gap:3px;flex-wrap:wrap; }
-    .perf-tag { font-size:10px;padding:2px 6px;border-radius:20px;background:var(--bg3);color:var(--text3);border:1px solid var(--border); }
-    .perf-conc { font-size:10px;padding:2px 6px;border-radius:20px;background:var(--accent-bg);color:var(--accent); }
-    .notes-row { margin-top:6px;font-size:11px;color:var(--text3); }
-    .notes-label { font-weight:600;color:var(--text2); }
-    .layer-section { padding:0 16px 12px; }
-    .layer-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;margin-bottom:8px;display:flex;align-items:center;gap:10px; }
-    .layer-icon { width:36px;height:36px;border-radius:8px;background:var(--accent-bg);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0; }
-    .section-label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:14px 16px 6px; }
+    .perf-grid{display:grid;grid-template-columns:repeat(var(--perf-cols,2),minmax(0,1fr));gap:10px;padding:10px 16px 90px}
+    .perf-list{display:flex;flex-direction:column;gap:8px;padding:10px 16px 90px}
+    .perf-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px}
+    .perf-head{display:flex;align-items:center;gap:10px}.perf-icon{width:40px;height:40px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px}
+    .perf-name{font-size:14px;font-weight:700}.perf-meta{font-size:12px;color:var(--text3)}.perf-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+    .perf-tag{font-size:10px;border:1px solid var(--border2);background:var(--bg3);padding:2px 7px;border-radius:999px}
+    @media(max-width:700px){.perf-grid{grid-template-columns:1fr!important}}
   </style>
 </head>
 <body>
-<script src="/nav.js"></script>
-<script>window.GH_PAGE = { key:'perfume', title:'Perfume' };</script>
-<script src="/js/lt-core.js"></script>
-<script src="/js/lt-refs.js"></script>
+<script src="/nav.js"></script><script>window.GH_PAGE = { key:'perfume', title:'Perfume' };</script>
+<script src="/js/lt-core.js"></script><script src="/js/lt-messages.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
-
-  <!-- Filters -->
-  <div class="filter-bar" id="ownerFilter">
-    <div class="filter-pill active" data-type="owner" data-val="">All owners</div>
-  </div>
-  <div class="filter-bar">
-    <div class="filter-pill active" data-type="family" data-val="">All seasons</div>
-    <div class="filter-pill" data-type="season" data-val="Spring">Spring</div>
-    <div class="filter-pill" data-type="season" data-val="Summer">Summer</div>
-    <div class="filter-pill" data-type="season" data-val="Fall">Fall</div>
-    <div class="filter-pill" data-type="season" data-val="Winter">Winter</div>
-  </div>
-  <div class="filter-bar">
-    <div class="filter-pill active" data-type="scent" data-val="">All scents</div>
-    <div class="filter-pill" data-type="scent" data-val="Fresh">Fresh</div>
-    <div class="filter-pill" data-type="scent" data-val="Woody">Woody</div>
-    <div class="filter-pill" data-type="scent" data-val="Oriental">Oriental</div>
-    <div class="filter-pill" data-type="scent" data-val="Floral">Floral</div>
-    <div class="filter-pill" data-type="scent" data-val="Citrus">Citrus</div>
-    <div class="filter-pill" data-type="scent" data-val="Aquatic">Aquatic</div>
-  </div>
-  <div class="filter-bar">
-    <div class="filter-pill active" data-type="occ" data-val="">All occasions</div>
-    <div class="filter-pill" data-type="occ" data-val="Casual">Casual</div>
-    <div class="filter-pill" data-type="occ" data-val="Work">Work</div>
-    <div class="filter-pill" data-type="occ" data-val="Formal">Formal</div>
-    <div class="filter-pill" data-type="occ" data-val="Evening">Evening</div>
-    <div class="filter-pill" data-type="occ" data-val="Sport">Sport</div>
-  </div>
-
-  <!-- Sample layout — shell only -->
-  <div class="section-label">Collection</div>
-  <div class="perfume-grid">
-    <div class="perfume-card">
-      <div class="perf-img">🌸</div>
-      <div class="perf-name">Bleu de Chanel</div>
-      <div class="perf-brand">Chanel · EDP</div>
-      <div class="perf-tags">
-        <span class="perf-conc">EDP</span>
-        <span class="perf-tag">Woody</span>
-        <span class="perf-tag">Fall</span>
-      </div>
-      <div class="notes-row"><span class="notes-label">Top: </span>Citrus, Mint</div>
-      <div class="notes-row"><span class="notes-label">Base: </span>Sandalwood, Cedar</div>
-    </div>
-    <div class="perfume-card">
-      <div class="perf-img">💐</div>
-      <div class="perf-name">Dior Sauvage</div>
-      <div class="perf-brand">Dior · EDT</div>
-      <div class="perf-tags">
-        <span class="perf-conc">EDT</span>
-        <span class="perf-tag">Fresh</span>
-        <span class="perf-tag">Spring</span>
-        <span class="perf-tag">Summer</span>
-      </div>
-      <div class="notes-row"><span class="notes-label">Top: </span>Bergamot, Pepper</div>
-      <div class="notes-row"><span class="notes-label">Base: </span>Ambroxan, Cedar</div>
-    </div>
-    <div class="perfume-card" style="border:2px dashed var(--border2);background:none;display:flex;align-items:center;justify-content:center;aspect-ratio:unset;min-height:80px">
-      <span style="font-size:13px;color:var(--text3)">+ Add perfume</span>
-    </div>
-  </div>
-
-  <!-- Layering sets -->
-  <div class="section-label">Layering sets</div>
-  <div class="layer-section">
-    <div class="layer-card">
-      <div class="layer-icon">🌿</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">Morning Fresh</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">Dior Sauvage + Acqua di Gio · Spring / Summer · Casual</div>
-      </div>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>
-    <button style="width:100%;padding:9px;border-radius:var(--r);border:1px dashed var(--border2);background:none;font-size:13px;color:var(--text3);cursor:pointer">+ Create layering set</button>
-  </div>
-
-  <div style="height:40px"></div>
+  <div style="padding:10px 16px 0"><input id="perfSearch" class="search-input" type="search" placeholder="Search perfume, notes, season..."></div>
+  <div id="perfViewToolbar" style="display:flex;align-items:center;padding:6px 16px 0"></div>
+  <div id="perfList"></div>
 </div>
 
 <script>
-async function loadOwners() {
-  try {
-    const members = await window.api('GET', '/settings/family');
-    const bar = document.getElementById('ownerFilter');
-    members.forEach(m => {
-      const pill = document.createElement('div');
-      pill.className = 'filter-pill';
-      pill.dataset.type = 'owner';
-      pill.dataset.val = m.id;
-      pill.textContent = m.display_name;
-      bar.appendChild(pill);
-    });
-  } catch(e) {}
+const PERF_DATA=[
+  {id:1,name:'Bleu de Chanel',brand:'Chanel',conc:'EDP',season:'Fall',scent:'Woody',occasion:'Work',top:'Citrus, Mint',base:'Sandalwood, Cedar',icon:'🌿'},
+  {id:2,name:'Dior Sauvage',brand:'Dior',conc:'EDT',season:'Summer',scent:'Fresh',occasion:'Casual',top:'Bergamot, Pepper',base:'Ambroxan, Cedar',icon:'🌊'},
+  {id:3,name:'YSL Y',brand:'YSL',conc:'EDP',season:'Spring',scent:'Aromatic',occasion:'Work',top:'Apple, Ginger',base:'Tonka, Cedar',icon:'🍏'},
+  {id:4,name:'Tom Ford Ombre Leather',brand:'Tom Ford',conc:'EDP',season:'Winter',scent:'Leather',occasion:'Evening',top:'Cardamom',base:'Leather, Amber',icon:'🖤'}
+];
+let perfView='grid', perfCols=parseInt(localStorage.getItem('perf_cols')) || (window.innerWidth>=600?2:1), perfFilters={};
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+function initView(){
+  GH_VIEW.init('perfViewToolbar','perf',s=>{perfView=s.view;perfCols=s.cols;perfFilters=s.filters||{};renderPerfume();},{
+    defaultView:'grid',
+    filterFields:[
+      {key:'season',type:'select',label:'Season',options:['Spring','Summer','Fall','Winter']},
+      {key:'scent',type:'select',label:'Scent Family',options:['Fresh','Woody','Aromatic','Leather']},
+      {key:'occasion',type:'select',label:'Occasion',options:['Casual','Work','Evening','Formal']},
+      {key:'brand',type:'text',label:'Brand',placeholder:'e.g. Chanel'}
+    ]
+  });
 }
 
-document.querySelectorAll('.filter-pill').forEach(p => {
-  p.addEventListener('click', function() {
-    const type = this.dataset.type;
-    document.querySelectorAll(`.filter-pill[data-type="${type}"]`).forEach(x => x.classList.remove('active'));
-    this.classList.add('active');
+function rows(){
+  const q=(document.getElementById('perfSearch').value||'').toLowerCase();
+  return PERF_DATA.filter(r=>{
+    if(q && !(`${r.name} ${r.brand} ${r.top} ${r.base} ${r.scent} ${r.season}`.toLowerCase().includes(q))) return false;
+    if(perfFilters.season && r.season!==perfFilters.season) return false;
+    if(perfFilters.scent && r.scent!==perfFilters.scent) return false;
+    if(perfFilters.occasion && r.occasion!==perfFilters.occasion) return false;
+    if(perfFilters.brand && !r.brand.toLowerCase().includes(perfFilters.brand.toLowerCase())) return false;
+    return true;
   });
-});
+}
 
-document.addEventListener('DOMContentLoaded', loadOwners);
+function renderPerfume(){
+  const out=rows();
+  if(!out.length){document.getElementById('perfList').innerHTML=emptyState('🧴','No fragrances match','Try changing your search or filters.');return;}
+  const cls=perfView==='list'?'perf-list':'perf-grid';
+  document.getElementById('perfList').innerHTML=`<div class="${cls}" style="--perf-cols:${perfCols}">${out.map(r=>`<div class="perf-card"><div class="perf-head"><div class="perf-icon">${r.icon}</div><div style="flex:1;min-width:0"><div class="perf-name">${esc(r.name)}</div><div class="perf-meta">${esc(r.brand)} · ${esc(r.conc)} · ${esc(r.occasion)}</div></div></div><div class="perf-tags"><span class="perf-tag">${esc(r.scent)}</span><span class="perf-tag">${esc(r.season)}</span><span class="perf-tag">Top: ${esc(r.top)}</span><span class="perf-tag">Base: ${esc(r.base)}</span></div></div>`).join('')}</div>`;
+}
+
+document.getElementById('perfSearch').addEventListener('input', renderPerfume);
+document.addEventListener('DOMContentLoaded',()=>{initView();renderPerfume();});
 </script>
 </body>
 </html>

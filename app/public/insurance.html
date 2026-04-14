@@ -11,128 +11,91 @@
   <title>Insurance — Ghrava</title>
   <link rel="stylesheet" href="/shared.css">
   <script src="/theme.js"></script>
-  <script>
-    if (localStorage.getItem('gh_nav_collapsed') === '1') {
-      document.documentElement.classList.add('nav-collapsed-init');
-    }
-  </script>
+  <script>if (localStorage.getItem('gh_nav_collapsed') === '1') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .summary-grid { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 16px 0; }
-    .sum-card { background:var(--bg3);border-radius:var(--r);padding:10px 12px; }
-    .sum-val { font-size:18px;font-weight:700;color:var(--text); }
-    .sum-lbl { font-size:11px;color:var(--text3);margin-top:2px; }
-    .type-section { padding:0 16px 4px; }
-    .type-label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:14px 0 6px; }
-    .policy-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px;margin-bottom:8px;cursor:pointer;transition:.15s; }
-    .policy-card:hover { border-color:var(--border2); }
-    .policy-head { display:flex;align-items:center;gap:10px;margin-bottom:6px; }
-    .policy-icon { width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0; }
-    .policy-name { font-size:14px;font-weight:600;color:var(--text); }
-    .policy-provider { font-size:12px;color:var(--text3); }
-    .policy-row { display:flex;justify-content:space-between;font-size:12px;color:var(--text2);padding:2px 0; }
-    .policy-row .val { font-weight:500;color:var(--text); }
-    .policy-chain { display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:none; }
-    .chain-node { flex-shrink:0;padding:4px 10px;border-radius:20px;font-size:10px;font-weight:500;border:1px solid var(--border2);background:var(--bg3);color:var(--text3); }
-    .chain-node.active { background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd); }
-    .expiry-warn { font-size:11px;color:#854f0b;background:#faeeda;border-radius:20px;padding:2px 8px;display:inline-block;margin-top:6px; }
-    .expiry-ok { font-size:11px;color:#3b6d11;background:#eaf3de;border-radius:20px;padding:2px 8px;display:inline-block;margin-top:6px; }
-    .section-label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:14px 16px 4px; }
+    .summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 16px 0}
+    .sum-card{background:var(--bg3);border-radius:var(--r);padding:10px 12px}.sum-val{font-size:18px;font-weight:700}.sum-lbl{font-size:11px;color:var(--text3)}
+    .policy-grid{display:grid;grid-template-columns:repeat(var(--ins-cols,2),minmax(0,1fr));gap:10px;padding:10px 16px 90px}
+    .policy-list{display:flex;flex-direction:column;gap:8px;padding:10px 16px 90px}
+    .policy-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px}
+    .policy-head{display:flex;align-items:center;gap:10px;margin-bottom:8px}.policy-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px}
+    .policy-name{font-size:14px;font-weight:700}.policy-provider{font-size:12px;color:var(--text3)}.policy-row{display:flex;justify-content:space-between;font-size:12px;padding:2px 0}
+    .pill{font-size:10px;border-radius:999px;padding:2px 8px;border:1px solid var(--border2);color:var(--text3)}
+    @media (max-width:700px){.summary-grid{grid-template-columns:1fr}.policy-grid{grid-template-columns:1fr!important}}
   </style>
 </head>
 <body>
 <script src="/nav.js"></script>
 <script>window.GH_PAGE = { key:'insurance', title:'Insurance' };</script>
 <script src="/js/lt-core.js"></script>
-<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
-
-  <!-- Summary -->
+  <div style="padding:10px 16px 0"><input id="insSearch" class="search-input" type="search" placeholder="Search insurer, policy, member..."></div>
+  <div id="insViewToolbar" style="display:flex;align-items:center;padding:6px 16px 0"></div>
   <div class="summary-grid">
     <div class="sum-card"><div class="sum-val" id="sumActive">—</div><div class="sum-lbl">Active policies</div></div>
     <div class="sum-card"><div class="sum-val" id="sumAnnual">—</div><div class="sum-lbl">Annual premium</div></div>
-    <div class="sum-card"><div class="sum-val" id="sumExpiring">—</div><div class="sum-lbl">Expiring soon</div></div>
+    <div class="sum-card"><div class="sum-val" id="sumExpiring">—</div><div class="sum-lbl">Expiring in 90d</div></div>
   </div>
-
-  <!-- Auto policies -->
-  <div class="section-label">Auto</div>
-  <div class="type-section">
-    <div class="policy-card">
-      <div class="policy-head">
-        <div class="policy-icon" style="background:#E6F1FB">🚗</div>
-        <div>
-          <div class="policy-name">State Farm Auto</div>
-          <div class="policy-provider">State Farm · Policy #SF-2024-88123</div>
-        </div>
-      </div>
-      <div class="policy-row"><span>Premium</span><span class="val">$1,350 / year</span></div>
-      <div class="policy-row"><span>Deductible</span><span class="val">$500</span></div>
-      <div class="policy-row"><span>Coverage</span><span class="val">Jan 1 2024 — Jan 1 2026</span></div>
-      <div class="policy-row"><span>Vehicle</span><span class="val" style="color:var(--accent)">2022 Honda CR-V</span></div>
-      <div class="policy-chain">
-        <div class="chain-node">2020–2022 · $1,100</div>
-        <div class="chain-node">2022–2024 · $1,200</div>
-        <div class="chain-node active">2024–2026 · $1,350 ←</div>
-      </div>
-      <div class="expiry-warn">⚠ Expires in 60 days</div>
-    </div>
-  </div>
-
-  <!-- Home policies -->
-  <div class="section-label">Home</div>
-  <div class="type-section">
-    <div class="policy-card">
-      <div class="policy-head">
-        <div class="policy-icon" style="background:#EAF3DE">🏠</div>
-        <div>
-          <div class="policy-name">Allstate Home</div>
-          <div class="policy-provider">Allstate · Policy #AL-HOME-44512</div>
-        </div>
-      </div>
-      <div class="policy-row"><span>Premium</span><span class="val">$2,100 / year</span></div>
-      <div class="policy-row"><span>Coverage limit</span><span class="val">$350,000</span></div>
-      <div class="policy-row"><span>Coverage</span><span class="val">Mar 15 2024 — Mar 15 2026</span></div>
-      <div class="policy-row"><span>Property</span><span class="val" style="color:var(--accent)">123 Main St</span></div>
-      <div class="policy-chain">
-        <div class="chain-node">2022–2024 · $1,850</div>
-        <div class="chain-node active">2024–2026 · $2,100 ←</div>
-      </div>
-      <div class="expiry-ok">✓ Renews Mar 2026</div>
-    </div>
-  </div>
-
-  <!-- Life policies -->
-  <div class="section-label">Life</div>
-  <div class="type-section">
-    <div class="policy-card">
-      <div class="policy-head">
-        <div class="policy-icon" style="background:#FBEAF0">❤</div>
-        <div>
-          <div class="policy-name">MetLife Term Life</div>
-          <div class="policy-provider">MetLife · Policy #ML-TL-77890</div>
-        </div>
-      </div>
-      <div class="policy-row"><span>Premium</span><span class="val">$840 / year</span></div>
-      <div class="policy-row"><span>Coverage amount</span><span class="val">$500,000</span></div>
-      <div class="policy-row"><span>Term ends</span><span class="val">2035</span></div>
-      <div class="expiry-ok">✓ Active · 9 years remaining</div>
-    </div>
-  </div>
-
-  <div style="height:40px"></div>
+  <div id="insList"></div>
 </div>
 
 <script>
-async function loadInsuranceSummary() {
-  // Shell — will load from /api/v1/insurance when module is built
-  // For now show placeholder counts
-  document.getElementById('sumActive').textContent = '3';
-  document.getElementById('sumAnnual').textContent = '$4,290';
-  document.getElementById('sumExpiring').textContent = '1';
+const INS_DATA = [
+  {id:1,type:'Auto',icon:'🚗',name:'State Farm Auto',provider:'State Farm',policy:'SF-2024-88123',premium:1350,deductible:'$500',period:'2024-01-01 to 2026-01-01',member:'Household',status:'active',expires_in_days:60},
+  {id:2,type:'Home',icon:'🏠',name:'Allstate Home',provider:'Allstate',policy:'AL-HOME-44512',premium:2100,deductible:'$1,000',period:'2024-03-15 to 2026-03-15',member:'Household',status:'active',expires_in_days:335},
+  {id:3,type:'Life',icon:'❤',name:'MetLife Term Life',provider:'MetLife',policy:'ML-TL-77890',premium:840,deductible:'N/A',period:'2020-06-01 to 2035-06-01',member:'Primary',status:'active',expires_in_days:3400},
+  {id:4,type:'Dental',icon:'🦷',name:'Delta Dental PPO',provider:'Delta Dental',policy:'DD-PPO-1912',premium:420,deductible:'$50',period:'2025-01-01 to 2026-01-01',member:'Family',status:'pending',expires_in_days:82}
+];
+let insView='grid', insCols=parseInt(localStorage.getItem('ins_cols')) || (window.innerWidth>=600?2:1), insFilters={};
+
+function fmt$(n){return '$'+Number(n||0).toLocaleString();}
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+function initView(){
+  GH_VIEW.init('insViewToolbar','ins',s=>{insView=s.view;insCols=s.cols;insFilters=s.filters||{};renderInsurance();},{
+    defaultView:'grid',
+    filterFields:[
+      {key:'type', type:'select', label:'Policy Type', options:['Auto','Home','Life','Dental']},
+      {key:'status', type:'select', label:'Status', options:['active','pending','expired']},
+      {key:'member', type:'text', label:'Member', placeholder:'e.g. Family'}
+    ]
+  });
 }
 
-document.addEventListener('DOMContentLoaded', loadInsuranceSummary);
+function filteredRows(){
+  const q=(document.getElementById('insSearch').value||'').toLowerCase();
+  return INS_DATA.filter(r=>{
+    if(q && !(`${r.name} ${r.provider} ${r.policy} ${r.member}`.toLowerCase().includes(q))) return false;
+    if(insFilters.type && r.type!==insFilters.type) return false;
+    if(insFilters.status && r.status!==insFilters.status) return false;
+    if(insFilters.member && !r.member.toLowerCase().includes(insFilters.member.toLowerCase())) return false;
+    return true;
+  });
+}
+
+function renderInsurance(){
+  const rows=filteredRows();
+  document.getElementById('sumActive').textContent=rows.filter(r=>r.status==='active').length;
+  document.getElementById('sumAnnual').textContent=fmt$(rows.reduce((a,b)=>a+(b.premium||0),0));
+  document.getElementById('sumExpiring').textContent=rows.filter(r=>r.expires_in_days<=90).length;
+  if(!rows.length){ document.getElementById('insList').innerHTML=emptyState('🧾','No policies match','Adjust search/filter to see policies.'); return; }
+  const wrapClass = insView==='list' ? 'policy-list' : 'policy-grid';
+  document.getElementById('insList').innerHTML = `<div class="${wrapClass}" style="--ins-cols:${insCols}">${rows.map(r=>`
+    <div class="policy-card">
+      <div class="policy-head"><div class="policy-icon" style="background:var(--bg3)">${r.icon}</div><div style="min-width:0;flex:1"><div class="policy-name">${esc(r.name)}</div><div class="policy-provider">${esc(r.provider)} · ${esc(r.policy)}</div></div><span class="pill">${esc(r.status)}</span></div>
+      <div class="policy-row"><span>Type</span><strong>${esc(r.type)}</strong></div>
+      <div class="policy-row"><span>Annual premium</span><strong>${fmt$(r.premium)}</strong></div>
+      <div class="policy-row"><span>Deductible</span><strong>${esc(r.deductible)}</strong></div>
+      <div class="policy-row"><span>Covered</span><strong>${esc(r.member)}</strong></div>
+      <div class="policy-row"><span>Policy term</span><span>${esc(r.period)}</span></div>
+    </div>`).join('')}</div>`;
+}
+
+document.getElementById('insSearch').addEventListener('input', renderInsurance);
+document.addEventListener('DOMContentLoaded', ()=>{initView();renderInsurance();});
 </script>
 </body>
 </html>
