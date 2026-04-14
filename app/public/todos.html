@@ -26,28 +26,37 @@
 .todo-section-count { font-family: var(--mono); font-size: 10px; color: var(--text3); }
 .todo-section-line { flex: 1; height: 1px; background: var(--border); }
 
-/* 2-column grid layout */
-.todo-grid {
+/* section card grid — separate class prevents nesting conflict */
+.todo-cards-grid {
   display: grid; grid-template-columns: repeat(var(--td-cols, 2), minmax(0, 1fr));
   gap: 8px; padding: 0 16px 4px;
 }
-@media (max-width: 700px) { .todo-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .todo-cards-grid { grid-template-columns: 1fr; } }
 #todoList { padding-bottom: 100px; }
 
 /* Todo item — has checkbox + priority stripe, justified specialization */
 .todo-item {
   display: flex; align-items: flex-start; gap: 10px;
-  padding: 11px 12px;
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--r-lg); padding: 11px 12px;
+  cursor: pointer; transition: border-color .15s, background .15s;
+  position: relative; overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
+.todo-item:hover { border-color: var(--border2); background: var(--bg3); }
 .todo-item.selected { border-color: var(--accent) !important; background: var(--accent-bg); }
 .todo-item.done-item { opacity: .5; }
 .todo-item.done-item .td-name { text-decoration: line-through; color: var(--text3); }
-/* Priority via gh-s-* on gh-card wrapper */
-.todo-item.prio-urgent  { border-left-color: var(--red) !important; }
-.todo-item.prio-high    { border-left-color: var(--amber) !important; }
-.todo-item.prio-medium  { border-left-color: var(--accent) !important; }
-.todo-item.prio-low     { border-left-color: var(--text3) !important; }
+
+/* Priority stripe */
+.todo-item::before {
+  content: ''; position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px; border-radius: 3px 0 0 3px;
+}
+.todo-item.prio-urgent::before  { background: var(--red); }
+.todo-item.prio-high::before    { background: var(--amber); }
+.todo-item.prio-medium::before  { background: var(--accent); }
+.todo-item.prio-low::before     { background: var(--text3); }
 
 /* Checkbox */
 .todo-check {
@@ -282,7 +291,6 @@
 <script>
   window.GH_PAGE = { module: 'todos', title: 'To Do' };
 </script>
-<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
@@ -421,7 +429,7 @@ function render() {
     sectionHTML(p.label, p.items, false)
   ).join('');
 
-  list.className = 'todo-list-wrap';
+  list.className = '';
   wireItems();
 }
 
@@ -434,7 +442,7 @@ function sectionHTML(label, items, isDone) {
       <span class="todo-section-count">${items.length}</span>
       <span class="todo-section-line"></span>
     </div>
-    <div class="todo-grid" style="grid-template-columns:repeat(${_todoCols},minmax(0,1fr))">
+    <div class="todo-cards-grid">
       ${items.map(t => todoHTML(t, isDone)).join('')}
     </div>
   `;
@@ -472,7 +480,7 @@ function todoHTML(t, isDone) {
   const autoBadge = t.is_auto && icons.length === 0
     ? `<span class="td-auto-badge">AUTO</span>` : '';
 
-  return `<div class="gh-card todo-item prio-${t.priority}${t.is_auto?' is-auto':''}${isDone?' done-item':''}"
+  return `<div class="todo-item prio-${t.priority}${t.is_auto?' is-auto':''}${isDone?' done-item':''}"
                data-id="${t.id}" role="button" tabindex="0">
     <div class="todo-check${isChecked?' checked':''}" data-check="${t.id}" onclick="event.stopPropagation(); toggleDone(${t.id}, ${isChecked?0:1})"></div>
     <div class="todo-body">
@@ -489,7 +497,7 @@ function todoHTML(t, isDone) {
       </div>
       ${t.tags?.length ? `<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px">${t.tags.map(tag=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(tag):'';return `<span class="tag-chip" data-tag="${esc(tag)}" style="font-size:10px;padding:1px 6px;cursor:pointer${s?';'+s:''}" title="Search: ${esc(tag)}" onclick="event.stopPropagation()">${esc(tag)}</span>`;}).join('')}</div>` : ''}
     </div>
-    <div style="display:flex;align-items:center;gap:4px;flex-shrink:0">${t.attachment_count?AttachmentManager.staticBadge('todo',t.id,t.attachment_count):''}<div class="todo-actions" onclick="event.stopPropagation()">
+    <div class="todo-actions" onclick="event.stopPropagation()">
       ${!isDone ? `<button class="todo-act-btn complete-btn" title="Mark complete" onclick="toggleDone(${t.id}, 1)">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
       </button>` : ''}
@@ -677,12 +685,13 @@ $('todoSearch').addEventListener('input', e => {
   renderTodos();
 });
 window._todoSearch = '';
-let _todoView = 'list', _todoFilters = {}, _todoCols = parseInt(localStorage.getItem('td_cols') || '2', 10) || 2;
-AttachmentManager.injectStyles();
-  GH_VIEW.init('todoViewToolbar', 'td', state => {
+let _todoView = 'list', _todoFilters = {};
+GH_VIEW.init('todoViewToolbar', 'td', state => {
   _todoView    = state.view;
   _todoFilters = state.filters || {};
-  _todoCols    = state.cols || 2;
+  // Set cols on the list container so it cascades to .todo-cards-grid children
+  const listEl = document.getElementById('todoList');
+  if (listEl) listEl.style.setProperty('--td-cols', state.cols || 2);
   render();
 }, {
   defaultView: 'list',
