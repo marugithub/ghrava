@@ -1,9 +1,170 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
   <title>HSA — Ghrava</title>
-  <script>window.location.replace('/finance.html');</script>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <script>
+    if (localStorage.getItem('gh_nav_collapsed') === '1') {
+      document.documentElement.classList.add('nav-collapsed-init');
+    }
+  </script>
+  <style>
+    .hsa-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:10px 16px 0}
+    .hsa-tile{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px 12px}
+    .hsa-tile-label{font-size:11px;color:var(--text3);margin-bottom:4px}
+    .hsa-tile-value{font-size:20px;font-weight:700;color:var(--text)}
+    .hsa-tile-sub{font-size:11px;color:var(--text3);margin-top:4px}
+    .hsa-quick{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px 2px}
+    .hsa-section{padding:8px 16px}
+    .hsa-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px}
+    .hsa-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)}
+    .hsa-row:last-child{border-bottom:none}
+    .hsa-row-title{font-size:13px;font-weight:600;color:var(--text)}
+    .hsa-row-sub{font-size:11px;color:var(--text3);margin-top:2px}
+    .hsa-row-value{font-family:var(--mono);font-size:13px;color:var(--text)}
+    .hsa-kicker{font-size:10px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 16px 2px}
+    @media (max-width: 900px){.hsa-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  </style>
 </head>
-<body></body>
+<body class="module-finance">
+<script src="/nav.js"></script>
+<script>window.GH_PAGE = { module: 'finance', title: 'HSA' };</script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+
+<div id="app">
+  <div class="gh-page-header"></div>
+
+  <div class="hsa-summary-grid">
+    <div class="hsa-tile">
+      <div class="hsa-tile-label">Contribution (YTD)</div>
+      <div class="hsa-tile-value" id="tContrib">—</div>
+      <div class="hsa-tile-sub" id="tContribSub">self + employer</div>
+    </div>
+    <div class="hsa-tile">
+      <div class="hsa-tile-label">Eligible Expenses</div>
+      <div class="hsa-tile-value" id="tEligible">—</div>
+      <div class="hsa-tile-sub">payments + OTC</div>
+    </div>
+    <div class="hsa-tile">
+      <div class="hsa-tile-label">Unreimbursed Pool</div>
+      <div class="hsa-tile-value" id="tPool">—</div>
+      <div class="hsa-tile-sub" id="tPoolSub">across all years</div>
+    </div>
+    <div class="hsa-tile">
+      <div class="hsa-tile-label">Reimbursed (YTD)</div>
+      <div class="hsa-tile-value" id="tReimb">—</div>
+      <div class="hsa-tile-sub">submitted withdrawals</div>
+    </div>
+  </div>
+
+  <div class="hsa-quick">
+    <a class="btn btn-primary" href="/finance.html">Open Full HSA Workspace</a>
+    <button class="btn btn-ghost" onclick="reloadPage()">Refresh</button>
+  </div>
+
+  <div class="hsa-kicker">Current Year Overview</div>
+  <div class="hsa-section">
+    <div class="hsa-card" id="yearOverview"></div>
+  </div>
+
+  <div class="hsa-kicker">Unreimbursed Carry Forward</div>
+  <div class="hsa-section">
+    <div class="hsa-card" id="poolBreakdown"></div>
+  </div>
+
+  <div class="hsa-kicker">Recent Eligible Payments</div>
+  <div class="hsa-section" style="padding-bottom:90px">
+    <div class="hsa-card" id="recentPayments"></div>
+  </div>
+</div>
+
+<script>
+function fmtMoney(n){ return '$' + Number(n||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+
+async function loadHsaDashboard(){
+  const year = new Date().getFullYear();
+  try {
+    const [summary, poolResp, payments] = await Promise.all([
+      window.api('GET', `/hsa/summary?year=${year}`),
+      window.api('GET', '/hsa/pool'),
+      window.api('GET', `/hsa/payments?year=${year}&reimbursed=0`)
+    ]);
+
+    const contrib = summary?.contributions?.total || 0;
+    const irs     = summary?.contributions?.irs_limit || 0;
+    const eligible= (summary?.expenses?.total_eligible || 0) + (summary?.expenses?.total_otc || 0);
+
+    document.getElementById('tContrib').textContent = fmtMoney(contrib);
+    document.getElementById('tContribSub').textContent = irs ? `${Math.round((contrib/irs)*100)}% of ${fmtMoney(irs)} IRS limit` : 'self + employer';
+    document.getElementById('tEligible').textContent = fmtMoney(eligible);
+    document.getElementById('tPool').textContent = fmtMoney(poolResp?.total || 0);
+    document.getElementById('tPoolSub').textContent = (poolResp?.pool || []).length ? `${poolResp.pool.length} year(s) available` : 'no carry-forward balance';
+    document.getElementById('tReimb').textContent = fmtMoney(summary?.total_reimbursed_ytd || 0);
+
+    renderYearOverview(summary);
+    renderPool(poolResp?.pool || []);
+    renderRecentPayments(Array.isArray(payments) ? payments.slice(0,8) : []);
+  } catch (e) {
+    const msg = esc(e.message || 'Unknown error');
+    document.getElementById('yearOverview').innerHTML = `<div style="font-size:13px;color:var(--red)">Could not load HSA data: ${msg}</div>`;
+    document.getElementById('poolBreakdown').innerHTML = '';
+    document.getElementById('recentPayments').innerHTML = '';
+  }
+}
+
+function renderYearOverview(summary){
+  const d = summary?.deductible || {};
+  const o = summary?.oop || {};
+  const plan = summary?.plan || {};
+  document.getElementById('yearOverview').innerHTML = `
+    <div class="hsa-row"><div><div class="hsa-row-title">Plan year</div><div class="hsa-row-sub">${esc(plan.plan_name || 'No plan name set')}</div></div><div class="hsa-row-value">${esc(String(summary?.year || new Date().getFullYear()))}</div></div>
+    <div class="hsa-row"><div><div class="hsa-row-title">Deductible progress</div><div class="hsa-row-sub">Applied eligible out-of-pocket</div></div><div class="hsa-row-value">${fmtMoney(d.applied)} / ${fmtMoney(d.family || d.individual || 0)}</div></div>
+    <div class="hsa-row"><div><div class="hsa-row-title">Out-of-pocket max progress</div><div class="hsa-row-sub">Total spending this year</div></div><div class="hsa-row-value">${fmtMoney(o.applied)} / ${fmtMoney(o.family || o.individual || 0)}</div></div>
+  `;
+}
+
+function renderPool(pool){
+  if (!pool.length){
+    document.getElementById('poolBreakdown').innerHTML = '<div style="font-size:13px;color:var(--text3)">No unreimbursed carry-forward pool found.</div>';
+    return;
+  }
+  document.getElementById('poolBreakdown').innerHTML = pool.map(r => `
+    <div class="hsa-row">
+      <div><div class="hsa-row-title">${r.year}</div><div class="hsa-row-sub">Unreimbursed eligible balance</div></div>
+      <div class="hsa-row-value">${fmtMoney(r.amount)}</div>
+    </div>
+  `).join('');
+}
+
+function renderRecentPayments(rows){
+  if (!rows.length){
+    document.getElementById('recentPayments').innerHTML = '<div style="font-size:13px;color:var(--text3)">No unreimbursed eligible payments for this year.</div>';
+    return;
+  }
+  document.getElementById('recentPayments').innerHTML = rows.map(r => `
+    <div class="hsa-row">
+      <div>
+        <div class="hsa-row-title">${esc(r.provider || r.store || r.patient || 'Medical Expense')}</div>
+        <div class="hsa-row-sub">${esc(r.date || '')}${r.category ? ' · ' + esc(r.category) : ''}</div>
+      </div>
+      <div class="hsa-row-value">${fmtMoney(r.you_paid ?? r.amount ?? 0)}</div>
+    </div>
+  `).join('');
+}
+
+function reloadPage(){ loadHsaDashboard(); }
+
+document.addEventListener('DOMContentLoaded', loadHsaDashboard);
+</script>
+</body>
 </html>
