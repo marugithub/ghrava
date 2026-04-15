@@ -10,2007 +10,321 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Reports — Ghrava</title>
   <link rel="stylesheet" href="/shared.css">
-<script src="/theme.js"></script></head>
+  <script src="/theme.js"></script>
+  <script>if(localStorage.getItem('gh_nav_collapsed')==='1'){document.documentElement.classList.add('nav-collapsed-init');}</script>
+  <style>
+    .reports-container{padding:16px;max-width:900px;margin:0 auto}
+    .reports-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:8px}
+    .report-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;cursor:pointer;transition:all .15s}
+    .report-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
+    .report-icon{font-size:26px;margin-bottom:10px}
+    .report-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+    .report-desc{font-size:12px;color:var(--text3);line-height:1.5}
+    .category-section{margin-bottom:24px}
+    .category-header{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:10px}
+    .report-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-top:4px}
+    .report-panel-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+    .report-panel-back{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .report-panel-back:hover{background:var(--bg4);border-color:var(--border2)}
+    .report-panel-title{font-size:18px;font-weight:700;color:var(--text);flex:1}
+    .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
+    .stat-item{background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center}
+    .stat-value{font-size:20px;font-weight:800;color:var(--text)}
+    .stat-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;font-family:var(--mono);margin-top:3px}
+  </style>
+</head>
 <body>
-<script>
-window.GH_PAGE = { module: 'reports', title: 'Reports' };
-</script>
+<script>window.GH_PAGE = { module:'reports', title:'Reports' };</script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
-<div id="nav-container"></div>
 
-<div id="app" style="padding-bottom:40px">
-
-  <div class="view-tabs" id="rptTabs" style="--tab-color:#64748b">
-    <button class="view-tab active" data-tab="summary"    onclick="switchRpt('summary',this)">Summary</button>
-    <button class="view-tab"        data-tab="people"     onclick="switchRpt('people',this)">People</button>
-    <button class="view-tab"        data-tab="spending"   onclick="switchRpt('spending',this)">Spending</button>
-    <button class="view-tab"        data-tab="health"     onclick="switchRpt('health',this)">Health</button>
-    <button class="view-tab"        data-tab="networth"   onclick="switchRpt('networth',this)">Net Worth</button>
-    <button class="view-tab"        data-tab="annual"     onclick="switchRpt('annual',this)">Annual</button>
-    <button class="view-tab"        data-tab="checklist"  onclick="switchRpt('checklist',this)">Checklist</button>
-    <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
-    <button class="view-tab"        data-tab="emergency"  onclick="switchRpt('emergency',this)">🚨 Emergency</button>
-    <button class="view-tab"        data-tab="expiry"     onclick="switchRpt('expiry',this)">📅 Expiry</button>
-    <button class="view-tab"        data-tab="insurance"  onclick="switchRpt('insurance',this)">🏠 Insurance</button>
-    <button class="view-tab"        data-tab="watcher"    onclick="switchRpt('watcher',this)">📁 Watcher</button>
-    <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
-    <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
-    <button class="view-tab"        data-tab="expiry"     onclick="switchRpt('expiry',this)">📅 Expiry</button>
-    <button class="view-tab"        data-tab="insurance"  onclick="switchRpt('insurance',this)">🏠 Insurance</button>
-    <button class="view-tab"        data-tab="watcher"   onclick="switchRpt('watcher',this)">📁 Watcher</button>
-    <button class="view-tab"        data-tab="emergency"  onclick="switchRpt('emergency',this)">🚨 Emergency</button>
-  </div>
-
-  <!-- ── SPENDING ─────────────────────────────────────────── -->
-  <div class="view-panel" id="panel-spending">
-    <div class="rpt-period-bar">
-      <select id="spYearSel" onchange="loadSpending()"></select>
-      <select id="spMonthSel" onchange="loadSpending()">
-        <option value="">Full Year</option>
-        <option value="1">January</option><option value="2">February</option><option value="3">March</option>
-        <option value="4">April</option><option value="5">May</option><option value="6">June</option>
-        <option value="7">July</option><option value="8">August</option><option value="9">September</option>
-        <option value="10">October</option><option value="11">November</option><option value="12">December</option>
-      </select>
-      <select id="spSourceSel" onchange="loadSpending()" style="font-size:12px;padding:4px 8px">
-        <option value="combined">All accounts</option>
-        <option value="banking">Banking only</option>
-        <option value="investment">Investment only</option>
-      </select>
+<div id="app">
+  <div class="reports-container">
+    <div id="reportsMainView">
+      <div id="reportsGridContainer"><div class="spinner"><div class="spin"></div>Loading…</div></div>
     </div>
-    <div class="summary-strip" id="spSummary">
-      <div class="sum-card"><div class="sum-val" id="spTotalSpent">—</div><div class="sum-lbl">Spent</div></div>
-      <div class="sum-card"><div class="sum-val" id="spTotalIncome" style="color:var(--green)">—</div><div class="sum-lbl">Income</div></div>
-      <div class="sum-card"><div class="sum-val" id="spTxCount">—</div><div class="sum-lbl">Transactions</div></div>
-    </div>
-    <div class="section-hdr">Spending by Category</div>
-    <div id="spCatList"></div>
-    <div class="section-hdr" style="margin-top:8px">Month over Month</div>
-    <div class="chart-wrap"><canvas id="momChart" height="160"></canvas></div>
+    <div id="reportDetailView" style="display:none"></div>
   </div>
-
-  <!-- ── HEALTH ─────────────────────────────────────────── -->
-  <div class="view-panel" id="panel-health">
-    <div class="rpt-period-bar">
-      <select id="hlYearSel" onchange="loadHealth()"></select>
-    </div>
-    <div class="summary-strip" id="hlSummary">
-      <div class="sum-card"><div class="sum-val" id="hlEligible">—</div><div class="sum-lbl">HSA Eligible</div></div>
-      <div class="sum-card"><div class="sum-val" id="hlReimbursed" style="color:var(--green)">—</div><div class="sum-lbl">Reimbursed</div></div>
-      <div class="sum-card"><div class="sum-val" id="hlPool" style="color:var(--amber)">—</div><div class="sum-lbl">Pool</div></div>
-    </div>
-    <div class="section-hdr">HSA Monthly Spend</div>
-    <div class="chart-wrap"><canvas id="hsaChart" height="120"></canvas></div>
-    <div class="section-hdr">Spending by Category</div>
-    <div id="hlCatList"></div>
-    <div class="section-hdr">Visits by Family Member</div>
-    <div id="hlVisits"></div>
-  </div>
-
-  <!-- ── NET WORTH ─────────────────────────────────────────── -->
-  <div class="view-panel" id="panel-networth">
-    <div id="nwSummary" style="padding:10px 16px 0"></div>
-    <div class="section-hdr">Accounts</div>
-    <div id="nwAccounts" style="padding:0 16px 16px"></div>
-    <div class="section-hdr" style="display:flex;align-items:center;justify-content:space-between">
-      Historical Snapshots
-      <button class="btn btn-ghost" style="font-size:12px;padding:4px 12px" onclick="takeNwSnapshot()">📸 Save Now</button>
-    </div>
-    <div class="chart-wrap"><canvas id="nwChart" height="160"></canvas></div>
-    <div id="nwSnapshotList" style="padding:0 16px;margin-top:8px"></div>
-  </div>
-
-  <!-- ── ANNUAL ─────────────────────────────────────────── -->
-  <div class="view-panel" id="panel-annual">
-    <div class="rpt-period-bar">
-      <select id="annYearSel" onchange="loadAnnual()"></select>
-    </div>
-    <div id="annSummary" style="padding:0 16px 8px"></div>
-    <div class="section-hdr">Top Spending Categories</div>
-    <div id="annCats"></div>
-    <div class="section-hdr">10 Biggest Expenses</div>
-    <div id="annExpenses" style="padding:0 16px"></div>
-  </div>
-
-  <!-- Checklist Panel -->
-  <div class="view-panel" id="panel-checklist">
-    <div style="padding:12px 16px 4px;font-size:13px;color:var(--text3)">Annual household tasks by category. Mark items complete to track progress.</div>
-    <div id="checklistContent" style="padding:0 16px 80px"></div>
-  </div>
-
-  <!-- Summary Panel -->
-  <div class="view-panel active" id="panel-summary">
-    <div id="summaryContent" style="padding:0 16px 80px">
-      <div class="spinner"><div class="spin"></div>Loading…</div>
-    </div>
-  </div>
-
-  <!-- People Panel -->
-  <div class="view-panel" id="panel-people">
-    <div id="peopleContent" style="padding:0 16px 80px">
-      <div class="spinner"><div class="spin"></div>Loading…</div>
-    </div>
-  </div>
-
-  <!-- Data Quality Panel -->
-  <div class="view-panel" id="panel-quality">
-    <div id="qualityContent" style="padding:0 16px 80px">
-      <div class="spinner"><div class="spin"></div>Loading…</div>
-    </div>
-  </div>
-
-  <!-- System Panel -->
-  <div class="view-panel" id="panel-system">
-    <div id="systemContent" style="padding:0 16px 80px">
-      <div class="spinner"><div class="spin"></div>Loading…</div>
-    </div>
-  </div>
-
-  <!-- Testing Panel -->
-  <div class="view-panel" id="panel-testing">
-    <div style="padding:0 16px 80px">
-      <div class="section-hdr" style="padding-top:12px">Nightly E2E Test Runs</div>
-      <div id="testRunList">
-        <div class="spinner"><div class="spin"></div>Loading…</div>
-      </div>
-      <div id="testRunDetail" style="display:none;margin-top:16px"></div>
-    </div>
-  </div>
-
-  <!-- Tools Panel -->
-  <div class="view-panel" id="panel-tools">
-    <div style="padding:0 16px 80px">
-
-      <!-- System Tests -->
-      <div class="section-hdr" style="padding-top:12px">🧪 System Tests</div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Run automated tests to verify all features are working correctly.</div>
-      <div style="display:flex;gap:10px;margin-bottom:16px">
-        <button class="btn btn-primary" id="runTestsBtn" onclick="runSystemTests()">▶ Run All Tests</button>
-      </div>
-      <div id="testResultsContainer" style="font-family:var(--mono);font-size:12px"></div>
-
-      <!-- Logs -->
-      <div class="section-hdr" style="margin-top:20px">Logs</div>
-      <div style="display:flex;gap:4px;margin-bottom:10px;background:var(--bg3);border-radius:var(--r);padding:3px">
-        <button id="rpt_logTabServer" onclick="rpt_switchLogTab('server')"
-          style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:var(--accent);color:#fff;transition:all .15s">
-          Server Log
-        </button>
-        <button id="rpt_logTabClient" onclick="rpt_switchLogTab('client')"
-          style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:transparent;color:var(--text2);transition:all .15s">
-          Client Log
-        </button>
-      </div>
-      <div id="rpt_logCtrlServer" style="display:flex;gap:8px;margin-bottom:8px">
-        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadLogs(50)">Last 50 lines</button>
-        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadLogs(200)">Last 200 lines</button>
-      </div>
-      <div id="rpt_logCtrlClient" style="display:none;gap:8px;margin-bottom:8px">
-        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadClientLog('all')">All</button>
-        <button class="btn btn-ghost" style="flex:1" onclick="rpt_loadClientLog('error')">Errors only</button>
-        <button class="btn btn-ghost" style="flex:1" onclick="GH_LOG.download()">↓ Download</button>
-        <button class="btn btn-ghost" style="flex:1;color:var(--red)" onclick="GH_LOG.clear();rpt_loadClientLog('all')">Clear</button>
-      </div>
-      <div id="rpt_logViewer" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:400px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all;margin-bottom:16px"></div>
-
-      <!-- Data Cleanup -->
-      <div class="section-hdr">Data Cleanup</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-        Fixes common data quality issues: extracts brand/description from bloated item names, sets missing quantities to 1.
-        Runs automatically on every restart and after CSV imports. Only fills blank fields — never overwrites existing data.
-      </div>
-      <button class="btn btn-ghost" id="rpt_cleanupRunBtn" onclick="rpt_runCleanup()" style="margin-bottom:12px">▶ Run Cleanup Now</button>
-      <div id="rpt_cleanupLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:8px"></div>
-      <div style="font-size:12px;color:var(--text3);margin:16px 0 8px">
-        Downloads product images for inventory items that have a UPC barcode but no photo. Processes up to 50 per run.
-      </div>
-      <button class="btn btn-ghost" id="rpt_imageFetchBtn" onclick="rpt_runImageBackfill()" style="margin-bottom:12px">🖼 Fetch Product Images</button>
-      <div id="rpt_imageFetchLog" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:11px;color:var(--text2);line-height:1.6;margin-bottom:16px"></div>
-
-      <!-- Data Review -->
-      <div class="section-hdr">Data Review</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-        Records flagged for review after data imports or system changes. Edit and save any flagged record to clear its flag.
-      </div>
-      <button class="btn btn-ghost" onclick="rpt_loadReviewSummary()" style="margin-bottom:12px">🔄 Check Now</button>
-      <div id="rpt_reviewDashboard" style="margin-bottom:16px"></div>
-
-      <!-- Diagnostics -->
-      <div class="section-hdr">Diagnostics</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">
-        Run API tests against this Ghrava instance. All CRUD tests clean up after themselves — no test data is left behind.
-      </div>
-      <div style="display:flex;gap:8px;margin-bottom:10px">
-        <button class="btn btn-ghost" id="rpt_diagRunBtn" onclick="rpt_diagStartRun()" style="flex:1">▶ Run All Tests</button>
-        <button class="btn btn-ghost" onclick="rpt_runOrphanCheck()" style="white-space:nowrap">🔍 Orphan Check</button>
-        <button class="btn btn-ghost" id="rpt_e2ePurgeBtn" onclick="rpt_purgeE2E()" style="white-space:nowrap;color:var(--amber)">🧹 Clean E2E Data</button>
-        <button class="btn btn-ghost" id="rpt_diagDlBtn" onclick="rpt_diagDownloadLog()" style="display:none;white-space:nowrap">↓ Log</button>
-      </div>
-      <div id="rpt_orphanResults" style="display:none;margin-bottom:12px;font-size:12px;font-family:var(--mono)"></div>
-      <div id="rpt_diagProgress" style="display:none;margin-bottom:10px">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
-          <div style="flex:1;height:4px;border-radius:2px;background:var(--border);overflow:hidden">
-            <div id="rpt_diagFill" style="height:100%;width:0%;border-radius:2px;background:var(--green);transition:width .3s"></div>
-          </div>
-          <span id="rpt_diagStat" style="font-size:11px;color:var(--text2);white-space:nowrap;font-family:var(--mono)">0/0</span>
-          <span id="rpt_diagFailed" style="font-size:11px;color:var(--red);display:none"></span>
-        </div>
-        <div style="display:flex;gap:6px;margin-bottom:8px">
-          <button onclick="rpt_diagSetFilter('all')"  id="rpt_dfAll"  style="flex:1" class="btn btn-ghost btn-sm diag-fbtn diag-fbtn-active">all</button>
-          <button onclick="rpt_diagSetFilter('pass')" id="rpt_dfPass" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">pass</button>
-          <button onclick="rpt_diagSetFilter('fail')" id="rpt_dfFail" style="flex:1" class="btn btn-ghost btn-sm diag-fbtn">fail</button>
-        </div>
-      </div>
-      <div id="rpt_diagSuites"></div>
-      <div id="rpt_diagLogWrap" style="display:none;margin-top:10px">
-        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Output Log</div>
-        <div id="rpt_diagLog" style="background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:var(--mono);font-size:10px;color:var(--text2);max-height:300px;overflow-y:auto;line-height:1.6;white-space:pre-wrap;word-break:break-all"></div>
-      </div>
-
-    </div>
-  </div>
-
-
-  <div class="view-panel" id="panel-emergency">
-    <div style="max-width:800px;margin:0 auto;padding-bottom:40px">
-      <div style="background:var(--red-bg,#fef2f2);border:2px solid var(--red,#ef4444);border-radius:var(--r-lg);padding:20px;margin:16px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-          <span style="font-size:28px">🚨</span>
-          <div style="font-size:17px;font-weight:700;color:var(--red,#ef4444)">Emergency Information Card</div>
-        </div>
-        <p style="font-size:13px;color:var(--text2);line-height:1.6">Print and keep accessible — fridge, wallet, car. Mark contacts as "Emergency Contact" in Settings to include them.</p>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px 12px">
-        <div class="sum-card"><div class="sum-val" id="emContacts">—</div><div class="sum-lbl">Contacts</div></div>
-        <div class="sum-card"><div class="sum-val" id="emMeds">—</div><div class="sum-lbl">Meds</div></div>
-        <div class="sum-card"><div class="sum-val" id="emConditions">—</div><div class="sum-lbl">Conditions</div></div>
-        <div class="sum-card"><div class="sum-val" id="emAllergies">—</div><div class="sum-lbl">Allergies</div></div>
-      </div>
-      <div style="display:flex;gap:10px;padding:0 16px 16px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="window.open('/api/v1/reports/emergency/html','_blank')">🖨️ View &amp; Print</button>
-        <button class="btn btn-ghost" onclick="copyEmergencyText()">📋 Copy as Text</button>
-        <a href="/settings.html" class="btn btn-ghost">⚙️ Manage Contacts</a>
-      </div>
-      <div class="section-hdr">📞 Emergency Contacts</div>
-      <div id="emergencyContactsList" style="padding:0 16px 12px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
-      <div class="section-hdr">💊 Active Medications</div>
-      <div id="emergencyMedsList" style="padding:0 16px 12px"></div>
-      <div class="section-hdr">⚠️ Allergies</div>
-      <div id="emergencyAllergiesList" style="padding:0 16px 12px"></div>
-      <div class="section-hdr">⚙️ Display Options</div>
-      <div style="padding:0 16px 20px">
-        <div class="toggle-row"><div><span class="toggle-label">Show Date of Birth</span></div><label class="toggle"><input type="checkbox" id="emShowDob" checked onchange="saveEmConfig('emergency_show_dob',this.checked)"><span class="toggle-track"></span></label></div>
-        <div class="toggle-row"><div><span class="toggle-label">Show Last 4 of SSN</span></div><label class="toggle"><input type="checkbox" id="emShowSsn" onchange="saveEmConfig('emergency_show_ssn',this.checked)"><span class="toggle-track"></span></label></div>
-        <div class="toggle-row"><div><span class="toggle-label">Include Insurance Info</span></div><label class="toggle"><input type="checkbox" id="emShowInsurance" checked onchange="saveEmConfig('emergency_include_insurance',this.checked)"><span class="toggle-track"></span></label></div>
-      </div>
-    </div>
-  </div>
-
-  <div class="view-panel" id="panel-expiry">
-    <div style="padding:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
-        <div style="display:flex;align-items:center;gap:10px">
-          <select id="expiryRange" class="form-select" style="width:auto" onchange="loadExpiryTimeline()">
-            <option value="12">Next 12 months</option>
-            <option value="24" selected>Next 24 months</option>
-            <option value="36">Next 36 months</option>
-          </select>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px">
-            <input type="checkbox" id="expiryShowExpired" onchange="loadExpiryTimeline()"> Show expired
-          </label>
-        </div>
-        <a href="/documents.html" class="btn btn-ghost">📄 Manage Documents</a>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
-        <div class="sum-card"><div class="sum-val" id="expTotal">—</div><div class="sum-lbl">Total</div></div>
-        <div class="sum-card"><div class="sum-val" id="expExpired" style="color:var(--red)">—</div><div class="sum-lbl">Expired</div></div>
-        <div class="sum-card"><div class="sum-val" id="expNext30" style="color:var(--amber)">—</div><div class="sum-lbl">Next 30d</div></div>
-        <div class="sum-card"><div class="sum-val" id="expNext90">—</div><div class="sum-lbl">Next 90d</div></div>
-      </div>
-      <div class="section-hdr">Upcoming Expirations</div>
-      <div id="expiryList" style="margin-top:8px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
-    </div>
-  </div>
-
-  <div class="view-panel" id="panel-insurance">
-    <div style="padding:16px;max-width:800px;margin:0 auto">
-      <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r-lg);padding:16px;margin-bottom:20px">
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">🏠 Home Inventory Insurance Report</div>
-        <div style="font-size:13px;color:var(--text2)">Generate a report of your belongings with values for insurance purposes.</div>
-      </div>
-      <div class="settings-card" style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Report Options</div>
-        <div class="toggle-row"><span class="toggle-label">Include Values</span><label class="toggle"><input type="checkbox" id="insIncludeValues" checked><span class="toggle-track"></span></label></div>
-        <div class="form-group" style="margin-top:12px"><label class="form-label">Group By</label>
-          <select class="form-select" id="insGroupBy"><option value="room">Room / Location</option><option value="category">Category</option></select>
-        </div>
-        <div class="form-group"><label class="form-label">Minimum Value: $<span id="insMinLabel">100</span></label>
-          <input type="range" id="insMinValue" min="0" max="1000" step="25" value="100" style="width:100%;accent-color:var(--accent)" oninput="document.getElementById('insMinLabel').textContent=this.value">
-        </div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-primary" onclick="loadInsuranceReport()">📊 Generate Preview</button>
-        <button class="btn btn-ghost" onclick="openInsurancePrint()">🖨️ Print View</button>
-      </div>
-      <div id="insurancePreview" style="margin-top:20px"></div>
-    </div>
-  </div>
-
-  <div class="view-panel" id="panel-watcher">
-    <div style="padding:16px">
-      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
-        <select id="watcherFilter" class="form-select" style="width:auto" onchange="loadWatcherHistory()">
-          <option value="">All Files</option>
-          <option value="completed">✅ Imported</option>
-          <option value="pending">📥 Pending</option>
-          <option value="failed">❌ Failed</option>
-        </select>
-        <button class="btn btn-ghost" onclick="loadWatcherHistory()">🔄 Refresh</button>
-        <a href="/watcher-inbox.html" class="btn btn-ghost">📥 Open Inbox</a>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
-        <div class="sum-card"><div class="sum-val" id="wsTotal">—</div><div class="sum-lbl">Total</div></div>
-        <div class="sum-card"><div class="sum-val" id="wsImported" style="color:var(--green)">—</div><div class="sum-lbl">Imported</div></div>
-        <div class="sum-card"><div class="sum-val" id="wsPending" style="color:var(--amber)">—</div><div class="sum-lbl">Pending</div></div>
-        <div class="sum-card"><div class="sum-val" id="wsFailed" style="color:var(--red)">—</div><div class="sum-lbl">Failed</div></div>
-      </div>
-      <div id="watcherHistoryList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
-      <div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" id="loadMoreBtn" style="display:none" onclick="loadMoreHistory()">Load More</button></div>
-    </div>
-  </div>
-
 </div>
 
 <script>
-const $ = id => document.getElementById(id);
-const fmt$2 = n => '$' + Math.abs(Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-const esc = s => s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '';
+// ── Report Registry — add new reports here only ───────────────
+const REPORT_REGISTRY = [
+  { id:'summary',       category:'overview',   name:'Dashboard Summary',        icon:'📊', desc:'Overview of all modules',             endpoint:'/dashboard',                render:renderSummary },
+  { id:'emergency',     category:'family',     name:'Emergency Info Card',       icon:'🚨', desc:'Critical contacts and medical info',  endpoint:'/reports/emergency',        render:renderEmergency },
+  { id:'family-snap',   category:'family',     name:'Family Member Report',      icon:'👤', desc:'All data for a specific person',      endpoint:null,                        render:renderFamilySnapshot },
+  { id:'expiry',        category:'documents',  name:'Document Expiry Timeline',  icon:'📅', desc:'Upcoming document expirations',       endpoint:'/reports/expiry?months=24', render:renderExpiry },
+  { id:'insurance',     category:'inventory',  name:'Home Insurance Report',     icon:'🏠', desc:'Inventory with values for claims',    endpoint:'/receipts/insurance-report', render:renderInsurance },
+  { id:'hsa',           category:'finance',    name:'HSA Summary',               icon:'❤️', desc:'Contributions and expenses',          endpoint:'/hsa/summary',              render:renderHsa },
+  { id:'spending',      category:'finance',    name:'Spending by Category',      icon:'💰', desc:'Where your money goes',               endpoint:'/finance/categories',       render:renderSpending },
+  { id:'networth',      category:'finance',    name:'Net Worth',                 icon:'📈', desc:'Assets, liabilities, and trend',      endpoint:'/finance/net-worth/current', render:renderNetWorth },
+  { id:'portfolio',     category:'finance',    name:'Investment Portfolio',      icon:'📊', desc:'Holdings and performance',            endpoint:'/finance/portfolio/performance', render:renderPortfolio },
+  { id:'watcher',       category:'system',     name:'Folder Watcher Audit',      icon:'📁', desc:'Auto-import history',                 endpoint:'/watcher/history',          render:renderWatcher },
+  { id:'database',      category:'system',     name:'Database Health',           icon:'🗄️', desc:'Size, integrity, maintenance',        endpoint:'/system/db/stats',          render:renderDatabase },
+  { id:'tests',         category:'system',     name:'System Tests',              icon:'🧪', desc:'Run automated diagnostics',           endpoint:null,                        render:renderTests },
+];
 
-function authH() {
-  const h = {'Content-Type':'application/json'};
-  if (window.LT?.authToken) h['Authorization']='Bearer '+LT.authToken;
-  return h;
-}
-async function api(path) {
-  return window.api('GET', '/finance/reports' + path);
-}
-
-const COLORS = ['#5c72fa','#22c55e','#f59e0b','#ef4444','#8b5cf6','#06b6d4','#f97316','#ec4899','#84cc16','#14b8a6'];
-const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-let activeTab = 'summary';
-
-function switchRpt(tab, btn) {
-  activeTab = tab;
-  document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.view-panel').forEach(p => p.classList.remove('active'));
-  btn.classList.add('active');
-  $('panel-' + tab).classList.add('active');
-  loadTab(tab);
-}
-
-function loadTab(tab) {
-  if (tab === 'spending') loadSpending();
-  else if (tab === 'health') loadHealth();
-  else if (tab === 'networth') loadNetWorth();
-  else if (tab === 'annual') loadAnnual();
-  else if (tab === 'checklist') loadChecklist();
-  else if (tab === 'summary') loadSummary();
-  else if (tab === 'people') loadPeople();
-  else if (tab === 'quality') loadQuality();
-  else if (tab === 'system') loadSystem();
-  else if (tab === 'testing') loadTesting();
-  else if (tab === 'emergency') loadEmergencyReport();
-  else if (tab === 'expiry')    loadExpiryTimeline();
-  else if (tab === 'insurance') loadInsuranceReport();
-  else if (tab === 'watcher')   loadWatcherHistory(true);
-  else if (tab === 'tools') rpt_loadTools();
-}
-
-// ── Year select helpers ───────────────────────────────────
-function populateYears(selId, selected) {
-  const sel = $(selId); if (!sel) return;
-  const now = new Date().getFullYear();
-  sel.innerHTML = '';
-  for (let y = now; y >= now - 5; y--) {
-    const opt = document.createElement('option');
-    opt.value = y; opt.textContent = y;
-    if (y === selected) opt.selected = true;
-    sel.appendChild(opt);
-  }
-}
-
-// Set current month as default
-function setCurrentMonth() {
-  const sel = $('spMonthSel'); if (!sel) return;
-  // default to full year view
-}
-
-// ── Canvas bar chart helper ───────────────────────────────
-function drawBarChart(canvasId, labels, datasets, opts = {}) {
-  const canvas = $(canvasId); if (!canvas) return;
-  const dpr = window.devicePixelRatio || 1;
-  const W = canvas.parentElement.clientWidth - 32;
-  canvas.width  = W * dpr;
-  canvas.height = canvas.height * dpr;
-  canvas.style.width  = W + 'px';
-  canvas.style.height = (canvas.height/dpr) + 'px';
-  const ctx = canvas.getContext('2d');
-  ctx.scale(dpr, dpr);
-  const w = W, h = canvas.height / dpr;
-
-  const pad = { l: 44, r: 8, t: 12, b: 28 };
-  const plotW = w - pad.l - pad.r;
-  const plotH = h - pad.t - pad.b;
-  const n = labels.length;
-  const groupW = plotW / n;
-  const barW = Math.min(groupW * 0.6 / datasets.length, 20);
-  const gap = barW * 0.3;
-
-  // Max value
-  let maxVal = 0;
-  datasets.forEach(ds => ds.data.forEach(v => { if (v > maxVal) maxVal = v; }));
-  if (maxVal === 0) maxVal = 1;
-
-  // Grid lines
-  ctx.strokeStyle = 'rgba(255,255,255,.06)';
-  ctx.lineWidth = 1;
-  for (let i = 0; i <= 4; i++) {
-    const y = pad.t + plotH - (i / 4) * plotH;
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + plotW, y); ctx.stroke();
-    ctx.fillStyle = 'rgba(148,163,184,.5)';
-    ctx.font = `${Math.round(9 * dpr) / dpr}px system-ui`;
-    ctx.textAlign = 'right';
-    ctx.fillText(fmt$(maxVal * i / 4), pad.l - 4, y + 3);
-  }
-
-  // Bars
-  labels.forEach((lbl, i) => {
-    const cx = pad.l + i * groupW + groupW / 2;
-    const totalBarW = datasets.length * barW + (datasets.length - 1) * gap;
-    const startX = cx - totalBarW / 2;
-
-    datasets.forEach((ds, di) => {
-      const val = ds.data[i] || 0;
-      const bh = (val / maxVal) * plotH;
-      const bx = startX + di * (barW + gap);
-      const by = pad.t + plotH - bh;
-      ctx.fillStyle = ds.color;
-      ctx.beginPath();
-      const r = Math.min(3, barW/2);
-      ctx.moveTo(bx + r, by);
-      ctx.lineTo(bx + barW - r, by);
-      ctx.quadraticCurveTo(bx + barW, by, bx + barW, by + r);
-      ctx.lineTo(bx + barW, by + bh);
-      ctx.lineTo(bx, by + bh);
-      ctx.lineTo(bx, by + r);
-      ctx.quadraticCurveTo(bx, by, bx + r, by);
-      ctx.closePath();
-      ctx.fill();
-    });
-
-    // X labels
-    ctx.fillStyle = 'rgba(148,163,184,.7)';
-    ctx.font = `${Math.round(9 * dpr) / dpr}px system-ui`;
-    ctx.textAlign = 'center';
-    ctx.fillText(lbl, cx, pad.t + plotH + 14);
-  });
-
-  // Legend
-  if (datasets.length > 1) {
-    let lx = pad.l;
-    datasets.forEach(ds => {
-      ctx.fillStyle = ds.color;
-      ctx.fillRect(lx, 2, 8, 8);
-      ctx.fillStyle = 'rgba(148,163,184,.8)';
-      ctx.font = `${Math.round(10 * dpr) / dpr}px system-ui`;
-      ctx.textAlign = 'left';
-      ctx.fillText(ds.label, lx + 11, 10);
-      lx += ctx.measureText(ds.label).width + 28;
-    });
-  }
-}
-
-// ── SPENDING TAB ─────────────────────────────────────────────
-async function loadSpending() {
-  const year   = $('spYearSel')?.value  || new Date().getFullYear();
-  const month  = $('spMonthSel')?.value || '';
-  const source = $('spSourceSel')?.value || 'combined';
-
-  // C8: investment-only uses /import/spending, others use /spending-by-category
-  let catPromise;
-  if (source === 'investment') {
-    catPromise = window.api('GET', `/import/spending?from=${year}-01-01&to=${year}-12-31`)
-      .then(rows => ({ categories: rows, totals: { total_spent: rows.reduce((s,r)=>s+r.total,0), total_income:0, tx_count: rows.reduce((s,r)=>s+r.count,0) } }))
-      .catch(() => ({ categories: [], totals: {} }));
-  } else {
-    catPromise = api(`/spending-by-category?year=${year}${month?'&month='+month:''}${source==='banking'?'&account_type=banking':''}`);
-  }
-
-  try {
-    const [cat, monthly] = await Promise.all([
-      catPromise,
-      api(`/monthly-totals?year=${year}`)
-    ]);
-
-    // Summary strip
-    $('spTotalSpent').textContent  = fmt$(cat.totals?.total_spent);
-    $('spTotalIncome').textContent = fmt$(cat.totals?.total_income);
-    $('spTxCount').textContent     = cat.totals?.tx_count || 0;
-
-    // Category bars
-    const maxSpent = cat.categories[0]?.spent || 1;
-    $('spCatList').innerHTML = cat.categories.slice(0,12).map((c, i) => `
-      <div class="cat-row">
-        <div class="cat-name" style="color:${COLORS[i%COLORS.length]}">${esc(c.category)}</div>
-        <div class="cat-bar-wrap">
-          <div class="cat-bar" style="width:${Math.round(c.spent/maxSpent*100)}%;background:${COLORS[i%COLORS.length]}"></div>
-        </div>
-        <div class="cat-amt">${fmt$(c.spent)}</div>
-      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No transactions found</div>';
-
-    // Month-over-month chart
-    drawBarChart('momChart', MONTHS,
-      [
-        { label: year + ' Spent',  color: '#ef4444', data: monthly.months.map(m => m.spent) },
-        { label: year + ' Income', color: '#22c55e', data: monthly.months.map(m => m.income) },
-        { label: (year-1)+' Spent', color: 'rgba(99,102,241,.4)', data: monthly.months.map(m => m.prev_spent) },
-      ]
-    );
-  } catch(e) {
-    $('spCatList').innerHTML = errorState(e.message, 'loadSpending()');
-  }
-}
-
-// ── HEALTH TAB ───────────────────────────────────────────────
-async function loadHealth() {
-  const year = $('hlYearSel')?.value || new Date().getFullYear();
-  try {
-    const d = await api(`/hsa-summary?year=${year}`);
-
-    $('hlEligible').textContent   = fmt$(d.pool?.total_eligible);
-    $('hlReimbursed').textContent = fmt$(d.pool?.reimbursed);
-    $('hlPool').textContent       = fmt$(d.pool?.unreimbursed);
-
-    // HSA monthly chart
-    drawBarChart('hsaChart', MONTHS,
-      [{ label: 'HSA Spend', color: '#5c72fa', data: d.by_month.map(m=>m.amount) }]
-    );
-
-    // By category
-    const maxAmt = d.by_category[0]?.amount || 1;
-    $('hlCatList').innerHTML = d.by_category.map((c,i) => `
-      <div class="cat-row">
-        <div class="cat-name" style="color:${COLORS[i%COLORS.length]}">${esc(c.category)}</div>
-        <div class="cat-bar-wrap">
-          <div class="cat-bar" style="width:${Math.round(c.amount/maxAmt*100)}%;background:${COLORS[i%COLORS.length]}"></div>
-        </div>
-        <div class="cat-amt">${fmt$(c.amount)}</div>
-      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No HSA data</div>';
-
-    // Visits
-    $('hlVisits').innerHTML = d.visits_by_patient.length
-      ? '<div style="padding:0 16px">' + d.visits_by_patient.map(v => `
-          <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
-            <span style="font-size:14px;color:var(--text)">👤 ${esc(v.patient)}</span>
-            <span style="font-family:var(--mono);font-size:13px;color:var(--accent)">${v.visits} visit${v.visits!==1?'s':''}</span>
-          </div>`).join('') + '</div>'
-      : '<div style="color:var(--text3);padding:16px;text-align:center">No visit data</div>';
-  } catch(e) {
-    $('hlCatList').innerHTML = errorState(e.message, 'loadHealth()');
-  }
-}
-
-// ── NET WORTH TAB ────────────────────────────────────────────
-async function loadNetWorth() {
-  try {
-    const d = await api('/net-worth-trend');
-    const nw = d.current.net_worth;
-    const positive = nw >= 0;
-
-    $('nwSummary').innerHTML = `
-      <div style="background:var(--bg2);border-radius:var(--r);padding:16px;display:flex;align-items:center;gap:16px">
-        <div>
-          <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em">Current Net Worth</div>
-          <div style="font-size:28px;font-weight:800;letter-spacing:-.03em;color:${positive?'var(--green)':'var(--red)'};margin-top:4px">${positive?'+':''}${fmt$(nw)}</div>
-        </div>
-        <div style="flex:1">
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
-            <span>Assets</span><span style="color:var(--green);font-weight:600">${fmt$(d.current.assets)}</span>
-          </div>
-          <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-top:4px">
-            <span>Liabilities</span><span style="color:var(--red);font-weight:600">${fmt$(d.current.liabilities)}</span>
-          </div>
-        </div>
-      </div>`;
-
-    // Accounts
-    const assets = d.accounts.filter(a => a.current_balance >= 0);
-    const liabs  = d.accounts.filter(a => a.current_balance < 0);
-    $('nwAccounts').innerHTML = [...assets, ...liabs].map(a => `
-      <div class="account-row">
-        <div>
-          <div style="font-size:13px;font-weight:600;color:var(--text)">${esc(a.name)}</div>
-          <div style="font-size:11px;color:var(--text3)">${esc(a.account_type)}${a.include_net_worth?'':' · excluded'}</div>
-        </div>
-        <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:${a.current_balance>=0?'var(--green)':'var(--red)'}">
-          ${a.current_balance>=0?'+':''}${fmt$(a.current_balance)}
-        </div>
-      </div>`).join('') || '<div style="color:var(--text3);text-align:center;padding:16px">No accounts</div>';
-
-    // C7: Investment trend from account_snapshots (auto from imports)
-    const invTrend = d.investment_trend || [];
-    if (invTrend.length > 1) {
-      const invSection = document.createElement('div');
-      invSection.style.cssText = 'margin-top:12px';
-      invSection.innerHTML = `
-        <div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">
-          Investment Account History (from imports)
-        </div>
-        <canvas id="invTrendChart" height="120"></canvas>
-        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">
-          ${invTrend.slice(-1)[0]?.accounts?.map(a=>
-            `<div style="background:var(--bg2);border-radius:var(--r);padding:4px 10px;font-size:12px">
-              <span style="color:var(--text3)">${esc(a.name)}</span>
-              <span style="font-family:var(--mono);color:var(--accent);margin-left:6px">${fmt$(a.balance)}</span>
-            </div>`
-          ).join('') || ''}
-        </div>`;
-      $('nwAccounts').insertAdjacentElement('afterend', invSection);
-      drawBarChart('invTrendChart',
-        invTrend.map(s=>s.date.slice(0,7)),
-        [{ label: 'Investment Total', color: '#10b981', data: invTrend.map(s=>s.total) }],
-        { beginAtZero: false }
-      );
-    }
-
-    // Historical net worth chart (manual snapshots)
-    if (d.snapshots.length > 1) {
-      drawBarChart('nwChart', d.snapshots.map(s=>s.snapshot_date.slice(0,7)),
-        [{ label: 'Net Worth', color: '#5c72fa', data: d.snapshots.map(s=>Math.max(0,s.net_worth)) }]);
-    } else {
-      $('nwChart').style.display = 'none';
-      const noSnap = '<div style="color:var(--text3);text-align:center;padding:16px;font-size:13px">No historical snapshots yet.<br>Take a snapshot monthly to track trends.</div>';
-      if ($('nwSnapshotList')) $('nwSnapshotList').innerHTML = noSnap;
-    }
-  } catch(e) {
-    $('nwSummary').innerHTML = errorState(e.message, 'loadNetWorth()');
-  }
-}
-
-// ── ANNUAL TAB ───────────────────────────────────────────────
-async function loadAnnual() {
-  const year = $('annYearSel')?.value || new Date().getFullYear();
-  try {
-    const d = await api(`/annual-summary?year=${year}`);
-    const cur = d.current || {}, prev = d.previous || {};
-
-    const delta = (cur.total_spent||0) - (prev.total_spent||0);
-    const deltaHtml = prev.total_spent
-      ? `<span class="delta-badge ${delta>0?'delta-dn':'delta-up'}">${delta>0?'▲':'▼'} ${fmt$(Math.abs(delta))} vs ${year-1}</span>` : '';
-
-    $('annSummary').innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
-        <div class="sum-card" style="text-align:left">
-          <div class="sum-lbl">Total Spent</div>
-          <div class="sum-val" style="color:var(--red)">${fmt$(cur.total_spent)}</div>
-          <div style="margin-top:4px">${deltaHtml}</div>
-        </div>
-        <div class="sum-card" style="text-align:left">
-          <div class="sum-lbl">Total Income</div>
-          <div class="sum-val" style="color:var(--green)">${fmt$(cur.total_income)}</div>
-        </div>
-        <div class="sum-card" style="text-align:left">
-          <div class="sum-lbl">Transactions</div>
-          <div class="sum-val">${cur.tx_count||0}</div>
-        </div>
-        <div class="sum-card" style="text-align:left">
-          <div class="sum-lbl">Net</div>
-          <div class="sum-val" style="color:${((cur.total_income||0)-(cur.total_spent||0))>=0?'var(--green)':'var(--red)'}">
-            ${fmt$((cur.total_income||0)-(cur.total_spent||0))}
-          </div>
-        </div>
-      </div>`;
-
-    const maxCat = d.top_categories[0]?.spent || 1;
-    $('annCats').innerHTML = d.top_categories.map((c,i) => `
-      <div class="cat-row">
-        <div class="cat-name" style="color:${COLORS[i]}">${esc(c.category)}</div>
-        <div class="cat-bar-wrap">
-          <div class="cat-bar" style="width:${Math.round(c.spent/maxCat*100)}%;background:${COLORS[i]}"></div>
-        </div>
-        <div class="cat-amt">${fmt$(c.spent)}</div>
-      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No data</div>';
-
-    $('annExpenses').innerHTML = d.biggest_expenses.map(e => `
-      <div class="expense-row">
-        <div style="min-width:0;flex:1">
-          <div style="font-size:13px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(e.description)}</div>
-          <div style="font-size:11px;color:var(--text3)">${e.date} · ${esc(e.category||'Uncategorized')}</div>
-        </div>
-        <div style="font-family:var(--mono);font-size:14px;font-weight:700;color:var(--red);margin-left:8px;flex-shrink:0">${fmt$2(e.amount)}</div>
-      </div>`).join('') || '<div style="color:var(--text3);padding:16px;text-align:center">No expenses</div>';
-  } catch(e) {
-    $('annSummary').innerHTML = errorState(e.message, 'loadAnnual()');
-  }
-}
-
-// ── People ────────────────────────────────────────────────────
-let _peopleSelected = null;
-
-async function loadPeople() {
-  const el = $('peopleContent'); if (!el) return;
-  el.innerHTML = spinnerHtml();
-  try {
-    const members = await window.api('GET', '/settings/family');
-    if (!members.length) {
-      el.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3)">No family members found</div>';
-      return;
-    }
-    // Build member picker + content area
-    const pills = members.map(m => `
-      <button class="people-pill${_peopleSelected===m.id?' active':''}"
-        data-mid="${m.id}" onclick="selectPerson(${m.id})"
-        style="padding:7px 16px;border-radius:99px;border:1px solid var(--border);
-          background:${_peopleSelected===m.id?'var(--accent)':'var(--bg2)'};
-          color:${_peopleSelected===m.id?'#fff':'var(--text2)'};
-          font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap">
-        ${esc(m.display_name)}
-        ${m.relationship ? `<span style="font-size:10px;opacity:.7;margin-left:4px">${esc(m.relationship)}</span>` : ''}
-      </button>`).join('');
-
-    el.innerHTML = `
-      <div style="display:flex;gap:8px;padding:12px 0 8px;overflow-x:auto;scrollbar-width:none">${pills}</div>
-      <div id="personReport"></div>`;
-
-    // Auto-select first non-primary or first overall
-    if (!_peopleSelected) {
-      const first = members.find(m => !m.is_primary_user) || members[0];
-      _peopleSelected = first.id;
-      selectPerson(first.id);
-    } else {
-      selectPerson(_peopleSelected);
-    }
-  } catch(e) {
-    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
-  }
-}
-
-async function selectPerson(memberId) {
-  _peopleSelected = memberId;
-  // Update pill styles
-  document.querySelectorAll('.people-pill').forEach(b => {
-    const active = +b.dataset.mid === memberId;
-    b.style.background = active ? 'var(--accent)' : 'var(--bg2)';
-    b.style.color       = active ? '#fff' : 'var(--text2)';
-    b.style.borderColor = active ? 'var(--accent)' : 'var(--border)';
-  });
-  const el = $('personReport'); if (!el) return;
-  el.innerHTML = spinnerHtml();
-  try {
-    const d = await window.api('GET', `/settings/family/${memberId}/report`);
-    const m = d.member;
-    const s = d.summary;
-
-    const age = m.date_of_birth
-      ? Math.floor((Date.now() - new Date(m.date_of_birth)) / (365.25*24*3600*1000)) + ' yrs'
-      : null;
-
-    // Summary strip
-    const statCards = [
-      ['Open todos',      s.todos_open,    s.todos_overdue > 0 ? '#ef4444' : 'var(--text)'],
-      ['Overdue',         s.todos_overdue, s.todos_overdue > 0 ? '#ef4444' : 'var(--text3)'],
-      ['Documents',       s.documents,     'var(--text)'],
-      ['Books',           s.books,         'var(--text)'],
-      ['Active meds',     s.medications_active, s.medications_active > 0 ? '#f59e0b' : 'var(--text)'],
-      ['Conditions',      s.conditions_active,  s.conditions_active  > 0 ? '#f59e0b' : 'var(--text)'],
-      ['Medical visits',  s.medical_visits,'var(--text)'],
-      ['HSA unreimbursed',s.hsa_unreimbursed > 0 ? fmt$(s.hsa_unreimbursed) : '$0', s.hsa_unreimbursed > 0 ? '#22c55e' : 'var(--text3)'],
-    ].map(([lbl, val, col]) => `
-      <div class="sys-count-cell">
-        <div class="sys-count-val" style="color:${col}">${val ?? '—'}</div>
-        <div class="sys-count-lbl">${lbl}</div>
-      </div>`).join('');
-
-    // Section renderer
-    const section = (title, items, rowFn, emptyMsg) => items.length
-      ? `<div class="section-hdr">${title} <span style="color:var(--text3);font-weight:400">(${items.length})</span></div>
-         <div class="sys-card">${items.map(rowFn).join('')}</div>`
-      : `<div class="section-hdr">${title}</div>
-         <div style="font-size:13px;color:var(--text3);padding:8px 0 12px">${emptyMsg}</div>`;
-
-    const sysRow = (left, right, color) => `
-      <div class="sys-row">
-        <span class="sys-label">${left}</span>
-        <span class="sys-val" style="color:${color||''}">${right||'—'}</span>
-      </div>`;
-
-    // Todos section
-    const openTodos = d.todos.filter(t => t.status==='open'||t.status==='in_progress');
-    const doneTodos = d.todos.filter(t => t.status==='done'||t.status==='dismissed');
-    const todosHtml = d.todos.length ? `
-      <div class="section-hdr">Todos <span style="color:var(--text3);font-weight:400">(${d.todos.length})</span></div>
-      <div class="sys-card">
-        ${openTodos.map(t => sysRow(
-          `<a href="/todos.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(t.title)}</a>`,
-          t.due_date ? t.due_date : t.priority,
-          t.due_date && t.due_date < new Date().toISOString().slice(0,10) ? '#ef4444' : ''
-        )).join('')}
-        ${doneTodos.length ? `<div class="sys-row"><span class="sys-label" style="color:var(--text3)">${doneTodos.length} completed</span></div>` : ''}
-      </div>` : '';
-
-    // Medical section
-    const medHtml = (d.medical.visits.length || d.medical.medications.length || d.medical.conditions.length) ? `
-      <div class="section-hdr">Medical</div>
-      <div class="sys-card">
-        ${d.medical.conditions.map(c => sysRow(
-          `<a href="/medical.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(c.condition_name)}</a>`,
-          c.status, c.status==='Active' ? '#f59e0b' : 'var(--text3)'
-        )).join('')}
-        ${d.medical.medications.map(m => sysRow(
-          `<a href="/medical.html" target="_blank" style="color:var(--text);text-decoration:none">💊 ${esc(m.name)}</a>`,
-          `${m.dosage||''} ${m.status}`.trim(), m.status==='Active' ? 'var(--text)' : 'var(--text3)'
-        )).join('')}
-        ${d.medical.visits.slice(0,5).map(v => sysRow(
-          `<a href="/medical.html" target="_blank" style="color:var(--text);text-decoration:none">🏥 ${esc(v.reason||'Visit')}</a>`,
-          v.visit_date, ''
-        )).join('')}
-        ${d.medical.visits.length > 5 ? `<div class="sys-row"><span class="sys-label" style="color:var(--text3)">+ ${d.medical.visits.length-5} more visits</span></div>` : ''}
-      </div>` : '';
-
-    el.innerHTML = `
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;margin:8px 0 12px">
-        <div style="font-size:20px;font-weight:800;color:var(--text)">${esc(m.display_name)}</div>
-        <div style="font-size:13px;color:var(--text3);margin-top:2px">
-          ${[m.relationship, age, m.full_legal_name].filter(Boolean).map(esc).join(' · ')}
-        </div>
-        <div style="margin-top:10px;display:flex;gap:8px">
-          <a href="/snapshot.html?id=${memberId}" class="btn btn-ghost" style="font-size:12px;padding:4px 12px;text-decoration:none">👤 Full Snapshot</a>
-          <a href="/api/v1/family-snapshot/${memberId}/html" target="_blank" class="btn btn-ghost" style="font-size:12px;padding:4px 12px;text-decoration:none">🖨️ Print</a>
-        </div>
-      </div>
-      <div class="sys-counts-grid" style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:12px">${statCards}</div>
-      ${todosHtml}
-      ${section('Documents', d.documents, doc =>
-        sysRow(`<a href="/documents.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(doc.title)}</a>`,
-          doc.expiry_date || doc.category, doc.expiry_date && doc.expiry_date < new Date().toISOString().slice(0,10) ? '#ef4444' : ''),
-        'No linked documents')}
-      ${medHtml}
-      ${section('Books', d.books, b =>
-        sysRow(`<a href="/books.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(b.title)}</a>`,
-          b.status, b.status==='Currently Reading'?'#22c55e':''),
-        'No linked books')}
-      ${section('HSA Expenses', d.hsa, h =>
-        sysRow(`<a href="/finance.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(h.provider)}</a>`,
-          `${fmt$(h.you_paid)}${h.reimbursed?' ✓':''}`, h.hsa_eligible&&!h.reimbursed?'#22c55e':'var(--text3)'),
-        'No linked HSA expenses')}
-      ${section('Career Jobs', d.career.jobs, j =>
-        sysRow(`<a href="/career.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(j.title)} @ ${esc(j.company||'')}</a>`,
-          j.is_current ? 'Current' : (j.end_date||''), j.is_current?'#22c55e':''),
-        'No linked jobs')}
-      ${section('Career Goals', d.career.goals, g =>
-        sysRow(`<a href="/career.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(g.title)}</a>`,
-          g.status, g.status==='achieved'?'#22c55e':''),
-        'No linked career goals')}
-      ${section('Resources', d.resources, r =>
-        sysRow(`<a href="/resources.html" target="_blank" style="color:var(--text);text-decoration:none">${esc(r.name)}</a>`,
-          r.category, ''),
-        'No linked resources')}`;
-  } catch(e) {
-    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
-  }
-}
-
-// ── Summary ───────────────────────────────────────────────────
-async function loadSummary() {
-  const el = $('summaryContent'); if (!el) return;
-  el.innerHTML = spinnerHtml();
-  try {
-    const d = await window.api('GET', '/dashboard');
-    const inv   = d.inventory   || {};
-    const med   = d.medical     || {};
-    const books = d.books       || {};
-    const prop  = d.property    || {};
-    const kids  = d.kids        || {};
-    const certs = d.certifications || {};
-    const xdocs = d.expiring_documents || [];
-    const hsa   = d.hsa         || {};
-    const tod   = d.todos       || {};
-
-    const card = (title, color, icon, rows, href, alerts) => `
-      <a href="${href}" target="_blank" style="text-decoration:none;color:inherit;display:block">
-        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-            <div style="width:34px;height:34px;border-radius:var(--r);background:${color}1a;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:17px">${icon}</div>
-            <div style="font-size:15px;font-weight:700;color:var(--text);flex:1">${title}</div>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" opacity=".3"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-          </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-            ${rows.map(([lbl,val,clr]) => `
-              <div style="background:var(--bg3);border-radius:var(--r);padding:8px 10px">
-                <div style="font-size:16px;font-weight:800;font-family:var(--mono);color:${clr||'var(--text)'}">${val??'—'}</div>
-                <div style="font-size:10px;color:var(--text3);margin-top:1px;text-transform:uppercase;letter-spacing:.04em">${lbl}</div>
-              </div>`).join('')}
-          </div>
-          ${alerts ? `<div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">${alerts}</div>` : ''}
-        </div>
-      </a>`;
-
-    const badge = (txt, type) =>
-      `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:99px;background:${
-        type==='warn'?'rgba(245,158,11,.12)':type==='bad'?'rgba(239,68,68,.12)':'rgba(34,197,94,.12)'
-      };color:${type==='warn'?'#f59e0b':type==='bad'?'#ef4444':'#22c55e'}">${txt}</span>`;
-
-    const invAlerts = [
-      inv.expired     > 0 ? badge(inv.expired + ' expired', 'bad')        : '',
-      inv.expiring_soon>0 ? badge(inv.expiring_soon + ' expiring soon','warn') : '',
-    ].filter(Boolean).join('');
-
-    const docAlerts = xdocs.length > 0
-      ? badge(xdocs.length + ' expiring within 90 days', xdocs.some(d => {
-          const days = Math.ceil((new Date(d.expiry_date)-new Date())/864e5);
-          return days <= 30;
-        }) ? 'bad' : 'warn')
-      : badge('All current', 'ok');
-
-    const medAlerts = [
-      med.medications > 0 ? badge(med.medications + ' active medications','warn') : '',
-      med.conditions  > 0 ? badge(med.conditions  + ' conditions tracked','') : '',
-    ].filter(Boolean).join('');
-
-    const todoAlerts = [
-      tod.urgent_count > 0  ? badge(tod.urgent_count + ' urgent', 'bad')    : '',
-      tod.overdue_count > 0 ? badge(tod.overdue_count + ' overdue', 'warn') : '',
-    ].filter(Boolean).join('');
-
-    el.innerHTML = `
-      <div class="section-hdr" style="padding-top:12px">Household at a Glance</div>
-      ${card('Inventory', '#f59e0b', '📦', [
-        ['Total items',  inv.items,        ''],
-        ['Est. value',   inv.est_value != null ? fmt$(inv.est_value) : '—', '#22c55e'],
-        ['Expiring soon',inv.expiring_soon, inv.expiring_soon > 0 ? '#f59e0b' : ''],
-        ['Expired',      inv.expired,       inv.expired > 0 ? '#ef4444' : ''],
-      ], '/inventory.html', invAlerts)}
-      ${card('Documents', '#6366f1', '📄', [
-        ['Total',            d.doc_total ?? '—',  ''],
-        ['Expiring 90 days', xdocs.length, xdocs.length > 0 ? '#f59e0b' : ''],
-      ], '/documents.html', docAlerts)}
-      ${card('Kids', '#ec4899', '👧', [
-        ['Kids',       kids.total,      kids.total > 0 ? '#ec4899' : ''],
-        ['Activities', kids.activities, ''],
-      ], '/kids.html', '')}
-      ${card('Medical', '#14b8a6', '🏥', [
-        ['Medications',   med.medications,   ''],
-        ['Conditions',    med.conditions,    ''],
-        ['Recent visits', med.recent_visits, ''],
-        ['Physicians',    med.physicians,    ''],
-      ], '/medical.html', medAlerts)}
-      ${card('To-Do', '#a78bfa', '✓', [
-        ['Open',    tod.open_count,    ''],
-        ['Due today',tod.due_today,    tod.due_today > 0 ? '#f59e0b' : ''],
-        ['Overdue', tod.overdue_count, tod.overdue_count > 0 ? '#ef4444' : ''],
-        ['Urgent',  tod.urgent_count,  tod.urgent_count > 0 ? '#ef4444' : ''],
-      ], '/todos.html', todoAlerts)}
-      ${card('Books', '#8b5cf6', '📚', [
-        ['Reading',    books.reading,    books.reading > 0 ? '#22c55e' : ''],
-        ['Read',       books.read_count, ''],
-        ['Want to read',books.want_count,''],
-      ], '/books.html', '')}
-      ${card('Property', '#ef4444', '🏠', [
-        ['Properties',  prop.properties, ''],
-        ['Vehicles',    prop.vehicles,   ''],
-        ['Est. value',  prop.total_est_value != null ? fmt$(prop.total_est_value) : '—', '#22c55e'],
-        ['Outstanding', prop.total_owed  != null ? fmt$(prop.total_owed)  : '—', prop.total_owed > 0 ? '#ef4444' : ''],
-      ], '/property.html', prop.vehicle_alerts > 0 ? badge(prop.vehicle_alerts + ' vehicle alert' + (prop.vehicle_alerts!==1?'s':''), 'warn') : '')}
-      ${card('Certifications', '#f97316', '🏅', [
-        ['Total',         certs.total,        ''],
-        ['Expiring soon', certs.expiring_soon, certs.expiring_soon > 0 ? '#f59e0b' : ''],
-        ['Expired',       certs.expired,       certs.expired > 0 ? '#ef4444' : ''],
-      ], '/career.html', certs.expired > 0 ? badge(certs.expired + ' expired', 'bad') : certs.expiring_soon > 0 ? badge(certs.expiring_soon + ' renew soon', 'warn') : '')}
-      ${card('HSA', '#22c55e', '💊', [
-        ['Unreimbursed pool', hsa.unreimbursed_pool != null ? fmt$(hsa.unreimbursed_pool) : '—', hsa.unreimbursed_pool > 0 ? '#22c55e' : ''],
-        ['Missing receipts',  hsa.missing_receipts,  hsa.missing_receipts > 0 ? '#f59e0b' : ''],
-      ], '/finance.html', hsa.missing_receipts > 0 ? badge(hsa.missing_receipts + ' receipts missing', 'warn') : '')}`;
-  } catch(e) {
-    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
-  }
-}
-
-// ── Data Quality ──────────────────────────────────────────────
-const DQ_LINKS = {
-  'items': '/inventory.html', 'documents': '/documents.html', 'books': '/books.html',
-  'kids': '/kids.html', 'kid_activities': '/kids.html', 'kid_notes': '/kids.html',
-  'career_certifications': '/career.html', 'career_jobs': '/career.html',
-  'career_skills': '/career.html', 'career_education': '/career.html', 'career_goals': '/career.html',
-  'properties': '/property.html', 'vehicles': '/property.html',
-  'med_visit_notes': '/medical.html', 'med_conditions': '/medical.html', 'med_medications': '/medical.html',
-  'daily_log': '/daily-log.html', 'todos': '/todos.html', 'resources': '/resources.html',
-  'contacts': '/settings.html', 'family_members': '/settings.html', 'hsa_payments': '/hsa.html',
+const CATEGORIES = {
+  overview:  { name:'Overview',             icon:'📋' },
+  family:    { name:'Family & Emergency',   icon:'👨‍👩‍👧‍👦' },
+  inventory: { name:'Inventory & Home',     icon:'📦' },
+  documents: { name:'Documents',            icon:'📄' },
+  finance:   { name:'Finance & HSA',        icon:'💰' },
+  system:    { name:'System & Auditing',    icon:'⚙️' },
 };
 
-async function loadQuality() {
-  const el = $('qualityContent'); if (!el) return;
-  el.innerHTML = spinnerHtml();
-  try {
-    const [reviewResp, completenessResp] = await Promise.all([
-      window.api('GET', '/settings/review/summary'),
-      window.api('GET', '/settings/completeness'),
-    ]);
-    const reviewData      = await reviewResp.json();
-    const completenessData = await completenessResp.json();
-
-    const flagged    = (reviewData.modules || []).filter(m => m.count > 0);
-    const incomplete = (completenessData.issues || []);
-
-    if (!flagged.length && !incomplete.length) {
-      el.innerHTML = `<div class="dq-all-clear">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-        </svg>
-        <div style="font-size:18px;font-weight:700">All Clear</div>
-        <div style="font-size:13px;color:var(--text3);margin-top:4px">No records flagged and no completeness issues</div>
+// ── Render main grid ──────────────────────────────────────────
+function renderMainGrid() {
+  const container = document.getElementById('reportsGridContainer');
+  const grouped = {};
+  REPORT_REGISTRY.forEach(r => { if(!grouped[r.category]) grouped[r.category]=[]; grouped[r.category].push(r); });
+  let html = '';
+  Object.entries(CATEGORIES).forEach(([catId, cat]) => {
+    const reports = grouped[catId]||[];
+    if(!reports.length) return;
+    html += `<div class="category-section"><div class="category-header">${cat.icon} ${cat.name}</div><div class="reports-grid">`;
+    reports.forEach(r => {
+      html += `<div class="report-card" onclick="openReport('${r.id}')">
+        <div class="report-icon">${r.icon}</div>
+        <div class="report-title">${r.name}</div>
+        <div class="report-desc">${r.desc}</div>
       </div>`;
-      return;
-    }
-
-    let html = '';
-
-    // ── Review flags (needs_review) ───────────────────────────
-    if (flagged.length) {
-      const totalFlagged = flagged.reduce((s, m) => s + m.count, 0);
-      html += `
-        <div class="section-hdr" style="padding-top:12px">Needs Review
-          <span style="color:var(--text3);font-weight:400;font-size:11px">(${totalFlagged} flagged after import/migration)</span>
-        </div>
-        ${flagged.map(m => {
-          const href = DQ_LINKS[m.table] || '#';
-          return `<a href="${href}" class="dq-row" target="_blank">
-            <span style="font-size:13px;font-weight:600">${esc(m.label)}</span>
-            <span class="dq-badge">${m.count} to review</span>
-          </a>`;
-        }).join('')}
-        <div style="margin-top:6px;margin-bottom:12px;font-size:12px;color:var(--text3)">
-          Open the module, edit and save each flagged record to clear its flag.
-        </div>`;
-    }
-
-    // ── Completeness issues ───────────────────────────────────
-    if (incomplete.length) {
-      const totalIncomplete = incomplete.reduce((s, i) => s + i.count, 0);
-      html += `
-        <div class="section-hdr">Incomplete Records
-          <span style="color:var(--text3);font-weight:400;font-size:11px">(${totalIncomplete} records missing important fields)</span>
-        </div>
-        ${incomplete.map(issue => `
-          <a href="${esc(issue.href)}" class="dq-row" target="_blank" style="flex-direction:column;align-items:flex-start;gap:4px">
-            <div style="display:flex;width:100%;align-items:center;justify-content:space-between">
-              <span style="font-size:13px;font-weight:600;color:var(--text)">${esc(issue.label)}</span>
-              <span class="dq-badge" style="background:rgba(100,116,139,.12);color:var(--text3)">${issue.count}</span>
-            </div>
-            <span style="font-size:12px;color:var(--text3)">${esc(issue.field)}</span>
-            ${issue.samples.length ? `<span style="font-size:11px;color:var(--text3);font-style:italic">${issue.samples.map(esc).join(', ')}${issue.count > 3 ? ` +${issue.count-3} more` : ''}</span>` : ''}
-          </a>`).join('')}`;
-    }
-
-    el.innerHTML = html;
-  } catch(e) {
-    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
-  }
-}
-
-// ── System ────────────────────────────────────────────────────
-function fmtUptime(s) {
-  if (s < 60) return s + 's';
-  if (s < 3600) return Math.floor(s/60) + 'm ' + (s%60) + 's';
-  const h = Math.floor(s/3600), m = Math.floor((s%3600)/60);
-  return h + 'h ' + m + 'm';
-}
-function fmtBytes(b) {
-  if (!b) return '—';
-  if (b < 1024) return b + ' B';
-  if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
-  return (b/1048576).toFixed(2) + ' MB';
-}
-
-async function loadSystem() {
-  const el = $('systemContent'); if (!el) return;
-  el.innerHTML = spinnerHtml();
-  try {
-    const [info, dash, inv] = await Promise.all([
-      window.api('GET', '/app/info'),
-      window.api('GET', '/dashboard'),
-      window.api('GET', '/app/module-inventory'),
-    ]);
-    const bkp = dash.backup || {};
-
-    const sysRows = [
-      ['Version',      info.version || '—'],
-      ['Build date',   info.build_date || '—'],
-      ['Node.js',      info.node_version || '—'],
-      ['Uptime',       fmtUptime(info.uptime_s || 0)],
-      ['Database',     fmtBytes(info.db_size_bytes)],
-      ['Last backup',  bkp.last_backup ? new Date(bkp.last_backup).toLocaleString() : 'Never'],
-      ['Backup age',   bkp.days_since_backup != null ? bkp.days_since_backup + ' day' + (bkp.days_since_backup!==1?'s':'') + (bkp.overdue?' — ⚠️ overdue':'') : '—'],
-      ['Modules',      inv.totals?.modules_count || '—'],
-      ['DB tables tracked', inv.totals?.total_tables || '—'],
-    ];
-
-    // Build module inventory table
-    const moduleRows = (inv.modules || []).map(m => {
-      const cells = m.stats.map(s =>
-        `<td style="padding:5px 10px;text-align:right;font-family:var(--mono);font-size:12px;white-space:nowrap">${s.val ?? '—'}</td>
-         <td style="padding:5px 10px;font-size:11px;color:var(--text3)">${esc(s.label)}</td>`
-      );
-      // Pair stats into 2-per-row
-      const pairs = [];
-      for (let i = 0; i < cells.length; i += 2) {
-        pairs.push(`<tr style="border-top:1px solid var(--border)">${cells[i]}${cells[i+1]||'<td colspan="2"></td>'}</tr>`);
-      }
-      return `
-        <tr style="background:var(--bg3)">
-          <td colspan="4" style="padding:7px 10px;font-size:12px;font-weight:700;color:var(--text);
-              font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase">
-            ${esc(m.label)}
-            <span style="font-weight:400;color:var(--text3);margin-left:8px">${m.tables.join(', ')}</span>
-          </td>
-        </tr>
-        ${pairs.join('')}`;
-    }).join('');
-
-    el.innerHTML = `
-      <div class="section-hdr" style="padding-top:12px">App</div>
-      <div class="sys-card">
-        ${sysRows.map(([l,v]) => `
-          <div class="sys-row">
-            <span class="sys-label">${l}</span>
-            <span class="sys-val">${esc(String(v))}</span>
-          </div>`).join('')}
-      </div>
-      <div class="section-hdr" style="display:flex;align-items:center;justify-content:space-between">
-        Module Inventory
-        <span style="font-size:11px;color:var(--text3);font-weight:400">
-          Live · ${inv.totals?.generated_at ? new Date(inv.totals.generated_at).toLocaleString() : ''}
-        </span>
-      </div>
-      <div style="overflow-x:auto;margin-bottom:16px">
-        <table style="width:100%;border-collapse:collapse;border:1px solid var(--border);border-radius:var(--r);overflow:hidden;font-size:13px">
-          <thead>
-            <tr style="background:var(--bg2)">
-              <th style="padding:7px 10px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)">Count</th>
-              <th style="padding:7px 10px;text-align:left;font-size:11px;color:var(--text3)">Metric</th>
-              <th style="padding:7px 10px;text-align:right;font-size:11px;color:var(--text3);font-family:var(--mono)">Count</th>
-              <th style="padding:7px 10px;text-align:left;font-size:11px;color:var(--text3)">Metric</th>
-            </tr>
-          </thead>
-          <tbody>${moduleRows}</tbody>
-        </table>
-      </div>`;
-  } catch(e) {
-    el.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
-  }
-}
-
-// ── Testing ───────────────────────────────────────────────────
-async function takeNwSnapshot() {
-  const btn = document.querySelector('[onclick="takeNwSnapshot()"]');
-  if (btn) { btn.textContent = 'Saving…'; btn.disabled = true; }
-  try {
-    const data = await window.api('POST', '/finance/net-worth/snapshot', {});
-    toast('Snapshot saved');
-    loadNetWorth();
-  } catch(e) { toast(e.message||'Snapshot failed','err'); }
-  finally { if (btn) { btn.textContent='📸 Save Now'; btn.disabled=false; } }
-}
-
-async function loadTesting() {
-  const listEl = $('testRunList'); if (!listEl) return;
-  const detailEl = $('testRunDetail');
-  detailEl.style.display = 'none';
-  listEl.innerHTML = spinnerHtml();
-  try {
-    const runs = await window.api('GET', '/app/test-results');
-    if (!runs.length) {
-      listEl.innerHTML = `
-        <div style="padding:24px 0;text-align:center;color:var(--text3)">
-          <div style="font-size:32px;margin-bottom:8px">🧪</div>
-          <div style="font-size:15px;font-weight:600;color:var(--text)">No test runs yet</div>
-          <div style="font-size:13px;margin-top:6px">Run <code style="background:var(--bg3);padding:2px 6px;border-radius:4px">tests\\run-tests.ps1</code> from Windows to start a nightly E2E test.</div>
-        </div>`;
-      return;
-    }
-    listEl.innerHTML = runs.map(r => {
-      const allPass = r.failed === 0;
-      const pct = r.total > 0 ? Math.round(r.passed/r.total*100) : 0;
-      const dur = r.duration_ms ? (r.duration_ms/1000).toFixed(1)+'s' : '—';
-      const dt  = r.started_at ? new Date(r.started_at).toLocaleString() : r.filename;
-      return `<div onclick="showTestRun('${esc(r.filename)}')" style="display:flex;align-items:center;gap:12px;
-          padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);
-          margin-bottom:6px;cursor:pointer;transition:border-color .15s"
-          onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-        <div style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
-          background:${allPass?'rgba(34,197,94,.12)':'rgba(239,68,68,.12)'};flex-shrink:0">
-          <span style="font-size:18px">${allPass?'✓':'✗'}</span>
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600;color:var(--text)">${dt}</div>
-          <div style="font-size:12px;color:var(--text3);margin-top:2px">${r.suites} suites · ${dur}</div>
-        </div>
-        <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:15px;font-weight:800;font-family:var(--mono);color:${allPass?'var(--green)':'var(--red)'}">
-            ${r.passed}/${r.total}
-          </div>
-          <div style="font-size:11px;color:var(--text3)">${pct}% pass</div>
-        </div>
-      </div>`;
-    }).join('');
-  } catch(e) {
-    listEl.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
-  }
-}
-
-async function showTestRun(filename) {
-  const detailEl = $('testRunDetail'); if (!detailEl) return;
-  detailEl.style.display = 'block';
-  detailEl.innerHTML = spinnerHtml();
-  detailEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  try {
-    const run = await window.api('GET', `/app/test-results/${encodeURIComponent(filename)}`);
-    const dt = run.started_at ? new Date(run.started_at).toLocaleString() : filename;
-    const dur = run.duration_ms ? (run.duration_ms/1000).toFixed(1)+'s' : '—';
-
-    const suitesHtml = (run.suites || []).map(suite => {
-      const suitePass = suite.tests.every(t => t.status === 'passed');
-      return `
-        <div style="margin-bottom:10px">
-          <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;
-            background:var(--bg3);border-radius:var(--r);cursor:pointer"
-            onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
-            <span style="font-size:13px">${suitePass?'✓':'✗'}</span>
-            <span style="font-size:13px;font-weight:600;flex:1">${esc(suite.name)}</span>
-            <span style="font-size:11px;color:var(--text3)">${suite.tests.filter(t=>t.status==='passed').length}/${suite.tests.length} ›</span>
-          </div>
-          <div style="display:none">
-            ${suite.tests.map(t => `
-              <div style="display:flex;align-items:flex-start;gap:8px;padding:6px 12px 6px 24px;border-bottom:1px solid var(--border)">
-                <span style="color:${t.status==='passed'?'var(--green)':'var(--red)'};flex-shrink:0;margin-top:1px">${t.status==='passed'?'✓':'✗'}</span>
-                <div style="flex:1;min-width:0">
-                  <div style="font-size:12px;color:var(--text)">${esc(t.title)}</div>
-                  ${t.error ? `<div style="font-size:11px;color:var(--red);margin-top:3px;font-family:var(--mono);white-space:pre-wrap;word-break:break-all">${esc(t.error)}</div>` : ''}
-                  ${t.duration_ms ? `<div style="font-size:10px;color:var(--text3);margin-top:2px">${(t.duration_ms/1000).toFixed(2)}s</div>` : ''}
-                </div>
-              </div>`).join('')}
-          </div>
-        </div>`;
-    }).join('');
-
-    detailEl.innerHTML = `
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div>
-          <div style="font-size:15px;font-weight:700">${dt}</div>
-          <div style="font-size:12px;color:var(--text3)">${run.passed}/${run.total} passed · ${dur}</div>
-        </div>
-        <button onclick="$('testRunDetail').style.display='none'" style="padding:4px 12px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;font-size:12px">Close ×</button>
-      </div>
-      ${run.failed > 0 ? `
-        <div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--r);padding:10px 14px;margin-bottom:12px">
-          <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px">⚠ ${run.failed} failed test${run.failed!==1?'s':''}</div>
-          ${(run.suites||[]).flatMap(s=>s.tests.filter(t=>t.status!=='passed').map(t=>`
-            <div style="font-size:12px;color:var(--text);padding:3px 0;border-bottom:1px solid rgba(239,68,68,.1)">
-              <span style="color:var(--red)">✗</span> ${esc(s.name)} → ${esc(t.title)}
-              ${t.error?`<div style="font-size:11px;color:var(--red);font-family:var(--mono);margin-top:2px">${esc(t.error.split('\\n')[0])}</div>`:''}
-            </div>`)).join('')}
-        </div>` : ''}
-      <div class="section-hdr" style="padding-top:0">All Suites</div>
-      ${suitesHtml || '<div style="color:var(--text3);font-size:13px">No suite details available</div>'}`;
-  } catch(e) {
-    detailEl.innerHTML = `<div style="padding:16px;color:var(--text3)">${esc(e.message)}</div>`;
-  }
-}
-
-// ── Tools tab ────────────────────────────────────────────────
-function rpt_loadTools() {
-  // Auto-load server log on first open
-  if (!document.getElementById('rpt_logViewer').dataset.loaded) {
-    rpt_loadLogs(50);
-    document.getElementById('rpt_logViewer').dataset.loaded = '1';
-  }
-}
-
-let _rpt_logTab = 'server';
-function rpt_switchLogTab(tab) {
-  _rpt_logTab = tab;
-  const srv = $('rpt_logTabServer'), cli = $('rpt_logTabClient');
-  if (srv) { srv.style.background = tab === 'server' ? 'var(--accent)' : 'transparent'; srv.style.color = tab === 'server' ? '#fff' : 'var(--text2)'; }
-  if (cli) { cli.style.background = tab === 'client' ? 'var(--accent)' : 'transparent'; cli.style.color = tab === 'client' ? '#fff' : 'var(--text2)'; }
-  const cs = $('rpt_logCtrlServer'), cc = $('rpt_logCtrlClient');
-  if (cs) cs.style.display = tab === 'server' ? 'flex' : 'none';
-  if (cc) cc.style.display = tab === 'client' ? 'flex' : 'none';
-  if (tab === 'server') rpt_loadLogs(50); else rpt_loadClientLog('all');
-}
-
-async function rpt_loadLogs(n) {
-  const el = $('rpt_logViewer'); if (!el) return;
-  el.style.display = 'block'; el.textContent = 'Loading…';
-  try {
-    const d = await window.api('GET', `/app/logs?lines=${n}`);
-    if (!d.lines?.length) { el.textContent = 'No log entries yet.'; return; }
-    el.innerHTML = d.lines.map(line => {
-      const col = line.includes('[ERROR]') ? 'var(--red)' : line.includes('[WARN]') ? 'var(--amber)' : 'var(--text2)';
-      return `<span style="color:${col}">${esc(line)}</span>`;
-    }).join('\n');
-    el.scrollTop = el.scrollHeight;
-  } catch(e) { el.textContent = 'Could not load logs: ' + e.message; }
-}
-
-function rpt_loadClientLog(filter) {
-  const el = $('rpt_logViewer'); if (!el) return;
-  el.style.display = 'block';
-  const entries = GH_LOG.entries();
-  const filtered = filter === 'error' ? entries.filter(e => e.level === 'error' || e.level === 'warn') : entries;
-  if (!filtered.length) { el.textContent = filter === 'error' ? 'No errors recorded.' : 'No client log entries yet.'; return; }
-  el.innerHTML = filtered.map(e => {
-    const col = e.level === 'error' ? 'var(--red)' : e.level === 'warn' ? 'var(--amber)' : 'var(--text2)';
-    const line = `[${e.ts.slice(11,19)}] [${e.level.toUpperCase()}] [${e.page}] ${e.msg}${e.data ? ' | ' + e.data : ''}`;
-    return `<span style="color:${col}">${esc(line)}</span>`;
-  }).join('\n');
-  el.scrollTop = el.scrollHeight;
-}
-
-async function rpt_runCleanup() {
-  const btn = $('rpt_cleanupRunBtn'), log = $('rpt_cleanupLog');
-  btn.disabled = true; btn.textContent = 'Running…';
-  log.style.display = 'block'; log.textContent = 'Running cleanup…';
-  try {
-    const d = await window.api('POST', '/settings/cleanup/run', {});
-    const lines = [];
-    if (d.titles > 0)     lines.push(`✓ ${d.titles} item name(s) cleaned`);
-    else                  lines.push('✓ No bloated item names found');
-    if (d.quantities > 0) lines.push(`✓ ${d.quantities} quantity/quantities set to 1`);
-    else                  lines.push('✓ No missing quantities found');
-    if (d.errors?.length) lines.push(`⚠ ${d.errors.length} error(s): ${d.errors.slice(0,3).join('; ')}`);
-    lines.push('');
-    lines.push((d.titles||0)+(d.quantities||0) > 0 ? `${(d.titles||0)+(d.quantities||0)} record(s) updated.` : 'Everything looks clean.');
-    log.innerHTML = lines.map(l => `<span style="color:${l.startsWith('⚠')?'var(--amber)':l.startsWith('✓')?'var(--green)':'var(--text3)'}">${esc(l)}</span>`).join('\n');
-  } catch(e) { log.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
-  finally { btn.disabled = false; btn.textContent = '▶ Run Cleanup Now'; }
-}
-
-async function rpt_runImageBackfill() {
-  const btn = $('rpt_imageFetchBtn'), log = $('rpt_imageFetchLog');
-  btn.disabled = true; btn.textContent = 'Fetching…';
-  log.style.display = 'block'; log.innerHTML = '<span style="color:var(--text3)">Scanning…</span>';
-  try {
-    const r = await window.api('POST', '/inventory/items/backfill-images', {}).then(d=>({ok:true,json:()=>Promise.resolve(d)}));
-    if (!r.ok) throw new Error((await r.json()).error || `HTTP ${r.status}`);
-    const d = await r.json();
-    const lines = [];
-    if (d.succeeded > 0) lines.push(`✓ ${d.succeeded} image(s) downloaded`);
-    if (d.skipped  > 0) lines.push(`⏭ ${d.skipped} already had a photo`);
-    if (d.failed   > 0) lines.push(`⚠ ${d.failed} failed`);
-    if (d.remaining > 0) lines.push(`${d.remaining} item(s) still need images — tap again`);
-    else if (d.processed > 0) lines.push('All done.');
-    else lines.push('No items found with a UPC but no photo.');
-    log.innerHTML = lines.map(l => `<span style="color:${l.startsWith('⚠')?'var(--amber)':l.startsWith('✓')?'var(--green)':'var(--text3)'}">${esc(l)}</span>`).join('\n');
-  } catch(e) { log.innerHTML = `<span style="color:var(--red)">${esc(e.message)}</span>`; }
-  finally { btn.disabled = false; btn.textContent = '🖼 Fetch Product Images'; }
-}
-
-async function rpt_loadReviewSummary() {
-  const el = $('rpt_reviewDashboard'); if (!el) return;
-  el.innerHTML = spinnerHtml('Checking…');
-  try {
-    const d = await window.api('GET', '/settings/review/summary').then(r => r.json());
-    if (!d.total) { el.innerHTML = `<div style="color:var(--green);font-size:13px;padding:8px 0">✓ No records need review</div>`; return; }
-    el.innerHTML = `<div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r);padding:14px">
-      <div style="font-size:14px;font-weight:700;color:var(--amber);margin-bottom:12px">⚠️ ${d.total} record(s) need review</div>
-      ${d.modules.map(m => `<div style="margin-bottom:12px">
-        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">${esc(m.label)} <span style="color:var(--text3);font-weight:400">(${m.count})</span></div>
-        ${m.samples.map(s => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
-          <div style="font-size:13px;color:var(--text2)">${esc(s.name||'—')}</div>
-          <div style="font-size:11px;color:var(--amber);margin-top:2px">${esc(s.review_reason||'Flagged for review')}</div>
-        </div>`).join('')}
-        ${m.count > 5 ? `<div style="font-size:11px;color:var(--text3);padding-top:6px">+ ${m.count-5} more</div>` : ''}
-      </div>`).join('')}
-    </div>`;
-  } catch(e) { el.innerHTML = `<div style="color:var(--red);font-size:13px">${esc(e.message)}</div>`; }
-}
-
-async function rpt_purgeE2E() {
-  const btn = $('rpt_e2ePurgeBtn'); if (!btn) return;
-  const el  = $('rpt_orphanResults');
-  btn.disabled = true; btn.textContent = 'Scanning…';
-  if (el) { el.style.display = 'block'; el.innerHTML = '<span style="color:var(--text3)">Checking for _e2e_ test data…</span>'; }
-  try {
-    const r = await window.api('POST', '/settings/diagnostics/purge-e2e', {});
-    if (el) {
-      if (r.total === 0) {
-        el.innerHTML = '<span style="color:var(--green)">✓ No _e2e_ test records found — database is clean</span>';
-      } else {
-        const rows = Object.entries(r.deleted)
-          .filter(([,n]) => n > 0)
-          .map(([table, n]) => `<div><span style="color:var(--green)">✓</span> ${table}: ${n} deleted</div>`)
-          .join('');
-        el.innerHTML = `<div style="color:var(--green);font-weight:600;margin-bottom:6px">Removed ${r.total} _e2e_ test record(s):</div>${rows}`;
-      }
-    }
-  } catch(e) {
-    if (el) el.innerHTML = `<span style="color:var(--red)">Failed: ${esc(e.message)}</span>`;
-  } finally {
-    btn.disabled = false; btn.textContent = '🧹 Clean E2E Data';
-  }
-}
-
-async function rpt_runOrphanCheck() {
-  const el = $('rpt_orphanResults'); if (!el) return;
-  el.style.display = 'block'; el.innerHTML = '<span style="color:var(--text3)">Checking…</span>';
-  try {
-    const r = await window.api('GET', '/settings/diagnostics/orphans');
-    const rows = r.checks.map(c => {
-      const icon = c.ok ? '✓' : (c.warning ? '⚠' : '✗');
-      const color = c.ok ? 'var(--green)' : (c.warning ? 'var(--amber)' : 'var(--red)');
-      return `<div style="display:flex;gap:8px;padding:3px 0;border-bottom:1px solid var(--border)">
-        <span style="color:${color};width:14px;flex-shrink:0">${icon}</span>
-        <span style="flex:1;color:var(--text)">${esc(c.check)}</span>
-        <span style="color:var(--text3)">${esc(c.detail||'')}</span>
-      </div>`;
-    }).join('');
-    const summary = r.ok
-      ? '<div style="color:var(--green);padding:6px 0;font-weight:600">✓ No orphaned records found</div>'
-      : '<div style="color:var(--red);padding:6px 0;font-weight:600">✗ Orphaned records detected</div>';
-    el.innerHTML = summary + rows;
-  } catch(e) { el.innerHTML = `<span style="color:var(--red)">Check failed: ${esc(e.message)}</span>`; }
-}
-
-// ── Diagnostics runner (self-contained, rpt_ prefix) ────────
-(function() {
-  let _running = false, _aborted = false, _results = {}, _log = [], _filter = 'all', _suites = [];
-  const _$ = id => document.getElementById(id);
-
-  function _api(method, path, body) {
-    const headers = {'Content-Type':'application/json'};
-    const opts = {method, headers};
-    if (body !== undefined) opts.body = JSON.stringify(body);
-    const t0 = Date.now();
-    return fetch(path, opts).then(async r => {
-      const ms = Date.now()-t0; let data;
-      try { data = await r.json(); } catch { data = null; }
-      return {status:r.status, data, ms};
-    }).catch(e => ({status:0, data:null, ms:0, error:e.message}));
-  }
-  const _GET=(p)=>_api('GET',p);
-  const _POST=(p,b)=>_api('POST',p,b);
-  const _PUT=(p,b)=>_api('PUT',p,b);
-  const _PATCH=(p,b)=>_api('PATCH',p,b);
-  const _DEL=(p)=>_api('DELETE',p);
-
-  function _buildSuites() {
-    const today = new Date().toISOString().slice(0,10);
-    const year  = new Date().getFullYear();
-    return [
-      {id:'health',label:'Health & App Info',tests:[
-        {name:'GET /health',run:async()=>{const r=await _GET('/health');return{ok:r.status===200,detail:`${r.status} ${r.ms}ms`};}},
-        {name:'App name is Ghrava',run:async()=>{const r=await _GET('/api/v1/app/info');return{ok:r.data?.name==='Ghrava',detail:r.data?.version||`${r.status}`};}},
-        {name:'Record counts present',run:async()=>{const r=await _GET('/api/v1/app/info');return{ok:!!r.data?.record_counts,detail:r.status===200?'ok':`${r.status}`};}},
-      ]},
-      {id:'dashboard',label:'Dashboard',tests:[
-        {name:'GET /dashboard',run:async()=>{const r=await _GET('/api/v1/dashboard');return{ok:r.status===200,detail:`${r.ms}ms`};}},
-        {name:'inventory key present',run:async()=>{const r=await _GET('/api/v1/dashboard');return{ok:!!r.data?.inventory,detail:r.status===200?'✓':'missing'};}},
-        {name:'GET /dashboard/attention',run:async()=>{const r=await _GET('/api/v1/dashboard/attention');return{ok:r.status===200&&'items'in(r.data||{}),detail:`${r.ms}ms`};}},
-      ]},
-      {id:'settings',label:'Settings',tests:[
-        {name:'GET /settings/family',run:async()=>{const r=await _GET('/api/v1/settings/family');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} members`};}},
-        {name:'Tag search route',run:async()=>{const r=await _GET('/api/v1/settings/tags/search?tag=test');return{ok:r.status===200&&'results'in(r.data||{})||'groups'in(r.data||{}),detail:`${r.ms}ms`};}},
-        {name:'Dropdown hsa_category seeded',run:async()=>{const r=await _GET('/api/v1/settings/dropdowns/hsa_category');return{ok:r.status===200&&r.data?.length>0,detail:`${r.data?.length??0} options`};}},
-      ]},
-      {id:'inventory',label:'Inventory',tests:[
-        {name:'GET /inventory/items',run:async()=>{const r=await _GET('/api/v1/inventory/items');return{ok:r.status===200&&Array.isArray(r.data),detail:`${r.data?.length??r.status} items`};}},
-        {name:'Inventory CRUD',run:async()=>{
-          const locs=await _GET('/api/v1/inventory/locations');
-          const locId=locs.data?.[0]?.id;
-          if(!locId)return{ok:false,detail:'no locations found'};
-          const c=await _POST('/api/v1/inventory/items',{name:'_diag_item_',parent_type:'location',parent_id:locId,quantity:1});
-          if(c.status!==201)return{ok:false,detail:`create ${c.status}`};
-          const id=c.data?.id;
-          const u=await _PUT(`/api/v1/inventory/items/${id}`,{...c.data,name:'_diag_upd_'});
-          const d=await _DEL(`/api/v1/inventory/items/${id}`);
-          return{ok:u.status===200&&d.status===200,detail:`201·${u.status}·${d.status}`};
-        }},
-      ]},
-      {id:'hsa',label:'HSA / Finance',tests:[
-        {name:'GET /hsa/pool',run:async()=>{const r=await _GET('/api/v1/hsa/pool');return{ok:r.status===200,detail:`${r.ms}ms`};}},
-        {name:'Expense CRUD',run:async()=>{const c=await _POST('/api/v1/hsa/payments',{date:today,you_paid:9.99,provider:'_diag_',category:'Doctor',payment_type:'Out of Pocket'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/hsa/payments/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
-        {name:'GET /finance/accounts',run:async()=>{const r=await _GET('/api/v1/finance/accounts');return{ok:r.status===200,detail:`${r.ms}ms`};}},
-      ]},
-      {id:'medical',label:'Medical',tests:[
-        {name:'GET /medical/summary',run:async()=>{const r=await _GET('/api/v1/medical/summary');return{ok:r.status===200,detail:`${r.ms}ms`};}},
-        {name:'Visit CRUD',run:async()=>{const c=await _POST('/api/v1/medical/notes',{visit_date:today,patient:'_diag_',notes:'_test_'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/medical/notes/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
-        {name:'Medication CRUD',run:async()=>{const c=await _POST('/api/v1/medical/medications',{name:'_diag_med_',patient:'Self',status:'Active'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/medical/medications/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
-      ]},
-      {id:'todos',label:'Todos',tests:[
-        {name:'GET /todos',run:async()=>{const r=await _GET('/api/v1/todos');return{ok:r.status===200&&Array.isArray(r.data?.todos),detail:`${r.data?.todos?.length??r.status} items`};}},
-        {name:'Todo CRUD',run:async()=>{const c=await _POST('/api/v1/todos',{title:'_diag_todo_',category:'General',priority:'medium'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const id=c.data?.id;const s=await _PATCH(`/api/v1/todos/${id}/status`,{status:'done'});const d=await _DEL(`/api/v1/todos/${id}`);return{ok:s.status===200&&d.status===200,detail:`201·${s.status}·${d.status}`};}},
-      ]},
-      {id:'documents',label:'Documents',tests:[
-        {name:'Document CRUD',run:async()=>{const c=await _POST('/api/v1/documents',{title:'_diag_doc_',doc_type:'Other',status:'active'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/documents/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
-      ]},
-      {id:'books',label:'Books',tests:[
-        {name:'Book CRUD',run:async()=>{const c=await _POST('/api/v1/books',{title:'_diag_book_',author:'Test',status:'to-read',format:'physical'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/books/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
-      ]},
-      {id:'property',label:'Property',tests:[
-        {name:'Vehicle CRUD',run:async()=>{const c=await _POST('/api/v1/property/vehicles',{nickname:'_diag_vehicle_',year:2020,make:'Test',model:'_diag_'});if(c.status!==201)return{ok:false,detail:`create ${c.status}`};const d=await _DEL(`/api/v1/property/vehicles/${c.data?.id}`);return{ok:d.status===200,detail:`201→del ${d.status}`};}},
-      ]},
-    ];
-  }
-
-  function _key(sid,name){ return sid+'__'+name.replace(/[^a-z0-9]/gi,'_'); }
-
-  function _setState(sid, name, state, detail='') {
-    const k = _key(sid,name);
-    const dot=_$('rpt_tdot_'+k), nm=_$('rpt_tnm_'+k), det=_$('rpt_tdet_'+k);
-    if(dot) dot.className='diag-dot'+(state?' diag-'+state:'');
-    if(nm)  nm.className='diag-test-name'+(state?' diag-'+state:'');
-    if(det) det.textContent=detail;
-    _results[sid+'::'+name]={state,detail};
-    _updateSuite(sid);
-    _updateProgress();
-  }
-
-  function _updateSuite(sid) {
-    const suite=_suites.find(s=>s.id===sid); if(!suite)return;
-    const states=suite.tests.map(t=>(_results[sid+'::'+t.name]||{}).state||'idle');
-    let st=null;
-    if(states.every(s=>s==='idle'))st=null;
-    else if(states.some(s=>s==='running'))st='running';
-    else if(states.some(s=>s==='fail'))st='fail';
-    else if(states.every(s=>s==='pass'))st='pass';
-    const dot=_$('rpt_sdot_'+sid), pill=_$('rpt_spill_'+sid), cnt=_$('rpt_scnt_'+sid);
-    if(dot) dot.className='diag-dot'+(st?' diag-'+st:'');
-    const pc=states.filter(s=>s==='pass').length, fc=states.filter(s=>s==='fail').length;
-    if(pill){
-      if(st==='pass') pill.innerHTML=`<span class="diag-pill diag-pill-pass">${pc} ✓</span>`;
-      else if(st==='fail') pill.innerHTML=`<span class="diag-pill diag-pill-fail">${fc} ✗</span>`;
-      else pill.innerHTML='';
-    }
-    if(cnt) cnt.textContent=st?`${pc}/${suite.tests.length}`:`${suite.tests.length} tests`;
-    if(st==='fail'){const el=_$('rpt_dsuite_'+sid);if(el)el.open=true;}
-    _applyFilter();
-  }
-
-  function _updateProgress() {
-    const all=Object.values(_results);
-    const totalTests=_suites.reduce((n,s)=>n+s.tests.length,0);
-    const passed=all.filter(r=>r.state==='pass').length;
-    const failed=all.filter(r=>r.state==='fail').length;
-    const pct=totalTests>0?Math.round(passed/totalTests*100):0;
-    const prog=_$('rpt_diagProgress'); if(prog) prog.style.display='block';
-    const fill=_$('rpt_diagFill'); if(fill){fill.style.width=pct+'%';fill.style.background=failed>0?'var(--red)':'var(--green)';}
-    const stat=_$('rpt_diagStat'); if(stat) stat.textContent=`${passed}/${totalTests} passed`;
-    const sf=_$('rpt_diagFailed'); if(sf){sf.style.display=failed>0?'':'none';sf.textContent=failed+' failed';}
-  }
-
-  function _applyFilter() {
-    _suites.forEach(suite=>{
-      const el=_$('rpt_dsuite_'+suite.id); if(!el)return;
-      if(_filter==='all'){el.style.display='';return;}
-      const states=suite.tests.map(t=>(_results[suite.id+'::'+t.name]||{}).state||'idle');
-      el.style.display=(_filter==='fail'?states.some(s=>s==='fail'):states.every(s=>s==='pass'))?'':'none';
     });
-  }
-
-  function _appendLog(line) {
-    _log.push(line);
-    const el=_$('rpt_diagLog'), wrap=_$('rpt_diagLogWrap');
-    if(!el||!wrap)return;
-    wrap.style.display='block';
-    const div=document.createElement('div');
-    if(line.startsWith('  ✓'))div.style.color='var(--green)';
-    else if(line.startsWith('  ✗'))div.style.color='var(--red)';
-    else if(line.startsWith('['))div.style.color='var(--accent)';
-    div.textContent=line;
-    el.appendChild(div);
-    el.scrollTop=el.scrollHeight;
-  }
-
-  window.rpt_diagSetFilter = function(f) {
-    _filter=f;
-    ['all','pass','fail'].forEach(x=>{
-      const b=_$('rpt_df'+x.charAt(0).toUpperCase()+x.slice(1));
-      if(b) b.style.color=f===x?(x==='fail'?'var(--red)':x==='pass'?'var(--green)':'var(--accent)'):'';
-    });
-    _applyFilter();
-  };
-
-  window.rpt_diagDownloadLog = function() {
-    const blob=new Blob([_log.join('\n')],{type:'text/plain'});
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob);
-    a.download=`ghrava_diag_${new Date().toISOString().slice(0,16).replace(/:/g,'-')}.log`;
-    a.click();
-  };
-
-  window.rpt_diagStartRun = async function() {
-    if(_running){_aborted=true;return;}
-    _running=true;_aborted=false;_results={};_log=[];
-    const btn=_$('rpt_diagRunBtn');
-    if(btn){btn.textContent='⏹ Stop';btn.onclick=()=>{_aborted=true;};}
-    const logEl=_$('rpt_diagLog');if(logEl)logEl.innerHTML='';
-    const lw=_$('rpt_diagLogWrap');if(lw)lw.style.display='none';
-    const dp=_$('rpt_diagProgress');if(dp)dp.style.display='none';
-    _suites=_buildSuites();
-    const container=_$('rpt_diagSuites');
-    container.innerHTML='<style>'+
-      '.diag-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:var(--text3)}'+
-      '.diag-dot.diag-pass{background:var(--green)}.diag-dot.diag-fail{background:var(--red)}'+
-      '.diag-dot.diag-running{background:var(--amber);animation:pulse 1s infinite}'+
-      '.diag-suite{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);margin-bottom:6px;overflow:hidden}'+
-      'details.diag-suite summary{display:flex;align-items:center;gap:8px;padding:9px 12px;cursor:pointer;user-select:none;list-style:none;font-size:12px;font-weight:700}'+
-      'details.diag-suite summary::-webkit-details-marker{display:none}'+
-      '.diag-suite-name{flex:1}.diag-suite-cnt{font-size:11px;color:var(--text3)}'+
-      '.diag-chevron{font-size:13px;color:var(--text3);transition:transform .15s}'+
-      'details.diag-suite[open] .diag-chevron{transform:rotate(90deg)}'+
-      '.diag-test-row{display:flex;align-items:center;gap:8px;padding:6px 12px 6px 26px;border-top:1px solid var(--border)}'+
-      '.diag-test-name{flex:1;font-size:11px;color:var(--text2)}.diag-test-name.diag-pass{color:var(--text)}.diag-test-name.diag-fail{color:var(--red)}'+
-      '.diag-test-det{font-size:10px;color:var(--text3);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}'+
-      '.diag-pill{font-size:10px;padding:1px 7px;border-radius:99px;font-weight:700}'+
-      '.diag-pill-pass{background:rgba(34,197,94,.15);color:var(--green)}.diag-pill-fail{background:rgba(239,68,68,.15);color:var(--red)}'+
-      '</style>'+
-      _suites.map(suite=>`
-        <details class="diag-suite" id="rpt_dsuite_${suite.id}">
-          <summary>
-            <div class="diag-dot" id="rpt_sdot_${suite.id}"></div>
-            <span class="diag-suite-name">${suite.label}</span>
-            <span id="rpt_spill_${suite.id}"></span>
-            <span class="diag-suite-cnt" id="rpt_scnt_${suite.id}">${suite.tests.length} tests</span>
-            <span class="diag-chevron">›</span>
-          </summary>
-          ${suite.tests.map(t=>`
-            <div class="diag-test-row">
-              <div class="diag-dot" id="rpt_tdot_${_key(suite.id,t.name)}"></div>
-              <span class="diag-test-name" id="rpt_tnm_${_key(suite.id,t.name)}">${t.name}</span>
-              <span class="diag-test-det" id="rpt_tdet_${_key(suite.id,t.name)}"></span>
-            </div>`).join('')}
-        </details>`).join('');
-
-    const totalTests=_suites.reduce((n,s)=>n+s.tests.length,0);
-    _appendLog(`Starting — ${totalTests} tests across ${_suites.length} suites`);
-    _appendLog(`Time: ${new Date().toLocaleString()}`);
-    _appendLog('─'.repeat(44));
-
-    for(const suite of _suites){
-      if(_aborted)break;
-      _appendLog(`\n[${suite.label}]`);
-      for(const test of suite.tests){
-        if(_aborted)break;
-        _setState(suite.id,test.name,'running');
-        try{
-          const{ok,detail}=await test.run();
-          _setState(suite.id,test.name,ok?'pass':'fail',detail);
-          _appendLog(`  ${ok?'✓':'✗'} ${test.name}${detail?`  (${detail})`:''}`);
-        }catch(e){
-          _setState(suite.id,test.name,'fail',e.message);
-          _appendLog(`  ✗ ${test.name}  ERROR: ${e.message}`);
-        }
-      }
-    }
-    const all=Object.values(_results);
-    const passed=all.filter(r=>r.state==='pass').length, failed=all.filter(r=>r.state==='fail').length;
-    _appendLog(''); _appendLog('─'.repeat(44));
-    _appendLog(`Done: ${passed} passed, ${failed} failed`);
-    try {
-      const p=await window.api('POST', '/settings/diagnostics/purge', {table:$('purgeTable').value});
-      if(p.total>0)_appendLog(`Cleanup: removed ${p.total} test record(s)`);
-    }catch(e){_appendLog(`Cleanup warning: ${e.message}`);}
-    _running=false;
-    if(btn){btn.textContent='▶ Run All Tests';btn.onclick=rpt_diagStartRun;}
-    const dlBtn=_$('rpt_diagDlBtn');if(dlBtn)dlBtn.style.display='block';
-  };
-})();
-
-// ── Init ─────────────────────────────────────────────────────
-function init() {
-  const now = new Date().getFullYear();
-  populateYears('spYearSel',  now);
-  populateYears('hlYearSel',  now);
-  populateYears('annYearSel', now);
-  // Default month select to full year
-  loadSpending();
+    html += `</div></div>`;
+  });
+  container.innerHTML = html;
 }
 
-// Wait for auth
-if (window.LT?.ready) { LT.ready(() => init()); }
-else { document.addEventListener('DOMContentLoaded', () => setTimeout(init, 200)); }
-
-// ── CHECKLIST TAB ─────────────────────────────────────────────
-let _checklistDone = new Set(JSON.parse(localStorage.getItem('ghrava_checklist') || '[]'));
-
-function saveChecklist() {
-  localStorage.setItem('ghrava_checklist', JSON.stringify([..._checklistDone]));
-}
-
-async function loadChecklist() {
-  const el = $('checklistContent');
-  if (!el) return;
+// ── Open / close report ───────────────────────────────────────
+async function openReport(id) {
+  const report = REPORT_REGISTRY.find(r => r.id === id);
+  if (!report) return;
+  document.getElementById('reportsMainView').style.display = 'none';
+  const detail = document.getElementById('reportDetailView');
+  detail.style.display = 'block';
+  detail.innerHTML = `<div class="report-panel"><div class="report-panel-header"><button class="report-panel-back" onclick="closeReport()">←</button><span class="report-panel-title">${report.icon} ${report.name}</span></div><div class="spinner"><div class="spin"></div>Loading…</div></div>`;
   try {
-    const items = await window.api('GET', '/settings/checklist');
-    if (!items.length) { el.innerHTML = emptyState('✅','No checklist items',''); return; }
-
-    // Group by category
-    const groups = {};
-    items.forEach(item => {
-      (groups[item.category] = groups[item.category] || []).push(item);
-    });
-
-    const year = new Date().getFullYear();
-    const totalDone = items.filter(i => _checklistDone.has(`${year}_${i.id}`)).length;
-    const pct = Math.round(totalDone / items.length * 100);
-
-    el.innerHTML = `
-      <div style="margin-bottom:12px">
-        <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3);margin-bottom:4px">
-          <span>${totalDone} / ${items.length} completed for ${year}</span>
-          <span>${pct}%</span>
-        </div>
-        <div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">
-          <div style="height:100%;width:${pct}%;background:var(--green);border-radius:3px;transition:width .3s"></div>
-        </div>
-      </div>
-      ${Object.entries(groups).sort(([a],[b])=>a.localeCompare(b)).map(([cat, catItems]) => {
-        const doneCnt = catItems.filter(i => _checklistDone.has(`${year}_${i.id}`)).length;
-        return `
-          <div style="margin-bottom:2px">
-            <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);padding:10px 0 4px;display:flex;justify-content:space-between">
-              <span>${esc(cat)}</span><span>${doneCnt}/${catItems.length}</span>
-            </div>
-            <div class="card card-static" style="padding:0">
-              ${catItems.map(item => {
-                const key = `${year}_${item.id}`;
-                const done = _checklistDone.has(key);
-                return `<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer" onclick="toggleCheck(${item.id})">
-                  <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${done?'var(--green)':'var(--border)'};display:flex;align-items:center;justify-content:center;flex-shrink:0;background:${done?'var(--green)':'transparent'}">
-                    ${done?'<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>':''}
-                  </div>
-                  <span style="font-size:13px;color:${done?'var(--text3)':'var(--text)'};text-decoration:${done?'line-through':'none'}">${esc(item.task)}</span>
-                </div>`;
-              }).join('')}
-            </div>
-          </div>`;
-      }).join('')}
-      <div style="padding:12px 0 4px;text-align:center">
-        <button class="btn btn-ghost" style="font-size:12px;color:var(--text3)" onclick="resetChecklist()">Reset ${year} progress</button>
-      </div>
-    `;
-  } catch(e) { el.innerHTML = errorState(e.message, 'loadChecklist()'); }
-}
-
-function toggleCheck(id) {
-  const year = new Date().getFullYear();
-  const key = `${year}_${id}`;
-  if (_checklistDone.has(key)) _checklistDone.delete(key);
-  else _checklistDone.add(key);
-  saveChecklist();
-  loadChecklist();
-}
-
-function resetChecklist() {
-  const year = new Date().getFullYear();
-  _checklistDone = new Set([..._checklistDone].filter(k => !k.startsWith(`${year}_`)));
-  saveChecklist();
-  loadChecklist();
-}
-
-// ── Emergency Report ─────────────────────────────────────────
-let _emergencyData = null;
-
-async function loadEmergencyReport() {
-  try {
-    _emergencyData = await window.api('GET', '/reports/emergency');
-    const d = _emergencyData;
-    document.getElementById('emContacts').textContent   = d.emergency_contacts?.length || 0;
-    document.getElementById('emMeds').textContent       = d.medications?.length        || 0;
-    document.getElementById('emConditions').textContent = d.conditions?.length         || 0;
-    document.getElementById('emAllergies').textContent  = d.allergies?.length          || 0;
-    const cfg = d.config || {};
-    const showDobEl = document.getElementById('emShowDob');
-    const showSsnEl = document.getElementById('emShowSsn');
-    const showInsEl = document.getElementById('emShowInsurance');
-    if (showDobEl) showDobEl.checked = cfg.emergency_show_dob !== '0';
-    if (showSsnEl) showSsnEl.checked = cfg.emergency_show_ssn === '1';
-    if (showInsEl) showInsEl.checked = cfg.emergency_include_insurance !== '0';
-
-    // Contacts
-    const cEl = document.getElementById('emergencyContactsList');
-    if (cEl) {
-      if (d.emergency_contacts?.length) {
-        cEl.innerHTML = d.emergency_contacts.map(ct => `
-          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px">
-            <div style="font-weight:700;color:var(--text)">${esc(ct.name)}</div>
-            <div style="font-size:11px;color:var(--red);text-transform:uppercase">${esc(ct.contact_type)}${ct.specialty?' · '+esc(ct.specialty):''}</div>
-            ${ct.phone_primary?`<div style="font-size:15px;font-weight:600;color:var(--accent);margin:4px 0 2px">${esc(ct.phone_primary)}</div>`:''}
-            ${ct.phone_secondary?`<div style="font-size:12px;color:var(--text3)">📱 ${esc(ct.phone_secondary)}</div>`:''}
-            ${ct.email?`<div style="font-size:12px;color:var(--text3)">✉️ ${esc(ct.email)}</div>`:''}
-          </div>`).join('');
-      } else {
-        cEl.innerHTML = '<div style="color:var(--amber);padding:12px;background:var(--amber-bg,#fffbeb);border-radius:var(--r);font-size:13px">⚠️ No emergency contacts marked — Settings → Contacts → toggle "Emergency Contact".</div>';
-      }
-    }
-
-    // Medications
-    const mEl = document.getElementById('emergencyMedsList');
-    if (mEl) {
-      if (d.medications?.length) {
-        mEl.innerHTML = d.medications.map(m => `
-          <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-            <div><span style="font-weight:600;color:var(--text)">${esc(m.name)}</span><span style="font-size:11px;color:var(--red);text-transform:uppercase;margin-left:8px">${esc(m.patient)}</span></div>
-            <div style="font-size:12px;color:var(--text3)">${m.dosage?esc(m.dosage)+' · ':''}${esc(m.frequency||'')}</div>
-          </div>`).join('');
-      } else {
-        mEl.innerHTML = '<div style="color:var(--text3);padding:8px;text-align:center">No active medications</div>';
-      }
-    }
-
-    // Allergies
-    const aEl = document.getElementById('emergencyAllergiesList');
-    if (aEl) {
-      if (d.allergies?.length) {
-        aEl.innerHTML = '<div style="padding:8px 0">' + d.allergies.map(a =>
-          `<span style="display:inline-block;background:var(--red-bg,#fef2f2);color:var(--red,#ef4444);padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;margin:2px;border:1px solid var(--red,#ef4444)">${esc(a.patient)}: ${esc(a.allergies)}</span>`
-        ).join('') + '</div>';
-      } else {
-        aEl.innerHTML = '<div style="color:var(--text3);padding:8px;text-align:center">No known allergies</div>';
-      }
-    }
+    const data = report.endpoint ? await window.api('GET', report.endpoint) : null;
+    report.render(detail, data);
   } catch(e) {
-    const el = document.getElementById('emergencyContactsList');
-    if (el) el.innerHTML = `<div style="color:var(--red);padding:16px;text-align:center">Failed to load: ${esc(e.message)}</div>`;
+    detail.innerHTML = `<div class="report-panel"><div class="report-panel-header"><button class="report-panel-back" onclick="closeReport()">←</button><span class="report-panel-title">${report.icon} ${report.name}</span></div><div style="color:var(--red);padding:20px;text-align:center">Failed to load: ${esc(e.message)}</div></div>`;
   }
 }
 
-
-async function saveEmConfig(key, checked) {
-  try {
-    await window.api('PUT', '/settings/config/' + key, { value: checked ? '1' : '0' });
-    toast('Saved');
-  } catch(e) { toast(e.message, 'err'); }
+function closeReport() {
+  document.getElementById('reportsMainView').style.display = 'block';
+  document.getElementById('reportDetailView').style.display = 'none';
 }
 
-async function copyEmergencyText() {
-  try {
-    const text = await fetch('/api/v1/reports/emergency/text').then(r => r.text());
-    if (navigator.clipboard) {
-      await navigator.clipboard.writeText(text);
-      toast('Copied to clipboard');
-    } else {
-      prompt('Copy this text:', text);
-    }
-  } catch(e) { toast(e.message, 'err'); }
+// ── Render functions ──────────────────────────────────────────
+function panelWrap(icon, name, content) {
+  return `<div class="report-panel"><div class="report-panel-header"><button class="report-panel-back" onclick="closeReport()">←</button><span class="report-panel-title">${icon} ${name}</span></div>${content}</div>`;
+}
+function summaryRow(label, value, color) {
+  return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><span>${label}</span><span style="font-weight:600;color:${color||'var(--text)'}">${value}</span></div>`;
+}
+function statsRow(items) {
+  return `<div class="stats-row">${items.map(([v,l,c])=>`<div class="stat-item"><div class="stat-value" style="color:${c||'var(--text)'}">${v}</div><div class="stat-label">${l}</div></div>`).join('')}</div>`;
 }
 
-// ── Expiry Timeline ───────────────────────────────────────────
-async function loadExpiryTimeline() {
-  const range = document.getElementById('expiryRange')?.value || '24';
-  const showExpired = document.getElementById('expiryShowExpired')?.checked ? '1' : '0';
-  const container = document.getElementById('expiryList');
-  if (!container) return;
-  container.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
-  try {
-    const d = await window.api('GET', `/reports/expiry?months=${range}&show_expired=${showExpired}`);
-    document.getElementById('expTotal').textContent   = d.total || 0;
-    document.getElementById('expExpired').textContent = d.expired || 0;
-    document.getElementById('expNext30').textContent  = d.next_30_days || 0;
-    document.getElementById('expNext90').textContent  = d.next_90_days || 0;
-
-    if (!d.documents?.length) {
-      container.innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center">📅 No expiring documents in this range.</div>';
-      return;
-    }
-    const getColor = (days) => days < 0 ? 'var(--red)' : days <= 30 ? 'var(--red)' : days <= 90 ? 'var(--amber)' : 'var(--green)';
-    const getBadge = (days) => days < 0 ? `Expired ${Math.abs(days)}d ago` : days === 0 ? 'Expires today!' : days <= 30 ? `${days}d left` : days <= 90 ? `${days}d left` : `${Math.floor(days/30)}mo left`;
-    container.innerHTML = d.documents.map(doc => `
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg2);border-left:3px solid ${getColor(doc.days_until)};border-radius:var(--r);margin-bottom:6px">
-        <div>
-          <div style="font-weight:600;color:var(--text)">${esc(doc.title)}</div>
-          <div style="font-size:12px;color:var(--text3)">${esc(doc.category||'Document')} · Expires ${doc.expiry_date}</div>
-        </div>
-        <span style="font-size:11px;font-weight:600;color:${getColor(doc.days_until)};white-space:nowrap;margin-left:12px">${getBadge(doc.days_until)}</span>
-      </div>`).join('');
-  } catch(e) {
-    container.innerHTML = errorState(e.message, 'loadExpiryTimeline()');
-  }
+function renderSummary(el, d) {
+  const inv=d.inventory||{}, med=d.medical||{}, tod=d.todos||{}, fin=d.net_worth||{}, docs=d.expiring_documents||[], hsa=d.hsa||{};
+  el.innerHTML = panelWrap('📊','Dashboard Summary',
+    statsRow([[inv.items||0,'Items'],[med.medications||0,'Meds'],[tod.open_count||0,'Todos']]) +
+    summaryRow('Est. Inventory Value', fmt$(inv.est_value||0), 'var(--green)') +
+    summaryRow('Net Worth', fmt$(fin.net_worth||0), (fin.net_worth||0)>=0?'var(--green)':'var(--red)') +
+    summaryRow('Overdue Todos', tod.overdue_count||0, 'var(--red)') +
+    summaryRow('Expiring Docs (90d)', docs.length||0, 'var(--amber)') +
+    summaryRow('HSA Pool', fmt$(hsa.unreimbursed_pool||0), 'var(--green)')
+  );
 }
 
-// ── Insurance Report ──────────────────────────────────────────
-async function loadInsuranceReport() {
-  const container = document.getElementById('insurancePreview');
-  if (!container) return;
-  container.innerHTML = '<div class="spinner"><div class="spin"></div>Generating…</div>';
-  try {
-    const groupBy  = document.getElementById('insGroupBy')?.value || 'room';
-    const minValue = document.getElementById('insMinValue')?.value || '100';
-    const d = await window.api('GET', `/receipts/insurance-report?groupBy=${groupBy}&minValue=${minValue}`);
-    const totalVal = d.summary?.total_value || 0;
-    container.innerHTML = `
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
-        <div class="sum-card"><div class="sum-val">${d.summary?.total_items||0}</div><div class="sum-lbl">Items</div></div>
-        <div class="sum-card"><div class="sum-val">$${Number(totalVal).toLocaleString('en-US',{minimumFractionDigits:0})}</div><div class="sum-lbl">Value</div></div>
-        <div class="sum-card"><div class="sum-val">${Object.keys(d.groups||{}).length}</div><div class="sum-lbl">Groups</div></div>
-      </div>
-      ${Object.entries(d.groups||{}).slice(0,5).map(([gName,items])=>`
-        <div style="margin-bottom:12px;padding:12px;background:var(--bg2);border-radius:var(--r)">
-          <div style="font-weight:600;color:var(--text);margin-bottom:6px">📍 ${esc(gName)} <span style="font-size:11px;color:var(--text3)">(${items.length} items)</span></div>
-          ${items.slice(0,3).map(i=>`<div style="font-size:12px;color:var(--text2);padding:2px 0">${esc(i.name)}${i.purchase_price?` — $${Number(i.purchase_price).toFixed(2)}`:''}  </div>`).join('')}
-          ${items.length>3?`<div style="font-size:11px;color:var(--text3)">+ ${items.length-3} more</div>`:''}
-        </div>`).join('')}
-      ${Object.keys(d.groups||{}).length>5?`<div style="font-size:12px;color:var(--text3);text-align:center">+ ${Object.keys(d.groups).length-5} more groups in full report</div>`:''}
-    `;
-  } catch(e) {
-    container.innerHTML = errorState(e.message, 'loadInsuranceReport()');
-  }
+function renderEmergency(el, d) {
+  const contacts=d.emergency_contacts||[], meds=d.medications||[], allergies=d.allergies||[];
+  let body = `<div style="display:flex;gap:8px;margin-bottom:20px;flex-wrap:wrap">
+    <button class="btn btn-primary" onclick="window.open('/api/v1/reports/emergency/html','_blank')">🖨️ Print Emergency Card</button>
+    <button class="btn btn-ghost" onclick="copyEmText()">📋 Copy as Text</button>
+  </div>`;
+
+  body += `<div style="font-weight:600;margin-bottom:8px">📞 Emergency Contacts (${contacts.length})</div>`;
+  body += contacts.length
+    ? contacts.map(c=>`<div style="background:var(--bg3);padding:12px;border-radius:var(--r);margin-bottom:8px"><div style="font-weight:600">${esc(c.name)} <span style="font-size:11px;color:var(--red);text-transform:uppercase">${esc(c.contact_type)}</span></div><div style="color:var(--accent);font-weight:600">${esc(c.phone_primary||'—')}</div>${c.phone_secondary?`<div style="font-size:12px;color:var(--text3)">${esc(c.phone_secondary)}</div>`:''}</div>`).join('')
+    : `<div style="color:var(--amber);padding:12px;background:var(--amber-bg,#fffbeb);border-radius:var(--r);font-size:13px">⚠️ No emergency contacts — Settings → Contacts → toggle "Emergency Contact"</div>`;
+
+  body += `<div style="font-weight:600;margin:16px 0 8px">💊 Active Medications (${meds.length})</div>`;
+  body += meds.length
+    ? meds.slice(0,10).map(m=>`<div style="padding:8px 0;border-bottom:1px solid var(--border)"><span style="font-weight:600">${esc(m.name)}</span><span style="color:var(--red);font-size:11px;margin-left:8px">${esc(m.patient)}</span><div style="font-size:12px;color:var(--text3)">${m.dosage||''} ${m.frequency||''}</div></div>`).join('')
+    : `<div style="color:var(--text3);padding:8px">No active medications</div>`;
+
+  body += `<div style="font-weight:600;margin:16px 0 8px">⚠️ Allergies</div>`;
+  body += allergies.length
+    ? `<div style="display:flex;flex-wrap:wrap;gap:6px">${allergies.map(a=>`<span style="background:var(--red-bg,#fef2f2);color:var(--red,#ef4444);padding:4px 10px;border-radius:99px;font-size:12px;border:1px solid var(--red,#ef4444)">${esc(a.patient)}: ${esc(a.allergies)}</span>`).join('')}</div>`
+    : `<div style="color:var(--text3);padding:8px">No known allergies</div>`;
+
+  el.innerHTML = panelWrap('🚨','Emergency Info Card', body);
 }
 
-function openInsurancePrint() {
-  const groupBy  = document.getElementById('insGroupBy')?.value || 'room';
-  const minValue = document.getElementById('insMinValue')?.value || '100';
-  window.open(`/api/v1/receipts/insurance-report?format=html&groupBy=${groupBy}&minValue=${minValue}`, '_blank');
+function renderFamilySnapshot(el) {
+  el.innerHTML = panelWrap('👤','Family Member Report',
+    `<div style="padding:20px;text-align:center;color:var(--text3)">Select a family member to view their snapshot.<br><br>
+    <button class="btn btn-ghost" onclick="window.location='/settings.html'">Open Settings → Family</button></div>`
+  );
 }
 
-// ── System Test Runner ────────────────────────────────────────
-async function runSystemTests() {
-  const container = document.getElementById('testResultsContainer');
-  if (!container) return;
+function renderExpiry(el, d) {
+  const docs = d.documents||[];
+  const today = new Date().toISOString().slice(0,10);
+  const getColor = (days) => days<0?'var(--red)':days<=30?'var(--red)':days<=90?'var(--amber)':'var(--green)';
+  el.innerHTML = panelWrap('📅','Document Expiry',
+    statsRow([[d.total||0,'Total'],[d.expired||0,'Expired','var(--red)'],[d.next_30_days||0,'Next 30d','var(--amber)']]) +
+    (docs.length ? docs.map(doc => {
+      const color = getColor(doc.days_until);
+      const badge = doc.days_until<0?`${Math.abs(doc.days_until)}d ago`:doc.days_until<=30?`${doc.days_until}d left`:`${Math.floor(doc.days_until/30)}mo`;
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+        <div><div style="font-weight:600">${esc(doc.title)}</div><div style="font-size:12px;color:var(--text3)">${esc(doc.category||'Document')} · ${doc.expiry_date}</div></div>
+        <span style="font-size:11px;font-weight:700;color:${color}">${badge}</span>
+      </div>`;
+    }).join('') : `<div style="color:var(--text3);padding:20px;text-align:center">No expiring documents</div>`)
+  );
+}
+
+function renderInsurance(el, d) {
+  el.innerHTML = panelWrap('🏠','Home Insurance Report',
+    `<div style="margin-bottom:16px">
+      <button class="btn btn-primary" onclick="window.open('/api/v1/receipts/insurance-report?format=html','_blank')">🖨️ Generate Full Report</button>
+    </div>` +
+    statsRow([[d.summary?.total_items||0,'Items'],[fmt$(d.summary?.total_value||0),'Total Value'],[Object.keys(d.groups||{}).length,'Groups']]) +
+    Object.entries(d.groups||{}).slice(0,5).map(([name,items])=>
+      summaryRow(name, `${items.length} items`)
+    ).join('')
+  );
+}
+
+function renderHsa(el, d) {
+  el.innerHTML = panelWrap('❤️','HSA Summary',
+    statsRow([
+      [fmt$(d.contributions?.total||0),'Contributions'],
+      [fmt$(d.expenses?.unreimbursed_pool||0),'Unreimbursed'],
+      [fmt$(d.total_reimbursed_ytd||0),'Reimbursed'],
+    ]) +
+    summaryRow('Missing Receipts', d.missing_receipts||0, 'var(--amber)') +
+    summaryRow('YTD Expenses', fmt$(d.total_expenses_ytd||0))
+  );
+}
+
+function renderSpending(el, d) {
+  const cats = Array.isArray(d) ? d : (d.categories||[]);
+  el.innerHTML = panelWrap('💰','Spending by Category',
+    cats.length
+      ? cats.slice(0,12).map(c=>summaryRow(esc(c.category||c.name||'Unknown'), fmt$(Math.abs(c.spent||c.total||0)), 'var(--red)')).join('')
+      : `<div style="color:var(--text3);padding:20px;text-align:center">No spending data</div>`
+  );
+}
+
+function renderNetWorth(el, d) {
+  el.innerHTML = panelWrap('📈','Net Worth',
+    statsRow([
+      [fmt$(d.assets||0),'Assets','var(--green)'],
+      [fmt$(d.liabilities||0),'Liabilities','var(--red)'],
+      [fmt$(d.net_worth||0),'Net Worth',(d.net_worth||0)>=0?'var(--green)':'var(--red)'],
+    ]) +
+    summaryRow('Banking Accounts', d.banking_accounts||0) +
+    summaryRow('Investment Accounts', d.investment_accounts||0) +
+    summaryRow('Properties', d.properties||0)
+  );
+}
+
+function renderPortfolio(el, d) {
+  const allocation = d.allocation||[];
+  const top = d.top_gainers||[];
+  el.innerHTML = panelWrap('📊','Investment Portfolio',
+    statsRow([
+      [fmt$(d.performance?.[d.performance.length-1]?.total_value||0),'Total Value'],
+      [allocation.length,'Asset Types'],
+      [top.length,'Holdings'],
+    ]) +
+    (allocation.map(a=>summaryRow(esc(a.type||'Other'), fmt$(a.value||0), 'var(--accent)')).join('')) +
+    (top.length ? `<div style="font-weight:600;margin:16px 0 8px">Top Performers</div>` +
+      top.map(h=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span style="font-weight:600">${esc(h.symbol)}</span><span style="color:var(--green)">${h.gain_loss_pct!=null?(h.gain_loss_pct>=0?'+':'')+h.gain_loss_pct.toFixed(1)+'%':'—'}</span></div>`).join('') : '')
+  );
+}
+
+function renderWatcher(el, d) {
+  const history = d.history||[];
+  el.innerHTML = panelWrap('📁','Folder Watcher Audit',
+    `<div style="display:flex;gap:8px;margin-bottom:16px"><a href="/watcher-inbox.html" class="btn btn-ghost">📥 Open Inbox</a><a href="/settings.html" class="btn btn-ghost">⚙️ Configure</a></div>` +
+    (history.length ? history.slice(0,20).map(h=>`
+      <div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;display:flex;align-items:center;gap:8px">
+        <span>${h.status==='completed'?'✅':h.status==='failed'?'❌':'📥'}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(h.file_name||'Unknown')}</span>
+        <span style="font-size:11px;color:var(--text3)">${esc(h.module||'')}</span>
+      </div>`).join('')
+    : `<div style="color:var(--text3);padding:20px;text-align:center">No import history yet</div>`)
+  );
+}
+
+function renderDatabase(el, d) {
+  el.innerHTML = panelWrap('🗄️','Database Health',
+    statsRow([[d.size_formatted||'—','Size'],[d.table_count||0,'Tables'],[d.total_rows?.toLocaleString()||0,'Rows']]) +
+    (d.last_maintenance?.map(m=>summaryRow(m.operation, `${m.result} (${m.duration_ms||0}ms)`)).join('') || '') +
+    `<div style="margin-top:16px;display:flex;gap:8px">
+      <button class="btn btn-ghost" onclick="window.location='/settings.html'">Open DB Maintenance</button>
+    </div>`
+  );
+}
+
+function renderTests(el) {
+  el.innerHTML = panelWrap('🧪','System Tests',
+    `<p style="font-size:13px;color:var(--text2);margin-bottom:16px">Run automated tests to verify all features are working correctly.</p>
+    <button class="btn btn-primary" id="runTestsBtn" onclick="runTests()">▶ Run All Tests</button>
+    <div id="testOut" style="margin-top:16px;font-family:var(--mono);font-size:12px"></div>`
+  );
+}
+
+async function runTests() {
   const btn = document.getElementById('runTestsBtn');
-  if (btn) { btn.textContent = 'Running…'; btn.disabled = true; }
-
+  const out  = document.getElementById('testOut');
+  if (btn) { btn.textContent='Running…'; btn.disabled=true; }
   const results = [];
-  const pass = (name) => { results.push({name,status:'pass'}); };
-  const fail = (name,err) => { results.push({name,status:'fail',error:err}); };
-
   const tests = [
-    ['Config API', async () => { const c = await window.api('GET','/settings/config'); if(!c) throw new Error('empty'); }],
-    ['EOB parser configured', async () => { const c = await window.api('GET','/settings/config'); if(!c.eob_parser) throw new Error('not set'); }],
-    ['DB stats', async () => { const s = await window.api('GET','/system/db/stats'); if(!s.size_formatted) throw new Error('invalid'); }],
-    ['Expiry report', async () => { const d = await window.api('GET','/reports/expiry?months=12'); if(!d.hasOwnProperty('documents')) throw new Error('invalid'); }],
-    ['Emergency report', async () => { const d = await window.api('GET','/reports/emergency'); if(!d.emergency_contacts) throw new Error('invalid'); }],
-    ['Google status', async () => { const s = await window.api('GET','/google/status'); if(!s.hasOwnProperty('connected')) throw new Error('invalid'); }],
-    ['Recurring list', async () => { const r = await window.api('GET','/finance/recurring'); if(!Array.isArray(r)) throw new Error('not array'); }],
-    ['Webhooks events', async () => { const e = await window.api('GET','/system/webhooks/events'); if(!Array.isArray(e)) throw new Error('not array'); }],
-    ['Undo delete list', async () => { const d = await window.api('GET','/system/deleted'); if(!Array.isArray(d)) throw new Error('not array'); }],
+    ['Config API',        () => window.api('GET','/settings/config')],
+    ['DB stats',          () => window.api('GET','/system/db/stats')],
+    ['Emergency report',  () => window.api('GET','/reports/emergency')],
+    ['Expiry report',     () => window.api('GET','/reports/expiry?months=12')],
+    ['Google status',     () => window.api('GET','/google/status')],
+    ['Recurring list',    () => window.api('GET','/finance/recurring')],
+    ['Webhooks events',   () => window.api('GET','/system/webhooks/events')],
+    ['Undo delete list',  () => window.api('GET','/system/deleted')],
   ];
-
   for (const [name, fn] of tests) {
-    try { await fn(); pass(name); } catch(e) { fail(name, e.message); }
+    try { await fn(); results.push({name,ok:true}); } catch(e) { results.push({name,ok:false,err:e.message}); }
   }
-
-  // Google debug (optional)
-  try {
-    const dbg = await window.api('GET','/google/debug/connection');
-    dbg.tests?.dns === 'ok' ? pass('Google DNS') : fail('Google DNS', dbg.tests?.dns);
-    if (dbg.config?.has_refresh_token) {
-      dbg.tests?.token && !dbg.tests.token.includes('failed') ? pass('Google token') : fail('Google token', dbg.tests?.token);
-    } else {
-      results.push({name:'Google token',status:'skip',reason:'not connected'});
-    }
-  } catch(e) { fail('Google debug', e.message); }
-
-  const passed  = results.filter(r=>r.status==='pass').length;
-  const failed  = results.filter(r=>r.status==='fail').length;
-  const skipped = results.filter(r=>r.status==='skip').length;
-
-  container.innerHTML = `
-    <div style="margin-bottom:12px">
-      <span style="color:var(--green)">✅ ${passed} passed</span> ·
-      <span style="color:var(--red)">❌ ${failed} failed</span> ·
-      <span style="color:var(--text3)">⏭️ ${skipped} skipped</span>
-    </div>
-    ${results.map(r=>{
-      const icon = r.status==='pass'?'✅':r.status==='fail'?'❌':'⏭️';
-      const color = r.status==='pass'?'var(--green)':r.status==='fail'?'var(--red)':'var(--text3)';
-      return `<div style="color:${color};padding:3px 0">${icon} ${r.name}${r.error?` — ${r.error}`:''}${r.reason?` (${r.reason})`:''}</div>`;
-    }).join('')}
-  `;
-
-  if (btn) { btn.textContent = '▶ Run All Tests'; btn.disabled = false; }
+  const p=results.filter(r=>r.ok).length, f=results.filter(r=>!r.ok).length;
+  if (out) out.innerHTML = `<div style="margin-bottom:8px"><span style="color:var(--green)">✅ ${p} passed</span> · <span style="color:var(--red)">❌ ${f} failed</span></div>` +
+    results.map(r=>`<div style="color:${r.ok?'var(--green)':'var(--red)'};padding:2px 0">${r.ok?'✅':'❌'} ${r.name}${r.err?' — '+esc(r.err):''}</div>`).join('');
+  if (btn) { btn.textContent='▶ Run All Tests'; btn.disabled=false; }
 }
+
+// ── Helpers ───────────────────────────────────────────────────
+function fmt$(n) {
+  if (n==null) return '$0';
+  const abs = Math.abs(n);
+  if (abs>=1000000) return (n<0?'-':'')+'$'+(abs/1000000).toFixed(1)+'M';
+  if (abs>=1000)    return (n<0?'-':'')+'$'+(abs/1000).toFixed(1)+'k';
+  return (n<0?'-':'')+'$'+abs.toFixed(0);
+}
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+async function copyEmText() {
+  try {
+    const t = await fetch('/api/v1/reports/emergency/text').then(r=>r.text());
+    await navigator.clipboard.writeText(t);
+    toast('Copied to clipboard');
+  } catch { toast('Copy failed','err'); }
+}
+
+// ── Init ──────────────────────────────────────────────────────
+renderMainGrid();
 </script>
 </body>
 </html>
