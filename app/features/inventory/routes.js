@@ -1330,4 +1330,20 @@ router.post('/import', uploadImport.single('file'), async (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+
+// ── Document-Item Links (from inventory side) ─────────────────
+const { getLinksForItem: getDocLinksForItem, addLink: addDocLink } = require('../../shared/document-item-links');
+
+router.get('/items/:id/doc-links', (req, res) => {
+  try { res.json(getDocLinksForItem(req.params.id)); } catch(e) { serverError(res, e); }
+});
+
+router.post('/items/:id/doc-links', (req, res) => {
+  try {
+    const { document_id } = req.body;
+    if (!document_id) return badRequest(res, 'document_id required');
+    addDocLink(document_id, req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
 module.exports = router;

@@ -388,4 +388,92 @@ router.get('/attention', (req, res) => {
   }
 });
 
+
+// GET /api/v1/dashboard/focus — top urgent items for focus strip
+router.get('/focus', (req, res) => {
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const warn7 = new Date(Date.now() + 7*24*60*60*1000).toISOString().slice(0,10);
+    const items = [];
+
+    // Critical todos (urgent + overdue)
+    db.prepare(`
+      SELECT id, title, due_date, priority FROM todos
+      WHERE status IN ('open','in_progress') AND (
+        priority = 'urgent' OR (due_date IS NOT NULL AND due_date < ?)
+      ) ORDER BY CASE priority WHEN 'urgent' THEN 0 ELSE 1 END, due_date LIMIT 5
+    `).all(today).forEach(r => items.push({
+      module: 'todos', icon: '✓',
+      label: r.title.slice(0,50),
+      severity: r.priority === 'urgent' ? 'critical' : 'overdue',
+      href: '/todos.html',
+    }));
+
+    // Documents expiring in 30 days
+    db.prepare(`
+      SELECT id, title, expiry_date FROM documents
+      WHERE is_active=1 AND expiry_date IS NOT NULL AND expiry_date <= date('now','+30 days') AND expiry_date >= date('now','-7 days')
+      ORDER BY expiry_date LIMIT 3
+    `).all().forEach(r => items.push({
+      module: 'documents', icon: '📄',
+      label: `${r.title} expires ${r.expiry_date}`,
+      severity: r.expiry_date < today ? 'overdue' : 'warning',
+      href: '/documents.html',
+    }));
+
+    // Certifications expiring in 30 days
+    try {
+      db.prepare(`
+        SELECT id, cert_name, expiry_date FROM career_certifications
+        WHERE status != 'Expired' AND expiry_date IS NOT NULL AND expiry_date <= date('now','+30 days')
+        ORDER BY expiry_date LIMIT 2
+      `).all().forEach(r => items.push({
+        module: 'career', icon: '🎖',
+        label: `Cert: ${r.cert_name} expires ${r.expiry_date}`,
+        severity: 'warning',
+        href: '/career.html',
+      }));
+    } catch {}
+
+    // Overdue follow-ups
+    db.prepare(`
+      SELECT id, entry_text, follow_up_date FROM daily_log
+      WHERE follow_up_needed=1 AND follow_up_date < ? ORDER BY follow_up_date LIMIT 3
+    `).all(today).forEach(r => items.push({
+      module: 'daily_log', icon: '📋',
+      label: `Follow-up: ${r.entry_text.slice(0,40)}`,
+      severity: 'overdue',
+      href: '/daily-log.html',
+    }));
+
+    // Sort: critical first, then overdue, then warning
+    const order = { critical: 0, overdue: 1, warning: 2 };
+    items.sort((a,b) => (order[a.severity]||3) - (order[b.severity]||3));
+
+    res.json({ items: items.slice(0, 8), count: items.length });
+  } catch(e) { serverError(res, e); }
+});
+
+// GET /api/v1/dashboard/backup-health — backup status for health widget
+router.get('/backup-health', (req, res) => {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) return res.json({ status: 'unknown', message: 'Backup dir not found', last_backup: null });
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.endsWith('.db') || f.endsWith('.zip'))
+      .map(f => ({ name: f, mtime: fs.statSync(path.join(BACKUP_DIR, f)).mtime }))
+      .sort((a,b) => b.mtime - a.mtime);
+    if (!files.length) return res.json({ status: 'warning', message: 'No backups found', last_backup: null });
+    const last = files[0];
+    const daysSince = Math.floor((Date.now() - last.mtime.getTime()) / 86400000);
+    const warnDays = parseInt(db.prepare("SELECT value FROM app_config WHERE key='backup_reminder_days'").get()?.value || '7');
+    const status = daysSince === 0 ? 'ok' : daysSince <= warnDays ? 'ok' : daysSince <= warnDays*2 ? 'warning' : 'overdue';
+    res.json({
+      status,
+      message: daysSince === 0 ? 'Backed up today' : `Last backup ${daysSince}d ago`,
+      last_backup: last.mtime.toISOString(),
+      days_since: daysSince,
+      count: files.length,
+    });
+  } catch(e) { serverError(res, e); }
+});
 module.exports = router;

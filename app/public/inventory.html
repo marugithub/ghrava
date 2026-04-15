@@ -737,6 +737,16 @@
   background:rgba(34,197,94,.1); border:1px solid var(--green-bd);
   border-radius:var(--r); padding:12px 14px; margin-bottom:12px;
 }
+
+/* Gallery View */
+.ai-gallery-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;padding:4px 0}
+.ai-gallery-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden;cursor:pointer;transition:border-color .15s,transform .15s}
+.ai-gallery-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+.ai-gallery-thumb{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.ai-gallery-placeholder{width:100%;aspect-ratio:1;display:flex;align-items:center;justify-content:center}
+.ai-gallery-footer{padding:8px}
+.ai-gallery-name{font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ai-gallery-meta{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body class="module-inventory">
@@ -912,7 +922,17 @@
     </div>
     <div class="form-group">
       <label class="form-label">Type</label>
-      <select class="form-select" id="loc_type"></select>
+      <select class="form-select" id="loc_type">
+        <option value="house">🏠 House</option>
+        <option value="room" selected>🚪 Room</option>
+        <option value="garage">🏗️ Garage</option>
+        <option value="attic">📦 Attic</option>
+        <option value="basement">⬇️ Basement</option>
+        <option value="storage_unit">🗄️ Storage Unit</option>
+        <option value="shed">🏚️ Shed</option>
+        <option value="office">💼 Office</option>
+        <option value="other">📍 Other</option>
+      </select>
     </div>
     <div class="form-group">
       <label class="form-label">Description</label>
@@ -1083,7 +1103,10 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Condition</label>
-        <select class="form-select" id="itm_cond"></select>
+        <select class="form-select" id="itm_cond">
+          <option value="">—</option>
+          <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
+        </select>
       </div>
       <div class="form-group"><label class="form-label">Warranty Expires</label><input class="form-input" type="date" id="itm_warranty"></div>
     </div>
@@ -1482,6 +1505,7 @@ async function initInvView() {
     renderBrowse();
   }, {
     defaultView: 'grid',
+    views: ['grid','list','gallery'],
     filterFields: [
       { key: 'location_id', type: 'select', label: 'Location / Room', options: locOptions },
       { key: 'category',    type: 'select', label: 'Category',        options: catOptions },
@@ -1909,7 +1933,25 @@ async function renderAllItemsFlat(el) {
     allItemsPage = Math.max(0, Math.min(allItemsPage, totalPages - 1));
     const page = items.slice(allItemsPage * ALL_ITEMS_PAGE_SIZE, (allItemsPage + 1) * ALL_ITEMS_PAGE_SIZE);
     let cardsHtml, wrapClass;
-    if (aiView === 'list') {
+    if (aiView === 'gallery') {
+      // Gallery view: photo-first grid, larger cards, items with photos float to top
+      const sorted = [...page].sort((a,b) => (b.primary_photo_id?1:0) - (a.primary_photo_id?1:0));
+      wrapClass = 'ai-gallery-grid';
+      cardsHtml = sorted.map(item => {
+        const cfg = catCfg(item.category);
+        const thumbSrc = item.primary_photo_id ? `/api/v1/attachments/thumb/${item.primary_photo_id}` : null;
+        return `<div class="ai-gallery-card" data-item="${item.id}">
+          ${thumbSrc
+            ? `<img class="ai-gallery-thumb" src="${thumbSrc}" alt="${esc(item.name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            : ''}
+          <div class="ai-gallery-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}"><span style="font-size:40px">${cfg.icon}</span></div>
+          <div class="ai-gallery-footer">
+            <div class="ai-gallery-name">${esc(item.name)}</div>
+            ${item.brand ? `<div class="ai-gallery-meta">${esc(item.brand)}</div>` : ''}
+          </div>
+        </div>`;
+      }).join('');
+    } else if (aiView === 'list') {
       wrapClass = 'ai-list-grid';
       cardsHtml = page.map(item => {
         const cfg = catCfg(item.category);
@@ -2152,7 +2194,7 @@ function renderItemCard(item) {
   return `<div class="item-card${archived?' archived':''}" data-item="${item.id}">
     <div class="item-card-stripe" style="background:${cfg.color}"></div>
     ${thumbSrc
-      ? `<img class="item-card-thumb" src="${thumbSrc}" alt="${item.name}" onerror="this.style.display='none'">`
+      ? `<img class="item-card-thumb" src="${thumbSrc}" alt="${item.name}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
       : `<div class="item-card-thumb-placeholder" style="background:${cfg.bg}">${cfg.icon}</div>`
     }
     <div class="item-card-inner">
@@ -2839,7 +2881,7 @@ async function openLocDrawer(loc=null, fromItemDrawer=false) {
   editingId = loc?.id||null;
   $('locDrawerTitle').textContent = loc ? 'Edit Location' : 'Add Location';
   await GH_SELECT.init('loc_name_sel', 'location_name', loc?.name||'', { allowAdd: true });
-  await GH_SELECT.init('loc_type', 'location_type', loc?.location_type||'Room', { allowAdd: true, placeholder: '— type —' });
+  $('loc_type').value  = loc?.location_type||'room';
   $('loc_desc').value  = loc?.description||'';
   $('loc_notes').value = loc?.notes||'';
   // Raise z-index when stacking over item drawer
@@ -2987,8 +3029,7 @@ async function openItemDrawer(item=null) {
   $('itm_brand').value=''; $('itm_model').value=''; $('itm_serial').value='';
   $('itm_pdate').value=''; $('itm_price').value=''; $('itm_store').value='';
   $('itm_method').value=''; $('itm_order').value='';
-  await GH_SELECT.init('itm_cond', 'item_condition', '', { placeholder: '— condition —' });
-  $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
+  $('itm_cond').value=''; $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
   GH_REFS.populateContact('itm_wvendor', null, { placeholder: '— none —' });
   $('itm_insured').checked=false; $('insuranceFields').style.display='none';
   $('itm_policy').value=''; $('itm_insval').value='';
@@ -3009,8 +3050,7 @@ async function openItemDrawer(item=null) {
     $('itm_pdate').value=item.purchase_date||''; $('itm_price').value=item.purchase_price||'';
     $('itm_store').value=item.store_name||''; $('itm_method').value=item.purchase_method||'';
     $('itm_order').value=item.order_number||'';
-    await GH_SELECT.init('itm_cond', 'item_condition', item.condition||'', { placeholder: '— condition —' });
-    $('itm_warranty').value=item.warranty_expires||'';
+    $('itm_cond').value=item.condition||''; $('itm_warranty').value=item.warranty_expires||'';
     GH_REFS.populateContact('itm_wvendor', item.warranty_vendor_contact_id||null, { placeholder: '— none —' });
     $('itm_lifewrnt').checked=!!item.lifetime_warranty;
     $('itm_insured').checked=!!item.insured;

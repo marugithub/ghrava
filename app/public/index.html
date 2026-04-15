@@ -7,6 +7,7 @@
   <meta name="theme-color" content="#f0f4f8">
   <link rel="icon" type="image/x-icon" href="/favicon.ico">
   <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/shared.css">
 <script src="/theme.js"></script>
 <script>
@@ -112,6 +113,9 @@
       </div>
       <div class="dash-header-title">Ghrava</div>
       <div class="dash-header-actions">
+        <button class="gh-icon-btn" onclick="window.GH_Search&&GH_Search.open()" aria-label="Search" title="Search (⌘K)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
         <button class="gh-icon-btn" id="notifBtn" aria-label="Notifications" onclick="GH_NAV && GH_NAV.toggleNotif()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
           <span class="gh-notif-badge" style="display:none">0</span>
@@ -127,6 +131,15 @@
   <div class="dash-greeting">
     <div class="dash-greeting-date" id="greetDate">—</div>
     <div class="dash-greeting-name" id="greetName">Loading…</div>
+  </div>
+
+  <!-- ── Focus Strip ───────────────────────────────────────────── -->
+  <div id="focusStrip" style="display:none;margin:0 16px 12px;background:var(--red-bg,#fef2f2);border:1px solid var(--red,#ef4444);border-radius:var(--r-lg);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px">
+      <span style="font-size:12px;font-weight:700;color:var(--red,#ef4444);text-transform:uppercase;letter-spacing:.05em">🎯 Needs Attention</span>
+      <button onclick="document.getElementById('focusStrip').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="focusStripList" style="padding:0 14px 10px;display:flex;flex-direction:column;gap:4px"></div>
   </div>
 
   <!-- ── Widgets ─────────────────────────────────────────────── -->
@@ -146,6 +159,10 @@
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
+<script src="/js/global-search.js"></script>
+<script src="/js/keyboard-shortcuts.js"></script>
+<script src="/js/quick-capture.js"></script>
+<script src="/js/offline-indicator.js"></script>
 <script>
 (function() {
   // ── Date/greeting ───────────────────────────────────────────
@@ -463,8 +480,27 @@
   // ── Init ────────────────────────────────────────────────────
   setTimeout(buildModuleGrid, 0);
   loadDashboard();
+  loadFocusStrip();
 
 })();
+
+async function loadFocusStrip() {
+  try {
+    const data = await window.api('GET', '/dashboard/focus');
+    if (!data.items?.length) return;
+    const strip = document.getElementById('focusStrip');
+    const list  = document.getElementById('focusStripList');
+    if (!strip || !list) return;
+    const colors = { critical: 'var(--red)', overdue: 'var(--amber)', warning: 'var(--amber)' };
+    list.innerHTML = data.items.slice(0,5).map(item => `
+      <a href="${item.href}" style="display:flex;align-items:center;gap:8px;padding:4px 0;text-decoration:none">
+        <span style="font-size:14px">${item.icon}</span>
+        <span style="font-size:13px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span>
+        <span style="font-size:10px;font-weight:600;color:${colors[item.severity]||'var(--text3)'};text-transform:uppercase">${item.severity}</span>
+      </a>`).join('');
+    strip.style.display = 'block';
+  } catch { /* silent */ }
+}
 </script>
 </body>
 </html>

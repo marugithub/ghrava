@@ -154,4 +154,27 @@ router.delete('/:id', requireAuth, (req, res) => {
 
 
 
+
+// ── Document-Item Links ───────────────────────────────────────
+const { getLinksForDocument, addLink, removeLink } = require('../../shared/document-item-links');
+
+router.get('/:id/links', (req, res) => {
+  try { res.json(getLinksForDocument(req.params.id)); } catch(e) { serverError(res, e); }
+});
+
+router.post('/:id/links', (req, res) => {
+  try {
+    const { item_id } = req.body;
+    if (!item_id) return badRequest(res, 'item_id required');
+    addLink(req.params.id, item_id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+router.delete('/:id/links/:itemId', (req, res) => {
+  try {
+    removeLink(req.params.id, req.params.itemId);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
 module.exports = router;

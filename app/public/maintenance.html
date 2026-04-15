@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <title>Maintenance — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <style>
+    .maint-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-lg); padding:14px; margin-bottom:8px; display:flex; align-items:center; gap:12px; cursor:pointer; transition:border-color .15s; }
+    .maint-card:hover { border-color:var(--accent); }
+    .maint-icon { width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0 }
+    .maint-overdue { border-left:3px solid var(--red); }
+    .maint-soon    { border-left:3px solid var(--amber); }
+    .maint-ok      { border-left:3px solid var(--green); }
+  </style>
+</head>
+<body>
+<script>window.GH_PAGE = { module:'maintenance', title:'Maintenance' };</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<div id="app">
+  <div style="padding:0 16px 80px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px 0 16px">
+      <div class="sum-card"><div class="sum-val" id="mOverdue" style="color:var(--red)">—</div><div class="sum-lbl">Overdue</div></div>
+      <div class="sum-card"><div class="sum-val" id="mDue30" style="color:var(--amber)">—</div><div class="sum-lbl">Due 30d</div></div>
+      <div class="sum-card"><div class="sum-val" id="mTotal">—</div><div class="sum-lbl">Upcoming</div></div>
+    </div>
+
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="filter-chip active" data-days="90"  onclick="setDays(90,this)">90 days</button>
+      <button class="filter-chip"        data-days="180" onclick="setDays(180,this)">6 months</button>
+      <button class="filter-chip"        data-days="365" onclick="setDays(365,this)">1 year</button>
+    </div>
+
+    <div id="maintList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+  </div>
+</div>
+<script>
+const SOURCE_ICONS = { property:'🏠', vehicle:'🚗', item:'📦' };
+
+async function load(days=90) {
+  try {
+    const [data, summary] = await Promise.all([
+      window.api('GET', `/maintenance/upcoming?days=${days}`),
+      window.api('GET', '/maintenance/summary'),
+    ]);
+    document.getElementById('mOverdue').textContent = summary.overdue || 0;
+    document.getElementById('mDue30').textContent   = summary.due_30_days || 0;
+    document.getElementById('mTotal').textContent   = data.total || 0;
+
+    const today = new Date().toISOString().slice(0,10);
+    const el = document.getElementById('maintList');
+    if (!data.items?.length) {
+      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">✅ No upcoming maintenance in this period</div>';
+      return;
+    }
+    el.innerHTML = data.items.map(item => {
+      const daysUntil = item.next_due_date ? Math.ceil((new Date(item.next_due_date) - new Date()) / 86400000) : null;
+      const cls = !daysUntil || daysUntil < 0 ? 'maint-overdue' : daysUntil <= 30 ? 'maint-soon' : 'maint-ok';
+      const badge = daysUntil === null ? '' : daysUntil < 0 ? `<span style="font-size:10px;font-weight:700;color:var(--red)">${Math.abs(daysUntil)}d OVERDUE</span>`
+        : daysUntil === 0 ? `<span style="font-size:10px;font-weight:700;color:var(--red)">TODAY</span>`
+        : daysUntil <= 30 ? `<span style="font-size:10px;color:var(--amber)">${daysUntil}d</span>`
+        : `<span style="font-size:10px;color:var(--text3)">${daysUntil}d</span>`;
+      return `<div class="maint-card ${cls}" onclick="window.location.href='${item.href}'">
+        <div class="maint-icon" style="background:var(--bg3)">${SOURCE_ICONS[item.source]||'🔧'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:2px">${esc(item.description||item.category)}</div>
+          <div style="font-size:12px;color:var(--text3)">${esc(item.entity_name)} · ${item.next_due_date||'—'}</div>
+        </div>
+        ${badge}
+        ${item.cost ? `<div style="font-size:12px;color:var(--text3)">$${Number(item.cost).toFixed(0)}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { document.getElementById('maintList').innerHTML = `<div style="color:var(--red);padding:20px">${esc(e.message)}</div>`; }
+}
+
+function setDays(days, btn) {
+  document.querySelectorAll('[data-days]').forEach(b => b.classList.toggle('active', b === btn));
+  load(days);
+}
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+document.addEventListener('DOMContentLoaded', () => load(90));
+</script>
+</body>
+</html>

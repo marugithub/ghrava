@@ -202,4 +202,17 @@ router.get('/export/csv', (req, res) => {
   } catch(e) { const {serverError}=require('../errors')||{serverError:(r,e)=>r.status(500).json({error:e.message})}; res.status(500).json({error:e.message}); }
 });
 
+
+// POST /api/v1/daily-log/quick — quick capture from global modal
+router.post('/quick', (req, res) => {
+  try {
+    const { content, category, follow_up_needed, follow_up_date } = req.body;
+    if (!content?.trim()) return badRequest(res, 'content required');
+    const r = db.prepare(`
+      INSERT INTO daily_log (entry_date, category, entry_text, follow_up_needed, follow_up_date)
+      VALUES (date('now'), ?, ?, ?, ?)
+    `).run(category || 'General', content.trim(), follow_up_needed ? 1 : 0, follow_up_date || null);
+    res.status(201).json({ id: r.lastInsertRowid, ok: true });
+  } catch(e) { serverError(res, e); }
+});
 module.exports = router;

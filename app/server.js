@@ -117,6 +117,10 @@ app.use('/api/v1/trading',       require('./features/trading/routes'));
 app.use('/api/v1/reports/emergency', require('./features/reports/emergency'));
 app.use('/api/v1/reports/expiry',    require('./features/reports/expiry'));
 app.use('/api/v1/receipts',          require('./features/receipts/routes'));
+app.use('/api/v1/search',            require('./features/search/routes'));
+app.use('/api/v1/maintenance',       require('./features/maintenance/routes'));
+app.use('/api/v1/templates',         require('./features/templates/routes'));
+app.use('/api/v1/family-snapshot',   require('./features/family-snapshot/routes'));
 app.use('/api/v1/system',            require('./features/system/routes'));
 
 // ── App info (public — no auth) ────────────────────────────────

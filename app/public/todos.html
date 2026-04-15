@@ -26,12 +26,12 @@
 .todo-section-count { font-family: var(--mono); font-size: 10px; color: var(--text3); }
 .todo-section-line { flex: 1; height: 1px; background: var(--border); }
 
-/* section card grid — separate class prevents nesting conflict */
-.todo-cards-grid {
-  display: grid; grid-template-columns: repeat(var(--td-cols, 2), minmax(0, 1fr));
+/* 2-column grid layout */
+.todo-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
   gap: 8px; padding: 0 16px 4px;
 }
-@media (max-width: 700px) { .todo-cards-grid { grid-template-columns: 1fr; } }
+@media (max-width: 700px) { .todo-grid { grid-template-columns: 1fr; } }
 #todoList { padding-bottom: 100px; }
 
 /* Todo item — has checkbox + priority stripe, justified specialization */
@@ -289,7 +289,24 @@
 </div>
 
 <script>
-  window.GH_PAGE = { module: 'todos', title: 'To Do' };
+  window.GH_PAGE = {
+    module: 'todos',
+    title:  'To Do',
+    headerExtra: `
+      <div style="padding:4px 16px 0;display:flex;align-items:center;justify-content:flex-end;gap:6px">
+        <button id="googleSyncBtn" onclick="syncGoogleTasks()"
+          style="width:34px;height:34px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;transition:all .15s;position:relative"
+          title="Sync with Google Tasks">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.66 0 3-4 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4-3-9s1.34-9 3-9"/></svg>
+          <span id="googleSyncBadge" style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--green);display:none;border:1px solid var(--bg2)"></span>
+        </button>
+        <a href="/templates.html"
+          style="width:34px;height:34px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);display:flex;align-items:center;justify-content:center;text-decoration:none;flex-shrink:0;transition:all .15s"
+          title="Task Templates">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </a>
+      </div>`
+  };
 </script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
@@ -429,7 +446,7 @@ function render() {
     sectionHTML(p.label, p.items, false)
   ).join('');
 
-  list.className = '';
+  list.className = 'todo-grid';
   wireItems();
 }
 
@@ -442,7 +459,7 @@ function sectionHTML(label, items, isDone) {
       <span class="todo-section-count">${items.length}</span>
       <span class="todo-section-line"></span>
     </div>
-    <div class="todo-cards-grid">
+    <div class="todo-grid">
       ${items.map(t => todoHTML(t, isDone)).join('')}
     </div>
   `;
@@ -689,9 +706,6 @@ let _todoView = 'list', _todoFilters = {};
 GH_VIEW.init('todoViewToolbar', 'td', state => {
   _todoView    = state.view;
   _todoFilters = state.filters || {};
-  // Set cols on the list container so it cascades to .todo-cards-grid children
-  const listEl = document.getElementById('todoList');
-  if (listEl) listEl.style.setProperty('--td-cols', state.cols || 2);
   render();
 }, {
   defaultView: 'list',
@@ -801,7 +815,44 @@ async function snooze(id) {
 
 // Long-press to enter bulk select mode
 let longPressTimer = null;
+let _googleSyncEnabled = false;
+
+async function checkGoogleStatus() {
+  try {
+    const s = await window.api('GET', '/google/status');
+    _googleSyncEnabled = !!(s.connected && s.services?.tasks?.enabled);
+    const badge = document.getElementById('googleSyncBadge');
+    const btn   = document.getElementById('googleSyncBtn');
+    if (!badge || !btn) return;
+    badge.style.display = _googleSyncEnabled ? 'block' : 'none';
+    if (_googleSyncEnabled) {
+      const last = s.services?.tasks?.last_sync;
+      btn.title = 'Google Tasks sync · ' + (last ? 'Last: ' + new Date(last).toLocaleString() : 'Never synced');
+      btn.style.color = 'var(--green)';
+    } else {
+      btn.title = 'Google Tasks not connected — configure in Settings';
+    }
+  } catch { /* google not configured — silent */ }
+}
+
+async function syncGoogleTasks() {
+  const btn = document.getElementById('googleSyncBtn');
+  if (!_googleSyncEnabled) { toast('Google Tasks not configured — see Settings → Google Services', 'err'); return; }
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.innerHTML = '<div class="spin" style="width:14px;height:14px;border:2px solid var(--text3);border-top-color:var(--accent);border-radius:50%"></div>'; btn.disabled = true; }
+  try {
+    const r = await window.api('POST', '/google/sync/tasks', {});
+    let msg = `Synced ${r.synced||0} task${r.synced!==1?'s':''}`;
+    if (r.created) msg += ` · ${r.created} new`;
+    if (r.updated) msg += ` · ${r.updated} updated`;
+    toast(msg, 'ok');
+    load();
+  } catch(e) { toast(e.message, 'err'); }
+  finally { if (btn) { btn.innerHTML = orig; btn.disabled = false; } }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  checkGoogleStatus();
   document.getElementById('todoList').addEventListener('touchstart', e => {
     const item = e.target.closest('.todo-item');
     if (!item) return;
