@@ -698,4 +698,98 @@ router.use('/budgets', require('./budgets'));
 // Reports subrouter
 router.use('/reports', require('./reports'));
 
+
+
+// ── Recurring Transactions ────────────────────────────────────
+const { generatePendingTransactions, calculateNextDate } = require('../../shared/recurring-transactions');
+const { getPortfolioPerformance, getAssetAllocation, getTopPerformers, takePortfolioSnapshot } = require('../../shared/portfolio-analytics');
+
+router.get('/recurring', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT rt.*, fa.name as account_name
+      FROM recurring_transactions rt
+      JOIN finance_accounts fa ON fa.id = rt.account_id
+      WHERE rt.is_active = 1 ORDER BY rt.next_date
+    `).all();
+    res.json(rows);
+  } catch(e) { serverError(res, e); }
+});
+
+router.post('/recurring', requireAuth, (req, res) => {
+  try {
+    const { account_id, description, amount, category, frequency, start_date, end_date, notes } = req.body;
+    if (!account_id || !description || !amount || !frequency || !start_date) return badRequest(res, 'Missing required fields');
+    const nextDate = calculateNextDate(start_date, frequency);
+    const r = db.prepare(`INSERT INTO recurring_transactions (account_id,description,amount,category,frequency,start_date,end_date,next_date,notes) VALUES (?,?,?,?,?,?,?,?,?)`)
+      .run(account_id, description, amount, category||null, frequency, start_date, end_date||null, nextDate, notes||null);
+    res.status(201).json({ id: r.lastInsertRowid });
+  } catch(e) { serverError(res, e); }
+});
+
+router.put('/recurring/:id', requireAuth, (req, res) => {
+  try {
+    const { description, amount, category, frequency, end_date, notes, is_active } = req.body;
+    db.prepare(`UPDATE recurring_transactions SET description=COALESCE(?,description), amount=COALESCE(?,amount), category=COALESCE(?,category), frequency=COALESCE(?,frequency), end_date=?, notes=?, is_active=COALESCE(?,is_active), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .run(description, amount, category, frequency, end_date, notes, is_active, req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+router.delete('/recurring/:id', requireAuth, (req, res) => {
+  try {
+    db.prepare('UPDATE recurring_transactions SET is_active=0 WHERE id=?').run(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+router.post('/recurring/generate', requireAuth, (req, res) => {
+  try { res.json(generatePendingTransactions()); } catch(e) { serverError(res, e); }
+});
+
+// Add PUT for category-rules (was missing)
+router.put('/category-rules/:id', requireAuth, (req, res) => {
+  try {
+    const { pattern, category, priority } = req.body;
+    if (!pattern || !category) return badRequest(res, 'pattern and category required');
+    db.prepare(`UPDATE import_category_rules SET pattern=?, category=?, priority=COALESCE(?,priority), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      .run(pattern.toUpperCase(), category, priority, req.params.id);
+    res.json(db.prepare('SELECT * FROM import_category_rules WHERE id=?').get(req.params.id));
+  } catch(e) { serverError(res, e); }
+});
+
+// Test a description against rules
+router.post('/category-rules/test', (req, res) => {
+  try {
+    const { description } = req.body;
+    if (!description) return badRequest(res, 'description required');
+    const rules = db.prepare('SELECT * FROM import_category_rules WHERE is_active=1 ORDER BY priority DESC, sort_order').all();
+    for (const rule of rules) {
+      const pattern = rule.pattern.replace(/%/g,'.*').replace(/_/g,'.');
+      try {
+        if (new RegExp(pattern, 'i').test(description)) {
+          return res.json({ matched: true, rule_id: rule.id, pattern: rule.pattern, category: rule.category });
+        }
+      } catch {}
+    }
+    res.json({ matched: false });
+  } catch(e) { serverError(res, e); }
+});
+
+// ── Investment Portfolio ──────────────────────────────────────
+router.get('/portfolio/performance', (req, res) => {
+  try {
+    const months = parseInt(req.query.months) || 12;
+    res.json({
+      performance: getPortfolioPerformance(months),
+      allocation:  getAssetAllocation(),
+      top_gainers: getTopPerformers(5)
+    });
+  } catch(e) { serverError(res, e); }
+});
+
+router.post('/portfolio/snapshot', requireAuth, (req, res) => {
+  try { res.json(takePortfolioSnapshot()); } catch(e) { serverError(res, e); }
+});
+
 module.exports = router;

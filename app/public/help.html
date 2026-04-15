@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <title>Help — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <style>
+    .help-wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 80px; }
+    .help-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px; cursor: pointer; transition: border-color .15s, transform .15s; }
+    .help-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .faq-item { margin-bottom: 8px; }
+    .faq-q { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text); user-select: none; }
+    .faq-q:hover { border-color: var(--accent); }
+    .faq-chevron { color: var(--text3); transition: transform .15s; flex-shrink: 0; }
+    .faq-item.open .faq-chevron { transform: rotate(90deg); }
+    .faq-a { font-size: 13px; color: var(--text2); line-height: 1.6; padding: 10px 14px 14px 30px; display: none; }
+    .faq-item.open .faq-a { display: block; }
+    kbd { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 2px 6px; font-family: var(--mono); font-size: 11px; }
+    .sc-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .sc-row:last-child { border-bottom: none; }
+    .module-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--bg2); border-radius: var(--r); margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+<script>window.GH_PAGE = { key: 'help', title: 'Help' };</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+
+<div id="app">
+<div class="help-wrap">
+  <div style="margin-bottom:24px">
+    <h1 style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:6px">📚 Help Center</h1>
+    <p style="font-size:14px;color:var(--text2)">Everything you need to use Ghrava</p>
+  </div>
+
+  <input type="text" class="form-input" id="helpSearch" placeholder="🔍 Search help topics…"
+         oninput="filterHelp(this.value)" style="margin-bottom:24px">
+
+  <!-- Quick cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:32px" id="helpCards">
+    <div class="help-card" onclick="scrollTo('shortcuts')">
+      <div style="font-size:28px;margin-bottom:8px">⌨️</div>
+      <div style="font-weight:700;margin-bottom:4px">Keyboard Shortcuts</div>
+      <div style="font-size:12px;color:var(--text3)">Navigate faster with hotkeys</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('modules')">
+      <div style="font-size:28px;margin-bottom:8px">📦</div>
+      <div style="font-weight:700;margin-bottom:4px">Modules Guide</div>
+      <div style="font-size:12px;color:var(--text3)">Inventory, Finance, Medical & more</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('automation')">
+      <div style="font-size:28px;margin-bottom:8px">⚡</div>
+      <div style="font-weight:700;margin-bottom:4px">Automation</div>
+      <div style="font-size:12px;color:var(--text3)">Recurring tasks, folder watcher</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('faq')">
+      <div style="font-size:28px;margin-bottom:8px">❓</div>
+      <div style="font-weight:700;margin-bottom:4px">FAQ</div>
+      <div style="font-size:12px;color:var(--text3)">Common questions</div>
+    </div>
+    <div class="help-card" onclick="window.location='/reports.html'">
+      <div style="font-size:28px;margin-bottom:8px">🧪</div>
+      <div style="font-weight:700;margin-bottom:4px">Run Diagnostics</div>
+      <div style="font-size:12px;color:var(--text3)">Reports → Tools → Run Tests</div>
+    </div>
+    <div class="help-card" onclick="window.location='/settings.html'">
+      <div style="font-size:28px;margin-bottom:8px">⚙️</div>
+      <div style="font-weight:700;margin-bottom:4px">Settings</div>
+      <div style="font-size:12px;color:var(--text3)">Configure your household</div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts -->
+  <div class="help-section" id="shortcuts" style="margin-bottom:32px">
+    <div class="section-hdr">⌨️ Keyboard Shortcuts</div>
+    <div style="padding:12px;background:var(--bg2);border-radius:var(--r)">
+      <div style="margin-bottom:10px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Navigation</div>
+      <div class="sc-row"><span>Global Search</span><span><kbd>⌘</kbd><kbd>K</kbd></span></div>
+      <div class="sc-row"><span>Go Home</span><span><kbd>⌘</kbd><kbd>H</kbd></span></div>
+      <div class="sc-row"><span>Todos</span><span><kbd>⌘</kbd><kbd>T</kbd></span></div>
+      <div class="sc-row"><span>Inventory</span><span><kbd>⌘</kbd><kbd>I</kbd></span></div>
+      <div class="sc-row"><span>Finance</span><span><kbd>⌘</kbd><kbd>F</kbd></span></div>
+      <div class="sc-row"><span>Medical</span><span><kbd>⌘</kbd><kbd>M</kbd></span></div>
+      <div class="sc-row"><span>Settings</span><span><kbd>⌘</kbd><kbd>S</kbd></span></div>
+      <div style="margin:12px 0 8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">General</div>
+      <div class="sc-row"><span>Focus Search</span><span><kbd>/</kbd></span></div>
+      <div class="sc-row"><span>Close Drawer / Modal</span><span><kbd>Esc</kbd></span></div>
+      <div class="sc-row"><span>Show Shortcuts</span><span><kbd>⇧</kbd><kbd>?</kbd></span></div>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-top:8px">Press <kbd>⇧?</kbd> anywhere for a popup version of this list.</p>
+  </div>
+
+  <!-- Modules -->
+  <div class="help-section" id="modules" style="margin-bottom:32px">
+    <div class="section-hdr">📦 Modules Guide</div>
+    <div id="modulesList"></div>
+  </div>
+
+  <!-- Automation -->
+  <div class="help-section" id="automation" style="margin-bottom:32px">
+    <div class="section-hdr">⚡ Automation Features</div>
+    <div id="automationList"></div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="help-section" id="faq" style="margin-bottom:32px">
+    <div class="section-hdr">❓ FAQ</div>
+    <div id="faqList"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const MODULES = [
+  {icon:'📦',name:'Inventory',desc:'Track everything you own. Scan barcodes, add photos, organize by location. Link items to documents for manuals and warranties.'},
+  {icon:'💰',name:'Finance',desc:'Bank accounts, transactions, HSA, investments, and recurring bills. Import statements from CSV/OFX/QFX.'},
+  {icon:'🏥',name:'Medical',desc:'Medications, conditions, doctor visits, EOB imports. Emergency Info Card pulls from here.'},
+  {icon:'✓',name:'To-Do',desc:'Tasks with priorities, due dates, and Google Tasks sync. Apply checklist templates for recurring checklists.'},
+  {icon:'📋',name:'Daily Log',desc:'Journal entries with follow-up tracking and search.'},
+  {icon:'📄',name:'Documents',desc:'Store important documents with expiry tracking. See Reports → Expiry for a timeline view.'},
+  {icon:'🏠',name:'Property',desc:'Homes, vehicles, and maintenance schedules. Unified maintenance hub across property types.'},
+  {icon:'👔',name:'Career',desc:'Jobs, certifications, skills, training, and continuing education records.'},
+  {icon:'👨‍👩‍👧‍👦',name:'Kids',desc:'Children\'s info, schools, activities, and notes. Family member snapshots pull from here.'},
+  {icon:'👤',name:'Contacts',desc:'Household contacts with type classification. Mark emergency contacts for the Emergency Info Card.'},
+];
+
+const AUTOMATION = [
+  {name:'Folder Watcher',desc:'Drop files in NAS folders — they auto-import as EOBs, statements, or documents. Configure rules in Settings.'},
+  {name:'Recurring Transactions',desc:'Set up bills or income that repeat (monthly rent, biweekly paycheck) — they generate automatically.'},
+  {name:'Webhooks',desc:'Trigger external services (IFTTT, Home Assistant, n8n) when events happen like backup completion or document expiry.'},
+  {name:'Smart Categorization',desc:'Rules automatically categorize imported transactions. Priority-based — first match wins.'},
+  {name:'Emergency Info Card',desc:'Auto-generates a printable card from emergency contacts, medications, conditions, and insurance. Reports → Emergency.'},
+  {name:'Insurance Report',desc:'One-click printable inventory report for insurance documentation. Reports → Insurance.'},
+];
+
+const FAQ = [
+  {q:'How do I back up my data?',a:'Settings → Backup & Restore → Backup Now. Backups save to your NAS at /app/data/backups/. Schedule automatic backups in Settings → Infrastructure.'},
+  {q:'How do I access Ghrava from my phone?',a:'Open your NAS IP (e.g. 192.168.4.62:3001) in your phone browser. For a native-like experience, use "Add to Home Screen" in your browser menu.'},
+  {q:'How do I restore something I deleted?',a:'Settings → Recently Deleted. Items stay for 30 days. Documents, todos, inventory items, and books can all be restored.'},
+  {q:'How do I connect Google Tasks?',a:'Settings → Google Services. Enter your OAuth Client ID and Secret from Google Cloud Console. Enable the Tasks API and People API for your project.'},
+  {q:'How do I import bank statements?',a:'Finance → Import tab. Supports CSV, Excel, OFX, and QFX from most banks. Transactions are de-duplicated automatically.'},
+  {q:'What does the Folder Watcher do?',a:'It watches NAS folders you configure and auto-imports files. A PDF dropped in your EOBs folder gets parsed and imported as an EOB. Set up rules in Settings → Folder Watcher.'},
+  {q:'How do I run a diagnostic test?',a:'Reports → Tools → Run All Tests. This checks all APIs, database integrity, and key features.'},
+  {q:'How do I print an Emergency Info Card?',a:'Reports → Emergency → View & Print. The card includes emergency contacts, medications, conditions, allergies, and insurance info.'},
+  {q:'What are webhooks used for?',a:'Webhooks let Ghrava notify external tools when things happen — backup completed, document expiring, HSA pool threshold reached. Set them up in Settings → Webhooks.'},
+  {q:'How do I add recurring bills?',a:'Finance → Transactions tab → Recurring section → + Add. Choose frequency (monthly, biweekly, etc.) and it auto-generates transactions on schedule.'},
+];
+
+document.getElementById('modulesList').innerHTML = MODULES.map(m => `
+  <div class="module-row">
+    <span style="font-size:24px;flex-shrink:0">${m.icon}</span>
+    <div><div style="font-weight:700;color:var(--text);margin-bottom:3px">${m.name}</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.5">${m.desc}</div></div>
+  </div>`).join('');
+
+document.getElementById('automationList').innerHTML = AUTOMATION.map(a => `
+  <div style="padding:12px;background:var(--bg2);border-radius:var(--r);margin-bottom:8px">
+    <div style="font-weight:700;color:var(--text);margin-bottom:4px">${a.name}</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.5">${a.desc}</div>
+  </div>`).join('');
+
+document.getElementById('faqList').innerHTML = FAQ.map(f => `
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q"><span class="faq-chevron">›</span><span>${f.q}</span></div>
+    <div class="faq-a">${f.a}</div>
+  </div>`).join('');
+
+function scrollTo(id) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
+
+function filterHelp(q) {
+  const lq = q.toLowerCase();
+  document.querySelectorAll('.help-section').forEach(s => {
+    s.style.display = !lq || s.textContent.toLowerCase().includes(lq) ? '' : 'none';
+  });
+  document.querySelectorAll('#helpCards .help-card').forEach(c => {
+    c.style.display = !lq || c.textContent.toLowerCase().includes(lq) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

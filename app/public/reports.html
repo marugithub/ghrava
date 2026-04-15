@@ -61,6 +61,65 @@
     </div>
   </div>
 
+  <div class="view-panel" id="panel-expiry">
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:12px">
+          <select id="expiryRange" class="form-select" style="width:auto" onchange="loadExpiryTimeline()">
+            <option value="12">Next 12 months</option>
+            <option value="24" selected>Next 24 months</option>
+            <option value="36">Next 36 months</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+            <input type="checkbox" id="expiryShowExpired" onchange="loadExpiryTimeline()">
+            Show expired
+          </label>
+        </div>
+        <a href="/documents.html" class="btn btn-ghost">📄 Manage Documents</a>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
+        <div class="sum-card"><div class="sum-val" id="expTotal">—</div><div class="sum-lbl">Total</div></div>
+        <div class="sum-card"><div class="sum-val" id="expExpired" style="color:var(--red)">—</div><div class="sum-lbl">Expired</div></div>
+        <div class="sum-card"><div class="sum-val" id="expNext30" style="color:var(--amber)">—</div><div class="sum-lbl">Next 30d</div></div>
+        <div class="sum-card"><div class="sum-val" id="expNext90">—</div><div class="sum-lbl">Next 90d</div></div>
+      </div>
+      <div class="section-hdr">Upcoming Expirations</div>
+      <div id="expiryList" style="margin-top:8px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="panel-insurance">
+    <div style="padding:16px;max-width:800px;margin:0 auto">
+      <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r-lg);padding:16px;margin-bottom:20px">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">🏠 Home Inventory Insurance Report</div>
+        <div style="font-size:13px;color:var(--text2)">Generate a report of your belongings with values for insurance purposes.</div>
+      </div>
+      <div class="settings-card" style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Report Options</div>
+        <div class="toggle-row">
+          <span class="toggle-label">Include Values</span>
+          <label class="toggle"><input type="checkbox" id="insIncludeValues" checked><span class="toggle-track"></span></label>
+        </div>
+        <div class="form-group" style="margin-top:12px">
+          <label class="form-label">Group By</label>
+          <select class="form-select" id="insGroupBy">
+            <option value="room">Room / Location</option>
+            <option value="category">Category</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Minimum Value: $<span id="insMinLabel">100</span></label>
+          <input type="range" id="insMinValue" min="0" max="1000" step="25" value="100" style="width:100%;accent-color:var(--accent)" oninput="document.getElementById('insMinLabel').textContent=this.value">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="loadInsuranceReport()">📊 Generate Preview</button>
+        <button class="btn btn-ghost" onclick="openInsurancePrint()">🖨️ Print View</button>
+      </div>
+      <div id="insurancePreview" style="margin-top:20px"></div>
+    </div>
+  </div>
+
 <script>
   // Apply nav-collapsed before first paint to prevent sidebar flash
   if (localStorage.getItem('gh_nav_collapsed') === '1') {
@@ -130,6 +189,8 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
     <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
+    <button class="view-tab"        data-tab="expiry"     onclick="switchRpt('expiry',this)">📅 Expiry</button>
+    <button class="view-tab"        data-tab="insurance"  onclick="switchRpt('insurance',this)">🏠 Insurance</button>
     <button class="view-tab"        data-tab="emergency"  onclick="switchRpt('emergency',this)">🚨 Emergency</button>
   </div>
 
@@ -253,8 +314,16 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
   <div class="view-panel" id="panel-tools">
     <div style="padding:0 16px 80px">
 
+      <!-- System Tests -->
+      <div class="section-hdr" style="padding-top:12px">🧪 System Tests</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Run automated tests to verify all features are working correctly.</div>
+      <div style="display:flex;gap:10px;margin-bottom:16px">
+        <button class="btn btn-primary" id="runTestsBtn" onclick="runSystemTests()">▶ Run All Tests</button>
+      </div>
+      <div id="testResultsContainer" style="font-family:var(--mono);font-size:12px"></div>
+
       <!-- Logs -->
-      <div class="section-hdr" style="padding-top:12px">Logs</div>
+      <div class="section-hdr" style="margin-top:20px">Logs</div>
       <div style="display:flex;gap:4px;margin-bottom:10px;background:var(--bg3);border-radius:var(--r);padding:3px">
         <button id="rpt_logTabServer" onclick="rpt_switchLogTab('server')"
           style="flex:1;padding:6px 10px;border-radius:calc(var(--r) - 2px);border:none;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--sans);background:var(--accent);color:#fff;transition:all .15s">
@@ -375,6 +444,8 @@ function loadTab(tab) {
   else if (tab === 'system') loadSystem();
   else if (tab === 'testing') loadTesting();
   else if (tab === 'emergency') loadEmergencyReport();
+  else if (tab === 'expiry')    loadExpiryTimeline();
+  else if (tab === 'insurance') loadInsuranceReport();
   else if (tab === 'tools') rpt_loadTools();
 }
 
@@ -1841,6 +1912,132 @@ async function copyEmergencyText() {
       prompt('Copy this text:', text);
     }
   } catch(e) { toast(e.message, 'err'); }
+}
+
+// ── Expiry Timeline ───────────────────────────────────────────
+async function loadExpiryTimeline() {
+  const range = document.getElementById('expiryRange')?.value || '24';
+  const showExpired = document.getElementById('expiryShowExpired')?.checked ? '1' : '0';
+  const container = document.getElementById('expiryList');
+  if (!container) return;
+  container.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  try {
+    const d = await window.api('GET', `/reports/expiry?months=${range}&show_expired=${showExpired}`);
+    document.getElementById('expTotal').textContent   = d.total || 0;
+    document.getElementById('expExpired').textContent = d.expired || 0;
+    document.getElementById('expNext30').textContent  = d.next_30_days || 0;
+    document.getElementById('expNext90').textContent  = d.next_90_days || 0;
+
+    if (!d.documents?.length) {
+      container.innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center">📅 No expiring documents in this range.</div>';
+      return;
+    }
+    const getColor = (days) => days < 0 ? 'var(--red)' : days <= 30 ? 'var(--red)' : days <= 90 ? 'var(--amber)' : 'var(--green)';
+    const getBadge = (days) => days < 0 ? `Expired ${Math.abs(days)}d ago` : days === 0 ? 'Expires today!' : days <= 30 ? `${days}d left` : days <= 90 ? `${days}d left` : `${Math.floor(days/30)}mo left`;
+    container.innerHTML = d.documents.map(doc => `
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg2);border-left:3px solid ${getColor(doc.days_until)};border-radius:var(--r);margin-bottom:6px">
+        <div>
+          <div style="font-weight:600;color:var(--text)">${esc(doc.title)}</div>
+          <div style="font-size:12px;color:var(--text3)">${esc(doc.category||'Document')} · Expires ${doc.expiry_date}</div>
+        </div>
+        <span style="font-size:11px;font-weight:600;color:${getColor(doc.days_until)};white-space:nowrap;margin-left:12px">${getBadge(doc.days_until)}</span>
+      </div>`).join('');
+  } catch(e) {
+    container.innerHTML = errorState(e.message, 'loadExpiryTimeline()');
+  }
+}
+
+// ── Insurance Report ──────────────────────────────────────────
+async function loadInsuranceReport() {
+  const container = document.getElementById('insurancePreview');
+  if (!container) return;
+  container.innerHTML = '<div class="spinner"><div class="spin"></div>Generating…</div>';
+  try {
+    const groupBy  = document.getElementById('insGroupBy')?.value || 'room';
+    const minValue = document.getElementById('insMinValue')?.value || '100';
+    const d = await window.api('GET', `/receipts/insurance-report?groupBy=${groupBy}&minValue=${minValue}`);
+    const totalVal = d.summary?.total_value || 0;
+    container.innerHTML = `
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px">
+        <div class="sum-card"><div class="sum-val">${d.summary?.total_items||0}</div><div class="sum-lbl">Items</div></div>
+        <div class="sum-card"><div class="sum-val">$${Number(totalVal).toLocaleString('en-US',{minimumFractionDigits:0})}</div><div class="sum-lbl">Value</div></div>
+        <div class="sum-card"><div class="sum-val">${Object.keys(d.groups||{}).length}</div><div class="sum-lbl">Groups</div></div>
+      </div>
+      ${Object.entries(d.groups||{}).slice(0,5).map(([gName,items])=>`
+        <div style="margin-bottom:12px;padding:12px;background:var(--bg2);border-radius:var(--r)">
+          <div style="font-weight:600;color:var(--text);margin-bottom:6px">📍 ${esc(gName)} <span style="font-size:11px;color:var(--text3)">(${items.length} items)</span></div>
+          ${items.slice(0,3).map(i=>`<div style="font-size:12px;color:var(--text2);padding:2px 0">${esc(i.name)}${i.purchase_price?` — $${Number(i.purchase_price).toFixed(2)}`:''}  </div>`).join('')}
+          ${items.length>3?`<div style="font-size:11px;color:var(--text3)">+ ${items.length-3} more</div>`:''}
+        </div>`).join('')}
+      ${Object.keys(d.groups||{}).length>5?`<div style="font-size:12px;color:var(--text3);text-align:center">+ ${Object.keys(d.groups).length-5} more groups in full report</div>`:''}
+    `;
+  } catch(e) {
+    container.innerHTML = errorState(e.message, 'loadInsuranceReport()');
+  }
+}
+
+function openInsurancePrint() {
+  const groupBy  = document.getElementById('insGroupBy')?.value || 'room';
+  const minValue = document.getElementById('insMinValue')?.value || '100';
+  window.open(`/api/v1/receipts/insurance-report?format=html&groupBy=${groupBy}&minValue=${minValue}`, '_blank');
+}
+
+// ── System Test Runner ────────────────────────────────────────
+async function runSystemTests() {
+  const container = document.getElementById('testResultsContainer');
+  if (!container) return;
+  const btn = document.getElementById('runTestsBtn');
+  if (btn) { btn.textContent = 'Running…'; btn.disabled = true; }
+
+  const results = [];
+  const pass = (name) => { results.push({name,status:'pass'}); };
+  const fail = (name,err) => { results.push({name,status:'fail',error:err}); };
+
+  const tests = [
+    ['Config API', async () => { const c = await window.api('GET','/settings/config'); if(!c) throw new Error('empty'); }],
+    ['EOB parser configured', async () => { const c = await window.api('GET','/settings/config'); if(!c.eob_parser) throw new Error('not set'); }],
+    ['DB stats', async () => { const s = await window.api('GET','/system/db/stats'); if(!s.size_formatted) throw new Error('invalid'); }],
+    ['Expiry report', async () => { const d = await window.api('GET','/reports/expiry?months=12'); if(!d.hasOwnProperty('documents')) throw new Error('invalid'); }],
+    ['Emergency report', async () => { const d = await window.api('GET','/reports/emergency'); if(!d.emergency_contacts) throw new Error('invalid'); }],
+    ['Google status', async () => { const s = await window.api('GET','/google/status'); if(!s.hasOwnProperty('connected')) throw new Error('invalid'); }],
+    ['Recurring list', async () => { const r = await window.api('GET','/finance/recurring'); if(!Array.isArray(r)) throw new Error('not array'); }],
+    ['Webhooks events', async () => { const e = await window.api('GET','/system/webhooks/events'); if(!Array.isArray(e)) throw new Error('not array'); }],
+    ['Undo delete list', async () => { const d = await window.api('GET','/system/deleted'); if(!Array.isArray(d)) throw new Error('not array'); }],
+  ];
+
+  for (const [name, fn] of tests) {
+    try { await fn(); pass(name); } catch(e) { fail(name, e.message); }
+  }
+
+  // Google debug (optional)
+  try {
+    const dbg = await window.api('GET','/google/debug/connection');
+    dbg.tests?.dns === 'ok' ? pass('Google DNS') : fail('Google DNS', dbg.tests?.dns);
+    if (dbg.config?.has_refresh_token) {
+      dbg.tests?.token && !dbg.tests.token.includes('failed') ? pass('Google token') : fail('Google token', dbg.tests?.token);
+    } else {
+      results.push({name:'Google token',status:'skip',reason:'not connected'});
+    }
+  } catch(e) { fail('Google debug', e.message); }
+
+  const passed  = results.filter(r=>r.status==='pass').length;
+  const failed  = results.filter(r=>r.status==='fail').length;
+  const skipped = results.filter(r=>r.status==='skip').length;
+
+  container.innerHTML = `
+    <div style="margin-bottom:12px">
+      <span style="color:var(--green)">✅ ${passed} passed</span> ·
+      <span style="color:var(--red)">❌ ${failed} failed</span> ·
+      <span style="color:var(--text3)">⏭️ ${skipped} skipped</span>
+    </div>
+    ${results.map(r=>{
+      const icon = r.status==='pass'?'✅':r.status==='fail'?'❌':'⏭️';
+      const color = r.status==='pass'?'var(--green)':r.status==='fail'?'var(--red)':'var(--text3)';
+      return `<div style="color:${color};padding:3px 0">${icon} ${r.name}${r.error?` — ${r.error}`:''}${r.reason?` (${r.reason})`:''}</div>`;
+    }).join('')}
+  `;
+
+  if (btn) { btn.textContent = '▶ Run All Tests'; btn.disabled = false; }
 }
 </script>
 </body>

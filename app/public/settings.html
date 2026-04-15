@@ -9,6 +9,86 @@
 <title>Settings — Ghrava</title>
 <link rel="stylesheet" href="/shared.css">
 <script src="/theme.js"></script>
+<!-- RECENTLY DELETED SUB-PANEL -->
+<div class="sub-panel" id="panel-deleted">
+  <div class="sub-panel-header">
+    <button class="sub-back" onclick="closePanel('deleted')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Settings
+    </button>
+    <div class="sub-panel-title">Recently Deleted</div>
+  </div>
+  <div class="content" style="padding:16px">
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <button class="filter-chip active" data-dtype="" onclick="filterDeleted(this,'')">All</button>
+      <button class="filter-chip" data-dtype="document" onclick="filterDeleted(this,'document')">Documents</button>
+      <button class="filter-chip" data-dtype="todo" onclick="filterDeleted(this,'todo')">Todos</button>
+      <button class="filter-chip" data-dtype="item" onclick="filterDeleted(this,'item')">Items</button>
+      <button class="filter-chip" data-dtype="book" onclick="filterDeleted(this,'book')">Books</button>
+    </div>
+    <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r);padding:10px;margin-bottom:12px;font-size:12px;color:var(--text2)">
+      💡 Items stay here for 30 days before being permanently removed.
+    </div>
+    <div id="deletedList"></div>
+  </div>
+</div>
+
+<!-- DATABASE MAINTENANCE SUB-PANEL -->
+<div class="sub-panel" id="panel-database">
+  <div class="sub-panel-header">
+    <button class="sub-back" onclick="closePanel('database')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Settings
+    </button>
+    <div class="sub-panel-title">Database</div>
+  </div>
+  <div class="content" style="padding:16px">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">
+      <div class="sum-card"><div class="sum-val" id="dbSize">—</div><div class="sum-lbl">Size</div></div>
+      <div class="sum-card"><div class="sum-val" id="dbTables">—</div><div class="sum-lbl">Tables</div></div>
+      <div class="sum-card"><div class="sum-val" id="dbRows">—</div><div class="sum-lbl">Rows</div></div>
+    </div>
+    <div class="section-label" style="padding:0 0 8px">Maintenance</div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="btn btn-ghost" onclick="runDbOp('integrity-check')" style="justify-content:space-between;display:flex">
+        <span>🔍 Integrity Check</span><span style="font-size:11px;color:var(--text3)">Verify database</span>
+      </button>
+      <button class="btn btn-ghost" onclick="runDbOp('analyze')" style="justify-content:space-between;display:flex">
+        <span>📊 ANALYZE</span><span style="font-size:11px;color:var(--text3)">Update statistics</span>
+      </button>
+      <button class="btn btn-ghost" onclick="runDbOp('vacuum')" style="justify-content:space-between;display:flex;color:var(--amber)">
+        <span>🗜️ VACUUM</span><span style="font-size:11px;color:var(--text3)">Reclaim disk space</span>
+      </button>
+    </div>
+    <div id="dbOpResult" style="margin-top:12px;display:none;padding:10px;border-radius:var(--r);font-size:13px"></div>
+    <div class="section-label" style="padding:16px 0 8px">Recent Operations</div>
+    <div id="dbHistory" style="font-size:12px;color:var(--text2)"></div>
+  </div>
+</div>
+
+<!-- WEBHOOKS SUB-PANEL -->
+<div class="sub-panel" id="panel-webhooks">
+  <div class="sub-panel-header">
+    <button class="sub-back" onclick="closePanel('webhooks')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Settings
+    </button>
+    <div class="sub-panel-title">Webhooks</div>
+  </div>
+  <div class="content" style="padding:16px">
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Trigger external services when events happen in Ghrava.</div>
+    <div class="toggle-row" style="padding:0 0 12px">
+      <div><span class="toggle-label">Enable Webhooks</span></div>
+      <label class="toggle"><input type="checkbox" id="webhooksEnabled" onchange="saveWebhooksEnabled(this.checked)"><span class="toggle-track"></span></label>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <span style="font-size:11px;color:var(--text3)">CONFIGURED WEBHOOKS</span>
+      <button class="btn btn-ghost" style="padding:4px 12px;font-size:12px" onclick="openWebhookDrawer()">+ Add</button>
+    </div>
+    <div id="webhooksList"><div style="color:var(--text3);font-size:13px;padding:12px;text-align:center">No webhooks configured</div></div>
+  </div>
+</div>
+
 <script>
   // Apply nav-collapsed before first paint to prevent sidebar flash
   if (localStorage.getItem('gh_nav_collapsed') === '1') {
@@ -294,6 +374,16 @@
           </div>
           <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
+        <div class="settings-row" onclick="openPanel('webhooks')">
+          <div class="settings-row-icon" style="background:rgba(236,72,153,.1);color:#ec4899">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Webhooks</div>
+            <div class="settings-row-desc">Trigger external services on events</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
       </div>
 
       <!-- ── DATA ───────────────────────────────────────── -->
@@ -338,6 +428,26 @@
             <span id="badge-version" style="font-family:var(--mono);font-size:11px;color:var(--text3)">—</span>
             <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
           </div>
+        </div>
+        <div class="settings-row" onclick="openPanel('deleted')">
+          <div class="settings-row-icon" style="background:rgba(100,116,139,.1);color:#64748b">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Recently Deleted</div>
+            <div class="settings-row-desc">Restore items deleted in the last 30 days</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="settings-row" onclick="openPanel('database')">
+          <div class="settings-row-icon" style="background:rgba(139,92,246,.1);color:#8b5cf6">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
+          </div>
+          <div style="flex:1">
+            <div class="settings-row-label">Database Maintenance</div>
+            <div class="settings-row-desc">Integrity check, VACUUM, ANALYZE</div>
+          </div>
+          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
       </div>
 
@@ -933,7 +1043,7 @@
     <div class="form-group">
       <label class="form-label">Emergency Notes</label>
       <textarea class="form-textarea" id="fm_emergency_notes" style="min-height:60px" placeholder="Medical conditions, allergies, special instructions..."></textarea>
-      <div class="form-hint">Displayed on Emergency Info Card</div>
+      <div class="form-hint">Shown on Emergency Info Card</div>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" id="familyCancel">Cancel</button>
@@ -1243,6 +1353,10 @@ const PANEL_LOADERS = {
   infra:     () => { loadInfra(); },
   about:     () => { loadAbout(); loadReviewSummary(); },
   google:    () => { loadGooglePanel(); },
+  eob:       () => { loadEobParserPanel(); },
+  deleted:   () => { loadDeletedItems(); },
+  database:  () => { loadDatabasePanel(); },
+  webhooks:  () => { loadWebhooksPanel(); },
 };
 
 // ── Google Services Panel ────────────────────────────────────
@@ -2833,4 +2947,131 @@ async function saveBooksKeyFromPanel() {
     toast('Google Books API key saved');
   } catch(e) { toast(ghErrorMsg(e), 'err'); }
 }
+
+// ── Recently Deleted ─────────────────────────────────────────
+let _deletedFilter = '';
+async function loadDeletedItems() {
+  const container = document.getElementById('deletedList');
+  if (!container) return;
+  try {
+    const params = _deletedFilter ? `?type=${_deletedFilter}` : '';
+    const items = await window.api('GET', `/system/deleted${params}`);
+    if (!items.length) {
+      container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3)">🗑️ No recently deleted items</div>';
+      return;
+    }
+    const entityIcon  = {document:'📄',todo:'✓',item:'📦',book:'📚',contact:'👤'};
+    const entityLabel = {document:'Document',todo:'Todo',item:'Item',book:'Book',contact:'Contact'};
+    container.innerHTML = items.map(item => `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:6px;display:flex;align-items:center;gap:10px">
+        <span style="font-size:20px">${entityIcon[item.entity_type]||'📌'}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:var(--text)">${esc(item.entity_name)}</div>
+          <div style="font-size:11px;color:var(--text3)">${entityLabel[item.entity_type]||item.entity_type}</div>
+        </div>
+        <button class="btn btn-ghost" style="padding:4px 10px;font-size:12px" onclick="restoreDeletedItem(${item.id})">↩️ Restore</button>
+      </div>`).join('');
+  } catch(e) {
+    container.innerHTML = `<div style="color:var(--red);font-size:13px">${esc(e.message)}</div>`;
+  }
+}
+function filterDeleted(btn, type) {
+  _deletedFilter = type;
+  document.querySelectorAll('[data-dtype]').forEach(b => b.classList.toggle('active', b.dataset.dtype === type));
+  loadDeletedItems();
+}
+async function restoreDeletedItem(id) {
+  try {
+    await window.api('POST', '/system/restore', { deletion_id: id });
+    toast('Restored');
+    loadDeletedItems();
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+// ── Database Maintenance ──────────────────────────────────────
+async function loadDatabasePanel() {
+  try {
+    const stats = await window.api('GET', '/system/db/stats');
+    const el1 = document.getElementById('dbSize');    if (el1) el1.textContent = stats.size_formatted || '—';
+    const el2 = document.getElementById('dbTables');  if (el2) el2.textContent = stats.table_count || 0;
+    const el3 = document.getElementById('dbRows');    if (el3) el3.textContent = (stats.total_rows||0).toLocaleString();
+    const hist = await window.api('GET', '/system/db/history');
+    const histEl = document.getElementById('dbHistory');
+    if (histEl) histEl.innerHTML = hist.length ? hist.slice(0,5).map(h => `
+        <div style="padding:4px 0;border-bottom:1px solid var(--border)">
+          <span style="font-weight:500">${h.operation}</span>
+          <span style="color:${h.result==='ok'?'var(--green)':'var(--red)'}"> ${h.result}</span>
+          <span style="float:right;color:var(--text3)">${h.duration_ms||0}ms</span>
+        </div>`).join('') : 'No maintenance history yet';
+  } catch(e) { console.warn('DB panel:', e.message); }
+}
+async function runDbOp(op) {
+  const resultEl = document.getElementById('dbOpResult');
+  if (resultEl) { resultEl.style.display = 'block'; resultEl.textContent = 'Running…'; resultEl.style.background = 'var(--bg3)'; }
+  try {
+    const data = await window.api('POST', `/system/db/${op}`);
+    if (resultEl) {
+      resultEl.textContent = data.ok ? `✅ ${op}: ${data.savedFormatted||data.result||'OK'}` : `❌ Failed: ${data.error||'unknown'}`;
+      resultEl.style.background = data.ok ? 'rgba(34,197,94,.1)' : 'rgba(239,68,68,.1)';
+    }
+    loadDatabasePanel();
+  } catch(e) {
+    if (resultEl) { resultEl.textContent = `❌ ${e.message}`; resultEl.style.background = 'rgba(239,68,68,.1)'; }
+  }
+}
+
+// ── Webhooks ─────────────────────────────────────────────────
+async function loadWebhooksPanel() {
+  try {
+    const cfg = await window.api('GET', '/settings/config');
+    const el = document.getElementById('webhooksEnabled');
+    if (el) el.checked = cfg.webhooks_enabled === '1';
+    const webhooks = await window.api('GET', '/system/webhooks');
+    const container = document.getElementById('webhooksList');
+    if (!container) return;
+    if (!webhooks.length) {
+      container.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px;text-align:center">No webhooks configured</div>';
+      return;
+    }
+    container.innerHTML = webhooks.map(wh => `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:6px">
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:600;color:var(--text)">${esc(wh.name)}</div>
+            <div style="font-size:11px;color:var(--text3)">${esc(wh.event_type)} · ${esc(wh.url.slice(0,40))}…</div>
+          </div>
+          <div style="display:flex;gap:4px">
+            <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px" onclick="testWebhook(${wh.id})">Test</button>
+            <button class="btn btn-ghost" style="padding:3px 8px;font-size:11px;color:var(--red)" onclick="deleteWebhook(${wh.id})">✕</button>
+          </div>
+        </div>
+        ${wh.last_status ? `<div style="font-size:10px;color:var(--text3);margin-top:4px">Last: ${wh.last_status} · ${wh.total_calls||0} calls</div>` : ''}
+      </div>`).join('');
+  } catch(e) { console.warn('Webhooks panel:', e.message); }
+}
+async function saveWebhooksEnabled(checked) {
+  try {
+    await window.api('PUT', '/settings/config/webhooks_enabled', { value: checked ? '1' : '0' });
+    toast(checked ? 'Webhooks enabled' : 'Webhooks disabled');
+  } catch(e) { toast(e.message, 'err'); }
+}
+async function testWebhook(id) {
+  try {
+    const r = await window.api('POST', `/system/webhooks/${id}/test`);
+    toast(r.success ? `Test OK (${r.response_code})` : `Test failed (${r.response_code||0})`, r.success ? 'ok' : 'err');
+  } catch(e) { toast(e.message, 'err'); }
+}
+async function deleteWebhook(id) {
+  if (!confirm('Delete this webhook?')) return;
+  try {
+    await window.api('DELETE', `/system/webhooks/${id}`);
+    toast('Deleted');
+    loadWebhooksPanel();
+  } catch(e) { toast(e.message, 'err'); }
+}
+function openWebhookDrawer() {
+  toast('Webhook drawer — coming soon');
+}
 </script>
+</body>
+</html>

@@ -115,6 +115,9 @@ app.use('/api/v1/kids',          require('./features/kids/routes'));
 app.use('/api/v1/data',          require('./features/data/routes'));
 app.use('/api/v1/trading',       require('./features/trading/routes'));
 app.use('/api/v1/reports/emergency', require('./features/reports/emergency'));
+app.use('/api/v1/reports/expiry',    require('./features/reports/expiry'));
+app.use('/api/v1/receipts',          require('./features/receipts/routes'));
+app.use('/api/v1/system',            require('./features/system/routes'));
 
 // ── App info (public — no auth) ────────────────────────────────
 
@@ -419,6 +422,9 @@ const TEST_REPORT_DIR = '/app/data/test-reports';
 
 
 app.get('/', (req, res) => res.redirect('/index.html'));
+
+// Start recurring transaction scheduler
+try { require('./shared/recurring-transactions').startScheduler(); } catch(e) { console.error('[server] Recurring scheduler failed:', e.message); }
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

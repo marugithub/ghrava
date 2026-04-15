@@ -2,23 +2,6 @@
  * nav.js — Ghrava navigation
  * Builds: left sidebar (collapsible to icon-only), shared sticky page header
  */
-// ── Auth check — runs before nav builds ──────────────────────
-// If password is set and no valid session cookie, redirect to login.html.
-// Cookie is HttpOnly so JS cannot read it directly — we check via /auth/status.
-// If no password is set, always allow through (open mode).
-(function() {
-  // Skip auth check on login page itself
-  if (location.pathname === '/login.html') return;
-  fetch('/api/v1/auth/status', { credentials: 'include' })
-    .then(r => r.json())
-    .then(d => {
-      if (d.has_password && !d.authenticated) {
-        location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
-      }
-    })
-    .catch(() => {}); // if check fails, don't block the page
-})();
-
 (function() {
 
   // ── SVG icon library — thin-stroke outlined style ────────────
@@ -37,6 +20,7 @@
     career: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 00-2-2h-4a2 2 0 00-2 2v2"/><line x1="12" y1="12" x2="12" y2="12"/><path d="M2 12h20"/></svg>`,
     books: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 014 4v14a3 3 0 00-3-3H2z"/><path d="M22 3h-6a4 4 0 00-4 4v14a3 3 0 013-3h7z"/></svg>`,
     resources: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>`,
+    help: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
     settings:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>`,
     database:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`,
     bell:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>`,
@@ -56,22 +40,19 @@
     inventory: { href:'/inventory.html',  label:'Inventory', color:'#f59e0b', bg:'rgba(245,158,11,.12)',   svgKey:'inventory' },
     medical:   { href:'/medical.html',    label:'Medical',   color:'#14b8a6', bg:'rgba(20,184,166,.12)',   svgKey:'medical' },
     finance:   { href:'/finance.html',    label:'Finance',   color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance' },
-    trading:   { href:'/trade.html',      label:'Terminal', color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance', newTab: true },
+    trading:   { href:'/trade.html',      label:'↗ Terminal', color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance', newTab: true },
     resources: { href:'/resources.html',  label:'Resources', color:'#64748b', bg:'rgba(100,116,139,.12)', svgKey:'resources' },
     todos:     { href:'/todos.html',      label:'To Do',     color:'#a78bfa', bg:'rgba(167,139,250,.12)', svgKey:'todos' },
+    help:      { href:'/help.html',       label:'Help',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'help' },
     settings:  { href:'/settings.html',   label:'Settings',  color:'#8fa3bf', bg:'rgba(143,163,191,.1)',   svgKey:'settings' },
     property:  { href:'/property.html',   label:'Property',  color:'#ef4444', bg:'rgba(239,68,68,.1)',     svgKey:'property' },
     kids:      { href:'/kids.html',       label:'Kids',      color:'#ec4899', bg:'rgba(236,72,153,.1)',    svgKey:'kids' },
     documents: { href:'/documents.html',  label:'Documents', color:'#6366f1', bg:'rgba(99,102,241,.1)',    svgKey:'documents' },
     career:    { href:'/career.html',     label:'Career',    color:'#f97316', bg:'rgba(249,115,22,.1)',    svgKey:'career' },
     books:     { href:'/books.html',      label:'Books',     color:'#8b5cf6', bg:'rgba(139,92,246,.1)',    svgKey:'books' },
-    reports:      { href:'/reports.html',       label:'Reports',       color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
-    data:         { href:'/data.html',          label:'Data',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'database' },
-    notifications:{ href:'/notifications.html', label:'Alerts',        color:'#ef4444', bg:'rgba(239,68,68,.1)',    svgKey:'bell' },
-    wardrobe:     { href:'/wardrobe.html',      label:'Wardrobe',      color:'#a78bfa', bg:'rgba(167,139,250,.12)', svgKey:'inventory' },
-    perfume:      { href:'/perfume.html',       label:'Perfume',       color:'#ec4899', bg:'rgba(236,72,153,.1)',   svgKey:'inventory' },
-    insurance:    { href:'/insurance.html',     label:'Insurance',     color:'#14b8a6', bg:'rgba(20,184,166,.12)',  svgKey:'documents' },
-    subscriptions:{ href:'/subscriptions.html', label:'Subscriptions', color:'#22c55e', bg:'rgba(34,197,94,.12)',  svgKey:'finance' },
+    reports:   { href:'/reports.html',    label:'Reports',       color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
+    data:      { href:'/data.html',       label:'Data',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'database' },
+    notifications: { href:'/notifications.html', label:'Alerts', color:'#ef4444', bg:'rgba(239,68,68,.1)',   svgKey:'bell' },
   };
 
   function moduleIcon(m, sizePx) {
@@ -79,13 +60,12 @@
   }
 
   const SIDEBAR_SECTIONS = [
-    { label: 'Focus',    keys: ['dailylog', 'todos', 'resources'] },
-    { label: 'Finance',  keys: ['finance', 'trading', 'subscriptions'] },
-    { label: 'Home',     keys: ['inventory', 'property', 'documents', 'wardrobe', 'perfume'] },
-    { label: 'Family',   keys: ['medical', 'kids', 'insurance'] },
-    { label: 'Personal', keys: ['career', 'books'] },
-    { label: 'Reports',  keys: ['reports'] },
-    { label: 'Admin',    keys: ['notifications', 'data', 'settings'] },
+    { label: 'Daily',     keys: ['dailylog', 'todos'] },
+    { label: 'Finance',   keys: ['finance', 'trading'] },
+    { label: 'Household', keys: ['inventory', 'medical', 'kids', 'property', 'documents'] },
+    { label: 'Personal',  keys: ['career', 'books', 'resources'] },
+    { label: 'Reports',   keys: ['reports'] },
+    { label: 'Admin',     keys: ['notifications', 'data', 'settings', 'help'] },
   ];
 
   const currentPath = window.location.pathname;
@@ -158,70 +138,24 @@
         </a>
       </div>`;
 
-    // Load collapsed section state from localStorage
-    function isSectionCollapsed(label) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('gh_nav_sections') || '{}');
-        return !!stored[label];
-      } catch { return false; }
-    }
-    function toggleSection(label, btn) {
-      try {
-        const stored = JSON.parse(localStorage.getItem('gh_nav_sections') || '{}');
-        stored[label] = !stored[label];
-        localStorage.setItem('gh_nav_sections', JSON.stringify(stored));
-        const section = btn.closest('.side-nav-section');
-        const items = section.querySelector('.side-nav-section-items');
-        const chevron = btn.querySelector('.sec-chevron');
-        const collapsed = stored[label];
-        items.style.display = collapsed ? 'none' : '';
-        if (chevron) chevron.style.transform = collapsed ? 'rotate(-90deg)' : '';
-      } catch {}
-    }
-
-    const NEWTAB_ICON = `<span style="display:inline-flex;align-items:center;margin-left:4px;padding:1px 2px;border:1px solid #378ADD;border-radius:3px;line-height:1"><svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="#378ADD" stroke-width="2.5"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></span>`;
-
-    const sections = SIDEBAR_SECTIONS.map(s => {
-      const collapsed = isSectionCollapsed(s.label);
-      return `
+    const sections = SIDEBAR_SECTIONS.map(s => `
       <div class="side-nav-section">
-        <div class="side-nav-section-label" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;user-select:none"
-          onclick="(function(btn){
-            var stored=JSON.parse(localStorage.getItem('gh_nav_sections')||'{}');
-            stored['${s.label}']=!stored['${s.label}'];
-            localStorage.setItem('gh_nav_sections',JSON.stringify(stored));
-            var section=btn.closest('.side-nav-section');
-            var items=section.querySelector('.side-nav-section-items');
-            var chev=btn.querySelector('.sec-chevron');
-            var col=stored['${s.label}'];
-            items.style.display=col?'none':'';
-            if(chev)chev.style.transform=col?'rotate(-90deg)':'rotate(0deg)';
-          })(this)">
-          <span>${s.label}</span>
-          <svg class="sec-chevron" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;transition:transform .2s;transform:${collapsed ? 'rotate(-90deg)' : 'rotate(0deg)'}"><polyline points="6 9 12 15 18 9"/></svg>
-        </div>
-        <div class="side-nav-section-items" style="${collapsed ? 'display:none' : ''}">
+        <div class="side-nav-section-label">${s.label}</div>
         ${s.keys.map(k => {
           const m = MODULES[k];
           const active = isActive(m.href);
           const isTodos = k === 'todos';
-          const isTerminal = k === 'trading';
-          const labelHtml = isTerminal
-            ? `Terminal${NEWTAB_ICON}`
-            : m.label;
           return `<a href="${m.href}"
             ${m.newTab ? 'target="_blank" rel="noopener"' : ''}
             class="side-nav-item${active ? ' active' : ''}"
             data-label="${m.label}"
             style="${active ? `color:${m.color}` : ''}">
             <span class="side-nav-icon" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${active ? m.color : 'currentColor'}">${SVG[m.svgKey]||''}</span>
-            <span class="side-nav-item-label" style="display:flex;align-items:center">${labelHtml}</span>
+            <span class="side-nav-item-label">${m.label}</span>
             ${isTodos ? `<span class="gh-todo-badge" style="display:none;margin-left:auto;background:var(--amber);color:#000;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;font-family:var(--mono)">0</span>` : ''}
           </a>`;
         }).join('')}
-        </div>
-      </div>`;
-    }).join('');
+      </div>`).join('');
 
     const bottom = `
       <div class="side-nav-spacer"></div>
