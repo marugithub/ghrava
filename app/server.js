@@ -121,6 +121,7 @@ app.use('/api/v1/search',            require('./features/search/routes'));
 app.use('/api/v1/maintenance',       require('./features/maintenance/routes'));
 app.use('/api/v1/templates',         require('./features/templates/routes'));
 app.use('/api/v1/family-snapshot',   require('./features/family-snapshot/routes'));
+app.use('/api/v1/watcher',           require('./features/watcher/routes'));
 app.use('/api/v1/system',            require('./features/system/routes'));
 
 // ── App info (public — no auth) ────────────────────────────────
@@ -429,6 +430,12 @@ app.get('/', (req, res) => res.redirect('/index.html'));
 
 // Start recurring transaction scheduler
 try { require('./shared/recurring-transactions').startScheduler(); } catch(e) { console.error('[server] Recurring scheduler failed:', e.message); }
+
+// Start folder watcher (after 8s to let migrations settle)
+setTimeout(() => {
+  try { require('./shared/folder-watcher').startWatcher(); }
+  catch(e) { console.error('[server] Folder watcher failed:', e.message); }
+}, 8000);
 
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 

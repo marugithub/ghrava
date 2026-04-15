@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <title>Member Snapshot — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <style>
+    .snap-section { margin-bottom: 20px; }
+    .snap-section-title { font-size: 13px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; font-family: var(--mono); margin-bottom: 8px; }
+    .snap-row { display: flex; align-items: baseline; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .snap-lbl { color: var(--text3); min-width: 120px; flex-shrink: 0; }
+    .snap-val { color: var(--text); font-weight: 500; flex: 1; }
+    .snap-badge { display: inline-block; padding: 2px 8px; border-radius: 99px; font-size: 11px; font-weight: 600; }
+  </style>
+</head>
+<body>
+<script>window.GH_PAGE = { title:'Member Snapshot' };</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<div id="app">
+  <div style="padding:0 16px 80px;max-width:700px;margin:0 auto">
+
+    <!-- Header actions -->
+    <div style="display:flex;gap:8px;padding:12px 0 16px;justify-content:flex-end">
+      <button class="btn btn-primary" id="printBtn" onclick="openPrint()" style="display:none">🖨️ Print</button>
+    </div>
+
+    <div id="snapContent"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+  </div>
+</div>
+
+<script>
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function getMemberId() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('id');
+}
+
+async function load() {
+  const memberId = getMemberId();
+  if (!memberId) {
+    document.getElementById('snapContent').innerHTML = '<div style="color:var(--red);padding:20px">No member ID provided. Use ?id=N in the URL.</div>';
+    return;
+  }
+  try {
+    const d = await window.api('GET', `/family-snapshot/${memberId}`);
+    const m = d.member;
+    // Update page title
+    if (window.GH_PAGE) window.GH_PAGE.title = m.display_name + ' — Snapshot';
+    document.title = m.display_name + ' — Snapshot';
+    document.getElementById('printBtn').style.display = 'inline-flex';
+    render(d);
+  } catch(e) {
+    document.getElementById('snapContent').innerHTML = `<div style="color:var(--red);padding:20px">${esc(e.message)}</div>`;
+  }
+}
+
+function render(d) {
+  const m = d.member;
+  const age = m.date_of_birth
+    ? Math.floor((Date.now() - new Date(m.date_of_birth)) / (365.25*24*3600*1000)) + ' yrs'
+    : null;
+
+  let html = `
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:20px">
+      <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:4px">${esc(m.display_name)}</div>
+      <div style="font-size:13px;color:var(--text3)">${[m.relationship, age].filter(Boolean).join(' · ')}</div>
+      ${m.emergency_notes ? `<div style="margin-top:8px;font-size:13px;color:var(--text2);padding:8px 12px;background:var(--red-bg,#fef2f2);border-radius:var(--r)">${esc(m.emergency_notes)}</div>` : ''}
+    </div>`;
+
+  if (d.medications?.length) {
+    html += `<div class="snap-section"><div class="snap-section-title">💊 Medications (${d.medications.length})</div>`;
+    d.medications.forEach(x => {
+      const active = x.status === 'Active';
+      html += `<div class="snap-row">
+        <span class="snap-val">${esc(x.name)}${x.dosage?' · '+esc(x.dosage):''}</span>
+        <span class="snap-badge" style="background:${active?'rgba(34,197,94,.1)':'var(--bg3)'};color:${active?'var(--green)':'var(--text3)'}">${esc(x.status)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (d.conditions?.length) {
+    html += `<div class="snap-section"><div class="snap-section-title">🩺 Conditions (${d.conditions.length})</div>`;
+    d.conditions.forEach(x => {
+      html += `<div class="snap-row"><span class="snap-val">${esc(x.condition_name)}</span><span class="snap-lbl">${esc(x.status)}</span></div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (d.todos?.length) {
+    html += `<div class="snap-section"><div class="snap-section-title">✓ Open Todos (${d.todos.length})</div>`;
+    d.todos.forEach(x => {
+      const overdue = x.due_date && x.due_date < new Date().toISOString().slice(0,10);
+      html += `<div class="snap-row">
+        <span class="snap-val">${esc(x.title)}</span>
+        ${x.due_date ? `<span class="snap-lbl" style="color:${overdue?'var(--red)':'var(--text3)'}">${x.due_date}</span>` : ''}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (d.visits?.length) {
+    html += `<div class="snap-section"><div class="snap-section-title">🏥 Recent Visits (${d.visits.length})</div>`;
+    d.visits.slice(0,5).forEach(x => {
+      html += `<div class="snap-row">
+        <span class="snap-lbl">${x.visit_date}</span>
+        <span class="snap-val">${x.physician ? esc(x.physician)+' · ' : ''}${esc((x.questions||'').slice(0,60))}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (d.hsa?.length) {
+    const total = d.hsa.reduce((s,x) => s + (x.you_paid||0), 0);
+    html += `<div class="snap-section"><div class="snap-section-title">❤️ Recent HSA — $${total.toFixed(2)} total</div>`;
+    d.hsa.slice(0,5).forEach(x => {
+      html += `<div class="snap-row">
+        <span class="snap-lbl">${x.date}</span>
+        <span class="snap-val">${esc(x.provider||x.category)}</span>
+        <span style="font-weight:600;color:var(--text)">$${Number(x.you_paid||0).toFixed(2)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (!d.medications?.length && !d.conditions?.length && !d.todos?.length) {
+    html += `<div style="text-align:center;padding:40px;color:var(--text3)">No linked data found for this family member.</div>`;
+  }
+
+  html += `<div style="margin-top:16px;font-size:11px;color:var(--text3);text-align:center">Generated ${new Date().toLocaleString()}</div>`;
+  document.getElementById('snapContent').innerHTML = html;
+}
+
+function openPrint() {
+  window.open(`/api/v1/family-snapshot/${getMemberId()}/html`, '_blank');
+}
+
+document.addEventListener('DOMContentLoaded', load);
+</script>
+</body>
+</html>

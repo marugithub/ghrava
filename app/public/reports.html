@@ -906,6 +906,10 @@ async function selectPerson(memberId) {
         <div style="font-size:13px;color:var(--text3);margin-top:2px">
           ${[m.relationship, age, m.full_legal_name].filter(Boolean).map(esc).join(' · ')}
         </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <a href="/snapshot.html?id=${memberId}" class="btn btn-ghost" style="font-size:12px;padding:4px 12px;text-decoration:none">👤 Full Snapshot</a>
+          <a href="/api/v1/family-snapshot/${memberId}/html" target="_blank" class="btn btn-ghost" style="font-size:12px;padding:4px 12px;text-decoration:none">🖨️ Print</a>
+        </div>
       </div>
       <div class="sys-counts-grid" style="border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:12px">${statCards}</div>
       ${todosHtml}
