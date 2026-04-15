@@ -10,163 +10,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Reports — Ghrava</title>
   <link rel="stylesheet" href="/shared.css">
-<script src="/theme.js"></script>
-  <div class="view-panel" id="panel-emergency">
-    <div style="padding:16px;max-width:800px;margin:0 auto">
-      <div style="background:var(--red-bg,#fef2f2);border:2px solid var(--red,#ef4444);border-radius:var(--r-lg);padding:20px;margin-bottom:20px">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
-          <span style="font-size:28px">🚨</span>
-          <div>
-            <div style="font-size:17px;font-weight:700;color:var(--red,#ef4444)">Emergency Information Card</div>
-            <div style="font-size:13px;color:var(--text2)">Print and keep accessible — fridge, wallet, car</div>
-          </div>
-        </div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.6">
-          Contains emergency contacts, active medications, conditions, allergies, and insurance for all family members.
-          Mark contacts as "Emergency Contact" in Settings → Contacts to include them.
-        </div>
-      </div>
-
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
-        <div class="sum-card"><div class="sum-val" id="emContacts">—</div><div class="sum-lbl">Contacts</div></div>
-        <div class="sum-card"><div class="sum-val" id="emMeds">—</div><div class="sum-lbl">Meds</div></div>
-        <div class="sum-card"><div class="sum-val" id="emConditions">—</div><div class="sum-lbl">Conditions</div></div>
-        <div class="sum-card"><div class="sum-val" id="emAllergies">—</div><div class="sum-lbl">Allergies</div></div>
-      </div>
-
-      <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="window.open('/api/v1/reports/emergency/html','_blank')">🖨️ View &amp; Print</button>
-        <button class="btn btn-ghost" onclick="copyEmergencyText()">📋 Copy as Text</button>
-        <a href="/settings.html" class="btn btn-ghost">⚙️ Manage Contacts</a>
-      </div>
-
-      <div class="section-hdr">Preview</div>
-      <div id="emergencyPreview" style="margin-top:8px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
-
-      <div class="section-hdr" style="margin-top:20px">Display Options</div>
-      <div style="margin-top:8px">
-        <div class="toggle-row">
-          <div><span class="toggle-label">Show Date of Birth</span></div>
-          <label class="toggle"><input type="checkbox" id="emShowDob" onchange="saveEmConfig('emergency_show_dob',this.checked)"><span class="toggle-track"></span></label>
-        </div>
-        <div class="toggle-row">
-          <div><span class="toggle-label">Show Last 4 of SSN</span></div>
-          <label class="toggle"><input type="checkbox" id="emShowSsn" onchange="saveEmConfig('emergency_show_ssn',this.checked)"><span class="toggle-track"></span></label>
-        </div>
-        <div class="toggle-row">
-          <div><span class="toggle-label">Include Insurance Info</span></div>
-          <label class="toggle"><input type="checkbox" id="emShowInsurance" onchange="saveEmConfig('emergency_include_insurance',this.checked)"><span class="toggle-track"></span></label>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div class="view-panel" id="panel-expiry">
-    <div style="padding:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px">
-        <div style="display:flex;align-items:center;gap:12px">
-          <select id="expiryRange" class="form-select" style="width:auto" onchange="loadExpiryTimeline()">
-            <option value="12">Next 12 months</option>
-            <option value="24" selected>Next 24 months</option>
-            <option value="36">Next 36 months</option>
-          </select>
-          <label style="display:flex;align-items:center;gap:6px;font-size:13px">
-            <input type="checkbox" id="expiryShowExpired" onchange="loadExpiryTimeline()">
-            Show expired
-          </label>
-        </div>
-        <a href="/documents.html" class="btn btn-ghost">📄 Manage Documents</a>
-      </div>
-      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px">
-        <div class="sum-card"><div class="sum-val" id="expTotal">—</div><div class="sum-lbl">Total</div></div>
-        <div class="sum-card"><div class="sum-val" id="expExpired" style="color:var(--red)">—</div><div class="sum-lbl">Expired</div></div>
-        <div class="sum-card"><div class="sum-val" id="expNext30" style="color:var(--amber)">—</div><div class="sum-lbl">Next 30d</div></div>
-        <div class="sum-card"><div class="sum-val" id="expNext90">—</div><div class="sum-lbl">Next 90d</div></div>
-      </div>
-      <div class="section-hdr">Upcoming Expirations</div>
-      <div id="expiryList" style="margin-top:8px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
-    </div>
-  </div>
-
-  <div class="view-panel" id="panel-insurance">
-    <div style="padding:16px;max-width:800px;margin:0 auto">
-      <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r-lg);padding:16px;margin-bottom:20px">
-        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">🏠 Home Inventory Insurance Report</div>
-        <div style="font-size:13px;color:var(--text2)">Generate a report of your belongings with values for insurance purposes.</div>
-      </div>
-      <div class="settings-card" style="margin-bottom:16px">
-        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Report Options</div>
-        <div class="toggle-row">
-          <span class="toggle-label">Include Values</span>
-          <label class="toggle"><input type="checkbox" id="insIncludeValues" checked><span class="toggle-track"></span></label>
-        </div>
-        <div class="form-group" style="margin-top:12px">
-          <label class="form-label">Group By</label>
-          <select class="form-select" id="insGroupBy">
-            <option value="room">Room / Location</option>
-            <option value="category">Category</option>
-          </select>
-        </div>
-        <div class="form-group">
-          <label class="form-label">Minimum Value: $<span id="insMinLabel">100</span></label>
-          <input type="range" id="insMinValue" min="0" max="1000" step="25" value="100" style="width:100%;accent-color:var(--accent)" oninput="document.getElementById('insMinLabel').textContent=this.value">
-        </div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <button class="btn btn-primary" onclick="loadInsuranceReport()">📊 Generate Preview</button>
-        <button class="btn btn-ghost" onclick="openInsurancePrint()">🖨️ Print View</button>
-      </div>
-      <div id="insurancePreview" style="margin-top:20px"></div>
-    </div>
-  </div>
-
-<script>
-  // Apply nav-collapsed before first paint to prevent sidebar flash
-  if (localStorage.getItem('gh_nav_collapsed') === '1') {
-    document.documentElement.classList.add('nav-collapsed-init');
-  }
-</script>
-<style>
-.rpt-period-bar{display:flex;gap:6px;padding:10px 16px 6px;align-items:center;flex-wrap:wrap}
-.rpt-period-bar select{background:var(--bg2);border:1px solid var(--border);color:var(--text);border-radius:var(--r);padding:6px 10px;font-size:13px;outline:none}
-.rpt-period-bar select:focus{border-color:var(--accent)}
-.quick-pill{padding:5px 12px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--text3);-webkit-tap-highlight-color:transparent;white-space:nowrap}
-.quick-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
-.summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px 16px}
-.sum-card{background:var(--bg2);border-radius:var(--r);padding:10px 12px;text-align:center}
-.sum-val{font-size:17px;font-weight:800;letter-spacing:-.02em}
-.sum-lbl{font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
-.section-hdr{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:14px 16px 8px}
-.cat-row{display:flex;align-items:center;gap:8px;padding:6px 16px}
-.cat-bar-wrap{flex:1;background:var(--bg2);border-radius:99px;height:6px;overflow:hidden}
-.cat-bar{height:6px;border-radius:99px;transition:width .4s ease}
-.cat-name{font-size:13px;color:var(--text);width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:0}
-.cat-amt{font-size:13px;font-family:var(--mono);color:var(--text2);width:70px;text-align:right;flex-shrink:0}
-.chart-wrap{padding:0 16px 8px;overflow-x:auto}
-.chart-wrap svg{overflow:visible;display:block}
-.delta-badge{font-size:11px;font-weight:600;padding:1px 6px;border-radius:99px}
-.delta-up{background:rgba(34,197,94,.12);color:#22c55e}
-.delta-dn{background:rgba(239,68,68,.12);color:#ef4444}
-.account-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px}
-.expense-row{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--border)}
-/* Data Quality */
-.dq-row{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg2);border-radius:var(--r);margin-bottom:6px;text-decoration:none;color:var(--text)}
-.dq-row:hover{border:1px solid var(--accent)}
-.dq-row{border:1px solid var(--border)}
-.dq-badge{font-size:12px;font-weight:700;font-family:var(--mono);padding:2px 8px;border-radius:99px;background:rgba(245,158,11,.12);color:#f59e0b;white-space:nowrap;flex-shrink:0}
-.dq-all-clear{text-align:center;padding:40px 16px;color:var(--green)}
-.dq-all-clear svg{display:block;margin:0 auto 12px}
-/* System */
-.sys-row{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;border-bottom:1px solid var(--border)}
-.sys-label{font-size:13px;color:var(--text2)}
-.sys-val{font-size:13px;font-family:var(--mono);color:var(--text);text-align:right}
-.sys-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;margin-bottom:12px}
-.sys-counts-grid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--border)}
-.sys-count-cell{background:var(--bg2);padding:10px 14px}
-.sys-count-val{font-size:18px;font-weight:800;font-family:var(--mono);color:var(--text)}
-.sys-count-lbl{font-size:11px;color:var(--text3);margin-top:2px}
-</style>
-</head>
+<script src="/theme.js"></script></head>
 <body>
 <script>
 window.GH_PAGE = { module: 'reports', title: 'Reports' };
@@ -187,10 +31,15 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <button class="view-tab"        data-tab="annual"     onclick="switchRpt('annual',this)">Annual</button>
     <button class="view-tab"        data-tab="checklist"  onclick="switchRpt('checklist',this)">Checklist</button>
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
+    <button class="view-tab"        data-tab="emergency"  onclick="switchRpt('emergency',this)">🚨 Emergency</button>
+    <button class="view-tab"        data-tab="expiry"     onclick="switchRpt('expiry',this)">📅 Expiry</button>
+    <button class="view-tab"        data-tab="insurance"  onclick="switchRpt('insurance',this)">🏠 Insurance</button>
+    <button class="view-tab"        data-tab="watcher"    onclick="switchRpt('watcher',this)">📁 Watcher</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
     <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
     <button class="view-tab"        data-tab="expiry"     onclick="switchRpt('expiry',this)">📅 Expiry</button>
     <button class="view-tab"        data-tab="insurance"  onclick="switchRpt('insurance',this)">🏠 Insurance</button>
+    <button class="view-tab"        data-tab="watcher"   onclick="switchRpt('watcher',this)">📁 Watcher</button>
     <button class="view-tab"        data-tab="emergency"  onclick="switchRpt('emergency',this)">🚨 Emergency</button>
   </div>
 
@@ -403,6 +252,115 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     </div>
   </div>
 
+
+  <div class="view-panel" id="panel-emergency">
+    <div style="max-width:800px;margin:0 auto;padding-bottom:40px">
+      <div style="background:var(--red-bg,#fef2f2);border:2px solid var(--red,#ef4444);border-radius:var(--r-lg);padding:20px;margin:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <span style="font-size:28px">🚨</span>
+          <div style="font-size:17px;font-weight:700;color:var(--red,#ef4444)">Emergency Information Card</div>
+        </div>
+        <p style="font-size:13px;color:var(--text2);line-height:1.6">Print and keep accessible — fridge, wallet, car. Mark contacts as "Emergency Contact" in Settings to include them.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px 12px">
+        <div class="sum-card"><div class="sum-val" id="emContacts">—</div><div class="sum-lbl">Contacts</div></div>
+        <div class="sum-card"><div class="sum-val" id="emMeds">—</div><div class="sum-lbl">Meds</div></div>
+        <div class="sum-card"><div class="sum-val" id="emConditions">—</div><div class="sum-lbl">Conditions</div></div>
+        <div class="sum-card"><div class="sum-val" id="emAllergies">—</div><div class="sum-lbl">Allergies</div></div>
+      </div>
+      <div style="display:flex;gap:10px;padding:0 16px 16px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="window.open('/api/v1/reports/emergency/html','_blank')">🖨️ View &amp; Print</button>
+        <button class="btn btn-ghost" onclick="copyEmergencyText()">📋 Copy as Text</button>
+        <a href="/settings.html" class="btn btn-ghost">⚙️ Manage Contacts</a>
+      </div>
+      <div class="section-hdr">📞 Emergency Contacts</div>
+      <div id="emergencyContactsList" style="padding:0 16px 12px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+      <div class="section-hdr">💊 Active Medications</div>
+      <div id="emergencyMedsList" style="padding:0 16px 12px"></div>
+      <div class="section-hdr">⚠️ Allergies</div>
+      <div id="emergencyAllergiesList" style="padding:0 16px 12px"></div>
+      <div class="section-hdr">⚙️ Display Options</div>
+      <div style="padding:0 16px 20px">
+        <div class="toggle-row"><div><span class="toggle-label">Show Date of Birth</span></div><label class="toggle"><input type="checkbox" id="emShowDob" checked onchange="saveEmConfig('emergency_show_dob',this.checked)"><span class="toggle-track"></span></label></div>
+        <div class="toggle-row"><div><span class="toggle-label">Show Last 4 of SSN</span></div><label class="toggle"><input type="checkbox" id="emShowSsn" onchange="saveEmConfig('emergency_show_ssn',this.checked)"><span class="toggle-track"></span></label></div>
+        <div class="toggle-row"><div><span class="toggle-label">Include Insurance Info</span></div><label class="toggle"><input type="checkbox" id="emShowInsurance" checked onchange="saveEmConfig('emergency_include_insurance',this.checked)"><span class="toggle-track"></span></label></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="panel-expiry">
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <select id="expiryRange" class="form-select" style="width:auto" onchange="loadExpiryTimeline()">
+            <option value="12">Next 12 months</option>
+            <option value="24" selected>Next 24 months</option>
+            <option value="36">Next 36 months</option>
+          </select>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13px">
+            <input type="checkbox" id="expiryShowExpired" onchange="loadExpiryTimeline()"> Show expired
+          </label>
+        </div>
+        <a href="/documents.html" class="btn btn-ghost">📄 Manage Documents</a>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+        <div class="sum-card"><div class="sum-val" id="expTotal">—</div><div class="sum-lbl">Total</div></div>
+        <div class="sum-card"><div class="sum-val" id="expExpired" style="color:var(--red)">—</div><div class="sum-lbl">Expired</div></div>
+        <div class="sum-card"><div class="sum-val" id="expNext30" style="color:var(--amber)">—</div><div class="sum-lbl">Next 30d</div></div>
+        <div class="sum-card"><div class="sum-val" id="expNext90">—</div><div class="sum-lbl">Next 90d</div></div>
+      </div>
+      <div class="section-hdr">Upcoming Expirations</div>
+      <div id="expiryList" style="margin-top:8px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="panel-insurance">
+    <div style="padding:16px;max-width:800px;margin:0 auto">
+      <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r-lg);padding:16px;margin-bottom:20px">
+        <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:6px">🏠 Home Inventory Insurance Report</div>
+        <div style="font-size:13px;color:var(--text2)">Generate a report of your belongings with values for insurance purposes.</div>
+      </div>
+      <div class="settings-card" style="margin-bottom:16px">
+        <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:12px">Report Options</div>
+        <div class="toggle-row"><span class="toggle-label">Include Values</span><label class="toggle"><input type="checkbox" id="insIncludeValues" checked><span class="toggle-track"></span></label></div>
+        <div class="form-group" style="margin-top:12px"><label class="form-label">Group By</label>
+          <select class="form-select" id="insGroupBy"><option value="room">Room / Location</option><option value="category">Category</option></select>
+        </div>
+        <div class="form-group"><label class="form-label">Minimum Value: $<span id="insMinLabel">100</span></label>
+          <input type="range" id="insMinValue" min="0" max="1000" step="25" value="100" style="width:100%;accent-color:var(--accent)" oninput="document.getElementById('insMinLabel').textContent=this.value">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" onclick="loadInsuranceReport()">📊 Generate Preview</button>
+        <button class="btn btn-ghost" onclick="openInsurancePrint()">🖨️ Print View</button>
+      </div>
+      <div id="insurancePreview" style="margin-top:20px"></div>
+    </div>
+  </div>
+
+  <div class="view-panel" id="panel-watcher">
+    <div style="padding:16px">
+      <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap">
+        <select id="watcherFilter" class="form-select" style="width:auto" onchange="loadWatcherHistory()">
+          <option value="">All Files</option>
+          <option value="completed">✅ Imported</option>
+          <option value="pending">📥 Pending</option>
+          <option value="failed">❌ Failed</option>
+        </select>
+        <button class="btn btn-ghost" onclick="loadWatcherHistory()">🔄 Refresh</button>
+        <a href="/watcher-inbox.html" class="btn btn-ghost">📥 Open Inbox</a>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+        <div class="sum-card"><div class="sum-val" id="wsTotal">—</div><div class="sum-lbl">Total</div></div>
+        <div class="sum-card"><div class="sum-val" id="wsImported" style="color:var(--green)">—</div><div class="sum-lbl">Imported</div></div>
+        <div class="sum-card"><div class="sum-val" id="wsPending" style="color:var(--amber)">—</div><div class="sum-lbl">Pending</div></div>
+        <div class="sum-card"><div class="sum-val" id="wsFailed" style="color:var(--red)">—</div><div class="sum-lbl">Failed</div></div>
+      </div>
+      <div id="watcherHistoryList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+      <div style="text-align:center;margin-top:16px"><button class="btn btn-ghost" id="loadMoreBtn" style="display:none" onclick="loadMoreHistory()">Load More</button></div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -446,6 +404,7 @@ function loadTab(tab) {
   else if (tab === 'emergency') loadEmergencyReport();
   else if (tab === 'expiry')    loadExpiryTimeline();
   else if (tab === 'insurance') loadInsuranceReport();
+  else if (tab === 'watcher')   loadWatcherHistory(true);
   else if (tab === 'tools') rpt_loadTools();
 }
 
@@ -1846,58 +1805,67 @@ let _emergencyData = null;
 async function loadEmergencyReport() {
   try {
     _emergencyData = await window.api('GET', '/reports/emergency');
-    document.getElementById('emContacts').textContent   = _emergencyData.emergency_contacts?.length  || 0;
-    document.getElementById('emMeds').textContent       = _emergencyData.medications?.length         || 0;
-    document.getElementById('emConditions').textContent = _emergencyData.conditions?.length          || 0;
-    document.getElementById('emAllergies').textContent  = _emergencyData.allergies?.length           || 0;
-    document.getElementById('emShowDob').checked        = _emergencyData.config?.emergency_show_dob  !== '0';
-    document.getElementById('emShowSsn').checked        = _emergencyData.config?.emergency_show_ssn  === '1';
-    document.getElementById('emShowInsurance').checked  = _emergencyData.config?.emergency_include_insurance !== '0';
-    renderEmergencyPreview();
+    const d = _emergencyData;
+    document.getElementById('emContacts').textContent   = d.emergency_contacts?.length || 0;
+    document.getElementById('emMeds').textContent       = d.medications?.length        || 0;
+    document.getElementById('emConditions').textContent = d.conditions?.length         || 0;
+    document.getElementById('emAllergies').textContent  = d.allergies?.length          || 0;
+    const cfg = d.config || {};
+    const showDobEl = document.getElementById('emShowDob');
+    const showSsnEl = document.getElementById('emShowSsn');
+    const showInsEl = document.getElementById('emShowInsurance');
+    if (showDobEl) showDobEl.checked = cfg.emergency_show_dob !== '0';
+    if (showSsnEl) showSsnEl.checked = cfg.emergency_show_ssn === '1';
+    if (showInsEl) showInsEl.checked = cfg.emergency_include_insurance !== '0';
+
+    // Contacts
+    const cEl = document.getElementById('emergencyContactsList');
+    if (cEl) {
+      if (d.emergency_contacts?.length) {
+        cEl.innerHTML = d.emergency_contacts.map(ct => `
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px">
+            <div style="font-weight:700;color:var(--text)">${esc(ct.name)}</div>
+            <div style="font-size:11px;color:var(--red);text-transform:uppercase">${esc(ct.contact_type)}${ct.specialty?' · '+esc(ct.specialty):''}</div>
+            ${ct.phone_primary?`<div style="font-size:15px;font-weight:600;color:var(--accent);margin:4px 0 2px">${esc(ct.phone_primary)}</div>`:''}
+            ${ct.phone_secondary?`<div style="font-size:12px;color:var(--text3)">📱 ${esc(ct.phone_secondary)}</div>`:''}
+            ${ct.email?`<div style="font-size:12px;color:var(--text3)">✉️ ${esc(ct.email)}</div>`:''}
+          </div>`).join('');
+      } else {
+        cEl.innerHTML = '<div style="color:var(--amber);padding:12px;background:var(--amber-bg,#fffbeb);border-radius:var(--r);font-size:13px">⚠️ No emergency contacts marked — Settings → Contacts → toggle "Emergency Contact".</div>';
+      }
+    }
+
+    // Medications
+    const mEl = document.getElementById('emergencyMedsList');
+    if (mEl) {
+      if (d.medications?.length) {
+        mEl.innerHTML = d.medications.map(m => `
+          <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+            <div><span style="font-weight:600;color:var(--text)">${esc(m.name)}</span><span style="font-size:11px;color:var(--red);text-transform:uppercase;margin-left:8px">${esc(m.patient)}</span></div>
+            <div style="font-size:12px;color:var(--text3)">${m.dosage?esc(m.dosage)+' · ':''}${esc(m.frequency||'')}</div>
+          </div>`).join('');
+      } else {
+        mEl.innerHTML = '<div style="color:var(--text3);padding:8px;text-align:center">No active medications</div>';
+      }
+    }
+
+    // Allergies
+    const aEl = document.getElementById('emergencyAllergiesList');
+    if (aEl) {
+      if (d.allergies?.length) {
+        aEl.innerHTML = '<div style="padding:8px 0">' + d.allergies.map(a =>
+          `<span style="display:inline-block;background:var(--red-bg,#fef2f2);color:var(--red,#ef4444);padding:3px 10px;border-radius:99px;font-size:11px;font-weight:600;margin:2px;border:1px solid var(--red,#ef4444)">${esc(a.patient)}: ${esc(a.allergies)}</span>`
+        ).join('') + '</div>';
+      } else {
+        aEl.innerHTML = '<div style="color:var(--text3);padding:8px;text-align:center">No known allergies</div>';
+      }
+    }
   } catch(e) {
-    document.getElementById('emergencyPreview').innerHTML = '<div style="color:var(--red);font-size:13px">Failed to load: ' + esc(e.message) + '</div>';
+    const el = document.getElementById('emergencyContactsList');
+    if (el) el.innerHTML = `<div style="color:var(--red);padding:16px;text-align:center">Failed to load: ${esc(e.message)}</div>`;
   }
 }
 
-function renderEmergencyPreview() {
-  const container = document.getElementById('emergencyPreview');
-  if (!_emergencyData) return;
-  const d = _emergencyData;
-  let html = '';
-
-  if (d.emergency_contacts?.length) {
-    html += '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">📞 Emergency Contacts</div>';
-    d.emergency_contacts.slice(0,4).forEach(ct => {
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
-        <span style="font-weight:600;min-width:120px;font-size:13px">${esc(ct.name)}</span>
-        <span style="font-size:13px;color:var(--text2)">${esc(ct.phone_primary || '—')}</span>
-        <span style="margin-left:auto;font-size:10px;color:var(--accent)">${esc(ct.contact_type)}</span>
-      </div>`;
-    });
-    if (d.emergency_contacts.length > 4) html += `<div style="font-size:11px;color:var(--text3);padding-top:4px">+ ${d.emergency_contacts.length - 4} more</div>`;
-    html += '</div>';
-  } else {
-    html += '<div style="color:var(--amber);padding:10px;background:var(--amber-bg,#fffbeb);border-radius:var(--r);margin-bottom:12px;font-size:13px">⚠️ No emergency contacts marked. Settings → Contacts → toggle "Emergency Contact".</div>';
-  }
-
-  if (d.medications?.length) {
-    html += '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">💊 Active Medications</div>';
-    d.medications.slice(0,3).forEach(m => {
-      html += `<div style="font-size:13px;padding:3px 0"><span style="font-weight:500">${esc(m.name)}</span><span style="color:var(--text3)"> · ${esc(m.patient)}${m.dosage ? ' · ' + esc(m.dosage) : ''}</span></div>`;
-    });
-    if (d.medications.length > 3) html += `<div style="font-size:11px;color:var(--text3)">+ ${d.medications.length - 3} more</div>`;
-    html += '</div>';
-  }
-
-  if (d.allergies?.length) {
-    html += '<div><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">⚠️ Allergies</div><div style="display:flex;flex-wrap:wrap;gap:4px">';
-    d.allergies.forEach(a => { html += `<span style="background:var(--red-bg,#fef2f2);color:var(--red,#ef4444);padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500">${esc(a.patient)}: ${esc(a.allergies)}</span>`; });
-    html += '</div></div>';
-  }
-
-  if (!html) html = '<div style="color:var(--text3);font-size:13px;padding:8px">Add emergency contacts and medications to populate the card.</div>';
-  container.innerHTML = html;
-}
 
 async function saveEmConfig(key, checked) {
   try {
