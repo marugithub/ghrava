@@ -272,3 +272,266 @@ Full workflow designed (document index 17). Not yet implemented.
 - insurance/perfume/subscriptions shell pages upgraded ✓
 - Ghrava_Share.ps1 ✓
 - MODULES_DESIGN.md ✓
+
+---
+
+## Feature group B — Fully designed, ready to build
+All three features have complete code from design session. Apply together in one pass.
+
+### B1 · EOB Parser Selector (Settings)
+**Migration:** `094_eob_parser_config.sql`
+```sql
+INSERT OR IGNORE INTO app_config (key, value) VALUES ('eob_parser', 'mhbp');
+INSERT OR IGNORE INTO app_config (key, value) VALUES ('snooze_default_days', '1');
+INSERT OR IGNORE INTO app_config (key, value) VALUES ('reminder_default_days', '7');
+INSERT OR IGNORE INTO app_config (key, value) VALUES ('backup_reminder_days', '7');
+INSERT OR IGNORE INTO app_config (key, value) VALUES ('document_expiry_warning_days', '90');
+INSERT OR IGNORE INTO app_config (key, value) VALUES ('hsa_pool_threshold', '500');
+INSERT OR IGNORE INTO dropdown_options (list_key, label, value, sort_order, is_system) VALUES
+  ('eob_parser', 'MHBP (Aetna Federal)', 'mhbp', 10, 1);
+-- Only add implemented parsers — no "coming soon" entries
+```
+
+**`app/features/medical/routes.js`** — add `getEobParser()` helper at top, use it in `/eob/preview` and `/eob/import` routes:
+```javascript
+function getEobParser() {
+  try {
+    const row = db.prepare("SELECT value FROM app_config WHERE key = 'eob_parser'").get();
+    return row?.value || 'mhbp';
+  } catch { return 'mhbp'; }
+}
+// In /eob/preview and /eob/import: call getEobParser() before requiring eob-parser.js
+// If parser !== 'mhbp' return 400 "Parser not implemented yet"
+```
+
+**`app/public/settings.html`** — add to PANEL_LOADERS: `eob: () => { loadEobParserPanel(); }`
+- Add row in Integrations card: "EOB Parser · Insurance EOB import format · badge showing current"
+- Add sub-panel `panel-eob` with radio buttons (one per implemented parser only)
+- Functions: `loadEobParserPanel()`, `saveEobParser()`
+- Badge updates on save
+
+**`app/public/settings.html`** — add App Configuration card:
+- Fields defined in `CONFIG_FIELDS` array: snooze_default_days, reminder_default_days, backup_reminder_days, document_expiry_warning_days, hsa_pool_threshold, api_* feature flags
+- Toggles use `saveConfigToggle(key, checked)`
+- Number inputs use `saveConfigValue(key, value)` with Save button
+- Calls `loadAppConfig()` on DOMContentLoaded
+
+---
+
+### B2 · Google Tasks Sync Button (Todos)
+**`app/public/todos.html`** — add to header controls:
+```html
+<button class="gh-icon-btn" id="googleSyncBtn" title="Sync with Google Tasks" onclick="syncGoogleTasks()" style="position:relative">
+  <!-- globe SVG -->
+  <span id="googleSyncBadge" style="position:absolute;top:-2px;right:-2px;width:8px;height:8px;border-radius:50%;background:var(--green);display:none"></span>
+</button>
+```
+Add JS functions: `checkGoogleStatus()` (calls `GET /google/status`, shows/hides badge), `syncGoogleTasks()` (calls `POST /google/sync/tasks`, shows spinner, calls `load()` on success)
+Call `checkGoogleStatus()` in DOMContentLoaded.
+
+**`app/public/shared.css`** — add spinner for icon buttons:
+```css
+.gh-icon-btn .spin { border: 2px solid var(--text3); border-top-color: var(--accent); }
+```
+
+---
+
+### B3 · Google Debug Endpoint
+**`app/features/google/routes.js`** — add `GET /debug/connection`:
+- Tests: DNS resolution to oauth2.googleapis.com, HTTPS reach to token endpoint, token validity, Tasks API call
+- Returns JSON: config (has_client_id, has_client_secret, has_refresh_token, token_expiry_date), tests (dns, token_endpoint, token, tasks_api)
+- Permanent diagnostic endpoint — not temporary
+- Used by test runner in Reports → Tools
+
+---
+
+### B4 · System Test Runner (Reports → Tools)
+**`app/public/reports.html`** — add "🧪 System Tests" section to Tools tab:
+- Button "▶ Run All Tests"
+- Tests: Config API responds, EOB parser configured, Google status endpoint responds, Google credentials present, Google DNS, Google token valid (skipped if not connected)
+- Results displayed inline: ✅ pass / ❌ fail / ⏭️ skip with error messages
+- Uses `GET /google/debug/connection` for Google tests
+
+---
+
+## Feature group C — Emergency Info Card
+**Designed, partially coded. Build after B group.**
+
+### C1 · Emergency Contact Flag on Contacts
+**Migration `095_emergency_contact.sql`:**
+```sql
+ALTER TABLE contacts ADD COLUMN is_emergency_contact INTEGER NOT NULL DEFAULT 0;
+CREATE INDEX IF NOT EXISTS idx_contacts_emergency ON contacts(is_emergency_contact);
+```
+**`app/features/contacts/routes.js`** — add `is_emergency_contact` to SELECT/UPDATE columns
+**`app/public/settings.html`** (or contacts.html) — add toggle in contact drawer: "🚨 Emergency Contact"
+
+### C2 · Emergency Report Endpoints
+**`app/features/reports/routes.js`** — add:
+- `GET /emergency` — JSON with: emergency_contacts, family_members, active medications, active conditions, allergies (from kids + family), insurance, primary_physician
+- `GET /emergency/html` — self-contained printable HTML with print CSS
+
+**`app/public/reports.html`** — add "🚨 Emergency" tab:
+- Red info banner explaining the card
+- "View & Print" button opens `/api/v1/reports/emergency/html` in new tab
+- List of emergency contacts shown inline
+- Requires step-up auth on export
+
+**Notes on queries:**
+- Allergies pulled from `kids.allergies` + `family_members.notes LIKE '%allerg%'`
+- Insurance from `hsa_plan_info` current year
+- Primary physician from `contacts WHERE contact_type='Medical' AND specialty LIKE '%Primary%'`
+
+---
+
+## Feature group D — Undo Delete UI
+**Designed, partially coded.**
+
+### D1 · Restore Endpoints
+**`app/features/system/routes.js`** (new file) — add:
+- `GET /api/v1/system/deleted` — lists soft-deleted items across tables (items=is_archived, documents/books=is_active=0, todos=status='dismissed')
+- `POST /api/v1/system/restore` — takes `{table, id}`, reverses soft delete per table
+
+**`app/public/settings.html`** — add "Recently Deleted" row → sub-panel `panel-deleted`:
+- Lists recently archived/deleted items with restore buttons
+- Trash icon in settings rows section
+
+**Tables supporting restore:** items (is_archived), documents (is_active), todos (status→open), books (is_active)
+**Tables NOT supporting restore (hard delete):** contacts, daily_log entries — flag these clearly
+
+---
+
+## Feature group E — NAS Folder Watcher
+**Extensively designed. Build after C+D. Requires chokidar npm package.**
+
+### Design decisions (confirmed)
+- **File hash:** SHA256 of file content, store ALL seen files in registry (even skipped)
+- **Pending queue ("Smart Inbox"):** Files not matching any rule go to inbox, managed in Settings
+- **File patterns:** Checkbox UI for common types (CSV/XLSX/PDF/OFX) + custom pattern input
+- **Path matching:** `path_contains` array (case-insensitive) + optional `filename_contains`
+- **Recursive:** Yes, configurable depth slider
+- **Processed files:** Stay in place, never moved or deleted
+- **Duplicates:** Hash-based skip with "Force Re-import" option in audit log
+- **Rule order:** First-match-wins, drag to reorder in UI
+- **Initial scan:** Yes, on rule creation with progress indicator
+
+### Migration `096_watcher_tables.sql`
+```sql
+ALTER TABLE financial_accounts ADD COLUMN account_number TEXT;
+
+CREATE TABLE IF NOT EXISTS watcher_file_registry (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  file_path TEXT NOT NULL UNIQUE,
+  file_hash TEXT NOT NULL,
+  file_size INTEGER, file_modified DATETIME,
+  last_scanned DATETIME DEFAULT CURRENT_TIMESTAMP,
+  import_status TEXT DEFAULT 'pending',  -- pending/imported/failed/ignored/skipped
+  import_batch_id INTEGER, import_error TEXT, imported_at DATETIME
+);
+CREATE INDEX IF NOT EXISTS idx_watcher_hash ON watcher_file_registry(file_hash);
+CREATE INDEX IF NOT EXISTS idx_watcher_status ON watcher_file_registry(import_status);
+CREATE INDEX IF NOT EXISTS idx_watcher_path ON watcher_file_registry(file_path);
+
+CREATE TABLE IF NOT EXISTS watcher_import_history (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  file_registry_id INTEGER REFERENCES watcher_file_registry(id),
+  rule_id INTEGER, rule_name TEXT,
+  module TEXT NOT NULL, account_id INTEGER, batch_id INTEGER,
+  transactions_imported INTEGER DEFAULT 0,
+  started_at DATETIME, completed_at DATETIME,
+  status TEXT DEFAULT 'pending', error_message TEXT,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+INSERT OR IGNORE INTO app_config (key, value) VALUES 
+  ('folder_watcher_enabled', '0'),
+  ('folder_watcher_config', '{"watch_paths":[],"rules":[],"catch_all":{"enabled":true,"action":"queue"}}');
+```
+
+### Rule config schema (stored in app_config as JSON)
+```json
+{
+  "watch_paths": [
+    { "path": "/share/Documents", "recursive": true, "enabled": true }
+  ],
+  "rules": [
+    {
+      "id": 1, "name": "EOB Statements", "enabled": true,
+      "path_contains": ["EOB", "Explanation of Benefits"],
+      "patterns": ["*.pdf"],
+      "module": "eob", "parser": "mhbp"
+    },
+    {
+      "id": 2, "name": "Chase Bank", "enabled": true,
+      "path_contains": ["Chase"],
+      "patterns": ["*.csv"],
+      "module": "statement", "account_id": 5, "parser": "chase"
+    }
+  ],
+  "catch_all": { "enabled": true, "action": "queue" }
+}
+```
+
+### Files to create
+| File | Purpose |
+|---|---|
+| `app/db/migrations/096_watcher_tables.sql` | Tables above |
+| `app/shared/folder-watcher.js` | Core watcher: SHA256 hash, rule matching, chokidar watch, processFile(), scanDirectory(), getPendingFiles(), getImportStats() |
+| `app/features/watcher/routes.js` | GET /status, PUT /config, GET /pending, POST /process, POST /scan, GET /history — all behind requireAuth |
+| `app/server.js` | ADD route registration + `setTimeout(startWatcher, 5000)` |
+| `app/public/settings.html` | Folder Watcher panel: status card, watch paths, rules manager, Smart Inbox |
+| `app/public/reports.html` | Audit Log tab in System section |
+
+### Key implementation notes
+- `chokidar` must be added to `package.json` dependencies (triggers `--build` on deploy)
+- `awaitWriteFinish: { stabilityThreshold: 2000 }` — wait for file to stop changing before processing
+- Rules checked top-to-bottom, first match wins — drag handle in UI for reorder
+- "Test Rule" button: scan folder, show first 5 matching files, count total matches
+- Smart Inbox badge count shown in Settings nav entry
+- Audit log pagination: "Load More" not page numbers
+
+### Banking vs Investment routing
+```javascript
+// In importStatement():
+const account = db.prepare('SELECT account_type FROM financial_accounts WHERE id = ?').get(rule.account_id);
+if (['brokerage','tsp'].includes(account.account_type)) {
+  // → investment import flow (/import/confirm equivalent)
+} else {
+  // → banking import flow (/finance/transactions/import-file equivalent)
+}
+```
+
+### requireAuth note
+- `watcher/routes.js` has `router.use(requireAuth)` — this is intentional since it modifies config and triggers imports
+- Consistent with settings/routes.js pattern
+- All other module routes remain open
+
+---
+
+## Feature group F — CouchDB/PouchDB Offline Sync
+**Discussed, not designed. Major architectural change.**
+
+### Assessment
+Current: `Browser ←→ Express API ←→ SQLite`
+CouchDB: `PouchDB (phone, offline) ←→ CouchDB (NAS) ←→ SQLite (optional)`
+
+**Effort:** 6–8 weeks. Not worth it for single-household LAN app.
+
+**Recommendation:** Use A9 (Offline Mode Indicator + service worker) for offline capability. Add selective PouchDB sync for todos+contacts only if needed later.
+
+**If revisited:** Start with a proof-of-concept syncing only `todos` and `contacts`. Evaluate before expanding.
+
+---
+
+## Pending questions / decisions
+
+| Question | Status |
+|---|---|
+| Bottom modules grid on home — remove? | Undecided |
+| Collapsible todo group headers (URGENT/HIGH) | Undecided |
+| Subscription cards — design before building | Undecided |
+| SQLCipher — deferred | Deferred |
+| Step-up auth — designed, not built | Backlog |
+| Session timeout — configure in Settings when touched | Backlog |
+| Google OAuth issue — run `/api/v1/google/debug/connection` to diagnose | Action needed |
+| `chokidar` package install before folder watcher | Required for E group |
