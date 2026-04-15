@@ -79,7 +79,6 @@ app.use((req, res, next) => {
 
 app.use(cors());
 app.use(express.json());
-
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public'), {
   etag: false,
@@ -115,6 +114,7 @@ app.use('/api/v1/google',        require('./features/google/routes'));
 app.use('/api/v1/kids',          require('./features/kids/routes'));
 app.use('/api/v1/data',          require('./features/data/routes'));
 app.use('/api/v1/trading',       require('./features/trading/routes'));
+app.use('/api/v1/reports/emergency', require('./features/reports/emergency'));
 
 // ── App info (public — no auth) ────────────────────────────────
 

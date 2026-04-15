@@ -11,6 +11,56 @@
   <title>Reports — Ghrava</title>
   <link rel="stylesheet" href="/shared.css">
 <script src="/theme.js"></script>
+  <div class="view-panel" id="panel-emergency">
+    <div style="padding:16px;max-width:800px;margin:0 auto">
+      <div style="background:var(--red-bg,#fef2f2);border:2px solid var(--red,#ef4444);border-radius:var(--r-lg);padding:20px;margin-bottom:20px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px">
+          <span style="font-size:28px">🚨</span>
+          <div>
+            <div style="font-size:17px;font-weight:700;color:var(--red,#ef4444)">Emergency Information Card</div>
+            <div style="font-size:13px;color:var(--text2)">Print and keep accessible — fridge, wallet, car</div>
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text2);line-height:1.6">
+          Contains emergency contacts, active medications, conditions, allergies, and insurance for all family members.
+          Mark contacts as "Emergency Contact" in Settings → Contacts to include them.
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:20px">
+        <div class="sum-card"><div class="sum-val" id="emContacts">—</div><div class="sum-lbl">Contacts</div></div>
+        <div class="sum-card"><div class="sum-val" id="emMeds">—</div><div class="sum-lbl">Meds</div></div>
+        <div class="sum-card"><div class="sum-val" id="emConditions">—</div><div class="sum-lbl">Conditions</div></div>
+        <div class="sum-card"><div class="sum-val" id="emAllergies">—</div><div class="sum-lbl">Allergies</div></div>
+      </div>
+
+      <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="window.open('/api/v1/reports/emergency/html','_blank')">🖨️ View &amp; Print</button>
+        <button class="btn btn-ghost" onclick="copyEmergencyText()">📋 Copy as Text</button>
+        <a href="/settings.html" class="btn btn-ghost">⚙️ Manage Contacts</a>
+      </div>
+
+      <div class="section-hdr">Preview</div>
+      <div id="emergencyPreview" style="margin-top:8px"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+
+      <div class="section-hdr" style="margin-top:20px">Display Options</div>
+      <div style="margin-top:8px">
+        <div class="toggle-row">
+          <div><span class="toggle-label">Show Date of Birth</span></div>
+          <label class="toggle"><input type="checkbox" id="emShowDob" onchange="saveEmConfig('emergency_show_dob',this.checked)"><span class="toggle-track"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><span class="toggle-label">Show Last 4 of SSN</span></div>
+          <label class="toggle"><input type="checkbox" id="emShowSsn" onchange="saveEmConfig('emergency_show_ssn',this.checked)"><span class="toggle-track"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div><span class="toggle-label">Include Insurance Info</span></div>
+          <label class="toggle"><input type="checkbox" id="emShowInsurance" onchange="saveEmConfig('emergency_include_insurance',this.checked)"><span class="toggle-track"></span></label>
+        </div>
+      </div>
+    </div>
+  </div>
+
 <script>
   // Apply nav-collapsed before first paint to prevent sidebar flash
   if (localStorage.getItem('gh_nav_collapsed') === '1') {
@@ -80,6 +130,7 @@ window.GH_PAGE = { module: 'reports', title: 'Reports' };
     <button class="view-tab"        data-tab="quality"    onclick="switchRpt('quality',this)">Data Quality</button>
     <button class="view-tab"        data-tab="system"     onclick="switchRpt('system',this)">System</button>
     <button class="view-tab"        data-tab="tools"      onclick="switchRpt('tools',this)">Tools</button>
+    <button class="view-tab"        data-tab="emergency"  onclick="switchRpt('emergency',this)">🚨 Emergency</button>
   </div>
 
   <!-- ── SPENDING ─────────────────────────────────────────── -->
@@ -323,6 +374,7 @@ function loadTab(tab) {
   else if (tab === 'quality') loadQuality();
   else if (tab === 'system') loadSystem();
   else if (tab === 'testing') loadTesting();
+  else if (tab === 'emergency') loadEmergencyReport();
   else if (tab === 'tools') rpt_loadTools();
 }
 
@@ -1711,6 +1763,84 @@ function resetChecklist() {
   _checklistDone = new Set([..._checklistDone].filter(k => !k.startsWith(`${year}_`)));
   saveChecklist();
   loadChecklist();
+}
+
+// ── Emergency Report ─────────────────────────────────────────
+let _emergencyData = null;
+
+async function loadEmergencyReport() {
+  try {
+    _emergencyData = await window.api('GET', '/reports/emergency');
+    document.getElementById('emContacts').textContent   = _emergencyData.emergency_contacts?.length  || 0;
+    document.getElementById('emMeds').textContent       = _emergencyData.medications?.length         || 0;
+    document.getElementById('emConditions').textContent = _emergencyData.conditions?.length          || 0;
+    document.getElementById('emAllergies').textContent  = _emergencyData.allergies?.length           || 0;
+    document.getElementById('emShowDob').checked        = _emergencyData.config?.emergency_show_dob  !== '0';
+    document.getElementById('emShowSsn').checked        = _emergencyData.config?.emergency_show_ssn  === '1';
+    document.getElementById('emShowInsurance').checked  = _emergencyData.config?.emergency_include_insurance !== '0';
+    renderEmergencyPreview();
+  } catch(e) {
+    document.getElementById('emergencyPreview').innerHTML = '<div style="color:var(--red);font-size:13px">Failed to load: ' + esc(e.message) + '</div>';
+  }
+}
+
+function renderEmergencyPreview() {
+  const container = document.getElementById('emergencyPreview');
+  if (!_emergencyData) return;
+  const d = _emergencyData;
+  let html = '';
+
+  if (d.emergency_contacts?.length) {
+    html += '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">📞 Emergency Contacts</div>';
+    d.emergency_contacts.slice(0,4).forEach(ct => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border)">
+        <span style="font-weight:600;min-width:120px;font-size:13px">${esc(ct.name)}</span>
+        <span style="font-size:13px;color:var(--text2)">${esc(ct.phone_primary || '—')}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--accent)">${esc(ct.contact_type)}</span>
+      </div>`;
+    });
+    if (d.emergency_contacts.length > 4) html += `<div style="font-size:11px;color:var(--text3);padding-top:4px">+ ${d.emergency_contacts.length - 4} more</div>`;
+    html += '</div>';
+  } else {
+    html += '<div style="color:var(--amber);padding:10px;background:var(--amber-bg,#fffbeb);border-radius:var(--r);margin-bottom:12px;font-size:13px">⚠️ No emergency contacts marked. Settings → Contacts → toggle "Emergency Contact".</div>';
+  }
+
+  if (d.medications?.length) {
+    html += '<div style="margin-bottom:14px"><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">💊 Active Medications</div>';
+    d.medications.slice(0,3).forEach(m => {
+      html += `<div style="font-size:13px;padding:3px 0"><span style="font-weight:500">${esc(m.name)}</span><span style="color:var(--text3)"> · ${esc(m.patient)}${m.dosage ? ' · ' + esc(m.dosage) : ''}</span></div>`;
+    });
+    if (d.medications.length > 3) html += `<div style="font-size:11px;color:var(--text3)">+ ${d.medications.length - 3} more</div>`;
+    html += '</div>';
+  }
+
+  if (d.allergies?.length) {
+    html += '<div><div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:6px">⚠️ Allergies</div><div style="display:flex;flex-wrap:wrap;gap:4px">';
+    d.allergies.forEach(a => { html += `<span style="background:var(--red-bg,#fef2f2);color:var(--red,#ef4444);padding:2px 8px;border-radius:99px;font-size:11px;font-weight:500">${esc(a.patient)}: ${esc(a.allergies)}</span>`; });
+    html += '</div></div>';
+  }
+
+  if (!html) html = '<div style="color:var(--text3);font-size:13px;padding:8px">Add emergency contacts and medications to populate the card.</div>';
+  container.innerHTML = html;
+}
+
+async function saveEmConfig(key, checked) {
+  try {
+    await window.api('PUT', '/settings/config/' + key, { value: checked ? '1' : '0' });
+    toast('Saved');
+  } catch(e) { toast(e.message, 'err'); }
+}
+
+async function copyEmergencyText() {
+  try {
+    const text = await fetch('/api/v1/reports/emergency/text').then(r => r.text());
+    if (navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+      toast('Copied to clipboard');
+    } else {
+      prompt('Copy this text:', text);
+    }
+  } catch(e) { toast(e.message, 'err'); }
 }
 </script>
 </body>

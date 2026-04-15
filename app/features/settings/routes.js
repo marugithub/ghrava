@@ -315,11 +315,9 @@ router.get('/contacts', (req, res) => {
   try {
     const { type } = req.query;
     if (type) {
-      const stmtCtAtt = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='contact' AND entity_id=?");
-      res.json(db.prepare('SELECT * FROM contacts WHERE contact_type=? ORDER BY name').all(type).map(ct => ({ ...ct, attachment_count: stmtCtAtt.get(ct.id)?.cnt || 0 })));
+      res.json(db.prepare('SELECT * FROM contacts WHERE contact_type=? ORDER BY name').all(type));
     } else {
-      const stmtCtAtt2 = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='contact' AND entity_id=?");
-      res.json(db.prepare('SELECT * FROM contacts ORDER BY contact_type, name').all().map(ct => ({ ...ct, attachment_count: stmtCtAtt2.get(ct.id)?.cnt || 0 })));
+      res.json(db.prepare('SELECT * FROM contacts ORDER BY contact_type, name').all());
     }
   } catch (err) { serverError(res, err); }
 });
@@ -446,22 +444,22 @@ router.post('/family', (req, res) => {
     const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, is_primary_user, notes } = req.body;
     if (!display_name) return badRequest(res, 'display_name is required');
     const r = db.prepare(`INSERT INTO family_members
-      (display_name,full_legal_name,relationship,date_of_birth,ssn_last4,is_primary_user,notes)
-      VALUES (?,?,?,?,?,?,?)`)
+      (display_name,full_legal_name,relationship,date_of_birth,ssn_last4,is_primary_user,notes,emergency_notes)
+      VALUES (?,?,?,?,?,?,?,?)`)
       .run(display_name, full_legal_name||null, relationship||null, date_of_birth||null,
-           ssn_last4||null, is_primary_user?1:0, notes||null);
+           ssn_last4||null, is_primary_user?1:0, notes||null, req.body.emergency_notes||null);
     res.status(201).json(db.prepare('SELECT * FROM family_members WHERE id=?').get(r.lastInsertRowid));
   } catch (err) { serverError(res, err); }
 });
 
 router.put('/family/:id', (req, res) => {
   try {
-    const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, notes } = req.body;
+    const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, notes, emergency_notes } = req.body;
     if (!display_name) return badRequest(res, 'display_name is required');
     db.prepare(`UPDATE family_members SET display_name=?,full_legal_name=?,relationship=?,
-      date_of_birth=?,ssn_last4=?,notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      date_of_birth=?,ssn_last4=?,notes=?,emergency_notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
       .run(display_name, full_legal_name||null, relationship||null,
-           date_of_birth||null, ssn_last4||null, notes||null, req.params.id);
+           date_of_birth||null, ssn_last4||null, notes||null, emergency_notes||null, req.params.id);
     const m = db.prepare('SELECT * FROM family_members WHERE id=?').get(req.params.id);
     if (!m) return notFound(res, 'Family member');
     res.json(m);
@@ -491,8 +489,8 @@ router.post('/contacts', (req, res) => {
        license_number, insurance_verified, bonded, last_used_date, quality_rating,
        hr_contact_name, hr_phone, ein, employee_family_member_id,
        principal_name, grade_range, enrolled_kids,
-       institution_type, rep_name, account_types_served)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+       institution_type, rep_name, account_types_served, is_emergency_contact)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     ).run(
       d.contact_type, d.name, d.company||null, d.specialty||null,
       d.phone_primary||null, d.phone_secondary||null, d.email||null, d.website||null,
@@ -501,7 +499,8 @@ router.post('/contacts', (req, res) => {
       d.license_number||null, d.insurance_verified?1:0, d.bonded?1:0, d.last_used_date||null, d.quality_rating||null,
       d.hr_contact_name||null, d.hr_phone||null, d.ein||null, d.employee_family_member_id||null,
       d.principal_name||null, d.grade_range||null, d.enrolled_kids||null,
-      d.institution_type||null, d.rep_name||null, d.account_types_served||null
+      d.institution_type||null, d.rep_name||null, d.account_types_served||null,
+      d.is_emergency_contact ? 1 : 0
     );
     if (d.family_member_ids !== undefined) saveFamilyMembers(Number(r.lastInsertRowid), 'contact', d.family_member_ids);
     res.status(201).json(withFamilyMembers(/** @type {any} */ (db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid)), 'contact'));
@@ -521,6 +520,7 @@ router.put('/contacts/:id', (req, res) => {
       hr_contact_name=?, hr_phone=?, ein=?, employee_family_member_id=?,
       principal_name=?, grade_range=?, enrolled_kids=?,
       institution_type=?, rep_name=?, account_types_served=?,
+      is_emergency_contact=?,
       updated_at=CURRENT_TIMESTAMP WHERE id=?`
     ).run(
       d.contact_type, d.name, d.company||null, d.specialty||null,
@@ -531,6 +531,7 @@ router.put('/contacts/:id', (req, res) => {
       d.hr_contact_name||null, d.hr_phone||null, d.ein||null, d.employee_family_member_id||null,
       d.principal_name||null, d.grade_range||null, d.enrolled_kids||null,
       d.institution_type||null, d.rep_name||null, d.account_types_served||null,
+      d.is_emergency_contact ? 1 : 0,
       req.params.id
     );
     if (d.family_member_ids !== undefined) saveFamilyMembers(Number(req.params.id), 'contact', d.family_member_ids);

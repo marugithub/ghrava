@@ -151,8 +151,24 @@
 <div id="app">
 
   <!-- ── Login gate (only shown if no active session) ─────────── -->
+  <div id="loginGate" style="display:none">
+    <div class="login-icon">🔐</div>
+    <div class="login-title">Settings</div>
+    <div class="login-sub">Enter your Ghrava password to continue.</div>
+    <form class="pin-wrap" onsubmit="event.preventDefault(); doSettingsLogin()">
+      <input type="text" name="username" autocomplete="username"
+             style="display:none" aria-hidden="true" tabindex="-1" value="admin">
+      <input class="pin-input" type="password" id="pinInput"
+             name="password" placeholder="Enter password" autocomplete="current-password">
+      <div style="margin-top:12px">
+        <button type="submit" class="btn btn-primary" id="pinSubmit" style="width:180px">Unlock</button>
+      </div>
+    </form>
+    <div id="pinError" style="color:var(--red);font-size:13px;margin-top:10px;display:none">Incorrect password</div>
+  </div>
+
   <!-- ── Main settings home ──────────────────────────────────── -->
-  <div id="mainContent">
+  <div id="mainContent" style="display:none">
     <!-- header injected by nav.js -->
 
     <div class="settings-page-bg">
@@ -345,10 +361,14 @@
     <div style="padding:16px 20px 80px">
       <div class="settings-card">
         <div class="settings-card-title">Change Password</div>
-        <div id="pwDesc" class="settings-card-desc">Choose a password to protect Ghrava.</div>
+        <div class="settings-card-desc">Enter your current password, then choose a new one.</div>
         <form onsubmit="event.preventDefault();changePassword()">
           <input type="text" name="username" autocomplete="username"
                  style="display:none" aria-hidden="true" tabindex="-1" value="admin">
+          <div class="form-group">
+            <label class="form-label">Current Password</label>
+            <input class="form-input" type="password" id="pwCurrent" name="current-password" placeholder="Current password" autocomplete="current-password">
+          </div>
           <div class="form-group">
             <label class="form-label">New Password</label>
             <input class="form-input" type="password" id="pwNew" name="new-password" placeholder="New password" autocomplete="new-password">
@@ -358,13 +378,8 @@
             <input class="form-input" type="password" id="pwConfirm" name="confirm-password" placeholder="Confirm new password" autocomplete="new-password">
           </div>
           <div id="pwError" style="color:var(--red);font-size:13px;margin-bottom:10px;display:none"></div>
-          <button type="submit" class="btn btn-primary btn-full">Set Password</button>
+          <button type="submit" class="btn btn-primary btn-full">Update Password</button>
         </form>
-      </div>
-      <div class="settings-card" id="clearPwCard" style="display:none;margin-top:12px">
-        <div class="settings-card-title">Clear Password</div>
-        <div class="settings-card-desc">Remove password protection. Anyone on the network can access Ghrava.</div>
-        <button class="btn btn-ghost" style="color:var(--red);width:100%" onclick="clearPassword()">Remove Password</button>
       </div>
     </div>
   </div>
@@ -703,13 +718,17 @@
         </div>
       </div>
 
-      <!-- OAuth Credentials -->
+      <!-- OAuth buttons -->
+      <div style="padding:12px 20px 0" id="googleAuthBtns"></div>
+
+      <!-- Credentials -->
       <div class="section-label">OAuth Credentials</div>
       <div style="padding:0 20px">
         <div class="card card-static">
-          <div style="font-size:13px;color:var(--text3);margin-bottom:10px;line-height:1.6">
-            <strong style="color:var(--text)">Step 1 — Google Cloud Console</strong><br>
-            Go to <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">console.cloud.google.com</a> → APIs &amp; Services → Credentials → Create OAuth 2.0 Client ID. Choose <strong style="color:var(--text)">Desktop app</strong> type. Enable <strong style="color:var(--text)">Tasks API</strong> and <strong style="color:var(--text)">People API</strong> in your project.
+          <div style="font-size:13px;color:var(--text3);margin-bottom:12px;line-height:1.5">
+            Create a project at <a href="https://console.cloud.google.com" target="_blank" style="color:var(--accent)">Google Cloud Console</a>,
+            enable the Calendar API and People API, then create OAuth 2.0 credentials.
+            Set the redirect URI to: <span id="googleRedirectUri" style="font-family:var(--mono);font-size:11px;color:var(--text2)">your-base-url/api/v1/google/oauth/callback</span>
           </div>
           <div class="form-group">
             <label class="form-label">Client ID</label>
@@ -721,30 +740,6 @@
           </div>
         </div>
         <button class="btn btn-primary btn-full" style="margin-top:10px" onclick="saveGoogleCredentials()">Save Credentials</button>
-      </div>
-
-      <!-- OAuth Playground -->
-      <div class="section-label">Connect via OAuth Playground</div>
-      <div style="padding:0 20px">
-        <div class="card card-static">
-          <div style="font-size:13px;color:var(--text3);line-height:1.7;margin-bottom:12px">
-            <strong style="color:var(--text)">Step 2 — Get refresh token</strong><br>
-            1. Open <a href="https://developers.google.com/oauthplayground" target="_blank" style="color:var(--accent)">OAuth 2.0 Playground ↗</a><br>
-            2. Click the ⚙️ gear icon (top right) → check <strong style="color:var(--text)">"Use your own OAuth credentials"</strong> → enter your Client ID and Secret<br>
-            3. In the left panel, find and select these scopes:<br>
-            &nbsp;&nbsp;• <code style="font-size:11px">https://www.googleapis.com/auth/tasks</code><br>
-            &nbsp;&nbsp;• <code style="font-size:11px">https://www.googleapis.com/auth/contacts</code><br>
-            4. Click <strong style="color:var(--text)">Authorize APIs</strong> → sign in with your Google account<br>
-            5. Click <strong style="color:var(--text)">Exchange authorization code for tokens</strong><br>
-            6. Copy the <strong style="color:var(--text)">Refresh token</strong> value and paste below
-          </div>
-          <div class="form-group" style="margin-bottom:8px">
-            <label class="form-label">Refresh Token</label>
-            <input class="form-input" id="googleRefreshToken" type="password" placeholder="Paste refresh token from OAuth Playground" autocomplete="off">
-          </div>
-          <div id="googleConnectedAs" style="font-size:12px;color:var(--green);margin-bottom:8px;display:none"></div>
-          <button class="btn btn-primary btn-full" onclick="saveRefreshToken()">Save &amp; Connect</button>
-        </div>
       </div>
 
       <!-- API Keys -->
@@ -775,20 +770,10 @@
           <label style="display:flex;align-items:center;justify-content:space-between;padding:12px 14px;cursor:pointer">
             <div>
               <div style="font-size:14px;font-weight:500;color:var(--text)">👥 Google Contacts</div>
-              <div style="font-size:12px;color:var(--text3);margin-top:1px">Two-way sync — mapped fields (name, phone, email, address). Latest update wins.</div>
+              <div style="font-size:12px;color:var(--text3);margin-top:1px">Import contacts (one-way, read-only)</div>
             </div>
             <input type="checkbox" id="googleSyncCon" onchange="saveGooglePrefs()" style="width:18px;height:18px;accent-color:var(--accent)">
           </label>
-        </div>
-      </div>
-
-      <!-- Contacts sync group -->
-      <div class="section-label">Contacts Sync Group</div>
-      <div style="padding:0 20px">
-        <div style="font-size:12px;color:var(--text3);margin-bottom:8px">Only contacts with this Google label are synced. New contacts pushed from Ghrava get this label automatically.</div>
-        <div style="display:flex;gap:8px">
-          <input class="form-input" id="googleContactGroup" placeholder="Ghrava" style="flex:1">
-          <button class="btn btn-ghost" onclick="saveContactGroup()">Save</button>
         </div>
       </div>
 
@@ -915,7 +900,11 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Relationship</label>
-        <select class="form-select" id="fm_relationship"></select>
+        <select class="form-select" id="fm_relationship">
+          <option value="">— select —</option>
+          <option>Self</option><option>Spouse</option><option>Son</option>
+          <option>Daughter</option><option>Parent</option><option>Other</option>
+        </select>
       </div>
       <div class="form-group">
         <label class="form-label">Date of Birth</label>
@@ -940,6 +929,11 @@
     <div class="form-group">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="fm_notes" style="min-height:70px"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Emergency Notes</label>
+      <textarea class="form-textarea" id="fm_emergency_notes" style="min-height:60px" placeholder="Medical conditions, allergies, special instructions..."></textarea>
+      <div class="form-hint">Displayed on Emergency Info Card</div>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" id="familyCancel">Cancel</button>
@@ -1014,6 +1008,16 @@
     <div class="form-group">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="ct_notes" style="min-height:70px"></textarea>
+    </div>
+    <div class="toggle-row" style="padding:8px 0">
+      <div>
+        <span class="toggle-label">🚨 Emergency Contact</span>
+        <div class="form-hint">Appears on Emergency Info Card</div>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="ct_emergency">
+        <span class="toggle-track"></span>
+      </label>
     </div>
     <div id="ctExtension"></div>
     <div class="btn-row">
@@ -1117,7 +1121,6 @@
       </button>`,
   };
 </script>
-<script src="/attachments.js"></script>
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
@@ -1135,10 +1138,28 @@ function toast(msg, type='ok') {
   setTimeout(()=>el.className='toast',2600);
 }
 
-// Auth gate removed — settings always accessible.
-// Password protection to be re-added later scoped to specific actions only.
-// See session 2 decision: "password comes back later for specific screens."
+async function checkAuth() {
+  if (LT.authToken) {
+    // Already have a token — verify it's still valid
+    try {
+      const d = await window.api('GET', '/auth/status');
+      if (d.authenticated) { showMain(); return; }
+    } catch {}
+    // Token invalid — clear it and show login
+    LT.authToken = null;
+    localStorage.removeItem('lt_token');
+  }
+  showLogin();
+}
+
+function showLogin() {
+  $('loginGate').style.display = 'flex';
+  $('mainContent').style.display = 'none';
+  setTimeout(() => { const p = $('pinInput'); if (p) p.focus(); }, 100);
+}
+
 function showMain() {
+  $('loginGate').style.display = 'none';
   $('mainContent').style.display = 'block';
   loadBadges();
   // Render theme switcher
@@ -1150,14 +1171,42 @@ function showMain() {
   }).catch(()=>{});
 }
 
-
+async function doSettingsLogin() {
+  const pw = $('pinInput').value;
+  if (!pw) return;
+  const btn = $('pinSubmit');
+  btn.disabled = true; btn.textContent = '…';
+  try {
+    const r = await fetch('/api/v1/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({password: pw})
+    });
+    if (r.ok) {
+      const d = await r.json();
+      LT.authToken = d.token;
+      localStorage.setItem('lt_token', d.token);
+      $('pinError').style.display = 'none';
+      showMain();
+    } else {
+      $('pinInput').classList.add('err');
+      $('pinError').style.display = 'block';
+      $('pinInput').value = '';
+      setTimeout(() => { $('pinInput').classList.remove('err'); $('pinInput').focus(); }, 500);
+    }
+  } catch(e) {
+    $('pinError').textContent = 'Connection error — ' + e.message;
+    $('pinError').style.display = 'block';
+  }
+  btn.disabled = false; btn.textContent = 'Unlock';
+}
 
 document.addEventListener('DOMContentLoaded', () => {
   // Logout
   const lbtn = $('logoutBtn');
   if (lbtn) lbtn.addEventListener('click', () => {
-    fetch('/api/v1/auth/logout', { method:'POST', credentials:'include' }).catch(()=>{});
-    location.href = '/login.html';
+    window.api('POST', '/auth/logout', {}).catch(()=>{});
+    LT.authToken = null; localStorage.removeItem('lt_token'); showLogin();
   });
 
   // Backup buttons — guarded so a missing element never crashes the page
@@ -1184,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Panel navigation ──────────────────────────────────────────
 const PANEL_LOADERS = {
-  account:   () => { $('pwNew').value=$('pwConfirm').value=''; $('pwError').style.display='none'; loadAccountPanel(); },
+  account:   () => { $('pwCurrent').value=$('pwNew').value=$('pwConfirm').value=''; $('pwError').style.display='none'; },
   family:    () => { loadFamily(); },
   contacts:  () => { loadContacts(); },
   tags:      () => { loadTags(); },
@@ -1197,26 +1246,8 @@ const PANEL_LOADERS = {
 };
 
 // ── Google Services Panel ────────────────────────────────────
-async function loadContactGroup() {
-  try {
-    const d = await window.api('GET', '/google/contacts/group');
-    const el = document.getElementById('googleContactGroup');
-    if (el) el.value = d.group || 'Ghrava';
-  } catch {}
-}
-
-async function saveContactGroup() {
-  const val = document.getElementById('googleContactGroup')?.value.trim();
-  if (!val) return;
-  try {
-    await window.api('PUT', '/google/contacts/group', { group: val });
-    toast('Sync group saved');
-  } catch(e) { toast(ghErrorMsg(e), 'err'); }
-}
-
 async function loadGooglePanel() {
   loadGoogleBooksKey();
-  loadContactGroup();
   // Update redirect URI hint
   const baseUrl = document.getElementById('infraBaseUrl')?.value || window.location.origin;
   const rUri = document.getElementById('googleRedirectUri');
@@ -1250,11 +1281,11 @@ async function loadGooglePanel() {
     const authBtns = document.getElementById('googleAuthBtns');
     if (authBtns) {
       if (s.configured && !s.connected) {
-        authBtns.innerHTML = ''; // Authorization handled via OAuth Playground section below
+        authBtns.innerHTML = `<button class="btn btn-primary btn-full" onclick="startGoogleOAuth()">🔗 Authorize with Google</button>`;
       } else if (s.connected) {
         authBtns.innerHTML = `
           <div style="display:flex;gap:8px">
-            <button class="btn btn-ghost" style="flex:1" onclick="document.getElementById('googleRefreshToken').scrollIntoView({behavior:'smooth'})">Update Token</button>
+            <button class="btn btn-ghost" style="flex:1" onclick="startGoogleOAuth()">Re-authorize</button>
             <button class="btn btn-danger" style="flex:1" onclick="disconnectGoogle()">Disconnect</button>
           </div>`;
       } else {
@@ -1323,15 +1354,13 @@ async function saveGooglePrefs() {
   } catch {}
 }
 
-async function saveRefreshToken() {
-  const token = document.getElementById('googleRefreshToken')?.value.trim();
-  if (!token) { toast('Paste the refresh token first', 'err'); return; }
+async function startGoogleOAuth() {
   try {
-    await window.api('PUT', '/google/refresh-token', { refresh_token: token });
-    toast('Connected to Google');
-    document.getElementById('googleRefreshToken').value = '';
-    loadGooglePanel();
-  } catch(e) { toast(ghErrorMsg(e), 'err'); }
+    const r = await window.api('GET', '/google/oauth/start');
+    const d = r;
+    if (d.auth_url) window.location.href = d.auth_url;
+    else toast(d.error || 'Failed to start OAuth', 'err');
+  } catch { toast('Failed', 'err'); }
 }
 
 async function disconnectGoogle() {
@@ -1960,39 +1989,19 @@ async function runOrphanCheck() {
 })();
 
 async function changePassword() {
-  const nw    = $('pwNew').value;
-  const conf  = $('pwConfirm').value;
+  const cur  = $('pwCurrent').value;
+  const nw   = $('pwNew').value;
+  const conf = $('pwConfirm').value;
   const errEl = $('pwError');
   errEl.style.display = 'none';
-  if (!nw || !conf) { errEl.textContent = 'All fields required'; errEl.style.display = 'block'; return; }
-  if (nw !== conf)  { errEl.textContent = 'Passwords do not match'; errEl.style.display = 'block'; return; }
-  if (nw.length < 6){ errEl.textContent = 'Minimum 6 characters'; errEl.style.display = 'block'; return; }
+  if (!cur || !nw || !conf) { errEl.textContent = 'All fields required'; errEl.style.display = 'block'; return; }
+  if (nw !== conf) { errEl.textContent = 'New passwords do not match'; errEl.style.display = 'block'; return; }
+  if (nw.length < 6) { errEl.textContent = 'Password must be at least 6 characters'; errEl.style.display = 'block'; return; }
   try {
-    await window.api('POST', '/auth/change-password', { new_password: nw });
-    toast('Password set');
-    $('pwNew').value = ''; $('pwConfirm').value = '';
-    loadAccountPanel();
-  } catch(e) { errEl.textContent = ghErrorMsg(e); errEl.style.display = 'block'; }
-}
-
-async function clearPassword() {
-  if (!await LT.confirm('Remove password protection? Anyone on your network can access Ghrava.')) return;
-  try {
-    await window.api('DELETE', '/auth/password');
-    toast('Password removed');
-    loadAccountPanel();
-  } catch(e) { toast(ghErrorMsg(e), 'err'); }
-}
-
-async function loadAccountPanel() {
-  try {
-    const d = await window.api('GET', '/auth/status');
-    const hasP = d.has_password;
-    if ($('pwDesc')) $('pwDesc').textContent = hasP
-      ? 'Update the password for Ghrava.'
-      : 'No password set — anyone on the network can access Ghrava.';
-    if ($('clearPwCard')) $('clearPwCard').style.display = hasP ? 'block' : 'none';
-  } catch(e) {}
+    await window.api('POST', '/auth/change-password', { current: $('pwCurrent').value, newPass: $('pwNew').value });
+    toast('Password changed', 'ok');
+    $('pwCurrent').value = ''; $('pwNew').value = ''; $('pwConfirm').value = '';
+  } catch(e) { errEl.textContent = 'Request failed'; errEl.style.display = 'block'; }
 }
 
 function openPanel(name) {
@@ -2081,50 +2090,26 @@ async function loadFamily() {
     </div>`).join('');
 }
 
-async function openFamilyDrawer(member=null) {
+function openFamilyDrawer(member=null) {
   editingId = member?.id || null;
   $('familyDrawerTitle').textContent = member ? 'Edit Family Member' : 'Add Family Member';
   $('fm_display_name').value = member?.display_name || '';
   $('fm_legal_name').value   = member?.full_legal_name || '';
-  // Populate relationship — try GH_SELECT first, fall back to hardcoded options
-  try {
-    const relRows = await fetch('/api/v1/settings/dropdowns/family_relationship').then(r => r.json()).catch(() => []);
-    const relSel = $('fm_relationship');
-    relSel.innerHTML = '<option value="">— select —</option>';
-    const defaults = ['Self','Spouse','Son','Daughter','Parent','Sibling','Other'];
-    const opts = relRows.length ? relRows.map(r => r.value) : defaults;
-    opts.forEach(v => {
-      const o = document.createElement('option');
-      o.value = v; o.textContent = v;
-      if (v === (member?.relationship || '')) o.selected = true;
-      relSel.appendChild(o);
-    });
-    // If current value not in list, add it
-    const cur = member?.relationship || '';
-    if (cur && !opts.includes(cur)) {
-      const o = document.createElement('option');
-      o.value = cur; o.textContent = cur; o.selected = true;
-      relSel.appendChild(o);
-    }
-  } catch(e) { /* silently skip — field still usable */ }
+  $('fm_relationship').value = member?.relationship || '';
   $('fm_dob').value          = member?.date_of_birth || '';
   $('fm_ssn4').value         = member?.ssn_last4 || '';
   $('fm_primary').checked    = !!member?.is_primary_user;
   $('fm_notes').value        = member?.notes || '';
+  const fmEmEl = $('fm_emergency_notes'); if (fmEmEl) fmEmEl.value = member?.emergency_notes || '';
   $('familyDrawer').classList.add('open');
   setTimeout(()=>$('fm_display_name').focus(), 300);
 }
 
-async function editFamily(id) {
-  try {
-    const m = (_familyCache||[]).find(x => x.id === id);
-    if (m) { await openFamilyDrawer(m); return; }
-    // fallback: fetch if cache miss — use public list endpoint instead of :id route
-    const all = await window.api('GET', '/settings/family');
-    const found = all.find(x => x.id === id);
-    if (found) { await openFamilyDrawer(found); }
-    else { toast('Member not found', 'err'); }
-  } catch(err) { toast('Could not open member: ' + (err.message||err), 'err'); }
+function editFamily(id) {
+  const m = (_familyCache||[]).find(x => x.id === id);
+  if (m) { openFamilyDrawer(m); return; }
+  // fallback: fetch if cache miss
+  window.api('GET', `/settings/family/${id}`).then(openFamilyDrawer).catch(err => toast('Could not load member: ' + err.message, 'err'));
 }
 
 $('familyCancel').addEventListener('click', () => $('familyDrawer').classList.remove('open'));
@@ -2143,7 +2128,8 @@ $('familySave').addEventListener('click', async () => {
       date_of_birth:$('fm_dob').value||null,
       ssn_last4:$('fm_ssn4').value||null,
       is_primary_user:$('fm_primary').checked,
-      notes:$('fm_notes').value.trim()||null
+      notes:$('fm_notes').value.trim()||null,
+      emergency_notes:$('fm_emergency_notes')?.value.trim()||null
     });
     $('familyDrawer').classList.remove('open');
     toast(editingId?'Updated':'Added');
@@ -2171,18 +2157,22 @@ async function loadContacts() {
       return;
     }
   el.innerHTML = contacts.map(c => `
-    <div class="gh-card gh-s-blue" onclick="editContact(${c.id})">
-      <div class="gh-card-head">
-        <span class="gh-card-title">${esc(c.name)}</span>
-        <span class="gh-badge gh-badge-blue">${esc(c.contact_type)}</span>
-      </div>
-      ${c.specialty||c.company ? `<div class="gh-card-meta">${[c.specialty,c.company].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
-      ${c.phone_primary||c.email ? `<div class="gh-card-meta">${[c.phone_primary,c.email].filter(Boolean).map(esc).join(' · ')}</div>` : ''}
-      <div class="gh-card-footer">
-        <div>${c.attachment_count?AttachmentManager.staticBadge('contact',c.id,c.attachment_count):''}</div>
-        <div class="gh-card-actions">
-          <div class="gh-card-btn" title="Edit" onclick="editContact(${c.id});event.stopPropagation()">${'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>'}</div>
+    <div class="card">
+      <div class="flex-between">
+        <div class="card-title">${esc(c.name)}</div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="editContact(${c.id});event.stopPropagation()">Edit</button>
+          <button class="btn btn-danger" style="padding:5px 10px;font-size:12px" onclick="startDelete('contact',${c.id},'${c.name}');event.stopPropagation()">Del</button>
         </div>
+      </div>
+      <div class="card-meta">
+        <span class="ctype-badge">${esc(c.contact_type)}</span>
+        ${c.specialty?`<span class="text-sm text-muted">${esc(c.specialty)}</span>`:''}
+        ${c.company?`<span class="text-sm text-muted">${esc(c.company)}</span>`:''}
+      </div>
+      <div class="card-meta" style="margin-top:4px">
+        ${c.phone_primary?`<span class="text-mono text-sm">${esc(c.phone_primary)}</span>`:''}
+        ${c.email?`<span class="text-sm text-muted">${esc(c.email)}</span>`:''}
       </div>
     </div>`).join('');
   } catch(err) {
@@ -2285,7 +2275,8 @@ function openContactDrawer(contact=null, presetType=null) {
     $('ct_state').value   = contact?.address_state  || '';
     $('ct_zip').value     = contact?.address_zip    || '';
     $('ct_notes').value   = contact?.notes || '';
-    GH_SELECT.init('ct_specialty', 'contact_specialty', contact?.specialty||null, { placeholder: '— select —', allowAdd: true });
+  const ctEmEl = $('ct_emergency'); if (ctEmEl) ctEmEl.checked = !!contact?.is_emergency_contact;
+    GH_SELECT.init('ct_specialty', 'contact_specialty', contact?.specialty||null, { placeholder: '— select —' });
     if (contact) _fillExtFields(contact);
     GH_FAMILY.init('contactFamilyWrap', contact?.family_members||[]);
     $('contactDrawer').classList.add('open');
@@ -2334,6 +2325,7 @@ $('contactSave').addEventListener('click', async () => {
       address_state:     $('ct_state').value.trim().toUpperCase()||null,
       address_zip:       $('ct_zip').value.trim()||null,
       notes:             $('ct_notes').value||null,
+      is_emergency_contact: $('ct_emergency')?.checked ? 1 : 0,
       family_member_ids: GH_FAMILY.getIds('contactFamilyWrap'),
       // Type-specific flat fields
       patients_seen:         $('ct_patients_seen')?.value||null,
@@ -2801,7 +2793,7 @@ function showCsvExportMenu() {
 }
 
 // ── Boot ──────────────────────────────────────────────────────
-showMain();
+checkAuth();
 
 
 // ── Free APIs panel ──────────────────────────────────────────
