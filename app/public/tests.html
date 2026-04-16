@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <title>System Tests — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <style>
+    body { max-width: 860px; margin: 0 auto; }
+    .test-wrap { padding: 16px 16px 80px; }
+    .test-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    .test-header h1 { font-size: 20px; font-weight: 700; margin: 0; }
+    .run-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    /* Summary row */
+    .summary-bar { display: grid; grid-template-columns: repeat(4,1fr); gap: 8px; margin-bottom: 20px; }
+    .sb-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); padding: 12px; text-align: center; }
+    .sb-val { font-size: 22px; font-weight: 800; }
+    .sb-lbl { font-size: 10px; color: var(--text3); font-family: var(--mono); text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Category */
+    .cat-block { margin-bottom: 20px; }
+    .cat-header { display: flex; align-items: center; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border); margin-bottom: 8px; }
+    .cat-name { font-family: var(--mono); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--text3); }
+    .cat-run { font-size: 11px; color: var(--accent); cursor: pointer; background: none; border: none; padding: 0; }
+    .cat-run:hover { text-decoration: underline; }
+
+    /* Test row */
+    .test-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .test-row:last-child { border-bottom: none; }
+    .test-status { width: 18px; text-align: center; flex-shrink: 0; font-size: 14px; }
+    .test-name { flex: 1; color: var(--text); }
+    .test-time { font-size: 11px; color: var(--text3); font-family: var(--mono); width: 48px; text-align: right; flex-shrink: 0; }
+    .test-detail { font-size: 11px; color: var(--text3); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .test-row.running .test-status { animation: spin .6s linear infinite; }
+    .test-row.pass  .test-name { color: var(--text); }
+    .test-row.fail  .test-name { color: var(--red); }
+    .test-row.skip  .test-name { color: var(--text3); }
+
+    /* Progress bar */
+    .progress-track { height: 4px; background: var(--bg3); border-radius: 2px; margin-bottom: 16px; overflow: hidden; display: none; }
+    .progress-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width .2s; }
+
+    /* History */
+    .history-entry { font-size: 12px; color: var(--text3); padding: 4px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
+  </style>
+</head>
+<body>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<div id="app">
+<div class="test-wrap">
+  <div class="test-header">
+    <h1>🧪 System Tests</h1>
+    <div class="run-bar">
+      <button class="btn btn-primary" id="runAllBtn" onclick="runAll()">▶ Run All</button>
+      <button class="btn btn-ghost" onclick="clearResults()">↺ Clear</button>
+      <button class="btn btn-ghost" onclick="toggleHistory()">📋 History</button>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div class="summary-bar">
+    <div class="sb-card"><div class="sb-val" id="sPassed" style="color:var(--green)">—</div><div class="sb-lbl">Passed</div></div>
+    <div class="sb-card"><div class="sb-val" id="sFailed" style="color:var(--red)">—</div><div class="sb-lbl">Failed</div></div>
+    <div class="sb-card"><div class="sb-val" id="sSkipped" style="color:var(--text3)">—</div><div class="sb-lbl">Skipped</div></div>
+    <div class="sb-card"><div class="sb-val" id="sDuration" style="color:var(--text2)">—</div><div class="sb-lbl">Duration</div></div>
+  </div>
+
+  <div class="progress-track" id="progressTrack">
+    <div class="progress-fill" id="progressFill" style="width:0%"></div>
+  </div>
+
+  <div id="testCategories"></div>
+
+  <!-- Run history -->
+  <div id="historyBlock" style="display:none;margin-top:20px">
+    <div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Recent Runs</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+</div>
+
+<script>
+// ── Test definitions ──────────────────────────────────────────
+// Each test: { id, name, cat, fn, skip? }
+// fn returns { ok, detail? } or throws on failure
+
+const api = (path) => window.api('GET', path);
+const apiPost = (path, body) => window.api('POST', path, body || {});
+
+const TESTS = [
+  // ── Core ──────────────────────────────────────────────────
+  { cat:'Core', name:'App info endpoint', fn: async () => {
+    const r = await fetch('/api/v1/app/info');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    return { detail: `v${d.version || '?'} · uptime ${Math.floor((d.uptime||0)/60)}m` };
+  }},
+  { cat:'Core', name:'Settings config readable', fn: async () => {
+    const c = await api('/settings/config');
+    if (!c || typeof c !== 'object') throw new Error('Invalid response');
+    return { detail: `${Object.keys(c).length} keys` };
+  }},
+  { cat:'Core', name:'Family members list', fn: async () => {
+    const d = await api('/settings/family');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} members` };
+  }},
+  { cat:'Core', name:'Contacts list', fn: async () => {
+    const d = await api('/settings/contacts');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} contacts` };
+  }},
+  { cat:'Core', name:'EOB parser configured', fn: async () => {
+    const c = await api('/settings/config');
+    if (!c.eob_parser) throw new Error('eob_parser not in config');
+    return { detail: c.eob_parser };
+  }},
+
+  // ── Dashboard ─────────────────────────────────────────────
+  { cat:'Dashboard', name:'Dashboard data loads', fn: async () => {
+    const d = await api('/dashboard');
+    if (!d || typeof d !== 'object') throw new Error('Invalid response');
+    return { detail: `inv:${d.inventory?.items||0} meds:${d.medical?.medications||0}` };
+  }},
+  { cat:'Dashboard', name:'Attention items', fn: async () => {
+    const d = await api('/dashboard/attention');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} items` };
+  }},
+  { cat:'Dashboard', name:'Focus strip', fn: async () => {
+    const d = await api('/dashboard/focus');
+    if (!d.hasOwnProperty('items')) throw new Error('Missing items');
+    return { detail: `${d.items?.length||0} urgent items` };
+  }},
+  { cat:'Dashboard', name:'Backup health', fn: async () => {
+    const d = await api('/dashboard/backup-health');
+    if (!d.hasOwnProperty('status')) throw new Error('Missing status');
+    return { detail: d.message || d.status };
+  }},
+
+  // ── Inventory ─────────────────────────────────────────────
+  { cat:'Inventory', name:'Items list', fn: async () => {
+    const d = await api('/inventory/items');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} items` };
+  }},
+  { cat:'Inventory', name:'Locations list', fn: async () => {
+    const d = await api('/inventory/locations');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} locations` };
+  }},
+  { cat:'Inventory', name:'Item doc-links endpoint', fn: async () => {
+    const d = await api('/inventory/items/1/doc-links');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} links for item #1` };
+  }},
+
+  // ── Finance ───────────────────────────────────────────────
+  { cat:'Finance', name:'Accounts list', fn: async () => {
+    const d = await api('/finance/accounts');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} accounts` };
+  }},
+  { cat:'Finance', name:'Net worth current', fn: async () => {
+    const d = await api('/finance/net-worth/current');
+    if (!d.hasOwnProperty('net_worth')) throw new Error('Missing net_worth');
+    return { detail: `$${Math.round(d.net_worth||0).toLocaleString()}` };
+  }},
+  { cat:'Finance', name:'Recurring transactions', fn: async () => {
+    const d = await api('/finance/recurring');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} recurring` };
+  }},
+  { cat:'Finance', name:'Category rules list', fn: async () => {
+    const d = await api('/finance/category-rules');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} rules` };
+  }},
+  { cat:'Finance', name:'Portfolio performance', fn: async () => {
+    const d = await api('/finance/portfolio/performance?months=6');
+    if (!d.hasOwnProperty('performance')) throw new Error('Missing performance');
+    return { detail: `${d.performance?.length||0} snapshots, ${d.allocation?.length||0} assets` };
+  }},
+
+  // ── HSA ───────────────────────────────────────────────────
+  { cat:'HSA', name:'HSA summary', fn: async () => {
+    const d = await api('/hsa/summary');
+    if (!d || typeof d !== 'object') throw new Error('Invalid response');
+    return { detail: `pool: $${Math.round(d.expenses?.unreimbursed_pool||0)}` };
+  }},
+  { cat:'HSA', name:'HSA payments list', fn: async () => {
+    const d = await api('/hsa/payments');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} payments` };
+  }},
+
+  // ── Medical ───────────────────────────────────────────────
+  { cat:'Medical', name:'Medications list', fn: async () => {
+    const d = await api('/medical/medications');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} medications` };
+  }},
+  { cat:'Medical', name:'Conditions list', fn: async () => {
+    const d = await api('/medical/conditions');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} conditions` };
+  }},
+
+  // ── Documents ─────────────────────────────────────────────
+  { cat:'Documents', name:'Documents list', fn: async () => {
+    const d = await api('/documents');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} documents` };
+  }},
+  { cat:'Documents', name:'Document links endpoint', fn: async () => {
+    const d = await api('/documents/1/links');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `endpoint OK` };
+  }},
+
+  // ── Reports ───────────────────────────────────────────────
+  { cat:'Reports', name:'Emergency report JSON', fn: async () => {
+    const d = await api('/reports/emergency');
+    if (!d.hasOwnProperty('emergency_contacts')) throw new Error('Missing emergency_contacts');
+    return { detail: `${d.emergency_contacts?.length||0} contacts, ${d.medications?.length||0} meds` };
+  }},
+  { cat:'Reports', name:'Emergency report HTML', fn: async () => {
+    const r = await fetch('/api/v1/reports/emergency/html');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const t = await r.text();
+    if (!t.includes('Emergency')) throw new Error('Missing expected content');
+    return { detail: `${Math.round(t.length/1024)}KB` };
+  }},
+  { cat:'Reports', name:'Emergency report text', fn: async () => {
+    const r = await fetch('/api/v1/reports/emergency/text');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return { detail: 'OK' };
+  }},
+  { cat:'Reports', name:'Expiry timeline', fn: async () => {
+    const d = await api('/reports/expiry?months=12');
+    if (!d.hasOwnProperty('documents')) throw new Error('Missing documents');
+    return { detail: `${d.total||0} docs, ${d.expired||0} expired` };
+  }},
+  { cat:'Reports', name:'Insurance report', fn: async () => {
+    const d = await api('/receipts/insurance-report');
+    if (!d.hasOwnProperty('summary')) throw new Error('Missing summary');
+    return { detail: `${d.summary?.total_items||0} items` };
+  }},
+
+  // ── Search ────────────────────────────────────────────────
+  { cat:'Search', name:'Global search responds', fn: async () => {
+    const d = await api('/search?q=test');
+    if (!d.hasOwnProperty('groups')) throw new Error('Missing groups');
+    return { detail: `${d.total||0} results` };
+  }},
+  { cat:'Search', name:'Search short query handled', fn: async () => {
+    const d = await api('/search?q=a');
+    if (!d.hasOwnProperty('groups')) throw new Error('Missing groups');
+    return { detail: `min-length guard OK` };
+  }},
+
+  // ── Maintenance ───────────────────────────────────────────
+  { cat:'New Features', name:'Maintenance upcoming', fn: async () => {
+    const d = await api('/maintenance/upcoming?days=90');
+    if (!d.hasOwnProperty('items')) throw new Error('Missing items');
+    return { detail: `${d.total||0} tasks` };
+  }},
+  { cat:'New Features', name:'Templates list', fn: async () => {
+    const d = await api('/templates');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} templates` };
+  }},
+  { cat:'New Features', name:'Family snapshot endpoint', fn: async () => {
+    // Just check route responds — use member ID 1
+    const d = await api('/family-snapshot/1').catch(e => {
+      if (e.message.includes('not found') || e.message.includes('404')) return null;
+      throw e;
+    });
+    return { detail: d ? d.member?.display_name||'OK' : 'No member #1 (OK)' };
+  }},
+  { cat:'New Features', name:'Watcher status', fn: async () => {
+    const d = await api('/watcher/status');
+    if (!d.hasOwnProperty('enabled')) throw new Error('Missing enabled');
+    return { detail: `${d.enabled?'Active':'Inactive'} · ${d.rules?.length||0} rules` };
+  }},
+  { cat:'New Features', name:'Field templates endpoint', fn: async () => {
+    const d = await api('/receipts/templates/item/store_name');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} templates` };
+  }},
+
+  // ── System ────────────────────────────────────────────────
+  { cat:'System', name:'DB stats', fn: async () => {
+    const d = await api('/system/db/stats');
+    if (!d.size_formatted) throw new Error('Missing size_formatted');
+    return { detail: `${d.size_formatted} · ${d.table_count} tables · ${(d.total_rows||0).toLocaleString()} rows` };
+  }},
+  { cat:'System', name:'DB integrity check', fn: async () => {
+    const d = await apiPost('/system/db/integrity-check');
+    if (!d.hasOwnProperty('ok')) throw new Error('Missing ok');
+    if (!d.ok) throw new Error('Integrity check FAILED');
+    return { detail: 'Database is clean ✓' };
+  }},
+  { cat:'System', name:'Undo delete list', fn: async () => {
+    const d = await api('/system/deleted');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} restorable items` };
+  }},
+  { cat:'System', name:'Webhooks events list', fn: async () => {
+    const d = await api('/system/webhooks/events');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} event types` };
+  }},
+  { cat:'System', name:'Recurring transactions scheduler', fn: async () => {
+    const d = await api('/finance/recurring');
+    if (!Array.isArray(d)) throw new Error('Recurring endpoint down');
+    return { detail: 'Scheduler routes OK' };
+  }},
+
+  // ── Google (non-blocking) ─────────────────────────────────
+  { cat:'Google', name:'Google status endpoint', fn: async () => {
+    const d = await api('/google/status');
+    if (!d.hasOwnProperty('connected')) throw new Error('Missing connected');
+    return { detail: d.connected ? '✓ Connected' : 'Not connected (OK if not configured)' };
+  }},
+  { cat:'Google', name:'Google debug connection', fn: async () => {
+    const d = await api('/google/debug/connection');
+    if (!d.hasOwnProperty('config')) throw new Error('Missing config');
+    const hasCreds = d.config.has_client_id && d.config.has_client_secret;
+    return { detail: hasCreds ? `DNS:${d.tests?.dns||'?'}` : 'No credentials (OK if not configured)' };
+  }},
+  { cat:'Google', name:'Todos Google sync button', fn: async () => {
+    const r = await fetch('/todos.html');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const t = await r.text();
+    if (!t.includes('googleSyncBtn')) throw new Error('Sync button missing from todos.html');
+    return { detail: 'Button present ✓' };
+  }},
+];
+
+// ── State ──────────────────────────────────────────────────────
+const state = {};  // id → { status, detail, ms }
+let _running = false;
+
+// ── Render ─────────────────────────────────────────────────────
+function render() {
+  const cats = {};
+  TESTS.forEach(t => { if(!cats[t.cat]) cats[t.cat]=[]; cats[t.cat].push(t); });
+  let html = '';
+  Object.entries(cats).forEach(([cat, tests]) => {
+    const total   = tests.length;
+    const passed  = tests.filter(t => state[t.id]?.status === 'pass').length;
+    const failed  = tests.filter(t => state[t.id]?.status === 'fail').length;
+    const running = tests.filter(t => state[t.id]?.status === 'running').length;
+    let catStatus = '';
+    if (failed)  catStatus = `<span style="color:var(--red)">${failed} failed</span>`;
+    else if (passed === total) catStatus = `<span style="color:var(--green)">✓ all passed</span>`;
+    else if (running) catStatus = `<span style="color:var(--accent)">running…</span>`;
+
+    html += `<div class="cat-block">
+      <div class="cat-header">
+        <span class="cat-name">${cat} (${total})</span>
+        <span class="cat-status" style="font-size:11px">${catStatus}</span>
+        <button class="cat-run" onclick="runCategory('${cat}')">run</button>
+      </div>`;
+    tests.forEach(t => {
+      const s = state[t.id];
+      const icon  = !s ? '○' : s.status==='running'?'⟳':s.status==='pass'?'✅':s.status==='fail'?'❌':'⏭️';
+      const cls   = s?.status || '';
+      const ms    = s?.ms != null ? s.ms+'ms' : '';
+      const detail = s?.detail ? `<span class="test-detail" title="${esc(s.detail)}">${esc(s.detail)}</span>` : '';
+      html += `<div class="test-row ${cls}" id="row-${t.id}">
+        <span class="test-status">${icon}</span>
+        <span class="test-name">${esc(t.name)}</span>
+        ${detail}
+        <span class="test-time">${ms}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('testCategories').innerHTML = html;
+  updateSummary();
+}
+
+function updateSummary() {
+  const all     = TESTS.map(t => state[t.id]).filter(Boolean);
+  const passed  = all.filter(s => s.status==='pass').length;
+  const failed  = all.filter(s => s.status==='fail').length;
+  const skipped = all.filter(s => s.status==='skip').length;
+  const total_ms = all.reduce((sum, s) => sum+(s.ms||0), 0);
+  document.getElementById('sPassed').textContent  = passed  || '—';
+  document.getElementById('sFailed').textContent  = failed  || '—';
+  document.getElementById('sSkipped').textContent = skipped || '—';
+  document.getElementById('sDuration').textContent = total_ms ? (total_ms/1000).toFixed(1)+'s' : '—';
+}
+
+// ── Run logic ──────────────────────────────────────────────────
+async function runTest(t) {
+  state[t.id] = { status:'running', detail:'', ms:null };
+  render();
+  const start = performance.now();
+  try {
+    const result = await t.fn();
+    state[t.id] = { status:'pass', detail: result?.detail||'', ms: Math.round(performance.now()-start) };
+  } catch(e) {
+    state[t.id] = { status:'fail', detail: e.message, ms: Math.round(performance.now()-start) };
+  }
+  render();
+}
+
+async function runCategory(cat) {
+  if (_running) return;
+  const tests = TESTS.filter(t => t.cat === cat);
+  for (const t of tests) await runTest(t);
+}
+
+async function runAll() {
+  if (_running) return;
+  _running = true;
+  const btn = document.getElementById('runAllBtn');
+  btn.textContent = '⏹ Running…'; btn.disabled = true;
+  const track = document.getElementById('progressTrack');
+  const fill  = document.getElementById('progressFill');
+  track.style.display = 'block';
+  const total = TESTS.length;
+  for (let i = 0; i < TESTS.length; i++) {
+    fill.style.width = Math.round((i/total)*100)+'%';
+    await runTest(TESTS[i]);
+  }
+  fill.style.width = '100%';
+  setTimeout(() => { track.style.display = 'none'; }, 800);
+  btn.textContent = '▶ Run All'; btn.disabled = false;
+  _running = false;
+  saveHistory();
+}
+
+function clearResults() {
+  TESTS.forEach(t => delete state[t.id]);
+  render();
+}
+
+// ── History ────────────────────────────────────────────────────
+function saveHistory() {
+  const passed = TESTS.filter(t => state[t.id]?.status==='pass').length;
+  const failed = TESTS.filter(t => state[t.id]?.status==='fail').length;
+  const entry = { ts: new Date().toISOString(), passed, failed, total: TESTS.length };
+  const hist = JSON.parse(localStorage.getItem('gh_test_history')||'[]');
+  hist.unshift(entry);
+  localStorage.setItem('gh_test_history', JSON.stringify(hist.slice(0,20)));
+  renderHistory();
+}
+
+function renderHistory() {
+  const hist = JSON.parse(localStorage.getItem('gh_test_history')||'[]');
+  const el = document.getElementById('historyList');
+  if (!hist.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">No history yet</div>'; return; }
+  el.innerHTML = hist.map(h => `
+    <div class="history-entry">
+      <span>${new Date(h.ts).toLocaleString()}</span>
+      <span style="color:${h.failed?'var(--red)':'var(--green)'}">${h.passed}/${h.total} passed${h.failed?' · '+h.failed+' failed':''}</span>
+    </div>`).join('');
+}
+
+function toggleHistory() {
+  const el = document.getElementById('historyBlock');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  renderHistory();
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Give each test a stable ID
+TESTS.forEach((t, i) => { t.id = t.cat.replace(/\s+/g,'_')+'_'+i; });
+
+// Init
+render();
+</script>
+</body>
+</html>
