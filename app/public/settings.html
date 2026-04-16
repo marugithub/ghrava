@@ -1548,9 +1548,22 @@ async function loadGooglePanel() {
     if (document.getElementById('googleSyncTasks')) document.getElementById('googleSyncTasks').checked = s.services.tasks?.enabled || false;
     if (document.getElementById('googleSyncCon'))   document.getElementById('googleSyncCon').checked   = s.services.contacts.enabled;
 
-    // Pre-fill credentials
-    const creds = s.configured ? {} : {};
-    // (We don't return secrets — just leave fields blank if already saved)
+    // Pre-fill Client ID if already saved (never show secret)
+    const clientIdEl = document.getElementById('googleClientId');
+    if (clientIdEl) {
+      if (s.client_id) {
+        clientIdEl.value = s.client_id;
+        clientIdEl.placeholder = 'Client ID saved';
+      } else {
+        clientIdEl.value = '';
+        clientIdEl.placeholder = 'xxxxxx.apps.googleusercontent.com';
+      }
+    }
+    // Client secret: show placeholder when already set
+    const clientSecretEl = document.getElementById('googleClientSecret');
+    if (clientSecretEl && s.configured) {
+      clientSecretEl.placeholder = '●●●●●● (saved — enter new value to change)';
+    }
 
     // Sync action buttons
     const actLabel = document.getElementById('googleSyncActionsLabel');
@@ -1607,11 +1620,10 @@ async function saveGooglePrefs() {
 
 async function startGoogleOAuth() {
   try {
-    const r = await window.api('GET', '/google/oauth/start');
-    const d = r;
-    if (d.auth_url) window.location.href = d.auth_url;
+    const d = await window.api('GET', '/google/oauth/start');
+    if (d.url) window.location.href = d.url;
     else toast(d.error || 'Failed to start OAuth', 'err');
-  } catch { toast('Failed', 'err'); }
+  } catch(e) { toast(e.message || 'Failed to start OAuth', 'err'); }
 }
 
 async function disconnectGoogle() {

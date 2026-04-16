@@ -38,6 +38,7 @@ router.get('/status', (req, res) => {
     res.json({
       configured,
       connected,
+      client_id: oauth.getCfg('google_client_id') || null,
       services: {
         tasks: {
           enabled:    oauth.getCfg('google_sync_tasks') === '1',
@@ -84,14 +85,18 @@ router.get('/oauth/start', requireAuth, (req, res) => {
 
 router.get('/oauth/callback', async (req, res) => {
   const { code, error } = req.query;
-  if (error) return res.send(`<h3>Auth error: ${error}</h3>`);
-  if (!code)  return res.send('<h3>No code returned</h3>');
+  if (error) {
+    return res.redirect(`/settings.html?google_error=${encodeURIComponent(error)}`);
+  }
+  if (!code) {
+    return res.redirect('/settings.html?google_error=No+authorization+code+returned');
+  }
   try {
     const redirectUri = `${req.protocol}://${req.get('host')}/api/v1/google/oauth/callback`;
     await oauth.exchangeCode(code, redirectUri);
-    res.send('<h3>✓ Google connected. You can close this tab.</h3><script>window.close();</script>');
+    res.redirect('/settings.html?google_connected=1');
   } catch(e) {
-    res.send(`<h3>Token exchange failed: ${e.message}</h3>`);
+    res.redirect(`/settings.html?google_error=${encodeURIComponent(e.message)}`);
   }
 });
 
