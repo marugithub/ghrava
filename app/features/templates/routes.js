@@ -35,7 +35,7 @@ router.get('/:id', (req, res) => {
 });
 
 // POST /api/v1/templates — create template
-router.post('/', requireAuth, (req, res) => {
+router.post('/', (req, res) => {
   try {
     const { name, description, category, items = [] } = req.body;
     if (!name) return badRequest(res, 'name required');
@@ -48,7 +48,7 @@ router.post('/', requireAuth, (req, res) => {
 });
 
 // PUT /api/v1/templates/:id — update template
-router.put('/:id', requireAuth, (req, res) => {
+router.put('/:id', (req, res) => {
   try {
     const { name, description, category } = req.body;
     db.prepare(`UPDATE task_templates SET name=COALESCE(?,name), description=?, category=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(name, description||null, category||null, req.params.id);
@@ -57,7 +57,7 @@ router.put('/:id', requireAuth, (req, res) => {
 });
 
 // DELETE /api/v1/templates/:id — soft delete
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', (req, res) => {
   try {
     db.prepare('UPDATE task_templates SET is_active=0 WHERE id=?').run(req.params.id);
     res.json({ ok: true });

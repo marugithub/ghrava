@@ -83,7 +83,7 @@
   }
 
   // ── Sidebar collapse state ───────────────────────────────────
-  let _collapsed = localStorage.getItem('gh_nav_collapsed') === '1';
+  let _collapsed = localStorage.getItem('gh_nav_collapsed') !== '0'; // collapsed by default
 
   function applyCollapsed(nav) {
     nav.classList.toggle('collapsed', _collapsed);
@@ -100,6 +100,24 @@
     // Rotate collapse icon
     const icon = document.getElementById('collapseIcon');
     if (icon) icon.style.transform = _collapsed ? 'rotate(180deg)' : '';
+  }
+
+  // ── Per-section collapse state ──────────────────────────────
+  function isSectionOpen(label) {
+    const stored = localStorage.getItem('gh_sec_' + label);
+    // Daily open by default, everything else closed by default
+    if (stored === null) return label === 'Daily';
+    return stored === '1';
+  }
+
+  function toggleSection(label) {
+    const open = !isSectionOpen(label);
+    localStorage.setItem('gh_sec_' + label, open ? '1' : '0');
+    const sec = document.querySelector(`.side-nav-section[data-section="${label}"]`);
+    if (!sec) return;
+    sec.classList.toggle('sec-open', open);
+    const chevron = sec.querySelector('.sec-chevron');
+    if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
   }
 
   // ── Notifications badge ──────────────────────────────────────
@@ -145,24 +163,36 @@
         </a>
       </div>`;
 
-    const sections = SIDEBAR_SECTIONS.map(s => `
-      <div class="side-nav-section">
-        <div class="side-nav-section-label">${s.label}</div>
-        ${s.keys.map(k => {
-          const m = MODULES[k];
-          const active = isActive(m.href);
-          const isTodos = k === 'todos';
-          return `<a href="${m.href}"
-            ${m.newTab ? 'target="_blank" rel="noopener"' : ''}
-            class="side-nav-item${active ? ' active' : ''}"
-            data-label="${m.label}"
-            style="${active ? `color:${m.color}` : ''}">
-            <span class="side-nav-icon" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${active ? m.color : 'currentColor'}">${SVG[m.svgKey]||''}</span>
-            <span class="side-nav-item-label">${m.label}</span>
-            ${isTodos ? `<span class="gh-todo-badge" style="display:none;margin-left:auto;background:var(--amber);color:#000;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;font-family:var(--mono)">0</span>` : ''}
-          </a>`;
-        }).join('')}
-      </div>`).join('');
+    const sections = SIDEBAR_SECTIONS.map(s => {
+      // Auto-open the section that contains the active page
+      const hasActive = s.keys.some(k => MODULES[k] && isActive(MODULES[k].href));
+      const open = hasActive || isSectionOpen(s.label);
+      // Persist auto-open so it stays open across pages
+      if (hasActive) localStorage.setItem('gh_sec_' + s.label, '1');
+      return `
+      <div class="side-nav-section${open ? ' sec-open' : ''}" data-section="${s.label}">
+        <div class="side-nav-section-label" onclick="GH_NAV.toggleSection('${s.label}')">
+          <span class="sec-label-text">${s.label}</span>
+          <span class="sec-chevron" style="transform:${open ? 'rotate(180deg)' : ''}">${SVG.chevleft}</span>
+        </div>
+        <div class="side-nav-section-items">
+          ${s.keys.map(k => {
+            const m = MODULES[k];
+            const active = isActive(m.href);
+            const isTodos = k === 'todos';
+            return `<a href="${m.href}"
+              ${m.newTab ? 'target="_blank" rel="noopener"' : ''}
+              class="side-nav-item${active ? ' active' : ''}"
+              data-label="${m.label}"
+              style="${active ? `color:${m.color}` : ''}">
+              <span class="side-nav-icon" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${active ? m.color : 'currentColor'}">${SVG[m.svgKey]||''}</span>
+              <span class="side-nav-item-label">${m.label}</span>
+              ${isTodos ? `<span class="gh-todo-badge" style="display:none;margin-left:auto;background:var(--amber);color:#000;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;font-family:var(--mono)">0</span>` : ''}
+            </a>`;
+          }).join('')}
+        </div>
+      </div>`;
+    }).join('');
 
     const bottom = `
       <div class="side-nav-spacer"></div>
@@ -330,6 +360,7 @@
           document.querySelectorAll('.gh-notif-item.unread').forEach(el => el.classList.remove('unread'));
         }).catch(()=>{});
     },
+    toggleSection,
   };
 
   buildSidebar();

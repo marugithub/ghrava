@@ -166,22 +166,56 @@ html, body {
   color: var(--text);
 }
 
-.side-nav-section { padding: 8px 10px 2px; }
+.side-nav-section { padding: 6px 10px 0; }
 
 .side-nav-section-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-weight: 700;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--text3);
-  padding: 2px 8px 3px;
-  margin-bottom: 2px;
+  color: var(--text2);
+  padding: 4px 8px 4px;
+  margin-bottom: 0;
   border-radius: 5px;
+  cursor: pointer;
   transition: background .12s;
+  user-select: none;
 }
 .side-nav-section-label:hover { background: var(--bg3); }
-.side-nav-section-items { overflow: hidden; }
-.sec-chevron { color: var(--text3); opacity: .6; }
+.sec-label-text { flex: 1; }
+.sec-chevron {
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: .5;
+  transition: transform .2s ease;
+  flex-shrink: 0;
+}
+/* Items hidden by default, shown when section is open */
+.side-nav-section-items {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height .2s ease;
+}
+.side-nav-section.sec-open .side-nav-section-items {
+  max-height: 400px;
+}
+/* Indent items under section label for visual hierarchy */
+.side-nav-section .side-nav-item {
+  padding-left: 18px;
+  border-left: 2px solid transparent;
+}
+.side-nav-section .side-nav-item.active {
+  border-left-color: var(--accent);
+}
+.side-nav-section .side-nav-item:not(.active):hover {
+  border-left-color: var(--border2);
+}
 
 .side-nav-item {
   display: flex;
@@ -1968,6 +2002,15 @@ html, body {
 
 .side-nav.collapsed .side-nav-section {
   padding: 4px 0;
+}
+/* In icon-only mode show all items regardless of section open/closed state */
+.side-nav.collapsed .side-nav-section-items {
+  max-height: 400px !important;
+}
+/* Remove indent in collapsed mode */
+.side-nav.collapsed .side-nav-section .side-nav-item {
+  padding-left: 0;
+  border-left: none;
 }
 
 .side-nav.collapsed .side-nav-bottom {
