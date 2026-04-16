@@ -131,8 +131,8 @@ const TESTS = [
   }},
   { cat:'Dashboard', name:'Attention items', fn: async () => {
     const d = await api('/dashboard/attention');
-    if (!Array.isArray(d)) throw new Error('Expected array');
-    return { detail: `${d.length} items` };
+    if (!d.items || !Array.isArray(d.items)) throw new Error('Expected items array');
+    return { detail: `${d.items.length} items` };
   }},
   { cat:'Dashboard', name:'Focus strip', fn: async () => {
     const d = await api('/dashboard/focus');

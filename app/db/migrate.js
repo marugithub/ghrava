@@ -30,7 +30,7 @@ db.exec(`
 
 const migrationsDir = path.join(__dirname, 'migrations');
 const files = fs.readdirSync(migrationsDir)
-  .filter(f => f.endsWith('.sql'))
+  .filter(f => f.endsWith('.sql') || f.endsWith('.js'))
   .sort();
 
 let applied = 0;
@@ -40,33 +40,31 @@ for (const file of files) {
   const already = db.prepare('SELECT 1 FROM _migrations WHERE filename = ?').get(file);
   if (already) { skipped++; continue; }
 
-  const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-
-  // Split on semicolons, strip comments and blanks
-  const statements = sql
-    .split(';')
-    .map(s => s.replace(/--[^\n]*/g, '').trim())
-    .filter(s => s.length > 0)
-    .filter(s => !['BEGIN','COMMIT','ROLLBACK'].includes(s.toUpperCase()));
-
-  // Run entire migration in a transaction — all or nothing
-  const runMigration = db.transaction(() => {
-    for (const stmt of statements) {
-      db.exec(stmt + ';');
-    }
-  });
-
   try {
-    runMigration();
+    if (file.endsWith('.js')) {
+      // JS migration — exports a function(db) that handles its own safety
+      const migration = require(path.join(migrationsDir, file));
+      migration(db);
+    } else {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      const statements = sql
+        .split(';')
+        .map(s => s.replace(/--[^\n]*/g, '').trim())
+        .filter(s => s.length > 0)
+        .filter(s => !['BEGIN','COMMIT','ROLLBACK'].includes(s.toUpperCase()));
+      const runMigration = db.transaction(() => {
+        for (const stmt of statements) {
+          db.exec(stmt + ';');
+        }
+      });
+      runMigration();
+    }
     db.prepare('INSERT INTO _migrations (filename) VALUES (?)').run(file);
     console.log(`  apply ${file}`);
     applied++;
   } catch (err) {
-    // Transaction automatically rolled back by better-sqlite3
     console.error(`  FAILED ${file}: ${err.message}`);
     console.error(`  Nothing was committed — fix the migration and redeploy`);
-    // Don't mark as applied — next restart will retry cleanly
-    // Don't process.exit — let the server start so you can diagnose
   }
 }
 
