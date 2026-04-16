@@ -51,6 +51,11 @@ function isValidToken(token) {
 }
 
 function requireAuth(req, res, next) {
+  // Open mode: if no password has been configured, always allow through.
+  // This covers first-run, development, and "no password set" installs.
+  const cfg = db.prepare("SELECT value FROM app_config WHERE key = 'app_password_hash'").get();
+  if (!cfg) return next();
+
   // Check cookie first (browser), then Authorization header (APK/API)
   const token = parseCookies(req).lt_token ||
                 req.headers.authorization?.replace('Bearer ', '') || '';
