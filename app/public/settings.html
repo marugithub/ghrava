@@ -1150,8 +1150,6 @@
         <label class="form-label">Relationship</label>
         <select class="form-select" id="fm_relationship">
           <option value="">— select —</option>
-          <option>Self</option><option>Spouse</option><option>Son</option>
-          <option>Daughter</option><option>Parent</option><option>Other</option>
         </select>
       </div>
       <div class="form-group">
@@ -2344,12 +2342,12 @@ async function loadFamily() {
     </div>`).join('');
 }
 
-function openFamilyDrawer(member=null) {
+async function openFamilyDrawer(member=null) {
   editingId = member?.id || null;
   $('familyDrawerTitle').textContent = member ? 'Edit Family Member' : 'Add Family Member';
   $('fm_display_name').value = member?.display_name || '';
   $('fm_legal_name').value   = member?.full_legal_name || '';
-  $('fm_relationship').value = member?.relationship || '';
+  await GH_SELECT.init('fm_relationship', 'family_relationship', member?.relationship||'', { allowAdd: false, placeholder: '— select —' });
   $('fm_dob').value          = member?.date_of_birth || '';
   $('fm_ssn4').value         = member?.ssn_last4 || '';
   $('fm_primary').checked    = !!member?.is_primary_user;

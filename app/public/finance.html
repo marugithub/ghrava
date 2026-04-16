@@ -742,9 +742,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Method</label>
-        <select class="form-select" id="rMethod">
-          <option>ACH</option><option>Check</option><option>Debit Card</option><option>Other</option>
-        </select>
+        <select class="form-select" id="rMethod"><option value="">Loading…</option></select>
       </div>
     </div>
     <div class="form-group">
@@ -1510,6 +1508,7 @@ async function openReimburseDrawer() {
   }
   $('rDate').value  = new Date().toISOString().slice(0,10);
   $('rNotes').value = '';
+  await GH_SELECT.init('rMethod', 'hsa_reimbursement_method', 'ACH', { allowAdd: false });
   $('rTotal').textContent = '$0.00';
   $('reimburseDrawer').classList.add('open');
   await loadReimbList();

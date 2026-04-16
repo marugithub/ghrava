@@ -312,7 +312,7 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
       <div class="form-group"><label class="form-label">Day(s) of Week</label><input class="form-input" id="afDays" placeholder="e.g. Mon, Wed, Fri"></div>
       <div class="form-group"><label class="form-label">Time</label><div style="display:flex;gap:8px"><input class="form-input" type="time" id="afStart" style="flex:1"><input class="form-input" type="time" id="afEnd" style="flex:1"></div></div>
       <div class="form-group"><label class="form-label">Location</label><input class="form-input" id="afLocation" placeholder="Location or address"></div>
-      <div class="form-group"><label class="form-label">Season</label><select class="form-input" id="afSeason"><option value="">—</option><option value="Year-round">Year-round</option><option value="Fall">Fall</option><option value="Spring">Spring</option><option value="Summer">Summer</option><option value="Winter">Winter</option></select></div>
+      <div class="form-group"><label class="form-label">Season</label><select class="form-input" id="afSeason"><option value="">—</option></select></div>
       <div class="form-group"><label class="form-label">Monthly Cost</label><input class="form-input" type="number" id="afCost" placeholder="0.00" step="0.01" min="0"></div>
       <div class="form-group"><label class="form-label">Notes</label><textarea class="form-input" id="afNotes" rows="2" style="resize:vertical"></textarea></div>
     </div>
@@ -587,7 +587,7 @@ async function openActivityDrawer(aid){
   $('actDrawerTitle').textContent=_editingActId?'Edit Activity':'Add Activity';
   $('afName').value=act?.name||'';$('afCategory').value=act?.category||'Sports';$('afDays').value=act?.day_of_week||'';
   $('afStart').value=act?.start_time||'';$('afEnd').value=act?.end_time||'';$('afLocation').value=act?.location||'';
-  $('afSeason').value=act?.season||'';$('afCost').value=act?.cost_per_month||'';$('afNotes').value=act?.notes||'';
+  await GH_SELECT.init('afSeason', 'kids_activity_season', act?.season||'', { allowAdd: false, placeholder: '—' });$('afCost').value=act?.cost_per_month||'';$('afNotes').value=act?.notes||'';
   $('actDelete').style.display=_editingActId?'inline-flex':'none';
   initActTags(act?.tags||[]);
   GH_FAMILY.init('actFamilyWrap', act?.family_members||[]);

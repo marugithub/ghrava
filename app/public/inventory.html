@@ -922,17 +922,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Type</label>
-      <select class="form-select" id="loc_type">
-        <option value="house">🏠 House</option>
-        <option value="room" selected>🚪 Room</option>
-        <option value="garage">🏗️ Garage</option>
-        <option value="attic">📦 Attic</option>
-        <option value="basement">⬇️ Basement</option>
-        <option value="storage_unit">🗄️ Storage Unit</option>
-        <option value="shed">🏚️ Shed</option>
-        <option value="office">💼 Office</option>
-        <option value="other">📍 Other</option>
-      </select>
+      <select class="form-select" id="loc_type"><option value="">Loading…</option></select>
     </div>
     <div class="form-group">
       <label class="form-label">Description</label>
@@ -1085,14 +1075,7 @@
       <div class="form-group">
         <label class="form-label">Purchase Method</label>
         <select class="form-select" id="itm_method">
-          <option value="">—</option>
-          <option value="in_store">In Store</option>
-          <option value="online">Online</option>
-          <option value="facebook_marketplace">Facebook Marketplace</option>
-          <option value="craigslist">Craigslist</option>
-          <option value="gift">Gift</option>
-          <option value="auction">Auction</option>
-          <option value="other">Other</option>
+          <option value="">Loading…</option>
         </select>
       </div>
     </div>
@@ -1104,8 +1087,7 @@
       <div class="form-group">
         <label class="form-label">Condition</label>
         <select class="form-select" id="itm_cond">
-          <option value="">—</option>
-          <option>Excellent</option><option>Good</option><option>Fair</option><option>Poor</option>
+          <option value="">Loading…</option>
         </select>
       </div>
       <div class="form-group"><label class="form-label">Warranty Expires</label><input class="form-input" type="date" id="itm_warranty"></div>
@@ -1261,15 +1243,7 @@
       <div class="form-group"><label class="form-label">Date</label><input class="form-input" type="date" id="maint_date"></div>
       <div class="form-group">
         <label class="form-label">Type</label>
-        <select class="form-select" id="maint_type">
-          <option value="repair">🔧 Repair</option>
-          <option value="service">⚙️ Service</option>
-          <option value="inspection">🔍 Inspection</option>
-          <option value="cleaning">🧹 Cleaning</option>
-          <option value="upgrade">⬆️ Upgrade</option>
-          <option value="replacement">🔄 Replacement</option>
-          <option value="other">📝 Other</option>
-        </select>
+        <select class="form-select" id="maint_type"><option value="">Loading…</option></select>
       </div>
     </div>
     <div class="form-group"><label class="form-label">Description <span class="req">*</span></label><textarea class="form-textarea" id="maint_desc" style="min-height:80px"></textarea></div>
@@ -3028,8 +3002,10 @@ async function openItemDrawer(item=null) {
   await populateCategoryDropdown('');
   $('itm_brand').value=''; $('itm_model').value=''; $('itm_serial').value='';
   $('itm_pdate').value=''; $('itm_price').value=''; $('itm_store').value='';
-  $('itm_method').value=''; $('itm_order').value='';
-  $('itm_cond').value=''; $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
+  await GH_SELECT.init('itm_method', 'purchase_method', '', { allowAdd: false, placeholder: '—' });
+  $('itm_order').value='';
+  await GH_SELECT.init('itm_cond', 'item_condition', '', { allowAdd: false, placeholder: '—' });
+  $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
   GH_REFS.populateContact('itm_wvendor', null, { placeholder: '— none —' });
   $('itm_insured').checked=false; $('insuranceFields').style.display='none';
   $('itm_policy').value=''; $('itm_insval').value='';
@@ -3048,9 +3024,11 @@ async function openItemDrawer(item=null) {
     $('itm_brand').value=item.brand||''; $('itm_model').value=item.model_number||'';
     $('itm_serial').value=item.serial_number||'';
     $('itm_pdate').value=item.purchase_date||''; $('itm_price').value=item.purchase_price||'';
-    $('itm_store').value=item.store_name||''; $('itm_method').value=item.purchase_method||'';
+    $('itm_store').value=item.store_name||'';
+    await GH_SELECT.init('itm_method', 'purchase_method', item.purchase_method||'', { allowAdd: false, placeholder: '—' });
     $('itm_order').value=item.order_number||'';
-    $('itm_cond').value=item.condition||''; $('itm_warranty').value=item.warranty_expires||'';
+    await GH_SELECT.init('itm_cond', 'item_condition', item.condition||'', { allowAdd: false, placeholder: '—' });
+    $('itm_warranty').value=item.warranty_expires||'';
     GH_REFS.populateContact('itm_wvendor', item.warranty_vendor_contact_id||null, { placeholder: '— none —' });
     $('itm_lifewrnt').checked=!!item.lifetime_warranty;
     $('itm_insured').checked=!!item.insured;
@@ -3302,10 +3280,11 @@ $('sellSave').addEventListener('click', async ()=>{
 // ══════════════════════════════════════════════════════════════
 // MAINTENANCE
 // ══════════════════════════════════════════════════════════════
-function openMaint(itemId) {
+async function openMaint(itemId) {
   $('maint_item_id').value=itemId;
   $('maint_date').value=new Date().toISOString().slice(0,10);
-  $('maint_type').value='repair'; $('maint_desc').value='';
+  await GH_SELECT.init('maint_type', 'property_maintenance_type', 'repair', { allowAdd: false });
+  $('maint_desc').value='';
   $('maint_cost').value=''; $('maint_provider').value=''; $('maint_next').value='';
   $('detailDrawer').classList.remove('open');
   $('maintDrawer').classList.add('open');

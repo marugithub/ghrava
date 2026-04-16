@@ -305,7 +305,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
     <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-input" id="jobTitle"></div>
     <div class="form-group"><label class="form-label">Employment Type</label>
       <select class="form-select" id="jobType" onchange="triggerJobSuggest()">
-        <option>Full-time</option><option>Part-time</option><option>Contract</option><option>Freelance</option>
+        <option value="">Loading…</option>
       </select>
     </div>
     <div class="form-row">
@@ -824,7 +824,7 @@ async function openJobDrawer(id) {
   $('jobDeleteBtn').style.display = id ? 'inline-flex' : 'none';
   initJobTags(j?.tags||[]);
   GH_FAMILY.init('jobFamilyWrap', j.family_members||[]);
-  await loadCareerDropdowns();
+  await loadCareerDropdowns(j.employment_type||'Full-time');
   $('jobDrawer').classList.add('open');
 }
 
