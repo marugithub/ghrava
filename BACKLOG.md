@@ -534,4 +534,38 @@ CouchDB: `PouchDB (phone, offline) ←→ CouchDB (NAS) ←→ SQLite (optional)
 | Step-up auth — designed, not built | Backlog |
 | Session timeout — configure in Settings when touched | Backlog |
 | Google OAuth issue — run `/api/v1/google/debug/connection` to diagnose | Action needed |
-| `chokidar` package install before folder watcher | Required for E group |
+| `chokidar` package install before folder watcher | Requires `--build` deploy |
+| Docker `--build` command — Al to confirm exact command for Container Station | Action needed |
+| Print button not showing on any page — diagnose before fixing | Bug |
+| tests.html needs GH_PAGE or standalone print/download button | Next session |
+| tests.html download report (self-contained HTML of results) | Next session |
+
+---
+
+## Print System Status (Session 11)
+**Designed and partially built. Not working.**
+
+### What was built
+- `app/public/js/gh-print.js` — calls `window.print()` with a timestamp header
+- `app/public/shared.css` — `@media print` rules hiding sidebar/nav/buttons/tabs
+- `app/public/nav.js` — print SVG + button injected into every page header + loads gh-print.js
+
+### What's broken
+Print button is not visible on any screen. Possible causes:
+1. nav.js wasn't correctly extracted from deploy zip
+2. `SVG.print` reference broken (SVG map entry not added correctly)
+3. Pages missing `window.GH_PAGE` — nav.js skips header if GH_PAGE undefined
+
+### tests.html specifically
+Has `<script src="/nav.js"></script>` but NO `window.GH_PAGE` declaration.
+Nav.js bails out when GH_PAGE is missing, so no header and no print button.
+**Fix options (ask Al):**
+1. Add `window.GH_PAGE = { module:'tests', title:'System Tests' }` to tests.html — gets full header
+2. Add standalone print + download button in the run bar — self-contained, no nav dependency
+Also needs: "Download Report" button that generates a self-contained HTML file of results.
+
+### Design decisions (confirmed, not to be changed)
+- `window.print()` on current page — NOT a separate window
+- @media print CSS hides chrome, leaves content
+- Button in every page header via nav.js injection — no per-page changes needed
+- tests.html is the only page intentionally without GH_PAGE (discuss with Al)

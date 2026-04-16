@@ -1,249 +1,168 @@
-# Ghrava Handoff
-**Version:** v202604.035
-**DB migrations applied through:** 087
-**Working dir:** `/home/claude/ghrava_live/ghrava/` (from uploaded live folder backup)
+# Ghrava Handoff — Session 11
+**Last updated:** April 2026
 
----
+## Stack & Runtime
+- Node.js/Express + SQLite (better-sqlite3) + Vanilla JS frontend
+- Docker on QNAP NAS: 192.168.4.62:3001, container: `ghrava`
+- Working dir (build session): `/home/claude/ghrava_build/`
+- Deploy zip: `/mnt/user-data/outputs/Ghrava_DEPLOY.zip`
+- NAS mapped at `Z:\ghrava` on Windows
 
-## Stack
-Node.js/Express · SQLite (better-sqlite3) · Vanilla JS frontend · Docker on QNAP NAS (192.168.4.62:3001)
-Deploy: extract zip at `Z:\ghrava\`, `docker restart ghrava`
+## Migration State
+**Live DB:** migrations 087 (last confirmed live)
+**Built/Deployed this session:** 088–101 — see migrations list below
 
----
+### All migrations (088–101) — should all be live after last deploy
+- 088: dropdown_standardization
+- 089: learning_instructor (career)
+- 090: cert_renewal_fee
+- 091: contacts_google_updated_at
+- 092: document_item_links table
+- 093: task_templates + task_template_items (5 seeded templates)
+- 094: eob_parser config + app defaults (snooze, reminder, expiry, hsa_pool_threshold)
+- 096: watcher_file_registry + watcher_import_history + financial_accounts.account_number
+- 097: contacts.is_emergency_contact + family_members.emergency_notes + emergency config keys
+- 098: deleted_items table + documents expiry columns + import_category_rules enhancements
+- 099: recurring_transactions + portfolio_snapshots + holdings dividend columns
+- 100: field_templates table + insurance report config
+- 101: db_maintenance_log + webhooks + webhook_logs tables
 
-## Deploy process
-```powershell
-# Extract zip at Z:\ghrava\ then:
-docker restart ghrava
-docker logs ghrava --tail 30
-```
-Always run `bash scripts/predeploy-check.sh` before zipping. It has 5 gates:
-1. Node syntax (all JS)
-2. TypeScript (shared/ only, pre-existing errors in db.js/auth/attachments/data-cleanup excluded)
-3. HTML inline script syntax
-4. Script dependency check (catches missing lt-refs.js)
-5. Migration simulation against live DB (catches duplicate columns, syntax errors)
+**Note:** Migration 095 was merged into 097. No gap.
 
----
+## Last Deploy
+**78 files** shipped including chokidar in package.json.
+**Deploy required `--build`** because package.json changed (chokidar added).
+Correct build command depends on your setup — ask Al how he originally built the container.
 
-## Critical rules (never break these)
-- `window.api(method, path)` prepends `/api/v1` — never pass full path
-- `finance_accounts` (banking) ≠ `financial_accounts` (investment) — never mix
-- No `ON DELETE CASCADE` anywhere
-- No WAL journal mode (use DELETE + synchronous=FULL)
-- **Training records (`career_learning`) are NEVER deleted when a cert is deleted** — `career_learning_certs.certification_id` is nullified instead
-- `GH_REFS` requires `lt-refs.js` — must be on every page that uses it
-- `GH_FAMILY`, `GH_SELECT` are in `lt-core.js`
-- Always simulate migrations against live DB before shipping
+## Current Known Issues / Bugs
 
----
+### 🔴 Print button not showing on any page
+- **What was done:** `nav.js` was updated to inject a print button into every page header, `gh-print.js` was created, `@media print` CSS was added to `shared.css`
+- **Symptom:** Print button is not visible on any screen
+- **Likely cause:** Either nav.js change didn't deploy correctly, or `GH_PAGE` not defined on some pages (nav.js bails if `window.GH_PAGE` is missing)
+- **Do NOT fix without asking Al first**
+- **Diagnosis:** Check if nav.js was actually extracted correctly from zip. Then check a page like `todos.html` — it should have `window.GH_PAGE = { module:'todos', ... }` at top. If it does and still no button, the nav.js SVG.print reference may be broken.
 
-## Auth policy
-`requireAuth` only in `settings/routes.js`. All other modules open. Read-only GET routes always before any auth wall.
+### 🟡 tests.html has no print button
+- `tests.html` has no `window.GH_PAGE` declaration
+- Nav.js skips header injection when GH_PAGE is missing
+- **Fix options (ask Al which):**
+  1. Add `window.GH_PAGE = { module:'tests', title:'System Tests' }` to tests.html
+  2. Add a standalone download/print button directly in the tests.html run bar (self-contained, no nav dependency)
+- Also: tests.html should have a "Download Report" button that generates a self-contained HTML file of results — not yet built
 
----
+### 🟡 reports.html was rebuilt as card-grid (new architecture)
+- Old tab-based reports.html replaced with registry pattern
+- New: card grid → click card → detail panel (no tabs)
+- `REPORT_REGISTRY` array is the single source of truth — add one entry to add a new report
+- Some render stubs need real data wiring (spending, networth use placeholder logic)
 
-## Shared utilities (lt-core.js)
-- `GH_VIEW.init(containerId, storagePrefix, callback, options)` — grid/list toggle + column picker. Defaults: grid view, 3 cols ≥600px, 2 cols mobile. Persists to localStorage.
-- `GH_SELECT.init(selectId, listKey, currentVal, options)` — dropdown backed by `dropdown_options` table
-- `GH_FAMILY.init(wrapId, selectedIds)` — family member multi-picker
-- `GH_REFS.populateContact(selectId, contactId, options)` — contact picker (requires lt-refs.js)
+## New Files Added This Session
 
----
+### Backend routes (all registered in server.js)
+| Route prefix | File | Purpose |
+|---|---|---|
+| /api/v1/search | features/search/routes.js | Global search (Cmd+K) |
+| /api/v1/maintenance | features/maintenance/routes.js | Unified maintenance hub |
+| /api/v1/templates | features/templates/routes.js | Task templates CRUD + apply |
+| /api/v1/family-snapshot | features/family-snapshot/routes.js | Per-member report |
+| /api/v1/watcher | features/watcher/routes.js | Folder watcher (needs chokidar) |
+| /api/v1/system | features/system/routes.js | Undo delete + DB maintenance + webhooks |
+| /api/v1/reports/emergency | features/reports/emergency.js | Emergency card JSON/HTML/text |
+| /api/v1/reports/expiry | features/reports/expiry.js | Document expiry timeline |
+| /api/v1/receipts | features/receipts/routes.js | Insurance report + field templates |
+| /api/v1/dashboard/focus | (added to dashboard/routes.js) | Focus strip for home page |
+| /api/v1/dashboard/backup-health | (added to dashboard/routes.js) | Backup health widget |
+| /api/v1/google/debug/connection | (added to google/routes.js) | Google connection diagnostics |
 
-## GH_VIEW pattern (inventory is the reference implementation)
-Toolbar goes **right-aligned in the panel header row** with a `flex:1` spacer on the left:
-```html
-<div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0">
-  <div style="flex:1"></div>
-  <div id="myViewToolbar" style="display:flex;align-items:center"></div>
-  <button class="btn btn-primary" onclick="openDrawer()">+ Add</button>
-</div>
-```
-Grid CSS uses `--cert-cols` CSS variable driven by `state.cols`:
-```css
-.my-grid-wrap { display:grid; grid-template-columns:repeat(var(--my-cols,3),1fr); gap:10px; }
-```
+### Shared modules (app/shared/)
+- `document-item-links.js` — junction table helpers
+- `folder-watcher.js` — chokidar watcher + hash dedup (auto-starts on boot if enabled)
+- `undo-delete.js` — soft delete recording + restore
+- `recurring-transactions.js` — auto-generates transactions + daily scheduler
+- `portfolio-analytics.js` — snapshot + performance + allocation
+- `insurance-report.js` — inventory export for insurance
+- `field-templates.js` — frequently-used field value suggestions
+- `db-maintenance.js` — VACUUM/ANALYZE/integrity check
+- `webhooks.js` — outbound webhook triggers (fire-and-forget)
 
----
+### New pages
+- `/maintenance.html` — unified maintenance hub
+- `/templates.html` — task template library
+- `/help.html` — help center with FAQ
+- `/offline.html` — service worker fallback
+- `/watcher-inbox.html` — smart inbox for unmatched files
+- `/snapshot.html` — family member snapshot viewer
+- `/tests.html` — system tests (44 tests, 10 categories)
+- `/tests.html` also accessible via nav: Admin → System Tests
 
-## Career module — current state
+### New JS modules (app/public/js/)
+- `global-search.js` — Cmd+K modal, arrow nav, grouped results
+- `quick-capture.js` — Cmd+Shift+N bottom sheet, saves to daily log
+- `offline-indicator.js` — 30s ping, banner on disconnect
+- `keyboard-shortcuts.js` — ? key shows cheat sheet modal
+- `gh-print.js` — window.print() wrapper with timestamp header (**NOT WORKING yet**)
 
-### What's built and working
-- **Certs tab**: CRUD, CE hours tracking, cycle tracking, preset lookup (PMP/FAC-PPM/Security+/CSM/ITIL etc), renewal Todo auto-create
-- **Jobs tab**: CRUD with company contact picker (`company_contact_id`)
-- **Skills, Goals tabs**: CRUD
-- **Learning tab**: CRUD, cert links (many-to-many via `career_learning_certs`), hours per cert per record
-- **GH_VIEW toolbar**: wired on certs tab — grid/list toggle + col picker, right-aligned
+### PWA
+- `sw.js` — service worker (network-first, caches static assets)
+- `manifest.json` — PWA manifest
 
-### CE hours data seeded (migration 087)
-| Cert | Hours | Cycle | Cycle Start |
-|------|-------|-------|-------------|
-| PMP | 60 PDUs | 36mo | 2025-04-23 |
-| FAC-PPM Entry | 40 hrs | 24mo | 2026-05-01 |
-| FAC-PPM Mid | 40 hrs | 24mo | 2026-05-01 |
-| CSM | 0 (no CE) | 24mo | 2025-06-01 |
-| ITIL Foundation | 0 (no renewal) | — | — |
-| Security+ | 50 hrs | 36mo | 2024-07-15 |
+## Key Architecture Decisions Made This Session
 
-### ⚠️ KNOWN ISSUE — Cert cards need visual redesign
-The cards work functionally but look completely different from the approved mockup. The approved design was:
-- Clean bordered card, `border: 0.5px solid var(--color-border-tertiary)`, `border-radius: 12px`
-- Name + badge on one tight row
-- Issuer · expiry on one muted row below
-- CE progress bar: 4px, single row with `X/Y PDUs · Nmo left` + percentage right-aligned
-- "Log training hours" button: full-width, subtle ghost, at bottom — **visually distinct, not just unstyled text**
-- Cards must have visual contrast/borders — user complained "will go blind looking for things"
+### Reports module
+Rebuilt as registry pattern — `REPORT_REGISTRY` array drives everything.
+No tabs. Card grid → detail panel. To add a report: one object + one render function.
 
-**Do not skip this. The mockup approved by the user is in the conversation history. Match it exactly.**
+### Print system design (decided, partially broken)
+- Approach: `window.print()` directly on current page (not separate window)
+- `@media print` CSS in shared.css hides sidebar/nav/buttons
+- Print button injected by nav.js into every page header
+- **Status: CSS added, button not appearing — needs diagnosis**
 
-### "Log training hours" button
-- Appears on ALL cert cards regardless of CE requirement
-- Pre-links the originating cert in the learning drawer (`logHoursFromCard(btn)` reads `data-cert-id`)
-- User can add more certs and split hours independently — the learning drawer supports this
-- Training records survive cert deletion (cert_id nullified, record kept)
+### Auth middleware
+`auth/middleware.js` intentionally NOT deployed — live server runs in open (no-password) mode.
+Build has auth enforcement code but deploying it would lock out Settings without a password configured first.
+When ready to enable auth: set password in Settings first, THEN deploy middleware.
 
----
+### Docker build command
+`docker restart ghrava` is NOT the right command when package.json changes.
+Al needs to confirm exact build command for his Container Station setup.
+When chokidar or any new npm package is added, `--build` equivalent is required.
 
-## Pending design work: GH_VIEW on all modules
-User asked for grid/list + column picker on ALL modules, same as inventory. Pattern is established. Apply to:
-- Medical (medications, conditions, visits tabs)
-- Property (vehicles, properties)
-- HSA
-- Kids
-- Books
-- Documents
-- Contacts
-- Resources (already partial)
-- Career Learning tab (already has filter chips — integrate GH_VIEW)
+## What Still Needs Work (Prioritized)
 
----
+### Immediate (next session)
+1. **Diagnose print button** — not showing on any page
+2. **tests.html print/download** — add GH_PAGE or standalone button
+3. **tests.html download report** — generate self-contained HTML file of results
 
-## Pending: Delete button pattern (all modules)
-User approved design: **trash icon (small, left-aligned) + Cancel/Save right-aligned, all on same row**. Delete only accessible from edit drawer, never on cards.
-- Needs cascade audit first — some modules have data linked to other records
-- Training → Certs: already protected (nullify not cascade)
-- Need to audit: medical conditions → medications, properties → maintenance logs, vehicles → service records, etc.
+### Short term
+4. **Google OAuth** — run `/api/v1/google/debug/connection` to diagnose connection issue
+5. **Folder watcher `--build`** — when ready, needs `npm install chokidar`
+6. **Finance routes** — `/finance/categories` for spending report, recurring transaction UI in finance.html
+7. **Family snapshot** — snapshot.html member selector needs UI
 
----
+### Design pending (discuss before building)
+- Bottom modules grid on home — remove and replace?
+- Collapsible todo group headers (URGENT/HIGH/MEDIUM/LOW)?
+- Subscription cards — need design before building
+- Step-up auth for exports (designed, not built)
 
-## FK standardization — completed
-All free-text person/org fields now have contact/family FK columns. Key column names on live DB:
-- `vehicles.lender_contact_id` (NOT loan_lender_contact_id)
-- `vehicles.insurance_contact_id`
-- `career_jobs.company_contact_id` (NOT employer_contact_id)
-- `properties.mortgage_lender_contact_id`
-- `properties.insurance_contact_id`
-- `med_medications.pharmacy_contact_id`, `family_member_id`, `condition_id`
-- `hsa_payments.provider_contact_id`, `family_member_id`
-- `kids.teacher_contact_id`
-- `finance_accounts.institution_contact_id`
-- `financial_accounts.institution_contact_id`
+## Auth Policy Reminder
+- `requireAuth` exists in settings/routes.js and watcher/routes.js ONLY
+- All other modules are open (no auth wall)
+- Read-only GET routes always sit BEFORE any auth middleware
+- App runs in open mode when no password is set
 
-**Always verify column names against live DB before writing route code.**
+## Data Safety Rules (never violate)
+- NO `ON DELETE CASCADE` anywhere — orphan cleanup is explicit
+- Journal mode: `DELETE`, synchronous: `FULL` (WAL caused data loss historically)
+- Migrations are additive only — never drop columns or tables with real data
+- Always ask for manual DB backup before any migration that deletes data
 
----
-
-## Pending features (priority order)
-
-### Tier 1 — Standardization sprint (do together, one session)
-1. **Dropdown audit + consolidation** — map every dropdown across all modules, identify duplicates, consolidate to single `dropdown_options` list per concept. Same real-world concept = one list, managed in Settings.
-2. **Tag field standardization + dropdown clipping fix** — tag suggestion list gets clipped by overflow containers. Fix: render in `position:fixed` layer in `GH_TAGS` core. Also move tag input sizing to `.gh-tags` in `shared.css`.
-3. **Inline add for all GH_SELECT dropdowns** — type + "+ Add" → saves and selects, without leaving the form. Applied globally to `GH_SELECT`.
-4. **Shared form components audit** — confirm Contact picker, Family Member picker, Tag picker each have exactly one implementation used everywhere.
-
-### Password reset — backend commands (emergency use)
-If locked out and can't access Settings UI, SSH to NAS and run:
-
-**Change password:**
-```bash
-docker exec ghrava node -e "
-const db = require('/app/db/db');
-const bcrypt = require('bcryptjs');
-const hash = bcrypt.hashSync('yournewpassword', 10);
-db.prepare("UPDATE app_config SET value=? WHERE key='app_password_hash'").run(hash);
-console.log('Password updated');
-"
-```
-
-**Clear password (open mode — no login required):**
-```bash
-docker exec ghrava node -e "
-const db = require('/app/db/db');
-db.prepare("DELETE FROM app_config WHERE key='app_password_hash'").run();
-db.prepare("DELETE FROM _sessions").run();
-console.log('Password cleared, all sessions ended');
-"
-```
-
-No restart needed. Takes effect immediately.
-
-### Auth — when ready to add password back
-Single login page (`login.html`). One token, stored in DB (`_sessions` table already exists). **No localStorage, no sessionStorage** — cookie only so browser storage clears never lose the session.
-
-Implementation:
-- `login.html` — password form → POST `/auth/login` → server sets `HttpOnly` cookie → redirect to `?next=` param
-- `nav.js` — check token once per page load via `GET /auth/status`. Invalid → redirect to `login.html?next=<current url>`
-- `requireAuth` in `middleware.js` — re-enable, check cookie (primary) OR Authorization header (APK WebView fallback)
-- Login route — add `Set-Cookie: lt_token=<token>; HttpOnly; Max-Age=31536000; Path=/` to response
-- Remove `_reAuthPrompt` from `lt-core.js` — nav.js redirect handles everything
-- Session duration: one constant in `middleware.js` (currently 365 days)
-- APK WebView: cookies work natively, no change needed
-- Form data loss on expiry: non-issue with 365-day cookie. During dev, password stays off
-
-### Tier 1.5 — Icon & action standardization (do before Tier 2)
-- **Attachment button** — paperclip icon everywhere, no text label. Cert cards already have it — use that as the pattern. Apply to all modules that have attachments. Show attachment count as a small badge overlaid top-right of the icon when count > 0; no badge when zero.
-- **Delete button** — red trash icon, no word "Delete". 26×26 to match `gh-card-btn` and all other icon buttons. Stays in edit drawer footer only, never on cards.
-- **Archive vs Delete** — design conversation required before any code. Key decisions:
-  - Archive = primary soft-delete (hidden from default views, recoverable)
-  - Hard delete = rare, only reachable from archived state (archive-first policy)
-  - Which modules need archive (certs, jobs, vehicles, properties, medical records, books) vs completion (todos) vs neither (dropdown options → deactivate)
-  - UI: "Show archived" toggle per module, or a global archived view in Reports?
-  - Card-level archive action (icon in footer) or drawer-only?
-
-### Tier 2 — UI completeness
-5. **GH_VIEW on remaining modules** — Medical, Property, HSA, Kids, Books, Documents, Contacts, Resources, Career Learning. One pass, all at once.
-6. **Delete button pattern** — trash icon left-aligned + Cancel/Save right-aligned, same row. Delete only from edit drawer. Requires cascade audit first.
-7. **Card appearance customization** (Settings → Appearance → Cards) — border thickness, corner radius, density, background elevation. CSS variables on `<body>`, stored in settings DB.
-8. **Tag appearance customization** (Settings → Appearance → Tags) — pill radius, size, global color toggle. CSS variables in `shared.css`.
-
-### Tier 3 — New modules/features
-9. **Family member report** (“Everything about a person”) — goes in Reports, new-tab + polling
-10. **Notifications module** — design-first conversation before any code
-11. **Scheduled backup**
-12. **Global search** across all modules
-
----
-
-## UI standardization principles (established v202604)
-**Single Source of Truth** — every piece of data, UI, and behavior exists in exactly one place.
-- **Data**: one dropdown list per real-world concept; one table per entity type
-- **References**: person field = Contact FK; family member = `family_members` FK; no free-text name fields for lookups
-- **UI components**: one HTML implementation per form/picker/component, wired everywhere via shared utility
-- **Styles**: `.gh-card` in `shared.css` is canonical. `.gh-tags` will be canonical tag input. All customization via CSS variables.
-
-## gh-card system (completed v202604)
-Base class `.gh-card` + status modifiers in `shared.css`. Layout helpers: `.gh-card-head/title/meta/divider/body/row/footer/tags/actions/btn`. Value helpers: `.ghv/.ghv-ok/.ghv-warn/.ghv-err/.ghv-dim`. Badges: `.gh-badge` + `.gh-badge-green/amber/red/blue/gray/purple`.
-Status colors: green=active/current, amber=expiring/pending, red=expired/overdue, blue=info/default, gray=neutral/former.
-Modules updated: career, books, todos, property, medical, documents, resources, kids.
-
----
-
-## Migration notes
-- Live DB last applied: 087
-- Pending migrations 067, 069, 071, 076, 077, 080 were failing due to BEGIN/COMMIT nesting and duplicate columns — all fixed
-- `migrate.js` strips BEGIN/COMMIT/ROLLBACK before running in its own `db.transaction()` wrapper
-- Always run migration simulation (predeploy-check gate 5) before shipping
-
----
-
-## Key file locations
-- `app/version.txt` — version string
-- `app/db/migrate.js` — migration runner
-- `app/db/migrations/` — all migrations (sequential numbers, additive only)
-- `app/shared/autoTodos.js` — `syncAutoTodos()` + `syncMedRefillTodos(db)`
-- `app/shared/namematch.js` — `resolvePatient()` for EOB import name matching
-- `app/shared/needs-review.js` — data review flagging system
-- `app/scripts/predeploy-check.sh` — 5-gate predeploy check
-- `app/public/js/lt-core.js` — GH_VIEW, GH_SELECT, GH_FAMILY, window.api
-- `app/public/js/lt-refs.js` — GH_REFS (contact pickers)
+## Session Startup Procedure
+1. Check if `/home/claude/ghrava_build/` exists with full project
+2. If not: `unzip -q /mnt/user-data/outputs/Ghrava_DEPLOY.zip -d ghrava_clean && cd ghrava_clean/ghrava && npm install --silent`
+3. For DB inspection: use `/home/claude/ghrava_review/data/lifetracker.db`
+4. Always `node --check <file>` before packaging
+5. Always run inline script syntax check on HTML files before packaging
