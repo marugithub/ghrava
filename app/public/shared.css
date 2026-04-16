@@ -2643,3 +2643,55 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   border-color: rgba(92,114,250,.3);
   color: var(--accent);
 }
+
+/* ── Print styles ─────────────────────────────────────────── */
+@media print {
+  .side-nav,
+  .side-nav-overlay,
+  .gh-hamburger,
+  .gh-header-actions,
+  .gh-notif-panel,
+  .fab,
+  .fab-group,
+  .modal-backdrop,
+  .drawer-backdrop,
+  .bottom-sheet-backdrop,
+  button[onclick*="showForm"],
+  button[onclick*="openModal"],
+  .btn-primary,
+  .btn-ghost,
+  #globalSearchTrigger,
+  #quickCaptureBtn,
+  #offlineBanner {
+    display: none !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+
+  .app-shell {
+    display: block !important;
+  }
+
+  .page-content,
+  .main-content,
+  #app {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  .gh-page-header {
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 12px;
+  }
+
+  .gh-page-header::after {
+    content: "Printed: " attr(data-date);
+    font-size: 11px;
+    color: #666;
+    display: block;
+    padding: 2px 12px 6px;
+  }
+}

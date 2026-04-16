@@ -29,6 +29,7 @@
     bell:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>`,
     chevleft:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
     menu:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
+    print:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
     sidebar:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>`,
   };
 
@@ -212,6 +213,9 @@
     const rightBtns = `
       <div class="gh-header-actions">
         ${cfg.rightExtra || ''}
+        <button class="gh-icon-btn" aria-label="Print" onclick="window.print()">
+          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.print}</span>
+        </button>
         <button class="gh-icon-btn" id="ghNotifBtn" aria-label="Notifications" onclick="window.GH_NAV && GH_NAV.toggleNotif()">
           <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.bell}</span>
           <span class="gh-notif-badge" style="display:none">0</span>
