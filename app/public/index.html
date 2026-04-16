@@ -151,8 +151,13 @@
   </div>
 
   <!-- ── All modules ─────────────────────────────────────────── -->
-  <div class="module-section-title">All Modules</div>
-  <div class="module-grid" id="moduleGrid"></div>
+  <div class="module-section-title" onclick="toggleModuleGrid(this)">
+    All Modules
+    <span class="module-section-chevron" id="moduleGridChev">▾</span>
+  </div>
+  <div class="module-grid-wrap" id="moduleGridWrap">
+    <div class="module-grid" id="moduleGrid"></div>
+  </div>
 
 </div><!-- #app -->
 
@@ -221,6 +226,11 @@
         <div class="module-tile-label">${m.label}</div>
       </${tag}>`;
     }).join('');
+    // Update wrap height now that grid is populated
+    const wrap = document.getElementById('moduleGridWrap');
+    if (wrap && !wrap.classList.contains('sec-collapsed')) {
+      wrap.style.maxHeight = wrap.scrollHeight + 'px';
+    }
   }
 
   // ── Load dashboard data ─────────────────────────────────────
@@ -477,8 +487,31 @@
     return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // ── Module grid collapse ────────────────────────────────────
+  function isModuleGridCollapsed() {
+    return localStorage.getItem('gh_module_grid') !== '0';  // collapsed by default
+  }
+
+  function applyModuleGridState() {
+    const wrap = document.getElementById('moduleGridWrap');
+    const chev = document.getElementById('moduleGridChev');
+    const collapsed = isModuleGridCollapsed();
+    if (wrap) {
+      wrap.classList.toggle('sec-collapsed', collapsed);
+      wrap.style.maxHeight = collapsed ? '0' : (wrap.scrollHeight + 'px');
+    }
+    if (chev) chev.style.transform = collapsed ? 'rotate(-90deg)' : '';
+  }
+
+  window.toggleModuleGrid = function(headEl) {
+    const collapsed = !isModuleGridCollapsed();
+    localStorage.setItem('gh_module_grid', collapsed ? '0' : '1');
+    applyModuleGridState();
+  };
+
   // ── Init ────────────────────────────────────────────────────
   setTimeout(buildModuleGrid, 0);
+  setTimeout(applyModuleGridState, 0);
   loadDashboard();
   loadFocusStrip();
 
