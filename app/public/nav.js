@@ -32,6 +32,10 @@
     menu:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
     print:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
     sidebar:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>`,
+    wardrobe:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.38 3.46L16 2a4 4 0 01-8 0L3.62 3.46a2 2 0 00-1.34 2.23l.58 3.57a1 1 0 00.99.84H7v10a1 1 0 001 1h8a1 1 0 001-1V10h3.15a1 1 0 00.99-.84l.58-3.57a2 2 0 00-1.34-2.23z"/></svg>`,
+    perfume:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v2H9z"/><path d="M12 5v3"/><rect x="5" y="8" width="14" height="13" rx="3"/><path d="M12 11v4M10 13h4"/></svg>`,
+    insurance: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`,
+    subscriptions: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><path d="M12 22V12M3.27 6.96L12 12.01l8.73-5.05"/></svg>`,
   };
 
   function icon(key, size) {
@@ -60,7 +64,11 @@
     books:     { href:'/books.html',      label:'Books',     color:'#8b5cf6', bg:'rgba(139,92,246,.1)',    svgKey:'books' },
     reports:   { href:'/reports.html',    label:'Reports',       color:'#06b6d4', bg:'rgba(6,182,212,.1)',     svgKey:'reports' },
     data:      { href:'/data.html',       label:'Data',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'database' },
-    notifications: { href:'/notifications.html', label:'Alerts', color:'#ef4444', bg:'rgba(239,68,68,.1)',   svgKey:'bell' },
+    notifications:  { href:'/notifications.html', label:'Alerts',        color:'#ef4444', bg:'rgba(239,68,68,.1)',    svgKey:'bell' },
+    wardrobe:       { href:'/wardrobe.html',       label:'Wardrobe',      color:'#ec4899', bg:'rgba(236,72,153,.1)',   svgKey:'wardrobe' },
+    perfume:        { href:'/perfume.html',         label:'Perfume',       color:'#a78bfa', bg:'rgba(167,139,250,.1)',  svgKey:'perfume' },
+    insurance:      { href:'/insurance.html',       label:'Insurance',     color:'#0ea5e9', bg:'rgba(14,165,233,.1)',   svgKey:'insurance' },
+    subscriptions:  { href:'/subscriptions.html',   label:'Subscriptions', color:'#f59e0b', bg:'rgba(245,158,11,.1)',   svgKey:'subscriptions' },
   };
 
   function moduleIcon(m, sizePx) {
@@ -68,10 +76,11 @@
   }
 
   const SIDEBAR_SECTIONS = [
-    { label: 'Daily',     keys: ['dailylog', 'todos'] },
-    { label: 'Finance',   keys: ['finance', 'trading'] },
-    { label: 'Household', keys: ['inventory', 'medical', 'kids', 'property', 'documents', 'maintenance'] },
-    { label: 'Personal',  keys: ['career', 'books', 'resources'] },
+    { label: 'Daily',     keys: ['dailylog', 'todos', 'resources'] },
+    { label: 'Finance',   keys: ['finance', 'trading', 'subscriptions'] },
+    { label: 'Household', keys: ['inventory', 'property', 'documents', 'wardrobe', 'perfume', 'maintenance'] },
+    { label: 'Family',    keys: ['medical', 'kids', 'insurance'] },
+    { label: 'Personal',  keys: ['career', 'books'] },
     { label: 'Reports',   keys: ['reports'] },
     { label: 'Admin',     keys: ['notifications', 'data', 'settings', 'templates', 'tests', 'help'] },
   ];
