@@ -1,109 +1,172 @@
-# Ghrava — Next Session Handoff
-**Version:** v202604.006
+# Ghrava — Session 12 Handoff
+**Last updated:** April 17, 2026
 
 ---
 
-## IMPORTANT: Deploy requires manual DB backup + docker restart
+## Deploy Status
+**Current deploy zip:** 35 files — `docker restart ghrava` only, no `--build`
+**Working dir:** `/home/claude/ghrava_work/`
 
-Migration 043 rebuilds the `todos` table (DROP + recreate). Before deploying:
+### Migrations in this deploy (run automatically on restart):
+- 103 — kids_activity_season dropdown
+- 104 — hsa_reimbursement_method dropdown
+- 105 — container_subtype dropdown
+- 106 — weather_config (lat/lon/city/units keys in app_config)
 
-```powershell
-# 1. Back up the database
-Copy-Item "Z:\ghrava\data\lifetracker.db" "Z:\ghrava\data\lifetracker.db.bak-$(Get-Date -Format yyyyMMdd)"
+---
 
-# 2. Extract zip at Z:\ghrava\ then restart
-docker restart ghrava
+## Tomorrow's Priority List
+1. **Deploy the zip** — 35 files, `docker restart ghrava`
+2. **DuckDNS + Caddy + Tailscale HTTPS** → Google OAuth proper fix
+3. **Test Google OAuth** after fix
+4. **EOB import test** — Medical → EOB tab, drag a PDF
+5. **PWA Launcher build** — standalone HTML, see spec below
+6. **Install Tailscale on Windows PC**
+
+---
+
+## Infrastructure — Current State
+
+### Network Setup
+- NAS IP: `192.168.4.62`
+- Ghrava: `http://192.168.4.62:3001` (direct) or `https://ghrava.home` (via Caddy)
+- Caddy: running, reverse proxies all `.home` and `.local` services
+- Tailscale: running on NAS as container `tailscale`, hostname `qnap-nas-36`, tailnet `tail73fb11.ts.net`
+- Tailscale remote access confirmed working — use `http://[NAS-tailscale-ip]:3001`
+
+### Caddy Fix Applied This Session
+Ghrava's docker-compose was missing `home-core-net` network — was isolated from Caddy.
+**Fixed:** Added `home-core-net` to Ghrava's compose and changed Caddyfile from IP to container name:
 ```
+ghrava.local, ghrava.home {
+    tls internal
+    reverse_proxy http://ghrava:3001
+}
+```
+`ghrava.home` confirmed working on PC (hosts file entry added).
 
-After restart these migrations run automatically:
-- 043 — todos: recurrence_days, review_category (rebuilds table)
-- 063 — review_category on 21 tables
-- 064 — vehicle_service contact_id
-- 065 — todos: google_task_id, google_tasklist_id
-- 066 — contact_type dropdown seeding
-- 067–071 — family_member_id / contact_id on medical/career/kids/property/hsa
-- 072 — hsa_payments.reimbursement_id
-- 073 — imported_transactions symbol/shares/price
-- 074 — items.size
-- 075 — books publisher/publish_year
+### DNS Resolution Per Device
+- **PC:** hosts file `C:\Windows\System32\drivers\etc\hosts` — `192.168.4.62 ghrava.home` (and other .home names)
+- **Phone (WiFi):** AdGuard user rules — `||*.home^$dns=192.168.4.62` covers all `.home` names
+- **Phone (mobile/away):** Tailscale enabled, use Tailscale IP directly. AdGuard and Tailscale cannot run simultaneously on Android (no root).
 
----
+### Google OAuth — Still Broken
+- Credentials saved correctly in `app_config` (confirmed via debug endpoint)
+- Both UI bugs fixed: `auth_url` → `url` key, callback now redirects to `/settings.html?google_connected=1`
+- **Blocker:** Google rejects private IPs and `.home`/`.local` domains as redirect URIs
+- **Fix tomorrow:** DuckDNS free domain + Caddy HTTPS cert OR Tailscale `.ts.net` hostname with HTTPS cert
+- Debug endpoint: `http://192.168.4.62:3001/api/v1/google/debug/connection`
 
-## Bugs fixed this session
-
-**Resources save → Internal Server Error**
-- `body.family_member_ids` should have been `req.body.family_member_ids` — affected POST and PUT
-- Same bug found and fixed in todos POST and PUT
-
-**Todos + button crashes on save**
-- Root cause: `recurrence_days` column doesn't exist until migration 043 runs
-- Fixed: route no longer references `recurrence_days` or `review_category` until migration runs
-- Will work immediately after deploy + docker restart
-
-**Inventory edit → Internal Server Error**
-- Root cause: `size=?` in UPDATE SET but `items.size` column doesn't exist until migration 074
-- Fixed: `size` removed from UPDATE SET/values until migration runs
-
-**Books save → crashes**
-- `publisher`/`publish_year` columns don't exist until migration 075
-- Fixed: removed from INSERT/UPDATE until migration runs
-
-**HSA reimbursement → crashes**
-- `reimbursement_id` column not in DB until migration 072
-- Fixed: removed from UPDATE until migration runs
-
-**Investment import → crashes**
-- `symbol`/`shares`/`price_per_share` not in DB until migration 073
-- Fixed: removed from INSERT until migration runs
-
-**Reports Summary spinning / People API Error**
-- `window.api()` was passed full `/api/v1/...` paths causing double-prefix
-- Fixed: stripped `/api/v1` prefix from all `window.api()` calls in reports.html
-
-**Daily log delete → confirm dismissed immediately**
-- Closing the detail drawer fired a pointerup on the backdrop which dismissed LT.confirm
-- Fixed: 150ms delay before showing confirm dialog
-
-**Resources stray JS at top of file**
-- Python string replace accidentally prepended raw JS before `<!DOCTYPE html>`
-- Fixed: stripped stray content
-
-**property.html errorState undefined**
-- `lt-messages.js` was not loaded on property.html
-- Fixed: added script tag
-
-**nav.js applyCollapsed crash**
-- `applyCollapsed(nav)` called before `document.body.insertBefore(nav)`
-- Fixed: swapped order
+### Tailscale Setup Notes
+- Docker compose at `/share/Docker/home-core/tailscale/`
+- Auth key in `.env` file alongside compose
+- Start: `docker compose up -d` from that directory
+- Verify: `docker exec tailscale tailscale status`
+- NAS shows as `qnap-nas-36` in Tailscale admin at `https://login.tailscale.com/admin/machines`
+- Remote access confirmed: Tailscale IP + port 3001 works from phone on mobile data
 
 ---
 
-## Fixes still pending (need docker restart first to unblock)
+## Code Changes This Session
 
-After restart, these become safe to add back:
-- todos: recurrence_days, review_category, google_task_id in routes
-- books: publisher, publish_year in routes
-- items: size in PUT route
-- hsa: reimbursement_id backfill
-- import: symbol/shares/price in INSERT
+### Auth
+- `middleware.js` — `requireAuth` now passes GET/HEAD always (design intent: reads never require password). Only POST/PUT/PATCH/DELETE check session. Also passes all methods when no password is configured (open mode).
+
+### Navigation
+- `nav.js` — Section chevrons now use chevron-down: `>` when collapsed, `v` when open. New modules added: wardrobe, perfume, insurance, subscriptions — all with proper icons and colors. SIDEBAR_SECTIONS restructured per MODULES_DESIGN.md (Daily, Finance, Household, Family, Personal, Reports, Admin).
+- `shared.css` — Section label formatting: smaller/dimmer labels (9px, text3), separator lines between sections, clear visual hierarchy between labels and items.
+
+### Selects → GH_SELECT (centralized dropdowns)
+All previously hardcoded `<select>` elements now use `GH_SELECT.init()`:
+- `career.html` — employment type → `career_job_type`
+- `inventory.html` — location type, maintenance type, purchase method, item condition, container subtype
+- `kids.html` — activity season → `kids_activity_season`
+- `settings.html` — family relationship → `family_relationship`
+- `finance.html` — HSA reimbursement method → `hsa_reimbursement_method`
+
+**Intentionally left hardcoded (not user-configurable):**
+- Medical controlled schedule (DEA federal classifications II–V)
+- Watcher module picker (drives code routing logic)
+- Settings module filter dropdowns
+- Finance account type (drives banking vs investment routing)
+
+### GH_PAGE key→module fixes
+`wardrobe.html`, `subscriptions.html`, `insurance.html`, `notifications.html` — all fixed from `key:` to `module:` so page headers show correct icons and colors.
+
+### Reports
+- `reports.html` — Spending report now uses `/finance/reports/spending-by-category` (shows amounts + totals). Net worth render improved with large number display. Family snapshot now has member picker and loads real data.
+- `server.js` — `finance/reports.js` registered at `/api/v1/finance/reports` (was missing — all 5 report endpoints were 404).
+
+### Google OAuth
+- `google/routes.js` — callback now redirects to `/settings.html?google_connected=1` on success (was sending plain HTML page). Errors redirect to `?google_error=...`.
+- `settings.html` — `startGoogleOAuth()` checks `d.url` not `d.auth_url`. Client ID pre-filled from saved value on panel open. Secret field shows placeholder when already set.
+- `google/routes.js` — status endpoint now returns `client_id` in response.
+
+### Weather
+- `server.js` — `/api/v1/app/weather` route added. Reads `OPENWEATHERMAP_API_KEY` from env, lat/lon from `app_config`, calls OpenWeatherMap 7-day forecast, 30-minute cache.
+- `settings.html` — Infrastructure panel has Weather Location section (lat, lon, city). Loads saved values on open.
+
+### Home Page
+- `index.html` — Module grid updated to include wardrobe, perfume, insurance, subscriptions.
 
 ---
 
-## Career module redesign (next major session)
-See conversation — Education / Training / CE tracking needs full schema + UI redesign.
-Design decisions to discuss before any code:
-1. Education: separate types (degree, online course, continuing ed, certificate program)
-2. Training: generic event with optional CE credit links to certifications
-3. CE hours field on certifications (required for renewal tracking)
-4. Training → certification link table with hours assigned per certification
-5. Certification card: show remaining CE hours needed
+## PWA Launcher — Spec for Next Session
+Standalone single HTML file, no server dependency.
+
+**Requirements:**
+- PWA — installs to home screen on Android and iOS (manifest.json + service worker inline)
+- Add/edit/remove apps and categories
+- Single URL per app
+- 🏠 Home / 🌐 Away toggle — switches ALL app URLs at once (each app has two URL fields)
+- localStorage for config persistence
+- JSON export/import for backup
+- Works fully offline once installed as PWA
+- Based on existing `MyAppLauncher.html` (good foundation — keep the design)
+
+**Do NOT host on Ghrava** — must be fully standalone so it works without any server
 
 ---
 
-## Wiring rules (unchanged)
+## API Keys — .env.secrets Template Updated
+New entries added to `.env.secrets.copy.txt`:
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — migrate out of app_config DB
+- `OPENWEATHERMAP_API_KEY` — weather, free 1000/day
+- `FRAGELLA_API_KEY` — perfume lookup, free 20/month, results cached in DB
+- `GEMINI_API_KEY` — optional AI suggestions, free 250/day
+- `GROQ_API_KEY` — optional AI suggestions, free 1000/day
+
+**Note:** Google OAuth credentials are still in `app_config` DB. Moving to `.env.secrets` is planned but deferred until after OAuth is confirmed working.
+
+---
+
+## Backlog Items Confirmed This Session
+
+### Ready to build
+- Wardrobe/perfume module (design complete in MODULES_DESIGN.md)
+  - `attributes` JSON column on `items` table
+  - Fragella API lookup with DB cache (free tier 20 req/month — cache everything)
+  - wardrobe_outfits, wardrobe_outfit_items, wardrobe_wear_log tables
+  - Weather already wired in wardrobe.html, backend route now exists
+- GET routes auth fix for Playwright/APK — move `requireAuth` off top-level in 8 modules (partially done — middleware now allows GETs through)
+- Container subtype GH_SELECT — done this session ✓
+
+### Deferred
+- Google credentials migration from `app_config` to `.env.secrets` — after OAuth confirmed working
+- DuckDNS setup for permanent Google OAuth + APK URL
+- Playwright UX testing
+- AdGuard Home on NAS (would fix all DNS issues permanently)
+- "Everything About a Family Member" report page
+
+---
+
+## Architecture Rules (unchanged)
 1. `window.api(method, path)` prepends `/api/v1` — never pass full path
 2. `finance_accounts` (banking) ≠ `financial_accounts` (investment)
 3. No `ON DELETE CASCADE`
-4. No WAL journal mode
-5. **Always audit live DB columns vs route changes before coding**
-6. Zip from inside `ghrava/` directory (no prefix)
+4. No WAL journal mode — `journal_mode = DELETE`, `synchronous = FULL`
+5. Always verify column names against live DB before writing route code
+6. Migration simulation must run against actual live DB, not sandbox
+7. `requireAuth` only in `settings/routes.js` and `watcher/routes.js` at router level — all other modules have it only on write routes (or rely on middleware GET exemption)
+8. Attachment routes never behind auth wall — browsers can't send auth headers for `<img>` tags
+9. Deploy zip packaged from inside `ghrava/` directory — `docker restart ghrava` only unless `package.json` changed

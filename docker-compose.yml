@@ -22,3 +22,9 @@ services:
       - .env
     environment:
       - NODE_ENV=production
+    networks:
+      - home-core-net
+
+networks:
+  home-core-net:
+    external: true
