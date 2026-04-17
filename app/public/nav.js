@@ -28,6 +28,7 @@
     database:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>`,
     bell:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>`,
     chevleft:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>`,
+    chevdown:  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>`,
     menu:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>`,
     print:     `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>`,
     sidebar:   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="9" y1="3" x2="9" y2="21"/></svg>`,
@@ -117,7 +118,7 @@
     if (!sec) return;
     sec.classList.toggle('sec-open', open);
     const chevron = sec.querySelector('.sec-chevron');
-    if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
+    if (chevron) chevron.style.transform = open ? 'rotate(0deg)' : 'rotate(-90deg)';
   }
 
   // ── Notifications badge ──────────────────────────────────────
@@ -173,7 +174,7 @@
       <div class="side-nav-section${open ? ' sec-open' : ''}" data-section="${s.label}">
         <div class="side-nav-section-label" onclick="GH_NAV.toggleSection('${s.label}')">
           <span class="sec-label-text">${s.label}</span>
-          <span class="sec-chevron" style="transform:${open ? 'rotate(180deg)' : ''}">${SVG.chevleft}</span>
+          <span class="sec-chevron" style="transform:${open ? 'rotate(0deg)' : 'rotate(-90deg)'}">${SVG.chevdown}</span>
         </div>
         <div class="side-nav-section-items">
           ${s.keys.map(k => {

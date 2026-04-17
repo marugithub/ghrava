@@ -166,33 +166,33 @@ html, body {
   color: var(--text);
 }
 
-.side-nav-section { padding: 6px 10px 0; }
+.side-nav-section { padding: 4px 8px 0; }
 
 .side-nav-section-label {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
-  letter-spacing: 0.09em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--text2);
-  padding: 4px 8px 4px;
-  margin-bottom: 0;
-  border-radius: 5px;
+  color: var(--text3);
+  padding: 8px 6px 3px;
+  margin-bottom: 1px;
+  border-radius: 4px;
   cursor: pointer;
-  transition: background .12s;
+  transition: background .12s, color .12s;
   user-select: none;
 }
-.side-nav-section-label:hover { background: var(--bg3); }
+.side-nav-section-label:hover { background: var(--bg3); color: var(--text2); }
 .sec-label-text { flex: 1; }
 .sec-chevron {
-  width: 14px;
-  height: 14px;
+  width: 12px;
+  height: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: .5;
+  opacity: .4;
   transition: transform .2s ease;
   flex-shrink: 0;
 }
@@ -200,18 +200,29 @@ html, body {
 .side-nav-section-items {
   overflow: hidden;
   max-height: 0;
-  transition: max-height .2s ease;
+  transition: max-height .25s ease;
 }
 .side-nav-section.sec-open .side-nav-section-items {
-  max-height: 400px;
+  max-height: 500px;
 }
-/* Indent items under section label for visual hierarchy */
+/* Items: clear visual separation from section label */
 .side-nav-section .side-nav-item {
-  padding-left: 18px;
+  padding-left: 14px;
+  font-size: 13px;
   border-left: 2px solid transparent;
+  margin: 1px 0;
 }
 .side-nav-section .side-nav-item.active {
   border-left-color: var(--accent);
+}
+.side-nav-section .side-nav-item:not(.active):hover {
+  border-left-color: var(--border2);
+}
+/* Separator line between sections */
+.side-nav-section + .side-nav-section {
+  margin-top: 2px;
+  padding-top: 2px;
+  border-top: 1px solid var(--border);
 }
 .side-nav-section .side-nav-item:not(.active):hover {
   border-left-color: var(--border2);

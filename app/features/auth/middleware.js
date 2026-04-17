@@ -51,8 +51,11 @@ function isValidToken(token) {
 }
 
 function requireAuth(req, res, next) {
-  // Open mode: if no password has been configured, always allow through.
-  // This covers first-run, development, and "no password set" installs.
+  // Design intent: reading data never requires a password.
+  // GET and HEAD requests always pass through — only writes are protected.
+  if (req.method === 'GET' || req.method === 'HEAD') return next();
+
+  // Open mode: if no password has been configured, allow all writes through too.
   const cfg = db.prepare("SELECT value FROM app_config WHERE key = 'app_password_hash'").get();
   if (!cfg) return next();
 

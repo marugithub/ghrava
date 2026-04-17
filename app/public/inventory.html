@@ -950,14 +950,7 @@
     </div>
     <div class="form-group">
       <label class="form-label">Type</label>
-      <select class="form-select" id="ctn_sub">
-        <option value="movable">📦 Movable (box, bin, tote, bag)</option>
-        <option value="fixed">🗄️ Fixed (cabinet, bookshelf)</option>
-        <option value="shelf">📚 Shelf</option>
-        <option value="drawer">🗃️ Drawer</option>
-        <option value="closet">🚪 Closet</option>
-        <option value="other">📦 Other</option>
-      </select>
+      <select class="form-select" id="ctn_sub"><option value="">Loading…</option></select>
     </div>
     <div class="form-group">
       <label class="form-label">Location <span class="req">*</span></label>
@@ -2937,7 +2930,7 @@ async function openCtnDrawer(ctn=null, fromItemDrawer=false) {
   editingId = ctn?.id||null;
   $('ctnDrawerTitle').textContent = ctn?'Edit Container':'Add Container';
   $('ctn_name').value  = ctn?.name||'';
-  $('ctn_sub').value   = ctn?.subtype||'movable';
+  await GH_SELECT.init('ctn_sub', 'container_subtype', ctn?.subtype||'movable', { allowAdd: false });
   $('ctn_notes').value = ctn?.notes||'';
   // When opened from item drawer, pre-select current location if one is chosen
   const locId = fromItemDrawer ? $('itm_loc_sel').value : null;
