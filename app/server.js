@@ -318,6 +318,41 @@ app.get('/api/v1/app/module-inventory', (req, res) => {
   res.json({ modules, totals });
 });
 
+// ── Weather ────────────────────────────────────────────────────
+// GET /api/v1/app/weather — 7-day forecast from OpenWeatherMap
+// Requires OPENWEATHERMAP_API_KEY in .env.secrets and lat/lon in app_config
+const _weatherCache = { data: null, ts: 0 };
+app.get('/api/v1/app/weather', async (req, res) => {
+  try {
+    // Serve from cache if fresh (30 min)
+    if (_weatherCache.data && Date.now() - _weatherCache.ts < 30 * 60 * 1000) {
+      return res.json(_weatherCache.data);
+    }
+    const apiKey = process.env.OPENWEATHERMAP_API_KEY;
+    if (!apiKey) return res.json({ error: 'OPENWEATHERMAP_API_KEY not configured' });
+
+    const db = require('./db/db');
+    const lat = db.prepare("SELECT value FROM app_config WHERE key='weather_latitude'").get()?.value;
+    const lon = db.prepare("SELECT value FROM app_config WHERE key='weather_longitude'").get()?.value;
+    const units = db.prepare("SELECT value FROM app_config WHERE key='weather_units'").get()?.value || 'imperial';
+
+    if (!lat || !lon) return res.json({ error: 'Weather location not configured — set lat/lon in Settings' });
+
+    const url = `https://api.openweathermap.org/data/2.5/forecast/daily?lat=${lat}&lon=${lon}&cnt=7&units=${units}&appid=${apiKey}`;
+    const resp = await fetch(url);
+    if (!resp.ok) {
+      const err = await resp.text();
+      return res.status(502).json({ error: `OpenWeatherMap error: ${err.slice(0,200)}` });
+    }
+    const data = await resp.json();
+    _weatherCache.data = data;
+    _weatherCache.ts   = Date.now();
+    res.json(data);
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/v1/app/info', (req, res) => {
   const db = require('./db/db');
   try {

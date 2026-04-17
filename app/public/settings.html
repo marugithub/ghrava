@@ -809,6 +809,29 @@
           <div id="infraUrlResult" style="display:none;margin-top:10px;font-size:13px;color:var(--green)"></div>
         </div>
       </div>
+      <div class="section-label">Weather Location</div>
+      <div style="padding:0 20px">
+        <div class="card card-static">
+          <div style="font-size:13px;color:var(--text2);margin-bottom:12px">Used by the Wardrobe module for outfit suggestions. Find your coordinates at <a href="https://www.latlong.net" target="_blank" style="color:var(--accent)">latlong.net</a>.</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Latitude</label>
+              <input class="form-input" id="weatherLat" placeholder="e.g. 33.4484">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Longitude</label>
+              <input class="form-input" id="weatherLon" placeholder="e.g. -112.0740">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">City Name <span style="font-size:11px;font-weight:400;color:var(--text3)">(display only)</span></label>
+            <input class="form-input" id="weatherCity" placeholder="e.g. Phoenix, AZ">
+          </div>
+          <button class="btn btn-ghost btn-full" onclick="saveWeatherConfig()">Save Location</button>
+          <div id="weatherConfigResult" style="display:none;margin-top:8px;font-size:13px"></div>
+        </div>
+      </div>
+
       <div class="section-label">QR Codes</div>
       <div style="padding:0 20px">
         <div class="card card-static">
@@ -2907,7 +2930,34 @@ async function loadInfra() {
   try {
     const cfg = await window.api('GET', '/settings/config');
     $('infraBaseUrl').value = cfg.app_base_url || window.location.origin;
+    // Load weather config
+    try {
+      const [wlat, wlon, wcity] = await Promise.all([
+        window.api('GET', '/settings/config/weather_latitude'),
+        window.api('GET', '/settings/config/weather_longitude'),
+        window.api('GET', '/settings/config/weather_city'),
+      ]);
+      if (document.getElementById('weatherLat'))  document.getElementById('weatherLat').value  = wlat?.value  || '';
+      if (document.getElementById('weatherLon'))  document.getElementById('weatherLon').value  = wlon?.value  || '';
+      if (document.getElementById('weatherCity')) document.getElementById('weatherCity').value = wcity?.value || '';
+    } catch {}
   } catch { $('infraBaseUrl').value = window.location.origin; }
+}
+
+async function saveWeatherConfig() {
+  const lat  = document.getElementById('weatherLat')?.value.trim();
+  const lon  = document.getElementById('weatherLon')?.value.trim();
+  const city = document.getElementById('weatherCity')?.value.trim();
+  const res  = document.getElementById('weatherConfigResult');
+  try {
+    await Promise.all([
+      window.api('PUT', '/settings/config/weather_latitude',  { value: lat  }),
+      window.api('PUT', '/settings/config/weather_longitude', { value: lon  }),
+      window.api('PUT', '/settings/config/weather_city',      { value: city }),
+    ]);
+    if (res) { res.textContent = '✓ Location saved'; res.style.color = 'var(--green)'; res.style.display = 'block'; }
+    toast('Weather location saved', 'ok');
+  } catch(e) { toast('Failed to save: ' + e.message, 'err'); }
 }
 
 async function saveBaseUrl() {
