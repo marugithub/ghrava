@@ -82,7 +82,7 @@
     { label: 'Family',    keys: ['medical', 'kids', 'insurance'] },
     { label: 'Personal',  keys: ['career', 'books'] },
     { label: 'Reports',   keys: ['reports'] },
-    { label: 'Admin',     keys: ['notifications', 'data', 'settings', 'templates', 'tests', 'help'] },
+    { label: 'Admin',     keys: ['notifications', 'data', 'settings', 'templates', 'tests'] },
   ];
 
   const currentPath = window.location.pathname;
@@ -261,6 +261,9 @@
           <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.bell}</span>
           <span class="gh-notif-badge" style="display:none">0</span>
         </button>
+        <a href="/help.html" class="gh-icon-btn" aria-label="Help">
+          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.help}</span>
+        </a>
         <a href="/settings.html" class="gh-icon-btn" aria-label="Settings">
           <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.settings}</span>
         </a>
