@@ -1222,9 +1222,8 @@
 </div>
 
 <!-- ══ ITEM DETAIL DRAWER ════════════════════════════════════ -->
-<div class="drawer-overlay" id="detailDrawer">
-  <div class="drawer">
-    <div class="drawer-handle"></div>
+<div class="gh-drawer" id="detailDrawer">
+  <div class="gh-drawer-body">
     <div id="detailContent"></div>
   </div>
 </div>
@@ -2442,7 +2441,8 @@ function toggleSection(hdr) {
   hdr.parentElement.classList.toggle('collapsed');
 }
 
-(function(){ let _d=false; $('detailDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('detailDrawer')}); $('detailDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('detailDrawer'))$('detailDrawer').classList.remove('open');}); })();
+// detail panel closes via × button in header or Escape key
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('detailDrawer').classList.remove('open'); });
 
 // ══════════════════════════════════════════════════════════════
 // PHOTO VIEWER
