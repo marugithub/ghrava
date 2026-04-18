@@ -1,59 +1,55 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <link rel="icon" type="image/x-icon" href="/favicon.ico">
-  <link rel="apple-touch-icon" href="/icon-192.png">
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#f0f4f8">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <title>Wardrobe — Ghrava</title>
-  <link rel="stylesheet" href="/shared.css">
-  <script src="/theme.js"></script>
-  <script>
-    if (localStorage.getItem('gh_nav_collapsed') !== '0') {
-      document.documentElement.classList.add('nav-collapsed-init');
-    }
-  </script>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/icon-192.png">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#f0f4f8"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Wardrobe — Ghrava</title><link rel="stylesheet" href="/shared.css"><script src="/theme.js"></script>
+  <script>if (localStorage.getItem('gh_nav_collapsed') !== '0') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .member-pills { display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 0; }
-    .member-pill { padding:5px 14px;border-radius:20px;font-size:13px;font-weight:500;border:1px solid var(--border2);background:var(--bg2);color:var(--text2);cursor:pointer;transition:.15s; }
-    .member-pill.active { background:var(--accent-bg);color:var(--accent);border-color:var(--accent-bd); }
-    .weather-strip { display:flex;gap:10px;overflow-x:auto;padding:10px 16px 0;scrollbar-width:none; }
-    .weather-strip::-webkit-scrollbar { display:none; }
-    .weather-col { flex-shrink:0;width:200px; }
-    .weather-cell { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:13px; }
-    .weather-cell.today { border-color:var(--accent);background:var(--accent-bg);color:var(--accent); }
-    .day-scroll-wrap { position:relative;margin:10px 0 0; }
-    .day-scroll { display:flex;gap:10px;overflow-x:auto;padding:0 16px 12px;scrollbar-width:none; }
-    .day-scroll::-webkit-scrollbar { display:none; }
-    .day-col { flex-shrink:0;width:200px; }
-    .day-hdr { font-size:12px;font-weight:600;color:var(--text);padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px; }
-    .outfit-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px;margin-bottom:8px; }
-    .outfit-name { font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px; }
-    .outfit-thumbs { display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px; }
-    .outfit-thumb { width:38px;height:38px;border-radius:6px;background:var(--bg3);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:16px;overflow:hidden; }
-    .outfit-thumb img { width:100%;height:100%;object-fit:cover; }
-    .outfit-tags { display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px; }
-    .outfit-tag { font-size:10px;padding:2px 7px;border-radius:20px;background:var(--bg3);color:var(--text3);border:1px solid var(--border); }
-    .outfit-tag.weather { background:var(--green-bg,#eaf3de);color:var(--green,#3b6d11); }
-    .outfit-tag.missing { background:#faeeda;color:#854f0b; }
-    .outfit-foot { display:flex;gap:6px; }
-    .scroll-arrow { position:absolute;top:50%;transform:translateY(-50%);width:28px;height:28px;border-radius:50%;background:var(--bg2);border:1px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:2;color:var(--text3); }
-    .scroll-arrow.left { left:2px; }
-    .scroll-arrow.right { right:2px; }
-    .add-outfit-btn { width:100%;padding:8px;border-radius:var(--r);border:1px dashed var(--border2);background:none;font-size:12px;color:var(--text3);cursor:pointer;text-align:center; }
-    .insights-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:0 16px; }
-    .ins-card { background:var(--bg3);border-radius:var(--r);padding:10px 12px; }
-    .ins-val { font-size:20px;font-weight:700;color:var(--text); }
-    .ins-lbl { font-size:11px;color:var(--text3);margin-top:2px; }
-    .highlight-card { background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:10px 12px;display:flex;align-items:center;gap:10px;margin:0 16px 8px; }
-    .highlight-thumb { width:40px;height:40px;border-radius:8px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0; }
-    .badge-pill { font-size:10px;padding:2px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0; }
-    .badge-blue { background:var(--accent-bg);color:var(--accent); }
-    .badge-amber { background:#faeeda;color:#854f0b; }
-    .section-label { font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--text3);padding:14px 16px 6px; }
+    .member-pills{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px 0}
+    .member-pill{padding:5px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;
+      border:1.5px solid var(--border);color:var(--text2);background:var(--bg2);transition:all .15s}
+    .member-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .weather-strip{display:flex;gap:10px;overflow-x:auto;padding:10px 16px 0;scrollbar-width:none}
+    .weather-strip::-webkit-scrollbar{display:none}
+    .weather-col{flex-shrink:0;width:200px}
+    .weather-cell{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:13px}
+    .weather-cell.today{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
+    .day-scroll-wrap{position:relative;padding:0 16px}
+    .day-scroll{display:flex;gap:10px;overflow-x:auto;padding:8px 0 16px;scrollbar-width:none}
+    .day-scroll::-webkit-scrollbar{display:none}
+    .scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;
+      background:var(--bg2);border:1px solid var(--border);border-radius:50%;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;font-size:16px}
+    .scroll-arrow.left{left:4px}.scroll-arrow.right{right:4px}
+    .day-col{flex-shrink:0;width:180px}
+    .day-hdr{font-size:12px;font-weight:700;color:var(--text2);padding:0 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px}
+    .outfit-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px;font-size:13px;cursor:pointer}
+    .outfit-card:hover{border-color:var(--accent)}
+    .outfit-name{font-weight:600;margin-bottom:4px}
+    .outfit-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+    .outfit-tag{font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text2)}
+    .add-outfit-btn{width:100%;padding:8px;border:1.5px dashed var(--border);border-radius:var(--r);
+      background:transparent;color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit}
+    .add-outfit-btn:hover{border-color:var(--accent);color:var(--accent)}
+    .insights-section{padding:12px 16px 90px}
+    .insights-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+    @media(min-width:600px){.insights-grid{grid-template-columns:repeat(4,1fr)}}
+    .insight-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
+    .insight-val{font-size:22px;font-weight:800;color:var(--accent)}
+    .insight-label{font-size:11px;color:var(--text3);margin-top:2px}
+    .item-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    @media(min-width:500px){.item-grid{grid-template-columns:repeat(3,1fr)}}
+    @media(min-width:700px){.item-grid{grid-template-columns:repeat(4,1fr)}}
+    .item-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer}
+    .item-card:hover{border-color:var(--accent)}
+    .item-name{font-size:13px;font-weight:600;margin-bottom:2px}
+    .item-meta{font-size:11px;color:var(--text3)}
+    .tab-bar{display:flex;border-bottom:1px solid var(--border);padding:0 16px;gap:0;overflow-x:auto;scrollbar-width:none}
+    .tab-bar::-webkit-scrollbar{display:none}
+    .tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+    .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
   </style>
 </head>
 <body>
@@ -61,123 +57,261 @@
 <script>window.GH_PAGE = { module:'wardrobe', title:'Wardrobe' };</script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
-<script src="/attachments.js"></script>
+<script src="/js/lt-messages.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
 
-  <!-- Family member filter -->
-  <div class="member-pills" id="memberPills">
-    <div class="member-pill active" data-id="">All</div>
+  <!-- Tab bar -->
+  <div class="tab-bar">
+    <div class="tab active" onclick="switchTab('planner',this)">Planner</div>
+    <div class="tab" onclick="switchTab('items',this)">Items</div>
+    <div class="tab" onclick="switchTab('outfits',this)">Outfits</div>
+    <div class="tab" onclick="switchTab('insights',this)">Insights</div>
   </div>
 
-  <!-- Weather strip (aligned with day columns) -->
-  <div class="section-label">This week</div>
-  <div class="weather-strip" id="weatherStrip"></div>
+  <!-- Member filter -->
+  <div class="member-pills" id="memberPills"></div>
 
-  <!-- Day scroll -->
-  <div class="section-label">Outfits — scroll for full week</div>
-  <div class="day-scroll-wrap">
-    <div class="scroll-arrow left" id="scrollLeft">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-    </div>
-    <div class="day-scroll" id="dayScroll"></div>
-    <div class="scroll-arrow right" id="scrollRight">
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-    </div>
-  </div>
-
-  <!-- Insights -->
-  <div class="section-label" id="insightsLabel">Wardrobe insights — All</div>
-  <div class="insights-grid" id="insightsGrid">
-    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Items in wardrobe</div></div>
-    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Outfits saved</div></div>
-    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Not worn 30+ days</div></div>
-    <div class="ins-card"><div class="ins-val">—</div><div class="ins-lbl">Total value</div></div>
-  </div>
-
-  <div style="margin-top:10px">
-    <div class="highlight-card">
-      <div class="highlight-thumb">👕</div>
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:var(--text)">No wear data yet</div>
-        <div style="font-size:11px;color:var(--text3);margin-top:2px">Add items and log wear to see insights</div>
-      </div>
-      <div class="badge-pill badge-blue">Most worn</div>
+  <!-- Planner tab -->
+  <div id="tab-planner">
+    <div class="weather-strip" id="weatherStrip"></div>
+    <div class="day-scroll-wrap">
+      <div class="scroll-arrow left" id="scrollLeft">‹</div>
+      <div class="day-scroll" id="dayScroll"></div>
+      <div class="scroll-arrow right" id="scrollRight">›</div>
     </div>
   </div>
 
-  <div style="height:40px"></div>
+  <!-- Items tab -->
+  <div id="tab-items" style="display:none;padding:10px 16px 90px">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <select class="form-select" id="itemCatFilter" onchange="loadItems()" style="flex:1;min-width:120px">
+        <option value="">All categories</option>
+        <option>Clothing</option><option>Shoes</option><option>Accessories</option>
+        <option>Jewelry</option><option>Hats</option><option>Bags</option>
+      </select>
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="openItemDrawer()">+ Add Item</button>
+    </div>
+    <div id="itemGrid" class="item-grid"></div>
+  </div>
+
+  <!-- Outfits tab -->
+  <div id="tab-outfits" style="display:none;padding:10px 16px 90px">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="openOutfitDrawer()">+ New Outfit</button>
+    </div>
+    <div id="outfitList"></div>
+  </div>
+
+  <!-- Insights tab -->
+  <div id="tab-insights" style="display:none">
+    <div class="insights-section">
+      <div class="insights-grid" id="insightsGrid"></div>
+      <div style="font-weight:700;margin-bottom:10px">Most Worn</div>
+      <div id="mostWornList"></div>
+    </div>
+  </div>
 </div>
+
+<!-- Item Drawer -->
+<div class="gh-drawer" id="itemDrawer">
+  <div class="gh-drawer-header">
+    <div class="gh-drawer-title" id="itemDrawerTitle">Add Item</div>
+    <button class="gh-drawer-close" onclick="closeDrawer('itemDrawer')">×</button>
+  </div>
+  <div class="gh-drawer-body">
+    <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="iName"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Category</label>
+        <select class="form-select" id="iCategory">
+          <option>Clothing</option><option>Shoes</option><option>Accessories</option>
+          <option>Jewelry</option><option>Hats</option><option>Bags</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Owner</label>
+        <select class="form-select" id="iOwner"><option value="">— select —</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Brand</label><input class="form-input" id="iBrand"></div>
+      <div class="form-group"><label class="form-label">Nickname</label><input class="form-input" id="iNickname" placeholder="Optional label"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Season Tags</label>
+      <div id="iSeasonTags" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Occasion Tags</label>
+      <div id="iOccasionTags" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Purchase Price</label><input class="form-input" type="number" id="iPrice" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" type="date" id="iPDate"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-select" id="iStatus" onchange="toggleStatusFields()">
+        <option value="active">Active</option><option value="sold">Sold</option>
+        <option value="donated">Donated</option><option value="discarded">Discarded</option>
+      </select>
+    </div>
+    <div id="soldFields" style="display:none">
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Sale Price</label><input class="form-input" type="number" id="iSoldPrice"></div>
+        <div class="form-group"><label class="form-label">Sale Date</label><input class="form-input" type="date" id="iSoldDate"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Platform</label>
+        <select class="form-select" id="iSoldPlatform"><option value="">— select —</option></select>
+      </div>
+    </div>
+    <div id="donatedFields" style="display:none">
+      <div class="form-group"><label class="form-label">Organization</label>
+        <div id="iDonatedOrg"></div>
+      </div>
+      <div class="form-group"><label class="form-label">Fair Market Value</label><input class="form-input" type="number" id="iDonatedFmv"></div>
+    </div>
+    <div id="discardedFields" style="display:none">
+      <div class="form-group"><label class="form-label">Reason</label><input class="form-input" id="iDiscardReason"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="iNotes" style="min-height:70px"></textarea></div>
+    <div style="display:flex;gap:8px;padding-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveItem()">Save</button>
+      <button class="btn btn-ghost" id="iDeleteBtn" style="display:none" onclick="deleteItem()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Outfit Drawer -->
+<div class="gh-drawer" id="outfitDrawer">
+  <div class="gh-drawer-header">
+    <div class="gh-drawer-title" id="outfitDrawerTitle">New Outfit</div>
+    <button class="gh-drawer-close" onclick="closeDrawer('outfitDrawer')">×</button>
+  </div>
+  <div class="gh-drawer-body">
+    <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="oName" placeholder="e.g. Monday School"></div>
+    <div class="form-group"><label class="form-label">Family Member</label>
+      <select class="form-select" id="oMember"><option value="">— all —</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Season Tags</label>
+      <div id="oSeasonTags" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Occasion Tags</label>
+      <div id="oOccasionTags" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Items in this outfit</label>
+      <div id="oItemPicker" style="margin-top:6px"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="oNotes" style="min-height:60px"></textarea></div>
+    <div style="display:flex;gap:8px;padding-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveOutfit()">Save</button>
+      <button class="btn btn-ghost" id="oDeleteBtn" style="display:none" onclick="deleteOutfit()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<button class="fab" id="fabBtn" onclick="onFab()">+</button>
 
 <script>
 const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-const WEATHER_ICONS = { Clear:'☀', Clouds:'⛅', Rain:'🌧', Drizzle:'🌦', Thunderstorm:'⛈', Snow:'❄', Mist:'🌫' };
+const WEATHER_ICONS = { Clear:'☀️', Clouds:'⛅', Rain:'🌧️', Drizzle:'🌦️', Thunderstorm:'⛈️', Snow:'❄️', Mist:'🌫️' };
+const SEASON_OPTS   = ['Spring','Summer','Fall','Winter','Rainy','All-season'];
+const OCCASION_OPTS = ['Casual','School','Sports','Work','Formal','Outdoor','Evening'];
 
-let _members = [];
-let _activeMember = '';
-let _weather = [];
+let _members = [], _activeMember = null, _currentTab = 'planner';
+let _editingItemId = null, _editingOutfitId = null;
+let _allItems = [], _iSeasonSel = [], _iOccasionSel = [];
+let _oSeasonSel = [], _oOccasionSel = [], _oItemIds = [];
+
+function closeDrawer(id) { document.getElementById(id).classList.remove('open'); }
+function openDrawer(id)  { document.getElementById(id).classList.add('open'); }
 
 async function init() {
   await loadMembers();
   renderDays();
   loadWeather();
+  loadTabContent();
 }
 
 async function loadMembers() {
   try {
-    const members = await window.api('GET', '/settings/family');
-    _members = members;
+    _members = await window.api('GET', '/settings/family');
     const pills = document.getElementById('memberPills');
-    members.forEach(m => {
-      const pill = document.createElement('div');
-      pill.className = 'member-pill';
-      pill.dataset.id = m.id;
-      pill.textContent = m.display_name;
-      pill.onclick = () => selectMember(m.id, m.display_name);
-      pills.appendChild(pill);
+    pills.innerHTML = `<div class="member-pill active" data-id="" onclick="selectMember(null,this)">All</div>`;
+    _members.forEach(m => {
+      const p = document.createElement('div');
+      p.className = 'member-pill'; p.dataset.id = m.id;
+      p.textContent = m.display_name;
+      p.onclick = () => selectMember(m.id, p);
+      pills.appendChild(p);
+    });
+    // Populate owner selects
+    ['iOwner','oMember'].forEach(id => {
+      const sel = document.getElementById(id);
+      if (!sel) return;
+      _members.forEach(m => {
+        const o = document.createElement('option'); o.value = m.id; o.textContent = m.display_name;
+        sel.appendChild(o);
+      });
     });
   } catch(e) {}
 }
 
-function selectMember(id, name) {
+function selectMember(id, el) {
   _activeMember = id;
-  document.querySelectorAll('.member-pill').forEach(p => {
-    p.classList.toggle('active', p.dataset.id == id);
-  });
-  document.getElementById('insightsLabel').textContent =
-    'Wardrobe insights — ' + (name || 'All');
+  document.querySelectorAll('.member-pill').forEach(p => p.classList.toggle('active', p === el));
+  loadTabContent();
 }
 
+function switchTab(tab, el) {
+  _currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  ['planner','items','outfits','insights'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === tab ? '' : 'none';
+  });
+  // Update FAB
+  const fab = document.getElementById('fabBtn');
+  fab.style.display = (tab === 'planner') ? 'none' : '';
+  loadTabContent();
+}
+
+function onFab() {
+  if (_currentTab === 'items')   openItemDrawer();
+  if (_currentTab === 'outfits') openOutfitDrawer();
+}
+
+function loadTabContent() {
+  if (_currentTab === 'planner')  { /* already rendered */ }
+  if (_currentTab === 'items')    loadItems();
+  if (_currentTab === 'outfits')  loadOutfits();
+  if (_currentTab === 'insights') loadInsights();
+}
+
+// ── Planner ──────────────────────────────────────────────────
 function renderDays() {
   const scroll = document.getElementById('dayScroll');
   const strip  = document.getElementById('weatherStrip');
   const today  = new Date();
-  scroll.innerHTML = '';
-  strip.innerHTML  = '';
+  scroll.innerHTML = strip.innerHTML = '';
 
   for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
+    const d = new Date(today); d.setDate(today.getDate() + i);
     const isToday = i === 0;
     const dayName = isToday ? 'Today' : DAYS[d.getDay()];
-    const dateStr = (d.getMonth()+1) + '/' + d.getDate();
+    const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
+    const dateKey = d.toISOString().slice(0,10);
 
-    // Weather cell (in strip — same width as day col)
     const wCol = document.createElement('div');
-    wCol.className = 'weather-col';
+    wCol.className = 'weather-col'; wCol.id = 'wcol_'+i;
     wCol.innerHTML = `<div class="weather-cell${isToday?' today':''}">
       <span style="font-size:20px" id="wicon_${i}">—</span>
-      <div><div style="font-weight:600">${'—'}°F</div><div style="font-size:11px;opacity:.8">${'Loading…'}</div></div>
+      <div><div style="font-weight:600" id="wtemp_${i}">—°F</div><div style="font-size:11px;opacity:.8" id="wdesc_${i}">Loading…</div></div>
     </div>`;
-    wCol.id = 'wcol_' + i;
     strip.appendChild(wCol);
 
-    // Day column
     const col = document.createElement('div');
-    col.className = 'day-col';
+    col.className = 'day-col'; col.id = 'dcol_'+i; col.dataset.date = dateKey;
     col.innerHTML = `<div class="day-hdr">${dayName} · ${dateStr}</div>
-      <button class="add-outfit-btn" onclick="addOutfit(${i})">+ Add outfit</button>`;
+      <div id="doutfits_${i}"></div>
+      <button class="add-outfit-btn" onclick="addPlannerEntry(${i},'${dateKey}')">+ Add outfit</button>`;
     scroll.appendChild(col);
   }
 
@@ -192,30 +326,400 @@ function renderDays() {
   sc.addEventListener('scroll', upd); upd();
   la.onclick = () => sc.scrollBy({left:-210,behavior:'smooth'});
   ra.onclick = () => sc.scrollBy({left:210,behavior:'smooth'});
+
+  loadPlannerEntries();
+}
+
+async function loadPlannerEntries() {
+  try {
+    const today = new Date();
+    const end   = new Date(today); end.setDate(today.getDate()+6);
+    const params = `start=${today.toISOString().slice(0,10)}&end=${end.toISOString().slice(0,10)}${_activeMember?'&member_id='+_activeMember:''}`;
+    const entries = await window.api('GET', `/wardrobe/planner?${params}`);
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today); d.setDate(today.getDate()+i);
+      const dateKey = d.toISOString().slice(0,10);
+      const dayEntries = entries.filter(e => e.plan_date === dateKey);
+      const el = document.getElementById('doutfits_'+i);
+      if (!el) continue;
+      el.innerHTML = dayEntries.map(e => `
+        <div class="outfit-card" onclick="removePlannerEntry(${e.id},${i},'${dateKey}')">
+          <div class="outfit-name">${esc(e.outfit_name||'Outfit')}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(e.member_name||'')} ${e.occasion?'· '+esc(e.occasion):''}</div>
+        </div>`).join('');
+    }
+  } catch(e) {}
+}
+
+async function addPlannerEntry(dayIdx, dateKey) {
+  try {
+    const outfits = await window.api('GET', `/wardrobe/outfits${_activeMember?'?member_id='+_activeMember:''}`);
+    if (!outfits.length) { LT.toast('No outfits saved yet — create one in the Outfits tab first', 'info'); return; }
+    // Simple picker
+    const opts = outfits.map(o => `<option value="${o.id}">${esc(o.name)} ${o.owner_name?'('+esc(o.owner_name)+')':''}</option>`).join('');
+    LT.modal(`
+      <div style="padding:16px">
+        <div style="font-weight:700;font-size:15px;margin-bottom:12px">Add outfit to day</div>
+        <div class="form-group"><label class="form-label">Outfit</label>
+          <select class="form-select" id="planOutfitSel">${opts}</select>
+        </div>
+        <div class="form-group"><label class="form-label">Occasion</label>
+          <input class="form-input" id="planOccasion" placeholder="e.g. School">
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px">
+          <button class="btn btn-primary" style="flex:1" onclick="confirmPlannerAdd('${dateKey}')">Add</button>
+          <button class="btn btn-ghost" onclick="LT.closeModal()">Cancel</button>
+        </div>
+      </div>`);
+  } catch(e) { LT.toast('Failed to load outfits', 'err'); }
+}
+
+async function confirmPlannerAdd(dateKey) {
+  try {
+    const outfitId  = document.getElementById('planOutfitSel').value;
+    const occasion  = document.getElementById('planOccasion').value.trim();
+    await window.api('POST', '/wardrobe/planner', {
+      plan_date: dateKey, outfit_id: outfitId,
+      family_member_id: _activeMember||null, occasion: occasion||null
+    });
+    LT.closeModal();
+    loadPlannerEntries();
+  } catch(e) { LT.toast('Failed to add', 'err'); }
+}
+
+async function removePlannerEntry(id) {
+  LT.confirm('Remove outfit from day?', '', async () => {
+    await window.api('DELETE', `/wardrobe/planner/${id}`);
+    loadPlannerEntries();
+  });
 }
 
 async function loadWeather() {
   try {
     const d = await window.api('GET', '/app/weather');
-    if (!d || !d.daily) return;
-    d.daily.slice(0, 7).forEach((day, i) => {
-      const icon = WEATHER_ICONS[day.weather?.[0]?.main] || '—';
-      const temp = Math.round((day.temp?.day - 273.15) * 9/5 + 32);
-      const desc = day.weather?.[0]?.description || '';
-      const wcol = document.getElementById('wcol_' + i);
-      if (wcol) {
-        wcol.querySelector('.weather-cell').innerHTML = `
-          <span style="font-size:20px">${icon}</span>
-          <div><div style="font-weight:600">${temp}°F</div><div style="font-size:11px;opacity:.8">${desc}</div></div>`;
-        if (i === 0) wcol.querySelector('.weather-cell').classList.add('today');
-      }
+    if (!d || !d.list && !d.daily) return;
+    const days = d.daily || d.list?.filter((_,i) => i%8===0) || [];
+    days.slice(0,7).forEach((day, i) => {
+      const weather = day.weather?.[0];
+      const icon = WEATHER_ICONS[weather?.main] || '🌤️';
+      const temp = day.temp?.day
+        ? Math.round(day.temp.day) // already imperial if configured
+        : Math.round((day.main?.temp || 293) - 273.15) * 9/5 + 32;
+      const desc = weather?.description || '';
+      document.getElementById('wicon_'+i).textContent = icon;
+      document.getElementById('wtemp_'+i).textContent = `${Math.round(temp)}°F`;
+      document.getElementById('wdesc_'+i).textContent = desc;
     });
   } catch(e) {}
 }
 
-function addOutfit(dayIndex) {
-  // Shell — no functionality yet
-  alert('Outfit builder coming soon. Design phase complete.');
+// ── Items ─────────────────────────────────────────────────────
+async function loadItems() {
+  try {
+    const cat = document.getElementById('itemCatFilter').value;
+    let url = '/wardrobe/items?';
+    if (_activeMember) url += `member_id=${_activeMember}&`;
+    if (cat) url += `category=${encodeURIComponent(cat)}&`;
+    _allItems = await window.api('GET', url);
+    const grid = document.getElementById('itemGrid');
+    if (!_allItems.length) { grid.innerHTML = emptyState('👔','No wardrobe items yet','Add items using the + button above'); return; }
+    grid.innerHTML = _allItems.map(item => `
+      <div class="item-card" onclick="openItemDrawer(${item.id})">
+        <div class="item-name">${esc(item.wardrobe_nickname||item.name)}</div>
+        <div class="item-meta">${esc(item.brand||'')} ${esc(item.category||'')}</div>
+        <div class="item-meta">${esc(item.owner_name||'')}</div>
+        ${item.times_worn?`<div class="item-meta" style="color:var(--accent)">Worn ${item.times_worn}×</div>`:''}
+      </div>`).join('');
+  } catch(e) { LT.toast('Failed to load items', 'err'); }
+}
+
+function renderTagPicker(containerId, opts, selected, onToggle) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = opts.map(o => `
+    <div onclick="${onToggle}('${o}')" style="padding:4px 10px;border-radius:99px;font-size:12px;cursor:pointer;
+      border:1.5px solid ${selected.includes(o)?'var(--accent)':'var(--border)'};
+      background:${selected.includes(o)?'var(--accent-bg)':'var(--bg2)'};
+      color:${selected.includes(o)?'var(--accent)':'var(--text2)'}">
+      ${esc(o)}
+    </div>`).join('');
+}
+
+function toggleISeason(v) {
+  _iSeasonSel = _iSeasonSel.includes(v) ? _iSeasonSel.filter(x=>x!==v) : [..._iSeasonSel,v];
+  renderTagPicker('iSeasonTags', SEASON_OPTS, _iSeasonSel, 'toggleISeason');
+}
+function toggleIOccasion(v) {
+  _iOccasionSel = _iOccasionSel.includes(v) ? _iOccasionSel.filter(x=>x!==v) : [..._iOccasionSel,v];
+  renderTagPicker('iOccasionTags', OCCASION_OPTS, _iOccasionSel, 'toggleIOccasion');
+}
+function toggleOSeason(v) {
+  _oSeasonSel = _oSeasonSel.includes(v) ? _oSeasonSel.filter(x=>x!==v) : [..._oSeasonSel,v];
+  renderTagPicker('oSeasonTags', SEASON_OPTS, _oSeasonSel, 'toggleOSeason');
+}
+function toggleOOccasion(v) {
+  _oOccasionSel = _oOccasionSel.includes(v) ? _oOccasionSel.filter(x=>x!==v) : [..._oOccasionSel,v];
+  renderTagPicker('oOccasionTags', OCCASION_OPTS, _oOccasionSel, 'toggleOOccasion');
+}
+
+function toggleStatusFields() {
+  const s = document.getElementById('iStatus').value;
+  document.getElementById('soldFields').style.display     = s==='sold'      ? '' : 'none';
+  document.getElementById('donatedFields').style.display  = s==='donated'   ? '' : 'none';
+  document.getElementById('discardedFields').style.display= s==='discarded' ? '' : 'none';
+}
+
+async function openItemDrawer(id) {
+  _editingItemId = id||null;
+  _iSeasonSel = []; _iOccasionSel = [];
+
+  // Populate platform dropdown
+  await GH_SELECT.init('iSoldPlatform', 'sold_platform', '', { placeholder: '— select —', allowAdd: false });
+
+  document.getElementById('itemDrawerTitle').textContent = id ? 'Edit Item' : 'Add Item';
+  document.getElementById('iDeleteBtn').style.display = id ? '' : 'none';
+  document.getElementById('iName').value = '';
+  document.getElementById('iBrand').value = '';
+  document.getElementById('iNickname').value = '';
+  document.getElementById('iPrice').value = '';
+  document.getElementById('iPDate').value = '';
+  document.getElementById('iNotes').value = '';
+  document.getElementById('iStatus').value = 'active';
+  toggleStatusFields();
+
+  if (id) {
+    try {
+      const item = await window.api('GET', `/wardrobe/items/${id}`);
+      document.getElementById('iName').value     = item.name||'';
+      document.getElementById('iBrand').value    = item.brand||'';
+      document.getElementById('iNickname').value = item.wardrobe_nickname||'';
+      document.getElementById('iPrice').value    = item.purchase_price||'';
+      document.getElementById('iPDate').value    = item.purchase_date||'';
+      document.getElementById('iNotes').value    = item.notes||'';
+      document.getElementById('iCategory').value = item.category||'Clothing';
+      document.getElementById('iOwner').value    = item.wardrobe_owner_id||'';
+      document.getElementById('iStatus').value   = item.wardrobe_status||'active';
+      toggleStatusFields();
+      document.getElementById('iSoldPrice').value  = item.sold_price||'';
+      document.getElementById('iSoldDate').value   = item.sold_date||'';
+      GH_SELECT.init('iSoldPlatform','sold_platform',item.sold_platform||'',{placeholder:'— select —',allowAdd:false});
+      document.getElementById('iDonatedFmv').value    = item.donated_fmv||'';
+      document.getElementById('iDiscardReason').value = item.discarded_reason||'';
+      GH_REFS.populateContact('iDonatedOrg', item.donated_org_contact_id||null, { placeholder:'— select org —' });
+      try { _iSeasonSel   = item.season_tags   ? JSON.parse(item.season_tags)   : []; } catch { _iSeasonSel=[]; }
+      try { _iOccasionSel = item.occasion_tags ? JSON.parse(item.occasion_tags) : []; } catch { _iOccasionSel=[]; }
+    } catch(e) {}
+  }
+  renderTagPicker('iSeasonTags',   SEASON_OPTS,   _iSeasonSel,   'toggleISeason');
+  renderTagPicker('iOccasionTags', OCCASION_OPTS, _iOccasionSel, 'toggleIOccasion');
+  openDrawer('itemDrawer');
+}
+
+async function saveItem() {
+  const name = document.getElementById('iName').value.trim();
+  if (!name) { LT.toast('Name is required', 'err'); return; }
+
+  const payload = {
+    wardrobe_owner_id:   parseInt(document.getElementById('iOwner').value)||null,
+    wardrobe_nickname:   document.getElementById('iNickname').value.trim()||null,
+    season_tags:         _iSeasonSel,
+    occasion_tags:       _iOccasionSel,
+    wardrobe_status:     document.getElementById('iStatus').value,
+    sold_price:          parseFloat(document.getElementById('iSoldPrice').value)||null,
+    sold_date:           document.getElementById('iSoldDate').value||null,
+    sold_platform:       document.getElementById('iSoldPlatform').value||null,
+    donated_fmv:         parseFloat(document.getElementById('iDonatedFmv').value)||null,
+    donated_org_contact_id: parseInt(document.getElementById('iDonatedOrg')?.value)||null,
+    discarded_reason:    document.getElementById('iDiscardReason').value.trim()||null,
+  };
+
+  try {
+    if (_editingItemId) {
+      await window.api('PUT', `/wardrobe/items/${_editingItemId}`, payload);
+      LT.toast('Item updated', 'ok');
+    } else {
+      // New item — needs to go through inventory first with wardrobe category
+      // then update wardrobe fields
+      // For now create via inventory with wardrobe category
+      const invPayload = {
+        name, brand: document.getElementById('iBrand').value.trim()||null,
+        category: document.getElementById('iCategory').value,
+        purchase_price: parseFloat(document.getElementById('iPrice').value)||null,
+        purchase_date:  document.getElementById('iPDate').value||null,
+        notes: document.getElementById('iNotes').value.trim()||null,
+        parent_type: 'location', parent_id: 1, quantity: 1
+      };
+      const created = await window.api('POST', '/inventory/items', invPayload);
+      if (created.id) {
+        await window.api('PUT', `/wardrobe/items/${created.id}`, payload);
+      }
+      LT.toast('Item added', 'ok');
+    }
+    closeDrawer('itemDrawer');
+    loadItems();
+  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+}
+
+async function deleteItem() {
+  LT.confirm('Remove from wardrobe?', 'This only updates the wardrobe status — the inventory item remains.', async () => {
+    await window.api('PUT', `/wardrobe/items/${_editingItemId}`, { wardrobe_status: 'discarded' });
+    closeDrawer('itemDrawer');
+    loadItems();
+    LT.toast('Item removed from wardrobe', 'ok');
+  });
+}
+
+// ── Outfits ───────────────────────────────────────────────────
+async function loadOutfits() {
+  try {
+    const url = `/wardrobe/outfits${_activeMember?'?member_id='+_activeMember:''}`;
+    const outfits = await window.api('GET', url);
+    const el = document.getElementById('outfitList');
+    if (!outfits.length) { el.innerHTML = emptyState('👗','No outfits yet','Create an outfit to start planning'); return; }
+    el.innerHTML = outfits.map(o => `
+      <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" onclick="openOutfitDrawer(${o.id})">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div style="font-weight:600">${esc(o.name)}</div>
+          <span style="font-size:11px;color:var(--text3)">${o.items?.length||0} items</span>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:4px">${esc(o.owner_name||'All members')}</div>
+        ${o.occasion_tags?.length||o.season_tags?.length ? `
+        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
+          ${[...o.occasion_tags||[],...o.season_tags||[]].map(t=>
+            `<span class="gh-badge">${esc(t)}</span>`).join('')}
+        </div>` : ''}
+      </div>`).join('');
+  } catch(e) {}
+}
+
+async function openOutfitDrawer(id) {
+  _editingOutfitId = id||null;
+  _oSeasonSel = []; _oOccasionSel = []; _oItemIds = [];
+
+  document.getElementById('outfitDrawerTitle').textContent = id ? 'Edit Outfit' : 'New Outfit';
+  document.getElementById('oDeleteBtn').style.display = id ? '' : 'none';
+  document.getElementById('oName').value = '';
+  document.getElementById('oMember').value = '';
+  document.getElementById('oNotes').value = '';
+
+  if (id) {
+    try {
+      const outfits = await window.api('GET', '/wardrobe/outfits');
+      const o = outfits.find(x => x.id === id);
+      if (o) {
+        document.getElementById('oName').value   = o.name||'';
+        document.getElementById('oMember').value = o.family_member_id||'';
+        document.getElementById('oNotes').value  = o.notes||'';
+        _oSeasonSel   = o.season_tags   || [];
+        _oOccasionSel = o.occasion_tags || [];
+        _oItemIds     = (o.items||[]).map(i => i.id);
+      }
+    } catch(e) {}
+  }
+
+  renderTagPicker('oSeasonTags',   SEASON_OPTS,   _oSeasonSel,   'toggleOSeason');
+  renderTagPicker('oOccasionTags', OCCASION_OPTS, _oOccasionSel, 'toggleOOccasion');
+  await renderItemPicker();
+  openDrawer('outfitDrawer');
+}
+
+async function renderItemPicker() {
+  const memberId = document.getElementById('oMember').value;
+  try {
+    const items = await window.api('GET', `/wardrobe/items${memberId?'?member_id='+memberId:''}`);
+    const el = document.getElementById('oItemPicker');
+    if (!items.length) { el.innerHTML = '<div style="color:var(--text3);font-size:12px">No wardrobe items — add items in the Items tab first</div>'; return; }
+    el.innerHTML = items.map(item => `
+      <div onclick="toggleOItem(${item.id})" style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;cursor:pointer;margin-bottom:4px;
+        background:${_oItemIds.includes(item.id)?'var(--accent-bg)':'var(--bg2)'};
+        border:1.5px solid ${_oItemIds.includes(item.id)?'var(--accent)':'var(--border)'}">
+        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${_oItemIds.includes(item.id)?'var(--accent)':'var(--border)'};
+          background:${_oItemIds.includes(item.id)?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          ${_oItemIds.includes(item.id)?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 3.5,7.5 8.5,2.5" stroke="white" stroke-width="1.5" fill="none"/></svg>':''}
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600">${esc(item.wardrobe_nickname||item.name)}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(item.category||'')} ${esc(item.brand?'· '+item.brand:'')}</div>
+        </div>
+      </div>`).join('');
+  } catch(e) {}
+}
+
+function toggleOItem(id) {
+  _oItemIds = _oItemIds.includes(id) ? _oItemIds.filter(x=>x!==id) : [..._oItemIds,id];
+  renderItemPicker();
+}
+
+async function saveOutfit() {
+  const name = document.getElementById('oName').value.trim();
+  if (!name) { LT.toast('Name is required', 'err'); return; }
+  const payload = {
+    name, family_member_id: parseInt(document.getElementById('oMember').value)||null,
+    season_tags: _oSeasonSel, occasion_tags: _oOccasionSel,
+    notes: document.getElementById('oNotes').value.trim()||null,
+    item_ids: _oItemIds
+  };
+  try {
+    if (_editingOutfitId) {
+      await window.api('PUT', `/wardrobe/outfits/${_editingOutfitId}`, payload);
+      LT.toast('Outfit updated', 'ok');
+    } else {
+      await window.api('POST', '/wardrobe/outfits', payload);
+      LT.toast('Outfit created', 'ok');
+    }
+    closeDrawer('outfitDrawer');
+    loadOutfits();
+  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+}
+
+async function deleteOutfit() {
+  LT.confirm('Delete this outfit?', '', async () => {
+    await window.api('DELETE', `/wardrobe/outfits/${_editingOutfitId}`);
+    closeDrawer('outfitDrawer');
+    loadOutfits();
+    LT.toast('Outfit deleted', 'ok');
+  });
+}
+
+// ── Insights ─────────────────────────────────────────────────
+async function loadInsights() {
+  try {
+    const url = `/wardrobe/insights${_activeMember?'?member_id='+_activeMember:''}`;
+    const d = await window.api('GET', url);
+    document.getElementById('insightsGrid').innerHTML = [
+      [d.total||0,      'Items'],
+      [d.outfits||0,    'Outfits'],
+      [d.never_worn||0, 'Never Worn'],
+      [`$${(d.total_value||0).toFixed(0)}`, 'Wardrobe Value'],
+    ].map(([v,l]) => `
+      <div class="insight-card">
+        <div class="insight-val">${v}</div>
+        <div class="insight-label">${l}</div>
+      </div>`).join('');
+
+    const mw = document.getElementById('mostWornList');
+    mw.innerHTML = (d.most_worn||[]).length
+      ? d.most_worn.map(i => `
+          <div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between">
+            <div><div style="font-weight:600">${esc(i.wardrobe_nickname||i.name)}</div>
+              <div style="font-size:12px;color:var(--text3)">${esc(i.category||'')} ${i.brand?'· '+esc(i.brand):''}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0">
+              <div style="font-weight:700;color:var(--accent)">${i.times_worn}×</div>
+              ${i.cost_per_wear?`<div style="font-size:11px;color:var(--text3)">$${i.cost_per_wear}/wear</div>`:''}
+            </div>
+          </div>`).join('')
+      : '<div style="color:var(--text3);padding:16px">No wear log entries yet</div>';
+  } catch(e) {}
+}
+
+function esc(s) { const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML; }
+function emptyState(icon,title,sub) {
+  return `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
+    <div style="font-size:48px;margin-bottom:12px">${icon}</div>
+    <div style="font-weight:700;font-size:15px;margin-bottom:6px">${title}</div>
+    <div style="font-size:13px">${sub}</div>
+  </div>`;
 }
 
 document.addEventListener('DOMContentLoaded', init);

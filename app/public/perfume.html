@@ -9,67 +9,387 @@
   <style>
     .perf-grid{display:grid;grid-template-columns:repeat(var(--perf-cols,2),minmax(0,1fr));gap:10px;padding:10px 16px 90px}
     .perf-list{display:flex;flex-direction:column;gap:8px;padding:10px 16px 90px}
-    .perf-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px}
-    .perf-head{display:flex;align-items:center;gap:10px}.perf-icon{width:40px;height:40px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px}
-    .perf-name{font-size:14px;font-weight:700}.perf-meta{font-size:12px;color:var(--text3)}.perf-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+    .perf-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px;cursor:pointer}
+    .perf-card:hover{border-color:var(--accent)}
+    .perf-head{display:flex;align-items:center;gap:10px}
+    .perf-icon{width:40px;height:40px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:20px}
+    .perf-name{font-size:14px;font-weight:700}.perf-meta{font-size:12px;color:var(--text3)}
+    .perf-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
     .perf-tag{font-size:10px;border:1px solid var(--border2);background:var(--bg3);padding:2px 7px;border-radius:999px}
+    .notes-pyramid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:8px}
+    .notes-layer{background:var(--bg3);border-radius:8px;padding:8px;text-align:center}
+    .notes-layer-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}
+    .notes-layer-val{font-size:12px;color:var(--text)}
+    .lookup-result{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-top:6px;cursor:pointer}
+    .lookup-result:hover{border-color:var(--accent)}
     @media(max-width:700px){.perf-grid{grid-template-columns:1fr!important}}
   </style>
 </head>
 <body>
-<script src="/nav.js"></script><script>window.GH_PAGE = { key:'perfume', title:'Perfume' };</script>
-<script src="/js/lt-core.js"></script><script src="/js/lt-messages.js"></script>
+<script src="/nav.js"></script>
+<script>window.GH_PAGE = { module:'perfume', title:'Perfume' };</script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
-  <div style="padding:10px 16px 0"><input id="perfSearch" class="search-input" type="search" placeholder="Search perfume, notes, season..."></div>
+  <div style="padding:10px 16px 0;display:flex;gap:8px;align-items:center">
+    <input id="perfSearch" class="search-input" type="search" placeholder="Search perfume, notes, brand…" style="flex:1">
+    <select class="form-select" id="perfStatus" onchange="load()" style="width:120px">
+      <option value="active">Active</option>
+      <option value="all">All</option>
+    </select>
+  </div>
   <div id="perfViewToolbar" style="display:flex;align-items:center;padding:6px 16px 0"></div>
   <div id="perfList"></div>
 </div>
 
+<!-- Drawer -->
+<div class="gh-drawer" id="perfDrawer">
+  <div class="gh-drawer-header">
+    <div class="gh-drawer-title" id="perfDrawerTitle">Add Perfume</div>
+    <button class="gh-drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="gh-drawer-body">
+    <!-- Fragella lookup -->
+    <div class="form-group" id="lookupGroup">
+      <label class="form-label">Lookup by name (Fragella)</label>
+      <div style="display:flex;gap:8px">
+        <input class="form-input" id="lookupQuery" placeholder="e.g. Dior Sauvage" style="flex:1">
+        <button class="btn btn-ghost" style="padding:8px 12px;white-space:nowrap" onclick="doLookup()">Search</button>
+      </div>
+      <div id="lookupResults"></div>
+    </div>
+    <div style="height:1px;background:var(--border);margin:12px 0"></div>
+
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="pName"></div>
+      <div class="form-group"><label class="form-label">Brand</label><input class="form-input" id="pBrand"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Concentration</label>
+        <select class="form-select" id="pConc"><option value="">—</option></select>
+      </div>
+      <div class="form-group"><label class="form-label">Gender</label>
+        <select class="form-select" id="pGender"><option value="">—</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Scent Family (multi-select)</label>
+      <div id="pScentFam" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
+    </div>
+    <div class="notes-pyramid" style="margin-bottom:16px">
+      <div class="notes-layer">
+        <div class="notes-layer-label">Top Notes</div>
+        <input class="form-input" id="pTopNotes" placeholder="Citrus, Pepper…" style="margin-top:4px;font-size:12px">
+      </div>
+      <div class="notes-layer">
+        <div class="notes-layer-label">Heart Notes</div>
+        <input class="form-input" id="pMidNotes" placeholder="Rose, Jasmine…" style="margin-top:4px;font-size:12px">
+      </div>
+      <div class="notes-layer">
+        <div class="notes-layer-label">Base Notes</div>
+        <input class="form-input" id="pBaseNotes" placeholder="Amber, Musk…" style="margin-top:4px;font-size:12px">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Season</label>
+      <div id="pSeasonTags" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Occasion</label>
+      <div id="pOccasionTags" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Size (ml)</label><input class="form-input" type="number" id="pSizeMl" placeholder="50"></div>
+      <div class="form-group"><label class="form-label">Amount</label>
+        <select class="form-select" id="pAmount"><option value="Full">Full</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Owner</label>
+      <select class="form-select" id="pOwner"><option value="">— select —</option></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Purchase Price</label><input class="form-input" type="number" id="pPrice" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" type="date" id="pPDate"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Purchased From</label><input class="form-input" id="pFrom"></div>
+    <div class="form-group"><label class="form-label">Rating</label>
+      <div id="pRating" style="display:flex;gap:8px;padding:6px 0"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Status</label>
+      <select class="form-select" id="pStatus"><option value="active">Active</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Notes / Review</label><textarea class="form-textarea" id="pNotes" style="min-height:70px"></textarea></div>
+    <div style="display:flex;gap:8px;padding-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="savePerfume()">Save</button>
+      <button class="btn btn-ghost" id="pDeleteBtn" style="display:none" onclick="deletePerfume()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<button class="fab" onclick="openDrawer()">+</button>
+
 <script>
-const PERF_DATA=[
-  {id:1,name:'Bleu de Chanel',brand:'Chanel',conc:'EDP',season:'Fall',scent:'Woody',occasion:'Work',top:'Citrus, Mint',base:'Sandalwood, Cedar',icon:'🌿'},
-  {id:2,name:'Dior Sauvage',brand:'Dior',conc:'EDT',season:'Summer',scent:'Fresh',occasion:'Casual',top:'Bergamot, Pepper',base:'Ambroxan, Cedar',icon:'🌊'},
-  {id:3,name:'YSL Y',brand:'YSL',conc:'EDP',season:'Spring',scent:'Aromatic',occasion:'Work',top:'Apple, Ginger',base:'Tonka, Cedar',icon:'🍏'},
-  {id:4,name:'Tom Ford Ombre Leather',brand:'Tom Ford',conc:'EDP',season:'Winter',scent:'Leather',occasion:'Evening',top:'Cardamom',base:'Leather, Amber',icon:'🖤'}
-];
-let perfView='grid', perfCols=parseInt(localStorage.getItem('perf_cols')) || (window.innerWidth>=600?2:1), perfFilters={};
-function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+const SCENT_FAMILIES = ['Fresh','Citrus','Floral','Oriental','Woody','Gourmand','Aquatic','Spicy'];
+const SEASONS        = ['Spring','Summer','Fall','Winter','Rainy','All-season'];
+const OCCASIONS      = ['Casual','Work','Formal','Sport','Evening'];
 
-function initView(){
-  GH_VIEW.init('perfViewToolbar','perf',s=>{perfView=s.view;perfCols=s.cols;perfFilters=s.filters||{};renderPerfume();},{
-    defaultView:'grid',
-    filterFields:[
-      {key:'season',type:'select',label:'Season',options:['Spring','Summer','Fall','Winter']},
-      {key:'scent',type:'select',label:'Scent Family',options:['Fresh','Woody','Aromatic','Leather']},
-      {key:'occasion',type:'select',label:'Occasion',options:['Casual','Work','Evening','Formal']},
-      {key:'brand',type:'text',label:'Brand',placeholder:'e.g. Chanel'}
-    ]
+let _perfumeView = 'grid';
+let _perfumeCols = parseInt(localStorage.getItem('perf_cols'))||(window.innerWidth>=600?2:1);
+let _editingId   = null;
+let _pScentSel   = [], _pSeasonSel = [], _pOccasionSel = [];
+let _pRating     = 0;
+let _members     = [];
+
+function esc(s) { const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML; }
+
+function closeDrawer() { document.getElementById('perfDrawer').classList.remove('open'); }
+function openDrawer(id) {
+  _editingId = id||null;
+  _pScentSel = []; _pSeasonSel = []; _pOccasionSel = []; _pRating = 0;
+
+  document.getElementById('perfDrawerTitle').textContent = id ? 'Edit Perfume' : 'Add Perfume';
+  document.getElementById('pDeleteBtn').style.display = id ? '' : 'none';
+  document.getElementById('lookupGroup').style.display = id ? 'none' : '';
+  document.getElementById('lookupResults').innerHTML = '';
+  document.getElementById('lookupQuery').value = '';
+
+  // Clear form
+  ['pName','pBrand','pTopNotes','pMidNotes','pBaseNotes','pSizeMl','pPrice','pFrom','pNotes'].forEach(i => {
+    document.getElementById(i).value = '';
+  });
+  document.getElementById('pPDate').value = '';
+
+  if (id) {
+    loadPerfumeForEdit(id);
+  } else {
+    renderTagPicker('pScentFam',    SCENT_FAMILIES, _pScentSel,   'toggleScentFam');
+    renderTagPicker('pSeasonTags',  SEASONS,        _pSeasonSel,  'togglePSeason');
+    renderTagPicker('pOccasionTags',OCCASIONS,      _pOccasionSel,'togglePOccasion');
+    renderRating(0);
+  }
+
+  document.getElementById('perfDrawer').classList.add('open');
+}
+
+async function loadPerfumeForEdit(id) {
+  try {
+    const p = await window.api('GET', `/perfume/${id}`);
+    document.getElementById('pName').value     = p.name||'';
+    document.getElementById('pBrand').value    = p.brand||'';
+    document.getElementById('pTopNotes').value = p.top_notes||'';
+    document.getElementById('pMidNotes').value = p.middle_notes||'';
+    document.getElementById('pBaseNotes').value= p.base_notes||'';
+    document.getElementById('pSizeMl').value   = p.size_ml||'';
+    document.getElementById('pPrice').value    = p.purchase_price||'';
+    document.getElementById('pPDate').value    = p.purchase_date||'';
+    document.getElementById('pFrom').value     = p.purchased_from||'';
+    document.getElementById('pNotes').value    = p.notes||'';
+    document.getElementById('pOwner').value    = p.owner_family_member_id||'';
+    _pScentSel   = p.scent_family  || [];
+    _pSeasonSel  = p.season_tags   || [];
+    _pOccasionSel= p.occasion_tags || [];
+    _pRating     = p.rating || 0;
+    await GH_SELECT.init('pConc',   'perfume_concentration', p.concentration||'',  { placeholder:'—', allowAdd:false });
+    await GH_SELECT.init('pGender', 'perfume_gender',        p.gender||'',         { placeholder:'—', allowAdd:false });
+    await GH_SELECT.init('pAmount', 'perfume_amount',        p.amount_level||'Full',{ allowAdd:false });
+    await GH_SELECT.init('pStatus', 'perfume_status',        p.status||'active',   { allowAdd:false });
+    renderTagPicker('pScentFam',    SCENT_FAMILIES, _pScentSel,   'toggleScentFam');
+    renderTagPicker('pSeasonTags',  SEASONS,        _pSeasonSel,  'togglePSeason');
+    renderTagPicker('pOccasionTags',OCCASIONS,      _pOccasionSel,'togglePOccasion');
+    renderRating(_pRating);
+  } catch(e) {}
+}
+
+function renderTagPicker(containerId, opts, selected, onToggle) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = opts.map(o => `
+    <div onclick="${onToggle}('${o}')" style="padding:4px 10px;border-radius:99px;font-size:12px;cursor:pointer;
+      border:1.5px solid ${selected.includes(o)?'var(--accent)':'var(--border)'};
+      background:${selected.includes(o)?'var(--accent-bg)':'var(--bg2)'};
+      color:${selected.includes(o)?'var(--accent)':'var(--text2)'}">
+      ${esc(o)}
+    </div>`).join('');
+}
+
+function toggleScentFam(v) {
+  _pScentSel = _pScentSel.includes(v) ? _pScentSel.filter(x=>x!==v) : [..._pScentSel,v];
+  renderTagPicker('pScentFam', SCENT_FAMILIES, _pScentSel, 'toggleScentFam');
+}
+function togglePSeason(v) {
+  _pSeasonSel = _pSeasonSel.includes(v) ? _pSeasonSel.filter(x=>x!==v) : [..._pSeasonSel,v];
+  renderTagPicker('pSeasonTags', SEASONS, _pSeasonSel, 'togglePSeason');
+}
+function togglePOccasion(v) {
+  _pOccasionSel = _pOccasionSel.includes(v) ? _pOccasionSel.filter(x=>x!==v) : [..._pOccasionSel,v];
+  renderTagPicker('pOccasionTags', OCCASIONS, _pOccasionSel, 'togglePOccasion');
+}
+
+function renderRating(val) {
+  _pRating = val;
+  const el = document.getElementById('pRating');
+  el.innerHTML = [1,2,3,4,5].map(n =>
+    `<div onclick="renderRating(${n})" style="font-size:24px;cursor:pointer;opacity:${n<=val?1:0.3}">${n<=val?'★':'☆'}</div>`
+  ).join('');
+}
+
+async function doLookup() {
+  const q = document.getElementById('lookupQuery').value.trim();
+  if (!q) return;
+  const el = document.getElementById('lookupResults');
+  el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px">Searching…</div>';
+  try {
+    const d = await window.api('GET', `/perfume/lookup/fragella?q=${encodeURIComponent(q)}`);
+    if (d.error) { el.innerHTML = `<div style="color:var(--amber);font-size:13px;padding:8px">${esc(d.error)}</div>`; return; }
+    const results = d.results || [];
+    if (!results.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px">No results found — fill in manually</div>'; return; }
+    el.innerHTML = results.slice(0,5).map(r => `
+      <div class="lookup-result" onclick="applyLookup(${JSON.stringify(r).replace(/"/g,'&quot;')})">
+        <div style="font-weight:600">${esc(r.name||r.title||'')}</div>
+        <div style="font-size:12px;color:var(--text3)">${esc(r.brand||r.house||'')} ${r.concentration||r.type?'· '+(r.concentration||r.type):''}${r.year?'· '+r.year:''}</div>
+        ${r.top_notes||r.notes?.top ? `<div style="font-size:11px;color:var(--text3);margin-top:3px">Top: ${esc(r.top_notes||r.notes?.top||'')}</div>`:''}
+      </div>`).join('');
+  } catch(e) { el.innerHTML = '<div style="color:var(--red);font-size:13px;padding:8px">Lookup failed</div>'; }
+}
+
+function applyLookup(r) {
+  document.getElementById('pName').value      = r.name||r.title||'';
+  document.getElementById('pBrand').value     = r.brand||r.house||'';
+  document.getElementById('pTopNotes').value  = r.top_notes||r.notes?.top||'';
+  document.getElementById('pMidNotes').value  = r.middle_notes||r.heart_notes||r.notes?.middle||'';
+  document.getElementById('pBaseNotes').value = r.base_notes||r.notes?.base||'';
+  if (r.concentration) {
+    const map = {'EDP':'EDP','EDT':'EDT','Parfum':'Parfum','Cologne':'Cologne','EDC':'EDC'};
+    const conc = Object.keys(map).find(k => (r.concentration||'').toUpperCase().includes(k.toUpperCase()));
+    if (conc) GH_SELECT.init('pConc','perfume_concentration',conc,{placeholder:'—',allowAdd:false});
+  }
+  // Apply scent family tags if returned
+  if (r.accords?.length || r.scent_family?.length) {
+    const fams = (r.accords||r.scent_family||[]).map(a => {
+      const label = typeof a === 'string' ? a : a.name||a.label||'';
+      return SCENT_FAMILIES.find(f => label.toLowerCase().includes(f.toLowerCase()));
+    }).filter(Boolean);
+    _pScentSel = [...new Set(fams)];
+    renderTagPicker('pScentFam', SCENT_FAMILIES, _pScentSel, 'toggleScentFam');
+  }
+  document.getElementById('lookupResults').innerHTML = '<div style="color:var(--green);font-size:13px;padding:8px">✓ Fields pre-filled — review and save</div>';
+  LT.toast('Fields pre-filled from Fragella', 'ok');
+}
+
+async function savePerfume() {
+  const name = document.getElementById('pName').value.trim();
+  if (!name) { LT.toast('Name is required', 'err'); return; }
+  const payload = {
+    name, brand: document.getElementById('pBrand').value.trim()||null,
+    concentration: document.getElementById('pConc').value||null,
+    top_notes:    document.getElementById('pTopNotes').value.trim()||null,
+    middle_notes: document.getElementById('pMidNotes').value.trim()||null,
+    base_notes:   document.getElementById('pBaseNotes').value.trim()||null,
+    scent_family: _pScentSel, season_tags: _pSeasonSel, occasion_tags: _pOccasionSel,
+    gender:       document.getElementById('pGender').value||null,
+    size_ml:      parseFloat(document.getElementById('pSizeMl').value)||null,
+    amount_level: document.getElementById('pAmount').value||'Full',
+    purchase_price: parseFloat(document.getElementById('pPrice').value)||null,
+    purchase_date:  document.getElementById('pPDate').value||null,
+    purchased_from: document.getElementById('pFrom').value.trim()||null,
+    owner_family_member_id: parseInt(document.getElementById('pOwner').value)||null,
+    rating: _pRating||null,
+    notes:  document.getElementById('pNotes').value.trim()||null,
+    status: document.getElementById('pStatus').value||'active',
+  };
+  try {
+    if (_editingId) {
+      await window.api('PUT', `/perfume/${_editingId}`, payload);
+      LT.toast('Perfume updated', 'ok');
+    } else {
+      await window.api('POST', '/perfume', payload);
+      LT.toast('Perfume added', 'ok');
+    }
+    closeDrawer();
+    load();
+  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+}
+
+async function deletePerfume() {
+  LT.confirm('Delete this perfume?', 'This cannot be undone.', async () => {
+    await window.api('DELETE', `/perfume/${_editingId}`);
+    closeDrawer();
+    load();
+    LT.toast('Perfume deleted', 'ok');
   });
 }
 
-function rows(){
-  const q=(document.getElementById('perfSearch').value||'').toLowerCase();
-  return PERF_DATA.filter(r=>{
-    if(q && !(`${r.name} ${r.brand} ${r.top} ${r.base} ${r.scent} ${r.season}`.toLowerCase().includes(q))) return false;
-    if(perfFilters.season && r.season!==perfFilters.season) return false;
-    if(perfFilters.scent && r.scent!==perfFilters.scent) return false;
-    if(perfFilters.occasion && r.occasion!==perfFilters.occasion) return false;
-    if(perfFilters.brand && !r.brand.toLowerCase().includes(perfFilters.brand.toLowerCase())) return false;
-    return true;
-  });
+async function load() {
+  const status = document.getElementById('perfStatus').value;
+  const q = (document.getElementById('perfSearch').value||'').toLowerCase();
+  try {
+    const url = `/perfume/?${status!=='all'?'status=active':'status=all'}`;
+    let rows = await window.api('GET', url);
+    if (q) rows = rows.filter(r =>
+      [r.name,r.brand,r.top_notes,r.middle_notes,r.base_notes,...(r.scent_family||[])]
+        .join(' ').toLowerCase().includes(q));
+    if (!rows.length) {
+      document.getElementById('perfList').innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
+        <div style="font-size:48px;margin-bottom:12px">🧴</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">No fragrances yet</div>
+        <div style="font-size:13px">Tap + to add your first perfume</div></div>`;
+      return;
+    }
+    const cls = _perfumeView === 'list' ? 'perf-list' : 'perf-grid';
+    document.getElementById('perfList').innerHTML = `<div class="${cls}" style="--perf-cols:${_perfumeCols}">
+      ${rows.map(r => `
+        <div class="perf-card" onclick="openDrawer(${r.id})">
+          <div class="perf-head">
+            <div class="perf-icon">🧴</div>
+            <div style="flex:1;min-width:0">
+              <div class="perf-name">${esc(r.name)}</div>
+              <div class="perf-meta">${esc(r.brand||'')}${r.concentration?' · '+esc(r.concentration):''}${r.owner_name?' · '+esc(r.owner_name):''}</div>
+            </div>
+            ${r.rating?`<div style="color:var(--amber);font-size:13px">${'★'.repeat(r.rating)}</div>`:''}
+          </div>
+          ${(r.top_notes||r.middle_notes||r.base_notes) ? `
+          <div class="notes-pyramid" style="margin-top:8px">
+            <div class="notes-layer"><div class="notes-layer-label">Top</div><div class="notes-layer-val">${esc(r.top_notes||'—')}</div></div>
+            <div class="notes-layer"><div class="notes-layer-label">Heart</div><div class="notes-layer-val">${esc(r.middle_notes||'—')}</div></div>
+            <div class="notes-layer"><div class="notes-layer-label">Base</div><div class="notes-layer-val">${esc(r.base_notes||'—')}</div></div>
+          </div>` : ''}
+          <div class="perf-tags">
+            ${(r.scent_family||[]).map(t=>`<span class="perf-tag">${esc(t)}</span>`).join('')}
+            ${(r.season_tags||[]).map(t=>`<span class="perf-tag">${esc(t)}</span>`).join('')}
+            ${r.amount_level&&r.amount_level!=='Full'?`<span class="perf-tag" style="color:var(--amber)">${esc(r.amount_level)}</span>`:''}
+          </div>
+        </div>`).join('')}
+    </div>`;
+  } catch(e) { LT.toast('Failed to load', 'err'); }
 }
 
-function renderPerfume(){
-  const out=rows();
-  if(!out.length){document.getElementById('perfList').innerHTML=emptyState('🧴','No fragrances match','Try changing your search or filters.');return;}
-  const cls=perfView==='list'?'perf-list':'perf-grid';
-  document.getElementById('perfList').innerHTML=`<div class="${cls}" style="--perf-cols:${perfCols}">${out.map(r=>`<div class="perf-card"><div class="perf-head"><div class="perf-icon">${r.icon}</div><div style="flex:1;min-width:0"><div class="perf-name">${esc(r.name)}</div><div class="perf-meta">${esc(r.brand)} · ${esc(r.conc)} · ${esc(r.occasion)}</div></div></div><div class="perf-tags"><span class="perf-tag">${esc(r.scent)}</span><span class="perf-tag">${esc(r.season)}</span><span class="perf-tag">Top: ${esc(r.top)}</span><span class="perf-tag">Base: ${esc(r.base)}</span></div></div>`).join('')}</div>`;
+async function initDropdowns() {
+  await GH_SELECT.init('pConc',   'perfume_concentration', '', { placeholder:'—', allowAdd:false });
+  await GH_SELECT.init('pGender', 'perfume_gender',        '', { placeholder:'—', allowAdd:false });
+  await GH_SELECT.init('pAmount', 'perfume_amount',        'Full', { allowAdd:false });
+  await GH_SELECT.init('pStatus', 'perfume_status',        'active', { allowAdd:false });
+  try {
+    const members = await window.api('GET', '/settings/family');
+    _members = members;
+    const sel = document.getElementById('pOwner');
+    members.forEach(m => { const o=document.createElement('option'); o.value=m.id; o.textContent=m.display_name; sel.appendChild(o); });
+  } catch(e) {}
 }
 
-document.getElementById('perfSearch').addEventListener('input', renderPerfume);
-document.addEventListener('DOMContentLoaded',()=>{initView();renderPerfume();});
+document.getElementById('perfSearch').addEventListener('input', load);
+
+GH_VIEW.init('perfViewToolbar','perf', s => {
+  _perfumeView = s.view; _perfumeCols = s.cols; load();
+},{ defaultView:'grid' });
+
+document.addEventListener('DOMContentLoaded', async () => {
+  await initDropdowns();
+  renderTagPicker('pScentFam',    SCENT_FAMILIES, _pScentSel,   'toggleScentFam');
+  renderTagPicker('pSeasonTags',  SEASONS,        _pSeasonSel,  'togglePSeason');
+  renderTagPicker('pOccasionTags',OCCASIONS,      _pOccasionSel,'togglePOccasion');
+  renderRating(0);
+  load();
+});
 </script>
 </body>
 </html>
