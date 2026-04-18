@@ -3,81 +3,248 @@
 <head>
   <link rel="icon" type="image/x-icon" href="/favicon.ico"><link rel="apple-touch-icon" href="/icon-192.png">
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <meta name="theme-color" content="#f0f4f8"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#f0f4f8">
   <title>Subscriptions — Ghrava</title><link rel="stylesheet" href="/shared.css"><script src="/theme.js"></script>
   <script>if (localStorage.getItem('gh_nav_collapsed') !== '0') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .summary-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:10px 16px 0}.sum-card{background:var(--bg3);border-radius:var(--r);padding:10px 12px}
-    .sum-val{font-size:18px;font-weight:700}.sum-lbl{font-size:11px;color:var(--text3)}
-    .sub-grid{display:grid;grid-template-columns:repeat(var(--sub-cols,2),minmax(0,1fr));gap:10px;padding:10px 16px 90px}
-    .sub-list{display:flex;flex-direction:column;gap:8px;padding:10px 16px 90px}
-    .sub-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:12px}
-    .sub-head{display:flex;align-items:center;gap:10px}.sub-icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:var(--bg3)}
-    .sub-name{font-size:14px;font-weight:700}.sub-meta{font-size:12px;color:var(--text3)}.sub-price{font-size:16px;font-weight:700}
-    .status-pill{font-size:10px;border:1px solid var(--border2);border-radius:999px;padding:2px 8px;margin-left:auto}
-    @media(max-width:700px){.summary-grid{grid-template-columns:1fr}.sub-grid{grid-template-columns:1fr!important}}
+    .sub-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer}
+    .sub-card:hover{border-color:var(--accent)}
+    .sub-card.paused{opacity:.6}.sub-card.cancelled{opacity:.4}
+    .sub-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+    .sub-icon{width:36px;height:36px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+    .sub-name{font-weight:700;font-size:14px}
+    .sub-cost{font-weight:700;font-size:16px;color:var(--accent);margin-left:auto;flex-shrink:0}
+    .sub-meta{font-size:12px;color:var(--text3);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .sub-billing{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg3);border:1px solid var(--border)}
+    .summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:10px 16px 0}
+    .summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;text-align:center}
+    .summary-val{font-size:20px;font-weight:800;color:var(--accent)}
+    .summary-label{font-size:11px;color:var(--text3);margin-top:2px}
+    .upcoming-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0}
   </style>
 </head>
 <body>
-<script src="/nav.js"></script><script>window.GH_PAGE = { module:'subscriptions', title:'Subscriptions' };</script>
-<script src="/js/lt-core.js"></script><script src="/js/lt-messages.js"></script>
+<script src="/nav.js"></script>
+<script>window.GH_PAGE = { module:'subscriptions', title:'Subscriptions' };</script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
-  <div style="padding:10px 16px 0"><input id="subSearch" class="search-input" type="search" placeholder="Search service, category, owner..."></div>
-  <div id="subViewToolbar" style="display:flex;align-items:center;padding:6px 16px 0"></div>
-  <div class="summary-grid">
-    <div class="sum-card"><div class="sum-val" id="mTotal">—</div><div class="sum-lbl">Monthly spend</div></div>
-    <div class="sum-card"><div class="sum-val" id="aTotal">—</div><div class="sum-lbl">Annualized spend</div></div>
-    <div class="sum-card"><div class="sum-val" id="sCount">—</div><div class="sum-lbl">Active subscriptions</div></div>
+
+  <div class="summary-strip" id="summaryStrip">
+    <div class="summary-card"><div class="summary-val" id="sumMonthly">—</div><div class="summary-label">Per Month</div></div>
+    <div class="summary-card"><div class="summary-val" id="sumAnnual">—</div><div class="summary-label">Per Year</div></div>
+    <div class="summary-card"><div class="summary-val" id="sumCount">—</div><div class="summary-label">Active</div></div>
   </div>
-  <div id="subList"></div>
+
+  <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0">
+    <select class="form-select" id="statusFilter" onchange="load()" style="flex:1">
+      <option value="active">Active</option>
+      <option value="all">All</option>
+    </select>
+    <select class="form-select" id="catFilter" onchange="load()" style="flex:1">
+      <option value="">All categories</option>
+    </select>
+  </div>
+
+  <div style="padding:10px 16px 90px" id="subList"></div>
 </div>
 
+<!-- Drawer -->
+<div class="gh-drawer" id="subDrawer">
+  <div class="gh-drawer-header">
+    <div class="gh-drawer-title" id="subDrawerTitle">Add Subscription</div>
+    <button class="gh-drawer-close" onclick="closeDrawer()">×</button>
+  </div>
+  <div class="gh-drawer-body">
+    <div class="form-row">
+      <div class="form-group" style="flex:2"><label class="form-label">Name *</label><input class="form-input" id="sName" placeholder="e.g. Netflix"></div>
+      <div class="form-group" style="flex:1"><label class="form-label">Category</label>
+        <select class="form-select" id="sCat"><option value="">—</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Cost</label><input class="form-input" type="number" step="0.01" id="sCost" placeholder="0.00"></div>
+      <div class="form-group"><label class="form-label">Billing Cycle</label>
+        <select class="form-select" id="sCycle"><option value="monthly">Monthly</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Next Billing Date</label><input class="form-input" type="date" id="sNextDate"></div>
+      <div class="form-group"><label class="form-label">Status</label>
+        <select class="form-select" id="sStatus"><option value="active">Active</option></select>
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Provider</label><div id="sProvider"></div></div>
+    <div class="form-group"><label class="form-label">Payment Method</label><div id="sAccount"></div></div>
+    <div class="form-group"><label class="form-label">Family Members</label><div id="sFamilyWrap"></div></div>
+    <div class="form-group">
+      <div style="display:flex;align-items:center;gap:10px">
+        <label class="form-label" style="margin:0">Auto-renew</label>
+        <input type="checkbox" id="sAutoRenew" checked style="width:18px;height:18px">
+      </div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="sNotes" style="min-height:70px"></textarea></div>
+    <div style="display:flex;gap:8px;padding-top:8px">
+      <button class="btn btn-primary" style="flex:1" onclick="saveSub()">Save</button>
+      <button class="btn btn-ghost" id="sDeleteBtn" style="display:none" onclick="deleteSub()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<button class="fab" onclick="openDrawer()">+</button>
+
 <script>
-const SUB_DATA=[
-  {id:1,name:'Netflix',icon:'📺',category:'Streaming',owner:'All members',amount:22.99,cycle:'month',status:'active',renews:'Jan 15'},
-  {id:2,name:'Disney+',icon:'🎬',category:'Streaming',owner:'Kids',amount:13.99,cycle:'month',status:'active',renews:'Feb 3'},
-  {id:3,name:'Microsoft 365',icon:'💻',category:'Software',owner:'All members',amount:99.99,cycle:'year',status:'active',renews:'Apr 2026'},
-  {id:4,name:'Spotify Family',icon:'🎵',category:'Music',owner:'All members',amount:17.99,cycle:'month',status:'active',renews:'Jan 22'},
-  {id:5,name:'iCloud+',icon:'☁️',category:'Storage',owner:'Primary',amount:9.99,cycle:'month',status:'paused',renews:'Paused'}
-];
-let subView='grid', subCols=parseInt(localStorage.getItem('sub_cols')) || (window.innerWidth>=600?2:1), subFilters={};
-function fmt$(n){return '$'+Number(n||0).toFixed(2)}
-function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
-function monthly(v){return v.cycle==='year' ? (v.amount/12) : v.amount;}
+const CATEGORY_ICONS = {
+  Streaming:'📺', Music:'🎵', Software:'💻', Fitness:'🏋️', News:'📰',
+  Gaming:'🎮', Utilities:'💡', Other:'📦'
+};
+let _editingId = null;
 
-function initView(){
-  GH_VIEW.init('subViewToolbar','sub',s=>{subView=s.view;subCols=s.cols;subFilters=s.filters||{};renderSubs();},{
-    defaultView:'grid',
-    filterFields:[
-      {key:'category',type:'select',label:'Category',options:['Streaming','Software','Music','Storage']},
-      {key:'status',type:'select',label:'Status',options:['active','paused','cancelled']},
-      {key:'owner',type:'text',label:'Owner',placeholder:'e.g. Kids'}
-    ]
-  });
-}
-function rows(){
-  const q=(document.getElementById('subSearch').value||'').toLowerCase();
-  return SUB_DATA.filter(r=>{
-    if(q && !(`${r.name} ${r.category} ${r.owner}`.toLowerCase().includes(q))) return false;
-    if(subFilters.category && r.category!==subFilters.category) return false;
-    if(subFilters.status && r.status!==subFilters.status) return false;
-    if(subFilters.owner && !r.owner.toLowerCase().includes(subFilters.owner.toLowerCase())) return false;
-    return true;
-  });
-}
-function renderSubs(){
-  const out=rows();
-  const m=out.filter(x=>x.status==='active').reduce((a,b)=>a+monthly(b),0);
-  document.getElementById('mTotal').textContent=fmt$(m); document.getElementById('aTotal').textContent=fmt$(m*12); document.getElementById('sCount').textContent=out.filter(x=>x.status==='active').length;
-  if(!out.length){document.getElementById('subList').innerHTML=emptyState('🧾','No subscriptions found','Try adjusting your filters.');return;}
-  const cls=subView==='list'?'sub-list':'sub-grid';
-  document.getElementById('subList').innerHTML=`<div class="${cls}" style="--sub-cols:${subCols}">${out.map(r=>`<div class="sub-card"><div class="sub-head"><div class="sub-icon">${r.icon}</div><div style="flex:1;min-width:0"><div class="sub-name">${esc(r.name)}</div><div class="sub-meta">${esc(r.category)} · ${esc(r.owner)} · Renews ${esc(r.renews)}</div></div><span class="status-pill">${esc(r.status)}</span></div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px"><div class="sub-price">${fmt$(r.amount)}</div><div class="sub-meta">per ${esc(r.cycle)}</div></div></div>`).join('')}</div>`;
+function fmt$(v) { return '$' + (Math.round((v||0)*100)/100).toFixed(2); }
+function esc(s) { const d=document.createElement('div');d.textContent=String(s||'');return d.innerHTML; }
+function closeDrawer() { document.getElementById('subDrawer').classList.remove('open'); }
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  return Math.round((new Date(dateStr) - new Date()) / 86400000);
 }
 
-document.getElementById('subSearch').addEventListener('input', renderSubs);
-document.addEventListener('DOMContentLoaded',()=>{initView();renderSubs();});
+async function load() {
+  const status = document.getElementById('statusFilter').value;
+  const cat    = document.getElementById('catFilter').value;
+  try {
+    let rows = await window.api('GET', `/subscriptions/?status=${status}`);
+    if (cat) rows = rows.filter(r => r.category === cat);
+
+    const el = document.getElementById('subList');
+    if (!rows.length) {
+      el.innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
+        <div style="font-size:48px;margin-bottom:12px">📦</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:6px">No subscriptions yet</div>
+        <div style="font-size:13px">Tap + to add your first subscription</div></div>`;
+      return;
+    }
+
+    el.innerHTML = rows.map(r => {
+      const days = daysUntil(r.next_billing_date);
+      const icon = CATEGORY_ICONS[r.category] || '📦';
+      const upcoming = days !== null && days <= 7 && days >= 0;
+      const costLabel = r.cost ? fmt$(r.cost) + `<span style="font-size:11px;color:var(--text3)">/${r.billing_cycle?.replace('monthly','mo').replace('annual','yr').replace('weekly','wk').replace('quarterly','qtr')}</span>` : '—';
+
+      return `<div class="sub-card ${r.status!=='active'?r.status:''}" onclick="openDrawer(${r.id})">
+        <div class="sub-head">
+          <div class="sub-icon">${icon}</div>
+          <div style="flex:1;min-width:0">
+            <div class="sub-name">${esc(r.name)}${upcoming?` <span style="color:var(--amber);font-size:11px">● renews in ${days}d</span>`:''}</div>
+            <div style="font-size:12px;color:var(--text3)">${esc(r.category||'')}${r.provider_name?' · '+esc(r.provider_name):''}</div>
+          </div>
+          <div class="sub-cost">${costLabel}</div>
+        </div>
+        <div class="sub-meta">
+          ${r.next_billing_date?`<span>Next: ${r.next_billing_date}</span>`:''}
+          ${r.account_name?`<span>via ${esc(r.account_name)}</span>`:''}
+          ${r.members?.length?`<span>${r.members.map(m=>esc(m.display_name)).join(', ')}</span>`:''}
+          ${r.status!=='active'?`<span class="gh-badge gh-badge-amber">${r.status}</span>`:''}
+        </div>
+      </div>`;
+    }).join('');
+    loadSummary();
+  } catch(e) { LT.toast('Failed to load', 'err'); }
+}
+
+async function loadSummary() {
+  try {
+    const d = await window.api('GET', '/subscriptions/summary');
+    document.getElementById('sumMonthly').textContent = fmt$(d.monthly_cost);
+    document.getElementById('sumAnnual').textContent  = fmt$(d.annual_cost);
+    document.getElementById('sumCount').textContent   = d.total_active || 0;
+  } catch(e) {}
+}
+
+async function openDrawer(id) {
+  _editingId = id||null;
+  document.getElementById('subDrawerTitle').textContent = id ? 'Edit Subscription' : 'Add Subscription';
+  document.getElementById('sDeleteBtn').style.display = id ? '' : 'none';
+  document.getElementById('sName').value    = '';
+  document.getElementById('sCost').value    = '';
+  document.getElementById('sNotes').value   = '';
+  document.getElementById('sNextDate').value= '';
+  document.getElementById('sAutoRenew').checked = true;
+
+  await GH_SELECT.init('sCat',    'subscription_category', '', { placeholder:'—', allowAdd:true });
+  await GH_SELECT.init('sCycle',  'billing_cycle',         'monthly', { allowAdd:false });
+  await GH_SELECT.init('sStatus', 'subscription_status',   'active',  { allowAdd:false });
+
+  GH_REFS.populateContact('sProvider', null, { placeholder:'— select provider —', allowAdd:true });
+  GH_SELECT.initAccountSelect?.('sAccount', null);
+  GH_FAMILY.init('sFamilyWrap', []);
+
+  if (id) {
+    try {
+      const rows = await window.api('GET', `/subscriptions/?status=all`);
+      const r = rows.find(x => x.id === id);
+      if (r) {
+        document.getElementById('sName').value     = r.name||'';
+        document.getElementById('sCost').value     = r.cost||'';
+        document.getElementById('sNotes').value    = r.notes||'';
+        document.getElementById('sNextDate').value = r.next_billing_date||'';
+        document.getElementById('sAutoRenew').checked = !!r.auto_renew;
+        await GH_SELECT.init('sCat',    'subscription_category', r.category||'',          { placeholder:'—', allowAdd:true });
+        await GH_SELECT.init('sCycle',  'billing_cycle',         r.billing_cycle||'monthly', { allowAdd:false });
+        await GH_SELECT.init('sStatus', 'subscription_status',   r.status||'active',        { allowAdd:false });
+        GH_REFS.populateContact('sProvider', r.provider_contact_id||null, { placeholder:'— select provider —', allowAdd:true });
+        GH_FAMILY.init('sFamilyWrap', r.members||[]);
+      }
+    } catch(e) {}
+  }
+  document.getElementById('subDrawer').classList.add('open');
+}
+
+async function saveSub() {
+  const name = document.getElementById('sName').value.trim();
+  if (!name) { LT.toast('Name is required', 'err'); return; }
+  const payload = {
+    name, category: document.getElementById('sCat').value||null,
+    cost: parseFloat(document.getElementById('sCost').value)||null,
+    billing_cycle:     document.getElementById('sCycle').value,
+    next_billing_date: document.getElementById('sNextDate').value||null,
+    auto_renew: document.getElementById('sAutoRenew').checked,
+    status: document.getElementById('sStatus').value,
+    provider_contact_id: parseInt(document.getElementById('sProvider')?.value)||null,
+    notes: document.getElementById('sNotes').value.trim()||null,
+    family_member_ids: GH_FAMILY.getIds('sFamilyWrap'),
+  };
+  try {
+    if (_editingId) {
+      await window.api('PUT', `/subscriptions/${_editingId}`, payload);
+      LT.toast('Updated', 'ok');
+    } else {
+      await window.api('POST', '/subscriptions', payload);
+      LT.toast('Added', 'ok');
+    }
+    closeDrawer(); load();
+  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+}
+
+async function deleteSub() {
+  LT.confirm('Delete this subscription?', '', async () => {
+    await window.api('DELETE', `/subscriptions/${_editingId}`);
+    closeDrawer(); load(); LT.toast('Deleted', 'ok');
+  });
+}
+
+async function initCatFilter() {
+  try {
+    const opts = await window.api('GET', '/settings/dropdowns/subscription_category');
+    const sel = document.getElementById('catFilter');
+    opts.forEach(o => { const el=document.createElement('option'); el.value=o.value; el.textContent=o.label; sel.appendChild(el); });
+  } catch(e) {}
+}
+
+document.addEventListener('DOMContentLoaded', () => { initCatFilter(); load(); });
 </script>
 </body>
 </html>

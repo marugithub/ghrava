@@ -107,6 +107,8 @@ app.use('/api/v1/backup',        require('./features/backup/routes'));
 app.use('/api/v1/finance',         require('./features/finance/routes'));
 app.use('/api/v1/wardrobe',        require('./features/wardrobe/routes'));
 app.use('/api/v1/perfume',         require('./features/perfume/routes'));
+app.use('/api/v1/subscriptions',   require('./features/subscriptions/routes'));
+app.use('/api/v1/insurance',       require('./features/insurance/routes'));
 app.use('/api/v1/finance/reports', require('./features/finance/reports'));
 app.use('/api/v1/career',        require('./features/career/routes'));
 app.use('/api/v1/books',         require('./features/books/routes'));

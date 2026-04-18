@@ -41,7 +41,7 @@ function generateNotifications() {
       .run(type, severity, title, body, module, entity_type||null);
 
   // Clear auto-generated
-  db.prepare("DELETE FROM notifications WHERE type IN ('expiry','hsa_pool','follow_up','receipt','todo','cert','vehicle','gift_card','document','insurance','wardrobe')").run();
+  db.prepare("DELETE FROM notifications WHERE type IN ('expiry','hsa_pool','follow_up','receipt','todo','cert','vehicle','gift_card','document','insurance','wardrobe','subscription')").run();
 
   // 1. Expired inventory items
   const invExpired = db.prepare(`SELECT COUNT(*) as n FROM items i JOIN item_hw_details hw ON hw.item_id=i.id WHERE i.is_active=1 AND i.is_archived=0 AND hw.expiration_date < ?`).get(now);
@@ -125,7 +125,18 @@ function generateNotifications() {
     if (ins60.n > 0) ins('insurance','pending',`${ins60.n} insurance polic${ins60.n>1?'ies':'y'} expiring within 60 days`,'Schedule renewal review','insurance','insurance');
   } catch(e) {}
 
-  // 10. Wardrobe — items not worn in 30+ days (safe — table may not exist yet)
+  // 10. Subscriptions renewal alerts (safe)
+  try {
+    const subSoon = db.prepare(`
+      SELECT COUNT(*) as n FROM subscriptions
+      WHERE status='active' AND billing_cycle='annual'
+      AND next_billing_date IS NOT NULL
+      AND next_billing_date >= date('now') AND next_billing_date <= date('now','+7 days')
+    `).get();
+    if (subSoon.n > 0) ins('subscription','pending',`${subSoon.n} annual subscription${subSoon.n>1?'s':''} renewing within 7 days`,'Review before auto-renewal','subscriptions','subscription');
+  } catch(e) {}
+
+  // 11. Wardrobe — items not worn in 30+ days (safe — table may not exist yet)
   try {
     const stale = db.prepare(`
       SELECT COUNT(*) as n FROM items i

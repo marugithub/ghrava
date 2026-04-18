@@ -294,6 +294,16 @@ section "Perfume"
 assert_array "GET /perfume"           "$BASE/api/v1/perfume/"
 assert_array "GET /perfume/layers"    "$BASE/api/v1/perfume/layers/all"
 
+# ── Subscriptions ────────────────────────────────────────────
+section "Subscriptions"
+assert_array "GET /subscriptions"         "$BASE/api/v1/subscriptions/"
+assert_keys  "GET /subscriptions/summary" "$BASE/api/v1/subscriptions/summary" "total_active"
+
+# ── Insurance ────────────────────────────────────────────────
+section "Insurance"
+assert_array "GET /insurance"         "$BASE/api/v1/insurance/"
+assert_keys  "GET /insurance/summary" "$BASE/api/v1/insurance/summary" "active"
+
 # ── Google integration ────────────────────────────────────────
 section "Google"
 assert_json "GET /google/status" "$BASE/api/v1/google/status"
