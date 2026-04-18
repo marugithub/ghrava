@@ -60,7 +60,9 @@ const REPORT_REGISTRY = [
   { id:'spending',      category:'finance',    name:'Spending by Category',      icon:'💰', desc:'Where your money goes',               endpoint:'/finance/reports/spending-by-category', render:renderSpending },
   { id:'networth',      category:'finance',    name:'Net Worth',                 icon:'📈', desc:'Assets, liabilities, and trend',      endpoint:'/finance/net-worth/current', render:renderNetWorth },
   { id:'portfolio',     category:'finance',    name:'Investment Portfolio',      icon:'📊', desc:'Holdings and performance',            endpoint:'/finance/portfolio/performance', render:renderPortfolio },
-  { id:'watcher',       category:'system',     name:'Folder Watcher Audit',      icon:'📁', desc:'Auto-import history',                 endpoint:'/watcher/history',          render:renderWatcher },
+  { id:'subscriptions', category:'finance',   name:'Subscription Spending',     icon:'📦', desc:'Monthly costs and annual projection', endpoint:'/subscriptions/summary',    render:renderSubscriptions },
+  { id:'ins-summary',   category:'family',    name:'Insurance Summary',         icon:'🛡️', desc:'Active policies and annual premium',  endpoint:'/insurance/summary',        render:renderInsuranceSummary },
+  { id:'watcher',       category:'system',    name:'Folder Watcher Audit',      icon:'📁', desc:'Auto-import history',                 endpoint:'/watcher/history',          render:renderWatcher },
   { id:'database',      category:'system',     name:'Database Health',           icon:'🗄️', desc:'Size, integrity, maintenance',        endpoint:'/system/db/stats',          render:renderDatabase },
   { id:'tests',         category:'system',     name:'System Tests',              icon:'🧪', desc:'Run automated diagnostics',           endpoint:null,                        render:renderTests },
 ];
@@ -311,6 +313,54 @@ function renderPortfolio(el, d) {
     (allocation.map(a=>summaryRow(esc(a.type||'Other'), fmt$(a.value||0), 'var(--accent)')).join('')) +
     (top.length ? `<div style="font-weight:600;margin:16px 0 8px">Top Performers</div>` +
       top.map(h=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span style="font-weight:600">${esc(h.symbol)}</span><span style="color:var(--green)">${h.gain_loss_pct!=null?(h.gain_loss_pct>=0?'+':'')+h.gain_loss_pct.toFixed(1)+'%':'—'}</span></div>`).join('') : '')
+  );
+}
+
+function renderSubscriptions(el, d) {
+  const bycat = d.by_category || {};
+  const cats  = Object.entries(bycat).sort((a,b) => b[1].monthly - a[1].monthly);
+  const upcoming = (d.upcoming_renewals || []).slice(0, 5);
+  el.innerHTML = panelWrap('📦','Subscription Spending',
+    statsRow([
+      [fmt$(d.monthly_cost||0), 'Per Month', 'var(--accent)'],
+      [fmt$(d.annual_cost||0),  'Per Year',  'var(--red)'],
+      [d.total_active||0,       'Active'],
+    ]) +
+    (cats.length ? `<div style="font-weight:600;margin:16px 0 8px">By Category</div>` +
+      cats.map(([cat, info]) =>
+        `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>${esc(cat)} <span style="font-size:11px;color:var(--text3)">(${info.count})</span></span>
+          <span style="font-weight:600">${fmt$(info.monthly)}/mo</span>
+        </div>`).join('') : '') +
+    (upcoming.length ? `<div style="font-weight:600;margin:16px 0 8px">Renewing Soon</div>` +
+      upcoming.map(s =>
+        `<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+          <span style="font-weight:600">${esc(s.name)}</span>
+          <span style="font-size:12px;color:var(--amber)">${esc(s.next_billing_date||'')}</span>
+        </div>`).join('') : '') +
+    `<div style="margin-top:16px"><a href="/subscriptions.html" class="btn btn-ghost" style="width:100%;text-align:center">Manage Subscriptions →</a></div>`
+  );
+}
+
+function renderInsuranceSummary(el, d) {
+  const byType = d.by_type || [];
+  el.innerHTML = panelWrap('🛡️','Insurance Summary',
+    statsRow([
+      [d.active||0,                       'Active Policies'],
+      [d.expiring_60d||0,                 'Expiring 60d',  d.expiring_60d > 0 ? 'var(--amber)' : 'var(--text)'],
+      [fmt$(d.annual_premium||0),         'Annual Premium', 'var(--red)'],
+    ]) +
+    (d.expired_active > 0 ?
+      `<div style="background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--red)">
+        ⚠️ ${d.expired_active} polic${d.expired_active>1?'ies':'y'} marked active but past end date — review needed
+      </div>` : '') +
+    (byType.length ? `<div style="font-weight:600;margin:12px 0 8px">By Type</div>` +
+      byType.map(t =>
+        `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+          <span>${esc(t.policy_type)} <span style="font-size:11px;color:var(--text3)">(${t.count})</span></span>
+          <span style="font-weight:600">${t.annual_cost ? fmt$(t.annual_cost)+'/yr' : '—'}</span>
+        </div>`).join('') : '') +
+    `<div style="margin-top:16px"><a href="/insurance.html" class="btn btn-ghost" style="width:100%;text-align:center">Manage Policies →</a></div>`
   );
 }
 

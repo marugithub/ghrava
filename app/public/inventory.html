@@ -1093,6 +1093,9 @@
       <span class="toggle-label">Lifetime warranty</span>
       <label class="toggle"><input type="checkbox" id="itm_lifewrnt"><span class="toggle-track"></span></label>
     </div>
+    <div class="form-group"><label class="form-label">Warranty Expiry (extended)</label><input class="form-input" type="date" id="itm_wexpiry"></div>
+    <div class="form-group"><label class="form-label">Registration #</label><input class="form-input" id="itm_wreg" placeholder="Warranty registration number"></div>
+    <div class="form-group"><label class="form-label">Warranty Details</label><textarea class="form-textarea" id="itm_wdetails" style="min-height:60px" placeholder="Coverage details, terms…"></textarea></div>
 
     <!-- Insurance -->
     <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border)">Insurance</div>
@@ -2999,6 +3002,7 @@ async function openItemDrawer(item=null) {
   $('itm_order').value='';
   await GH_SELECT.init('itm_cond', 'item_condition', '', { allowAdd: false, placeholder: '—' });
   $('itm_warranty').value=''; $('itm_lifewrnt').checked=false;
+  $('itm_wexpiry').value=''; $('itm_wreg').value=''; $('itm_wdetails').value='';
   GH_REFS.populateContact('itm_wvendor', null, { placeholder: '— none —' });
   $('itm_insured').checked=false; $('insuranceFields').style.display='none';
   $('itm_policy').value=''; $('itm_insval').value='';
@@ -3022,6 +3026,9 @@ async function openItemDrawer(item=null) {
     $('itm_order').value=item.order_number||'';
     await GH_SELECT.init('itm_cond', 'item_condition', item.condition||'', { allowAdd: false, placeholder: '—' });
     $('itm_warranty').value=item.warranty_expires||'';
+    $('itm_wexpiry').value=item.warranty_expiry||'';
+    $('itm_wreg').value=item.warranty_registration_no||'';
+    $('itm_wdetails').value=item.warranty_details||'';
     GH_REFS.populateContact('itm_wvendor', item.warranty_vendor_contact_id||null, { placeholder: '— none —' });
     $('itm_lifewrnt').checked=!!item.lifetime_warranty;
     $('itm_insured').checked=!!item.insured;
@@ -3205,6 +3212,9 @@ $('itemSave').addEventListener('click', async ()=>{
       store_name:$('itm_store').value||null, purchase_method:$('itm_method').value||null,
       order_number:$('itm_order').value||null,
       condition:$('itm_cond').value||null, warranty_expires:$('itm_warranty').value||null,
+      warranty_expiry:$('itm_wexpiry').value||null,
+      warranty_registration_no:$('itm_wreg').value.trim()||null,
+      warranty_details:$('itm_wdetails').value.trim()||null,
       warranty_vendor_contact_id: $('itm_wvendor').value ? parseInt($('itm_wvendor').value) : null,
       lifetime_warranty:$('itm_lifewrnt').checked,
       insured:$('itm_insured').checked, insurance_policy:$('itm_policy').value||null,

@@ -50,6 +50,15 @@ function generateNotifications() {
   const invExpiring = db.prepare(`SELECT COUNT(*) as n FROM items i JOIN item_hw_details hw ON hw.item_id=i.id WHERE i.is_active=1 AND i.is_archived=0 AND hw.expiration_date >= ? AND hw.expiration_date <= ?`).get(now, soon30);
   if (invExpiring.n > 0) ins('expiry','pending',`${invExpiring.n} inventory item${invExpiring.n>1?'s':''} expiring soon`,'Items expire within 30 days','inventory','inventory');
 
+  // 1b. Warranty expiry alerts (safe — new columns may not exist yet)
+  try {
+    const wExpired = db.prepare(`SELECT COUNT(*) as n FROM items WHERE is_active=1 AND is_archived=0 AND warranty_expiry IS NOT NULL AND warranty_expiry < ?`).get(now);
+    if (wExpired.n > 0) ins('expiry','overdue',`${wExpired.n} item warrant${wExpired.n>1?'ies':'y'} expired`,'Expired warranties — remove or update records','inventory','inventory');
+
+    const wSoon = db.prepare(`SELECT COUNT(*) as n FROM items WHERE is_active=1 AND is_archived=0 AND warranty_expiry IS NOT NULL AND warranty_expiry >= ? AND warranty_expiry <= ?`).get(now, soon30);
+    if (wSoon.n > 0) ins('expiry','pending',`${wSoon.n} item warrant${wSoon.n>1?'ies':'y'} expiring within 30 days`,'Review warranties before they expire','inventory','inventory');
+  } catch(e) {}
+
   // 2. HSA
   const missing = db.prepare(`SELECT COUNT(*) as n FROM hsa_payments WHERE strftime('%Y',date)=? AND receipt_saved=0 AND hsa_eligible=1`).get(year);
   if (missing.n > 0) ins('receipt','pending',`${missing.n} HSA expense${missing.n>1?'s':''} missing receipt`,'Add receipts to qualify for reimbursement','finance','hsa');

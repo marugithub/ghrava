@@ -888,9 +888,10 @@ router.post('/items', async (req, res) => {
        replacement_value,appraised_value,appraised_date,condition,
        insured,insurance_policy,insured_value,
        warranty_expires,lifetime_warranty,warranty_vendor,warranty_vendor_contact_id,warranty_phone,warranty_claim_url,warranty_notes,
+       warranty_expiry,warranty_provider_contact_id,warranty_details,warranty_registration_no,
        sold_date,sold_price,sold_to,
        qr_code_path,notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`
     )
       .run(
         ref, d.name, d.description||null, d.category||null, d.parent_type, d.parent_id,
@@ -905,6 +906,8 @@ router.post('/items', async (req, res) => {
         d.warranty_expires||null, d.lifetime_warranty?1:0, d.warranty_vendor||null,
         d.warranty_vendor_contact_id||null,
         d.warranty_phone||null, d.warranty_claim_url||null, d.warranty_notes||null,
+        d.warranty_expiry||null, d.warranty_provider_contact_id||null,
+        d.warranty_details||null, d.warranty_registration_no||null,
         d.sold_date||null, d.sold_price||null, d.sold_to||null,
         qrPath, d.notes||null
       );
@@ -936,6 +939,7 @@ router.put('/items/:id', (req, res) => {
       replacement_value=?,appraised_value=?,appraised_date=?,condition=?,
       insured=?,insurance_policy=?,insured_value=?,
       warranty_expires=?,lifetime_warranty=?,warranty_vendor=?,warranty_vendor_contact_id=?,warranty_phone=?,warranty_claim_url=?,warranty_notes=?,
+      warranty_expiry=?,warranty_provider_contact_id=?,warranty_details=?,warranty_registration_no=?,
       sold_date=?,sold_price=?,sold_to=?,
       notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
       .run(
@@ -951,6 +955,8 @@ router.put('/items/:id', (req, res) => {
         d.warranty_expires||null, d.lifetime_warranty?1:0, d.warranty_vendor||null,
         d.warranty_vendor_contact_id||null,
         d.warranty_phone||null, d.warranty_claim_url||null, d.warranty_notes||null,
+        d.warranty_expiry||null, d.warranty_provider_contact_id||null,
+        d.warranty_details||null, d.warranty_registration_no||null,
         d.sold_date||null, d.sold_price||null, d.sold_to||null,
         d.notes||null, req.params.id
       );
@@ -1346,4 +1352,38 @@ router.post('/items/:id/doc-links', (req, res) => {
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
 });
+// ── Warranty claims ──────────────────────────────────────────
+router.get('/items/:id/warranty-claims', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT wc.*, c.name AS contact_name
+      FROM warranty_claims wc
+      LEFT JOIN contacts c ON c.id = wc.contact_id
+      WHERE wc.item_id = ?
+      ORDER BY wc.claim_date DESC
+    `).all(req.params.id);
+    res.json(rows);
+  } catch(e) { serverError(res, e); }
+});
+
+router.post('/items/:id/warranty-claims', requireAuth, (req, res) => {
+  try {
+    const d = req.body;
+    if (!d.claim_date) return badRequest(res, 'claim_date required');
+    const result = db.prepare(`
+      INSERT INTO warranty_claims (item_id, claim_date, description, resolution, resolved_date, contact_id, notes)
+      VALUES (?,?,?,?,?,?,?)
+    `).run(req.params.id, d.claim_date, d.description||null, d.resolution||null,
+           d.resolved_date||null, d.contact_id||null, d.notes||null);
+    res.json({ id: result.lastInsertRowid, ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+router.delete('/warranty-claims/:id', requireAuth, (req, res) => {
+  try {
+    db.prepare('DELETE FROM warranty_claims WHERE id=?').run(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
 module.exports = router;

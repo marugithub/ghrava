@@ -294,6 +294,15 @@ section "Perfume"
 assert_array "GET /perfume"           "$BASE/api/v1/perfume/"
 assert_array "GET /perfume/layers"    "$BASE/api/v1/perfume/layers/all"
 
+# ── Reports (new panels) ─────────────────────────────────────
+section "Reports — new panels"
+assert_keys "GET /subscriptions/summary" "$BASE/api/v1/subscriptions/summary" "total_active"
+assert_keys "GET /insurance/summary"     "$BASE/api/v1/insurance/summary"     "active"
+
+# ── Warranty claims ───────────────────────────────────────────
+section "Warranty"
+assert_array "GET /inventory/items/1/warranty-claims" "$BASE/api/v1/inventory/items/1/warranty-claims"
+
 # ── Subscriptions ────────────────────────────────────────────
 section "Subscriptions"
 assert_array "GET /subscriptions"         "$BASE/api/v1/subscriptions/"
