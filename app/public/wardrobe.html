@@ -86,11 +86,7 @@
   <!-- Items tab -->
   <div id="tab-items" style="display:none;padding:10px 16px 90px">
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <select class="form-select" id="itemCatFilter" onchange="loadItems()" style="flex:1;min-width:120px">
-        <option value="">All categories</option>
-        <option>Clothing</option><option>Shoes</option><option>Accessories</option>
-        <option>Jewelry</option><option>Hats</option><option>Bags</option>
-      </select>
+      <select class="form-select" id="itemCatFilter" onchange="loadItems()" style="flex:1;min-width:120px"><option value="">All categories</option></select>
       <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="openItemDrawer()">+ Add Item</button>
     </div>
     <div id="itemGrid" class="item-grid"></div>
@@ -124,10 +120,7 @@
     <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="iName"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Category</label>
-        <select class="form-select" id="iCategory">
-          <option>Clothing</option><option>Shoes</option><option>Accessories</option>
-          <option>Jewelry</option><option>Hats</option><option>Bags</option>
-        </select>
+        <select class="form-select" id="iCategory"><option value="">Loading…</option></select>
       </div>
       <div class="form-group"><label class="form-label">Owner</label>
         <select class="form-select" id="iOwner"><option value="">— select —</option></select>
@@ -148,10 +141,7 @@
       <div class="form-group"><label class="form-label">Purchase Date</label><input class="form-input" type="date" id="iPDate"></div>
     </div>
     <div class="form-group"><label class="form-label">Status</label>
-      <select class="form-select" id="iStatus" onchange="toggleStatusFields()">
-        <option value="active">Active</option><option value="sold">Sold</option>
-        <option value="donated">Donated</option><option value="discarded">Discarded</option>
-      </select>
+      <select class="form-select" id="iStatus" onchange="toggleStatusFields()"><option value="active">Active</option></select>
     </div>
     <div id="soldFields" style="display:none">
       <div class="form-row">
@@ -225,9 +215,22 @@ function openDrawer(id)  { document.getElementById(id).classList.add('open'); }
 
 async function init() {
   await loadMembers();
+  await populateCatFilter();
   renderDays();
   loadWeather();
   loadTabContent();
+}
+
+async function populateCatFilter() {
+  try {
+    const opts = await window.api('GET', '/settings/dropdowns/wardrobe_category');
+    const sel = document.getElementById('itemCatFilter');
+    opts.forEach(o => {
+      const el = document.createElement('option');
+      el.value = o.value; el.textContent = o.label;
+      sel.appendChild(el);
+    });
+  } catch(e) {}
 }
 
 async function loadMembers() {
@@ -475,6 +478,8 @@ async function openItemDrawer(id) {
 
   // Populate platform dropdown
   await GH_SELECT.init('iSoldPlatform', 'sold_platform', '', { placeholder: '— select —', allowAdd: false });
+  await GH_SELECT.init('iCategory', 'wardrobe_category', 'Clothing', { allowAdd: false });
+  await GH_SELECT.init('iStatus',   'wardrobe_status',   'active',   { allowAdd: false });
 
   document.getElementById('itemDrawerTitle').textContent = id ? 'Edit Item' : 'Add Item';
   document.getElementById('iDeleteBtn').style.display = id ? '' : 'none';
@@ -496,9 +501,9 @@ async function openItemDrawer(id) {
       document.getElementById('iPrice').value    = item.purchase_price||'';
       document.getElementById('iPDate').value    = item.purchase_date||'';
       document.getElementById('iNotes').value    = item.notes||'';
-      document.getElementById('iCategory').value = item.category||'Clothing';
+      await GH_SELECT.init('iCategory', 'wardrobe_category', item.category||'Clothing', { allowAdd: false });
       document.getElementById('iOwner').value    = item.wardrobe_owner_id||'';
-      document.getElementById('iStatus').value   = item.wardrobe_status||'active';
+      await GH_SELECT.init('iStatus', 'wardrobe_status', item.wardrobe_status||'active', { allowAdd: false });
       toggleStatusFields();
       document.getElementById('iSoldPrice').value  = item.sold_price||'';
       document.getElementById('iSoldDate').value   = item.sold_date||'';
@@ -541,13 +546,19 @@ async function saveItem() {
       // New item — needs to go through inventory first with wardrobe category
       // then update wardrobe fields
       // For now create via inventory with wardrobe category
+      // Get first available location, or use ID 1 as fallback
+      let parentId = 1;
+      try {
+        const locs = await window.api('GET', '/inventory/locations/flat');
+        if (locs?.length) parentId = locs[0].id;
+      } catch(e) {}
       const invPayload = {
         name, brand: document.getElementById('iBrand').value.trim()||null,
         category: document.getElementById('iCategory').value,
         purchase_price: parseFloat(document.getElementById('iPrice').value)||null,
         purchase_date:  document.getElementById('iPDate').value||null,
         notes: document.getElementById('iNotes').value.trim()||null,
-        parent_type: 'location', parent_id: 1, quantity: 1
+        parent_type: 'location', parent_id: parentId, quantity: 1
       };
       const created = await window.api('POST', '/inventory/items', invPayload);
       if (created.id) {
