@@ -379,8 +379,22 @@ async function initDropdowns() {
 document.getElementById('perfSearch').addEventListener('input', load);
 
 GH_VIEW.init('perfViewToolbar','perf', s => {
-  _perfumeView = s.view; _perfumeCols = s.cols; load();
-},{ defaultView:'grid' });
+  _perfumeView = s.view; _perfumeCols = s.cols;
+  // Apply filters
+  const f = s.filters || {};
+  if (f.status !== undefined) document.getElementById('perfStatus').value = f.status || 'active';
+  load();
+},{
+  defaultView: 'grid',
+  defaultCols: 2,
+  filterFields: [
+    { key:'status',    type:'select', label:'Status',       options:[{value:'active',label:'Active'},{value:'all',label:'All'}] },
+    { key:'gender',    type:'select', label:'Gender',       options:[{value:'',label:'All'},{value:'Masculine',label:'Masculine'},{value:'Feminine',label:'Feminine'},{value:'Unisex',label:'Unisex'}] },
+    { key:'season',    type:'select', label:'Season',       options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'}] },
+    { key:'occasion',  type:'select', label:'Occasion',     options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'},{value:'Evening',label:'Evening'}] },
+    { key:'scent',     type:'text',   label:'Scent family', placeholder:'e.g. Woody' },
+  ]
+});
 
 document.addEventListener('DOMContentLoaded', async () => {
   await initDropdowns();

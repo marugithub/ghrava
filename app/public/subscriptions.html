@@ -7,20 +7,7 @@
   <title>Subscriptions — Ghrava</title><link rel="stylesheet" href="/shared.css"><script src="/theme.js"></script>
   <script>if (localStorage.getItem('gh_nav_collapsed') !== '0') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .sub-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer}
-    .sub-card:hover{border-color:var(--accent)}
-    .sub-card.paused{opacity:.6}.sub-card.cancelled{opacity:.4}
-    .sub-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-    .sub-icon{width:36px;height:36px;border-radius:10px;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-    .sub-name{font-weight:700;font-size:14px}
-    .sub-cost{font-weight:700;font-size:16px;color:var(--accent);margin-left:auto;flex-shrink:0}
-    .sub-meta{font-size:12px;color:var(--text3);display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-    .sub-billing{font-size:11px;padding:2px 8px;border-radius:99px;background:var(--bg3);border:1px solid var(--border)}
-    .summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:10px 16px 0}
-    .summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;text-align:center}
-    .summary-val{font-size:20px;font-weight:800;color:var(--accent)}
-    .summary-label{font-size:11px;color:var(--text3);margin-top:2px}
-    .upcoming-dot{width:8px;height:8px;border-radius:50%;background:var(--amber);flex-shrink:0}
+    .sub-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:10px;padding:0 16px 90px}
   </style>
 </head>
 <body>
@@ -33,23 +20,17 @@
 <div id="app">
   <div class="gh-page-header"></div>
 
-  <div class="summary-strip" id="summaryStrip">
-    <div class="summary-card"><div class="summary-val" id="sumMonthly">—</div><div class="summary-label">Per Month</div></div>
-    <div class="summary-card"><div class="summary-val" id="sumAnnual">—</div><div class="summary-label">Per Year</div></div>
-    <div class="summary-card"><div class="summary-val" id="sumCount">—</div><div class="summary-label">Active</div></div>
+  <div class="stats-row" style="margin:10px 16px 0">
+    <div class="stat-item"><div class="stat-value" id="sumMonthly" style="color:var(--accent)">—</div><div class="stat-label">Per Month</div></div>
+    <div class="stat-item"><div class="stat-value" id="sumAnnual" style="color:var(--red)">—</div><div class="stat-label">Per Year</div></div>
+    <div class="stat-item"><div class="stat-value" id="sumCount">—</div><div class="stat-label">Active</div></div>
   </div>
 
-  <div style="display:flex;align-items:center;gap:8px;padding:10px 16px 0">
-    <select class="form-select" id="statusFilter" onchange="load()" style="flex:1">
-      <option value="active">Active</option>
-      <option value="all">All</option>
-    </select>
-    <select class="form-select" id="catFilter" onchange="load()" style="flex:1">
-      <option value="">All categories</option>
-    </select>
+  <div style="padding:6px 16px 0;display:flex;align-items:center">
+    <div style="flex:1"></div>
+    <div id="subViewToolbar"></div>
   </div>
-
-  <div style="padding:10px 16px 90px" id="subList"></div>
+  <div id="subList" style="padding-top:8px"></div>
 </div>
 
 <!-- Drawer -->
@@ -113,10 +94,10 @@ function daysUntil(dateStr) {
 }
 
 async function load() {
-  const status = document.getElementById('statusFilter').value;
-  const cat    = document.getElementById('catFilter').value;
+  const status = _subFilters.status || 'active';
+  const cat    = _subFilters.category || '';
   try {
-    let rows = await window.api('GET', `/subscriptions/?status=${status}`);
+    let rows = await window.api('GET', `/subscriptions/?${status!=='all'?'status='+status:''}`);
     if (cat) rows = rows.filter(r => r.category === cat);
 
     const el = document.getElementById('subList');
@@ -128,29 +109,31 @@ async function load() {
       return;
     }
 
-    el.innerHTML = rows.map(r => {
+    const stripeColor = r => {
+      if (r.status === 'cancelled') return 'gh-s-gray';
+      if (r.status === 'paused') return 'gh-s-amber';
       const days = daysUntil(r.next_billing_date);
-      const icon = CATEGORY_ICONS[r.category] || '📦';
+      if (days !== null && days <= 7 && days >= 0) return 'gh-s-amber';
+      return 'gh-s-blue';
+    };
+    const cycleLabel = c => ({'monthly':'mo','annual':'yr','weekly':'wk','quarterly':'qtr'})[c] || c;
+    el.innerHTML = `<div class="sub-grid" style="--cols:${_subCols}">${rows.map(r => {
+      const days = daysUntil(r.next_billing_date);
       const upcoming = days !== null && days <= 7 && days >= 0;
-      const costLabel = r.cost ? fmt$(r.cost) + `<span style="font-size:11px;color:var(--text3)">/${r.billing_cycle?.replace('monthly','mo').replace('annual','yr').replace('weekly','wk').replace('quarterly','qtr')}</span>` : '—';
-
-      return `<div class="sub-card ${r.status!=='active'?r.status:''}" onclick="openDrawer(${r.id})">
-        <div class="sub-head">
-          <div class="sub-icon">${icon}</div>
-          <div style="flex:1;min-width:0">
-            <div class="sub-name">${esc(r.name)}${upcoming?` <span style="color:var(--amber);font-size:11px">● renews in ${days}d</span>`:''}</div>
-            <div style="font-size:12px;color:var(--text3)">${esc(r.category||'')}${r.provider_name?' · '+esc(r.provider_name):''}</div>
-          </div>
-          <div class="sub-cost">${costLabel}</div>
+      return `<div class="gh-card ${stripeColor(r)}" onclick="openDrawer(${r.id})">
+        <div class="gh-card-head">
+          <div class="gh-card-title">${CATEGORY_ICONS[r.category]||'📦'} ${esc(r.name)}</div>
+          ${r.status!=='active'?`<span class="gh-badge gh-badge-${r.status==='paused'?'amber':'gray'}">${r.status}</span>`:''}
         </div>
-        <div class="sub-meta">
-          ${r.next_billing_date?`<span>Next: ${r.next_billing_date}</span>`:''}
-          ${r.account_name?`<span>via ${esc(r.account_name)}</span>`:''}
-          ${r.members?.length?`<span>${r.members.map(m=>esc(m.display_name)).join(', ')}</span>`:''}
-          ${r.status!=='active'?`<span class="gh-badge gh-badge-amber">${r.status}</span>`:''}
+        <div class="gh-card-meta">${esc(r.category||'')}${r.provider_name?' · '+esc(r.provider_name):''}</div>
+        <div class="gh-card-body">
+          <div class="gh-card-row"><span>Cost</span><span class="ghv">${r.cost?fmt$(r.cost)+'/'+cycleLabel(r.billing_cycle):'—'}</span></div>
+          ${r.next_billing_date?`<div class="gh-card-row"><span>Next</span><span class="${upcoming?'ghv-warn':'ghv'}">${r.next_billing_date}${upcoming?' ('+days+'d)':''}</span></div>`:''}
+          ${r.account_name?`<div class="gh-card-row"><span>Via</span><span class="ghv-dim">${esc(r.account_name)}</span></div>`:''}
         </div>
+        ${r.members?.length?`<div class="gh-card-footer"><div class="gh-card-tags">${r.members.map(m=>`<span class="gh-badge gh-badge-gray">${esc(m.display_name)}</span>`).join('')}</div></div>`:''}
       </div>`;
-    }).join('');
+    }).join('')}</div>`;
     loadSummary();
   } catch(e) { LT.toast('Failed to load', 'err'); }
 }
@@ -236,15 +219,22 @@ async function deleteSub() {
   });
 }
 
-async function initCatFilter() {
-  try {
-    const opts = await window.api('GET', '/settings/dropdowns/subscription_category');
-    const sel = document.getElementById('catFilter');
-    opts.forEach(o => { const el=document.createElement('option'); el.value=o.value; el.textContent=o.label; sel.appendChild(el); });
-  } catch(e) {}
-}
+let _subView = 'grid', _subCols = 2, _subFilters = {};
 
-document.addEventListener('DOMContentLoaded', () => { initCatFilter(); load(); });
+document.addEventListener('DOMContentLoaded', () => {
+  GH_VIEW.init('subViewToolbar', 'sub', state => {
+    _subView = state.view; _subCols = state.cols; _subFilters = state.filters || {};
+    load();
+  }, {
+    defaultView: 'grid',
+    defaultCols: 2,
+    filterFields: [
+      { key:'status',   type:'select', label:'Status',   options:[{value:'',label:'All'},{value:'active',label:'Active'},{value:'paused',label:'Paused'},{value:'cancelled',label:'Cancelled'}] },
+      { key:'category', type:'select', label:'Category', options:[{value:'',label:'All'},{value:'Streaming',label:'Streaming'},{value:'Music',label:'Music'},{value:'Software',label:'Software'},{value:'Fitness',label:'Fitness'},{value:'Gaming',label:'Gaming'},{value:'News',label:'News'},{value:'Utilities',label:'Utilities'},{value:'Other',label:'Other'}] },
+    ]
+  });
+  load();
+});
 </script>
 </body>
 </html>

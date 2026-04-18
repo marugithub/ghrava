@@ -7,21 +7,7 @@
   <title>Insurance — Ghrava</title><link rel="stylesheet" href="/shared.css"><script src="/theme.js"></script>
   <script>if (localStorage.getItem('gh_nav_collapsed') !== '0') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .ins-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:10px;cursor:pointer}
-    .ins-card:hover{border-color:var(--accent)}
-    .ins-card.expired{opacity:.5}.ins-card.cancelled{opacity:.4}
-    .ins-head{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
-    .ins-type-badge{padding:3px 10px;border-radius:99px;font-size:11px;font-weight:700;background:var(--bg3);border:1px solid var(--border);flex-shrink:0}
-    .ins-name{font-weight:700;font-size:14px;flex:1;min-width:0}
-    .ins-premium{font-weight:700;font-size:15px;color:var(--accent);flex-shrink:0}
-    .ins-meta{font-size:12px;color:var(--text3);display:flex;gap:10px;flex-wrap:wrap}
-    .ins-expiry-ok{color:var(--green)}.ins-expiry-warn{color:var(--amber)}.ins-expiry-danger{color:var(--red)}
-    .chain-entry{padding:10px;background:var(--bg3);border-radius:8px;margin-bottom:6px;font-size:13px}
-    .chain-active{border-left:3px solid var(--accent)}
-    .summary-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:10px 16px 0}
-    .summary-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;text-align:center}
-    .summary-val{font-size:20px;font-weight:800;color:var(--accent)}
-    .summary-label{font-size:11px;color:var(--text3);margin-top:2px}
+    .ins-grid{display:grid;grid-template-columns:repeat(var(--cols,2),minmax(0,1fr));gap:10px;padding:0 16px 90px}
   </style>
 </head>
 <body>
@@ -34,23 +20,17 @@
 <div id="app">
   <div class="gh-page-header"></div>
 
-  <div class="summary-strip">
-    <div class="summary-card"><div class="summary-val" id="sumActive">—</div><div class="summary-label">Active</div></div>
-    <div class="summary-card"><div class="summary-val" id="sumExpiring">—</div><div class="summary-label">Expiring 60d</div></div>
-    <div class="summary-card"><div class="summary-val" id="sumPremium">—</div><div class="summary-label">Annual Premium</div></div>
+  <div class="stats-row" style="margin:10px 16px 0">
+    <div class="stat-item"><div class="stat-value" id="sumActive">—</div><div class="stat-label">Active</div></div>
+    <div class="stat-item"><div class="stat-value" id="sumExpiring" style="color:var(--amber)">—</div><div class="stat-label">Expiring 60d</div></div>
+    <div class="stat-item"><div class="stat-value" id="sumPremium" style="color:var(--red)">—</div><div class="stat-label">Annual Premium</div></div>
   </div>
 
-  <div style="display:flex;gap:8px;padding:10px 16px 0">
-    <select class="form-select" id="statusFilter" onchange="load()" style="flex:1">
-      <option value="active">Active</option>
-      <option value="all">All</option>
-    </select>
-    <select class="form-select" id="typeFilter" onchange="load()" style="flex:1">
-      <option value="">All types</option>
-    </select>
+  <div style="padding:6px 16px 0;display:flex;align-items:center">
+    <div style="flex:1"></div>
+    <div id="insViewToolbar"></div>
   </div>
-
-  <div style="padding:10px 16px 90px" id="insList"></div>
+  <div id="insList" style="padding-top:8px"></div>
 </div>
 
 <!-- Add/Edit Drawer -->
@@ -150,10 +130,10 @@ function expiryClass(days) {
 }
 
 async function load() {
-  const status = document.getElementById('statusFilter').value;
-  const type   = document.getElementById('typeFilter').value;
+  const status = _insFilters.status || 'active';
+  const type   = _insFilters.type || '';
   try {
-    let url = `/insurance/?status=${status}`;
+    let url = `/insurance/?${status!=='all'?'status='+status:''}`;
     if (type) url += `&type=${encodeURIComponent(type)}`;
     const rows = await window.api('GET', url);
 
@@ -166,26 +146,32 @@ async function load() {
       return;
     }
 
-    el.innerHTML = rows.map(r => {
+    const stripeColor = r => {
+      if (r.status !== 'active') return 'gh-s-gray';
       const days = daysUntil(r.coverage_end_date);
-      const eCls = expiryClass(days);
-      const premLabel = r.premium_amount
-        ? `${fmt$(r.premium_amount)}/${r.premium_frequency?.replace('monthly','mo').replace('annual','yr').replace('semi-annual','6mo').replace('quarterly','qtr')}`
-        : '—';
-      return `<div class="ins-card ${r.status!=='active'?r.status:''}" onclick="openDrawer(${r.id})">
-        <div class="ins-head">
-          <span class="ins-type-badge">${esc(r.policy_type)}</span>
-          <div class="ins-name">${esc(r.provider_name||r.policy_type)}${r.policy_number?' · '+esc(r.policy_number):''}</div>
-          <div class="ins-premium">${premLabel}</div>
+      if (days !== null && days < 0) return 'gh-s-red';
+      if (days !== null && days <= 30) return 'gh-s-red';
+      if (days !== null && days <= 60) return 'gh-s-amber';
+      return 'gh-s-green';
+    };
+    const freqLabel = f => ({'monthly':'mo','annual':'yr','semi-annual':'6mo','quarterly':'qtr'})[f] || f;
+    el.innerHTML = `<div class="ins-grid" style="--cols:${_insCols}">${rows.map(r => {
+      const days = daysUntil(r.coverage_end_date);
+      const daysLabel = days !== null ? `${Math.abs(days)}d ${days < 0 ? 'ago' : 'left'}` : '';
+      return `<div class="gh-card ${stripeColor(r)}" onclick="openDrawer(${r.id})">
+        <div class="gh-card-head">
+          <div class="gh-card-title">${esc(r.provider_name||r.policy_type)}</div>
+          <span class="gh-badge gh-badge-${r.status==='active'?'blue':'gray'}">${esc(r.policy_type)}</span>
         </div>
-        <div class="ins-meta">
-          ${r.coverage_end_date?`<span class="${eCls}">${days!==null&&days<0?'Expired':'Expires'}: ${r.coverage_end_date}${days!==null?` (${Math.abs(days)}d ${days<0?'ago':'left'})`:''}  </span>`:''}
-          ${r.agent_name?`<span>Agent: ${esc(r.agent_name)}</span>`:''}
-          ${r.members?.length?`<span>${r.members.map(m=>esc(m.display_name)).join(', ')}</span>`:''}
-          ${r.status!=='active'?`<span class="gh-badge gh-badge-amber">${r.status}</span>`:''}
+        <div class="gh-card-meta">${r.policy_number?'#'+esc(r.policy_number):''}${r.agent_name?' · '+esc(r.agent_name):''}</div>
+        <div class="gh-card-body">
+          ${r.premium_amount?`<div class="gh-card-row"><span>Premium</span><span class="ghv">${fmt$(r.premium_amount)}/${freqLabel(r.premium_frequency)}</span></div>`:''}
+          ${r.coverage_end_date?`<div class="gh-card-row"><span>${days<0?'Expired':'Expires'}</span><span class="${days<0||days<=30?'ghv-err':days<=60?'ghv-warn':'ghv'}">${r.coverage_end_date} (${daysLabel})</span></div>`:''}
+          ${r.deductible?`<div class="gh-card-row"><span>Deductible</span><span class="ghv-dim">${fmt$(r.deductible)}</span></div>`:''}
         </div>
+        ${r.members?.length?`<div class="gh-card-footer"><div class="gh-card-tags">${r.members.map(m=>`<span class="gh-badge gh-badge-gray">${esc(m.display_name)}</span>`).join('')}</div></div>`:''}
       </div>`;
-    }).join('');
+    }).join('')}</div>`;
 
     loadSummary();
   } catch(e) { LT.toast('Failed to load', 'err'); }
@@ -314,15 +300,22 @@ async function deletePolicy() {
   });
 }
 
-async function initTypeFilter() {
-  try {
-    const opts = await window.api('GET', '/settings/dropdowns/insurance_type');
-    const sel = document.getElementById('typeFilter');
-    opts.forEach(o => { const el=document.createElement('option'); el.value=o.value; el.textContent=o.label; sel.appendChild(el); });
-  } catch(e) {}
-}
+let _insView = 'grid', _insCols = 2, _insFilters = {};
 
-document.addEventListener('DOMContentLoaded', () => { initTypeFilter(); load(); });
+document.addEventListener('DOMContentLoaded', () => {
+  GH_VIEW.init('insViewToolbar', 'ins', state => {
+    _insView = state.view; _insCols = state.cols; _insFilters = state.filters || {};
+    load();
+  }, {
+    defaultView: 'grid',
+    defaultCols: 2,
+    filterFields: [
+      { key:'status', type:'select', label:'Status', options:[{value:'active',label:'Active'},{value:'all',label:'All'}] },
+      { key:'type',   type:'select', label:'Type',   options:[{value:'',label:'All'},{value:'Auto',label:'Auto'},{value:'Home',label:'Home'},{value:'Life',label:'Life'},{value:'Health',label:'Health'},{value:'Umbrella',label:'Umbrella'},{value:'Dental',label:'Dental'},{value:'Vision',label:'Vision'},{value:'Other',label:'Other'}] },
+    ]
+  });
+  load();
+});
 </script>
 </body>
 </html>
