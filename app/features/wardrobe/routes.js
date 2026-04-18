@@ -29,7 +29,8 @@ router.get('/items', (req, res) => {
       SELECT i.*,
         fm.display_name AS owner_name,
         (SELECT COUNT(*) FROM wardrobe_wear_log wl WHERE wl.item_id = i.id) AS times_worn,
-        (SELECT MAX(worn_date) FROM wardrobe_wear_log wl WHERE wl.item_id = i.id) AS last_worn
+        (SELECT MAX(worn_date) FROM wardrobe_wear_log wl WHERE wl.item_id = i.id) AS last_worn,
+        (SELECT COUNT(*) FROM attachments WHERE entity_type='item' AND entity_id=i.id) AS attachment_count
       FROM items i
       LEFT JOIN family_members fm ON fm.id = i.wardrobe_owner_id
       WHERE ${where}
@@ -62,12 +63,18 @@ router.get('/items/:id', (req, res) => {
     const row = db.prepare(`
       SELECT i.*, fm.display_name AS owner_name,
         (SELECT COUNT(*) FROM wardrobe_wear_log WHERE item_id=i.id) AS times_worn,
-        (SELECT MAX(worn_date) FROM wardrobe_wear_log WHERE item_id=i.id) AS last_worn
+        (SELECT MAX(worn_date) FROM wardrobe_wear_log WHERE item_id=i.id) AS last_worn,
+        (SELECT COUNT(*) FROM attachments WHERE entity_type='item' AND entity_id=i.id) AS attachment_count
       FROM items i
       LEFT JOIN family_members fm ON fm.id=i.wardrobe_owner_id
       WHERE i.id=?
     `).get(req.params.id);
     if (!row) return notFound(res, 'Item');
+    row.primary_photo = db.prepare(
+      `SELECT id, thumb_path, original_filename, label
+       FROM attachments WHERE entity_type='item' AND entity_id=? AND is_primary_photo=1 AND is_image=1
+       LIMIT 1`
+    ).get(req.params.id) || null;
     res.json(row);
   } catch(e) { serverError(res, e); }
 });

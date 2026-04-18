@@ -54,8 +54,10 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<script src="/attachments.js"></script>
 
 <div id="app">
+  <div class="gh-page-header"></div>
 
   <!-- Tab bar -->
   <div class="tab-bar">
@@ -112,6 +114,10 @@
     <button class="gh-drawer-close" onclick="closeDrawer('itemDrawer')">×</button>
   </div>
   <div class="gh-drawer-body">
+    <div id="iPhotoSection" style="display:none;margin-bottom:4px">
+      <div id="iPhotoContent"></div>
+      <div style="height:1px;background:var(--border);margin:12px 0"></div>
+    </div>
     <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="iName"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Category</label>
@@ -211,6 +217,7 @@ function closeDrawer(id) { document.getElementById(id).classList.remove('open');
 function openDrawer(id)  { document.getElementById(id).classList.add('open'); }
 
 async function init() {
+  AttachmentManager.injectStyles();
   await loadMembers();
   initItemView();
   initOutfitView();
@@ -451,6 +458,7 @@ async function loadItems() {
         <div class="gh-card ${stripeFor(item)}" onclick="openItemDrawer(${item.id})">
           <div class="gh-card-head">
             <div class="gh-card-title">${esc(item.wardrobe_nickname||item.name)}</div>
+            ${item.attachment_count ? AttachmentManager.staticBadge('item', item.id, item.attachment_count) : ''}
           </div>
           <div class="gh-card-meta">${esc(item.category||'')}${item.brand?' · '+esc(item.brand):''}</div>
           <div class="gh-card-body">
@@ -508,6 +516,7 @@ async function openItemDrawer(id) {
 
   document.getElementById('itemDrawerTitle').textContent = id ? 'Edit Item' : 'Add Item';
   document.getElementById('iDeleteBtn').style.display = id ? '' : 'none';
+  document.getElementById('iPhotoSection').style.display = 'none';
   document.getElementById('iName').value = '';
   document.getElementById('iBrand').value = '';
   document.getElementById('iNickname').value = '';
@@ -538,6 +547,21 @@ async function openItemDrawer(id) {
       GH_REFS.populateContact('iDonatedOrg', item.donated_org_contact_id||null, { placeholder:'— select org —' });
       try { _iSeasonSel   = item.season_tags   ? JSON.parse(item.season_tags)   : []; } catch { _iSeasonSel=[]; }
       try { _iOccasionSel = item.occasion_tags ? JSON.parse(item.occasion_tags) : []; } catch { _iOccasionSel=[]; }
+
+      // Photo section
+      const photoTitle = esc(item.wardrobe_nickname || item.name);
+      const photoBtn = `<button class="btn btn-ghost" style="font-size:12px" onclick="AttachmentManager.open('item',${id},'${photoTitle}')">📷 ${item.attachment_count ? 'Photos (' + item.attachment_count + ')' : 'Add Photos'}</button>`;
+      document.getElementById('iPhotoContent').innerHTML = item.primary_photo
+        ? `<div style="display:flex;align-items:center;gap:12px">
+             <div style="width:64px;height:64px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);flex-shrink:0;cursor:zoom-in"
+                  onclick="AttachmentManager._viewImage(${item.primary_photo.id},'${esc(item.primary_photo.label||item.primary_photo.original_filename||'')}')">
+               <img src="/api/v1/attachments/thumb/${item.primary_photo.id}" style="width:100%;height:100%;object-fit:cover"
+                    onerror="this.parentElement.style.display='none'">
+             </div>
+             ${photoBtn}
+           </div>`
+        : photoBtn;
+      document.getElementById('iPhotoSection').style.display = '';
     } catch(e) {}
   }
   renderTagPicker('iSeasonTags',   SEASON_OPTS,   _iSeasonSel,   'toggleISeason');
