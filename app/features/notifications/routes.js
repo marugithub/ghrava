@@ -41,7 +41,7 @@ function generateNotifications() {
       .run(type, severity, title, body, module, entity_type||null);
 
   // Clear auto-generated
-  db.prepare("DELETE FROM notifications WHERE type IN ('expiry','hsa_pool','follow_up','receipt','todo','cert','vehicle','gift_card','document')").run();
+  db.prepare("DELETE FROM notifications WHERE type IN ('expiry','hsa_pool','follow_up','receipt','todo','cert','vehicle','gift_card','document','insurance','wardrobe')").run();
 
   // 1. Expired inventory items
   const invExpired = db.prepare(`SELECT COUNT(*) as n FROM items i JOIN item_hw_details hw ON hw.item_id=i.id WHERE i.is_active=1 AND i.is_archived=0 AND hw.expiration_date < ?`).get(now);
@@ -112,6 +112,36 @@ function generateNotifications() {
     const docSoon = db.prepare(`SELECT COUNT(*) as n FROM documents WHERE is_active=1 AND expiry_date IS NOT NULL AND expiry_date >= ? AND expiry_date <= ?`).get(now, soon90);
     if (docSoon.n > 0) ins('document','pending',`${docSoon.n} document${docSoon.n>1?'s':''} expiring within 90 days`,'Review documents before they expire','documents','document');
   } catch(e) {}
+
+  // 9. Insurance policies expiring (safe — table may not exist yet)
+  try {
+    const insExpired = db.prepare(`SELECT COUNT(*) as n FROM insurance_policies WHERE status='active' AND coverage_end_date IS NOT NULL AND coverage_end_date < ?`).get(now);
+    if (insExpired.n > 0) ins('insurance','overdue',`${insExpired.n} insurance polic${insExpired.n>1?'ies':'y'} expired`,'Review and renew expired policies immediately','insurance','insurance');
+
+    const ins30 = db.prepare(`SELECT COUNT(*) as n FROM insurance_policies WHERE status='active' AND coverage_end_date IS NOT NULL AND coverage_end_date >= ? AND coverage_end_date <= ?`).get(now, soon30);
+    if (ins30.n > 0) ins('insurance','overdue',`${ins30.n} insurance polic${ins30.n>1?'ies':'y'} expiring within 30 days`,'Renew soon to avoid coverage gap','insurance','insurance');
+
+    const ins60 = db.prepare(`SELECT COUNT(*) as n FROM insurance_policies WHERE status='active' AND coverage_end_date IS NOT NULL AND coverage_end_date > ? AND coverage_end_date <= ?`).get(soon30, soon60);
+    if (ins60.n > 0) ins('insurance','pending',`${ins60.n} insurance polic${ins60.n>1?'ies':'y'} expiring within 60 days`,'Schedule renewal review','insurance','insurance');
+  } catch(e) {}
+
+  // 10. Wardrobe — items not worn in 30+ days (safe — table may not exist yet)
+  try {
+    const stale = db.prepare(`
+      SELECT COUNT(*) as n FROM items i
+      WHERE i.category IN ('Clothing','Shoes','Accessories','Jewelry','Hats','Bags')
+      AND i.is_active=1
+      AND (i.wardrobe_status='active' OR i.wardrobe_status IS NULL)
+      AND i.id IN (SELECT DISTINCT item_id FROM wardrobe_wear_log)
+      AND i.id NOT IN (
+        SELECT item_id FROM wardrobe_wear_log WHERE worn_date >= date('now','-30 days')
+      )
+    `).get();
+    if (stale.n > 0) ins('wardrobe','info',`${stale.n} wardrobe item${stale.n>1?'s':''} not worn in 30+ days`,'Consider donating items you no longer wear','wardrobe','wardrobe');
+  } catch(e) {}
+
+  // Clear type column includes new types
+  db.prepare("DELETE FROM notifications WHERE type IN ('insurance','wardrobe')").run();
 }
 
 // GET /api/v1/notifications

@@ -198,6 +198,7 @@
               <span class="side-nav-icon" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${active ? m.color : 'currentColor'}">${SVG[m.svgKey]||''}</span>
               <span class="side-nav-item-label">${m.label}</span>
               ${isTodos ? `<span class="gh-todo-badge" style="display:none;margin-left:auto;background:var(--amber);color:#000;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;font-family:var(--mono)">0</span>` : ''}
+              ${k === 'notifications' ? `<span class="gh-notif-badge" style="display:none;margin-left:auto;background:var(--red);color:white;border-radius:10px;font-size:9px;font-weight:700;padding:1px 5px;font-family:var(--mono)">0</span>` : ''}
             </a>`;
           }).join('')}
         </div>
