@@ -17,7 +17,11 @@
 
 ## Tomorrow's Priority List
 1. **Deploy the zip** — 35 files, `docker restart ghrava`
-2. **DuckDNS + Caddy + Tailscale HTTPS** → Google OAuth proper fix
+2. **Tailscale HTTPS cert + Caddy** → Google OAuth proper fix
+   - `docker exec tailscale tailscale cert qnap-nas-36.tail73fb11.ts.net`
+   - Add Caddy block for `qnap-nas-36.tail73fb11.ts.net` → `http://ghrava:3001`
+   - Add `https://qnap-nas-36.tail73fb11.ts.net/api/v1/google/oauth/callback` to Google Console
+   - **No DuckDNS** — ruled out due to public internet exposure risk
 3. **Test Google OAuth** after fix
 4. **EOB import test** — Medical → EOB tab, drag a PDF
 5. **PWA Launcher build** — standalone HTML, see spec below
@@ -54,7 +58,7 @@ ghrava.local, ghrava.home {
 - Credentials saved correctly in `app_config` (confirmed via debug endpoint)
 - Both UI bugs fixed: `auth_url` → `url` key, callback now redirects to `/settings.html?google_connected=1`
 - **Blocker:** Google rejects private IPs and `.home`/`.local` domains as redirect URIs
-- **Fix tomorrow:** DuckDNS free domain + Caddy HTTPS cert OR Tailscale `.ts.net` hostname with HTTPS cert
+- **Fix tomorrow:** Tailscale cert for `qnap-nas-36.tail73fb11.ts.net` + Caddy block. DuckDNS ruled out — exposes NAS to public internet.
 - Debug endpoint: `http://192.168.4.62:3001/api/v1/google/debug/connection`
 
 ### Tailscale Setup Notes
