@@ -39,11 +39,7 @@
     .insight-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
     .insight-val{font-size:22px;font-weight:800;color:var(--accent)}
     .insight-label{font-size:11px;color:var(--text3);margin-top:2px}
-    .item-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-    @media(min-width:500px){.item-grid{grid-template-columns:repeat(3,1fr)}}
-    @media(min-width:700px){.item-grid{grid-template-columns:repeat(4,1fr)}}
-    .item-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;cursor:pointer}
-    .item-card:hover{border-color:var(--accent)}
+
     .item-name{font-size:13px;font-weight:600;margin-bottom:2px}
     .item-meta{font-size:11px;color:var(--text3)}
     .tab-bar{display:flex;border-bottom:1px solid var(--border);padding:0 16px;gap:0;overflow-x:auto;scrollbar-width:none}
@@ -84,12 +80,12 @@
   </div>
 
   <!-- Items tab -->
-  <div id="tab-items" style="display:none;padding:10px 16px 90px">
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
-      <select class="form-select" id="itemCatFilter" onchange="loadItems()" style="flex:1;min-width:120px"><option value="">All categories</option></select>
-      <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="openItemDrawer()">+ Add Item</button>
+  <div id="tab-items" style="display:none">
+    <div style="display:flex;align-items:center;padding:6px 16px 0">
+      <div style="flex:1"></div>
+      <div id="itemViewToolbar"></div>
     </div>
-    <div id="itemGrid" class="item-grid"></div>
+    <div id="itemGrid" style="padding:8px 16px 90px"></div>
   </div>
 
   <!-- Outfits tab -->
@@ -209,30 +205,47 @@ let _members = [], _activeMember = null, _currentTab = 'planner';
 let _editingItemId = null, _editingOutfitId = null;
 let _allItems = [], _iSeasonSel = [], _iOccasionSel = [];
 let _oSeasonSel = [], _oOccasionSel = [], _oItemIds = [];
+let _itemView = 'grid', _itemCols = 2, _itemFilters = {};
+let _outfitView = 'grid', _outfitCols = 2, _outfitFilters = {};
 
 function closeDrawer(id) { document.getElementById(id).classList.remove('open'); }
 function openDrawer(id)  { document.getElementById(id).classList.add('open'); }
 
 async function init() {
   await loadMembers();
-  await populateCatFilter();
+  initItemView();
+  initOutfitView();
   renderDays();
   loadWeather();
   loadTabContent();
 }
 
-async function populateCatFilter() {
-  try {
-    const opts = await window.api('GET', '/settings/dropdowns/wardrobe_category');
-    const sel = document.getElementById('itemCatFilter');
-    opts.forEach(o => {
-      const el = document.createElement('option');
-      el.value = o.value; el.textContent = o.label;
-      sel.appendChild(el);
-    });
-  } catch(e) {}
+function initItemView() {
+  GH_VIEW.init('itemViewToolbar', 'wrd_item', state => {
+    _itemView = state.view; _itemCols = state.cols; _itemFilters = state.filters || {};
+    if (_currentTab === 'items') loadItems();
+  }, {
+    defaultView: 'grid', defaultCols: 2,
+    filterFields: [
+      { key:'category', type:'select', label:'Category', options:[{value:'',label:'All'},{value:'Clothing',label:'Clothing'},{value:'Shoes',label:'Shoes'},{value:'Accessories',label:'Accessories'},{value:'Jewelry',label:'Jewelry'},{value:'Hats',label:'Hats'},{value:'Bags',label:'Bags'}]},
+      { key:'season',   type:'select', label:'Season',   options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'},{value:'All-season',label:'All-season'}]},
+      { key:'occasion', type:'select', label:'Occasion', options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'School',label:'School'},{value:'Sports',label:'Sports'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'}]},
+    ]
+  });
 }
 
+function initOutfitView() {
+  GH_VIEW.init('outfitViewToolbar', 'wrd_outfit', state => {
+    _outfitView = state.view; _outfitCols = state.cols; _outfitFilters = state.filters || {};
+    if (_currentTab === 'outfits') loadOutfits();
+  }, {
+    defaultView: 'grid', defaultCols: 2,
+    filterFields: [
+      { key:'season',   type:'select', label:'Season',   options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'}]},
+      { key:'occasion', type:'select', label:'Occasion', options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'School',label:'School'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'},{value:'Evening',label:'Evening'}]},
+    ]
+  });
+}
 async function loadMembers() {
   try {
     _members = await window.api('GET', '/settings/family');
@@ -420,20 +433,33 @@ async function loadWeather() {
 // ── Items ─────────────────────────────────────────────────────
 async function loadItems() {
   try {
-    const cat = document.getElementById('itemCatFilter').value;
+    const cat     = _itemFilters.category || '';
+    const season  = _itemFilters.season   || '';
+    const occasion= _itemFilters.occasion || '';
     let url = '/wardrobe/items?';
     if (_activeMember) url += `member_id=${_activeMember}&`;
-    if (cat) url += `category=${encodeURIComponent(cat)}&`;
+    if (cat)     url += `category=${encodeURIComponent(cat)}&`;
+    if (season)  url += `season=${encodeURIComponent(season)}&`;
+    if (occasion)url += `occasion=${encodeURIComponent(occasion)}&`;
     _allItems = await window.api('GET', url);
     const grid = document.getElementById('itemGrid');
     if (!_allItems.length) { grid.innerHTML = emptyState('👔','No wardrobe items yet','Add items using the + button above'); return; }
-    grid.innerHTML = _allItems.map(item => `
-      <div class="item-card" onclick="openItemDrawer(${item.id})">
-        <div class="item-name">${esc(item.wardrobe_nickname||item.name)}</div>
-        <div class="item-meta">${esc(item.brand||'')} ${esc(item.category||'')}</div>
-        <div class="item-meta">${esc(item.owner_name||'')}</div>
-        ${item.times_worn?`<div class="item-meta" style="color:var(--accent)">Worn ${item.times_worn}×</div>`:''}
-      </div>`).join('');
+    const stripeFor = item => item.wardrobe_status === 'donated' ? 'gh-s-amber'
+      : item.wardrobe_status === 'sold' ? 'gh-s-gray'
+      : (item.times_worn||0) > 10 ? 'gh-s-green' : 'gh-s-blue';
+    grid.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${_itemCols},minmax(0,1fr));gap:10px">` +
+      _allItems.map(item => `
+        <div class="gh-card ${stripeFor(item)}" onclick="openItemDrawer(${item.id})">
+          <div class="gh-card-head">
+            <div class="gh-card-title">${esc(item.wardrobe_nickname||item.name)}</div>
+          </div>
+          <div class="gh-card-meta">${esc(item.category||'')}${item.brand?' · '+esc(item.brand):''}</div>
+          <div class="gh-card-body">
+            ${item.owner_name?`<div class="gh-card-row"><span>Owner</span><span class="ghv-dim">${esc(item.owner_name)}</span></div>`:''}
+            ${item.times_worn?`<div class="gh-card-row"><span>Worn</span><span class="ghv">${item.times_worn}×</span></div>`:''}
+            ${item.last_worn?`<div class="gh-card-row"><span>Last worn</span><span class="ghv-dim">${item.last_worn}</span></div>`:''}
+          </div>
+        </div>`).join('') + '</div>';
   } catch(e) { LT.toast('Failed to load items', 'err'); }
 }
 
@@ -587,19 +613,23 @@ async function loadOutfits() {
     const outfits = await window.api('GET', url);
     const el = document.getElementById('outfitList');
     if (!outfits.length) { el.innerHTML = emptyState('👗','No outfits yet','Create an outfit to start planning'); return; }
-    el.innerHTML = outfits.map(o => `
-      <div class="card" style="padding:12px;margin-bottom:8px;cursor:pointer" onclick="openOutfitDrawer(${o.id})">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="font-weight:600">${esc(o.name)}</div>
-          <span style="font-size:11px;color:var(--text3)">${o.items?.length||0} items</span>
-        </div>
-        <div style="font-size:12px;color:var(--text3);margin-top:4px">${esc(o.owner_name||'All members')}</div>
-        ${o.occasion_tags?.length||o.season_tags?.length ? `
-        <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:6px">
-          ${[...o.occasion_tags||[],...o.season_tags||[]].map(t=>
-            `<span class="gh-badge">${esc(t)}</span>`).join('')}
-        </div>` : ''}
-      </div>`).join('');
+    let filtered = outfits;
+    if (_outfitFilters.season)   filtered = filtered.filter(o => (o.season_tags||[]).includes(_outfitFilters.season));
+    if (_outfitFilters.occasion) filtered = filtered.filter(o => (o.occasion_tags||[]).includes(_outfitFilters.occasion));
+    if (!filtered.length) { el.innerHTML = emptyState('\u{1F457}','No outfits match','Try changing filters'); return; }
+    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${_outfitCols},minmax(0,1fr));gap:10px">` +
+      filtered.map(o => `
+        <div class="gh-card gh-s-blue" onclick="openOutfitDrawer(${o.id})">
+          <div class="gh-card-head">
+            <div class="gh-card-title">${esc(o.name)}</div>
+            <span class="gh-badge gh-badge-gray">${o.items?.length||0} items</span>
+          </div>
+          <div class="gh-card-meta">${esc(o.owner_name||'All members')}</div>
+          ${(o.occasion_tags?.length||o.season_tags?.length) ? `
+          <div class="gh-card-footer"><div class="gh-card-tags">
+            ${[...o.occasion_tags||[],...o.season_tags||[]].map(t=>`<span class="gh-badge gh-badge-blue">${esc(t)}</span>`).join('')}
+          </div></div>` : ''}
+        </div>`).join('') + '</div>';
   } catch(e) {}
 }
 
