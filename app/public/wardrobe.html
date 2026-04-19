@@ -559,12 +559,20 @@ async function openItemDrawer(id) {
 }
 
 async function openItemPhotos() {
-  if (!_editingItemId) {
-    const saved = await saveItem({ keepOpen: true });
-    if (!saved) return;
+  try {
+    if (!_editingItemId) {
+      const saved = await saveItem({ keepOpen: true });
+      if (!saved) return;
+    }
+    const name = document.getElementById('iName').value.trim();
+    // Force z-index inline so CSS caching can't hide the modal behind the drawer
+    const attDrawer = document.getElementById('attDrawer');
+    if (attDrawer) attDrawer.style.zIndex = '600';
+    AttachmentManager.open('item', _editingItemId, name);
+  } catch(e) {
+    console.error('openItemPhotos:', e);
+    LT.toast('Photos error: ' + e.message, 'err');
   }
-  const name = document.getElementById('iName').value.trim();
-  AttachmentManager.open('item', _editingItemId, name);
 }
 
 async function saveItem(opts = {}) {
