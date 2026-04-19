@@ -14,6 +14,14 @@ const { notFound, badRequest, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
 
 
+// Check once at module load whether memory_members table exists
+const _memTableExists = (() => {
+  try {
+    db.prepare("SELECT 1 FROM memory_members LIMIT 1").get();
+    return true;
+  } catch { return false; }
+})();
+
 // ── GET /api/v1/daily-log ──────────────────────────────────────
 // Query params: ?search=text  ?category=Finance  ?follow_up=1  ?limit=50  ?offset=0
 // ── List entries (filterable by date range, category, follow-up) ─
@@ -21,13 +29,13 @@ router.get('/', (req, res) => {
   try {
     const { search, category, follow_up, limit = 50, offset = 0 } = req.query;
 
-    let sql = `SELECT dl.*,
+    let sql = `SELECT dl.*${_memTableExists ? `,
       CASE WHEN dl.is_memory=1 THEN (
         SELECT GROUP_CONCAT(fm.display_name, ', ')
         FROM memory_members mm
         JOIN family_members fm ON fm.id=mm.family_member_id
         WHERE mm.log_id=dl.id
-      ) END AS member_names
+      ) END AS member_names` : ''}
       FROM daily_log dl WHERE 1=1`;
     const params = [];
 
@@ -83,6 +91,7 @@ router.get('/follow-ups', (req, res) => {
 });
 
 router.get('/memories', (req, res) => {
+  if (!_memTableExists) return res.json([]);
   try {
     const { member_id, category, year } = req.query;
     let where = 'dl.is_memory = 1';
@@ -119,12 +128,12 @@ router.get('/:id', (req, res) => {
   try {
     const entry = db.prepare('SELECT * FROM daily_log WHERE id = ?').get(req.params.id);
     if (!entry) return notFound(res, 'Log entry');
-    const members = db.prepare(`
+    const members = _memTableExists ? db.prepare(`
       SELECT mm.family_member_id, fm.display_name
       FROM memory_members mm
       JOIN family_members fm ON fm.id = mm.family_member_id
       WHERE mm.log_id = ?
-    `).all(req.params.id);
+    `).all(req.params.id) : [];
     res.json({ ...withTagNames(entry, 'daily_log'), memory_members: members });
   } catch (err) { serverError(res, err); }
 });
@@ -158,7 +167,7 @@ router.post('/', requireAuth, (req, res) => {
 
     const newId = result.lastInsertRowid;
     if (tags && tags.length) saveTagsByName(newId, 'daily_log', tags);
-    if (is_memory && Array.isArray(member_ids) && member_ids.length) {
+    if (_memTableExists && is_memory && Array.isArray(member_ids) && member_ids.length) {
       const stmt = db.prepare('INSERT INTO memory_members (log_id, family_member_id) VALUES (?,?)');
       member_ids.forEach(mid => stmt.run(newId, mid));
     }
@@ -199,7 +208,7 @@ router.put('/:id', requireAuth, (req, res) => {
     );
 
     if (tags !== undefined) saveTagsByName(req.params.id, 'daily_log', tags);
-    if (is_memory !== undefined) {
+    if (_memTableExists && is_memory !== undefined) {
       db.prepare('DELETE FROM memory_members WHERE log_id = ?').run(req.params.id);
       if (is_memory && Array.isArray(member_ids) && member_ids.length) {
         const stmt = db.prepare('INSERT INTO memory_members (log_id, family_member_id) VALUES (?,?)');
