@@ -377,7 +377,7 @@ async function loadPlannerEntries() {
 async function addPlannerEntry(dayIdx, dateKey) {
   try {
     const outfits = await window.api('GET', `/wardrobe/outfits${_activeMember?'?member_id='+_activeMember:''}`);
-    if (!outfits.length) { LT.toast('No outfits saved yet — create one in the Outfits tab first', 'info'); return; }
+    if (!outfits.length) { toast('No outfits saved yet — create one in the Outfits tab first', 'info'); return; }
     // Simple picker
     const opts = outfits.map(o => `<option value="${o.id}">${esc(o.name)} ${o.owner_name?'('+esc(o.owner_name)+')':''}</option>`).join('');
     LT.modal(`
@@ -394,7 +394,7 @@ async function addPlannerEntry(dayIdx, dateKey) {
           <button class="btn btn-ghost" onclick="LT.closeModal()">Cancel</button>
         </div>
       </div>`);
-  } catch(e) { LT.toast('Failed to load outfits', 'err'); }
+  } catch(e) { toast('Failed to load outfits', 'err'); }
 }
 
 async function confirmPlannerAdd(dateKey) {
@@ -407,7 +407,7 @@ async function confirmPlannerAdd(dateKey) {
     });
     LT.closeModal();
     loadPlannerEntries();
-  } catch(e) { LT.toast('Failed to add', 'err'); }
+  } catch(e) { toast('Failed to add', 'err'); }
 }
 
 async function removePlannerEntry(id) {
@@ -467,7 +467,7 @@ async function loadItems() {
             ${item.last_worn?`<div class="gh-card-row"><span>Last worn</span><span class="ghv-dim">${item.last_worn}</span></div>`:''}
           </div>
         </div>`).join('') + '</div>';
-  } catch(e) { LT.toast('Failed to load items', 'err'); }
+  } catch(e) { toast('Failed to load items', 'err'); }
 }
 
 function renderTagPicker(containerId, opts, selected, onToggle) {
@@ -571,13 +571,13 @@ async function openItemPhotos() {
     AttachmentManager.open('item', _editingItemId, name);
   } catch(e) {
     console.error('openItemPhotos:', e);
-    LT.toast('Photos error: ' + e.message, 'err');
+    toast('Photos error: ' + e.message, 'err');
   }
 }
 
 async function saveItem(opts = {}) {
   const name = document.getElementById('iName').value.trim();
-  if (!name) { LT.toast('Name is required', 'err'); return false; }
+  if (!name) { toast('Name is required', 'err'); return false; }
 
   const payload = {
     wardrobe_owner_id:   parseInt(document.getElementById('iOwner').value)||null,
@@ -596,7 +596,7 @@ async function saveItem(opts = {}) {
   try {
     if (_editingItemId) {
       await window.api('PUT', `/wardrobe/items/${_editingItemId}`, payload);
-      LT.toast('Item updated', 'ok');
+      toast('Item updated', 'ok');
     } else {
       // New item — needs to go through inventory first with wardrobe category
       // then update wardrobe fields
@@ -620,11 +620,11 @@ async function saveItem(opts = {}) {
         _editingItemId = created.id;
         await window.api('PUT', `/wardrobe/items/${created.id}`, payload);
       }
-      LT.toast('Item added', 'ok');
+      toast('Item added', 'ok');
     }
     if (!opts.keepOpen) { closeDrawer('itemDrawer'); loadItems(); }
     return true;
-  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); return false; }
+  } catch(e) { toast('Save failed: '+e.message, 'err'); return false; }
 }
 
 async function deleteItem() {
@@ -632,7 +632,7 @@ async function deleteItem() {
     await window.api('PUT', `/wardrobe/items/${_editingItemId}`, { wardrobe_status: 'discarded' });
     closeDrawer('itemDrawer');
     loadItems();
-    LT.toast('Item removed from wardrobe', 'ok');
+    toast('Item removed from wardrobe', 'ok');
   });
 }
 
@@ -693,7 +693,7 @@ async function openOutfitDrawer(id) {
   renderTagPicker('oOccasionTags', OCCASION_OPTS, _oOccasionSel, 'toggleOOccasion');
   await renderItemPicker();
   openDrawer('outfitDrawer');
-  } catch(e) { console.error('openOutfitDrawer error:', e); LT.toast('Could not open outfit drawer: ' + e.message, 'err'); }
+  } catch(e) { console.error('openOutfitDrawer error:', e); toast('Could not open outfit drawer: ' + e.message, 'err'); }
 }
 
 async function renderItemPicker() {
@@ -725,7 +725,7 @@ function toggleOItem(id) {
 
 async function saveOutfit() {
   const name = document.getElementById('oName').value.trim();
-  if (!name) { LT.toast('Name is required', 'err'); return; }
+  if (!name) { toast('Name is required', 'err'); return; }
   const payload = {
     name, family_member_id: parseInt(document.getElementById('oMember').value)||null,
     season_tags: _oSeasonSel, occasion_tags: _oOccasionSel,
@@ -735,14 +735,14 @@ async function saveOutfit() {
   try {
     if (_editingOutfitId) {
       await window.api('PUT', `/wardrobe/outfits/${_editingOutfitId}`, payload);
-      LT.toast('Outfit updated', 'ok');
+      toast('Outfit updated', 'ok');
     } else {
       await window.api('POST', '/wardrobe/outfits', payload);
-      LT.toast('Outfit created', 'ok');
+      toast('Outfit created', 'ok');
     }
     closeDrawer('outfitDrawer');
     loadOutfits();
-  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+  } catch(e) { toast('Save failed: '+e.message, 'err'); }
 }
 
 async function deleteOutfit() {
@@ -750,7 +750,7 @@ async function deleteOutfit() {
     await window.api('DELETE', `/wardrobe/outfits/${_editingOutfitId}`);
     closeDrawer('outfitDrawer');
     loadOutfits();
-    LT.toast('Outfit deleted', 'ok');
+    toast('Outfit deleted', 'ok');
   });
 }
 
