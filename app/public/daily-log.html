@@ -77,6 +77,14 @@
   }
   .entry-card.overdue-card  { border-left-color: var(--red) !important; }
   .entry-card.followup-card { border-left-color: var(--amber) !important; }
+  .entry-card.memory-card   { border-left-color: #a78bfa !important; }
+  .memory-badge {
+    display:inline-flex;align-items:center;gap:4px;
+    font-size:10px;font-weight:700;letter-spacing:.04em;
+    color:#a78bfa;background:rgba(167,139,250,.12);
+    border:1px solid rgba(167,139,250,.3);
+    border-radius:4px;padding:1px 6px;margin-left:4px;vertical-align:middle;
+  }
 
   /* ── Category pill (colored background + text) ───────────── */
   .entry-cat {
@@ -303,6 +311,27 @@
       </div>
     </div>
 
+    <div style="height:1px;background:var(--border);margin:14px 0"></div>
+
+    <div class="toggle-row">
+      <span class="toggle-label">✦ Mark as Memory</span>
+      <label class="toggle">
+        <input type="checkbox" id="fIsMemory" onchange="toggleMemoryFields()">
+        <span class="toggle-track"></span>
+      </label>
+    </div>
+
+    <div id="memoryFieldsWrap" style="display:none;margin-top:12px">
+      <div class="form-group">
+        <label class="form-label">Memory Category</label>
+        <select class="form-select" id="fMemoryCategory"></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Family Members</label>
+        <div id="fMemoryMembers"></div>
+      </div>
+    </div>
+
     <div class="btn-row">
       <button class="btn btn-ghost" id="formCancel">Cancel</button>
       <button class="btn btn-primary" id="formSave">Save</button>
@@ -322,6 +351,7 @@
       </div>
     </div>
     <div class="detail-text" id="detailText"></div>
+    <div id="detailMemory" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"></div>
     <div class="btn-row">
       <button class="btn btn-ghost" id="detailClose">Close</button>
       <button class="btn btn-ghost" id="detailEdit">Edit</button>
@@ -419,13 +449,15 @@ function entryCardHtml(e) {
     metaItems.push(`<span class="entry-meta-item">${fmtDate(e.log_date)} · ${fmtTime(e.created_at)}</span>`);
   }
 
-  const cardClass = isOverdue ? 'overdue-card' : isFollowUp ? 'followup-card' : '';
+  const cardClass = isOverdue ? 'overdue-card' : isFollowUp ? 'followup-card' : e.is_memory ? 'memory-card' : '';
 
   return `<div class="entry-card ${cardClass}" data-id="${e.id}"
     style="--entry-cat-color:${catColor}">
     <span class="entry-cat cat-${esc(e.category)}">${esc(e.category)}</span>
+    ${e.is_memory ? `<span class="memory-badge">✦ ${esc(e.memory_category||'Memory')}</span>` : ''}
     <div class="entry-title">${esc(title)}</div>
     ${preview ? `<div class="entry-preview">${esc(preview)}</div>` : ''}
+    ${e.is_memory && e.member_names ? `<div class="entry-meta"><span class="entry-meta-item" style="color:#a78bfa">👤 ${esc(e.member_names)}</span></div>` : ''}
     ${metaItems.length ? `<div class="entry-meta">${metaItems.join('')}</div>` : ''}
   </div>`;
 }
@@ -485,21 +517,35 @@ async function openAdd() {
   $('fFollowup').checked = false;
   $('fFollowupDate').value = '';
   $('followupDateWrap').style.display = 'none';
+  $('fIsMemory').checked = false;
+  $('memoryFieldsWrap').style.display = 'none';
+  await GH_SELECT.init('fMemoryCategory', 'memory_category', '', { allowAdd: true, placeholder: '— select —' });
+  GH_FAMILY.init('fMemoryMembers', [], { showLabel: false });
   $('formDrawer').classList.add('open');
   setTimeout(() => $('fText').focus(), 300);
 }
 
 async function openEdit(e) {
-  editingId = e.id;
+  // Fetch full entry to get memory_members
+  let full = e;
+  try { full = await api('GET', `/${e.id}`); } catch {}
+  editingId = full.id;
   $('formTitle').textContent = 'Edit Entry';
-  $('fDate').value = e.log_date;
-  await GH_SELECT.init('fCategory', 'dailylog_category', e.category||'General', { allowAdd: true });
-  $('fCategory').value = e.category;
-  dlFormTags = e.tags || []; renderDlTags();
-  $('fText').value = e.entry_text;
-  $('fFollowup').checked = !!e.follow_up_needed;
-  $('fFollowupDate').value = e.follow_up_date||'';
-  $('followupDateWrap').style.display = e.follow_up_needed ? 'block' : 'none';
+  $('fDate').value = full.log_date;
+  await GH_SELECT.init('fCategory', 'dailylog_category', full.category||'General', { allowAdd: true });
+  $('fCategory').value = full.category;
+  dlFormTags = full.tags || []; renderDlTags();
+  $('fText').value = full.entry_text;
+  $('fFollowup').checked = !!full.follow_up_needed;
+  $('fFollowupDate').value = full.follow_up_date||'';
+  $('followupDateWrap').style.display = full.follow_up_needed ? 'block' : 'none';
+  // Memory fields
+  const isMemory = !!full.is_memory;
+  $('fIsMemory').checked = isMemory;
+  $('memoryFieldsWrap').style.display = isMemory ? 'block' : 'none';
+  await GH_SELECT.init('fMemoryCategory', 'memory_category', full.memory_category||'', { allowAdd: true, placeholder: '— select —' });
+  const existingMembers = (full.memory_members||[]).map(m => ({ id: m.family_member_id, display_name: m.display_name }));
+  GH_FAMILY.init('fMemoryMembers', existingMembers, { showLabel: false });
   $('detailDrawer').classList.remove('open');
   $('formDrawer').classList.add('open');
 }
@@ -534,6 +580,17 @@ function openDetail(id) {
     $('detailFollowup').style.display = 'none';
   }
   $('detailText').textContent = e.entry_text;
+  // Memory info
+  const memoryEl = document.getElementById('detailMemory');
+  if (memoryEl) {
+    if (e.is_memory) {
+      memoryEl.style.display = 'block';
+      memoryEl.innerHTML = `<span class="memory-badge">✦ ${esc(e.memory_category||'Memory')}</span>`
+        + (e.member_names ? `<span style="font-size:12px;color:#a78bfa;margin-left:8px">👤 ${esc(e.member_names)}</span>` : '');
+    } else {
+      memoryEl.style.display = 'none';
+    }
+  }
   $('detailEdit').onclick   = () => openEdit(e);
   $('detailDelete').onclick = () => startDelete(e.id);
   $('detailDrawer').classList.add('open');
@@ -570,6 +627,10 @@ $('fFollowup').addEventListener('change', () => {
   $('followupDateWrap').style.display = $('fFollowup').checked ? 'block' : 'none';
 });
 
+function toggleMemoryFields() {
+  $('memoryFieldsWrap').style.display = $('fIsMemory').checked ? 'block' : 'none';
+}
+
 $('formSave').addEventListener('click', async () => {
   const text = $('fText').value.trim();
   const date = $('fDate').value;
@@ -577,17 +638,21 @@ $('formSave').addEventListener('click', async () => {
   if (!date) { toast('Date is required', 'err'); return; }
   const btn = $('formSave');
   btn.textContent = 'Saving…'; btn.disabled = true;
+  const isMemory = $('fIsMemory').checked;
   try {
     const method = editingId ? 'PUT' : 'POST';
     await api(method, editingId ? `/${editingId}` : '/', {
       log_date: date, category: $('fCategory').value, entry_text: text,
       follow_up_needed: $('fFollowup').checked,
       follow_up_date: $('fFollowup').checked ? $('fFollowupDate').value : null,
-      tags: dlFormTags
+      tags: dlFormTags,
+      is_memory: isMemory,
+      memory_category: isMemory ? $('fMemoryCategory').value || null : null,
+      member_ids: isMemory ? GH_FAMILY.getIds('fMemoryMembers') : []
     });
     $('formDrawer').classList.remove('open');
-    toast(editingId ? 'Entry updated' : 'Entry saved');
-    await load(); // auto-refresh
+    toast(editingId ? 'Entry updated' : (isMemory ? 'Memory saved ✦' : 'Entry saved'));
+    await load();
   } catch(err) { toast(err.message,'err'); }
   finally { btn.textContent='Save'; btn.disabled=false; }
 });

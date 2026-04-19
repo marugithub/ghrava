@@ -21,7 +21,14 @@ router.get('/', (req, res) => {
   try {
     const { search, category, follow_up, limit = 50, offset = 0 } = req.query;
 
-    let sql = 'SELECT * FROM daily_log WHERE 1=1';
+    let sql = `SELECT dl.*,
+      CASE WHEN dl.is_memory=1 THEN (
+        SELECT GROUP_CONCAT(fm.display_name, ', ')
+        FROM memory_members mm
+        JOIN family_members fm ON fm.id=mm.family_member_id
+        WHERE mm.log_id=dl.id
+      ) END AS member_names
+      FROM daily_log dl WHERE 1=1`;
     const params = [];
 
     if (search) {
@@ -36,9 +43,13 @@ router.get('/', (req, res) => {
       sql += ' AND follow_up_needed = 1';
     }
 
-    // Count total for pagination
-    const countSql = sql.replace('SELECT *', 'SELECT COUNT(*) as total');
-    const { total } = db.prepare(countSql).get(...params);
+    // Count total for pagination — build matching WHERE using same params
+    let countWhere = '1=1';
+    const countParams = [];
+    if (search)    { countWhere += ' AND entry_text LIKE ?'; countParams.push(`%${search}%`); }
+    if (category)  { countWhere += ' AND category = ?';      countParams.push(category); }
+    if (follow_up === '1') { countWhere += ' AND follow_up_needed = 1'; }
+    const { total } = db.prepare(`SELECT COUNT(*) as total FROM daily_log WHERE ${countWhere}`).get(...countParams);
 
     sql += ` ORDER BY
       CASE WHEN follow_up_needed=1 AND follow_up_date < date('now') THEN 0
@@ -71,13 +82,50 @@ router.get('/follow-ups', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+router.get('/memories', (req, res) => {
+  try {
+    const { member_id, category, year } = req.query;
+    let where = 'dl.is_memory = 1';
+    const params = [];
+    if (category) { where += ' AND dl.memory_category = ?'; params.push(category); }
+    if (year)     { where += " AND strftime('%Y', dl.log_date) = ?"; params.push(year); }
+    if (member_id) {
+      where += ' AND EXISTS (SELECT 1 FROM memory_members mm WHERE mm.log_id=dl.id AND mm.family_member_id=?)';
+      params.push(member_id);
+    }
+    const rows = db.prepare(`
+      SELECT dl.*,
+        (SELECT GROUP_CONCAT(fm.display_name, ', ')
+         FROM memory_members mm
+         JOIN family_members fm ON fm.id = mm.family_member_id
+         WHERE mm.log_id = dl.id) AS member_names,
+        (SELECT GROUP_CONCAT(mm.family_member_id, ',')
+         FROM memory_members mm WHERE mm.log_id = dl.id) AS member_ids_csv
+      FROM daily_log dl
+      WHERE ${where}
+      ORDER BY dl.log_date DESC
+    `).all(...params);
+    const result = rows.map(r => ({
+      ...withTagNames(r, 'daily_log'),
+      member_ids: r.member_ids_csv ? r.member_ids_csv.split(',').map(Number) : []
+    }));
+    res.json(result);
+  } catch (err) { serverError(res, err); }
+});
+
 // ── GET /api/v1/daily-log/:id ──────────────────────────────────
 // ── Single entry by id ─────────────────────────────────────────
 router.get('/:id', (req, res) => {
   try {
     const entry = db.prepare('SELECT * FROM daily_log WHERE id = ?').get(req.params.id);
     if (!entry) return notFound(res, 'Log entry');
-    res.json(withTagNames(entry, 'daily_log'));
+    const members = db.prepare(`
+      SELECT mm.family_member_id, fm.display_name
+      FROM memory_members mm
+      JOIN family_members fm ON fm.id = mm.family_member_id
+      WHERE mm.log_id = ?
+    `).all(req.params.id);
+    res.json({ ...withTagNames(entry, 'daily_log'), memory_members: members });
   } catch (err) { serverError(res, err); }
 });
 
@@ -88,24 +136,32 @@ router.get('/:id', (req, res) => {
 // ── Create an entry ────────────────────────────────────────────
 router.post('/', requireAuth, (req, res) => {
   try {
-    const { log_date, category, entry_text, follow_up_needed, follow_up_date, tags } = req.body;
+    const { log_date, category, entry_text, follow_up_needed, follow_up_date, tags,
+            is_memory, memory_category, member_ids } = req.body;
 
     if (!entry_text || !entry_text.trim()) return badRequest(res, 'entry_text is required');
     if (!log_date) return badRequest(res, 'log_date is required');
 
     const result = db.prepare(`
-      INSERT INTO daily_log (log_date, category, entry_text, follow_up_needed, follow_up_date)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO daily_log (log_date, category, entry_text, follow_up_needed, follow_up_date,
+                             is_memory, memory_category)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(
       log_date,
       category || 'General',
       entry_text.trim(),
       follow_up_needed ? 1 : 0,
-      follow_up_needed && follow_up_date ? follow_up_date : null
+      follow_up_needed && follow_up_date ? follow_up_date : null,
+      is_memory ? 1 : 0,
+      is_memory && memory_category ? memory_category : null
     );
 
     const newId = result.lastInsertRowid;
     if (tags && tags.length) saveTagsByName(newId, 'daily_log', tags);
+    if (is_memory && Array.isArray(member_ids) && member_ids.length) {
+      const stmt = db.prepare('INSERT INTO memory_members (log_id, family_member_id) VALUES (?,?)');
+      member_ids.forEach(mid => stmt.run(newId, mid));
+    }
     const entry = db.prepare('SELECT * FROM daily_log WHERE id = ?').get(newId);
     res.status(201).json({ ...entry, tags: getTagNames(newId, 'daily_log') });
   } catch (err) { serverError(res, err); }
@@ -115,7 +171,8 @@ router.post('/', requireAuth, (req, res) => {
 // ── Update an entry (also replaces tags) ───────────────────────
 router.put('/:id', requireAuth, (req, res) => {
   try {
-    const { log_date, category, entry_text, follow_up_needed, follow_up_date, tags } = req.body;
+    const { log_date, category, entry_text, follow_up_needed, follow_up_date, tags,
+            is_memory, memory_category, member_ids } = req.body;
 
     if (!entry_text || !entry_text.trim()) return badRequest(res, 'entry_text is required');
     if (!log_date) return badRequest(res, 'log_date is required');
@@ -127,6 +184,7 @@ router.put('/:id', requireAuth, (req, res) => {
       UPDATE daily_log SET
         log_date = ?, category = ?, entry_text = ?,
         follow_up_needed = ?, follow_up_date = ?,
+        is_memory = ?, memory_category = ?,
         updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `).run(
@@ -135,10 +193,19 @@ router.put('/:id', requireAuth, (req, res) => {
       entry_text.trim(),
       follow_up_needed ? 1 : 0,
       follow_up_needed && follow_up_date ? follow_up_date : null,
+      is_memory ? 1 : 0,
+      is_memory && memory_category ? memory_category : null,
       req.params.id
     );
 
     if (tags !== undefined) saveTagsByName(req.params.id, 'daily_log', tags);
+    if (is_memory !== undefined) {
+      db.prepare('DELETE FROM memory_members WHERE log_id = ?').run(req.params.id);
+      if (is_memory && Array.isArray(member_ids) && member_ids.length) {
+        const stmt = db.prepare('INSERT INTO memory_members (log_id, family_member_id) VALUES (?,?)');
+        member_ids.forEach(mid => stmt.run(req.params.id, mid));
+      }
+    }
     clearReview('daily_log', req.params.id);
     const entry = db.prepare('SELECT * FROM daily_log WHERE id = ?').get(req.params.id);
     res.json(withTagNames(entry, 'daily_log'));

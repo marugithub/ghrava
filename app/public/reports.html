@@ -54,6 +54,7 @@ const REPORT_REGISTRY = [
   { id:'summary',       category:'overview',   name:'Dashboard Summary',        icon:'📊', desc:'Overview of all modules',             endpoint:'/dashboard',                render:renderSummary },
   { id:'emergency',     category:'family',     name:'Emergency Info Card',       icon:'🚨', desc:'Critical contacts and medical info',  endpoint:'/reports/emergency',        render:renderEmergency },
   { id:'family-snap',   category:'family',     name:'Family Member Report',      icon:'👤', desc:'All data for a specific person',      endpoint:null,                        render:renderFamilySnapshot },
+  { id:'memories',      category:'family',     name:'Memory Timeline',           icon:'✦',  desc:'Life events and milestones by person', endpoint:'/daily-log/memories',       render:renderMemories },
   { id:'expiry',        category:'documents',  name:'Document Expiry Timeline',  icon:'📅', desc:'Upcoming document expirations',       endpoint:'/reports/expiry?months=24', render:renderExpiry },
   { id:'insurance',     category:'inventory',  name:'Home Insurance Report',     icon:'🏠', desc:'Inventory with values for claims',    endpoint:'/receipts/insurance-report', render:renderInsurance },
   { id:'hsa',           category:'finance',    name:'HSA Summary',               icon:'❤️', desc:'Contributions and expenses',          endpoint:'/hsa/summary',              render:renderHsa },
@@ -165,6 +166,86 @@ function renderEmergency(el, d) {
     : `<div style="color:var(--text3);padding:8px">No known allergies</div>`;
 
   el.innerHTML = panelWrap('🚨','Emergency Info Card', body);
+}
+
+async function renderMemories(el, d) {
+  // d is all memories — render with filter controls
+  let memories = Array.isArray(d) ? d : [];
+
+  // Get family members for filter
+  let members = [];
+  try { members = await window.api('GET', '/settings/family'); } catch {}
+
+  function buildHtml(list, filterMember, filterCat) {
+    const cats = [...new Set(list.map(m => m.memory_category).filter(Boolean))].sort();
+    const filtered = list.filter(m =>
+      (!filterMember || (m.member_ids||[]).includes(+filterMember)) &&
+      (!filterCat || m.memory_category === filterCat)
+    );
+
+    const filters = `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;align-items:center">
+      <select class="form-select" id="memFilterMember" style="width:auto;min-width:120px" onchange="refilterMemories()">
+        <option value="">All Members</option>
+        ${members.map(m=>`<option value="${m.id}"${filterMember==m.id?' selected':''}>${esc(m.display_name)}</option>`).join('')}
+      </select>
+      <select class="form-select" id="memFilterCat" style="width:auto;min-width:130px" onchange="refilterMemories()">
+        <option value="">All Categories</option>
+        ${cats.map(c=>`<option value="${c}"${filterCat===c?' selected':''}>${esc(c)}</option>`).join('')}
+      </select>
+      <span style="font-size:12px;color:var(--text3);margin-left:auto">${filtered.length} ${filtered.length===1?'memory':'memories'}</span>
+    </div>`;
+
+    if (!filtered.length) return filters + `<div style="color:var(--text3);padding:32px;text-align:center">No memories found</div>`;
+
+    // Group by year
+    const byYear = {};
+    filtered.forEach(m => {
+      const yr = (m.log_date||'').slice(0,4) || 'Unknown';
+      if (!byYear[yr]) byYear[yr] = [];
+      byYear[yr].push(m);
+    });
+
+    const timeline = Object.keys(byYear).sort((a,b)=>b-a).map(yr => {
+      const items = byYear[yr].map(m => {
+        const lines = (m.entry_text||'').split('\n').filter(Boolean);
+        const title = lines[0]||'';
+        const preview = lines.slice(1).join(' ')||'';
+        return `<div style="display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--border)">
+          <div style="width:3px;background:#a78bfa;border-radius:2px;flex-shrink:0;align-self:stretch"></div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
+              <span style="font-size:11px;color:var(--text3)">${esc(m.log_date)}</span>
+              ${m.memory_category?`<span style="font-size:10px;font-weight:700;color:#a78bfa;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.3);border-radius:4px;padding:1px 6px">${esc(m.memory_category)}</span>`:''}
+            </div>
+            <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:${preview?'4px':'0'}">${esc(title)}</div>
+            ${preview?`<div style="font-size:12px;color:var(--text3)">${esc(preview.slice(0,120))}${preview.length>120?'…':''}</div>`:''}
+            ${m.member_names?`<div style="font-size:11px;color:#a78bfa;margin-top:4px">👤 ${esc(m.member_names)}</div>`:''}
+          </div>
+        </div>`;
+      }).join('');
+      return `<div style="margin-bottom:20px">
+        <div style="font-size:13px;font-weight:700;color:var(--text2);letter-spacing:.04em;padding:8px 0;border-bottom:2px solid #a78bfa;margin-bottom:4px">${yr}</div>
+        ${items}
+      </div>`;
+    }).join('');
+
+    return filters + timeline;
+  }
+
+  // Store memories on window for refilter
+  window._reportMemories = memories;
+  window._reportMembers  = members;
+  window.refilterMemories = function() {
+    const fm = document.getElementById('memFilterMember')?.value||'';
+    const fc = document.getElementById('memFilterCat')?.value||'';
+    const content = document.getElementById('memTimelineContent');
+    if (content) content.innerHTML = buildHtml(window._reportMemories, fm, fc);
+  };
+
+  el.innerHTML = panelWrap('✦','Memory Timeline',
+    statsRow([[memories.length,'Total Memories'],[...new Set(memories.map(m=>m.memory_category).filter(Boolean))].length,'Categories'],) +
+    `<div id="memTimelineContent">${buildHtml(memories,'','')}</div>`
+  );
 }
 
 async function renderFamilySnapshot(el) {
