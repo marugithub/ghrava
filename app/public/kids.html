@@ -545,7 +545,7 @@ async function openKidDrawer(kid){
   $('kidDelete').style.display=_editingKidId?'inline-flex':'none';
   // Populate family member selector — children only
   try {
-    const members = await api('GET', '/settings/family');
+    const members = await window.api('GET', '/settings/family');
     const children = members.filter(m => ['Son','Daughter','Child','Stepson','Stepdaughter'].includes(m.relationship));
     const sel = $('kfFamilyMember');
     sel.innerHTML = '<option value="">— not linked —</option>' +

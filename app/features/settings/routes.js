@@ -233,6 +233,24 @@ router.get('/tags', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+// GET /api/v1/settings/tags/distinct?entity_type=X
+// Returns all unique tags used anywhere for the given entity_type.
+// Used by module tag filters (e.g. daily-log shows "all tags ever used on daily log entries").
+router.get('/tags/distinct', (req, res) => {
+  try {
+    const { entity_type } = req.query;
+    if (!entity_type) return badRequest(res, 'entity_type parameter required');
+    const tags = db.prepare(`
+      SELECT DISTINCT t.*
+      FROM tags t
+      JOIN taggables tb ON t.id = tb.tag_id
+      WHERE tb.entity_type = ?
+      ORDER BY t.name
+    `).all(String(entity_type));
+    res.json(tags);
+  } catch (err) { serverError(res, err); }
+});
+
 // GET /api/v1/settings/tags/search?tag=X
 // Cross-module tag search. Returns all entities tagged with the given name,
 // enriched with a display title and a deep-link URL for each result.
