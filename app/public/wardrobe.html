@@ -114,10 +114,6 @@
     <button class="gh-drawer-close" onclick="closeDrawer('itemDrawer')">×</button>
   </div>
   <div class="gh-drawer-body">
-    <div id="iPhotoSection" style="display:none;margin-bottom:4px">
-      <div id="iPhotoContent"></div>
-      <div style="height:1px;background:var(--border);margin:12px 0"></div>
-    </div>
     <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="iName"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Category</label>
@@ -165,6 +161,10 @@
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="iNotes" style="min-height:70px"></textarea></div>
     <div style="display:flex;gap:8px;padding-top:8px">
       <button class="btn btn-primary" style="flex:1" onclick="saveItem()">Save</button>
+      <button class="btn btn-ghost" id="iPhotosBtn" title="Add Photos" onclick="openItemPhotos()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        <span id="iPhotosBtnLabel">Photos</span>
+      </button>
       <button class="btn btn-ghost" id="iDeleteBtn" style="display:none" onclick="deleteItem()">Delete</button>
     </div>
   </div>
@@ -516,7 +516,7 @@ async function openItemDrawer(id) {
 
   document.getElementById('itemDrawerTitle').textContent = id ? 'Edit Item' : 'Add Item';
   document.getElementById('iDeleteBtn').style.display = id ? '' : 'none';
-  document.getElementById('iPhotoSection').style.display = 'none';
+  document.getElementById('iPhotosBtnLabel').textContent = 'Photos';
   document.getElementById('iName').value = '';
   document.getElementById('iBrand').value = '';
   document.getElementById('iNickname').value = '';
@@ -548,20 +548,9 @@ async function openItemDrawer(id) {
       try { _iSeasonSel   = item.season_tags   ? JSON.parse(item.season_tags)   : []; } catch { _iSeasonSel=[]; }
       try { _iOccasionSel = item.occasion_tags ? JSON.parse(item.occasion_tags) : []; } catch { _iOccasionSel=[]; }
 
-      // Photo section
-      const photoTitle = esc(item.wardrobe_nickname || item.name);
-      const photoBtn = `<button class="btn btn-ghost" style="font-size:12px" onclick="AttachmentManager.open('item',${id},'${photoTitle}')">📷 ${item.attachment_count ? 'Photos (' + item.attachment_count + ')' : 'Add Photos'}</button>`;
-      document.getElementById('iPhotoContent').innerHTML = item.primary_photo
-        ? `<div style="display:flex;align-items:center;gap:12px">
-             <div style="width:64px;height:64px;border-radius:var(--r);overflow:hidden;border:1px solid var(--border);flex-shrink:0;cursor:zoom-in"
-                  onclick="AttachmentManager._viewImage(${item.primary_photo.id},'${esc(item.primary_photo.label||item.primary_photo.original_filename||'')}')">
-               <img src="/api/v1/attachments/thumb/${item.primary_photo.id}" style="width:100%;height:100%;object-fit:cover"
-                    onerror="this.parentElement.style.display='none'">
-             </div>
-             ${photoBtn}
-           </div>`
-        : photoBtn;
-      document.getElementById('iPhotoSection').style.display = '';
+      // Update photos button label with count
+      const cnt = item.attachment_count || 0;
+      document.getElementById('iPhotosBtnLabel').textContent = cnt ? `Photos (${cnt})` : 'Photos';
     } catch(e) {}
   }
   renderTagPicker('iSeasonTags',   SEASON_OPTS,   _iSeasonSel,   'toggleISeason');
@@ -569,9 +558,18 @@ async function openItemDrawer(id) {
   openDrawer('itemDrawer');
 }
 
-async function saveItem() {
+async function openItemPhotos() {
+  if (!_editingItemId) {
+    const saved = await saveItem({ keepOpen: true });
+    if (!saved) return;
+  }
   const name = document.getElementById('iName').value.trim();
-  if (!name) { LT.toast('Name is required', 'err'); return; }
+  AttachmentManager.open('item', _editingItemId, name);
+}
+
+async function saveItem(opts = {}) {
+  const name = document.getElementById('iName').value.trim();
+  if (!name) { LT.toast('Name is required', 'err'); return false; }
 
   const payload = {
     wardrobe_owner_id:   parseInt(document.getElementById('iOwner').value)||null,
@@ -611,13 +609,14 @@ async function saveItem() {
       };
       const created = await window.api('POST', '/inventory/items', invPayload);
       if (created.id) {
+        _editingItemId = created.id;
         await window.api('PUT', `/wardrobe/items/${created.id}`, payload);
       }
       LT.toast('Item added', 'ok');
     }
-    closeDrawer('itemDrawer');
-    loadItems();
-  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+    if (!opts.keepOpen) { closeDrawer('itemDrawer'); loadItems(); }
+    return true;
+  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); return false; }
 }
 
 async function deleteItem() {
@@ -657,6 +656,7 @@ async function loadOutfits() {
 }
 
 async function openOutfitDrawer(id) {
+  try {
   _editingOutfitId = id||null;
   _oSeasonSel = []; _oOccasionSel = []; _oItemIds = [];
 
@@ -685,6 +685,7 @@ async function openOutfitDrawer(id) {
   renderTagPicker('oOccasionTags', OCCASION_OPTS, _oOccasionSel, 'toggleOOccasion');
   await renderItemPicker();
   openDrawer('outfitDrawer');
+  } catch(e) { console.error('openOutfitDrawer error:', e); LT.toast('Could not open outfit drawer: ' + e.message, 'err'); }
 }
 
 async function renderItemPicker() {
