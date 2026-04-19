@@ -786,7 +786,7 @@ html, body {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.55);
-  z-index: 300;
+  z-index: 500;
   display: none;
   align-items: center;
   justify-content: center;
