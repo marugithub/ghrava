@@ -33,7 +33,7 @@ const { saveFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('..
 // ── List / search documents ─────────────────────────────────────
 router.get('/', (req, res) => {
   try {
-    let sql = 'SELECT * FROM documents WHERE is_active=1';
+    let sql = 'SELECT * FROM documents WHERE 1=1';
     const p = [];
     if (req.query.category) { sql += ' AND category=?'; p.push(req.query.category); }
     if (req.query.member) {
@@ -88,7 +88,7 @@ router.get('/expiring', (req, res) => {
 // ── Get single document ────────────────────────────────────────
 router.get('/:id', (req, res) => {
   try {
-    const doc = db.prepare('SELECT * FROM documents WHERE id=? AND is_active=1').get(req.params.id);
+    const doc = db.prepare('SELECT * FROM documents WHERE id=?').get(req.params.id);
     if (!doc) return notFound(res, 'Document');
     res.json(withTags(doc));
   } catch (e) { serverError(res, e); }

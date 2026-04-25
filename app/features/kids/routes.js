@@ -242,7 +242,7 @@ router.delete('/:id/notes/:nid', requireAuth, (req, res) => {
 // Returns lightweight data for the dashboard panel — not full profiles.
 router.get('/summary/dashboard', (req, res) => {
   try {
-    const kids = /** @type {any[]} */ (db.prepare('SELECT id, display_name, date_of_birth, grade FROM kids WHERE is_active=1').all()).map(enrichKid);
+    const kids = /** @type {any[]} */ (db.prepare('SELECT id, display_name, date_of_birth, grade FROM kids WHERE 1=1').all()).map(enrichKid);
     const actCount = /** @type {any} */ (db.prepare('SELECT COUNT(*) AS n FROM kid_activities WHERE is_active=1').get()).n;
     res.json({ kids, active_activities: actCount });
   } catch(e) { serverError(res, e); }

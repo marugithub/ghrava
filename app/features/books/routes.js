@@ -39,7 +39,7 @@ function withBookPhoto(b) {
 router.get('/', (req, res) => {
   try {
     const { status, genre, format } = req.query;
-    let sql = 'SELECT * FROM books WHERE is_active=1';
+    let sql = 'SELECT * FROM books WHERE 1=1';
     const params = [];
     if (status) { sql += ' AND status=?'; params.push(status); }
     if (genre)  { sql += ' AND genre=?';  params.push(genre); }
