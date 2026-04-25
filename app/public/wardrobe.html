@@ -580,6 +580,12 @@ async function saveItem(opts = {}) {
   if (!name) { toast('Name is required', 'err'); return false; }
 
   const payload = {
+    name:                document.getElementById('iName').value.trim() || null,
+    brand:               document.getElementById('iBrand').value.trim() || null,
+    category:            document.getElementById('iCategory').value || null,
+    purchase_price:      parseFloat(document.getElementById('iPrice').value) || null,
+    purchase_date:       document.getElementById('iPDate').value || null,
+    notes:               document.getElementById('iNotes').value.trim() || null,
     wardrobe_owner_id:   parseInt(document.getElementById('iOwner').value)||null,
     wardrobe_nickname:   document.getElementById('iNickname').value.trim()||null,
     season_tags:         _iSeasonSel,

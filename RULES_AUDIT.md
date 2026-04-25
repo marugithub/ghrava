@@ -127,8 +127,9 @@ This is a major architectural decision and should be discussed before any change
 
 `Ghrava_Share.ps1` blocks the entire `attachments/` and `data/` directories. Suggest narrowing the exclude pattern from whole directories to file-level (`attachments/files/*` and `data/*.db*`) so the route code is auditable.
 
-### C. Wardrobe routes pending separate AI work (HOLD)
-Held this session to avoid conflicts.
+### C. Wardrobe routes hardened (FIXED)
+GET /items/:id pre-checks wardrobe scope before display.
+PUT /items/:id pre-checks scope, rejects category drift outside wardrobe with 400, uses per-field preservation (undefined → keep, anything else including null → write through). Removed is_active filter from list and planner queries. Frontend now sends name/brand/category/purchase_price/purchase_date/notes in PUT payload (these were silently not saving before).
 
 ---
 

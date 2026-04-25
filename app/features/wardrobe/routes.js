@@ -17,7 +17,7 @@ const WARDROBE_CATEGORIES = ['Clothing','Shoes','Accessories','Jewelry','Hats','
 router.get('/items', (req, res) => {
   try {
     const { member_id, category, status, season, occasion } = req.query;
-    let where = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')}) AND i.is_active=1`;
+    let where = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')})`;
     const params = [...WARDROBE_CATEGORIES];
 
     if (member_id) { where += ' AND i.wardrobe_owner_id=?'; params.push(member_id); }
@@ -60,6 +60,17 @@ router.get('/items', (req, res) => {
 
 router.get('/items/:id', (req, res) => {
   try {
+    // Pre-check: must be a wardrobe-scoped item. No is_active filter so the
+    // record always displays as-is per our rules.
+    const exists = db.prepare(
+      `SELECT id, category FROM items WHERE id=?`
+    ).get(req.params.id);
+    if (!exists) return notFound(res, 'Item');
+    if (!WARDROBE_CATEGORIES.includes(exists.category)) {
+      // Out of module scope — caller asked the wardrobe route for a non-wardrobe item.
+      return notFound(res, 'Item');
+    }
+
     const row = db.prepare(`
       SELECT i.*, fm.display_name AS owner_name,
         (SELECT COUNT(*) FROM wardrobe_wear_log WHERE item_id=i.id) AS times_worn,
@@ -81,9 +92,59 @@ router.get('/items/:id', (req, res) => {
 
 router.put('/items/:id', requireAuth, (req, res) => {
   try {
-    const d = req.body;
+    const d = req.body || {};
+
+    // Pre-check: confirm item exists AND is in wardrobe scope before updating.
+    const existing = db.prepare(
+      `SELECT * FROM items WHERE id=?`
+    ).get(req.params.id);
+    if (!existing) return notFound(res, 'Item');
+    if (!WARDROBE_CATEGORIES.includes(existing.category)) {
+      return notFound(res, 'Item');
+    }
+
+    // Reject category drift outside wardrobe scope.
+    if (d.category !== undefined && d.category !== null
+        && !WARDROBE_CATEGORIES.includes(d.category)) {
+      return badRequest(res, `category must be one of: ${WARDROBE_CATEGORIES.join(', ')}`);
+    }
+
+    // Per-field preservation: undefined → keep existing; anything else (including
+    // empty string and null) → write through. This lets users intentionally
+    // clear nullable fields, which COALESCE-style updates would block.
+    const pick = (key) => Object.prototype.hasOwnProperty.call(d, key) ? d[key] : existing[key];
+
+    // Core editable inventory fields surfaced in the wardrobe drawer.
+    const name           = pick('name');
+    const brand          = pick('brand');
+    const category       = pick('category');
+    const purchase_price = pick('purchase_price');
+    const purchase_date  = pick('purchase_date');
+    const notes          = pick('notes');
+
+    // Wardrobe-specific fields.
+    const wardrobe_owner_id      = pick('wardrobe_owner_id');
+    const wardrobe_sequence      = pick('wardrobe_sequence');
+    const wardrobe_nickname      = pick('wardrobe_nickname');
+    const season_tags_in         = Object.prototype.hasOwnProperty.call(d, 'season_tags')
+      ? (d.season_tags ? JSON.stringify(d.season_tags) : null)
+      : existing.season_tags;
+    const occasion_tags_in       = Object.prototype.hasOwnProperty.call(d, 'occasion_tags')
+      ? (d.occasion_tags ? JSON.stringify(d.occasion_tags) : null)
+      : existing.occasion_tags;
+    const wardrobe_status        = pick('wardrobe_status') || 'active';
+    const wardrobe_status_date   = pick('wardrobe_status_date');
+    const wardrobe_status_notes  = pick('wardrobe_status_notes');
+    const sold_price             = pick('sold_price');
+    const sold_date              = pick('sold_date');
+    const sold_platform          = pick('sold_platform');
+    const donated_org_contact_id = pick('donated_org_contact_id');
+    const donated_fmv            = pick('donated_fmv');
+    const discarded_reason       = pick('discarded_reason');
+
     db.prepare(`
       UPDATE items SET
+        name=?, brand=?, category=?, purchase_price=?, purchase_date=?, notes=?,
         wardrobe_owner_id=?, wardrobe_sequence=?, wardrobe_nickname=?,
         season_tags=?, occasion_tags=?,
         wardrobe_status=?, wardrobe_status_date=?, wardrobe_status_notes=?,
@@ -92,15 +153,16 @@ router.put('/items/:id', requireAuth, (req, res) => {
         discarded_reason=?, updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
-      d.wardrobe_owner_id||null, d.wardrobe_sequence||null, d.wardrobe_nickname||null,
-      d.season_tags ? JSON.stringify(d.season_tags) : null,
-      d.occasion_tags ? JSON.stringify(d.occasion_tags) : null,
-      d.wardrobe_status||'active', d.wardrobe_status_date||null, d.wardrobe_status_notes||null,
-      d.sold_price||null, d.sold_date||null, d.sold_platform||null,
-      d.donated_org_contact_id||null, d.donated_fmv||null,
-      d.discarded_reason||null,
+      name, brand, category, purchase_price, purchase_date, notes,
+      wardrobe_owner_id, wardrobe_sequence, wardrobe_nickname,
+      season_tags_in, occasion_tags_in,
+      wardrobe_status, wardrobe_status_date, wardrobe_status_notes,
+      sold_price, sold_date, sold_platform,
+      donated_org_contact_id, donated_fmv,
+      discarded_reason,
       req.params.id
     );
+    // No-op idempotent updates are fine — pre-check already validated scope.
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
 });
@@ -266,7 +328,7 @@ router.get('/insights', (req, res) => {
     const memberCond = member_id ? 'AND i.wardrobe_owner_id=?' : '';
     const params = member_id ? [member_id] : [];
 
-    const baseWhere = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')}) AND i.is_active=1 AND (i.wardrobe_status='active' OR i.wardrobe_status IS NULL) ${memberCond}`;
+    const baseWhere = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')}) AND (i.wardrobe_status='active' OR i.wardrobe_status IS NULL) ${memberCond}`;
     const allParams = [...WARDROBE_CATEGORIES, ...params];
 
     const total = db.prepare(`SELECT COUNT(*) n FROM items i WHERE ${baseWhere}`).get(...allParams).n;
