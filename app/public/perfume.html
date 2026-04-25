@@ -33,6 +33,7 @@
 <script src="/js/lt-messages.js"></script>
 
 <div id="app">
+  <div class="gh-page-header"></div>
   <div style="padding:10px 16px 0;display:flex;gap:8px;align-items:center">
     <input id="perfSearch" class="search-input" type="search" placeholder="Search perfume, notes, brand…" style="flex:1">
     <select class="form-select" id="perfStatus" onchange="load()" style="width:120px">
@@ -272,12 +273,12 @@ function applyLookup(r) {
     renderTagPicker('pScentFam', SCENT_FAMILIES, _pScentSel, 'toggleScentFam');
   }
   document.getElementById('lookupResults').innerHTML = '<div style="color:var(--green);font-size:13px;padding:8px">✓ Fields pre-filled — review and save</div>';
-  LT.toast('Fields pre-filled from Fragella', 'ok');
+  toast('Fields pre-filled from Fragella', 'ok');
 }
 
 async function savePerfume() {
   const name = document.getElementById('pName').value.trim();
-  if (!name) { LT.toast('Name is required', 'err'); return; }
+  if (!name) { toast('Name is required', 'err'); return; }
   const payload = {
     name, brand: document.getElementById('pBrand').value.trim()||null,
     concentration: document.getElementById('pConc').value||null,
@@ -299,14 +300,14 @@ async function savePerfume() {
   try {
     if (_editingId) {
       await window.api('PUT', `/perfume/${_editingId}`, payload);
-      LT.toast('Perfume updated', 'ok');
+      toast('Perfume updated', 'ok');
     } else {
       await window.api('POST', '/perfume', payload);
-      LT.toast('Perfume added', 'ok');
+      toast('Perfume added', 'ok');
     }
     closeDrawer();
     load();
-  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+  } catch(e) { toast('Save failed: '+e.message, 'err'); }
 }
 
 async function deletePerfume() {
@@ -314,7 +315,7 @@ async function deletePerfume() {
     await window.api('DELETE', `/perfume/${_editingId}`);
     closeDrawer();
     load();
-    LT.toast('Perfume deleted', 'ok');
+    toast('Perfume deleted', 'ok');
   });
 }
 
@@ -359,7 +360,7 @@ async function load() {
           </div>
         </div>`).join('')}
     </div>`;
-  } catch(e) { LT.toast('Failed to load', 'err'); }
+  } catch(e) { toast('Failed to load', 'err'); }
 }
 
 async function initDropdowns() {

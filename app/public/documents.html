@@ -467,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = btn.dataset.path;
     if (!p) return;
     navigator.clipboard.writeText(p).then(
-      () => { if (window.LT?.toast) LT.toast('Path copied', 'ok'); },
+      () => { if (window.LT?.toast) toast('Path copied', 'ok'); },
       () => { prompt('Copy this path:', p); }
     );
   });

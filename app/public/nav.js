@@ -254,6 +254,9 @@
     const rightBtns = `
       <div class="gh-header-actions">
         ${cfg.rightExtra || ''}
+        <button class="gh-icon-btn" id="ghSearchBtn" aria-label="Search" onclick="window.GH_NAV && GH_NAV.toggleSearch()" title="Search (Ctrl+K)">
+          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.search || '<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><line x1=\"16.5\" y1=\"16.5\" x2=\"21\" y2=\"21\"/></svg>'}</span>
+        </button>
         <button class="gh-icon-btn" aria-label="Print" onclick="window.print()">
           <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.print}</span>
         </button>
@@ -310,6 +313,32 @@
       if (!panel.contains(e.target) && !e.target.closest('#ghNotifBtn'))
         panel.classList.remove('open');
     });
+  }
+
+  function buildSearchPanel() {
+    const panel = document.createElement('div');
+    panel.id = 'ghSearchPanel';
+    panel.className = 'gh-search-panel';
+    panel.innerHTML = `
+      <div class="gh-search-backdrop" onclick="GH_NAV.closeSearch()"></div>
+      <div class="gh-search-modal">
+        <div class="gh-search-input-row">
+          <span class="gh-search-input-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          </span>
+          <input type="text" id="ghSearchInput" class="gh-search-input"
+                 placeholder="Search across all modules\u2026"
+                 oninput="GH_NAV.runSearch(this.value)">
+          <button class="gh-search-close" onclick="GH_NAV.closeSearch()" aria-label="Close">\u00d7</button>
+        </div>
+        <div id="ghSearchResults" class="gh-search-results">
+          <div class="gh-search-hint">Type at least 2 characters to search</div>
+        </div>
+        <div class="gh-search-foot">
+          <span><kbd>Ctrl</kbd>+<kbd>K</kbd> to open \u00b7 <kbd>Esc</kbd> to close</span>
+        </div>
+      </div>`;
+    document.body.appendChild(panel);
   }
 
   // ── Public API ───────────────────────────────────────────────
@@ -374,6 +403,66 @@
           document.querySelectorAll('.gh-notif-item.unread').forEach(el => el.classList.remove('unread'));
         }).catch(()=>{});
     },
+    toggleSearch() {
+      const panel = document.getElementById('ghSearchPanel');
+      if (!panel) return;
+      const opening = !panel.classList.contains('open');
+      panel.classList.toggle('open');
+      if (opening) {
+        const input = document.getElementById('ghSearchInput');
+        if (input) { input.value = ''; setTimeout(()=>input.focus(), 30); }
+        const list = document.getElementById('ghSearchResults');
+        if (list) list.innerHTML = '<div class="gh-search-hint">Type at least 2 characters to search</div>';
+      }
+    },
+    closeSearch() {
+      document.getElementById('ghSearchPanel')?.classList.remove('open');
+    },
+    _searchTimer: null,
+    _searchSeq: 0,
+    runSearch(q) {
+      clearTimeout(window.GH_NAV._searchTimer);
+      const list = document.getElementById('ghSearchResults');
+      if (!list) return;
+      q = (q || '').trim();
+      if (q.length < 2) {
+        list.innerHTML = '<div class="gh-search-hint">Type at least 2 characters to search</div>';
+        return;
+      }
+      window.GH_NAV._searchTimer = setTimeout(() => {
+        const seq = ++window.GH_NAV._searchSeq;
+        list.innerHTML = '<div class="gh-search-hint">Searching\u2026</div>';
+        fetch('/api/v1/search?q=' + encodeURIComponent(q))
+          .then(r => r.ok ? r.json() : { groups:{}, total:0 })
+          .then(data => {
+            // Drop stale responses
+            if (seq !== window.GH_NAV._searchSeq) return;
+            const groups = data.groups || {};
+            const total  = data.total || 0;
+            if (!total) { list.innerHTML = '<div class="gh-search-hint">No matches found</div>'; return; }
+            const html = Object.keys(groups).map(mod => {
+              const items = groups[mod];
+              if (!items.length) return '';
+              return `<div class="gh-search-group">
+                <div class="gh-search-group-title">${mod} <span class="gh-search-group-count">${items.length}</span></div>
+                ${items.map(it => `
+                  <a class="gh-search-item" href="${it.href}">
+                    <span class="gh-search-icon">${it.icon || ''}</span>
+                    <div class="gh-search-text">
+                      <div class="gh-search-label">${(it.label||'').replace(/</g,'&lt;')}</div>
+                      ${it.sub ? `<div class="gh-search-sub">${String(it.sub).replace(/</g,'&lt;')}</div>` : ''}
+                    </div>
+                  </a>`).join('')}
+              </div>`;
+            }).join('');
+            list.innerHTML = html;
+          })
+          .catch(() => {
+            if (seq !== window.GH_NAV._searchSeq) return;
+            list.innerHTML = '<div class="gh-search-hint">Search failed</div>';
+          });
+      }, 220);
+    },
     toggleSection,
   };
 
@@ -385,6 +474,22 @@
     document.addEventListener('DOMContentLoaded', buildPageHeader);
   }
   buildNotifPanel();
+  buildSearchPanel();
+
+  // Keyboard shortcut: Ctrl/Cmd + K opens search
+  document.addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      window.GH_NAV.toggleSearch();
+    }
+    if (e.key === 'Escape') {
+      const sp = document.getElementById('ghSearchPanel');
+      if (sp && sp.classList.contains('open')) {
+        e.preventDefault();
+        window.GH_NAV.closeSearch();
+      }
+    }
+  });
 
   // ── Screen size awareness ─────────────────────────────────────
   // On very wide screens (≥1400px) always force expanded — 

@@ -620,7 +620,7 @@ function checkOAuthReturn() {
 }
 
 // ── Init ─────────────────────────────────────────────────────
-function toast(msg, type) { if (window.LT?.toast) LT.toast(msg, type); }
+function toast(msg, type) { if (window.LT?.toast) toast(msg, type); }
 
 document.addEventListener('DOMContentLoaded', () => {
   checkOAuthReturn();

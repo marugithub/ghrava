@@ -645,7 +645,7 @@ $('noteSave').addEventListener('click',async()=>{
   finally{$('noteSave').disabled=false;$('noteSave').textContent='Save';}
 });
 
-function toast(msg,type){if(window.LT?.toast)LT.toast(msg,type);}
+function toast(msg,type){if(window.LT?.toast)toast(msg,type);}
 
 // ── Tags (kids) ───────────────────────────────────────────
 let actFormTags = [];

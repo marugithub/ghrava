@@ -18,6 +18,7 @@
 <script src="/js/lt-messages.js"></script>
 
 <div id="app">
+  <div class="gh-page-header"></div>
 
   <div class="stats-row" style="margin:10px 16px 0">
     <div class="stat-item"><div class="stat-value" id="sumMonthly" style="color:var(--accent)">—</div><div class="stat-label">Per Month</div></div>
@@ -134,7 +135,7 @@ async function load() {
       </div>`;
     }).join('')}</div>`;
     loadSummary();
-  } catch(e) { LT.toast('Failed to load', 'err'); }
+  } catch(e) { toast('Failed to load', 'err'); }
 }
 
 async function loadSummary() {
@@ -187,7 +188,7 @@ async function openDrawer(id) {
 
 async function saveSub() {
   const name = document.getElementById('sName').value.trim();
-  if (!name) { LT.toast('Name is required', 'err'); return; }
+  if (!name) { toast('Name is required', 'err'); return; }
   const payload = {
     name, category: document.getElementById('sCat').value||null,
     cost: parseFloat(document.getElementById('sCost').value)||null,
@@ -202,19 +203,19 @@ async function saveSub() {
   try {
     if (_editingId) {
       await window.api('PUT', `/subscriptions/${_editingId}`, payload);
-      LT.toast('Updated', 'ok');
+      toast('Updated', 'ok');
     } else {
       await window.api('POST', '/subscriptions', payload);
-      LT.toast('Added', 'ok');
+      toast('Added', 'ok');
     }
     closeDrawer(); load();
-  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+  } catch(e) { toast('Save failed: '+e.message, 'err'); }
 }
 
 async function deleteSub() {
   LT.confirm('Delete this subscription?', '', async () => {
     await window.api('DELETE', `/subscriptions/${_editingId}`);
-    closeDrawer(); load(); LT.toast('Deleted', 'ok');
+    closeDrawer(); load(); toast('Deleted', 'ok');
   });
 }
 

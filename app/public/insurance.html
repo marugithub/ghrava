@@ -18,6 +18,7 @@
 <script src="/js/lt-messages.js"></script>
 
 <div id="app">
+  <div class="gh-page-header"></div>
 
   <div class="stats-row" style="margin:10px 16px 0">
     <div class="stat-item"><div class="stat-value" id="sumActive">—</div><div class="stat-label">Active</div></div>
@@ -173,7 +174,7 @@ async function load() {
     }).join('')}</div>`;
 
     loadSummary();
-  } catch(e) { LT.toast('Failed to load', 'err'); }
+  } catch(e) { toast('Failed to load', 'err'); }
 }
 
 async function loadSummary() {
@@ -234,7 +235,7 @@ async function openDrawer(id) {
 async function savePolicy() {
   const type  = document.getElementById('iType').value;
   const start = document.getElementById('iStart').value;
-  if (!type || !start) { LT.toast('Type and start date are required', 'err'); return; }
+  if (!type || !start) { toast('Type and start date are required', 'err'); return; }
   const payload = {
     policy_type:         type,
     policy_number:       document.getElementById('iPolicyNum').value.trim()||null,
@@ -255,13 +256,13 @@ async function savePolicy() {
   try {
     if (_editingId) {
       await window.api('PUT', `/insurance/${_editingId}`, payload);
-      LT.toast('Updated', 'ok');
+      toast('Updated', 'ok');
     } else {
       await window.api('POST', '/insurance', payload);
-      LT.toast('Policy added', 'ok');
+      toast('Policy added', 'ok');
     }
     closeDrawer('insDrawer'); load();
-  } catch(e) { LT.toast('Save failed: '+e.message, 'err'); }
+  } catch(e) { toast('Save failed: '+e.message, 'err'); }
 }
 
 function openRenewDrawer() {
@@ -277,7 +278,7 @@ function openRenewDrawer() {
 
 async function confirmRenew() {
   const start = document.getElementById('rStart').value;
-  if (!start) { LT.toast('Start date required', 'err'); return; }
+  if (!start) { toast('Start date required', 'err'); return; }
   const payload = {
     coverage_start_date: start,
     coverage_end_date:   document.getElementById('rEnd').value||null,
@@ -288,14 +289,14 @@ async function confirmRenew() {
   try {
     await window.api('POST', `/insurance/${_editingId}/renew`, payload);
     closeDrawer('renewDrawer'); load();
-    LT.toast('Policy renewed — new record created', 'ok');
-  } catch(e) { LT.toast('Renewal failed: '+e.message, 'err'); }
+    toast('Policy renewed — new record created', 'ok');
+  } catch(e) { toast('Renewal failed: '+e.message, 'err'); }
 }
 
 async function deletePolicy() {
   LT.confirm('Delete this policy?', 'This removes the record from the database.', async () => {
     await window.api('DELETE', `/insurance/${_editingId}`);
-    closeDrawer('insDrawer'); load(); LT.toast('Deleted', 'ok');
+    closeDrawer('insDrawer'); load(); toast('Deleted', 'ok');
   });
 }
 

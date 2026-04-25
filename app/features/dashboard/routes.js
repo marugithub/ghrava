@@ -366,6 +366,92 @@ router.get('/attention', (req, res) => {
       }));
     } catch(e) {}
 
+    // Insurance — expired or expiring (column names verified against schema)
+    try {
+      const expiredIns = db.prepare(`
+        SELECT id, policy_number, coverage_end_date, policy_type FROM insurance_policies
+        WHERE coverage_end_date IS NOT NULL AND coverage_end_date < ?
+      `).all(today);
+      expiredIns.forEach(r => items.push({
+        module: 'insurance', severity: 'overdue',
+        label: 'Insurance policy expired',
+        detail: `${r.policy_type||'Policy'} ${r.policy_number||''}`.trim(),
+        date: r.coverage_end_date, href: '/insurance.html',
+      }));
+      const expiringIns = db.prepare(`
+        SELECT id, policy_number, coverage_end_date, policy_type FROM insurance_policies
+        WHERE coverage_end_date IS NOT NULL AND coverage_end_date >= ? AND coverage_end_date <= ?
+      `).all(today, warn30);
+      expiringIns.forEach(r => items.push({
+        module: 'insurance', severity: 'warning',
+        label: 'Insurance expiring',
+        detail: `${r.policy_type||'Policy'} ${r.policy_number||''}`.trim() + ` \u2014 ${r.coverage_end_date}`,
+        date: r.coverage_end_date, href: '/insurance.html',
+      }));
+    } catch(e) {}
+
+    // Subscriptions — billing soon (next 7 days). Schema: next_billing_date, cost.
+    try {
+      const renewSubs = db.prepare(`
+        SELECT id, name, next_billing_date, cost FROM subscriptions
+        WHERE next_billing_date IS NOT NULL AND next_billing_date >= ? AND next_billing_date <= ?
+      `).all(today, warn7);
+      renewSubs.forEach(r => items.push({
+        module: 'subscriptions', severity: 'warning',
+        label: 'Subscription renewing',
+        detail: `${r.name} \u2014 $${Number(r.cost||0).toFixed(2)} on ${r.next_billing_date}`,
+        date: r.next_billing_date, href: '/subscriptions.html',
+      }));
+    } catch(e) {}
+
+    // Inventory warranties expiring (next 30 days) or expired
+    try {
+      const expiredWarr = db.prepare(`
+        SELECT id, name, warranty_expires FROM items
+        WHERE warranty_expires IS NOT NULL AND warranty_expires < ?
+        ORDER BY warranty_expires DESC LIMIT 5
+      `).all(today);
+      expiredWarr.forEach(r => items.push({
+        module: 'inventory', severity: 'overdue',
+        label: 'Warranty expired',
+        detail: r.name,
+        date: r.warranty_expires, href: '/inventory.html',
+      }));
+      const expiringWarr = db.prepare(`
+        SELECT id, name, warranty_expires FROM items
+        WHERE warranty_expires IS NOT NULL AND warranty_expires >= ? AND warranty_expires <= ?
+        ORDER BY warranty_expires ASC LIMIT 10
+      `).all(today, warn30);
+      expiringWarr.forEach(r => items.push({
+        module: 'inventory', severity: 'warning',
+        label: 'Warranty expiring',
+        detail: `${r.name} \u2014 ${r.warranty_expires}`,
+        date: r.warranty_expires, href: '/inventory.html',
+      }));
+    } catch(e) {}
+
+    // Records flagged needs_review across modules — surface as a single roll-up
+    try {
+      const reviewTables = ['daily_log','todos','items','contacts','hsa_payments',
+                            'med_medications','med_conditions','documents','perfumes',
+                            'subscriptions','insurance_policies','books','resources',
+                            'family_members','kids','properties','vehicles','finance_accounts',
+                            'financial_accounts','wardrobe_outfits','career_certifications'];
+      let totalNeedsReview = 0;
+      for (const t of reviewTables) {
+        try {
+          const r = db.prepare(`SELECT COUNT(*) AS n FROM ${t} WHERE needs_review = 1`).get();
+          totalNeedsReview += (r?.n || 0);
+        } catch(_) {}
+      }
+      if (totalNeedsReview > 0) items.push({
+        module: 'review', severity: 'warning',
+        label: 'Records need review',
+        detail: `${totalNeedsReview} record${totalNeedsReview!==1?'s':''} flagged`,
+        date: null, href: '/reports.html',
+      });
+    } catch(e) {}
+
     // Sort: critical → overdue → warning, then by date
     const sev = { critical: 0, overdue: 1, warning: 2 };
     items.sort((a, b) => {
