@@ -266,6 +266,14 @@ async function renderFamilySnapshot(el) {
       o.value = m.id; o.textContent = m.display_name;
       sel.appendChild(o);
     });
+    if (window._reportPreselectMember && sel) {
+      const id = String(window._reportPreselectMember);
+      if ([...sel.options].some(opt => opt.value === id)) {
+        sel.value = id;
+        loadSnapshot(id);
+      }
+      window._reportPreselectMember = null;
+    }
   } catch {}
 }
 
@@ -274,20 +282,92 @@ async function loadSnapshot(id) {
   if (!id || !el) return;
   el.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text3)">Loading…</div>';
   try {
-    const d = await window.api('GET', \`/family-snapshot/\${id}\`);
+    const d = await window.api('GET', `/family-snapshot/${id}`);
     const m = d.member;
-    el.innerHTML =
-      \`<div style="font-size:16px;font-weight:700;margin-bottom:4px">\${esc(m.display_name)}</div>
-      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">\${esc(m.relationship||'')} \${m.date_of_birth ? '· DOB: '+m.date_of_birth : ''}</div>\` +
-      (d.medications?.length ? \`<div style="font-weight:600;margin-bottom:8px">💊 Medications (\${d.medications.length})</div>\` +
-        d.medications.map(x=>\`<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span>\${esc(x.name)}</span><span style="font-size:12px;color:var(--text3)">\${esc(x.dosage||'')} \${esc(x.status||'')}</span></div>\`).join('') : '') +
-      (d.conditions?.length ? \`<div style="font-weight:600;margin:12px 0 8px">🩺 Conditions (\${d.conditions.length})</div>\` +
-        d.conditions.map(x=>\`<div style="padding:6px 0;border-bottom:1px solid var(--border)">\${esc(x.condition_name)} <span style="font-size:11px;color:var(--text3)">\${esc(x.status||'')}</span></div>\`).join('') : '') +
-      (d.todos?.length ? \`<div style="font-weight:600;margin:12px 0 8px">✓ Open Todos (\${d.todos.length})</div>\` +
-        d.todos.map(x=>\`<div style="padding:6px 0;border-bottom:1px solid var(--border)">\${esc(x.title)}</div>\`).join('') : '') +
-      \`<div style="margin-top:16px"><a href="/snapshot.html?member=\${id}" target="_blank" class="btn btn-ghost" style="width:100%;text-align:center">🖨️ Open Printable Snapshot →</a></div>\`;
+
+    function section(icon, title, items, fmtRow) {
+      if (!items || !items.length) return '';
+      return `<div style="font-weight:600;margin:14px 0 8px;display:flex;align-items:center;gap:6px">
+        <span>${icon}</span><span>${esc(title)}</span>
+        <span style="font-size:11px;color:var(--text3);font-weight:400">(${items.length})</span>
+      </div>` + items.map(fmtRow).join('');
+    }
+
+    const html =
+      `<div style="font-size:18px;font-weight:700;margin-bottom:2px">${esc(m.display_name)}</div>
+       <div style="font-size:12px;color:var(--text3);margin-bottom:14px">${esc(m.relationship||'')} ${m.date_of_birth ? '· DOB: '+m.date_of_birth : ''}</div>` +
+
+      section('✦', 'Memories', d.memories,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px">
+          <span>${esc((x.entry_text||'').split('\n')[0].slice(0,80))}</span>
+          <span style="font-size:12px;color:var(--text3);white-space:nowrap">${esc(x.log_date)} · ${esc(x.memory_category||'')}</span>
+        </div>`) +
+
+      section('💊', 'Medications', d.medications,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+          <span>${esc(x.name)}</span>
+          <span style="font-size:12px;color:var(--text3)">${esc(x.dosage||'')} · ${esc(x.status||'')}</span>
+        </div>`) +
+
+      section('🩺', 'Conditions', d.conditions,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+          ${esc(x.condition_name)} <span style="font-size:11px;color:var(--text3)">${esc(x.status||'')}</span>
+        </div>`) +
+
+      section('✓', 'Open Todos', d.todos,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;gap:10px">
+          <span>${esc(x.title)}</span>
+          ${x.due_date?`<span style="font-size:11px;color:var(--text3);white-space:nowrap">${esc(x.due_date)}</span>`:''}
+        </div>`) +
+
+      section('🧒', 'Kids Profile', d.kids,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+          Grade: ${esc(x.grade||'—')} · School: ${esc(x.school_name||'—')}
+          ${x.allergies?`<div style="font-size:12px;color:var(--text3);margin-top:2px">Allergies: ${esc(x.allergies)}</div>`:''}
+        </div>`) +
+
+      section('🛡️', 'Insurance', d.insurance,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+          <span>${esc(x.policy_number)}</span>
+          <span style="font-size:12px;color:var(--text3)">${esc(x.status||'')}</span>
+        </div>`) +
+
+      section('🔁', 'Subscriptions', d.subscriptions,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+          <span>${esc(x.name)}</span>
+          <span style="font-size:12px;color:var(--text3)">${esc(x.category||'')} · ${esc(x.status||'')}</span>
+        </div>`) +
+
+      section('🏠', 'Properties', d.properties,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+          ${esc(x.nickname||'—')} <span style="font-size:11px;color:var(--text3)">${esc(x.property_type||'')}</span>
+        </div>`) +
+
+      section('🚗', 'Vehicles', d.vehicles,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+          ${esc(x.nickname||(x.make+' '+x.model).trim())} ${x.license_plate?`<span style="font-size:11px;color:var(--text3)">· ${esc(x.license_plate)}</span>`:''}
+        </div>`) +
+
+      (d.wardrobe && d.wardrobe.length ? `<div style="font-weight:600;margin:14px 0 4px">👕 Wardrobe <span style="font-size:11px;color:var(--text3);font-weight:400">(${d.wardrobe.length} items)</span></div>` : '') +
+      (d.perfumes && d.perfumes.length ? `<div style="font-weight:600;margin:14px 0 4px">🌸 Perfume Collection <span style="font-size:11px;color:var(--text3);font-weight:400">(${d.perfumes.length} fragrances)</span></div>` : '') +
+
+      section('📚', 'Books', d.books,
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+          <span>${esc(x.title)}</span>
+          <span style="font-size:12px;color:var(--text3)">${esc(x.author||'')} · ${esc(x.status||'')}</span>
+        </div>`) +
+
+      section('❤️', 'Recent HSA', (d.hsa||[]).slice(0,5),
+        x => `<div style="padding:6px 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between">
+          <span>${esc(x.provider||x.category||'—')}</span>
+          <span style="font-size:12px;color:var(--text3)">${esc(x.date)} · $${Number(x.you_paid||0).toFixed(2)}</span>
+        </div>`) +
+
+      `<div style="margin-top:18px"><a href="/api/v1/family-snapshot/${id}/html" target="_blank" class="btn btn-ghost" style="width:100%;text-align:center">🖨️ Open Printable Snapshot →</a></div>`;
+
+    el.innerHTML = html;
   } catch(e) {
-    el.innerHTML = \`<div style="color:var(--red);padding:20px">\${esc(e.message)}</div>\`;
+    el.innerHTML = `<div style="color:var(--red);padding:20px">${esc(e.message)}</div>`;
   }
 }
 
@@ -520,6 +600,19 @@ async function copyEmText() {
 
 // ── Init ──────────────────────────────────────────────────────
 renderMainGrid();
+
+// Open a report by ID via ?open=ID query param. Optional ?member=ID for
+// the family snapshot to pre-select the member.
+(function autoOpenFromQuery() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const open = params.get('open');
+    if (!open) return;
+    const memberId = params.get('member');
+    if (memberId) window._reportPreselectMember = parseInt(memberId, 10);
+    setTimeout(() => openReport(open), 50);
+  } catch (_) {}
+})();
 </script>
 </body>
 </html>

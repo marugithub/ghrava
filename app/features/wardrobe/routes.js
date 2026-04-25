@@ -17,7 +17,7 @@ const WARDROBE_CATEGORIES = ['Clothing','Shoes','Accessories','Jewelry','Hats','
 router.get('/items', (req, res) => {
   try {
     const { member_id, category, status, season, occasion } = req.query;
-    let where = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')})`;
+    let where = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')}) AND i.is_archived = 0`;
     const params = [...WARDROBE_CATEGORIES];
 
     if (member_id) { where += ' AND i.wardrobe_owner_id=?'; params.push(member_id); }
@@ -328,7 +328,7 @@ router.get('/insights', (req, res) => {
     const memberCond = member_id ? 'AND i.wardrobe_owner_id=?' : '';
     const params = member_id ? [member_id] : [];
 
-    const baseWhere = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')}) AND (i.wardrobe_status='active' OR i.wardrobe_status IS NULL) ${memberCond}`;
+    const baseWhere = `i.category IN (${WARDROBE_CATEGORIES.map(()=>'?').join(',')}) AND i.is_archived = 0 AND (i.wardrobe_status='active' OR i.wardrobe_status IS NULL) ${memberCond}`;
     const allParams = [...WARDROBE_CATEGORIES, ...params];
 
     const total = db.prepare(`SELECT COUNT(*) n FROM items i WHERE ${baseWhere}`).get(...allParams).n;

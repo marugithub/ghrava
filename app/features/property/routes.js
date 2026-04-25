@@ -39,7 +39,7 @@ router.get('/properties', (req, res) => {
     const props = db.prepare(`
       SELECT p.*,
         (SELECT COUNT(*) FROM attachments WHERE entity_type='property' AND entity_id=p.id) AS attachment_count
-      FROM properties p WHERE 1=1 ORDER BY p.property_type, p.nickname
+      FROM properties p WHERE p.is_active=1 ORDER BY p.property_type, p.nickname
     `).all();
     res.json(props.map(p => withFamilyMembers(withTagNames(p, 'property'), 'property')));
   } catch (e) { serverError(res, e); }
@@ -114,7 +114,7 @@ router.delete('/properties/:id', requireAuth, (req, res) => {
 
 router.get('/vehicles', (req, res) => {
   try {
-    const vehicles = db.prepare('SELECT * FROM vehicles WHERE 1=1 ORDER BY year DESC, make, model').all();
+    const vehicles = db.prepare('SELECT * FROM vehicles WHERE is_active=1 ORDER BY year DESC, make, model').all();
     // Attach recent service record and tags to each vehicle
     vehicles.forEach(v => {
       v.tags = withTagNames(v, 'vehicle').tags;

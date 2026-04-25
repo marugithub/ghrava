@@ -168,3 +168,22 @@ PUT /items/:id pre-checks scope, rejects category drift outside wardrobe with 40
 - insurance, perfume, subscriptions, documents, calendar (LT.toast)
 
 **Documentation (1):** RULES_AUDIT.md (this file)
+
+### 13. Family Member Report was broken before this session (FIXED)
+**Rule violated:** Routes wired to broken JS that never loaded.
+
+`reports.html` `renderFamilySnapshot` / `loadSnapshot` had backslash-escaped backticks
+(`\`/family-snapshot/\${id}\``) where plain template literals were intended. This
+is a JS syntax error — the entire script block containing this function would have
+failed to parse, meaning the Family Member Report panel never worked.
+
+Rewritten with proper template literal syntax. Added support for `?member=X`
+query param so search results and other places can deep-link to a specific
+family member's snapshot.
+
+### 14. Search Family results now link to Family Snapshot (FIXED)
+Search results for family members previously linked to `/settings.html#family`.
+Now link to `/reports.html?open=family-snap&member=X` which opens the snapshot
+panel pre-selected to that member. Same query-param mechanism is reusable from
+any module that wants to launch into a specific report.
+

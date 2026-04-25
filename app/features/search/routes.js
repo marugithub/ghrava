@@ -140,7 +140,7 @@ router.get('/', (req, res) => {
       `SELECT id, display_name, relationship, date_of_birth FROM family_members
        WHERE display_name LIKE ? OR notes LIKE ? OR relationship LIKE ? LIMIT ?`,
       [like, like, like, PER_MODULE_LIMIT],
-      r => ({ module: 'Family', id: r.id, label: r.display_name, sub: r.relationship, href: '/settings.html#family', icon: '\ud83d\udc65' })
+      r => ({ module: 'Family', id: r.id, label: r.display_name, sub: r.relationship, href: `/reports.html?open=family-snap&member=${r.id}`, icon: '\ud83d\udc65' })
     ));
 
     // Medical

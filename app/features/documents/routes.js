@@ -33,7 +33,7 @@ const { saveFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('..
 // ── List / search documents ─────────────────────────────────────
 router.get('/', (req, res) => {
   try {
-    let sql = 'SELECT * FROM documents WHERE 1=1';
+    let sql = 'SELECT * FROM documents WHERE is_active=1';
     const p = [];
     if (req.query.category) { sql += ' AND category=?'; p.push(req.query.category); }
     if (req.query.member) {
