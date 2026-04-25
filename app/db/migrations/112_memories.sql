@@ -14,10 +14,13 @@ CREATE TABLE IF NOT EXISTS memory_members (
 
 CREATE INDEX IF NOT EXISTS idx_memory_members_log    ON memory_members(log_id);
 CREATE INDEX IF NOT EXISTS idx_memory_members_member ON memory_members(family_member_id);
-CREATE INDEX IF NOT EXISTS idx_daily_log_memory      ON daily_log(is_memory) WHERE is_memory=1;
+-- Plain index (not partial) — partial-index WHERE clauses have caused issues with
+-- the current migration runner in the past.
+CREATE INDEX IF NOT EXISTS idx_daily_log_memory      ON daily_log(is_memory);
 
--- Seed memory_category dropdown values
-INSERT OR IGNORE INTO dropdown_options (key, label, value, sort_order, is_active, is_system)
+-- Seed memory_category dropdown values.
+-- IMPORTANT: dropdown_options uses column `list_key` (not `key`).
+INSERT OR IGNORE INTO dropdown_options (list_key, label, value, sort_order, is_active, is_system)
 VALUES
   ('memory_category', 'First Time',  'First Time',  10, 1, 1),
   ('memory_category', 'Academic',    'Academic',    20, 1, 1),

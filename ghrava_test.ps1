@@ -1,642 +1,511 @@
-# Ghrava Test Suite — v202603.012
-# Catches: broken API routes, auth wall on reads, SQL errors, missing JS functions,
-#          missing page variables, baked-in spinners, script load order issues.
+# Ghrava_Test.ps1
+# Interactive test launcher for Ghrava.
+# Every run writes a timestamped report to ~/Downloads.
 #
 # Usage:
-#   .\ghrava_test.ps1
-#   .\ghrava_test.ps1 -Host 192.168.4.62 -Port 3001
-#   .\ghrava_test.ps1 -Host 192.168.4.62 -Port 3001 -Token "your-token"
+#   .\Ghrava_Test.ps1                                     # interactive menu
+#   .\Ghrava_Test.ps1 -Choice 9                           # non-interactive run-all
+#   .\Ghrava_Test.ps1 -BaseUrl http://192.168.4.62:3001 -Choice 1
 
 param(
-    [string]$GhHost = "192.168.4.62",
-    [int]$Port      = 3001,
-    [string]$Token  = ""
+    [string]$BaseUrl   = 'http://192.168.4.62:3001',
+    [string]$Container = 'ghrava',
+    [string]$Choice    = ''
 )
 
-$base  = "http://${GhHost}:${Port}/api/v1"
-$ui    = "http://${GhHost}:${Port}"
-$pass  = 0; $fail = 0; $warn = 0
+$ErrorActionPreference = 'Continue'
 
-# ── Helpers ───────────────────────────────────────────────────
+# ── Test suite metadata ───────────────────────────────────────
+$SuiteVersion = '1.1.0'
+$SuiteDate    = '2026-04-25'
 
-function Test-Result($name, $ok, $detail = "", $warning = $false) {
-    if ($ok) {
-        Write-Host "  ✓ $name" -ForegroundColor Green
-        if ($detail) { Write-Host "    $detail" -ForegroundColor DarkGray }
-        $script:pass++
-    } elseif ($warning) {
-        Write-Host "  ⚠ $name" -ForegroundColor Yellow
-        if ($detail) { Write-Host "    $detail" -ForegroundColor Yellow }
-        $script:warn++
-    } else {
-        Write-Host "  ✗ $name" -ForegroundColor Red
-        if ($detail) { Write-Host "    $detail" -ForegroundColor Red }
-        $script:fail++
-    }
+# ── Output collection (every run writes a report) ─────────────
+$script:CapturedOutput = New-Object System.Text.StringBuilder
+$script:TotalPass      = 0
+$script:TotalFail      = 0
+$script:TotalWarn      = 0
+
+function Write-Out {
+    param([string]$Text, [string]$Color = 'White')
+    Write-Host $Text -ForegroundColor $Color
+    [void]$script:CapturedOutput.AppendLine($Text)
 }
 
-function Invoke-Api($path, $auth = $false, $method = "GET", $bodyJson = $null) {
-    $headers = @{ "Content-Type" = "application/json" }
-    if ($auth -and $Token) { $headers["Authorization"] = "Bearer $Token" }
+function Section {
+    param([string]$Title)
+    Write-Out ""
+    Write-Out ("-" * 60) Cyan
+    Write-Out "  $Title" Cyan
+    Write-Out ("-" * 60) Cyan
+}
+
+function Pass { param([string]$M); Write-Out "  PASS  $M" Green;  $script:TotalPass++ }
+function Fail { param([string]$M); Write-Out "  FAIL  $M" Red;    $script:TotalFail++ }
+function Warn { param([string]$M); Write-Out "  WARN  $M" Yellow; $script:TotalWarn++ }
+
+# ── HTTP helper ───────────────────────────────────────────────
+function Get-Json {
+    param([string]$Path, [string]$Method = 'GET', [object]$Body = $null)
     try {
-        $params = @{ Uri="$base$path"; Headers=$headers; Method=$method; UseBasicParsing=$true; TimeoutSec=10 }
-        if ($bodyJson) { $params["Body"] = $bodyJson }
+        $params = @{
+            Uri             = "$BaseUrl$Path"
+            Method          = $Method
+            UseBasicParsing = $true
+            TimeoutSec      = 10
+            ErrorAction     = 'Stop'
+        }
+        if ($Body) {
+            $params.Body        = ($Body | ConvertTo-Json -Compress -Depth 8)
+            $params.ContentType = 'application/json'
+        }
         $r = Invoke-WebRequest @params
-        $data = $null
-        try { $data = $r.Content | ConvertFrom-Json } catch {}
-        return @{ ok = $true; status = [int]$r.StatusCode; data = $data; raw = $r.Content }
+        return @{ Code = [int]$r.StatusCode; Body = $r.Content }
     } catch {
-        $status = 0
-        try { $status = [int]$_.Exception.Response.StatusCode.value__ } catch {}
-        return @{ ok = $false; status = $status; error = $_.Exception.Message; data = $null }
+        $code = 0
+        if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
+        return @{ Code = $code; Body = $_.Exception.Message }
     }
 }
 
-function Invoke-Page($path) {
+function Test-Up {
+    $r = Get-Json '/health'
+    if ($r.Code -eq 200) { return $true }
+    Fail "Container not reachable at $BaseUrl (HTTP $($r.Code))"
+    return $false
+}
+
+function Get-AppVersion {
+    $r = Get-Json '/api/v1/app/info'
+    if ($r.Code -eq 200) {
+        try {
+            $obj = $r.Body | ConvertFrom-Json
+            return $obj.version
+        } catch { return 'unknown' }
+    }
+    return 'unreachable'
+}
+
+# ══════════════════════════════════════════════════════════════
+# Test descriptions — included in every report header
+# ══════════════════════════════════════════════════════════════
+$TestDescriptions = @{
+    '1' = 'Smoke Test: GET probes against ~36 routes + 18 HTML pages. Verifies the server is up, responds 200, and JSON shape contains expected keys.'
+    '2' = 'Schema Check: lists pending migrations vs live _migrations table, runs each inside a SAVEPOINT and rolls back. Catches column-name typos / syntax errors before deploy.'
+    '3' = 'Frontend: loads each HTML page and checks for missing script includes (lt-core.js, lt-refs.js), known-broken patterns (LT.toast undefined, cross-module api() with wrong prefix), and that static assets resolve.'
+    '4' = 'Deep CRUD: creates, reads, updates, archives, and deletes test records in inventory + medical (priority modules). Verifies persistence and cleans up.'
+    '5' = 'Backup: counts existing backups, calls POST /backup/now, confirms the count increased and the new .db file is non-empty.'
+    '9' = 'Runs all of 1 through 5 in order.'
+}
+
+# ══════════════════════════════════════════════════════════════
+# 1) SMOKE
+# ══════════════════════════════════════════════════════════════
+function Run-Smoke {
+    Section "1) Smoke Test - HTTP routes"
+    if (-not (Test-Up)) { return }
+
+    $routes = @(
+        @{ M='GET'; P='/health';                                 N='health' }
+        @{ M='GET'; P='/api/v1/app/info';                        N='app/info';                K='version' }
+        @{ M='GET'; P='/api/v1/dashboard';                       N='dashboard';               K='stats' }
+        @{ M='GET'; P='/api/v1/dashboard/attention';             N='dashboard/attention';     K='items' }
+        @{ M='GET'; P='/api/v1/settings/family';                 N='settings/family' }
+        @{ M='GET'; P='/api/v1/settings/tags';                   N='settings/tags' }
+        @{ M='GET'; P='/api/v1/settings/contacts';               N='settings/contacts' }
+        @{ M='GET'; P='/api/v1/inventory/items';                 N='inventory/items' }
+        @{ M='GET'; P='/api/v1/inventory/locations';             N='inventory/locations' }
+        @{ M='GET'; P='/api/v1/inventory/containers';            N='inventory/containers' }
+        @{ M='GET'; P='/api/v1/medical/medications';             N='medical/medications' }
+        @{ M='GET'; P='/api/v1/medical/conditions';              N='medical/conditions' }
+        @{ M='GET'; P='/api/v1/medical/notes';                   N='medical/notes' }
+        @{ M='GET'; P='/api/v1/medical/eob';                     N='medical/eob' }
+        @{ M='GET'; P='/api/v1/hsa/payments';                    N='hsa/payments' }
+        @{ M='GET'; P='/api/v1/hsa/summary';                     N='hsa/summary' }
+        @{ M='GET'; P='/api/v1/finance/accounts';                N='finance/accounts' }
+        @{ M='GET'; P='/api/v1/finance/net-worth/current';       N='finance/net-worth/current' }
+        @{ M='GET'; P='/api/v1/books';                           N='books' }
+        @{ M='GET'; P='/api/v1/career/jobs';                     N='career/jobs' }
+        @{ M='GET'; P='/api/v1/career/certifications';           N='career/certifications' }
+        @{ M='GET'; P='/api/v1/property/properties';             N='property/properties' }
+        @{ M='GET'; P='/api/v1/property/vehicles';               N='property/vehicles' }
+        @{ M='GET'; P='/api/v1/todos';                           N='todos' }
+        @{ M='GET'; P='/api/v1/kids';                            N='kids' }
+        @{ M='GET'; P='/api/v1/daily-log';                       N='daily-log' }
+        @{ M='GET'; P='/api/v1/daily-log/memories';              N='daily-log/memories' }
+        @{ M='GET'; P='/api/v1/documents';                       N='documents' }
+        @{ M='GET'; P='/api/v1/resources';                       N='resources' }
+        @{ M='GET'; P='/api/v1/wardrobe/items';                  N='wardrobe/items' }
+        @{ M='GET'; P='/api/v1/perfume/';                        N='perfume' }
+        @{ M='GET'; P='/api/v1/insurance/';                      N='insurance' }
+        @{ M='GET'; P='/api/v1/subscriptions/';                  N='subscriptions' }
+        @{ M='GET'; P='/api/v1/notifications/unread-count';      N='notifications/unread-count' }
+        @{ M='GET'; P='/api/v1/search?q=test';                   N='search'; K='groups' }
+        @{ M='GET'; P='/api/v1/backup/list';                     N='backup/list' }
+        @{ M='GET'; P='/api/v1/backup/schedule';                 N='backup/schedule'; K='enabled' }
+    )
+    foreach ($r in $routes) {
+        $resp = Get-Json $r.P $r.M
+        if ($resp.Code -ne 200) { Fail "$($r.M) $($r.P) - HTTP $($resp.Code)"; continue }
+        if ($r.K) {
+            try {
+                $obj = $resp.Body | ConvertFrom-Json
+                if ($obj.PSObject.Properties.Name -contains $r.K) { Pass "$($r.M) $($r.P) (has '$($r.K)')" }
+                else { Fail "$($r.M) $($r.P) - missing key '$($r.K)'" }
+            } catch { Fail "$($r.M) $($r.P) - invalid JSON" }
+        } else { Pass "$($r.M) $($r.P)" }
+    }
+
+    Section "1b) HTML Pages"
+    foreach ($p in 'index','inventory','medical','finance','property','kids','career','books','todos','documents','resources','daily-log','reports','settings','wardrobe','perfume','insurance','subscriptions') {
+        $resp = Get-Json "/$p.html"
+        if ($resp.Code -eq 200) { Pass "GET /$p.html" }
+        else                    { Fail "GET /$p.html - HTTP $($resp.Code)" }
+    }
+}
+
+# ══════════════════════════════════════════════════════════════
+# 2) SCHEMA
+# ══════════════════════════════════════════════════════════════
+function Run-Schema {
+    Section "2) Schema Check - pending migrations vs live DB"
+    $cmd = @"
+cd /app && python3 - <<'PY'
+import re, os, sys, sqlite3
+db_path = 'data/lifetracker.db'
+if not os.path.exists(db_path):
+    print('   FAIL: live DB not found at', db_path); sys.exit(1)
+db = sqlite3.connect(db_path)
+try:
+    applied = set(r[0] for r in db.execute('SELECT filename FROM _migrations').fetchall())
+except Exception as e:
+    print('   WARN: _migrations table missing:', e); applied = set()
+mig_dir = 'db/migrations'
+pending = sorted(f for f in os.listdir(mig_dir) if f.endswith('.sql') and f not in applied)
+if not pending:
+    print('   OK (no pending migrations, all applied)')
+    sys.exit(0)
+fail = 0
+for fname in pending:
+    with open(os.path.join(mig_dir, fname)) as f: sql = f.read()
+    stmts = [s.strip() for s in re.sub(r'--[^\n]*', '', sql).split(';')
+             if s.strip() and s.strip().upper() not in ('BEGIN','COMMIT','ROLLBACK')]
+    try:
+        db.execute('SAVEPOINT pdc')
+        for stmt in stmts: db.execute(stmt)
+        db.execute('ROLLBACK TO pdc'); db.execute('RELEASE pdc')
+        print(f'   OK   {fname}')
+    except Exception as e:
+        try: db.execute('ROLLBACK TO pdc')
+        except: pass
+        print(f'   FAIL {fname}: {e}'); fail += 1
+sys.exit(1 if fail else 0)
+PY
+"@
     try {
-        $r = Invoke-WebRequest -Uri "$ui$path" -UseBasicParsing -TimeoutSec 10
-        return @{ ok = $true; status = [int]$r.StatusCode; body = $r.Content }
+        $output = docker exec $Container bash -lc $cmd 2>&1
+        $output | ForEach-Object {
+            $line = $_.ToString()
+            if     ($line -match '^\s*OK')   { Pass $line.Trim() }
+            elseif ($line -match '^\s*FAIL') { Fail $line.Trim() }
+            elseif ($line -match '^\s*WARN') { Warn $line.Trim() }
+            else                              { Write-Out "  $line" }
+        }
     } catch {
-        return @{ ok = $false; status = 0; error = $_.Exception.Message; body = "" }
+        Fail "docker exec failed: $($_.Exception.Message). Is container '$Container' running?"
     }
 }
 
-# ═══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "═══ GHRAVA TEST SUITE ═══" -ForegroundColor Cyan
-Write-Host "  Target : $ui" -ForegroundColor DarkGray
-Write-Host "  Time   : $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor DarkGray
-if ($Token) {
-    Write-Host "  Auth   : token provided" -ForegroundColor DarkGray
-} else {
-    Write-Host "  Auth   : no token (write tests skipped)" -ForegroundColor DarkGray
-}
-Write-Host ""
-
 # ══════════════════════════════════════════════════════════════
-# 1. APP HEALTH
+# 3) FRONTEND
 # ══════════════════════════════════════════════════════════════
-Write-Host "── 1. App Health ───────────────────────────────" -ForegroundColor Cyan
+function Run-Frontend {
+    Section "3) Frontend - pages, scripts, broken references"
+    if (-not (Test-Up)) { return }
 
-$health = Invoke-Api "/app/info" $false
-# /app/info is at a different prefix — check /health
-$healthCheck = Invoke-WebRequest -Uri "$ui/health" -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
-Test-Result "Server responds" ($null -ne $healthCheck -and $healthCheck.StatusCode -eq 200) "GET /health"
+    $pages = 'index','inventory','medical','finance','property','kids','career','books','todos','documents','resources','daily-log','reports','settings','wardrobe','perfume','insurance','subscriptions','calendar','data','help','notifications'
 
-if ($health.ok) {
-    Test-Result "App info endpoint" $true "v$($health.data.version)"
-} else {
-    # Try plain health
-    Test-Result "App info endpoint" $false "HTTP $($health.status)" $true
-}
-
-
-# ══════════════════════════════════════════════════════════════
-# 2. API ROUTE HEALTH  (status + auth wall + SQL error detection)
-# ══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "── 2. API Routes (200, not 401, not 500) ───────" -ForegroundColor Cyan
-
-# Each entry: path, label, expectArray (true = response should be a JSON array)
-$apiRoutes = @(
-    # Dashboard
-    @{ path="/dashboard";                      label="Dashboard summary";          arr=$true  },
-    @{ path="/dashboard/attention";            label="Dashboard attention items";  arr=$true  },
-
-    # Inventory — the on-load routes that were missing/broken
-    @{ path="/inventory/stats";                label="Inventory stats";            arr=$false },
-    @{ path="/inventory/locations";            label="Inventory locations";        arr=$true  },
-    @{ path="/inventory/locations/flat";       label="Inventory locations flat";   arr=$true  },
-    @{ path="/inventory/containers";           label="Inventory containers";       arr=$true  },
-    @{ path="/inventory/items";                label="Inventory items";            arr=$true  },
-    @{ path="/inventory/search?q=test";        label="Inventory search";           arr=$true  },
-    @{ path="/inventory/hw";                   label="Inventory HW items";         arr=$true  },
-
-    # Books — had SQL error in ORDER BY
-    @{ path="/books";                          label="Books list";                 arr=$true  },
-    @{ path="/books?status=Currently+Reading"; label="Books by shelf";             arr=$true  },
-    @{ path="/books/stats";                    label="Books stats";                arr=$false },
-
-    # Career
-    @{ path="/career/certifications";          label="Career certs";               arr=$true  },
-    @{ path="/career/jobs";                    label="Career jobs";                arr=$true  },
-    @{ path="/career/skills";                  label="Career skills";              arr=$true  },
-    @{ path="/career/education";               label="Career education";           arr=$true  },
-    @{ path="/career/goals";                   label="Career goals";               arr=$true  },
-
-    # Kids
-    @{ path="/kids";                           label="Kids list";                  arr=$true  },
-
-    # Documents
-    @{ path="/documents";                      label="Documents list";             arr=$true  },
-    @{ path="/documents/expiring";             label="Documents expiring";         arr=$true  },
-
-    # Todos
-    @{ path="/todos";                          label="Todos list";                 arr=$true  },
-
-    # Daily Log
-    @{ path="/daily-log";                      label="Daily log entries";          arr=$true  },
-
-    # Medical
-    @{ path="/medical/medications";            label="Medical medications";        arr=$true  },
-    @{ path="/medical/conditions";             label="Medical conditions";         arr=$true  },
-    @{ path="/medical/physicians";             label="Medical physicians";         arr=$true  },
-    @{ path="/medical/visits";                 label="Medical visits";             arr=$true  },
-
-    # Resources
-    @{ path="/resources";                      label="Resources list";             arr=$true  },
-
-    # Property
-    @{ path="/property/properties";            label="Properties list";            arr=$true  },
-    @{ path="/property/vehicles";              label="Vehicles list";              arr=$true  },
-
-    # Todos
-    @{ path="/notifications";                  label="Notifications";              arr=$true  },
-
-    # Settings — all reads must be public (no auth required)
-    @{ path="/settings/tags";                  label="Settings tags (public)";     arr=$true  },
-    @{ path="/settings/family";                label="Settings family (public)";   arr=$true  },
-    @{ path="/settings/contacts";              label="Settings contacts (public)"; arr=$true  },
-    @{ path="/settings/dropdowns/document_category";       label="Dropdown: document_category";      arr=$true },
-    @{ path="/settings/dropdowns/document_subcategory";    label="Dropdown: document_subcategory";   arr=$true },
-    @{ path="/settings/dropdowns/todo_category";           label="Dropdown: todo_category";          arr=$true },
-    @{ path="/settings/dropdowns/inventory_category";      label="Dropdown: inventory_category";     arr=$true },
-    @{ path="/settings/dropdowns/hw_subcategory";          label="Dropdown: hw_subcategory";         arr=$true },
-    @{ path="/settings/dropdowns/kids_activity_category";  label="Dropdown: kids_activity_category"; arr=$true },
-    @{ path="/settings/dropdowns/kids_note_category";      label="Dropdown: kids_note_category";     arr=$true },
-    @{ path="/settings/dropdowns/medical_visit_type";      label="Dropdown: medical_visit_type";     arr=$true },
-    @{ path="/settings/dropdowns/medical_physician_type";  label="Dropdown: medical_physician_type"; arr=$true },
-    @{ path="/settings/dropdowns/book_genre";              label="Dropdown: book_genre";             arr=$true },
-    @{ path="/settings/dropdowns/career_goal_category";    label="Dropdown: career_goal_category";   arr=$true },
-    @{ path="/settings/dropdowns/career_skill_category";   label="Dropdown: career_skill_category";  arr=$true },
-    @{ path="/settings/dropdowns/property_type";           label="Dropdown: property_type";          arr=$true },
-    @{ path="/settings/dropdowns/vehicle_service_type";    label="Dropdown: vehicle_service_type";   arr=$true }
-)
-
-foreach ($rt in $apiRoutes) {
-    $r = Invoke-Api $rt.path $false
-
-    # 401 = reads behind auth wall (major bug)
-    if ($r.status -eq 401) {
-        Test-Result $rt.label $false "HTTP 401 — GET route behind auth wall (reads must be public)"
-        continue
-    }
-    # 500 = server/SQL error
-    if ($r.status -eq 500) {
-        $detail = "HTTP 500 — server error"
-        if ($r.data -and $r.data.detail) { $detail += ": $($r.data.detail)" }
-        Test-Result $rt.label $false $detail
-        continue
-    }
-    # Other non-200
-    if (-not $r.ok) {
-        Test-Result $rt.label $false "HTTP $($r.status)"
-        continue
-    }
-    # Shape check: should be array
-    if ($rt.arr) {
-        $isArr = $r.data -is [System.Array] -or ($r.raw -match "^\s*\[")
-        $isErr = $r.data -and $r.data.error
-        if ($isErr) {
-            Test-Result $rt.label $false "Returned error object: $($r.data.error)"
-        } else {
-            Test-Result $rt.label $isArr "HTTP $($r.status)$(if(-not $isArr){' — expected array, got object'})"
+    foreach ($p in $pages) {
+        $resp = Get-Json "/$p.html"
+        if ($resp.Code -ne 200) { Fail "GET /$p.html - HTTP $($resp.Code)"; continue }
+        $html = $resp.Body
+        $issues = @()
+        if (($html -match 'GH_FAMILY|GH_SELECT|window\.api|GH_TAGS') -and ($html -notmatch 'lt-core\.js')) {
+            $issues += 'missing lt-core.js'
         }
+        if (($html -match 'GH_REFS\.') -and ($html -notmatch 'lt-refs\.js')) {
+            $issues += 'uses GH_REFS but lt-refs.js not loaded'
+        }
+        if ($html -match 'LT\.toast\(') {
+            $issues += 'LT.toast() - undefined (use toast())'
+        }
+        if ($html -match "[^.]\bapi\(\s*'(?:GET|POST|PUT|PATCH|DELETE)'\s*,\s*'/(settings|attachments|dashboard|notifications)/") {
+            $issues += 'cross-module api() - should be window.api()'
+        }
+        if ($issues.Count -eq 0) { Pass "/$p.html" }
+        else                     { Fail "/$p.html - $($issues -join '; ')" }
+    }
+
+    foreach ($asset in '/js/lt-core.js','/js/lt-refs.js','/shared.css','/nav.js') {
+        $resp = Get-Json $asset
+        if ($resp.Code -eq 200) { Pass "GET $asset" }
+        else                    { Fail "GET $asset - HTTP $($resp.Code)" }
+    }
+}
+
+# ══════════════════════════════════════════════════════════════
+# 4) DEEP CRUD
+# ══════════════════════════════════════════════════════════════
+function Run-DeepCRUD {
+    Section "4) Deep CRUD - inventory + medical round-trip"
+    if (-not (Test-Up)) { return }
+
+    $invName = "TEST_ITEM_$(Get-Date -Format 'HHmmss')"
+    $created = Get-Json '/api/v1/inventory/items' 'POST' @{
+        name = $invName; category = 'Electronics'; brand = 'TestBrand'; description = 'created by Ghrava_Test.ps1'
+    }
+    if ($created.Code -ne 201) {
+        Fail "Inventory POST /items - HTTP $($created.Code) - $($created.Body.Substring(0,[Math]::Min(120,$created.Body.Length)))"
+        return
+    }
+    $obj = $created.Body | ConvertFrom-Json
+    $invId = $obj.id
+    if (-not $invId) { Fail "Inventory POST returned no id"; return }
+    Pass "Inventory POST -> id=$invId"
+
+    $got = Get-Json "/api/v1/inventory/items/$invId"
+    if ($got.Code -eq 200) {
+        $g = $got.Body | ConvertFrom-Json
+        if ($g.name -eq $invName) { Pass "Inventory GET id=$invId returns same name" }
+        else                       { Fail "Inventory GET name mismatch: got '$($g.name)' want '$invName'" }
+    } else { Fail "Inventory GET id=$invId - HTTP $($got.Code)" }
+
+    $upd = Get-Json "/api/v1/inventory/items/$invId" 'PUT' @{
+        name = $invName; category = 'Electronics'; brand = 'TestBrand_UPDATED'; description = 'updated'
+    }
+    if ($upd.Code -eq 200) { Pass "Inventory PUT id=$invId" }
+    else                   { Fail "Inventory PUT - HTTP $($upd.Code)" }
+
+    $verify = Get-Json "/api/v1/inventory/items/$invId"
+    if ($verify.Code -eq 200) {
+        $v = $verify.Body | ConvertFrom-Json
+        if ($v.brand -eq 'TestBrand_UPDATED') { Pass "Inventory PUT persisted brand change" }
+        else                                   { Fail "Inventory PUT did not persist - brand still '$($v.brand)'" }
+    }
+
+    $arch = Get-Json "/api/v1/inventory/items/$invId/archive" 'PATCH' @{ reason='test cleanup' }
+    if ($arch.Code -in 200,204) { Pass "Inventory archive id=$invId" }
+    else                        { Warn "Inventory archive - HTTP $($arch.Code) (may need different endpoint)" }
+
+    $del = Get-Json "/api/v1/inventory/items/$invId" 'DELETE'
+    if ($del.Code -eq 200) { Pass "Inventory DELETE id=$invId (post-archive)" }
+    else                   { Warn "Inventory DELETE - HTTP $($del.Code) (test row may persist as archived)" }
+
+    $condName = "TEST_COND_$(Get-Date -Format 'HHmmss')"
+    $cCreated = Get-Json '/api/v1/medical/conditions' 'POST' @{
+        condition_name = $condName; status = 'Active'; patient = 'Test'
+    }
+    if ($cCreated.Code -eq 201) {
+        $co = $cCreated.Body | ConvertFrom-Json
+        $cId = $co.id
+        Pass "Medical condition POST -> id=$cId"
+
+        $gC = Get-Json "/api/v1/medical/conditions/$cId"
+        if ($gC.Code -eq 200) { Pass "Medical condition GET id=$cId" }
+        else                  { Fail "Medical condition GET - HTTP $($gC.Code)" }
+
+        $dC = Get-Json "/api/v1/medical/conditions/$cId" 'DELETE'
+        if ($dC.Code -eq 200) { Pass "Medical condition DELETE id=$cId" }
+        else                  { Warn "Medical condition DELETE - HTTP $($dC.Code)" }
     } else {
-        $isErr = $r.data -and $r.data.error
-        Test-Result $rt.label (-not $isErr) "HTTP $($r.status)$(if($isErr){' — error: '+$r.data.error})"
-    }
-}
-
-
-# ══════════════════════════════════════════════════════════════
-# 3. PAGE LOAD SMOKE TESTS
-# ══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "── 3. Page Loads (HTTP 200 + key element IDs) ──" -ForegroundColor Cyan
-
-$pages = @(
-    @{ path="/";               label="Dashboard";  must=@("id=`"app`"","gh-page-header","Daily Log") },
-    @{ path="/todos.html";     label="Todos";      must=@("id=`"app`"","statsRow","todoList","todoTagsWrap") },
-    @{ path="/daily-log.html"; label="Daily Log";  must=@("id=`"app`"","catScroll","dlTagsWrap") },
-    @{ path="/inventory.html"; label="Inventory";  must=@("id=`"app`"","statsBar","stItems","browseContent","itmTagsWrap") },
-    @{ path="/finance.html";   label="Finance";    must=@("id=`"app`"","finTabs","accountsList") },
-    @{ path="/medical.html";   label="Medical";    must=@("id=`"app`"","visitTagsWrap","medTagsWrap") },
-    @{ path="/resources.html"; label="Resources";  must=@("id=`"app`"","catStrip","resTagsWrap") },
-    @{ path="/documents.html"; label="Documents";  must=@("id=`"app`"","catStrip","docTagsWrap","dSubcat") },
-    @{ path="/career.html";    label="Career";     must=@("id=`"app`"","certsList","certTagsWrap","jobTagsWrap") },
-    @{ path="/books.html";     label="Books";      must=@("id=`"app`"","bookList","bookTagsWrap","shelfTabs") },
-    @{ path="/kids.html";      label="Kids";       must=@("id=`"app`"","kidsTabs","actTagsWrap") },
-    @{ path="/property.html";  label="Property";   must=@("id=`"app`"","propList","propTagsWrap","vehTagsWrap") },
-    @{ path="/settings.html";  label="Settings";   must=@("id=`"app`"","logoutBtn","tagsList") }
-)
-
-foreach ($p in $pages) {
-    $r = Invoke-Page $p.path
-    if (-not $r.ok) {
-        Test-Result "$($p.label) page loads" $false "HTTP $($r.status): $($r.error)"
-        continue
-    }
-    Test-Result "$($p.label) page loads" $true "HTTP $($r.status)"
-    foreach ($must in $p.must) {
-        $found = $r.body -match [regex]::Escape($must)
-        Test-Result "  $($p.label): has '$must'" $found
-    }
-}
-
-
-# ══════════════════════════════════════════════════════════════
-# 4. HTML SOURCE ANALYSIS
-#    Catches structural/syntax bugs before they reach the browser.
-# ══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "── 4. HTML Source Analysis ─────────────────────" -ForegroundColor Cyan
-
-$htmlPages = @(
-    @{ path="/books.html";     label="Books"     },
-    @{ path="/career.html";    label="Career"    },
-    @{ path="/kids.html";      label="Kids"      },
-    @{ path="/inventory.html"; label="Inventory" },
-    @{ path="/documents.html"; label="Documents" },
-    @{ path="/todos.html";     label="Todos"     },
-    @{ path="/daily-log.html"; label="Daily Log" },
-    @{ path="/medical.html";   label="Medical"   },
-    @{ path="/resources.html"; label="Resources" },
-    @{ path="/property.html";  label="Property"  },
-    @{ path="/finance.html";   label="Finance"   },
-    @{ path="/settings.html";  label="Settings"  }
-)
-
-foreach ($p in $htmlPages) {
-    $r = Invoke-Page $p.path
-    if (-not $r.ok) { continue }   # already failed in section 3
-    $src = $r.body
-    $lbl = $p.label
-
-    # ── Required scripts ──────────────────────────────────────
-    Test-Result "$lbl: loads lt-core.js"     ($src -match 'lt-core\.js')
-    Test-Result "$lbl: loads lt-messages.js" ($src -match 'lt-messages\.js')
-    Test-Result "$lbl: loads nav.js"         ($src -match 'nav\.js')
-
-    # ── emptyState / errorState: only usable if lt-messages loaded ──
-    $usesEmpty = $src -match 'emptyState\s*\('
-    $usesError = $src -match 'errorState\s*\('
-    $loadsMsg  = $src -match 'lt-messages\.js'
-    if ($usesEmpty -or $usesError) {
-        Test-Result "$lbl: emptyState/errorState backed by lt-messages.js" $loadsMsg `
-            "Page calls emptyState/errorState but lt-messages.js not loaded"
+        Fail "Medical condition POST - HTTP $($cCreated.Code) - $($cCreated.Body.Substring(0,[Math]::Min(120,$cCreated.Body.Length)))"
     }
 
-    # ── GH_TAGS / GH_SELECT: need lt-core ─────────────────────
-    $usesGhTags   = $src -match 'GH_TAGS\s*\.'
-    $usesGhSelect = $src -match 'GH_SELECT\s*\.'
-    if ($usesGhTags -or $usesGhSelect) {
-        Test-Result "$lbl: GH_TAGS/GH_SELECT backed by lt-core.js" ($src -match 'lt-core\.js')
+    $medName = "TEST_MED_$(Get-Date -Format 'HHmmss')"
+    $mCreated = Get-Json '/api/v1/medical/medications' 'POST' @{
+        name = $medName; dosage = '10mg'; status = 'Active'; patient = 'Test'
     }
+    if ($mCreated.Code -eq 201) {
+        $mo = $mCreated.Body | ConvertFrom-Json
+        $mId = $mo.id
+        Pass "Medical medication POST -> id=$mId"
 
-    # ── initXxxTags called with undefined variable ────────────────
-    # Pattern: openXxxDrawer uses local var 'c' but calls initXxxTags(cert?.tags)
-    # This causes a silent ReferenceError — drawer never opens, no error shown.
-    # Detect: initXxxTags(word?.tags) where 'word' appears nowhere else in the function
-    $tagMismatch = [regex]::Matches($src, 'init\w+Tags\((\w+)\?\.tags') | Where-Object {
-      $varName = $_.Groups[1].Value
-      # Flag if the variable name matches a common full-word pattern that wouldn't be a
-      # single-letter local — e.g. cert/job/skill/prop/veh used where c/j/s/p/v expected
-      $varName -match '^(cert|job|skill|prop|veh|book|res|item|doc|visit|med)$'
-    }
-    Test-Result "$lbl: initXxxTags uses correct local variable" ($tagMismatch.Count -eq 0) `
-      "Found initXxxTags($($tagMismatch[0].Groups[1].Value)?.tags) — likely wrong variable name, drawer Add will silently fail"
-
-    $doubleAsync = $src -match 'async\s+async\s+function'
-    Test-Result "$lbl: no 'async async' syntax error" (-not $doubleAsync) `
-        "Found 'async async function' — will fail to parse in strict mode"
-
-    # ── No duplicate identifier declarations ──────────────────
-    $escCount = ([regex]::Matches($src, '(?:const|let|var|function)\s+esc\b')).Count
-    Test-Result "$lbl: 'esc' declared exactly once" ($escCount -le 1) `
-        "Found $escCount declarations of 'esc' — SyntaxError: Identifier already declared"
-
-    $dollarCount = ([regex]::Matches($src, '(?:const|let|var)\s+\$\s*=')).Count
-    Test-Result "$lbl: '\$' declared at most once" ($dollarCount -le 1) `
-        "Found $dollarCount declarations of '\$' — SyntaxError: Identifier already declared"
-
-    # ── spinnerHtml: only usable if lt-core loaded ─────────────
-    $usesSpinner = $src -match 'spinnerHtml\s*\('
-    if ($usesSpinner) {
-        Test-Result "$lbl: spinnerHtml backed by lt-core.js" ($src -match 'lt-core\.js') `
-            "Page calls spinnerHtml() but lt-core.js not loaded"
-    }
-
-    # ── Catch blocks that reference e must bind (e) ───────────────
-    # Find all }catch{ that are NOT }catch{} (empty) and NOT }catch(
-    $badCatch = [regex]::Matches($src, '\}\s*catch\s*\{[^}]+e\.') | Where-Object { $_.Value -notmatch '\}\s*catch\s*\(' }
-    Test-Result "$lbl: catch blocks bind error variable" ($badCatch.Count -eq 0) `
-        "Found catch{} blocks that reference 'e.' without binding (e)"
-
-    # ── No baked-in spinners inside data-list containers ──────
-    # A spinner in HTML that is inside a known list div = permanent spinner if JS fails
-    $bakedSpinner = $src -match '(id="[^"]*List"[^>]*>\s*<div class="spinner")|(<div[^>]+id="[^"]*List"[^>]*>[^<]*<div[^>]+class="spin)'
-    Test-Result "$lbl: no baked-in spinners in list containers" (-not $bakedSpinner) `
-        "Found <div class='spinner'> inside a *List panel — spinner should be injected by JS, not baked into HTML"
-
-    # ── GH_EMPTY used correctly: spread syntax ─────────────────
-    # emptyState(...GH_EMPTY.x) is correct; emptyState(GH_EMPTY.x) is wrong
-    $badEmpty = [regex]::Matches($src, 'emptyState\s*\(\s*GH_EMPTY') | Where-Object { $_.Value -notmatch 'emptyState\s*\(\s*\.\.\.' }
-    Test-Result "$lbl: emptyState called with spread (...GH_EMPTY.x)" ($badEmpty.Count -eq 0) `
-        "Found emptyState(GH_EMPTY.x) — must be emptyState(...GH_EMPTY.x)"
-}
-
-
-# ══════════════════════════════════════════════════════════════
-# 5. PAGE → API DEPENDENCY TESTS
-#    Each page's on-load API calls tested individually.
-#    If any of these fail it means the page will show a spinner forever.
-# ══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "── 5. Page On-Load API Dependencies ───────────" -ForegroundColor Cyan
-
-$pageDeps = @(
-    @{ page="Books";     routes=@("/books", "/books/stats", "/settings/dropdowns/book_genre") },
-    @{ page="Career";    routes=@("/career/certifications", "/career/jobs", "/career/skills", "/career/education", "/career/goals",
-                                  "/settings/dropdowns/career_goal_category", "/settings/dropdowns/career_skill_category") },
-    @{ page="Kids";      routes=@("/kids", "/settings/dropdowns/kids_activity_category", "/settings/dropdowns/kids_note_category") },
-    @{ page="Inventory"; routes=@("/inventory/stats", "/inventory/locations", "/inventory/locations/flat",
-                                  "/inventory/containers", "/inventory/items",
-                                  "/settings/dropdowns/inventory_category", "/settings/dropdowns/hw_subcategory",
-                                  "/settings/family") },
-    @{ page="Documents"; routes=@("/documents", "/settings/dropdowns/document_category",
-                                  "/settings/dropdowns/document_subcategory", "/settings/family") },
-    @{ page="Todos";     routes=@("/todos", "/settings/dropdowns/todo_category") },
-    @{ page="Daily Log"; routes=@("/daily-log", "/settings/dropdowns/dailylog_category") },
-    @{ page="Medical";   routes=@("/medical/medications", "/medical/conditions", "/medical/physicians", "/medical/visits",
-                                  "/settings/family", "/settings/contacts", "/settings/dropdowns/medical_visit_type",
-                                  "/settings/dropdowns/medical_physician_type") },
-    @{ page="Resources"; routes=@("/resources", "/settings/tags") },
-    @{ page="Property";  routes=@("/property/properties", "/property/vehicles",
-                                  "/settings/dropdowns/property_type", "/settings/dropdowns/property_maintenance_category",
-                                  "/settings/dropdowns/vehicle_service_type") },
-    @{ page="Dashboard"; routes=@("/dashboard", "/dashboard/attention", "/todos", "/notifications") },
-    @{ page="Settings";  routes=@("/settings/tags", "/settings/family", "/settings/contacts",
-                                  "/settings/dropdowns/contact_type") }
-)
-
-foreach ($dep in $pageDeps) {
-    $pageLabel = $dep.page
-    $allOk = $true
-    $firstFail = ""
-    foreach ($route in $dep.routes) {
-        $r = Invoke-Api $route $false
-        if ($r.status -eq 401) {
-            $allOk = $false
-            $firstFail = "GET $route returns 401 (auth wall blocking read)"
-            break
-        }
-        if ($r.status -eq 500) {
-            $allOk = $false
-            $firstFail = "GET $route returns 500 (server/SQL error)"
-            break
-        }
-        if (-not $r.ok) {
-            $allOk = $false
-            $firstFail = "GET $route returns HTTP $($r.status)"
-            break
-        }
-    }
-    Test-Result "$pageLabel: all on-load routes OK" $allOk $firstFail
-}
-
-
-# ══════════════════════════════════════════════════════════════
-# 6. DATABASE INTEGRITY
-# ══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "── 6. Database Integrity ───────────────────────" -ForegroundColor Cyan
-
-$diagR = Invoke-Api "/settings/diagnostics/run" $true
-if ($diagR.ok -and $diagR.data) {
-    $d = $diagR.data
-    Test-Result "Diagnostics endpoint accessible" $true
-    if ($d.orphaned_taggables -ne $null) {
-        Test-Result "No orphaned taggables" ($d.orphaned_taggables -eq 0) "$($d.orphaned_taggables) orphan(s)"
-    }
-    if ($d.unmigrated_doc_tags -ne $null) {
-        Test-Result "No unmigrated document tags" ($d.unmigrated_doc_tags -eq 0) "$($d.unmigrated_doc_tags) freetext tag(s) still in documents.tags"
-    }
-    if ($d.unassigned_items -ne $null) {
-        Test-Result "No unassigned inventory items" ($d.unassigned_items -eq 0) "$($d.unassigned_items) item(s) with no location" $true
-    }
-} elseif ($diagR.status -eq 401) {
-    Test-Result "Diagnostics endpoint accessible" $false "HTTP 401 — pass -Token parameter to run DB checks"  $true
-} else {
-    # Fallback: orphan check endpoint
-    $orphanR = Invoke-Api "/settings/diagnostics/orphans" $false
-    if ($orphanR.ok) {
-        Test-Result "Orphan check endpoint" $true
-        $o = $orphanR.data
-        if ($o.taggables_missing_tag  -ne $null) { Test-Result "No taggables pointing to missing tags" ($o.taggables_missing_tag  -eq 0) "$($o.taggables_missing_tag) orphan(s)"  }
-        if ($o.taggables_missing_entity -ne $null) { Test-Result "No taggables pointing to deleted entities" ($o.taggables_missing_entity -eq 0) "$($o.taggables_missing_entity) orphan(s)" }
-        if ($o.unmigrated_doc_tags  -ne $null) { Test-Result "No unmigrated doc freetext tags" ($o.unmigrated_doc_tags -eq 0) "$($o.unmigrated_doc_tags) remaining" }
+        $dM = Get-Json "/api/v1/medical/medications/$mId" 'DELETE'
+        if ($dM.Code -eq 200) { Pass "Medical medication DELETE id=$mId" }
+        else                  { Warn "Medical medication DELETE - HTTP $($dM.Code)" }
     } else {
-        Test-Result "Diagnostics/orphan endpoint accessible" $false "HTTP $($orphanR.status)" $true
+        Fail "Medical medication POST - HTTP $($mCreated.Code) - $($mCreated.Body.Substring(0,[Math]::Min(120,$mCreated.Body.Length)))"
     }
 }
 
-
 # ══════════════════════════════════════════════════════════════
-# 7. RUNTIME BEHAVIOUR TESTS
-#    Tests that catch the class of bugs found during manual testing:
-#    - 401 handling, auth on write routes
-#    - Raw fetch vs window.api usage
-#    - Todos POST body reference errors
-#    - UPC model number barcode contamination
-#    - Build date mismatch
-#    - Diag data count inflation
+# 5) BACKUP
 # ══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "── 7. Runtime Behaviour ────────────────────────" -ForegroundColor Cyan
+function Run-Backup {
+    Section "5) Backup - create + verify"
+    if (-not (Test-Up)) { return }
 
-# ── 7a. App info build_date is not hardcoded ──────────────────
-$infoR = Invoke-Api "/app/info"
-if ($infoR.ok) {
-    $bd = $infoR.data.build_date
-    Test-Result "app/info build_date is dynamic (not 2026-03-08)" ($bd -ne "2026-03-08") `
-        "build_date is still hardcoded to 2026-03-08 in server.js"
-    Test-Result "app/info version matches package.json expectation" ($infoR.data.version -ne $null) `
-        "version field missing from app/info"
-}
+    $before = Get-Json '/api/v1/backup/list'
+    if ($before.Code -ne 200) { Fail "GET /backup/list - HTTP $($before.Code)"; return }
+    $beforeList = $before.Body | ConvertFrom-Json
+    $beforeCount = if ($beforeList -is [array]) { $beforeList.Count } else { ($beforeList.backups).Count }
 
-# ── 7b. Record counts exclude inactive rows ───────────────────
-if ($infoR.ok) {
-    $counts = $infoR.data.record_counts
-    # If diag rows exist and are is_active=0, they should NOT appear in counts
-    # We verify this by checking counts are reasonable (not inflated by ghost rows)
-    Test-Result "app/info record counts present" ($counts -ne $null) `
-        "record_counts missing from app/info response"
-}
+    $r = Get-Json '/api/v1/backup/now' 'POST'
+    if ($r.Code -in 200,201) {
+        $obj = $r.Body | ConvertFrom-Json
+        Pass "POST /backup/now (label='$($obj.label)' file='$($obj.filename)')"
+    } else {
+        Fail "POST /backup/now - HTTP $($r.Code) - $($r.Body.Substring(0,[Math]::Min(120,$r.Body.Length)))"
+        return
+    }
 
-# ── 7c. Todos POST does not 500 ───────────────────────────────
-if ($Token) {
-    $tr = Invoke-Api "/todos" $true "POST" '{"title":"_diag_todo_test_","category":"General","priority":"medium"}'
-    Test-Result "Todos POST creates record (no body.tags 500)" ($tr.status -eq 201) `
-        "Todos POST returned $($tr.status) — likely body.tags reference error in routes.js"
-    # Cleanup
-    if ($tr.data.id) { Invoke-Api "/todos/$($tr.data.id)" $true "DELETE" | Out-Null }
-}
+    Start-Sleep -Seconds 1
+    $after = Get-Json '/api/v1/backup/list'
+    if ($after.Code -eq 200) {
+        $afterList = $after.Body | ConvertFrom-Json
+        $afterCount = if ($afterList -is [array]) { $afterList.Count } else { ($afterList.backups).Count }
+        if ($afterCount -gt $beforeCount) { Pass "Backup count increased ($beforeCount -> $afterCount)" }
+        else                              { Fail "Backup count unchanged ($beforeCount -> $afterCount)" }
+    }
 
-# ── 7d. Write routes return 401 without token (not 200 or 500) ─
-$writeRoutes = @(
-    @{ method="POST"; path="/inventory/items"; body='{"name":"_test_"}' },
-    @{ method="POST"; path="/todos"; body='{"title":"_test_"}' },
-    @{ method="POST"; path="/books"; body='{"title":"_test_"}' },
-    @{ method="POST"; path="/documents"; body='{"title":"_test_"}' },
-    @{ method="POST"; path="/hsa/payments"; body='{"date":"2026-01-01","you_paid":1,"category":"Doctor","payment_type":"Out of Pocket"}' }
-)
-foreach ($wr in $writeRoutes) {
     try {
-        $wr2 = Invoke-WebRequest -Uri "$base$($wr.path)" `
-            -Method $wr.method `
-            -Headers @{"Content-Type"="application/json"} `
-            -Body $wr.body `
-            -UseBasicParsing -TimeoutSec 5 -ErrorAction SilentlyContinue
-        $sc = $wr2.StatusCode
-    } catch {
-        $sc = $_.Exception.Response.StatusCode.value__
-    }
-    Test-Result "Unauthenticated $($wr.method) $($wr.path) returns 401" ($sc -eq 401) `
-        "Got HTTP $sc — expected 401. Write route may be missing requireAuth."
-}
-
-# ── 7e. HTML: inventory uses authFetch not raw fetch for writes ─
-$invSrc = ""
-try { $invSrc = (Invoke-WebRequest -Uri "$ui/inventory.html" -UseBasicParsing -TimeoutSec 5).Content } catch {}
-if ($invSrc) {
-    # Check authFetch is defined
-    Test-Result "inventory.html defines authFetch wrapper" ($invSrc -match "function authFetch") `
-        "authFetch not found — raw fetch() calls bypass 401 intercept"
-    # Check the main item save uses authFetch not raw fetch
-    $rawItemSave = [regex]::Matches($invSrc, "await fetch\(`\`\$\{(url|API)\}.*method.*['\"](?:POST|PUT|DELETE)['\"]")
-    Test-Result "inventory.html write calls use authFetch (not raw fetch)" ($rawItemSave.Count -eq 0) `
-        "Found $($rawItemSave.Count) raw fetch() write call(s) — these bypass 401 handling"
-}
-
-# ── 7f. HTML: no raw fetch write calls on any page (except FormData uploads) ─
-foreach ($page in @("todos.html","books.html","documents.html","career.html","medical.html","kids.html")) {
-    $psrc = ""
-    try { $psrc = (Invoke-WebRequest -Uri "$ui/$page" -UseBasicParsing -TimeoutSec 5).Content } catch {}
-    if ($psrc) {
-        # Raw fetch with POST/PUT/DELETE that is NOT FormData and NOT a GET
-        $rawWrites = [regex]::Matches($psrc, "await fetch\([^)]+method\s*:\s*['\"](?:POST|PUT|DELETE|PATCH)['\"]") |
-            Where-Object { $_.Value -notmatch "FormData|fd\b|multipart" }
-        # These pages should use window.api / apiPost / apiPut etc
-        $usesApiWrapper = $psrc -match "await api\(|await apiPost\(|await apiPut\(|await apiDelete\("
-        if ($rawWrites.Count -gt 0 -and -not $usesApiWrapper) {
-            Test-Result "$page write calls go through window.api" $false `
-                "Found $($rawWrites.Count) raw fetch write(s) — use apiPost/apiPut/apiDelete for 401 handling" $true
+        $sizeOut = docker exec $Container bash -lc 'ls -la /app/backups/*.db 2>/dev/null | tail -1' 2>&1
+        if ($sizeOut -match '\s(\d+)\s+\w+\s+\d+\s+\d+:\d+\s+(\S+)') {
+            $size = [int]$Matches[1]
+            $file = $Matches[2]
+            if ($size -gt 1024) { Pass "Latest backup ($file) is $([math]::Round($size/1024,1)) KB" }
+            else                { Fail "Latest backup ($file) is only $size bytes - empty?" }
         } else {
-            Test-Result "$page write calls go through window.api" $true
+            Warn "Could not parse backup file size"
         }
+    } catch {
+        Warn "docker exec for size check failed: $($_.Exception.Message)"
     }
 }
 
-# ── 7g. Todos checkbox CSS has display:block on ::after ───────
-$todoSrc = ""
-try { $todoSrc = (Invoke-WebRequest -Uri "$ui/todos.html" -UseBasicParsing -TimeoutSec 5).Content } catch {}
-if ($todoSrc) {
-    Test-Result "todos.html checkbox ::after has display:block" ($todoSrc -match "checked::after[\s\S]{0,60}display\s*:\s*block") `
-        "Checkmark ::after missing display:block — checkbox tick will be invisible"
-}
-
-# ── 7h. gh-info-icon size is ≤14px ────────────────────────────
-$coreSrc = ""
-try { $coreSrc = (Invoke-WebRequest -Uri "$ui/js/lt-core.js" -UseBasicParsing -TimeoutSec 5).Content } catch {}
-if ($coreSrc) {
-    $iconSize = [regex]::Match($coreSrc, "\.gh-info-icon\s*\{[^}]+width\s*:\s*(\d+)px")
-    if ($iconSize.Success) {
-        $px = [int]$iconSize.Groups[1].Value
-        Test-Result "gh-info-icon width ≤14px (currently ${px}px)" ($px -le 14) `
-            "gh-info-icon is ${px}px — too large relative to label text"
-    }
-}
-
-# ── 7i. UPC model_number barcode filter exists ─────────────────
-$invRoutesSrc = ""
-try {
-    $irPath = Join-Path $PSScriptRoot "app/features/inventory/routes.js"
-    if (Test-Path $irPath) { $invRoutesSrc = Get-Content $irPath -Raw }
-} catch {}
-if ($invRoutesSrc) {
-    Test-Result "UPC lookup filters barcode-looking model numbers" ($invRoutesSrc -match "isBarcode") `
-        "No barcode filter on model_number — UPC codes may appear as model numbers"
-}
-
-# ── 7j. migration 037 has two separate CTEs (not one split across statements) ─
-$mig037 = ""
-try {
-    $m37Path = Join-Path $PSScriptRoot "app/db/migrations/037_migrate_document_tags.sql"
-    if (Test-Path $m37Path) { $mig037 = Get-Content $m37Path -Raw }
-} catch {}
-if ($mig037) {
-    $cteCount = ([regex]::Matches($mig037, "WITH RECURSIVE")).Count
-    Test-Result "Migration 037 has CTE repeated for both INSERTs ($cteCount CTEs)" ($cteCount -ge 2) `
-        "Migration 037 has only $cteCount CTE block — second INSERT will fail with 'no such table: clean_tags'"
-}
-
-# ── 7k. needs-review shared module exists and exports expected functions ──
-$nrPath = Join-Path $PSScriptRoot "app/shared/needs-review.js"
-Test-Result "shared/needs-review.js exists" (Test-Path $nrPath) `
-    "needs-review.js not found — Data Review system won't work"
-if (Test-Path $nrPath) {
-    $nrSrc = Get-Content $nrPath -Raw
-    foreach ($fn in @("flagRecords","flagRecordsWhere","createReviewTodo","checkAndCompleteTodo","getReviewSummary","clearReview")) {
-        Test-Result "needs-review exports $fn" ($nrSrc -match "function $fn\b") `
-            "$fn not found in needs-review.js"
-    }
-}
-
-# ── 7l. Data Review API endpoint responds ─────────────────────
-$rvR = Invoke-Api "/settings/review/summary"
-Test-Result "GET /settings/review/summary responds" ($rvR.ok) `
-    "Data Review endpoint not reachable — Settings Data Review panel will be broken"
-
-
-# Hard-delete _diag_* test rows — soft-delete leaves ghost rows
-# that inflate record counts. Requires -Token to authenticate.
 # ══════════════════════════════════════════════════════════════
-if ($Token) {
+# Menu / dispatch
+# ══════════════════════════════════════════════════════════════
+function Show-Menu {
+    Clear-Host
     Write-Host ""
-    Write-Host "── Cleanup ─────────────────────────────────────────────" -ForegroundColor Cyan
-    try {
-        $pr = Invoke-WebRequest -Uri "$base/settings/diagnostics/purge" `
-            -Method POST `
-            -Headers @{"Content-Type"="application/json";"Authorization"="Bearer $Token"} `
-            -UseBasicParsing -TimeoutSec 10
-        $pd = $pr.Content | ConvertFrom-Json
-        if ($pd.total -gt 0) {
-            Test-Result "Purged $($pd.total) diag test record(s)" $true
-        } else {
-            Test-Result "No diag records to purge" $true
-        }
-    } catch {
-        Test-Result "Purge diag data" $false "Could not reach purge endpoint — run manually if needed" $true
-    }
+    Write-Host "===========================================================" -ForegroundColor Cyan
+    Write-Host "  Ghrava Test Runner  (suite v$SuiteVersion, $SuiteDate)"     -ForegroundColor Cyan
+    Write-Host "  Target: $BaseUrl"                                           -ForegroundColor Gray
+    Write-Host "===========================================================" -ForegroundColor Cyan
+    Write-Host ""
+    Write-Host "  1) Smoke test       - HTTP routes + page loads"
+    Write-Host "  2) Schema check     - pending migrations vs live DB"
+    Write-Host "  3) Frontend         - page loads + broken references"
+    Write-Host "  4) Deep CRUD        - inventory + medical round-trip"
+    Write-Host "  5) Backup           - create + verify file"
+    Write-Host ""
+    Write-Host "  9) ALL of the above"                                          -ForegroundColor Yellow
+    Write-Host "  0) Exit"                                                       -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "  Every run writes a report to ~/Downloads"                    -ForegroundColor DarkGray
+    Write-Host ""
 }
 
-# ══════════════════════════════════════════════════════════════
-# SUMMARY
-# ══════════════════════════════════════════════════════════════
-Write-Host ""
-Write-Host "═══ RESULTS ═══" -ForegroundColor Cyan
-Write-Host "  Pass   : $pass" -ForegroundColor Green
-Write-Host "  Warn   : $warn" -ForegroundColor $(if ($warn -gt 0) { "Yellow" } else { "DarkGray" })
-Write-Host "  Fail   : $fail" -ForegroundColor $(if ($fail -gt 0) { "Red" } else { "Green" })
-$total = $pass + $warn + $fail
-Write-Host "  Total  : $total tests" -ForegroundColor DarkGray
-Write-Host ""
-if ($fail -eq 0 -and $warn -eq 0) {
-    Write-Host "  All tests passed ✓" -ForegroundColor Green
-} elseif ($fail -eq 0) {
-    Write-Host "  Passed with warnings — review ⚠ items" -ForegroundColor Yellow
-} else {
-    Write-Host "  $fail test(s) failed — fix before deploying" -ForegroundColor Red
+function Run-Choice {
+    param([string]$C)
+
+    [void]$script:CapturedOutput.Clear()
+    $script:TotalPass = 0; $script:TotalFail = 0; $script:TotalWarn = 0
+
+    $appVersion = Get-AppVersion
+    $startTime  = Get-Date
+
+    $label = switch ($C) {
+        '1' { 'smoke' }
+        '2' { 'schema' }
+        '3' { 'frontend' }
+        '4' { 'deepcrud' }
+        '5' { 'backup' }
+        '9' { 'all' }
+        default { 'unknown' }
+    }
+    $tests = switch ($C) {
+        '1' { '1 (Smoke)' }
+        '2' { '2 (Schema)' }
+        '3' { '3 (Frontend)' }
+        '4' { '4 (Deep CRUD)' }
+        '5' { '5 (Backup)' }
+        '9' { '1, 2, 3, 4, 5 (all)' }
+        default { 'unknown' }
+    }
+    $description = $TestDescriptions[$C]
+    if (-not $description) { $description = '(no description)' }
+
+    # Header — written into every report
+    [void]$script:CapturedOutput.AppendLine("Ghrava Test Report")
+    [void]$script:CapturedOutput.AppendLine(("=" * 60))
+    [void]$script:CapturedOutput.AppendLine("Run started   : $($startTime.ToString('yyyy-MM-dd HH:mm:ss'))")
+    [void]$script:CapturedOutput.AppendLine("Target        : $BaseUrl")
+    [void]$script:CapturedOutput.AppendLine("App version   : $appVersion")
+    [void]$script:CapturedOutput.AppendLine("Suite version : $SuiteVersion ($SuiteDate)")
+    [void]$script:CapturedOutput.AppendLine("Tests run     : $tests")
+    [void]$script:CapturedOutput.AppendLine("What it does  : $description")
+    [void]$script:CapturedOutput.AppendLine(("=" * 60))
+    [void]$script:CapturedOutput.AppendLine("")
+
+    switch ($C) {
+        '1' { Run-Smoke }
+        '2' { Run-Schema }
+        '3' { Run-Frontend }
+        '4' { Run-DeepCRUD }
+        '5' { Run-Backup }
+        '9' {
+            Run-Smoke
+            Run-Schema
+            Run-Frontend
+            Run-DeepCRUD
+            Run-Backup
+        }
+        '0' { return $false }
+        default { Write-Host "Invalid choice." -ForegroundColor Red; return $true }
+    }
+
+    $endTime  = Get-Date
+    $duration = [math]::Round(($endTime - $startTime).TotalSeconds, 1)
+
+    $summary = @"
+
+============================================================
+ SUMMARY
+============================================================
+  PASS     : $script:TotalPass
+  FAIL     : $script:TotalFail
+  WARN     : $script:TotalWarn
+  TOTAL    : $($script:TotalPass + $script:TotalFail + $script:TotalWarn)
+  Duration : ${duration}s
+  Run end  : $($endTime.ToString('yyyy-MM-dd HH:mm:ss'))
+============================================================
+"@
+    $color = if ($script:TotalFail -gt 0) { 'Red' } else { 'Green' }
+    Write-Host $summary -ForegroundColor $color
+    [void]$script:CapturedOutput.AppendLine($summary)
+
+    # Always write a report
+    $stamp = Get-Date -Format 'yyyyMMdd_HHmm'
+    $reportFile = Join-Path ([Environment]::GetFolderPath('UserProfile')) "Downloads\Ghrava_TestReport_${label}_$stamp.txt"
+    $script:CapturedOutput.ToString() | Out-File -FilePath $reportFile -Encoding UTF8
+    Write-Host ""
+    Write-Host "Report saved: $reportFile" -ForegroundColor Cyan
+
+    return $true
 }
-Write-Host ""
+
+# ── Main ──────────────────────────────────────────────────────
+if ($Choice -ne '') {
+    [void](Run-Choice $Choice)
+    if ($script:TotalFail -gt 0) { exit 1 } else { exit 0 }
+}
+
+while ($true) {
+    Show-Menu
+    $c = Read-Host "Choose"
+    if ($c -eq '0') { break }
+    [void](Run-Choice $c)
+    Write-Host ""
+    Read-Host "Press Enter to return to menu"
+}

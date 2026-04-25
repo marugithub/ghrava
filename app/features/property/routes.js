@@ -115,17 +115,30 @@ router.delete('/properties/:id', requireAuth, (req, res) => {
 router.get('/vehicles', (req, res) => {
   try {
     const vehicles = db.prepare('SELECT * FROM vehicles WHERE is_active=1 ORDER BY year DESC, make, model').all();
-    // Attach recent service record and tags to each vehicle
+    // Attach recent service record and tags to each vehicle.
+    // Wrap each enrichment step so a single bad row never crashes the whole list.
     vehicles.forEach(v => {
-      v.tags = withTagNames(v, 'vehicle').tags;
-      v.family_members = withFamilyMembers(v, 'vehicle').family_members;
-      v.last_service = db.prepare(
-        'SELECT * FROM vehicle_service WHERE vehicle_id=? ORDER BY service_date DESC LIMIT 1'
-      ).get(v.id) || null;
-      v.upcoming_service = db.prepare(
-        'SELECT * FROM vehicle_service WHERE vehicle_id=? AND next_due_date >= date("now") ORDER BY next_due_date ASC LIMIT 1'
-      ).get(v.id) || null;
-      v.attachment_count = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='vehicle' AND entity_id=?").get(v.id)?.cnt || 0;
+      try { v.tags = withTagNames(v, 'vehicle').tags || []; }
+      catch (e) { v.tags = []; console.error(`[vehicles] tags failed for id=${v.id}:`, e.message); }
+
+      try { v.family_members = withFamilyMembers(v, 'vehicle').family_members || []; }
+      catch (e) { v.family_members = []; console.error(`[vehicles] family_members failed for id=${v.id}:`, e.message); }
+
+      try {
+        v.last_service = db.prepare(
+          'SELECT * FROM vehicle_service WHERE vehicle_id=? ORDER BY service_date DESC LIMIT 1'
+        ).get(v.id) || null;
+      } catch (e) { v.last_service = null; console.error(`[vehicles] last_service failed for id=${v.id}:`, e.message); }
+
+      try {
+        v.upcoming_service = db.prepare(
+          'SELECT * FROM vehicle_service WHERE vehicle_id=? AND next_due_date >= date("now") ORDER BY next_due_date ASC LIMIT 1'
+        ).get(v.id) || null;
+      } catch (e) { v.upcoming_service = null; console.error(`[vehicles] upcoming_service failed for id=${v.id}:`, e.message); }
+
+      try {
+        v.attachment_count = db.prepare("SELECT COUNT(*) as cnt FROM attachments WHERE entity_type='vehicle' AND entity_id=?").get(v.id)?.cnt || 0;
+      } catch (e) { v.attachment_count = 0; }
     });
     res.json(vehicles);
   } catch (e) { serverError(res, e); }

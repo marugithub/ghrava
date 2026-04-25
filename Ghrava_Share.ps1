@@ -1,6 +1,6 @@
 # Ghrava_Share.ps1
 # Creates a clean shareable zip of the Ghrava codebase.
-# Excludes: data, backups, attachments, node_modules, .git, env files, DB files.
+# Excludes: live DB files + uploaded user files only (NOT the route code that handles them).
 # Output: ~/Downloads/Ghrava_Share_YYYYMMDD.zip
 # Extracts cleanly to ghrava/ folder.
 
@@ -16,9 +16,29 @@ $zipName     = "Ghrava_Share_$dateStamp.zip"
 $destination = Join-Path ([Environment]::GetFolderPath('UserProfile')) "Downloads\$zipName"
 
 # ── Exclusion rules ───────────────────────────────────────────
-$excludeDirs = @('node_modules','.git','data','backups','attachments','uploads')
+# Directory-name matches (anywhere in the path)
+$excludeDirs = @('node_modules','.git','backups')
 
-$excludePatterns = @('*.db','*.db-wal','*.db-shm','*.env','*.env.*','.env*','*.secrets','*.secrets.*','*.txt')
+# Filename pattern matches
+$excludePatterns = @(
+    '*.db','*.db-wal','*.db-shm',
+    '*.env','*.env.*','.env*',
+    '*.secrets','*.secrets.*'
+)
+
+# Relative-path glob matches (forward slashes)
+# Excludes user data inside data/, attachments/files/, public/uploads/, logs/
+# but KEEPS the route code at attachments/routes.js, data/routes.js, etc.
+$excludePathPatterns = @(
+    'data/*',
+    'app/data/*',
+    'attachments/files/*',
+    'app/attachments/files/*',
+    'public/uploads/*',
+    'app/public/uploads/*',
+    'logs/*',
+    'app/logs/*'
+)
 
 Write-Host "Ghrava Share Packager" -ForegroundColor Cyan
 Write-Host "Source : $sourceDir"
@@ -29,12 +49,22 @@ if (Test-Path $destination) { Remove-Item $destination -Force; Write-Host "Remov
 
 # ── Collect files ─────────────────────────────────────────────
 $included = Get-ChildItem -Path $sourceDir -Recurse -File | Where-Object {
-    $rel   = $_.FullName.Substring($sourceDir.Length).TrimStart('\','/')
-    $parts = $rel -split '[/\\]'
-    # exclude if inside a banned dir
-    foreach ($p in $parts[0..($parts.Length-2)]) { if ($excludeDirs -contains $p) { return $false } }
+    $rel         = $_.FullName.Substring($sourceDir.Length).TrimStart('\','/')
+    $relForward  = $rel -replace '\\','/'
+    $parts       = $rel -split '[/\\]'
+
+    # exclude if inside a banned dir name
+    foreach ($p in $parts[0..($parts.Length-2)]) {
+        if ($excludeDirs -contains $p) { return $false }
+    }
     # exclude by filename pattern
-    foreach ($pat in $excludePatterns) { if ($_.Name -like $pat) { return $false } }
+    foreach ($pat in $excludePatterns) {
+        if ($_.Name -like $pat) { return $false }
+    }
+    # exclude by relative-path pattern
+    foreach ($pat in $excludePathPatterns) {
+        if ($relForward -like $pat) { return $false }
+    }
     return $true
 }
 
@@ -50,7 +80,7 @@ foreach ($file in $included) {
     $rel       = $file.FullName.Substring($sourceDir.Length).TrimStart('\','/')
     $entryName = "ghrava/$($rel -replace '\\','/')"
     try {
-        $entry     = $zip.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::Optimal)
+        $entry       = $zip.CreateEntry($entryName, [System.IO.Compression.CompressionLevel]::Optimal)
         $entryStream = $entry.Open()
         $fileStream  = [System.IO.File]::OpenRead($file.FullName)
         $fileStream.CopyTo($entryStream)
