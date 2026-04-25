@@ -750,6 +750,36 @@
         </div>
       </div>
 
+      <!-- Scheduled backups -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px">
+          <div>
+            <div style="font-weight:600;font-size:14px">Scheduled Daily Backup</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">Automatically run a backup once per day. Auto-backups older than the retention window are pruned. Manual backups are kept forever.</div>
+          </div>
+          <label class="toggle" style="margin-top:2px">
+            <input type="checkbox" id="schedEnabled">
+            <span class="toggle-track"></span>
+          </label>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px">
+          <label style="font-size:12px;color:var(--text2)">Run at hour
+            <select class="form-select" id="schedHour" style="width:auto;margin-left:6px">
+              ${Array.from({length:24}).map((_,h)=>`<option value="${h}">${String(h).padStart(2,'0')}:00</option>`).join('')}
+            </select>
+          </label>
+          <label style="font-size:12px;color:var(--text2);margin-left:auto">Keep auto backups
+            <select class="form-select" id="schedRetention" style="width:auto;margin-left:6px">
+              <option value="7">7 days</option>
+              <option value="14" selected>14 days</option>
+              <option value="30">30 days</option>
+              <option value="90">90 days</option>
+            </select>
+          </label>
+        </div>
+        <div id="schedStatus" style="font-size:11px;color:var(--text3);margin-top:8px"></div>
+      </div>
+
       <!-- Data Export section -->
       <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px 16px;margin-bottom:12px">
         <div style="font-weight:600;font-size:14px;margin-bottom:4px">Export &amp; Import Data</div>
@@ -1508,7 +1538,7 @@ const PANEL_LOADERS = {
   tags:      () => { loadTags(); },
   fields:    () => { loadFields(); },
   dropdowns: () => { $('dd_list_key').value=''; $('dd_items').innerHTML=''; $('dd_add_form').style.display='none'; },
-  backup:    () => { loadBackups(); },
+  backup:    () => { loadBackups(); loadBackupSchedule(); },
   infra:     () => { loadInfra(); },
   about:     () => { loadAbout(); loadReviewSummary(); },
   google:    () => { loadGooglePanel(); },
@@ -2830,6 +2860,47 @@ function fmtBackupDate(iso) {
   return d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})
     + ' ' + d.toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'});
 }
+
+async function loadBackupSchedule() {
+  try {
+    const r = await window.api('GET', '/backup/schedule');
+    const enabled = $('schedEnabled');
+    const hour    = $('schedHour');
+    const ret     = $('schedRetention');
+    const status  = $('schedStatus');
+    if (enabled) enabled.checked = !!r.enabled;
+    if (hour)    hour.value      = String(r.hour ?? 3);
+    if (ret)     ret.value       = String(r.retention_days ?? 14);
+    if (status) {
+      status.textContent = r.last_auto_at
+        ? `Last auto-backup ran ${r.last_auto_at}`
+        : 'No auto-backup has run yet';
+    }
+  } catch (e) {
+    const status = $('schedStatus');
+    if (status) status.textContent = 'Could not load schedule: ' + e.message;
+  }
+}
+
+async function saveBackupSchedule() {
+  const body = {
+    enabled:        $('schedEnabled').checked,
+    hour:           parseInt($('schedHour').value, 10),
+    retention_days: parseInt($('schedRetention').value, 10),
+  };
+  try {
+    await window.api('POST', '/backup/schedule', body);
+    toast('Schedule saved', 'ok');
+  } catch (e) {
+    toast('Save failed: ' + e.message, 'err');
+  }
+}
+
+document.addEventListener('change', e => {
+  if (e.target && (e.target.id === 'schedEnabled' || e.target.id === 'schedHour' || e.target.id === 'schedRetention')) {
+    saveBackupSchedule();
+  }
+});
 
 async function loadBackups() {
   const el = $('backupList');

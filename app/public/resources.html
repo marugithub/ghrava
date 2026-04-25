@@ -604,7 +604,7 @@ function resCard(r) {
       ${r.category ? `<span class="res-cat">${esc(r.category)}</span>` : ''}
       ${visibleTags.map(t => {
         const cs = window.GH_TAGS ? GH_TAGS.chipStyle(t) : '';
-        return `<span class="res-tag" data-tag="${esc(t)}"${cs ? ` style="${cs}"` : ''}>#${esc(t)}</span>`;
+        return `<span class="res-tag" data-tag="${esc(t)}"${cs ? ` style="${cs}"` : ''}>${esc(t)}</span>`;
       }).join('')}
       ${hiddenCount > 0 ? `<span class="res-tag-more">+${hiddenCount}</span>` : ''}
       ${r.access_note ? `<span style="font-size:10px;color:var(--text3);display:flex;align-items:center;gap:2px;margin-left:2px;white-space:nowrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="10" height="10"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${esc(r.access_note)}</span>` : ''}
@@ -647,7 +647,7 @@ function renderTagSelect() {
   const sel = $('tagSelect');
   if (!sel) return;
   sel.innerHTML = '<option value=""> # All Tags</option>' +
-    allTags.map(t => `<option value="${esc(t.tag)}"${filterTag === t.tag ? ' selected' : ''}>#${esc(t.tag)} (${t.count||''})</option>`).join('');
+    allTags.map(t => `<option value="${esc(t.tag)}"${filterTag === t.tag ? ' selected' : ''}>${esc(t.tag)} (${t.count||''})</option>`).join('');
 }
 
 function onTagSelect(tag) {

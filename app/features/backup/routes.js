@@ -87,6 +87,99 @@ router.post('/now', async (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
+// SCHEDULED BACKUPS
+// Config persisted in app_config:
+//   backup_schedule_enabled  '1' | '0'
+//   backup_schedule_hour     '0'..'23'  (default 3 — 3am)
+//   backup_retention_days    '7' | '14' | '30' (default 14)
+//   backup_last_auto_at      ISO date 'YYYY-MM-DD'
+// ══════════════════════════════════════════════════════════════
+
+function getCfg(key, fallback) {
+  try {
+    const r = db.prepare('SELECT value FROM app_config WHERE key=?').get(key);
+    return r ? r.value : fallback;
+  } catch { return fallback; }
+}
+function setCfg(key, value) {
+  try {
+    db.prepare(`INSERT INTO app_config (key,value) VALUES (?,?)
+                ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(key, String(value));
+  } catch (e) { console.warn('[backup] setCfg failed:', e.message); }
+}
+
+router.get('/schedule', (req, res) => {
+  res.json({
+    enabled:        getCfg('backup_schedule_enabled', '0') === '1',
+    hour:           parseInt(getCfg('backup_schedule_hour', '3'), 10),
+    retention_days: parseInt(getCfg('backup_retention_days', '14'), 10),
+    last_auto_at:   getCfg('backup_last_auto_at', null),
+  });
+});
+
+router.post('/schedule', (req, res) => {
+  try {
+    const { enabled, hour, retention_days } = req.body || {};
+    if (enabled !== undefined) setCfg('backup_schedule_enabled', enabled ? '1' : '0');
+    if (hour !== undefined) {
+      const h = parseInt(hour, 10);
+      if (!Number.isInteger(h) || h < 0 || h > 23) return badRequest(res, 'hour must be 0-23');
+      setCfg('backup_schedule_hour', h);
+    }
+    if (retention_days !== undefined) {
+      const d = parseInt(retention_days, 10);
+      if (!Number.isInteger(d) || d < 1 || d > 365) return badRequest(res, 'retention_days must be 1-365');
+      setCfg('backup_retention_days', d);
+    }
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// Prune backups older than retention_days. Only auto-named files are pruned
+// — manual backups (label 'manual') are kept forever.
+function pruneOldBackups() {
+  try {
+    const days = parseInt(getCfg('backup_retention_days', '14'), 10);
+    if (!fs.existsSync(BACKUP_DIR)) return;
+    const cutoff = Date.now() - days * 24 * 3600 * 1000;
+    fs.readdirSync(BACKUP_DIR).forEach(f => {
+      if (!f.endsWith('.db')) return;
+      if (!f.includes('_auto_')) return; // protect manual + ad-hoc backups
+      const fp = path.join(BACKUP_DIR, f);
+      try {
+        if (fs.statSync(fp).mtime.getTime() < cutoff) fs.unlinkSync(fp);
+      } catch (_) {}
+    });
+  } catch (e) { console.warn('[backup] prune error:', e.message); }
+}
+
+async function runAutoBackupIfDue() {
+  try {
+    if (getCfg('backup_schedule_enabled', '0') !== '1') return;
+    const today = new Date().toISOString().slice(0, 10);
+    const last  = getCfg('backup_last_auto_at', null);
+    if (last === today) return; // already ran today
+
+    const nowH = new Date().getHours();
+    const wantH = parseInt(getCfg('backup_schedule_hour', '3'), 10);
+    if (nowH < wantH) return; // not yet time today
+
+    await doBackup('auto');
+    setCfg('backup_last_auto_at', today);
+    pruneOldBackups();
+    console.log('[backup] auto-backup completed for', today);
+  } catch (e) {
+    console.warn('[backup] auto-backup failed:', e.message);
+  }
+}
+
+// Check every 30 minutes whether a daily backup is due.
+// Also fire once shortly after startup (so a backup runs even if the container
+// restarts during the scheduled hour).
+setTimeout(() => { runAutoBackupIfDue(); }, 60 * 1000);
+setInterval(() => { runAutoBackupIfDue(); }, 30 * 60 * 1000);
+
+// ══════════════════════════════════════════════════════════════
 // LIST BACKUPS
 // GET /api/v1/backup/list
 // Returns ALL files on disk; client shows last 30.

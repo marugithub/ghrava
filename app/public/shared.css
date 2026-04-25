@@ -2659,7 +2659,7 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 }
 .tags-text-input {
   flex: 1;
-  min-width: 90px;
+  min-width: 140px;
   background: none;
   border: none;
   outline: none;
@@ -2946,4 +2946,56 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     max-height: calc(100vh - 16px);
   }
   .gh-search-input { font-size: 15px; }
+}
+
+/* ── Mobile-first capture improvements ────────────────────── */
+@media (max-width: 600px) {
+  /* iOS Safari zooms in on focus when input font-size < 16px.
+     Bumping to 16px prevents the zoom — much better capture experience. */
+  .form-input, .form-select, .form-textarea, .tags-text-input,
+  .gh-search-input, input[type="text"], input[type="email"],
+  input[type="tel"], input[type="number"], input[type="search"],
+  input[type="date"], textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* Bigger tap targets on mobile — minimum 44px height for any tappable */
+  .btn, button.btn, .form-input, .form-select, .form-textarea {
+    min-height: 44px;
+  }
+
+  /* Drawer body: more breathing room for fingers */
+  .gh-drawer-body { padding: 14px 16px; }
+
+  /* Tighten drawer form-row gap so two-up fields don't overflow */
+  .drawer .form-row, .gh-drawer-body .form-row {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Sticky drawer footer with action buttons — keeps Save reachable
+     without scrolling on long forms */
+  .gh-drawer-body > div:last-child:has(button.btn-primary) {
+    position: sticky;
+    bottom: 0;
+    background: var(--bg2);
+    padding: 12px 0;
+    margin: 0 -16px -14px;
+    padding-left: 16px;
+    padding-right: 16px;
+    border-top: 1px solid var(--border);
+    z-index: 5;
+  }
+
+  /* Larger toggle switches for thumb-tapping */
+  .toggle .toggle-track {
+    width: 44px;
+    height: 26px;
+  }
+
+  /* Member pills: slightly larger tap area */
+  .member-pill {
+    padding: 6px 12px;
+    font-size: 13px;
+  }
 }
