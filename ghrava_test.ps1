@@ -10,14 +10,15 @@
 param(
     [string]$BaseUrl   = 'http://192.168.4.62:3001',
     [string]$Container = 'ghrava',
+    [string]$AuthToken = '',
     [string]$Choice    = ''
 )
 
 $ErrorActionPreference = 'Continue'
 
 # ── Test suite metadata ───────────────────────────────────────
-$SuiteVersion = '1.1.0'
-$SuiteDate    = '2026-04-25'
+$SuiteVersion = '1.2.0'
+$SuiteDate    = '2026-04-25b'
 
 # ── Output collection (every run writes a report) ─────────────
 $script:CapturedOutput = New-Object System.Text.StringBuilder
@@ -54,6 +55,9 @@ function Get-Json {
             TimeoutSec      = 10
             ErrorAction     = 'Stop'
         }
+        if ($AuthToken -ne '') {
+            $params.Headers = @{ 'Authorization' = "Bearer $AuthToken" }
+        }
         if ($Body) {
             $params.Body        = ($Body | ConvertTo-Json -Compress -Depth 8)
             $params.ContentType = 'application/json'
@@ -65,6 +69,19 @@ function Get-Json {
         if ($_.Exception.Response) { $code = [int]$_.Exception.Response.StatusCode }
         return @{ Code = $code; Body = $_.Exception.Message }
     }
+}
+
+# Returns $true if write tests should run. If no token AND server requires auth,
+# emits a single WARN and returns $false so callers can skip tests gracefully.
+function Test-CanWrite {
+    if ($AuthToken -ne '') { return $true }
+    # Probe a known write route — POST with empty body. If 401, auth needed.
+    $probe = Get-Json '/api/v1/inventory/items' 'POST' @{}
+    if ($probe.Code -eq 401) {
+        Warn "Write tests skipped: server requires auth and no -AuthToken was provided. Re-run with: .\Ghrava_Test.ps1 -AuthToken 'your-token-here'"
+        return $false
+    }
+    return $true
 }
 
 function Test-Up {
@@ -107,7 +124,7 @@ function Run-Smoke {
     $routes = @(
         @{ M='GET'; P='/health';                                 N='health' }
         @{ M='GET'; P='/api/v1/app/info';                        N='app/info';                K='version' }
-        @{ M='GET'; P='/api/v1/dashboard';                       N='dashboard';               K='stats' }
+        @{ M='GET'; P='/api/v1/dashboard';                       N='dashboard';               K='inventory' }
         @{ M='GET'; P='/api/v1/dashboard/attention';             N='dashboard/attention';     K='items' }
         @{ M='GET'; P='/api/v1/settings/family';                 N='settings/family' }
         @{ M='GET'; P='/api/v1/settings/tags';                   N='settings/tags' }
@@ -168,6 +185,15 @@ function Run-Smoke {
 # ══════════════════════════════════════════════════════════════
 function Run-Schema {
     Section "2) Schema Check - pending migrations vs live DB"
+
+    # Check if docker CLI is available locally
+    $dockerCmd = Get-Command docker -ErrorAction SilentlyContinue
+    if (-not $dockerCmd) {
+        Warn "docker CLI not found on this machine — skipping schema check. To run this check, either install Docker Desktop or run the test from a machine that can 'docker exec' into the container."
+        Warn "Alternative: SSH into the QNAP and run: docker exec ghrava bash /app/scripts/predeploy-check.sh"
+        return
+    }
+
     $cmd = @"
 cd /app && python3 - <<'PY'
 import re, os, sys, sqlite3
@@ -258,6 +284,7 @@ function Run-Frontend {
 function Run-DeepCRUD {
     Section "4) Deep CRUD - inventory + medical round-trip"
     if (-not (Test-Up)) { return }
+    if (-not (Test-CanWrite)) { return }
 
     $invName = "TEST_ITEM_$(Get-Date -Format 'HHmmss')"
     $created = Get-Json '/api/v1/inventory/items' 'POST' @{
@@ -343,6 +370,7 @@ function Run-DeepCRUD {
 function Run-Backup {
     Section "5) Backup - create + verify"
     if (-not (Test-Up)) { return }
+    if (-not (Test-CanWrite)) { return }
 
     $before = Get-Json '/api/v1/backup/list'
     if ($before.Code -ne 200) { Fail "GET /backup/list - HTTP $($before.Code)"; return }
@@ -436,6 +464,14 @@ function Run-Choice {
     $description = $TestDescriptions[$C]
     if (-not $description) { $description = '(no description)' }
 
+    $authStatus = if ($AuthToken -ne '') { "provided" } else { "not provided (write tests will skip)" }
+
+    # Print key context to the console too
+    Write-Host ""
+    Write-Host "App version  : $appVersion" -ForegroundColor Cyan
+    Write-Host "Suite version: $SuiteVersion ($SuiteDate)" -ForegroundColor Gray
+    Write-Host "Auth token   : $authStatus" -ForegroundColor Gray
+
     # Header — written into every report
     [void]$script:CapturedOutput.AppendLine("Ghrava Test Report")
     [void]$script:CapturedOutput.AppendLine(("=" * 60))
@@ -443,6 +479,7 @@ function Run-Choice {
     [void]$script:CapturedOutput.AppendLine("Target        : $BaseUrl")
     [void]$script:CapturedOutput.AppendLine("App version   : $appVersion")
     [void]$script:CapturedOutput.AppendLine("Suite version : $SuiteVersion ($SuiteDate)")
+    [void]$script:CapturedOutput.AppendLine("Auth token    : $authStatus")
     [void]$script:CapturedOutput.AppendLine("Tests run     : $tests")
     [void]$script:CapturedOutput.AppendLine("What it does  : $description")
     [void]$script:CapturedOutput.AppendLine(("=" * 60))

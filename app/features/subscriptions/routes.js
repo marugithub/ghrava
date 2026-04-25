@@ -21,7 +21,7 @@ router.get('/', (req, res) => {
     const rows = db.prepare(`
       SELECT s.*,
         c.name AS provider_name,
-        fa.nickname AS account_name
+        fa.name AS account_name
       FROM subscriptions s
       LEFT JOIN contacts c ON c.id = s.provider_contact_id
       LEFT JOIN finance_accounts fa ON fa.id = s.finance_account_id
