@@ -12,15 +12,20 @@
        Built on the existing token palette only. */
 
     /* ── Page header with eyebrow + light display title ── */
-    .lb-page-hdr{padding:18px 18px 10px}
+    .lb-page-hdr{padding:14px 18px 8px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
     .lb-eyebrow{font-family:var(--mono);font-size:10px;color:var(--text3);
-      letter-spacing:.16em;text-transform:uppercase;margin-bottom:2px}
-    .lb-display{font-size:26px;font-weight:300;letter-spacing:-.03em;color:var(--text);line-height:1.05}
+      letter-spacing:.16em;text-transform:uppercase;flex-shrink:0;order:2}
+    .lb-display{font-size:24px;font-weight:300;letter-spacing:-.03em;color:var(--text);line-height:1.05;order:1}
     @media(min-width:768px){
-      .lb-page-hdr{padding:24px 28px 12px}
-      .lb-display{font-size:38px;letter-spacing:-.035em}
+      .lb-page-hdr{padding:18px 28px 10px}
+      .lb-display{font-size:32px;letter-spacing:-.035em}
       .lb-eyebrow{font-size:11px;letter-spacing:.18em}
     }
+
+    /* Toolbar row: pills on the left, view/sort/filter toolbar on the right */
+    .lb-toolbar-row{display:flex;align-items:center;gap:12px;padding:6px 14px 8px;flex-wrap:wrap}
+    .lb-toolbar-row .member-pills{flex:1 1 auto;padding:0;min-width:0}
+    .lb-toolbar-row .lb-toolbar-actions{flex:0 0 auto;display:flex;align-items:center;gap:8px}
 
     /* ── Member pill strip ── */
     .member-pills{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 6px;overflow-x:auto;scrollbar-width:none}
@@ -320,33 +325,40 @@
     <div class="tab" onclick="switchTab('insights',this)">Insights</div>
   </div>
 
-  <!-- Member filter -->
-  <div class="member-pills" id="memberPills"></div>
-
   <!-- Planner tab — vertical day rows -->
   <div id="tab-planner">
+    <div class="lb-toolbar-row">
+      <div class="member-pills" id="memberPills_planner"></div>
+    </div>
     <div class="lb-day-list" id="dayList"></div>
   </div>
 
   <!-- Items tab — polaroid grid -->
   <div id="tab-items" style="display:none">
-    <div style="display:flex;align-items:center;padding:6px 16px 0">
-      <div style="flex:1"></div>
-      <div id="itemViewToolbar"></div>
+    <div class="lb-toolbar-row">
+      <div class="member-pills" id="memberPills_items"></div>
+      <div class="lb-toolbar-actions" id="itemViewToolbar"></div>
     </div>
     <div id="itemGrid"></div>
   </div>
 
   <!-- Outfits tab — full-bleed cover cards -->
   <div id="tab-outfits" style="display:none">
-    <div style="display:flex;justify-content:flex-end;padding:12px 16px 0">
-      <button class="lb-pill-btn" onclick="openOutfitDrawer()">+ New Outfit</button>
+    <div class="lb-toolbar-row">
+      <div class="member-pills" id="memberPills_outfits"></div>
+      <div class="lb-toolbar-actions">
+        <div id="outfitViewToolbar"></div>
+        <button class="lb-pill-btn" onclick="openOutfitDrawer()">+ New Outfit</button>
+      </div>
     </div>
     <div id="outfitList"></div>
   </div>
 
   <!-- Insights tab — Season Review -->
   <div id="tab-insights" style="display:none">
+    <div class="lb-toolbar-row">
+      <div class="member-pills" id="memberPills_insights"></div>
+    </div>
     <div id="lbInsights"></div>
   </div>
 </div>
@@ -547,14 +559,24 @@ async function loadMembers() {
     // Decorate each with a stable color (index-based)
     _members.forEach((m, i) => { m.color = MEMBER_COLORS[i % MEMBER_COLORS.length]; });
     refreshMemberCache();
-    const pills = document.getElementById('memberPills');
-    pills.innerHTML = `<div class="member-pill active" data-id="" onclick="selectMember(null,this)">All</div>`;
-    _members.forEach(m => {
-      const p = document.createElement('div');
-      p.className = 'member-pill'; p.dataset.id = m.id;
-      p.innerHTML = `<span class="member-dot" style="background:${m.color}"></span>${esc(m.display_name)}`;
-      p.onclick = () => selectMember(m.id, p);
-      pills.appendChild(p);
+    // Populate one pill strip per tab (so each tab's row is self-contained
+    // and we don't have to move a single strip around when tabs switch).
+    ['planner','items','outfits','insights'].forEach(tab => {
+      const pills = document.getElementById('memberPills_'+tab);
+      if (!pills) return;
+      pills.innerHTML = '';
+      const all = document.createElement('div');
+      all.className = 'member-pill active'; all.dataset.id = '';
+      all.textContent = 'All';
+      all.onclick = () => selectMember(null, all);
+      pills.appendChild(all);
+      _members.forEach(m => {
+        const p = document.createElement('div');
+        p.className = 'member-pill'; p.dataset.id = m.id;
+        p.innerHTML = `<span class="member-dot" style="background:${m.color}"></span>${esc(m.display_name)}`;
+        p.onclick = () => selectMember(m.id, p);
+        pills.appendChild(p);
+      });
     });
     // Populate owner selects
     ['iOwner','oMember'].forEach(id => {
@@ -572,9 +594,14 @@ async function loadMembers() {
   } catch(e) {}
 }
 
+// Sync active state across all 4 per-tab pill strips so the user sees the
+// same selection regardless of which tab they're on.
 function selectMember(id, el) {
   _activeMember = id;
-  document.querySelectorAll('.member-pill').forEach(p => p.classList.toggle('active', p === el));
+  const targetId = id === null || id === undefined ? '' : String(id);
+  document.querySelectorAll('.member-pills .member-pill').forEach(p => {
+    p.classList.toggle('active', String(p.dataset.id||'') === targetId);
+  });
   loadTabContent();
 }
 
