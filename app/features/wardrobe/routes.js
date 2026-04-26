@@ -176,7 +176,8 @@ router.get('/outfits', (req, res) => {
     if (member_id) { where += ' AND o.family_member_id=?'; params.push(member_id); }
 
     const outfits = db.prepare(`
-      SELECT o.*, fm.display_name AS owner_name
+      SELECT o.*, fm.display_name AS owner_name,
+        (SELECT COUNT(*) FROM attachments WHERE entity_type='outfit' AND entity_id=o.id) AS attachment_count
       FROM wardrobe_outfits o
       LEFT JOIN family_members fm ON fm.id=o.family_member_id
       WHERE ${where}
@@ -191,10 +192,22 @@ router.get('/outfits', (req, res) => {
       WHERE oi.outfit_id=?
       ORDER BY oi.sort_order
     `);
+    const photoStmt = db.prepare(
+      `SELECT id FROM attachments
+         WHERE entity_type='outfit' AND entity_id=? AND is_image=1 AND is_primary_photo=1
+         LIMIT 1`
+    );
+    const fallbackPhotoStmt = db.prepare(
+      `SELECT id FROM attachments
+         WHERE entity_type='outfit' AND entity_id=? AND is_image=1
+         ORDER BY sort_order, created_at LIMIT 1`
+    );
     outfits.forEach(o => {
       o.items = itemStmt.all(o.id);
       try { o.season_tags = o.season_tags ? JSON.parse(o.season_tags) : []; } catch { o.season_tags = []; }
       try { o.occasion_tags = o.occasion_tags ? JSON.parse(o.occasion_tags) : []; } catch { o.occasion_tags = []; }
+      // Primary photo: explicit primary first, then most recent image
+      o.primary_photo = photoStmt.get(o.id) || fallbackPhotoStmt.get(o.id) || null;
     });
 
     res.json(outfits);

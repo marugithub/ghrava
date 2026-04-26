@@ -46,6 +46,68 @@
     .tab-bar::-webkit-scrollbar{display:none}
     .tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
     .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+    /* ── Calendar-style day cards (planner) ──────────────────── */
+    .day-card{flex-shrink:0;width:140px;background:var(--bg2);border:1px solid var(--border);
+      border-radius:var(--r-lg,16px);padding:14px 12px;position:relative;display:flex;flex-direction:column;gap:6px}
+    .day-card.today{border:2px solid #185FA5;padding:13px 11px}
+    .day-card-today-badge{position:absolute;top:8px;right:8px;background:#dbeafe;color:#1e40af;
+      font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.04em}
+    .day-card-wkd{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
+    .day-card-num{font-size:22px;font-weight:500;color:var(--text);line-height:1}
+    .day-card-mo{font-size:11px;color:var(--text3);margin-top:-2px}
+    .day-card-wx{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);min-height:14px}
+    .day-card-body{margin-top:4px;display:flex;flex-direction:column;gap:6px}
+    .day-card-thumb{width:100%;aspect-ratio:1;border-radius:var(--r-sm,8px);overflow:hidden;
+      display:flex;align-items:center;justify-content:center;border:1px solid var(--border)}
+    .day-card-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+    .day-card-thumb-svg{width:38%;height:38%;opacity:.65}
+    .day-card-empty{width:100%;height:54px;border:1.5px dashed var(--border2);
+      border-radius:var(--r-sm,8px);background:transparent;color:var(--text3);font-size:18px;
+      display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit;transition:all .15s}
+    .day-card-empty:hover{border-color:var(--accent);color:var(--accent)}
+    .day-card-empty-hint{font-size:10px;color:var(--text3);text-align:center;margin-top:2px}
+    .day-card-outfit-name{font-size:11px;font-weight:500;color:var(--text);line-height:1.3;
+      overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+    .day-card-outfit-meta{font-size:10px;color:var(--text2);line-height:1.2}
+
+    /* Tinted thumb backgrounds keyed off outfit's first occasion tag */
+    .tint-casual,.tint-school,.tint-other{background:rgba(143,163,191,0.18);color:var(--text2)}
+    .tint-active,.tint-sports,.tint-outdoor{background:rgba(167,139,250,0.18);color:#a78bfa}
+    .tint-formal,.tint-work,.tint-evening{background:rgba(92,114,250,0.18);color:var(--accent)}
+
+    /* ── Photo panel inside drawers (item + outfit) ─────────── */
+    .wrd-photo-panel{margin:14px 0 10px;padding:12px;border:1px dashed var(--border);
+      border-radius:var(--r-sm,8px);background:var(--bg);display:flex;flex-direction:column;gap:8px}
+    .wrd-photo-panel.locked{opacity:.55;cursor:not-allowed}
+    .wrd-photo-panel-hdr{display:flex;align-items:center;justify-content:space-between;font-size:12px;
+      color:var(--text2);font-weight:600}
+    .wrd-photo-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+    .wrd-photo-strip-thumb{aspect-ratio:1;border-radius:6px;overflow:hidden;border:1px solid var(--border);
+      cursor:pointer;background:var(--bg2);display:flex;align-items:center;justify-content:center}
+    .wrd-photo-strip-thumb.primary{border-color:#22c55e}
+    .wrd-photo-strip-thumb img{width:100%;height:100%;object-fit:cover}
+    .wrd-photo-add{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;
+      background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit;
+      display:inline-flex;align-items:center;justify-content:center;gap:6px}
+    .wrd-photo-add:hover{border-color:var(--accent);color:var(--accent)}
+
+    /* ── Outfit card cover thumb ──────────────────────────── */
+    .outfit-card-cover{width:100%;aspect-ratio:16/9;border-radius:var(--r-sm,8px);overflow:hidden;
+      margin-bottom:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;
+      border:1px solid var(--border)}
+    .outfit-card-cover img{width:100%;height:100%;object-fit:cover}
+
+    /* ── Planner add-outfit modal ─────────────────────────── */
+    #wrdPlannerOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+      align-items:flex-end;justify-content:center;z-index:550}
+    #wrdPlannerOverlay.open{display:flex}
+    #wrdPlannerOverlay .wrd-modal{width:min(440px,100%);background:var(--bg2);
+      border-radius:16px 16px 0 0;padding:16px;border:1px solid var(--border);border-bottom:none}
+    @media(min-width:600px){
+      #wrdPlannerOverlay{align-items:center}
+      #wrdPlannerOverlay .wrd-modal{border-radius:16px;border-bottom:1px solid var(--border)}
+    }
   </style>
 </head>
 <body>
@@ -159,12 +221,18 @@
       <div class="form-group"><label class="form-label">Reason</label><input class="form-input" id="iDiscardReason"></div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="iNotes" style="min-height:70px"></textarea></div>
+
+    <!-- Photos panel (greyed when no _editingItemId, photo strip when item exists) -->
+    <div class="wrd-photo-panel" id="iPhotoPanel">
+      <div class="wrd-photo-panel-hdr">
+        <span>Photos</span>
+        <span id="iPhotoPanelCount" style="font-weight:400;color:var(--text3);font-size:11px"></span>
+      </div>
+      <div id="iPhotoPanelBody"></div>
+    </div>
+
     <div style="display:flex;gap:8px;padding-top:8px">
       <button class="btn btn-primary" style="flex:1" onclick="saveItem()">Save</button>
-      <button class="btn btn-ghost" id="iPhotosBtn" title="Add Photos" onclick="openItemPhotos()">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <span id="iPhotosBtnLabel">Photos</span>
-      </button>
       <button class="btn btn-ghost" id="iDeleteBtn" style="display:none" onclick="deleteItem()">Delete</button>
     </div>
   </div>
@@ -191,11 +259,26 @@
       <div id="oItemPicker" style="margin-top:6px"></div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="oNotes" style="min-height:60px"></textarea></div>
+
+    <!-- Cover photo panel (greyed when no _editingOutfitId) -->
+    <div class="wrd-photo-panel" id="oPhotoPanel">
+      <div class="wrd-photo-panel-hdr">
+        <span>Cover Photo</span>
+        <span id="oPhotoPanelCount" style="font-weight:400;color:var(--text3);font-size:11px"></span>
+      </div>
+      <div id="oPhotoPanelBody"></div>
+    </div>
+
     <div style="display:flex;gap:8px;padding-top:8px">
       <button class="btn btn-primary" style="flex:1" onclick="saveOutfit()">Save</button>
       <button class="btn btn-ghost" id="oDeleteBtn" style="display:none" onclick="deleteOutfit()">Delete</button>
     </div>
   </div>
+</div>
+
+<!-- Planner add-outfit modal (replaces broken LT.modal call) -->
+<div id="wrdPlannerOverlay" onclick="if(event.target===this)closePlannerModal()">
+  <div class="wrd-modal" id="wrdPlannerBody"></div>
 </div>
 
 <button class="fab" id="fabBtn" onclick="onFab()">+</button>
@@ -210,6 +293,7 @@ let _members = [], _activeMember = null, _currentTab = 'planner';
 let _editingItemId = null, _editingOutfitId = null;
 let _allItems = [], _iSeasonSel = [], _iOccasionSel = [];
 let _oSeasonSel = [], _oOccasionSel = [], _oItemIds = [];
+let _iPhotos = [], _oPhotos = [];
 let _itemView = 'grid', _itemCols = 2, _itemFilters = {};
 let _outfitView = 'grid', _outfitCols = 2, _outfitFilters = {};
 
@@ -308,6 +392,25 @@ function loadTabContent() {
 }
 
 // ── Planner ──────────────────────────────────────────────────
+const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const WKD_SHORT    = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+
+// Map an occasion tag to a CSS class controlling the fallback thumbnail tint
+function tintClassForOccasion(tag) {
+  if (!tag) return 'tint-other';
+  const t = tag.toLowerCase();
+  if (t.includes('formal') || t.includes('work') || t.includes('evening')) return 'tint-formal';
+  if (t.includes('active') || t.includes('gym') || t.includes('sport') || t.includes('outdoor')) return 'tint-active';
+  if (t.includes('casual') || t.includes('school'))                                              return 'tint-casual';
+  return 'tint-other';
+}
+
+// Hanger SVG used as the empty/fallback thumbnail glyph
+const HANGER_SVG = `<svg class="day-card-thumb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M12 7a2 2 0 1 1 .001-3.999A2 2 0 0 1 12 7Z"/>
+  <path d="M12 7v2.2a1 1 0 0 1-.45.83L3 16h18l-8.55-5.97A1 1 0 0 1 12 9.2V7Z"/>
+</svg>`;
+
 function renderDays() {
   const scroll = document.getElementById('dayScroll');
   const strip  = document.getElementById('weatherStrip');
@@ -317,10 +420,13 @@ function renderDays() {
   for (let i = 0; i < 7; i++) {
     const d = new Date(today); d.setDate(today.getDate() + i);
     const isToday = i === 0;
-    const dayName = isToday ? 'Today' : DAYS[d.getDay()];
-    const dateStr = `${d.getMonth()+1}/${d.getDate()}`;
     const dateKey = d.toISOString().slice(0,10);
+    const wkd     = WKD_SHORT[d.getDay()];
+    const dayNum  = d.getDate();
+    const moStr   = MONTHS_SHORT[d.getMonth()];
 
+    // Weather column above (kept for compatibility, but the card also shows
+    // a compact weather row inline so a user scanning a single column sees temp)
     const wCol = document.createElement('div');
     wCol.className = 'weather-col'; wCol.id = 'wcol_'+i;
     wCol.innerHTML = `<div class="weather-cell${isToday?' today':''}">
@@ -330,10 +436,18 @@ function renderDays() {
     strip.appendChild(wCol);
 
     const col = document.createElement('div');
-    col.className = 'day-col'; col.id = 'dcol_'+i; col.dataset.date = dateKey;
-    col.innerHTML = `<div class="day-hdr">${dayName} · ${dateStr}</div>
-      <div id="doutfits_${i}"></div>
-      <button class="add-outfit-btn" onclick="addPlannerEntry(${i},'${dateKey}')">+ Add outfit</button>`;
+    col.className = `day-card${isToday?' today':''}`;
+    col.id = 'dcol_'+i; col.dataset.date = dateKey;
+    col.innerHTML = `
+      ${isToday ? '<div class="day-card-today-badge">TODAY</div>' : ''}
+      <div class="day-card-wkd">${wkd}</div>
+      <div class="day-card-num">${dayNum}</div>
+      <div class="day-card-mo">${moStr}</div>
+      <div class="day-card-wx" id="wxi_${i}"><span style="opacity:.6">—</span></div>
+      <div class="day-card-body" id="doutfits_${i}">
+        <button class="day-card-empty" onclick="addPlannerEntry(${i},'${dateKey}')">+</button>
+        <div class="day-card-empty-hint">No outfit</div>
+      </div>`;
     scroll.appendChild(col);
   }
 
@@ -346,8 +460,8 @@ function renderDays() {
     ra.style.opacity = sc.scrollLeft < sc.scrollWidth - sc.clientWidth - 10 ? '1' : '0.3';
   }
   sc.addEventListener('scroll', upd); upd();
-  la.onclick = () => sc.scrollBy({left:-210,behavior:'smooth'});
-  ra.onclick = () => sc.scrollBy({left:210,behavior:'smooth'});
+  la.onclick = () => sc.scrollBy({left:-160,behavior:'smooth'});
+  ra.onclick = () => sc.scrollBy({left:160,behavior:'smooth'});
 
   loadPlannerEntries();
 }
@@ -359,17 +473,45 @@ async function loadPlannerEntries() {
     const params = `start=${today.toISOString().slice(0,10)}&end=${end.toISOString().slice(0,10)}${_activeMember?'&member_id='+_activeMember:''}`;
     const entries = await window.api('GET', `/wardrobe/planner?${params}`);
 
+    // Pull all outfits once so we can decorate each entry with cover photo +
+    // item count + occasion tag (planner GET doesn't include these).
+    let outfitMap = {};
+    try {
+      const outfits = await window.api('GET', '/wardrobe/outfits');
+      outfitMap = Object.fromEntries((outfits||[]).map(o => [o.id, o]));
+    } catch(e) {}
+
     for (let i = 0; i < 7; i++) {
       const d = new Date(today); d.setDate(today.getDate()+i);
       const dateKey = d.toISOString().slice(0,10);
       const dayEntries = entries.filter(e => e.plan_date === dateKey);
       const el = document.getElementById('doutfits_'+i);
       if (!el) continue;
-      el.innerHTML = dayEntries.map(e => `
-        <div class="outfit-card" onclick="removePlannerEntry(${e.id},${i},'${dateKey}')">
-          <div class="outfit-name">${esc(e.outfit_name||'Outfit')}</div>
-          <div style="font-size:11px;color:var(--text3)">${esc(e.member_name||'')} ${e.occasion?'· '+esc(e.occasion):''}</div>
-        </div>`).join('');
+
+      if (!dayEntries.length) {
+        el.innerHTML = `<button class="day-card-empty" onclick="addPlannerEntry(${i},'${dateKey}')" title="Add outfit">+</button>
+          <div class="day-card-empty-hint">No outfit</div>`;
+        continue;
+      }
+
+      el.innerHTML = dayEntries.map(e => {
+        const outfit = outfitMap[e.outfit_id] || {};
+        const itemCount = outfit.items?.length || 0;
+        const firstOcc = (outfit.occasion_tags||[])[0] || e.occasion || '';
+        const tint = tintClassForOccasion(firstOcc);
+        const thumb = outfit.primary_photo
+          ? `<div class="day-card-thumb"><img src="/api/v1/attachments/thumb/${outfit.primary_photo.id}" alt="${esc(e.outfit_name||'Outfit')}" onerror="this.parentElement.classList.add('${tint}');this.outerHTML='${HANGER_SVG.replace(/'/g,'&#39;')}'"></div>`
+          : `<div class="day-card-thumb ${tint}">${HANGER_SVG}</div>`;
+        const subtitle = [
+          itemCount ? `${itemCount} item${itemCount===1?'':'s'}` : '',
+          firstOcc ? esc(firstOcc) : ''
+        ].filter(Boolean).join(' · ');
+        return `<div onclick="removePlannerEntry(${e.id})" style="cursor:pointer">
+          ${thumb}
+          <div class="day-card-outfit-name" style="margin-top:6px">${esc(e.outfit_name||'Outfit')}</div>
+          ${subtitle ? `<div class="day-card-outfit-meta">${subtitle}</div>` : ''}
+        </div>`;
+      }).join('');
     }
   } catch(e) {}
 }
@@ -378,23 +520,26 @@ async function addPlannerEntry(dayIdx, dateKey) {
   try {
     const outfits = await window.api('GET', `/wardrobe/outfits${_activeMember?'?member_id='+_activeMember:''}`);
     if (!outfits.length) { toast('No outfits saved yet — create one in the Outfits tab first', 'info'); return; }
-    // Simple picker
     const opts = outfits.map(o => `<option value="${o.id}">${esc(o.name)} ${o.owner_name?'('+esc(o.owner_name)+')':''}</option>`).join('');
-    LT.modal(`
-      <div style="padding:16px">
-        <div style="font-weight:700;font-size:15px;margin-bottom:12px">Add outfit to day</div>
-        <div class="form-group"><label class="form-label">Outfit</label>
-          <select class="form-select" id="planOutfitSel">${opts}</select>
-        </div>
-        <div class="form-group"><label class="form-label">Occasion</label>
-          <input class="form-input" id="planOccasion" placeholder="e.g. School">
-        </div>
-        <div style="display:flex;gap:8px;margin-top:12px">
-          <button class="btn btn-primary" style="flex:1" onclick="confirmPlannerAdd('${dateKey}')">Add</button>
-          <button class="btn btn-ghost" onclick="LT.closeModal()">Cancel</button>
-        </div>
-      </div>`);
+    const body = document.getElementById('wrdPlannerBody');
+    body.innerHTML = `
+      <div style="font-weight:700;font-size:15px;margin-bottom:12px">Add outfit to day</div>
+      <div class="form-group"><label class="form-label">Outfit</label>
+        <select class="form-select" id="planOutfitSel">${opts}</select>
+      </div>
+      <div class="form-group"><label class="form-label">Occasion</label>
+        <input class="form-input" id="planOccasion" placeholder="e.g. School">
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn btn-primary" style="flex:1" onclick="confirmPlannerAdd('${dateKey}')">Add</button>
+        <button class="btn btn-ghost" onclick="closePlannerModal()">Cancel</button>
+      </div>`;
+    document.getElementById('wrdPlannerOverlay').classList.add('open');
   } catch(e) { toast('Failed to load outfits', 'err'); }
+}
+
+function closePlannerModal() {
+  document.getElementById('wrdPlannerOverlay').classList.remove('open');
 }
 
 async function confirmPlannerAdd(dateKey) {
@@ -405,15 +550,20 @@ async function confirmPlannerAdd(dateKey) {
       plan_date: dateKey, outfit_id: outfitId,
       family_member_id: _activeMember||null, occasion: occasion||null
     });
-    LT.closeModal();
+    closePlannerModal();
     loadPlannerEntries();
   } catch(e) { toast('Failed to add', 'err'); }
 }
 
 async function removePlannerEntry(id) {
-  LT.confirm('Remove outfit from day?', '', async () => {
-    await window.api('DELETE', `/wardrobe/planner/${id}`);
-    loadPlannerEntries();
+  LT.confirm({
+    title: 'Remove outfit from day?',
+    msg: '',
+    confirmLabel: 'Remove',
+    onConfirm: async () => {
+      await window.api('DELETE', `/wardrobe/planner/${id}`);
+      loadPlannerEntries();
+    }
   });
 }
 
@@ -429,9 +579,17 @@ async function loadWeather() {
         ? Math.round(day.temp.day) // already imperial if configured
         : Math.round((day.main?.temp || 293) - 273.15) * 9/5 + 32;
       const desc = weather?.description || '';
-      document.getElementById('wicon_'+i).textContent = icon;
-      document.getElementById('wtemp_'+i).textContent = `${Math.round(temp)}°F`;
-      document.getElementById('wdesc_'+i).textContent = desc;
+      const tempStr = `${Math.round(temp)}°F`;
+      const wIcon = document.getElementById('wicon_'+i);
+      const wTemp = document.getElementById('wtemp_'+i);
+      const wDesc = document.getElementById('wdesc_'+i);
+      if (wIcon) wIcon.textContent = icon;
+      if (wTemp) wTemp.textContent = tempStr;
+      if (wDesc) wDesc.textContent = desc;
+
+      // Mirror into the day-card inline weather row
+      const wxi = document.getElementById('wxi_'+i);
+      if (wxi) wxi.innerHTML = `<span style="font-size:13px">${icon}</span><span>${tempStr}</span>`;
     });
   } catch(e) {}
 }
@@ -508,6 +666,7 @@ function toggleStatusFields() {
 async function openItemDrawer(id) {
   _editingItemId = id||null;
   _iSeasonSel = []; _iOccasionSel = [];
+  _iPhotos = [];
 
   // Populate platform dropdown
   await GH_SELECT.init('iSoldPlatform', 'sold_platform', '', { placeholder: '— select —', allowAdd: false });
@@ -516,7 +675,6 @@ async function openItemDrawer(id) {
 
   document.getElementById('itemDrawerTitle').textContent = id ? 'Edit Item' : 'Add Item';
   document.getElementById('iDeleteBtn').style.display = id ? '' : 'none';
-  document.getElementById('iPhotosBtnLabel').textContent = 'Photos';
   document.getElementById('iName').value = '';
   document.getElementById('iBrand').value = '';
   document.getElementById('iNickname').value = '';
@@ -547,15 +705,55 @@ async function openItemDrawer(id) {
       GH_REFS.populateContact('iDonatedOrg', item.donated_org_contact_id||null, { placeholder:'— select org —' });
       try { _iSeasonSel   = item.season_tags   ? JSON.parse(item.season_tags)   : []; } catch { _iSeasonSel=[]; }
       try { _iOccasionSel = item.occasion_tags ? JSON.parse(item.occasion_tags) : []; } catch { _iOccasionSel=[]; }
-
-      // Update photos button label with count
-      const cnt = item.attachment_count || 0;
-      document.getElementById('iPhotosBtnLabel').textContent = cnt ? `Photos (${cnt})` : 'Photos';
     } catch(e) {}
   }
   renderTagPicker('iSeasonTags',   SEASON_OPTS,   _iSeasonSel,   'toggleISeason');
   renderTagPicker('iOccasionTags', OCCASION_OPTS, _iOccasionSel, 'toggleIOccasion');
+  renderItemPhotoPanel();
   openDrawer('itemDrawer');
+}
+
+// ── Item photo panel ──────────────────────────────────────────
+// Greyed "Save first" hint when no _editingItemId; thumbnail strip + "+ Add Photo"
+// when item exists. Pulls photos from /api/v1/attachments?entity_type=item&entity_id=N
+async function renderItemPhotoPanel() {
+  const panel = document.getElementById('iPhotoPanel');
+  const body  = document.getElementById('iPhotoPanelBody');
+  const count = document.getElementById('iPhotoPanelCount');
+  if (!panel || !body) return;
+
+  if (!_editingItemId) {
+    panel.classList.add('locked');
+    count.textContent = '';
+    body.innerHTML = `<div style="font-size:12px;color:var(--text3);text-align:center;padding:6px 0">
+      📷 Save the item first to add photos
+    </div>`;
+    return;
+  }
+
+  panel.classList.remove('locked');
+  // Fetch photos from attachments API
+  try {
+    const list = await window.api('GET', `/attachments/item/${_editingItemId}`);
+    const imgs = (list||[]).filter(a => a.is_image);
+    _iPhotos = imgs;
+    count.textContent = imgs.length ? `${imgs.length} photo${imgs.length===1?'':'s'}` : '';
+    body.innerHTML = (imgs.length
+        ? `<div class="wrd-photo-strip">${imgs.slice(0,8).map(p => `
+            <div class="wrd-photo-strip-thumb${p.is_primary_photo?' primary':''}"
+                 onclick="AttachmentManager._viewImage(${p.id},'${esc((p.label||p.original_filename||'').replace(/'/g,'&#39;'))}')">
+              <img src="/api/v1/attachments/thumb/${p.id}" alt="${esc(p.label||p.original_filename||'')}"
+                   onerror="this.parentElement.innerHTML='&#128247;'">
+            </div>`).join('')}</div>`
+        : '')
+      + `<button type="button" class="wrd-photo-add" onclick="openItemPhotos()">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+           ${imgs.length ? 'Manage Photos' : '+ Add Photo'}
+         </button>`;
+  } catch(e) {
+    count.textContent = '';
+    body.innerHTML = `<button type="button" class="wrd-photo-add" onclick="openItemPhotos()">+ Add Photo</button>`;
+  }
 }
 
 async function openItemPhotos() {
@@ -563,12 +761,25 @@ async function openItemPhotos() {
     if (!_editingItemId) {
       const saved = await saveItem({ keepOpen: true });
       if (!saved) return;
+      // After successful save we have an _editingItemId; refresh panel
+      renderItemPhotoPanel();
     }
     const name = document.getElementById('iName').value.trim();
     // Force z-index inline so CSS caching can't hide the modal behind the drawer
     const attDrawer = document.getElementById('attDrawer');
     if (attDrawer) attDrawer.style.zIndex = '600';
     AttachmentManager.open('item', _editingItemId, name);
+    // Refresh the panel after AttachmentManager closes — best-effort poll on drawer close
+    const drawer = document.getElementById('attDrawer');
+    if (drawer) {
+      const observer = new MutationObserver(() => {
+        if (!drawer.classList.contains('open')) {
+          renderItemPhotoPanel();
+          observer.disconnect();
+        }
+      });
+      observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
+    }
   } catch(e) {
     console.error('openItemPhotos:', e);
     toast('Photos error: ' + e.message, 'err');
@@ -634,11 +845,16 @@ async function saveItem(opts = {}) {
 }
 
 async function deleteItem() {
-  LT.confirm('Remove from wardrobe?', 'This only updates the wardrobe status — the inventory item remains.', async () => {
-    await window.api('PUT', `/wardrobe/items/${_editingItemId}`, { wardrobe_status: 'discarded' });
-    closeDrawer('itemDrawer');
-    loadItems();
-    toast('Item removed from wardrobe', 'ok');
+  LT.confirm({
+    title: 'Remove from wardrobe?',
+    msg: 'This only updates the wardrobe status — the inventory item remains.',
+    confirmLabel: 'Remove',
+    onConfirm: async () => {
+      await window.api('PUT', `/wardrobe/items/${_editingItemId}`, { wardrobe_status: 'discarded' });
+      closeDrawer('itemDrawer');
+      loadItems();
+      toast('Item removed from wardrobe', 'ok');
+    }
   });
 }
 
@@ -656,6 +872,9 @@ async function loadOutfits() {
     el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${_outfitCols},minmax(0,1fr));gap:10px">` +
       filtered.map(o => `
         <div class="gh-card gh-s-blue" onclick="openOutfitDrawer(${o.id})">
+          ${o.primary_photo
+            ? `<div class="outfit-card-cover"><img src="/api/v1/attachments/thumb/${o.primary_photo.id}" alt="${esc(o.name)}" onerror="this.parentElement.style.display='none'"></div>`
+            : ''}
           <div class="gh-card-head">
             <div class="gh-card-title">${esc(o.name)}</div>
             <span class="gh-badge gh-badge-gray">${o.items?.length||0} items</span>
@@ -673,6 +892,7 @@ async function openOutfitDrawer(id) {
   try {
   _editingOutfitId = id||null;
   _oSeasonSel = []; _oOccasionSel = []; _oItemIds = [];
+  _oPhotos = [];
 
   document.getElementById('outfitDrawerTitle').textContent = id ? 'Edit Outfit' : 'New Outfit';
   document.getElementById('oDeleteBtn').style.display = id ? '' : 'none';
@@ -698,8 +918,76 @@ async function openOutfitDrawer(id) {
   renderTagPicker('oSeasonTags',   SEASON_OPTS,   _oSeasonSel,   'toggleOSeason');
   renderTagPicker('oOccasionTags', OCCASION_OPTS, _oOccasionSel, 'toggleOOccasion');
   await renderItemPicker();
+  renderOutfitPhotoPanel();
   openDrawer('outfitDrawer');
   } catch(e) { console.error('openOutfitDrawer error:', e); toast('Could not open outfit drawer: ' + e.message, 'err'); }
+}
+
+// ── Outfit cover-photo panel ──────────────────────────────────
+async function renderOutfitPhotoPanel() {
+  const panel = document.getElementById('oPhotoPanel');
+  const body  = document.getElementById('oPhotoPanelBody');
+  const count = document.getElementById('oPhotoPanelCount');
+  if (!panel || !body) return;
+
+  if (!_editingOutfitId) {
+    panel.classList.add('locked');
+    count.textContent = '';
+    body.innerHTML = `<div style="font-size:12px;color:var(--text3);text-align:center;padding:6px 0">
+      📷 Save the outfit first to add a cover photo
+    </div>`;
+    return;
+  }
+
+  panel.classList.remove('locked');
+  try {
+    const list = await window.api('GET', `/attachments/outfit/${_editingOutfitId}`);
+    const imgs = (list||[]).filter(a => a.is_image);
+    _oPhotos = imgs;
+    count.textContent = imgs.length ? `${imgs.length} photo${imgs.length===1?'':'s'}` : '';
+    body.innerHTML = (imgs.length
+        ? `<div class="wrd-photo-strip">${imgs.slice(0,8).map(p => `
+            <div class="wrd-photo-strip-thumb${p.is_primary_photo?' primary':''}"
+                 onclick="AttachmentManager._viewImage(${p.id},'${esc((p.label||p.original_filename||'').replace(/'/g,'&#39;'))}')">
+              <img src="/api/v1/attachments/thumb/${p.id}" alt="${esc(p.label||p.original_filename||'')}"
+                   onerror="this.parentElement.innerHTML='&#128247;'">
+            </div>`).join('')}</div>`
+        : '')
+      + `<button type="button" class="wrd-photo-add" onclick="openOutfitPhotos()">
+           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+           ${imgs.length ? 'Manage Photos' : '+ Add Cover Photo'}
+         </button>`;
+  } catch(e) {
+    count.textContent = '';
+    body.innerHTML = `<button type="button" class="wrd-photo-add" onclick="openOutfitPhotos()">+ Add Cover Photo</button>`;
+  }
+}
+
+async function openOutfitPhotos() {
+  try {
+    if (!_editingOutfitId) {
+      const saved = await saveOutfit({ keepOpen: true });
+      if (!saved) return;
+      renderOutfitPhotoPanel();
+    }
+    const name = document.getElementById('oName').value.trim();
+    const attDrawer = document.getElementById('attDrawer');
+    if (attDrawer) attDrawer.style.zIndex = '600';
+    AttachmentManager.open('outfit', _editingOutfitId, name);
+    const drawer = document.getElementById('attDrawer');
+    if (drawer) {
+      const observer = new MutationObserver(() => {
+        if (!drawer.classList.contains('open')) {
+          renderOutfitPhotoPanel();
+          observer.disconnect();
+        }
+      });
+      observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
+    }
+  } catch(e) {
+    console.error('openOutfitPhotos:', e);
+    toast('Photos error: ' + e.message, 'err');
+  }
 }
 
 async function renderItemPicker() {
@@ -729,9 +1017,9 @@ function toggleOItem(id) {
   renderItemPicker();
 }
 
-async function saveOutfit() {
+async function saveOutfit(opts = {}) {
   const name = document.getElementById('oName').value.trim();
-  if (!name) { toast('Name is required', 'err'); return; }
+  if (!name) { toast('Name is required', 'err'); return false; }
   const payload = {
     name, family_member_id: parseInt(document.getElementById('oMember').value)||null,
     season_tags: _oSeasonSel, occasion_tags: _oOccasionSel,
@@ -743,20 +1031,26 @@ async function saveOutfit() {
       await window.api('PUT', `/wardrobe/outfits/${_editingOutfitId}`, payload);
       toast('Outfit updated', 'ok');
     } else {
-      await window.api('POST', '/wardrobe/outfits', payload);
+      const created = await window.api('POST', '/wardrobe/outfits', payload);
+      if (created && created.id) _editingOutfitId = created.id;
       toast('Outfit created', 'ok');
     }
-    closeDrawer('outfitDrawer');
-    loadOutfits();
-  } catch(e) { toast('Save failed: '+e.message, 'err'); }
+    if (!opts.keepOpen) { closeDrawer('outfitDrawer'); loadOutfits(); }
+    return true;
+  } catch(e) { toast('Save failed: '+e.message, 'err'); return false; }
 }
 
 async function deleteOutfit() {
-  LT.confirm('Delete this outfit?', '', async () => {
-    await window.api('DELETE', `/wardrobe/outfits/${_editingOutfitId}`);
-    closeDrawer('outfitDrawer');
-    loadOutfits();
-    toast('Outfit deleted', 'ok');
+  LT.confirm({
+    title: 'Delete this outfit?',
+    msg: 'This removes the outfit and unschedules it from any planner days. Items in your wardrobe are not affected.',
+    confirmLabel: 'Delete',
+    onConfirm: async () => {
+      await window.api('DELETE', `/wardrobe/outfits/${_editingOutfitId}`);
+      closeDrawer('outfitDrawer');
+      loadOutfits();
+      toast('Outfit deleted', 'ok');
+    }
   });
 }
 

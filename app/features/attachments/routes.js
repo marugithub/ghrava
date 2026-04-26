@@ -36,7 +36,7 @@ const THUMB_DIR = 'thumbs';
 const UNC_BASE  = '\\\\soninas\\Backups\\MyAppAttachments';
 
 // ── Allowed modules ───────────────────────────────────────────
-const MODULES = ['inventory','hsa','medical','finance','estate','daily-log','career','books','property','todos','resources','contacts','kids'];
+const MODULES = ['inventory','hsa','medical','finance','estate','daily-log','career','books','property','todos','resources','contacts','kids','wardrobe'];
 
 // ── Image MIME types ──────────────────────────────────────────
 const IMAGE_MIMES = new Set(['image/jpeg','image/jpg','image/png','image/gif','image/webp']);
@@ -64,6 +64,7 @@ function moduleFor(entityType) {
   if (entityType === 'contact')                                              return 'contacts';
   if (entityType === 'kid' || entityType === 'kid_activity' || entityType === 'kid_note')
                                                                              return 'kids';
+  if (entityType === 'outfit' || entityType === 'wardrobe_item')              return 'wardrobe';
   return entityType;
 }
 
@@ -140,6 +141,7 @@ function getRecordTitle(entityType, entityId) {
     if (entityType === 'resource')          return db.prepare('SELECT name FROM resources WHERE id=?').get(entityId)?.name;
     if (entityType === 'contact')           return db.prepare('SELECT name FROM contacts WHERE id=?').get(entityId)?.name;
     if (entityType === 'kid')               return db.prepare('SELECT display_name FROM kids WHERE id=?').get(entityId)?.display_name;
+    if (entityType === 'outfit')             return db.prepare('SELECT name FROM wardrobe_outfits WHERE id=?').get(entityId)?.name;
   } catch { /* ignore */ }
   return null;
 }
