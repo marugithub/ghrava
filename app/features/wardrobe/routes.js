@@ -37,6 +37,21 @@ router.get('/items', (req, res) => {
       ORDER BY fm.display_name, i.category, i.name
     `).all(...params);
 
+    // Attach primary_photo (id only — frontend builds /api/v1/attachments/thumb/{id})
+    const photoStmt = db.prepare(
+      `SELECT id FROM attachments
+         WHERE entity_type='item' AND entity_id=? AND is_image=1 AND is_primary_photo=1
+         LIMIT 1`
+    );
+    const fallbackPhotoStmt = db.prepare(
+      `SELECT id FROM attachments
+         WHERE entity_type='item' AND entity_id=? AND is_image=1
+         ORDER BY sort_order, created_at LIMIT 1`
+    );
+    rows.forEach(r => {
+      r.primary_photo = photoStmt.get(r.id) || fallbackPhotoStmt.get(r.id) || null;
+    });
+
     // Filter by season/occasion tags in JS (JSON arrays)
     let result = rows;
     if (season) {
@@ -368,7 +383,7 @@ router.get('/insights', (req, res) => {
     `).get(...allParams).n;
 
     const mostWorn = db.prepare(`
-      SELECT i.id, i.name, i.wardrobe_nickname, i.category, i.brand,
+      SELECT i.id, i.name, i.wardrobe_nickname, i.category, i.brand, i.purchase_price,
         COUNT(wl.id) AS times_worn,
         ROUND(COALESCE(i.purchase_price,0) / MAX(COUNT(wl.id),1), 2) AS cost_per_wear
       FROM items i
@@ -379,7 +394,51 @@ router.get('/insights', (req, res) => {
       LIMIT 5
     `).all(...allParams);
 
-    res.json({ total, total_value: totalValue, outfits, never_worn: neverWorn, not_worn_30: notWorn30, most_worn: mostWorn });
+    // Never-worn list (top 8 — used by Season Review triage)
+    const neverWornItems = db.prepare(`
+      SELECT i.id, i.name, i.wardrobe_nickname, i.category, i.brand, i.purchase_price
+      FROM items i
+      WHERE ${baseWhere}
+      AND i.id NOT IN (SELECT DISTINCT item_id FROM wardrobe_wear_log)
+      ORDER BY i.id DESC
+      LIMIT 8
+    `).all(...allParams);
+
+    // Spend by member — { member_id, name, total }
+    const spendByMember = db.prepare(`
+      SELECT i.wardrobe_owner_id AS member_id, fm.display_name AS name,
+        COALESCE(SUM(i.purchase_price),0) AS total,
+        COUNT(*) AS items
+      FROM items i
+      LEFT JOIN family_members fm ON fm.id=i.wardrobe_owner_id
+      WHERE ${baseWhere}
+      AND i.wardrobe_owner_id IS NOT NULL
+      GROUP BY i.wardrobe_owner_id, fm.display_name
+      ORDER BY total DESC
+    `).all(...allParams);
+
+    // Attach primary_photo to mostWorn + neverWornItems
+    const itemPhotoStmt = db.prepare(
+      `SELECT id FROM attachments
+         WHERE entity_type='item' AND entity_id=? AND is_image=1 AND is_primary_photo=1
+         LIMIT 1`
+    );
+    const itemPhotoFallbackStmt = db.prepare(
+      `SELECT id FROM attachments
+         WHERE entity_type='item' AND entity_id=? AND is_image=1
+         ORDER BY sort_order, created_at LIMIT 1`
+    );
+    [...mostWorn, ...neverWornItems].forEach(it => {
+      it.primary_photo = itemPhotoStmt.get(it.id) || itemPhotoFallbackStmt.get(it.id) || null;
+    });
+
+    res.json({
+      total, total_value: totalValue, outfits,
+      never_worn: neverWorn, not_worn_30: notWorn30,
+      most_worn: mostWorn,
+      never_worn_items: neverWornItems,
+      spend_by_member: spendByMember
+    });
   } catch(e) { serverError(res, e); }
 });
 

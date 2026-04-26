@@ -276,7 +276,10 @@
        ══════════════════════════════════════════════════════ -->
   <div class="view-panel" id="panel-accounts">
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
-      <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Accounts</span>
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Banking Accounts</span>
+        <span style="font-size:11px;color:var(--text3)">Manual ledger · Checking, Savings, Credit, Cash, HSA</span>
+      </div>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openAccountDrawer()">+ Add</button>
     </div>
 
@@ -462,9 +465,9 @@
 
       <!-- Context banner -->
       <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:12px;color:var(--text2);line-height:1.6">
-        <strong style="color:var(--text)">📊 This tab is for investment &amp; brokerage accounts</strong> — Schwab brokerage, Vanguard, TSP, and similar.
-        Transactions here are tracked separately for holdings, net worth, and statement history.<br>
-        <span style="color:var(--text3)">For checking, savings, and credit cards → select a banking account from the dropdown above — the upload flow handles all account types.</span>
+        <strong style="color:var(--text)">📊 Investment &amp; brokerage statements</strong><br>
+        Use this tab to upload statements from Schwab, Vanguard, TSP, and similar brokerage accounts. These imports populate holdings, net worth, and statement history — all tracked separately from the manual banking ledger.<br>
+        <span style="color:var(--text3);display:inline-block;margin-top:4px">For checking, savings, and credit-card transactions, use the <strong>Accounts</strong> tab to enter them manually.</span>
       </div>
 
       <!-- Missing statement alerts -->
@@ -519,7 +522,10 @@
     <!-- ── Accounts manager ── -->
     <div id="imp-panel-accounts" style="display:none;padding:8px 16px 100px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-        <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Financial Accounts</span>
+        <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+          <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Investment Accounts</span>
+          <span style="font-size:11px;color:var(--text3)">Statement-import · Brokerage, TSP, 401(k)</span>
+        </div>
         <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openAcctDrawer(null)">+ Add</button>
       </div>
       <div id="impAcctList"></div>

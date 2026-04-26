@@ -123,6 +123,22 @@
 <!-- ── FAB ──────────────────────────────────────────────────── -->
 <button class="fab" onclick="openAddDrawer()" title="Add record">+</button>
 
+<!-- ── Generic info modal (replaces broken LT.modal call) ─── -->
+<div id="medInfoOverlay" onclick="if(event.target===this)closeMedInfoModal()"
+     style="position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+            align-items:flex-end;justify-content:center;z-index:550">
+  <div id="medInfoBody"
+       style="width:min(440px,100%);max-height:80vh;overflow-y:auto;
+              background:var(--bg2);border-radius:16px 16px 0 0;padding:16px;
+              border:1px solid var(--border);border-bottom:none"></div>
+</div>
+<style>
+  @media(min-width:600px){
+    #medInfoOverlay{align-items:center}
+    #medInfoOverlay > div{border-radius:16px;border-bottom:1px solid var(--border)}
+  }
+</style>
+
 <!-- ── Add/Edit Medication Drawer ───────────────────────────── -->
 <div class="drawer-overlay" id="medDrawer">
   <div class="drawer">
@@ -682,7 +698,19 @@ function showInteractionDetail(result, memberName) {
       <div style="font-size:12px;color:var(--text2);margin-top:4px">${esc(i.description||'')}</div>
     </div>`;
   }).join('');
-  LT.modal(`<div style="padding:16px"><div style="font-size:16px;font-weight:700;margin-bottom:12px">Drug Interactions — ${esc(memberName)}</div>${rows}<div style="font-size:10px;color:var(--text3);margin-top:12px">Source: NLM RxNav API. Always consult your pharmacist or physician.</div></div>`);
+  const body = document.getElementById('medInfoBody');
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:700">Drug Interactions — ${esc(memberName)}</div>
+      <button onclick="closeMedInfoModal()" style="background:none;border:none;color:var(--text2);font-size:22px;line-height:1;cursor:pointer;padding:0 0 0 12px">&times;</button>
+    </div>
+    ${rows}
+    <div style="font-size:10px;color:var(--text3);margin-top:12px">Source: NLM RxNav API. Always consult your pharmacist or physician.</div>`;
+  document.getElementById('medInfoOverlay').style.display = 'flex';
+}
+
+function closeMedInfoModal() {
+  document.getElementById('medInfoOverlay').style.display = 'none';
 }
 
 // ── Conditions ─────────────────────────────────────────────────

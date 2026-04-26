@@ -7,107 +7,255 @@
   <title>Wardrobe — Ghrava</title><link rel="stylesheet" href="/shared.css"><script src="/theme.js"></script>
   <script>if (localStorage.getItem('gh_nav_collapsed') !== '0') document.documentElement.classList.add('nav-collapsed-init');</script>
   <style>
-    .member-pills{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px 0}
-    .member-pill{padding:5px 14px;border-radius:99px;font-size:12px;font-weight:600;cursor:pointer;
-      border:1.5px solid var(--border);color:var(--text2);background:var(--bg2);transition:all .15s}
-    .member-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
-    .weather-strip{display:flex;gap:10px;overflow-x:auto;padding:10px 16px 0;scrollbar-width:none}
-    .weather-strip::-webkit-scrollbar{display:none}
-    .weather-col{flex-shrink:0;width:200px}
-    .weather-cell{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;display:flex;align-items:center;gap:8px;font-size:13px}
-    .weather-cell.today{border-color:var(--accent);background:var(--accent-bg);color:var(--accent)}
-    .day-scroll-wrap{position:relative;padding:0 16px}
-    .day-scroll{display:flex;gap:10px;overflow-x:auto;padding:8px 0 16px;scrollbar-width:none}
-    .day-scroll::-webkit-scrollbar{display:none}
-    .scroll-arrow{position:absolute;top:50%;transform:translateY(-50%);width:32px;height:32px;
-      background:var(--bg2);border:1px solid var(--border);border-radius:50%;
-      display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:5;font-size:16px}
-    .scroll-arrow.left{left:4px}.scroll-arrow.right{right:4px}
-    .day-col{flex-shrink:0;width:180px}
-    .day-hdr{font-size:12px;font-weight:700;color:var(--text2);padding:0 0 6px;border-bottom:1px solid var(--border);margin-bottom:8px}
-    .outfit-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-bottom:8px;font-size:13px;cursor:pointer}
-    .outfit-card:hover{border-color:var(--accent)}
-    .outfit-name{font-weight:600;margin-bottom:4px}
-    .outfit-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-    .outfit-tag{font-size:10px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);background:var(--bg3);color:var(--text2)}
-    .add-outfit-btn{width:100%;padding:8px;border:1.5px dashed var(--border);border-radius:var(--r);
-      background:transparent;color:var(--text3);font-size:12px;cursor:pointer;font-family:inherit}
-    .add-outfit-btn:hover{border-color:var(--accent);color:var(--accent)}
-    .insights-section{padding:12px 16px 90px}
-    .insights-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
-    @media(min-width:600px){.insights-grid{grid-template-columns:repeat(4,1fr)}}
-    .insight-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:12px;text-align:center}
-    .insight-val{font-size:22px;font-weight:800;color:var(--accent)}
-    .insight-label{font-size:11px;color:var(--text3);margin-top:2px}
+    /* ── LOOKBOOK · Direction B styles ─────────────────────────
+       Photo-led, generous whitespace, polaroid garments.
+       Built on the existing token palette only. */
 
-    .item-name{font-size:13px;font-weight:600;margin-bottom:2px}
-    .item-meta{font-size:11px;color:var(--text3)}
-    .tab-bar{display:flex;border-bottom:1px solid var(--border);padding:0 16px;gap:0;overflow-x:auto;scrollbar-width:none}
+    /* ── Page header with eyebrow + light display title ── */
+    .lb-page-hdr{padding:18px 18px 10px}
+    .lb-eyebrow{font-family:var(--mono);font-size:10px;color:var(--text3);
+      letter-spacing:.16em;text-transform:uppercase;margin-bottom:2px}
+    .lb-display{font-size:26px;font-weight:300;letter-spacing:-.03em;color:var(--text);line-height:1.05}
+    @media(min-width:768px){
+      .lb-page-hdr{padding:24px 28px 12px}
+      .lb-display{font-size:38px;letter-spacing:-.035em}
+      .lb-eyebrow{font-size:11px;letter-spacing:.18em}
+    }
+
+    /* ── Member pill strip ── */
+    .member-pills{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 6px;overflow-x:auto;scrollbar-width:none}
+    .member-pills::-webkit-scrollbar{display:none}
+    .member-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;
+      font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);
+      color:var(--text2);background:var(--bg2);transition:all .15s;flex-shrink:0;user-select:none}
+    .member-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .member-pill .member-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+    /* ── Tab bar (underline) ── */
+    .tab-bar{display:flex;border-bottom:1px solid var(--border);padding:0 14px;gap:0;
+      overflow-x:auto;scrollbar-width:none}
     .tab-bar::-webkit-scrollbar{display:none}
-    .tab{padding:10px 16px;font-size:13px;font-weight:600;color:var(--text3);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+    .tab{padding:10px 14px;font-size:13px;font-weight:600;color:var(--text3);
+      cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
     .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
 
-    /* ── Calendar-style day cards (planner) ──────────────────── */
-    .day-card{flex-shrink:0;width:140px;background:var(--bg2);border:1px solid var(--border);
-      border-radius:var(--r-lg,16px);padding:14px 12px;position:relative;display:flex;flex-direction:column;gap:6px}
-    .day-card.today{border:2px solid #185FA5;padding:13px 11px}
-    .day-card-today-badge{position:absolute;top:8px;right:8px;background:#dbeafe;color:#1e40af;
-      font-size:9px;font-weight:700;padding:2px 7px;border-radius:99px;letter-spacing:.04em}
-    .day-card-wkd{font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em}
-    .day-card-num{font-size:22px;font-weight:500;color:var(--text);line-height:1}
-    .day-card-mo{font-size:11px;color:var(--text3);margin-top:-2px}
-    .day-card-wx{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);min-height:14px}
-    .day-card-body{margin-top:4px;display:flex;flex-direction:column;gap:6px}
-    .day-card-thumb{width:100%;aspect-ratio:1;border-radius:var(--r-sm,8px);overflow:hidden;
-      display:flex;align-items:center;justify-content:center;border:1px solid var(--border)}
-    .day-card-thumb img{width:100%;height:100%;object-fit:cover;display:block}
-    .day-card-thumb-svg{width:38%;height:38%;opacity:.65}
-    .day-card-empty{width:100%;height:54px;border:1.5px dashed var(--border2);
-      border-radius:var(--r-sm,8px);background:transparent;color:var(--text3);font-size:18px;
-      display:flex;align-items:center;justify-content:center;cursor:pointer;font-family:inherit;transition:all .15s}
-    .day-card-empty:hover{border-color:var(--accent);color:var(--accent)}
-    .day-card-empty-hint{font-size:10px;color:var(--text3);text-align:center;margin-top:2px}
-    .day-card-outfit-name{font-size:11px;font-weight:500;color:var(--text);line-height:1.3;
-      overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-    .day-card-outfit-meta{font-size:10px;color:var(--text2);line-height:1.2}
+    /* ── Photo placeholder fallbacks ──────────────────────────
+       Used when an item/outfit has no primary_photo attachment.
+       Hanger SVG with a soft tinted bg, OR a category-tinted tile with mono caption. */
+    .lb-ph{position:relative;border-radius:6px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+    .lb-ph-hanger{background:linear-gradient(135deg, rgba(236,72,153,.06), rgba(92,114,250,.04));
+      color:var(--text4)}
+    .lb-ph-hanger svg{width:42%;max-width:60px;opacity:.65}
+    .lb-ph-tile{font-family:var(--mono);font-size:9px;letter-spacing:.06em;
+      text-transform:uppercase;color:var(--text3);background:var(--bg3);padding:6px;
+      text-align:center;line-height:1.2}
+    .lb-ph-tile.cat-clothing{background:rgba(236,72,153,.08);color:#ec4899}
+    .lb-ph-tile.cat-shoes{background:rgba(245,158,11,.08);color:#f59e0b}
+    .lb-ph-tile.cat-accessories{background:rgba(167,139,250,.08);color:#a78bfa}
+    .lb-ph-tile.cat-bags{background:rgba(34,197,94,.08);color:#22c55e}
+    .lb-ph-tile.cat-hats{background:rgba(92,114,250,.08);color:#5c72fa}
+    .lb-ph-tile.cat-jewelry{background:rgba(167,139,250,.08);color:#a78bfa}
+    .lb-ph::before{content:"";position:absolute;inset:0;
+      background-image:repeating-linear-gradient(45deg,transparent 0 8px,rgba(255,255,255,.02) 8px 16px);
+      pointer-events:none}
+    .lb-ph img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
 
-    /* Tinted thumb backgrounds keyed off outfit's first occasion tag */
-    .tint-casual,.tint-school,.tint-other{background:rgba(143,163,191,0.18);color:var(--text2)}
-    .tint-active,.tint-sports,.tint-outdoor{background:rgba(167,139,250,0.18);color:#a78bfa}
-    .tint-formal,.tint-work,.tint-evening{background:rgba(92,114,250,0.18);color:var(--accent)}
+    /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
+    .lb-polaroid{padding:5px 5px 17px;background:#f4ece0;border-radius:3px;
+      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block}
+    .lb-polaroid.big{padding:8px 8px 20px}
+    .lb-polaroid-photo{width:100%;aspect-ratio:1/1;border-radius:1px;overflow:hidden;
+      display:flex;align-items:center;justify-content:center;position:relative}
+    .lb-polaroid-photo.tall{aspect-ratio:3/4}
+    .lb-polaroid-photo.primary{outline:2px solid var(--green);outline-offset:-2px}
+    .lb-polaroid-cap{text-align:center;font-family:var(--mono);font-size:9px;
+      color:#3a2c20;letter-spacing:.06em;margin-top:4px;text-transform:uppercase;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
+    .lb-polaroid.big .lb-polaroid-cap{font-size:10px}
+
+    /* Pleasing tilt cycle — index%4 picks one of these */
+    .lb-tilt-0{transform:rotate(-.8deg)}
+    .lb-tilt-1{transform:rotate(.6deg)}
+    .lb-tilt-2{transform:rotate(-.4deg)}
+    .lb-tilt-3{transform:rotate(1deg)}
+
+    /* ── Planner · vertical day rows ── */
+    .lb-day-list{padding-bottom:90px}
+    .lb-day-row{padding:18px 0 14px;border-bottom:1px solid var(--border)}
+    .lb-day-row:last-child{border-bottom:none}
+    .lb-day-hdr{display:flex;align-items:baseline;justify-content:space-between;padding:0 18px 10px}
+    .lb-day-hdr-left{display:flex;align-items:baseline;gap:10px}
+    .lb-day-num{font-size:32px;font-weight:300;letter-spacing:-.03em;color:var(--text);
+      line-height:1;font-feature-settings:"tnum"}
+    .lb-day-num.today{color:var(--accent)}
+    .lb-day-dow{font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.12em}
+    .lb-day-today-badge{font-size:9px;font-weight:700;color:var(--accent);
+      font-family:var(--mono);letter-spacing:.14em}
+    .lb-day-wx{font-size:11px;font-family:var(--mono);color:var(--text3);
+      letter-spacing:.04em;display:flex;align-items:center;gap:5px}
+    .lb-day-wx.exceptional{color:var(--amber)}
+    .lb-day-wx.past{color:var(--text4)}
+    .lb-day-row.past .lb-day-num,
+    .lb-day-row.past .lb-day-dow{color:var(--text3)}
+    .lb-day-row.past .lb-polaroid{filter:saturate(.7) brightness(.85)}
+
+    .lb-day-scroll{display:flex;gap:14px;overflow-x:auto;padding:2px 18px 6px;scrollbar-width:none}
+    .lb-day-scroll::-webkit-scrollbar{display:none}
+    .lb-day-card{flex-shrink:0;width:172px;cursor:pointer}
+    .lb-day-card-meta{display:flex;align-items:center;justify-content:space-between;
+      margin-top:7px;padding:0 4px}
+    .lb-day-card-owner{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
+    .lb-day-card-owner .member-dot{width:6px;height:6px;border-radius:50%}
+    .lb-day-card-pcs{font-size:10px;font-family:var(--mono);color:var(--text3)}
+
+    .lb-day-empty{margin:0 18px;padding:24px 14px;border:1px dashed var(--border);
+      border-radius:6px;text-align:center;color:var(--text4);
+      font-family:var(--mono);font-size:11px;letter-spacing:.06em;cursor:pointer;
+      transition:all .15s}
+    .lb-day-empty:hover{border-color:var(--accent);color:var(--accent)}
+    .lb-day-empty.past{cursor:default}
+    .lb-day-empty.past:hover{border-color:var(--border);color:var(--text4)}
+
+    /* ── Items · polaroid grid (2-col mobile, 5-col desktop) ── */
+    .lb-items-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;
+      row-gap:22px;padding:14px 14px 90px}
+    @media(min-width:768px){
+      .lb-items-grid{grid-template-columns:repeat(4,1fr);gap:22px;row-gap:28px;padding:18px 28px 80px}
+    }
+    @media(min-width:1100px){
+      .lb-items-grid{grid-template-columns:repeat(5,1fr);gap:24px;row-gap:30px}
+    }
+    .lb-item-card{display:block;cursor:pointer}
+    .lb-item-meta{display:flex;justify-content:space-between;margin-top:6px;
+      padding:0 6px;font-size:10px;color:var(--text3)}
+    .lb-item-meta-owner{display:flex;gap:4px;align-items:center}
+    .lb-item-meta-owner .member-dot{width:5px;height:5px;border-radius:50%}
+    .lb-item-meta-stat{font-family:var(--mono)}
+
+    /* ── Outfits · full-bleed cover cards (2-col mobile, 3-col desktop) ── */
+    .lb-outfits-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;
+      padding:14px 16px 90px}
+    @media(min-width:768px){
+      .lb-outfits-grid{grid-template-columns:repeat(3,1fr);gap:16px;padding:18px 28px 80px}
+    }
+    @media(min-width:1100px){
+      .lb-outfits-grid{grid-template-columns:repeat(4,1fr)}
+    }
+    .lb-outfit-card{position:relative;border-radius:10px;overflow:hidden;
+      background:var(--bg2);border:1px solid var(--border);cursor:pointer;
+      aspect-ratio:3/4;transition:transform .15s, border-color .15s}
+    .lb-outfit-card:hover{border-color:var(--accent);transform:translateY(-2px)}
+    .lb-outfit-card-photo{position:absolute;inset:0}
+    .lb-outfit-card-photo img{width:100%;height:100%;object-fit:cover}
+    .lb-outfit-card-photo .lb-ph{width:100%;height:100%;border-radius:0}
+    .lb-outfit-card-grad{position:absolute;inset:0;
+      background:linear-gradient(180deg,transparent 38%,rgba(8,12,20,.92) 100%);
+      pointer-events:none}
+    .lb-outfit-card-owner{position:absolute;top:8px;right:8px;display:inline-flex;
+      align-items:center;gap:5px;padding:3px 10px;border-radius:99px;
+      background:rgba(8,12,20,.6);backdrop-filter:blur(6px);
+      -webkit-backdrop-filter:blur(6px);font-size:10px;font-weight:600;color:var(--text)}
+    .lb-outfit-card-owner .member-dot{width:5px;height:5px;border-radius:50%}
+    .lb-outfit-card-body{position:absolute;left:0;right:0;bottom:0;padding:10px 10px 9px}
+    .lb-outfit-card-name{font-size:13px;font-weight:600;color:#fff;
+      text-shadow:0 1px 6px rgba(0,0,0,.6);overflow:hidden;text-overflow:ellipsis;
+      white-space:nowrap}
+    .lb-outfit-card-items{display:flex;gap:3px;margin-top:6px}
+    .lb-outfit-card-item-thumb{width:18px;height:18px;border-radius:3px;overflow:hidden;
+      background:var(--bg3);opacity:.95}
+    .lb-outfit-card-item-thumb img{width:100%;height:100%;object-fit:cover}
+    .lb-outfit-card-tags{display:flex;gap:4px;margin-top:5px;flex-wrap:wrap}
+    .lb-outfit-card-tag{font-size:9px;padding:2px 7px;border-radius:99px;
+      background:rgba(255,255,255,.12);color:rgba(255,255,255,.85);font-weight:500;
+      backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+
+    /* ── Insights · Season Review ── */
+    .lb-insights{padding:18px 18px 90px}
+    @media(min-width:768px){.lb-insights{padding:24px 28px 60px}}
+    .lb-hero{margin-bottom:30px}
+    .lb-hero-eyebrow{font-family:var(--mono);font-size:11px;color:var(--text3);
+      letter-spacing:.18em;text-transform:uppercase;margin-bottom:8px}
+    .lb-hero-num{font-size:32px;font-weight:300;letter-spacing:-.035em;
+      line-height:1.1;color:var(--text);max-width:880px}
+    .lb-hero-num .neverworn{color:var(--amber)}
+    @media(min-width:768px){.lb-hero-num{font-size:46px;letter-spacing:-.04em}}
+
+    .lb-section-hdr{display:flex;align-items:baseline;justify-content:space-between;
+      border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:16px}
+    .lb-section-hdr-title{font-size:18px;font-weight:600;letter-spacing:-.02em}
+    .lb-section-hdr-count{font-family:var(--mono);color:var(--text3);font-size:13px;
+      font-weight:400;margin-left:6px}
+
+    .lb-triage-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:32px}
+    @media(min-width:768px){.lb-triage-grid{grid-template-columns:repeat(4,1fr)}}
+    .lb-triage-actions{display:flex;justify-content:center;gap:6px;margin-top:10px}
+    .lb-triage-actions button{padding:4px 12px;font-size:11px;border-radius:99px;
+      font-weight:600;cursor:pointer;border:1px solid;font-family:inherit}
+    .lb-triage-actions .keep{background:var(--green-bg);border-color:var(--green-bd);color:var(--green)}
+    .lb-triage-actions .donate{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
+    .lb-triage-actions .sell{background:var(--bg3);border-color:var(--border2);color:var(--text2)}
+
+    .lb-most-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:30px}
+    @media(min-width:768px){.lb-most-grid{grid-template-columns:repeat(5,1fr)}}
+    .lb-most-card .lb-ph{aspect-ratio:1/1;width:100%}
+    .lb-most-name{font-size:13px;font-weight:600;margin-top:8px;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .lb-most-stat{font-size:10px;color:var(--text3);font-family:var(--mono);
+      letter-spacing:.04em;margin-top:2px}
+
+    .lb-spend-row{display:flex;gap:10px;margin-bottom:8px}
+    .lb-spend-cell{padding:18px 14px;background:var(--bg2);border:1px solid var(--border);
+      border-radius:8px;border-left:3px solid var(--text3);min-width:0}
+    .lb-spend-cell-name{font-size:10px;font-family:var(--mono);letter-spacing:.1em;
+      color:var(--text3);text-transform:uppercase;
+      overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .lb-spend-cell-val{font-size:24px;font-weight:300;margin-top:2px}
+
+    /* "+ Triage all" pill button */
+    .lb-pill-btn{padding:6px 14px;border-radius:99px;background:var(--accent);
+      border:none;color:#fff;font-weight:600;font-size:12px;cursor:pointer;
+      font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+    .lb-pill-btn:hover{background:var(--accent-h)}
+
+    /* ── Empty states ── */
+    .lb-empty{text-align:center;padding:60px 20px;color:var(--text3)}
+    .lb-empty-icon{font-size:48px;margin-bottom:12px;opacity:.6}
+    .lb-empty-title{font-weight:700;font-size:15px;margin-bottom:6px;color:var(--text2)}
+    .lb-empty-sub{font-size:13px}
 
     /* ── Photo panel inside drawers (item + outfit) ─────────── */
     .wrd-photo-panel{margin:14px 0 10px;padding:12px;border:1px dashed var(--border);
-      border-radius:var(--r-sm,8px);background:var(--bg);display:flex;flex-direction:column;gap:8px}
+      border-radius:var(--r-sm,8px);background:var(--bg);display:flex;
+      flex-direction:column;gap:8px}
     .wrd-photo-panel.locked{opacity:.55;cursor:not-allowed}
-    .wrd-photo-panel-hdr{display:flex;align-items:center;justify-content:space-between;font-size:12px;
-      color:var(--text2);font-weight:600}
+    .wrd-photo-panel-hdr{display:flex;align-items:center;justify-content:space-between;
+      font-size:12px;color:var(--text2);font-weight:600}
     .wrd-photo-strip{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-    .wrd-photo-strip-thumb{aspect-ratio:1;border-radius:6px;overflow:hidden;border:1px solid var(--border);
-      cursor:pointer;background:var(--bg2);display:flex;align-items:center;justify-content:center}
-    .wrd-photo-strip-thumb.primary{border-color:#22c55e}
+    .wrd-photo-strip-thumb{aspect-ratio:1;border-radius:6px;overflow:hidden;
+      border:1px solid var(--border);cursor:pointer;background:var(--bg2);
+      display:flex;align-items:center;justify-content:center}
+    .wrd-photo-strip-thumb.primary{border-color:var(--green)}
     .wrd-photo-strip-thumb img{width:100%;height:100%;object-fit:cover}
-    .wrd-photo-add{width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:6px;
-      background:var(--bg2);color:var(--text2);font-size:12px;cursor:pointer;font-family:inherit;
-      display:inline-flex;align-items:center;justify-content:center;gap:6px}
+    .wrd-photo-add{width:100%;padding:8px 12px;border:1px solid var(--border);
+      border-radius:6px;background:var(--bg2);color:var(--text2);font-size:12px;
+      cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;
+      justify-content:center;gap:6px}
     .wrd-photo-add:hover{border-color:var(--accent);color:var(--accent)}
 
-    /* ── Outfit card cover thumb ──────────────────────────── */
-    .outfit-card-cover{width:100%;aspect-ratio:16/9;border-radius:var(--r-sm,8px);overflow:hidden;
-      margin-bottom:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;
-      border:1px solid var(--border)}
-    .outfit-card-cover img{width:100%;height:100%;object-fit:cover}
-
-    /* ── Planner add-outfit modal ─────────────────────────── */
+    /* ── Planner add-outfit modal (kept from 202604.038) ── */
     #wrdPlannerOverlay{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
       align-items:flex-end;justify-content:center;z-index:550}
     #wrdPlannerOverlay.open{display:flex}
     #wrdPlannerOverlay .wrd-modal{width:min(440px,100%);background:var(--bg2);
-      border-radius:16px 16px 0 0;padding:16px;border:1px solid var(--border);border-bottom:none}
+      border-radius:16px 16px 0 0;padding:18px;border:1px solid var(--border);
+      border-bottom:none}
     @media(min-width:600px){
       #wrdPlannerOverlay{align-items:center}
       #wrdPlannerOverlay .wrd-modal{border-radius:16px;border-bottom:1px solid var(--border)}
     }
+    .lb-modal-title{font-family:var(--mono);font-size:10px;color:var(--text3);
+      letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px}
+    .lb-modal-display{font-size:22px;font-weight:300;letter-spacing:-.03em;margin-bottom:14px}
   </style>
 </head>
 <body>
@@ -121,6 +269,12 @@
 <div id="app">
   <div class="gh-page-header"></div>
 
+  <!-- Lookbook page header — eyebrow + light display title; updated per tab -->
+  <div class="lb-page-hdr">
+    <div class="lb-eyebrow" id="lbEyebrow">WARDROBE</div>
+    <div class="lb-display" id="lbTitle">This Week</div>
+  </div>
+
   <!-- Tab bar -->
   <div class="tab-bar">
     <div class="tab active" onclick="switchTab('planner',this)">Planner</div>
@@ -132,40 +286,31 @@
   <!-- Member filter -->
   <div class="member-pills" id="memberPills"></div>
 
-  <!-- Planner tab -->
+  <!-- Planner tab — vertical day rows -->
   <div id="tab-planner">
-    <div class="weather-strip" id="weatherStrip"></div>
-    <div class="day-scroll-wrap">
-      <div class="scroll-arrow left" id="scrollLeft">‹</div>
-      <div class="day-scroll" id="dayScroll"></div>
-      <div class="scroll-arrow right" id="scrollRight">›</div>
-    </div>
+    <div class="lb-day-list" id="dayList"></div>
   </div>
 
-  <!-- Items tab -->
+  <!-- Items tab — polaroid grid -->
   <div id="tab-items" style="display:none">
     <div style="display:flex;align-items:center;padding:6px 16px 0">
       <div style="flex:1"></div>
       <div id="itemViewToolbar"></div>
     </div>
-    <div id="itemGrid" style="padding:8px 16px 90px"></div>
+    <div id="itemGrid"></div>
   </div>
 
-  <!-- Outfits tab -->
-  <div id="tab-outfits" style="display:none;padding:10px 16px 90px">
-    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
-      <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="openOutfitDrawer()">+ New Outfit</button>
+  <!-- Outfits tab — full-bleed cover cards -->
+  <div id="tab-outfits" style="display:none">
+    <div style="display:flex;justify-content:flex-end;padding:12px 16px 0">
+      <button class="lb-pill-btn" onclick="openOutfitDrawer()">+ New Outfit</button>
     </div>
     <div id="outfitList"></div>
   </div>
 
-  <!-- Insights tab -->
+  <!-- Insights tab — Season Review -->
   <div id="tab-insights" style="display:none">
-    <div class="insights-section">
-      <div class="insights-grid" id="insightsGrid"></div>
-      <div style="font-weight:700;margin-bottom:10px">Most Worn</div>
-      <div id="mostWornList"></div>
-    </div>
+    <div id="lbInsights"></div>
   </div>
 </div>
 
@@ -305,6 +450,7 @@ async function init() {
   await loadMembers();
   initItemView();
   initOutfitView();
+  updatePageHeader('planner');
   renderDays();
   loadWeather();
   loadTabContent();
@@ -336,15 +482,21 @@ function initOutfitView() {
     ]
   });
 }
+// Deterministic color palette for member dots — derived from the existing token palette only.
+const MEMBER_COLORS = ['var(--accent)','var(--green)','var(--amber)','var(--purple)','var(--cat-clothing)','var(--red)'];
+
 async function loadMembers() {
   try {
     _members = await window.api('GET', '/settings/family');
+    // Decorate each with a stable color (index-based)
+    _members.forEach((m, i) => { m.color = MEMBER_COLORS[i % MEMBER_COLORS.length]; });
+    refreshMemberCache();
     const pills = document.getElementById('memberPills');
     pills.innerHTML = `<div class="member-pill active" data-id="" onclick="selectMember(null,this)">All</div>`;
     _members.forEach(m => {
       const p = document.createElement('div');
       p.className = 'member-pill'; p.dataset.id = m.id;
-      p.textContent = m.display_name;
+      p.innerHTML = `<span class="member-dot" style="background:${m.color}"></span>${esc(m.display_name)}`;
       p.onclick = () => selectMember(m.id, p);
       pills.appendChild(p);
     });
@@ -352,6 +504,10 @@ async function loadMembers() {
     ['iOwner','oMember'].forEach(id => {
       const sel = document.getElementById(id);
       if (!sel) return;
+      // Reset to placeholder option only (to avoid duplicates on reload)
+      sel.innerHTML = id === 'oMember'
+        ? '<option value="">— all —</option>'
+        : '<option value="">— select —</option>';
       _members.forEach(m => {
         const o = document.createElement('option'); o.value = m.id; o.textContent = m.display_name;
         sel.appendChild(o);
@@ -366,6 +522,27 @@ function selectMember(id, el) {
   loadTabContent();
 }
 
+// Lookbook page header copy per tab — week number computed once
+function isoWeekNumber(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  date.setUTCDate(date.getUTCDate() + 4 - (date.getUTCDay() || 7));
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+}
+const TAB_HEADER = {
+  planner:  () => ({ eyebrow: `WARDROBE · WK ${isoWeekNumber(new Date())}`, title: 'This Week' }),
+  items:    () => ({ eyebrow: `${(_allItems||[]).length || ''} GARMENTS`.trim() || 'WARDROBE', title: 'The Closet' }),
+  outfits:  () => ({ eyebrow: 'OUTFITS', title: 'Looks' }),
+  insights: () => ({ eyebrow: `SEASON REVIEW`, title: 'How was the season?' }),
+};
+function updatePageHeader(tab) {
+  const h = (TAB_HEADER[tab] || TAB_HEADER.planner)();
+  const eyebrow = document.getElementById('lbEyebrow');
+  const title   = document.getElementById('lbTitle');
+  if (eyebrow) eyebrow.textContent = h.eyebrow;
+  if (title)   title.textContent   = h.title;
+}
+
 function switchTab(tab, el) {
   _currentTab = tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -376,6 +553,7 @@ function switchTab(tab, el) {
   // Update FAB
   const fab = document.getElementById('fabBtn');
   fab.style.display = (tab === 'planner') ? 'none' : '';
+  updatePageHeader(tab);
   loadTabContent();
 }
 
@@ -391,31 +569,64 @@ function loadTabContent() {
   if (_currentTab === 'insights') loadInsights();
 }
 
-// ── Planner ──────────────────────────────────────────────────
+// ── Planner (Lookbook) ──────────────────────────────────────────
 const MONTHS_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const WKD_SHORT    = ['SUN','MON','TUE','WED','THU','FRI','SAT'];
+const CAT_PH_KEY = { Clothing:'clothing', Shoes:'shoes', Accessories:'accessories', Bags:'bags', Hats:'hats', Jewelry:'jewelry' };
 
-// Map an occasion tag to a CSS class controlling the fallback thumbnail tint
-function tintClassForOccasion(tag) {
-  if (!tag) return 'tint-other';
-  const t = tag.toLowerCase();
-  if (t.includes('formal') || t.includes('work') || t.includes('evening')) return 'tint-formal';
-  if (t.includes('active') || t.includes('gym') || t.includes('sport') || t.includes('outdoor')) return 'tint-active';
-  if (t.includes('casual') || t.includes('school'))                                              return 'tint-casual';
-  return 'tint-other';
-}
-
-// Hanger SVG used as the empty/fallback thumbnail glyph
-const HANGER_SVG = `<svg class="day-card-thumb-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-  <path d="M12 7a2 2 0 1 1 .001-3.999A2 2 0 0 1 12 7Z"/>
-  <path d="M12 7v2.2a1 1 0 0 1-.45.83L3 16h18l-8.55-5.97A1 1 0 0 1 12 9.2V7Z"/>
+const HANGER_SVG = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="width:42%;max-width:60px;opacity:.65">
+  <path d="M32 14 L32 22 M32 22 C26 22 26 30 32 30 L 8 44 L 56 44 L 32 30 C 38 30 38 22 32 22 Z"/>
 </svg>`;
 
+// Photo placeholder — used when an item/outfit has no real attachment thumbnail.
+// Uses category color when known; falls back to hanger SVG. Always builds the
+// real <img> when a primary_photo id exists, with onerror fallback to hanger.
+function lbPhoto(opts) {
+  const { primary_photo, category, name, ratio = 'tall', primary = false } = opts || {};
+  const ratioCls = ratio === 'square' ? '' : 'tall';
+  const primaryCls = primary ? ' primary' : '';
+  if (primary_photo && primary_photo.id) {
+    return `<div class="lb-polaroid-photo ${ratioCls}${primaryCls} lb-ph">
+      <img src="/api/v1/attachments/thumb/${primary_photo.id}" alt="${esc(name||'')}"
+           onerror="this.outerHTML='${HANGER_SVG.replace(/'/g,'&#39;')}';this.parentElement.classList.add('lb-ph-hanger')">
+    </div>`;
+  }
+  const catKey = CAT_PH_KEY[category] || '';
+  if (catKey) {
+    return `<div class="lb-polaroid-photo ${ratioCls}${primaryCls} lb-ph lb-ph-tile cat-${catKey}">
+      <span style="position:relative;z-index:1">${esc((category||'').toUpperCase())}</span>
+    </div>`;
+  }
+  return `<div class="lb-polaroid-photo ${ratioCls}${primaryCls} lb-ph lb-ph-hanger">${HANGER_SVG}</div>`;
+}
+
+// Compact polaroid card (used in day strips and items grid)
+function lbPolaroid({ primary_photo, category, name, label, ratio='square', big=false, primary=false }) {
+  const photo = lbPhoto({ primary_photo, category, name, ratio, primary });
+  const cap = label != null ? label : (name || '');
+  return `<div class="lb-polaroid${big?' big':''}">
+    ${photo}
+    ${cap ? `<div class="lb-polaroid-cap">${esc(cap)}</div>` : ''}
+  </div>`;
+}
+
+// Member dot helper (uses member color if available, else accent)
+function lbMemberDot(member, size = 6) {
+  const color = (member && member.color) || 'var(--accent)';
+  return `<span class="member-dot" style="width:${size}px;height:${size}px;background:${color}"></span>`;
+}
+
+// Cache members by id for quick lookup in day cards
+let _memberById = {};
+function refreshMemberCache() {
+  _memberById = Object.fromEntries(_members.map(m => [m.id, m]));
+}
+
 function renderDays() {
-  const scroll = document.getElementById('dayScroll');
-  const strip  = document.getElementById('weatherStrip');
-  const today  = new Date();
-  scroll.innerHTML = strip.innerHTML = '';
+  const list = document.getElementById('dayList');
+  if (!list) return;
+  const today = new Date();
+  list.innerHTML = '';
 
   for (let i = 0; i < 7; i++) {
     const d = new Date(today); d.setDate(today.getDate() + i);
@@ -423,46 +634,25 @@ function renderDays() {
     const dateKey = d.toISOString().slice(0,10);
     const wkd     = WKD_SHORT[d.getDay()];
     const dayNum  = d.getDate();
-    const moStr   = MONTHS_SHORT[d.getMonth()];
 
-    // Weather column above (kept for compatibility, but the card also shows
-    // a compact weather row inline so a user scanning a single column sees temp)
-    const wCol = document.createElement('div');
-    wCol.className = 'weather-col'; wCol.id = 'wcol_'+i;
-    wCol.innerHTML = `<div class="weather-cell${isToday?' today':''}">
-      <span style="font-size:20px" id="wicon_${i}">—</span>
-      <div><div style="font-weight:600" id="wtemp_${i}">—°F</div><div style="font-size:11px;opacity:.8" id="wdesc_${i}">Loading…</div></div>
-    </div>`;
-    strip.appendChild(wCol);
-
-    const col = document.createElement('div');
-    col.className = `day-card${isToday?' today':''}`;
-    col.id = 'dcol_'+i; col.dataset.date = dateKey;
-    col.innerHTML = `
-      ${isToday ? '<div class="day-card-today-badge">TODAY</div>' : ''}
-      <div class="day-card-wkd">${wkd}</div>
-      <div class="day-card-num">${dayNum}</div>
-      <div class="day-card-mo">${moStr}</div>
-      <div class="day-card-wx" id="wxi_${i}"><span style="opacity:.6">—</span></div>
-      <div class="day-card-body" id="doutfits_${i}">
-        <button class="day-card-empty" onclick="addPlannerEntry(${i},'${dateKey}')">+</button>
-        <div class="day-card-empty-hint">No outfit</div>
+    const row = document.createElement('div');
+    row.className = `lb-day-row${isToday ? ' today' : ''}`;
+    row.id = 'lb-day-'+i;
+    row.dataset.date = dateKey;
+    row.innerHTML = `
+      <div class="lb-day-hdr">
+        <div class="lb-day-hdr-left">
+          <span class="lb-day-num${isToday?' today':''}">${dayNum}</span>
+          <span class="lb-day-dow">${wkd}</span>
+          ${isToday ? '<span class="lb-day-today-badge">TODAY</span>' : ''}
+        </div>
+        <span class="lb-day-wx" id="lbWx_${i}"><span style="opacity:.5">—</span></span>
+      </div>
+      <div id="lbBody_${i}">
+        <div class="lb-day-empty" onclick="addPlannerEntry(${i},'${dateKey}')">+ plan an outfit</div>
       </div>`;
-    scroll.appendChild(col);
+    list.appendChild(row);
   }
-
-  // Scroll arrows
-  const sc = scroll;
-  const la = document.getElementById('scrollLeft');
-  const ra = document.getElementById('scrollRight');
-  function upd() {
-    la.style.opacity = sc.scrollLeft > 10 ? '1' : '0.3';
-    ra.style.opacity = sc.scrollLeft < sc.scrollWidth - sc.clientWidth - 10 ? '1' : '0.3';
-  }
-  sc.addEventListener('scroll', upd); upd();
-  la.onclick = () => sc.scrollBy({left:-160,behavior:'smooth'});
-  ra.onclick = () => sc.scrollBy({left:160,behavior:'smooth'});
-
   loadPlannerEntries();
 }
 
@@ -473,45 +663,49 @@ async function loadPlannerEntries() {
     const params = `start=${today.toISOString().slice(0,10)}&end=${end.toISOString().slice(0,10)}${_activeMember?'&member_id='+_activeMember:''}`;
     const entries = await window.api('GET', `/wardrobe/planner?${params}`);
 
-    // Pull all outfits once so we can decorate each entry with cover photo +
-    // item count + occasion tag (planner GET doesn't include these).
     let outfitMap = {};
     try {
       const outfits = await window.api('GET', '/wardrobe/outfits');
       outfitMap = Object.fromEntries((outfits||[]).map(o => [o.id, o]));
     } catch(e) {}
 
+    refreshMemberCache();
+
     for (let i = 0; i < 7; i++) {
       const d = new Date(today); d.setDate(today.getDate()+i);
       const dateKey = d.toISOString().slice(0,10);
       const dayEntries = entries.filter(e => e.plan_date === dateKey);
-      const el = document.getElementById('doutfits_'+i);
-      if (!el) continue;
+      const body = document.getElementById('lbBody_'+i);
+      if (!body) continue;
 
       if (!dayEntries.length) {
-        el.innerHTML = `<button class="day-card-empty" onclick="addPlannerEntry(${i},'${dateKey}')" title="Add outfit">+</button>
-          <div class="day-card-empty-hint">No outfit</div>`;
+        body.innerHTML = `<div class="lb-day-empty" onclick="addPlannerEntry(${i},'${dateKey}')">+ plan an outfit</div>`;
         continue;
       }
 
-      el.innerHTML = dayEntries.map(e => {
-        const outfit = outfitMap[e.outfit_id] || {};
-        const itemCount = outfit.items?.length || 0;
-        const firstOcc = (outfit.occasion_tags||[])[0] || e.occasion || '';
-        const tint = tintClassForOccasion(firstOcc);
-        const thumb = outfit.primary_photo
-          ? `<div class="day-card-thumb"><img src="/api/v1/attachments/thumb/${outfit.primary_photo.id}" alt="${esc(e.outfit_name||'Outfit')}" onerror="this.parentElement.classList.add('${tint}');this.outerHTML='${HANGER_SVG.replace(/'/g,'&#39;')}'"></div>`
-          : `<div class="day-card-thumb ${tint}">${HANGER_SVG}</div>`;
-        const subtitle = [
-          itemCount ? `${itemCount} item${itemCount===1?'':'s'}` : '',
-          firstOcc ? esc(firstOcc) : ''
-        ].filter(Boolean).join(' · ');
-        return `<div onclick="removePlannerEntry(${e.id})" style="cursor:pointer">
-          ${thumb}
-          <div class="day-card-outfit-name" style="margin-top:6px">${esc(e.outfit_name||'Outfit')}</div>
-          ${subtitle ? `<div class="day-card-outfit-meta">${subtitle}</div>` : ''}
-        </div>`;
-      }).join('');
+      body.innerHTML = `<div class="lb-day-scroll">
+        ${dayEntries.map(e => {
+          const outfit = outfitMap[e.outfit_id] || {};
+          const itemCount = outfit.items?.length || 0;
+          const member = e.family_member_id ? _memberById[e.family_member_id] : null;
+          const memberName = member?.display_name || e.member_name || '';
+          const polaroid = lbPolaroid({
+            primary_photo: outfit.primary_photo,
+            category: 'Clothing',
+            name: e.outfit_name || 'Outfit',
+            label: e.outfit_name || 'Outfit',
+            ratio: 'tall',
+            big: true
+          });
+          return `<div class="lb-day-card" onclick="removePlannerEntry(${e.id})" title="Remove from day">
+            ${polaroid}
+            <div class="lb-day-card-meta">
+              <span class="lb-day-card-owner">${memberName ? lbMemberDot(member, 6) + esc(memberName) : ''}</span>
+              ${itemCount ? `<span class="lb-day-card-pcs">${itemCount} pc${itemCount===1?'':'s'}</span>` : ''}
+            </div>
+          </div>`;
+        }).join('')}
+      </div>`;
     }
   } catch(e) {}
 }
@@ -523,15 +717,16 @@ async function addPlannerEntry(dayIdx, dateKey) {
     const opts = outfits.map(o => `<option value="${o.id}">${esc(o.name)} ${o.owner_name?'('+esc(o.owner_name)+')':''}</option>`).join('');
     const body = document.getElementById('wrdPlannerBody');
     body.innerHTML = `
-      <div style="font-weight:700;font-size:15px;margin-bottom:12px">Add outfit to day</div>
+      <div class="lb-modal-title">Day plan · ${dateKey}</div>
+      <div class="lb-modal-display">Add outfit to day</div>
       <div class="form-group"><label class="form-label">Outfit</label>
         <select class="form-select" id="planOutfitSel">${opts}</select>
       </div>
       <div class="form-group"><label class="form-label">Occasion</label>
         <input class="form-input" id="planOccasion" placeholder="e.g. School">
       </div>
-      <div style="display:flex;gap:8px;margin-top:12px">
-        <button class="btn btn-primary" style="flex:1" onclick="confirmPlannerAdd('${dateKey}')">Add</button>
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button class="lb-pill-btn" style="flex:1;padding:10px 16px;font-size:13px" onclick="confirmPlannerAdd('${dateKey}')">Add</button>
         <button class="btn btn-ghost" onclick="closePlannerModal()">Cancel</button>
       </div>`;
     document.getElementById('wrdPlannerOverlay').classList.add('open');
@@ -576,20 +771,16 @@ async function loadWeather() {
       const weather = day.weather?.[0];
       const icon = WEATHER_ICONS[weather?.main] || '🌤️';
       const temp = day.temp?.day
-        ? Math.round(day.temp.day) // already imperial if configured
+        ? Math.round(day.temp.day)
         : Math.round((day.main?.temp || 293) - 273.15) * 9/5 + 32;
-      const desc = weather?.description || '';
-      const tempStr = `${Math.round(temp)}°F`;
-      const wIcon = document.getElementById('wicon_'+i);
-      const wTemp = document.getElementById('wtemp_'+i);
-      const wDesc = document.getElementById('wdesc_'+i);
-      if (wIcon) wIcon.textContent = icon;
-      if (wTemp) wTemp.textContent = tempStr;
-      if (wDesc) wDesc.textContent = desc;
-
-      // Mirror into the day-card inline weather row
-      const wxi = document.getElementById('wxi_'+i);
-      if (wxi) wxi.innerHTML = `<span style="font-size:13px">${icon}</span><span>${tempStr}</span>`;
+      const tempStr = `${Math.round(temp)}°${'F'}`;
+      const cond = (weather?.main || '').toLowerCase();
+      const exceptional = cond.includes('rain') || cond.includes('snow') || cond.includes('thunder') || temp >= 90 || temp <= 32;
+      const wx = document.getElementById('lbWx_'+i);
+      if (wx) {
+        wx.innerHTML = `<span>${icon}</span><span>${tempStr}</span>`;
+        wx.classList.toggle('exceptional', exceptional);
+      }
     });
   } catch(e) {}
 }
@@ -607,24 +798,36 @@ async function loadItems() {
     if (occasion)url += `occasion=${encodeURIComponent(occasion)}&`;
     _allItems = await window.api('GET', url);
     const grid = document.getElementById('itemGrid');
-    if (!_allItems.length) { grid.innerHTML = emptyState('👔','No wardrobe items yet','Add items using the + button above'); return; }
-    const stripeFor = item => item.wardrobe_status === 'donated' ? 'gh-s-amber'
-      : item.wardrobe_status === 'sold' ? 'gh-s-gray'
-      : (item.times_worn||0) > 10 ? 'gh-s-green' : 'gh-s-blue';
-    grid.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${_itemCols},minmax(0,1fr));gap:10px">` +
-      _allItems.map(item => `
-        <div class="gh-card ${stripeFor(item)}" onclick="openItemDrawer(${item.id})">
-          <div class="gh-card-head">
-            <div class="gh-card-title">${esc(item.wardrobe_nickname||item.name)}</div>
-            ${item.attachment_count ? AttachmentManager.staticBadge('item', item.id, item.attachment_count) : ''}
-          </div>
-          <div class="gh-card-meta">${esc(item.category||'')}${item.brand?' · '+esc(item.brand):''}</div>
-          <div class="gh-card-body">
-            ${item.owner_name?`<div class="gh-card-row"><span>Owner</span><span class="ghv-dim">${esc(item.owner_name)}</span></div>`:''}
-            ${item.times_worn?`<div class="gh-card-row"><span>Worn</span><span class="ghv">${item.times_worn}×</span></div>`:''}
-            ${item.last_worn?`<div class="gh-card-row"><span>Last worn</span><span class="ghv-dim">${item.last_worn}</span></div>`:''}
-          </div>
-        </div>`).join('') + '</div>';
+    if (!_allItems.length) {
+      grid.className = '';
+      grid.innerHTML = `<div class="lb-empty">
+        <div class="lb-empty-icon">👔</div>
+        <div class="lb-empty-title">The closet's empty</div>
+        <div class="lb-empty-sub">Tap + to add your first piece. Photo + tag = 10 seconds.</div>
+      </div>`;
+      return;
+    }
+    refreshMemberCache();
+    grid.className = 'lb-items-grid';
+    grid.innerHTML = _allItems.map((item, k) => {
+      const tilt = `lb-tilt-${k % 4}`;
+      const member = item.wardrobe_owner_id ? _memberById[item.wardrobe_owner_id] : null;
+      const ownerName = item.owner_name || (member?.display_name || '');
+      const polaroid = lbPolaroid({
+        primary_photo: item.primary_photo,
+        category: item.category,
+        name: item.wardrobe_nickname || item.name,
+        label: item.wardrobe_nickname || item.name,
+        ratio: 'square'
+      });
+      return `<div class="lb-item-card ${tilt}" onclick="openItemDrawer(${item.id})">
+        ${polaroid}
+        <div class="lb-item-meta">
+          <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>
+          <span class="lb-item-meta-stat">${(item.times_worn||0) ? `${item.times_worn}w` : '·'}</span>
+        </div>
+      </div>`;
+    }).join('');
   } catch(e) { toast('Failed to load items', 'err'); }
 }
 
@@ -864,27 +1067,54 @@ async function loadOutfits() {
     const url = `/wardrobe/outfits${_activeMember?'?member_id='+_activeMember:''}`;
     const outfits = await window.api('GET', url);
     const el = document.getElementById('outfitList');
-    if (!outfits.length) { el.innerHTML = emptyState('👗','No outfits yet','Create an outfit to start planning'); return; }
+    if (!outfits.length) {
+      el.className = '';
+      el.innerHTML = `<div class="lb-empty">
+        <div class="lb-empty-icon">👗</div>
+        <div class="lb-empty-title">No outfits yet</div>
+        <div class="lb-empty-sub">Create an outfit to start planning your week</div>
+      </div>`;
+      return;
+    }
     let filtered = outfits;
     if (_outfitFilters.season)   filtered = filtered.filter(o => (o.season_tags||[]).includes(_outfitFilters.season));
     if (_outfitFilters.occasion) filtered = filtered.filter(o => (o.occasion_tags||[]).includes(_outfitFilters.occasion));
-    if (!filtered.length) { el.innerHTML = emptyState('\u{1F457}','No outfits match','Try changing filters'); return; }
-    el.innerHTML = `<div style="display:grid;grid-template-columns:repeat(${_outfitCols},minmax(0,1fr));gap:10px">` +
-      filtered.map(o => `
-        <div class="gh-card gh-s-blue" onclick="openOutfitDrawer(${o.id})">
-          ${o.primary_photo
-            ? `<div class="outfit-card-cover"><img src="/api/v1/attachments/thumb/${o.primary_photo.id}" alt="${esc(o.name)}" onerror="this.parentElement.style.display='none'"></div>`
-            : ''}
-          <div class="gh-card-head">
-            <div class="gh-card-title">${esc(o.name)}</div>
-            <span class="gh-badge gh-badge-gray">${o.items?.length||0} items</span>
-          </div>
-          <div class="gh-card-meta">${esc(o.owner_name||'All members')}</div>
-          ${(o.occasion_tags?.length||o.season_tags?.length) ? `
-          <div class="gh-card-footer"><div class="gh-card-tags">
-            ${[...o.occasion_tags||[],...o.season_tags||[]].map(t=>`<span class="gh-badge gh-badge-blue">${esc(t)}</span>`).join('')}
-          </div></div>` : ''}
-        </div>`).join('') + '</div>';
+    if (!filtered.length) {
+      el.className = '';
+      el.innerHTML = `<div class="lb-empty">
+        <div class="lb-empty-icon">👗</div>
+        <div class="lb-empty-title">No outfits match</div>
+        <div class="lb-empty-sub">Try changing filters</div>
+      </div>`;
+      return;
+    }
+    refreshMemberCache();
+    el.className = 'lb-outfits-grid';
+    el.innerHTML = filtered.map(o => {
+      const member = o.family_member_id ? _memberById[o.family_member_id] : null;
+      const ownerName = member?.display_name || o.owner_name || '';
+      // Cover photo (real or fallback)
+      const cover = o.primary_photo
+        ? `<img src="/api/v1/attachments/thumb/${o.primary_photo.id}" alt="${esc(o.name)}" onerror="this.outerHTML='${HANGER_SVG.replace(/'/g,'&#39;')}';this.parentElement.classList.add('lb-ph','lb-ph-hanger')">`
+        : `<div class="lb-ph lb-ph-hanger" style="width:100%;height:100%;border-radius:0">${HANGER_SVG}</div>`;
+      // Tags shown on the card (top 3, occasion first then season)
+      const allTags = [...(o.occasion_tags||[]), ...(o.season_tags||[])].slice(0,3);
+      // Item thumbnails strip (up to 5 small dots — placeholder color tiles since item primary_photo isn't on outfit GET)
+      const itemDots = (o.items||[]).slice(0,5).map(it => {
+        const catKey = CAT_PH_KEY[it.category] || '';
+        return `<div class="lb-outfit-card-item-thumb lb-ph${catKey?' lb-ph-tile cat-'+catKey:' lb-ph-hanger'}" title="${esc(it.wardrobe_nickname||it.name||'')}"></div>`;
+      }).join('');
+      return `<div class="lb-outfit-card" onclick="openOutfitDrawer(${o.id})">
+        <div class="lb-outfit-card-photo">${cover}</div>
+        <div class="lb-outfit-card-grad"></div>
+        ${ownerName ? `<div class="lb-outfit-card-owner">${lbMemberDot(member, 5)}<span>${esc(ownerName)}</span></div>` : ''}
+        <div class="lb-outfit-card-body">
+          <div class="lb-outfit-card-name">${esc(o.name)}</div>
+          ${itemDots ? `<div class="lb-outfit-card-items">${itemDots}</div>` : ''}
+          ${allTags.length ? `<div class="lb-outfit-card-tags">${allTags.map(t=>`<span class="lb-outfit-card-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+        </div>
+      </div>`;
+    }).join('');
   } catch(e) {}
 }
 
@@ -1059,30 +1289,104 @@ async function loadInsights() {
   try {
     const url = `/wardrobe/insights${_activeMember?'?member_id='+_activeMember:''}`;
     const d = await window.api('GET', url);
-    document.getElementById('insightsGrid').innerHTML = [
-      [d.total||0,      'Items'],
-      [d.outfits||0,    'Outfits'],
-      [d.never_worn||0, 'Never Worn'],
-      [`$${(d.total_value||0).toFixed(0)}`, 'Wardrobe Value'],
-    ].map(([v,l]) => `
-      <div class="insight-card">
-        <div class="insight-val">${v}</div>
-        <div class="insight-label">${l}</div>
-      </div>`).join('');
+    const root = document.getElementById('lbInsights');
+    if (!root) return;
+    refreshMemberCache();
 
-    const mw = document.getElementById('mostWornList');
-    mw.innerHTML = (d.most_worn||[]).length
-      ? d.most_worn.map(i => `
-          <div class="card" style="padding:10px 12px;margin-bottom:8px;display:flex;justify-content:space-between">
-            <div><div style="font-weight:600">${esc(i.wardrobe_nickname||i.name)}</div>
-              <div style="font-size:12px;color:var(--text3)">${esc(i.category||'')} ${i.brand?'· '+esc(i.brand):''}</div>
+    const nowMonth = new Date().toLocaleString('en-US', { month:'long' });
+    const year = new Date().getFullYear();
+    const total = d.total || 0;
+    const worn  = total - (d.never_worn || 0);
+    const neverWorn = d.never_worn || 0;
+    const value = Math.round(d.total_value || 0);
+
+    const heroEyebrow = `SEASON · ${nowMonth.toUpperCase()} ${year}`;
+    const heroSentence = `${worn} worn, <span class="neverworn">${neverWorn} never worn,</span> $${value.toLocaleString()} on the rack.`;
+
+    // Section: Never worn (top 8 in triage cards)
+    const neverWornItems = d.never_worn_items || [];
+    const triageHTML = neverWornItems.length ? `
+      <div class="lb-section-hdr">
+        <div>
+          <span class="lb-section-hdr-title">Never worn</span>
+          <span class="lb-section-hdr-count">· ${neverWornItems.length}</span>
+        </div>
+        <button class="lb-pill-btn" onclick="toast('Bulk triage coming soon','info')">Triage all</button>
+      </div>
+      <div class="lb-triage-grid">
+        ${neverWornItems.slice(0,8).map((it, k) => {
+          const polaroid = lbPolaroid({
+            primary_photo: it.primary_photo,
+            category: it.category,
+            name: it.wardrobe_nickname || it.name,
+            label: it.wardrobe_nickname || it.name,
+            ratio: 'square',
+            big: true
+          });
+          return `<div class="lb-tilt-${k%4}">
+            <div onclick="openItemDrawer(${it.id})" style="cursor:pointer">${polaroid}</div>
+            <div class="lb-triage-actions">
+              <button class="keep" onclick="event.stopPropagation();toast('Tagged keep','ok')">Keep</button>
+              <button class="donate" onclick="event.stopPropagation();toast('Tagged donate','ok')">Donate</button>
+              <button class="sell" onclick="event.stopPropagation();toast('Tagged sell','ok')">Sell</button>
             </div>
-            <div style="text-align:right;flex-shrink:0">
-              <div style="font-weight:700;color:var(--accent)">${i.times_worn}×</div>
-              ${i.cost_per_wear?`<div style="font-size:11px;color:var(--text3)">$${i.cost_per_wear}/wear</div>`:''}
-            </div>
-          </div>`).join('')
-      : '<div style="color:var(--text3);padding:16px">No wear log entries yet</div>';
+          </div>`;
+        }).join('')}
+      </div>` : '';
+
+    // Section: Most worn (5 across)
+    const mostWornHTML = (d.most_worn || []).length ? `
+      <div class="lb-section-hdr">
+        <div>
+          <span class="lb-section-hdr-title">Most worn</span>
+          <span class="lb-section-hdr-count">· ${d.most_worn.length}</span>
+        </div>
+      </div>
+      <div class="lb-most-grid">
+        ${d.most_worn.map(it => {
+          const photo = lbPhoto({
+            primary_photo: it.primary_photo,
+            category: it.category,
+            name: it.wardrobe_nickname || it.name,
+            ratio: 'square'
+          });
+          const cpw = it.cost_per_wear ? `$${it.cost_per_wear}/W` : '—';
+          return `<div class="lb-most-card" onclick="openItemDrawer(${it.id})" style="cursor:pointer">
+            ${photo}
+            <div class="lb-most-name">${esc(it.wardrobe_nickname || it.name)}</div>
+            <div class="lb-most-stat">${it.times_worn} WEARS · ${cpw}</div>
+          </div>`;
+        }).join('')}
+      </div>` : '';
+
+    // Section: Spend by member (proportional bar)
+    const spendByMember = d.spend_by_member || [];
+    const spendHTML = spendByMember.length ? `
+      <div class="lb-section-hdr">
+        <div><span class="lb-section-hdr-title">Spend by member</span></div>
+      </div>
+      <div class="lb-spend-row">
+        ${spendByMember.map(s => {
+          const member = _memberById[s.member_id] || {};
+          const color = member.color || 'var(--text3)';
+          const flex = Math.max(s.total, 1);
+          return `<div class="lb-spend-cell" style="flex:${flex};border-left-color:${color}">
+            <div class="lb-spend-cell-name">${esc((s.name||'?').toUpperCase())}</div>
+            <div class="lb-spend-cell-val">$${Math.round(s.total).toLocaleString()}</div>
+          </div>`;
+        }).join('')}
+      </div>` : '';
+
+    root.innerHTML = `
+      <div class="lb-insights">
+        <div class="lb-hero">
+          <div class="lb-hero-eyebrow">${heroEyebrow}</div>
+          <div class="lb-hero-num">${heroSentence}</div>
+        </div>
+        ${triageHTML}
+        ${mostWornHTML}
+        ${spendHTML}
+      </div>`;
   } catch(e) {}
 }
 
