@@ -136,6 +136,7 @@ router.put('/items/:id', requireAuth, (req, res) => {
     const purchase_price = pick('purchase_price');
     const purchase_date  = pick('purchase_date');
     const notes          = pick('notes');
+    const upc_barcode    = pick('upc_barcode');
 
     // Wardrobe-specific fields.
     const wardrobe_owner_id      = pick('wardrobe_owner_id');
@@ -160,6 +161,7 @@ router.put('/items/:id', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE items SET
         name=?, brand=?, category=?, purchase_price=?, purchase_date=?, notes=?,
+        upc_barcode=?,
         wardrobe_owner_id=?, wardrobe_sequence=?, wardrobe_nickname=?,
         season_tags=?, occasion_tags=?,
         wardrobe_status=?, wardrobe_status_date=?, wardrobe_status_notes=?,
@@ -169,6 +171,7 @@ router.put('/items/:id', requireAuth, (req, res) => {
       WHERE id=?
     `).run(
       name, brand, category, purchase_price, purchase_date, notes,
+      upc_barcode,
       wardrobe_owner_id, wardrobe_sequence, wardrobe_nickname,
       season_tags_in, occasion_tags_in,
       wardrobe_status, wardrobe_status_date, wardrobe_status_notes,

@@ -255,6 +255,42 @@
     }
     .lb-modal-title{font-family:var(--mono);font-size:10px;color:var(--text3);
       letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px}
+    /* ── Barcode scanner (ported from inventory) ─────────────── */
+    .scanner-overlay {
+      position:fixed; inset:0; z-index:600; background:#000;
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+    }
+    .scanner-overlay.open { display:flex; }
+    #wrdScannerVideo { width:100%; max-width:400px; border-radius:var(--r,10px); }
+    .scanner-guide {
+      position:absolute; width:260px; height:160px;
+      border:3px solid var(--accent); border-radius:12px;
+      box-shadow: 0 0 0 9999px rgba(0,0,0,.6);
+      pointer-events:none;
+    }
+    .scanner-line {
+      position:absolute; width:100%; height:2px;
+      background:linear-gradient(90deg,transparent,var(--accent),transparent);
+      animation:wrdScan 2s ease-in-out infinite;
+      top:50%;
+    }
+    @keyframes wrdScan { 0%,100%{top:10%} 50%{top:90%} }
+    .scanner-label {
+      color:white; font-size:13px; margin-top:16px; opacity:.7;
+      font-family:var(--mono);
+    }
+    .scanner-close {
+      position:absolute; top:20px; right:20px;
+      width:40px; height:40px; background:rgba(255,255,255,.15);
+      border:none; border-radius:50%; color:white; font-size:20px;
+      cursor:pointer;
+    }
+    .upc-warn {
+      background:rgba(245,158,11,.10); border:1px solid rgba(245,158,11,.32);
+      color:var(--amber); padding:8px 12px; border-radius:6px; font-size:12px;
+      margin-top:8px; line-height:1.45;
+    }
+    .upc-manual-link a { color:var(--accent); text-decoration:underline; }
     .lb-modal-display{font-size:22px;font-weight:300;letter-spacing:-.03em;margin-bottom:14px}
   </style>
 </head>
@@ -265,6 +301,7 @@
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
 <script src="/attachments.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js" crossorigin="anonymous"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
@@ -321,6 +358,17 @@
     <button class="gh-drawer-close" onclick="closeDrawer('itemDrawer')">×</button>
   </div>
   <div class="gh-drawer-body">
+
+    <!-- UPC / Barcode row — scan or type, then Lookup pulls product data -->
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input class="form-input" id="iBarcode" placeholder="UPC barcode…" style="flex:1;font-family:var(--mono)">
+      <button type="button" class="btn btn-ghost" id="wrdScanBtn" title="Scan barcode" onclick="wrdStartScan()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="5" height="5"/><rect x="16" y="3" width="5" height="5"/><rect x="3" y="16" width="5" height="5"/><path d="M21 16h-3v3M18 21h3M13 3v3M13 8v2M13 13h2M16 13v2M13 18v3M16 18h-3"/></svg>
+      </button>
+      <button type="button" class="btn btn-ghost" id="wrdUpcBtn" onclick="wrdTriggerUPCLookup()">Lookup</button>
+    </div>
+    <div id="wrdUpcFeedback" style="display:none;margin-bottom:10px"></div>
+
     <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="iName"></div>
     <div class="form-row">
       <div class="form-group"><label class="form-label">Category</label>
@@ -419,6 +467,14 @@
       <button class="btn btn-ghost" id="oDeleteBtn" style="display:none" onclick="deleteOutfit()">Delete</button>
     </div>
   </div>
+</div>
+
+<!-- Barcode scanner overlay -->
+<div class="scanner-overlay" id="wrdScannerOverlay">
+  <video id="wrdScannerVideo" autoplay playsinline></video>
+  <div class="scanner-guide"><div class="scanner-line"></div></div>
+  <div class="scanner-label">Point camera at barcode</div>
+  <button class="scanner-close" id="wrdScannerClose" onclick="wrdCloseScanner()">✕</button>
 </div>
 
 <!-- Planner add-outfit modal (replaces broken LT.modal call) -->
@@ -567,6 +623,277 @@ function loadTabContent() {
   if (_currentTab === 'items')    loadItems();
   if (_currentTab === 'outfits')  loadOutfits();
   if (_currentTab === 'insights') loadInsights();
+}
+
+// ── Barcode scanner + UPC lookup (ported from inventory) ────────
+// All functions prefixed wrd_ to avoid colliding with anything else on the page.
+// Uses BarcodeDetector when available, ZXing as fallback.
+const WRD_CLOTHING_CATS = ['Clothing','Shoes','Accessories','Jewelry','Hats','Bags'];
+let _wrdScannerActive = false;
+let _wrdScanStream = null;
+let _wrdCodeReader = null;
+
+async function wrdStartScan() {
+  try {
+    const video = document.getElementById('wrdScannerVideo');
+    _wrdScanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    video.srcObject = _wrdScanStream;
+    await video.play();
+    document.getElementById('wrdScannerOverlay').classList.add('open');
+    _wrdScannerActive = true;
+
+    if (typeof BarcodeDetector !== 'undefined') {
+      await _wrdScanWithNativeDetector(video);
+    } else if (typeof ZXing !== 'undefined') {
+      await _wrdScanWithZXing();
+    } else {
+      wrdCloseScanner();
+      toast('Barcode scanning not supported on this browser', 'err');
+    }
+  } catch(err) {
+    wrdCloseScanner();
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+      toast('Camera permission denied — tap Allow when prompted', 'err');
+    } else if (err.name === 'NotFoundError') {
+      toast('No camera found on this device', 'err');
+    } else if (err.name === 'NotReadableError') {
+      toast('Camera in use by another app', 'err');
+    } else {
+      toast('Camera error: ' + err.message, 'err');
+    }
+  }
+}
+
+async function _wrdScanWithNativeDetector(video) {
+  const wantFormats = ['ean_13','ean_8','upc_a','upc_e','code_128','code_39','qr_code','itf'];
+  let formats = wantFormats;
+  try {
+    const supported = await BarcodeDetector.getSupportedFormats();
+    formats = wantFormats.filter(f => supported.includes(f));
+    if (!formats.length) formats = wantFormats;
+  } catch {}
+  const detector = new BarcodeDetector({ formats });
+  const poll = async () => {
+    if (!_wrdScannerActive) return;
+    try {
+      const results = await detector.detect(video);
+      if (results.length > 0 && _wrdScannerActive) {
+        const raw = results[0].rawValue;
+        _wrdScannerActive = false;
+        wrdCloseScanner();
+        document.getElementById('iBarcode').value = raw;
+        const fb = document.getElementById('wrdUpcFeedback');
+        fb.innerHTML = `<div style="color:var(--green);font-size:13px;padding:6px 0">📷 Scanned: <strong>${esc(raw)}</strong></div>`;
+        fb.style.display = 'block';
+        wrdTriggerUPCLookup();
+        return;
+      }
+    } catch {}
+    if (_wrdScannerActive) requestAnimationFrame(poll);
+  };
+  requestAnimationFrame(poll);
+}
+
+async function _wrdScanWithZXing() {
+  let hints = null;
+  try {
+    if (ZXing.BarcodeFormat && ZXing.DecodeHintType) {
+      hints = new Map();
+      hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [
+        ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+        ZXing.BarcodeFormat.UPC_A,  ZXing.BarcodeFormat.UPC_E,
+        ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
+        ZXing.BarcodeFormat.QR_CODE,
+      ]);
+      hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    }
+  } catch {}
+  _wrdCodeReader = new ZXing.BrowserMultiFormatReader(hints);
+  let deviceId = null;
+  try {
+    const devices = await _wrdCodeReader.listVideoInputDevices();
+    const back = devices.find(d =>
+      d.label.toLowerCase().includes('back') ||
+      d.label.toLowerCase().includes('rear') ||
+      d.label.toLowerCase().includes('environment'));
+    deviceId = back?.deviceId || devices[0]?.deviceId || null;
+  } catch {}
+  await _wrdCodeReader.decodeFromVideoDevice(deviceId, 'wrdScannerVideo', (result) => {
+    if (result && _wrdScannerActive) {
+      _wrdScannerActive = false;
+      const raw = result.getText();
+      wrdCloseScanner();
+      document.getElementById('iBarcode').value = raw;
+      const fb = document.getElementById('wrdUpcFeedback');
+      fb.innerHTML = `<div style="color:var(--green);font-size:13px;padding:6px 0">📷 Scanned: <strong>${esc(raw)}</strong></div>`;
+      fb.style.display = 'block';
+      wrdTriggerUPCLookup();
+    }
+  });
+}
+
+function wrdCloseScanner() {
+  if (_wrdScanStream) { _wrdScanStream.getTracks().forEach(t => t.stop()); _wrdScanStream = null; }
+  const video = document.getElementById('wrdScannerVideo');
+  if (video) video.srcObject = null;
+  _wrdCodeReader?.reset();
+  document.getElementById('wrdScannerOverlay').classList.remove('open');
+  _wrdScannerActive = false;
+}
+
+// Map a UPC category breadcrumb to one of our wardrobe categories.
+// Returns '' if no clothing-adjacent match found.
+function wrdMapCategory(upcCat) {
+  if (!upcCat) return '';
+  const s = upcCat.toLowerCase();
+  if (/shoe|boot|sneaker|sandal|loafer|footwear/.test(s))                  return 'Shoes';
+  if (/bag|luggage|backpack|purse|handbag|wallet|tote/.test(s))            return 'Bags';
+  if (/hat|cap|beanie|headwear/.test(s))                                   return 'Hats';
+  if (/jewelry|jewellery|necklace|earring|bracelet|ring(?!gtone)|watch/.test(s)) return 'Jewelry';
+  if (/accessor|scarf|tie|belt|glove|sock|tights|hosiery|sunglass/.test(s))     return 'Accessories';
+  if (/clothing|apparel|shirt|pant|jean|dress|skirt|jacket|coat|sweater|hoodie|t-shirt|tshirt|underwear|outerwear/.test(s)) return 'Clothing';
+  return ''; // not clothing-adjacent
+}
+
+async function wrdTriggerUPCLookup() {
+  const upc = document.getElementById('iBarcode').value.trim();
+  if (!upc) { toast('Enter a UPC barcode', 'err'); return; }
+  const btn = document.getElementById('wrdUpcBtn'); btn.textContent = '…'; btn.disabled = true;
+  const fb = document.getElementById('wrdUpcFeedback');
+  fb.style.display = 'none';
+  try {
+    let d;
+    try {
+      d = await window.api('GET', `/inventory/upc/${upc}`);
+    } catch {
+      fb.innerHTML = `<div class="upc-manual-link" style="font-size:12px;color:var(--text2);padding:6px 0">Product not found in UPC database. <a href="https://www.google.com/search?q=${encodeURIComponent(upc)}" target="_blank">Search Google ↗</a></div>`;
+      fb.style.display = 'block';
+      return;
+    }
+    fb.innerHTML = `<div style="color:var(--text2);font-size:12px;padding:6px 0">⏳ Parsing product details…</div>`;
+    fb.style.display = 'block';
+    const parsed = await wrdParseTitle(d.name || '', d);
+    wrdShowConfirmPanel(d, parsed);
+  } catch(err) {
+    toast('Lookup failed: ' + (err.message||err), 'err');
+  } finally {
+    btn.textContent = 'Lookup'; btn.disabled = false;
+  }
+}
+
+async function wrdParseTitle(rawTitle, upcData) {
+  try {
+    const parsed = await window.api('POST', '/inventory/parse-title', { title: rawTitle });
+    return {
+      name:        parsed.name        || upcData.name        || '',
+      brand:       upcData.brand      || parsed.brand        || '',
+      category:    parsed.category    || upcData.category    || '',
+      description: parsed.description || upcData.description || '',
+      size:        parsed.size        || '',
+      source:      parsed.source,
+    };
+  } catch {
+    return {
+      name:        upcData.name      || '',
+      brand:       upcData.brand     || '',
+      category:    upcData.category  || '',
+      description: upcData.description || '',
+      size:        '',
+      source:      'upc_raw',
+    };
+  }
+}
+
+function wrdShowConfirmPanel(upcData, parsed) {
+  const upcRawCat = upcData.category || parsed.category || '';
+  const mappedCat = wrdMapCategory(upcRawCat);
+  const isClothing = WRD_CLOTHING_CATS.includes(mappedCat);
+  const srcLabel = parsed.source === 'ai' ? '✦ AI parsed'
+                 : parsed.source === 'regex' ? '⚙ Auto parsed'
+                 : 'UPC data';
+
+  const warn = (!isClothing && upcRawCat) ? `
+    <div class="upc-warn">
+      ⚠️ This product looks like <strong>${esc(upcRawCat)}</strong>, not clothing.
+      You can still apply it, but consider adding it via Inventory → Items instead.
+    </div>` : '';
+
+  const html = `
+    <div style="background:var(--bg3);border:1px solid var(--border2);border-radius:var(--r,10px);padding:14px;margin-top:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:12px;font-family:var(--mono);color:var(--accent);letter-spacing:.06em;text-transform:uppercase">${srcLabel}</span>
+        <span style="font-size:11px;color:var(--text3)">Review and edit before applying</span>
+      </div>
+      ${warn}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Name</div>
+          <input class="form-input" id="wrdPcName" value="${esc(parsed.name)}" style="font-size:13px;padding:8px 10px">
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Brand</div>
+          <input class="form-input" id="wrdPcBrand" value="${esc(parsed.brand)}" style="font-size:13px;padding:8px 10px">
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Category</div>
+          ${upcRawCat ? `<div style="font-size:10px;color:var(--text3);margin-bottom:4px;padding:4px 8px;background:var(--bg);border-radius:4px;border:1px solid var(--border)">UPC: ${esc(upcRawCat)}</div>` : ''}
+          <select class="form-select" id="wrdPcCat" style="font-size:13px;padding:8px 10px">
+            <option value="">— pick —</option>
+            ${WRD_CLOTHING_CATS.map(c => `<option value="${c}"${c===mappedCat?' selected':''}>${c}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Size</div>
+          <input class="form-input" id="wrdPcSize" value="${esc(parsed.size)}" style="font-size:13px;padding:8px 10px">
+        </div>
+      </div>
+      <div style="margin-bottom:10px">
+        <div style="font-family:var(--mono);font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Description</div>
+        <input class="form-input" id="wrdPcDesc" value="${esc(parsed.description)}" style="font-size:13px;padding:8px 10px">
+      </div>
+      <input type="hidden" id="wrdPcUpcCat" value="${esc(upcRawCat)}">
+      <div style="display:flex;gap:8px;margin-top:6px">
+        <button type="button" class="btn btn-primary" style="flex:1" onclick="wrdApplyParsedFields()">Apply to form</button>
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('wrdUpcFeedback').style.display='none'">Cancel</button>
+      </div>
+    </div>`;
+  const fb = document.getElementById('wrdUpcFeedback');
+  fb.innerHTML = html;
+  fb.style.display = 'block';
+}
+
+async function wrdApplyParsedFields() {
+  const name   = document.getElementById('wrdPcName')?.value?.trim();
+  const brand  = document.getElementById('wrdPcBrand')?.value?.trim();
+  const cat    = document.getElementById('wrdPcCat')?.value?.trim();
+  const desc   = document.getElementById('wrdPcDesc')?.value?.trim();
+  const size   = document.getElementById('wrdPcSize')?.value?.trim();
+  const upcCat = document.getElementById('wrdPcUpcCat')?.value?.trim();
+
+  if (name)  document.getElementById('iName').value  = name;
+  if (brand) document.getElementById('iBrand').value = brand;
+  if (cat) {
+    const sel = document.getElementById('iCategory');
+    if (sel) {
+      // Make sure the option exists, then select it
+      let opt = Array.from(sel.options).find(o => o.value === cat);
+      if (!opt) { opt = new Option(cat, cat); sel.appendChild(opt); }
+      sel.value = cat;
+    }
+  }
+  // Size + UPC raw category are appended to notes (no dedicated wardrobe field)
+  const notesEl = document.getElementById('iNotes');
+  if (notesEl && !notesEl.value.trim()) {
+    const parts = [];
+    if (desc)   parts.push(desc);
+    if (size)   parts.push(`Size: ${size}`);
+    if (upcCat) parts.push(`Product category (from barcode): ${upcCat}`);
+    if (parts.length) notesEl.value = parts.join('\n');
+  }
+  const fb = document.getElementById('wrdUpcFeedback');
+  fb.innerHTML = `<div style="color:var(--green);font-size:13px;padding:6px 0">✓ Fields applied — review and save</div>`;
+  setTimeout(() => { fb.style.display = 'none'; }, 2500);
+  document.getElementById('iName').focus();
 }
 
 // ── Planner (Lookbook) ──────────────────────────────────────────
@@ -885,6 +1212,9 @@ async function openItemDrawer(id) {
   document.getElementById('iPDate').value = '';
   document.getElementById('iNotes').value = '';
   document.getElementById('iStatus').value = 'active';
+  document.getElementById('iBarcode').value = '';
+  const wrdFb = document.getElementById('wrdUpcFeedback');
+  if (wrdFb) { wrdFb.style.display = 'none'; wrdFb.innerHTML = ''; }
   toggleStatusFields();
 
   if (id) {
@@ -896,6 +1226,7 @@ async function openItemDrawer(id) {
       document.getElementById('iPrice').value    = item.purchase_price||'';
       document.getElementById('iPDate').value    = item.purchase_date||'';
       document.getElementById('iNotes').value    = item.notes||'';
+      document.getElementById('iBarcode').value  = item.upc_barcode||'';
       await GH_SELECT.init('iCategory', 'wardrobe_category', item.category||'Clothing', { allowAdd: false });
       document.getElementById('iOwner').value    = item.wardrobe_owner_id||'';
       await GH_SELECT.init('iStatus', 'wardrobe_status', item.wardrobe_status||'active', { allowAdd: false });
@@ -1000,6 +1331,7 @@ async function saveItem(opts = {}) {
     purchase_price:      parseFloat(document.getElementById('iPrice').value) || null,
     purchase_date:       document.getElementById('iPDate').value || null,
     notes:               document.getElementById('iNotes').value.trim() || null,
+    upc_barcode:         document.getElementById('iBarcode').value.trim() || null,
     wardrobe_owner_id:   parseInt(document.getElementById('iOwner').value)||null,
     wardrobe_nickname:   document.getElementById('iNickname').value.trim()||null,
     season_tags:         _iSeasonSel,
@@ -1033,6 +1365,7 @@ async function saveItem(opts = {}) {
         purchase_price: parseFloat(document.getElementById('iPrice').value)||null,
         purchase_date:  document.getElementById('iPDate').value||null,
         notes: document.getElementById('iNotes').value.trim()||null,
+        upc_barcode: document.getElementById('iBarcode').value.trim()||null,
         parent_type: 'location', parent_id: parentId, quantity: 1
       };
       const created = await window.api('POST', '/inventory/items', invPayload);
