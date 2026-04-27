@@ -63,7 +63,7 @@
     .lb-ph::before{content:"";position:absolute;inset:0;
       background-image:repeating-linear-gradient(45deg,transparent 0 8px,rgba(255,255,255,.02) 8px 16px);
       pointer-events:none}
-    .lb-ph img{position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
+    .lb-ph img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:cover;display:block}
 
     /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
     .lb-polaroid{padding:5px 5px 17px;background:#f4ece0;border-radius:3px;
@@ -501,8 +501,8 @@
   </div>
  </div><!-- /drawer -->
 </div><!-- /drawer-overlay -->
-
-<!-- Barcode scanner overlay -->
+<!-- oPhotoPanel stub — outfit images are derived from items, not uploaded directly -->
+<div id="oPhotoPanel" style="display:none"></div>
 <div class="scanner-overlay" id="wrdScannerOverlay">
   <video id="wrdScannerVideo" autoplay playsinline></video>
   <div class="scanner-guide"><div class="scanner-line"></div></div>
@@ -1558,6 +1558,7 @@ async function loadOutfits() {
     }
     refreshMemberCache();
     el.className = 'lb-outfits-grid';
+    el.style.gridTemplateColumns = `repeat(${_itemCols},1fr)`;
     el.innerHTML = filtered.map(o => {
       const member = o.family_member_id ? _memberById[o.family_member_id] : null;
       const ownerName = member?.display_name || o.owner_name || '';
@@ -1726,7 +1727,7 @@ async function loadInsights() {
         </div>
         <button class="lb-pill-btn" onclick="toast('Bulk triage coming soon','info')">Triage all</button>
       </div>
-      <div class="lb-triage-grid">
+      <div class="lb-triage-grid" style="grid-template-columns:repeat(${_itemCols},1fr)">
         ${neverWornItems.slice(0,8).map((it, k) => {
           const polaroid = lbPolaroid({
             primary_photo: it.primary_photo,
@@ -1755,7 +1756,7 @@ async function loadInsights() {
           <span class="lb-section-hdr-count">· ${d.most_worn.length}</span>
         </div>
       </div>
-      <div class="lb-most-grid">
+      <div class="lb-most-grid" style="grid-template-columns:repeat(${_itemCols},1fr)">
         ${d.most_worn.map(it => {
           const photo = lbPhoto({
             primary_photo: it.primary_photo,
