@@ -241,14 +241,20 @@ router.get('/by-ref/:ref', (req, res) => {
 
 router.get('/items', (req, res) => {
   try {
-    const { parent_type, parent_id, category, search, tag, archived, is_business } = req.query;
+    const { parent_type, parent_id, category, search, tag, archived, is_business, exclude_clothing } = req.query;
     const showArchived = archived === '1';
+    const CLOTHING_CATS = ['Clothing','Shoes','Accessories','Jewelry','Hats','Bags'];
     let sql = ITEM_WITH_THUMB + ' WHERE i.is_active=1';
     const params = [];
     sql += showArchived ? ' AND i.is_archived=1' : ' AND i.is_archived=0';
     if (parent_type)   { sql += ' AND i.parent_type=?'; params.push(parent_type); }
     if (parent_id)     { sql += ' AND i.parent_id=?';   params.push(parent_id); }
     if (category)      { sql += ' AND i.category=?';    params.push(category); }
+    // Exclude wardrobe clothing categories unless caller opts in or filtered by category
+    if (exclude_clothing === '1' && !category) {
+      sql += ` AND (i.category IS NULL OR i.category NOT IN (${CLOTHING_CATS.map(()=>'?').join(',')}))`;
+      params.push(...CLOTHING_CATS);
+    }
     if (is_business === '0') { sql += ' AND i.is_business=0'; }
     if (is_business === '1') { sql += ' AND i.is_business=1'; }
     if (search) {

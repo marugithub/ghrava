@@ -202,30 +202,35 @@ router.get('/outfits', (req, res) => {
       ORDER BY o.name
     `).all(...params);
 
-    // Attach items to each outfit
+    // Attach items to each outfit (include primary_photo_id for each item)
     const itemStmt = db.prepare(`
-      SELECT oi.sort_order, i.id, i.name, i.category, i.brand, i.wardrobe_nickname
+      SELECT oi.sort_order, i.id, i.name, i.category, i.brand, i.wardrobe_nickname,
+        (SELECT id FROM attachments WHERE entity_type='item' AND entity_id=i.id AND is_image=1 AND is_primary_photo=1 LIMIT 1) AS primary_photo_id
       FROM wardrobe_outfit_items oi
       JOIN items i ON i.id=oi.item_id
       WHERE oi.outfit_id=?
       ORDER BY oi.sort_order
     `);
-    const photoStmt = db.prepare(
-      `SELECT id FROM attachments
-         WHERE entity_type='outfit' AND entity_id=? AND is_image=1 AND is_primary_photo=1
-         LIMIT 1`
-    );
-    const fallbackPhotoStmt = db.prepare(
-      `SELECT id FROM attachments
-         WHERE entity_type='outfit' AND entity_id=? AND is_image=1
-         ORDER BY sort_order, created_at LIMIT 1`
-    );
+    const itemPhotoStmt = db.prepare(`
+      SELECT a.id FROM wardrobe_outfit_items oi
+      JOIN attachments a ON a.entity_type='item' AND a.entity_id=oi.item_id
+        AND a.is_image=1 AND a.is_primary_photo=1
+      WHERE oi.outfit_id=?
+      ORDER BY oi.sort_order LIMIT 1
+    `);
+    const itemPhotoFallbackStmt = db.prepare(`
+      SELECT a.id FROM wardrobe_outfit_items oi
+      JOIN attachments a ON a.entity_type='item' AND a.entity_id=oi.item_id
+        AND a.is_image=1
+      WHERE oi.outfit_id=?
+      ORDER BY oi.sort_order LIMIT 1
+    `);
     outfits.forEach(o => {
       o.items = itemStmt.all(o.id);
       try { o.season_tags = o.season_tags ? JSON.parse(o.season_tags) : []; } catch { o.season_tags = []; }
       try { o.occasion_tags = o.occasion_tags ? JSON.parse(o.occasion_tags) : []; } catch { o.occasion_tags = []; }
-      // Primary photo: explicit primary first, then most recent image
-      o.primary_photo = photoStmt.get(o.id) || fallbackPhotoStmt.get(o.id) || null;
+      // Primary photo comes from constituent items, not outfit-level attachments
+      o.primary_photo = itemPhotoStmt.get(o.id) || itemPhotoFallbackStmt.get(o.id) || null;
     });
 
     res.json(outfits);

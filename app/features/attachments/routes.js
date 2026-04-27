@@ -270,6 +270,7 @@ router.post('/:entityType/:entityId', upload.array('files', 10),
             const thumbName = `thumb_${storedName}`;
             thumbPath = path.join(thumbDir, thumbName);
             await sharp(file.buffer)
+              .rotate()
               .resize(300, 300, { fit: 'cover', position: 'centre' })
               .jpeg({ quality: 80 })
               .toFile(thumbPath);

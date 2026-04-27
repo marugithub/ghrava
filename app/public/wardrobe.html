@@ -106,7 +106,7 @@
 
     .lb-day-scroll{display:flex;gap:14px;overflow-x:auto;padding:2px 18px 6px;scrollbar-width:none}
     .lb-day-scroll::-webkit-scrollbar{display:none}
-    .lb-day-card{flex-shrink:0;width:172px;cursor:pointer}
+    .lb-day-card{flex-shrink:0;width:130px;cursor:pointer}
     .lb-day-card-meta{display:flex;align-items:center;justify-content:space-between;
       margin-top:7px;padding:0 4px}
     .lb-day-card-owner{display:flex;align-items:center;gap:5px;font-size:11px;color:var(--text2)}
@@ -136,6 +136,33 @@
     .lb-item-meta-owner{display:flex;gap:4px;align-items:center}
     .lb-item-meta-owner .member-dot{width:5px;height:5px;border-radius:50%}
     .lb-item-meta-stat{font-family:var(--mono)}
+    .wrd-card-edit-btn{position:absolute;top:6px;right:6px;width:28px;height:28px;border-radius:50%;
+      background:rgba(0,0,0,.55);border:none;cursor:pointer;display:flex;align-items:center;
+      justify-content:center;opacity:0;transition:opacity .15s;z-index:2}
+    .lb-item-card:hover .wrd-card-edit-btn{opacity:1}
+    .wrd-list-grid{display:flex;flex-direction:column}
+    .wrd-list-card{display:flex;align-items:center;gap:10px;padding:10px 12px;
+      border-bottom:1px solid var(--border);cursor:pointer;position:relative;
+      background:var(--bg2);transition:background .1s}
+    .wrd-list-card:hover{background:var(--bg3)}
+    .wrd-list-thumb{width:44px;height:44px;border-radius:var(--r);object-fit:cover;flex-shrink:0;border:1px solid var(--border)}
+    .wrd-list-placeholder{width:44px;height:44px;border-radius:var(--r);flex-shrink:0;
+      background:var(--bg3);display:flex;align-items:center;justify-content:center;
+      font-size:18px;color:var(--text3);border:1px solid var(--border)}
+    .wrd-list-body{flex:1;min-width:0}
+    .wrd-list-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .wrd-list-meta{font-size:11px;color:var(--text3);margin-top:2px}
+    .wrd-list-owner{display:flex;align-items:center;gap:4px;font-size:11px;color:var(--text2);white-space:nowrap;margin-right:8px}
+    .wrd-list-edit-btn{width:30px;height:30px;border-radius:50%;background:var(--accent);border:none;
+      cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;opacity:0;transition:opacity .15s}
+    .wrd-list-card:hover .wrd-list-edit-btn{opacity:1}
+    /* Outfit item picker thumbnail grid */
+    .wrd-item-picker-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;max-height:260px;overflow-y:auto;padding:4px 2px}
+    .wrd-item-pick-card{position:relative;cursor:pointer;border-radius:var(--r);border:2px solid var(--border);overflow:hidden;transition:border-color .15s}
+    .wrd-item-pick-card.selected{border-color:var(--accent)}
+    .wrd-item-pick-thumb{width:100%;aspect-ratio:1;overflow:hidden;background:var(--bg3)}
+    .wrd-item-pick-check{position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:var(--accent);color:#fff;font-size:10px;display:flex;align-items:center;justify-content:center;font-weight:700}
+    .wrd-item-pick-label{font-size:9px;color:var(--text2);padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg2)}
 
     /* ── Outfits · full-bleed cover cards (2-col mobile, 3-col desktop) ── */
     .lb-outfits-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;
@@ -426,7 +453,7 @@
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="iNotes" style="min-height:70px"></textarea></div>
 
-    <!-- Photos panel (greyed when no _editingItemId, photo strip when item exists) -->
+    <!-- Photos panel — pick before or after saving; uploads on Save for new items -->
     <div class="wrd-photo-panel" id="iPhotoPanel">
       <div class="wrd-photo-panel-hdr">
         <span>Photos</span>
@@ -434,6 +461,7 @@
       </div>
       <div id="iPhotoPanelBody"></div>
     </div>
+    <input type="file" id="iPhotoInput" accept="image/*" multiple style="display:none" onchange="onItemPhotoSelected(this)">
 
   </div><!-- /drawer-body -->
   <div class="drawer-foot">
@@ -464,15 +492,6 @@
       <div id="oItemPicker" style="margin-top:6px"></div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="oNotes" style="min-height:60px"></textarea></div>
-
-    <!-- Cover photo panel (greyed when no _editingOutfitId) -->
-    <div class="wrd-photo-panel" id="oPhotoPanel">
-      <div class="wrd-photo-panel-hdr">
-        <span>Cover Photo</span>
-        <span id="oPhotoPanelCount" style="font-weight:400;color:var(--text3);font-size:11px"></span>
-      </div>
-      <div id="oPhotoPanelBody"></div>
-    </div>
 
   </div><!-- /drawer-body -->
   <div class="drawer-foot">
@@ -934,6 +953,14 @@ const HANGER_SVG = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor" s
   <path d="M32 14 L32 22 M32 22 C26 22 26 30 32 30 L 8 44 L 56 44 L 32 30 C 38 30 38 22 32 22 Z"/>
 </svg>`;
 
+// Safe image error handler — avoids outerHTML injection breaking adjacent text nodes
+function lbImgError(img) {
+  const p = img.parentElement;
+  if (!p) return;
+  p.innerHTML = HANGER_SVG;
+  p.classList.add('lb-ph-hanger');
+}
+
 // Photo placeholder — used when an item/outfit has no real attachment thumbnail.
 // Uses category color when known; falls back to hanger SVG. Always builds the
 // real <img> when a primary_photo id exists, with onerror fallback to hanger.
@@ -944,7 +971,7 @@ function lbPhoto(opts) {
   if (primary_photo && primary_photo.id) {
     return `<div class="lb-polaroid-photo ${ratioCls}${primaryCls} lb-ph">
       <img src="/api/v1/attachments/thumb/${primary_photo.id}" alt="${esc(name||'')}"
-           onerror="this.outerHTML='${HANGER_SVG.replace(/'/g,'&#39;')}';this.parentElement.classList.add('lb-ph-hanger')">
+           onerror="lbImgError(this)">
     </div>`;
   }
   const catKey = CAT_PH_KEY[category] || '';
@@ -1053,7 +1080,7 @@ async function loadPlannerEntries() {
             ratio: 'tall',
             big: true
           });
-          return `<div class="lb-day-card" onclick="removePlannerEntry(${e.id})" title="Remove from day">
+          return `<div class="lb-day-card" onclick="showPlannerCardMenu(${e.id},${e.outfit_id},'${esc((e.outfit_name||'Outfit').replace(/'/g,"\\'")}')">
             ${polaroid}
             <div class="lb-day-card-meta">
               <span class="lb-day-card-owner">${memberName ? lbMemberDot(member, 6) + esc(memberName) : ''}</span>
@@ -1104,6 +1131,24 @@ async function confirmPlannerAdd(dateKey) {
     closePlannerModal();
     loadPlannerEntries();
   } catch(e) { toast('Failed to add', 'err'); }
+}
+
+function showPlannerCardMenu(entryId, outfitId, outfitName) {
+  const body = document.getElementById('wrdPlannerBody');
+  body.innerHTML = `
+    <div class="lb-modal-title">${esc(outfitName)}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+      <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px" onclick="closePlannerModal();openOutfitDrawer(${outfitId})">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        View / Edit Outfit
+      </button>
+      <button class="btn btn-ghost" style="justify-content:flex-start;gap:10px;color:var(--danger,#e55)" onclick="closePlannerModal();removePlannerEntry(${entryId})">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>
+        Remove from Day
+      </button>
+      <button class="btn btn-ghost" onclick="closePlannerModal()">Cancel</button>
+    </div>`;
+  document.getElementById('wrdPlannerOverlay').classList.add('open');
 }
 
 async function removePlannerEntry(id) {
@@ -1164,27 +1209,54 @@ async function loadItems() {
       return;
     }
     refreshMemberCache();
-    grid.className = 'lb-items-grid';
-    grid.innerHTML = _allItems.map((item, k) => {
-      const tilt = `lb-tilt-${k % 4}`;
-      const member = item.wardrobe_owner_id ? _memberById[item.wardrobe_owner_id] : null;
-      const ownerName = item.owner_name || (member?.display_name || '');
-      const polaroid = lbPolaroid({
-        primary_photo: item.primary_photo,
-        category: item.category,
-        name: item.wardrobe_nickname || item.name,
-        label: item.wardrobe_nickname || item.name,
-        ratio: 'square'
-      });
-      return `<div class="lb-item-card ${tilt}" onclick="openItemDrawer(${item.id})">
-        ${polaroid}
-        <div class="lb-item-meta">
-          <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>
-          <span class="lb-item-meta-stat">${(item.times_worn||0) ? `${item.times_worn}w` : '·'}</span>
-        </div>
-      </div>`;
-    }).join('');
+
+    if (_itemView === 'list') {
+      grid.className = 'wrd-list-grid';
+      grid.innerHTML = _allItems.map(item => {
+        const member = item.wardrobe_owner_id ? _memberById[item.wardrobe_owner_id] : null;
+        const ownerName = item.owner_name || (member?.display_name || '');
+        const thumbSrc = item.primary_photo?.id ? `/api/v1/attachments/thumb/${item.primary_photo.id}` : null;
+        return `<div class="wrd-list-card" onclick="openItemDrawer(${item.id})">
+          ${thumbSrc
+            ? `<img class="wrd-list-thumb" src="${thumbSrc}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            : ''
+          }
+          <div class="wrd-list-placeholder" style="${thumbSrc?'display:none':''}">${(item.category||'?').charAt(0)}</div>
+          <div class="wrd-list-body">
+            <div class="wrd-list-name">${esc(item.wardrobe_nickname||item.name)}</div>
+            <div class="wrd-list-meta">${esc(item.category||'')}${item.brand?' · '+esc(item.brand):''}</div>
+          </div>
+          ${ownerName ? `<span class="wrd-list-owner">${lbMemberDot(member,5)}${esc(ownerName)}</span>` : ''}
+          <button class="wrd-list-edit-btn" title="Edit" onclick="event.stopPropagation();openItemDrawer(${item.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>`;
+      }).join('');
+    } else {
+      const cols = _itemCols || 2;
+      grid.className = 'lb-items-grid';
+      grid.style.gridTemplateColumns = `repeat(${cols},1fr)`;
+      grid.innerHTML = _allItems.map((item, k) => {
+        const tilt = `lb-tilt-${k % 4}`;
+        const member = item.wardrobe_owner_id ? _memberById[item.wardrobe_owner_id] : null;
+        const ownerName = item.owner_name || (member?.display_name || '');
+        const polaroid = lbPolaroid({
+          primary_photo: item.primary_photo,
+          category: item.category,
+          name: item.wardrobe_nickname || item.name,
+          label: item.wardrobe_nickname || item.name,
+          ratio: 'square'
+        });
+        return `<div class="lb-item-card ${tilt}" style="position:relative" onclick="openItemDrawer(${item.id})">
+          ${polaroid}
+          <div class="lb-item-meta">
+            <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>
+            <span class="lb-item-meta-stat">${(item.times_worn||0) ? `${item.times_worn}w` : '·'}</span>
+          </div>
+          <button class="wrd-card-edit-btn" title="Edit" onclick="event.stopPropagation();openItemDrawer(${item.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+        </div>`;
+      }).join('');
+    }
   } catch(e) { toast('Failed to load items', 'err'); }
+}
 }
 
 function renderTagPicker(containerId, opts, selected, onToggle) {
@@ -1225,7 +1297,7 @@ function toggleStatusFields() {
 async function openItemDrawer(id) {
   _editingItemId = id||null;
   _iSeasonSel = []; _iOccasionSel = [];
-  _iPhotos = [];
+  _iPhotos = []; _pendingItemPhotos = [];
 
   // Populate platform dropdown
   await GH_SELECT.init('iSoldPlatform', 'sold_platform', '', { placeholder: '— select —', allowAdd: false });
@@ -1279,44 +1351,62 @@ async function openItemDrawer(id) {
 // ── Item photo panel ──────────────────────────────────────────
 // Greyed "Save first" hint when no _editingItemId; thumbnail strip + "+ Add Photo"
 // when item exists. Pulls photos from /api/v1/attachments?entity_type=item&entity_id=N
+let _pendingItemPhotos = []; // Files selected before save
+
+function onItemPhotoSelected(input) {
+  _pendingItemPhotos = [..._pendingItemPhotos, ...Array.from(input.files)];
+  input.value = '';
+  renderItemPhotoPanel();
+}
+
 async function renderItemPhotoPanel() {
   const panel = document.getElementById('iPhotoPanel');
   const body  = document.getElementById('iPhotoPanelBody');
   const count = document.getElementById('iPhotoPanelCount');
   if (!panel || !body) return;
 
-  if (!_editingItemId) {
-    panel.classList.add('locked');
-    count.textContent = '';
-    body.innerHTML = `<div style="font-size:12px;color:var(--text3);text-align:center;padding:6px 0">
-      📷 Save the item first to add photos
-    </div>`;
-    return;
+  panel.classList.remove('locked');
+  let html = '';
+
+  // Pending (not yet uploaded) photos — show object URL previews
+  if (_pendingItemPhotos.length) {
+    html += `<div class="wrd-photo-strip">${_pendingItemPhotos.map((f,i) => `
+      <div class="wrd-photo-strip-thumb" title="${esc(f.name)}" style="position:relative">
+        <img src="${URL.createObjectURL(f)}" style="width:100%;height:100%;object-fit:cover;border-radius:var(--r)">
+        <button onclick="removePendingPhoto(${i})" style="position:absolute;top:-4px;right:-4px;width:16px;height:16px;border-radius:50%;background:var(--danger,#e55);color:#fff;border:none;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      </div>`).join('')}</div>`;
   }
 
-  panel.classList.remove('locked');
-  // Fetch photos from attachments API
-  try {
-    const list = await window.api('GET', `/attachments/item/${_editingItemId}`);
-    const imgs = (list||[]).filter(a => a.is_image);
-    _iPhotos = imgs;
-    count.textContent = imgs.length ? `${imgs.length} photo${imgs.length===1?'':'s'}` : '';
-    body.innerHTML = (imgs.length
-        ? `<div class="wrd-photo-strip">${imgs.slice(0,8).map(p => `
-            <div class="wrd-photo-strip-thumb${p.is_primary_photo?' primary':''}"
-                 onclick="AttachmentManager._viewImage(${p.id},'${esc((p.label||p.original_filename||'').replace(/'/g,'&#39;'))}')">
-              <img src="/api/v1/attachments/thumb/${p.id}" alt="${esc(p.label||p.original_filename||'')}"
-                   onerror="this.parentElement.innerHTML='&#128247;'">
-            </div>`).join('')}</div>`
-        : '')
-      + `<button type="button" class="wrd-photo-add" onclick="openItemPhotos()">
-           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-           ${imgs.length ? 'Manage Photos' : '+ Add Photo'}
-         </button>`;
-  } catch(e) {
-    count.textContent = '';
-    body.innerHTML = `<button type="button" class="wrd-photo-add" onclick="openItemPhotos()">+ Add Photo</button>`;
+  // Saved photos (if editing existing item)
+  if (_editingItemId) {
+    try {
+      const list = await window.api('GET', `/attachments/item/${_editingItemId}`);
+      const imgs = (list||[]).filter(a => a.is_image);
+      _iPhotos = imgs;
+      const total = imgs.length + _pendingItemPhotos.length;
+      count.textContent = total ? `${total} photo${total===1?'':'s'}` : '';
+      if (imgs.length) {
+        html += `<div class="wrd-photo-strip">${imgs.slice(0,8).map(p => `
+          <div class="wrd-photo-strip-thumb${p.is_primary_photo?' primary':''}">
+            <img src="/api/v1/attachments/thumb/${p.id}" alt=""
+                 onerror="this.parentElement.innerHTML='📷'">
+          </div>`).join('')}</div>`;
+      }
+    } catch(e) {}
+  } else {
+    count.textContent = _pendingItemPhotos.length ? `${_pendingItemPhotos.length} pending` : '';
   }
+
+  html += `<button type="button" class="wrd-photo-add" onclick="document.getElementById('iPhotoInput').click()">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    + Add Photo
+  </button>`;
+  body.innerHTML = html;
+}
+
+function removePendingPhoto(idx) {
+  _pendingItemPhotos.splice(idx, 1);
+  renderItemPhotoPanel();
 }
 
 async function openItemPhotos() {
@@ -1405,6 +1495,20 @@ async function saveItem(opts = {}) {
       toast('Item added', 'ok');
     }
     if (!opts.keepOpen) { closeDrawer('itemDrawer'); loadItems(); }
+    // Upload any photos that were picked before/during editing
+    if (_pendingItemPhotos.length && _editingItemId) {
+      try {
+        const fd = new FormData();
+        _pendingItemPhotos.forEach(f => fd.append('photos', f));
+        await fetch(`${window.location.origin}/api/v1/attachments/item/${_editingItemId}`,{
+          method:'POST', body:fd,
+          headers: LT.authToken ? { Authorization: 'Bearer '+LT.authToken } : {}
+        });
+        _pendingItemPhotos = [];
+        if (opts.keepOpen) renderItemPhotoPanel();
+        else loadItems();
+      } catch(e) { toast('Photos saved but upload failed: '+e.message,'warn'); }
+    }
     return true;
   } catch(e) { toast('Save failed: '+e.message, 'err'); return false; }
 }
@@ -1457,7 +1561,7 @@ async function loadOutfits() {
       const ownerName = member?.display_name || o.owner_name || '';
       // Cover photo (real or fallback)
       const cover = o.primary_photo
-        ? `<img src="/api/v1/attachments/thumb/${o.primary_photo.id}" alt="${esc(o.name)}" onerror="this.outerHTML='${HANGER_SVG.replace(/'/g,'&#39;')}';this.parentElement.classList.add('lb-ph','lb-ph-hanger')">`
+        ? `<img src="/api/v1/attachments/thumb/${o.primary_photo.id}" alt="${esc(o.name)}" onerror="lbImgError(this)">`
         : `<div class="lb-ph lb-ph-hanger" style="width:100%;height:100%;border-radius:0">${HANGER_SVG}</div>`;
       // Tags shown on the card (top 3, occasion first then season)
       const allTags = [...(o.occasion_tags||[]), ...(o.season_tags||[])].slice(0,3);
@@ -1510,105 +1614,49 @@ async function openOutfitDrawer(id) {
   renderTagPicker('oSeasonTags',   SEASON_OPTS,   _oSeasonSel,   'toggleOSeason');
   renderTagPicker('oOccasionTags', OCCASION_OPTS, _oOccasionSel, 'toggleOOccasion');
   await renderItemPicker();
-  renderOutfitPhotoPanel();
   openDrawer('outfitDrawer');
   } catch(e) { console.error('openOutfitDrawer error:', e); toast('Could not open outfit drawer: ' + e.message, 'err'); }
 }
 
-// ── Outfit cover-photo panel ──────────────────────────────────
-async function renderOutfitPhotoPanel() {
-  const panel = document.getElementById('oPhotoPanel');
-  const body  = document.getElementById('oPhotoPanelBody');
-  const count = document.getElementById('oPhotoPanelCount');
-  if (!panel || !body) return;
-
-  if (!_editingOutfitId) {
-    panel.classList.add('locked');
-    count.textContent = '';
-    body.innerHTML = `<div style="font-size:12px;color:var(--text3);text-align:center;padding:6px 0">
-      📷 Save the outfit first to add a cover photo
-    </div>`;
-    return;
-  }
-
-  panel.classList.remove('locked');
-  try {
-    const list = await window.api('GET', `/attachments/outfit/${_editingOutfitId}`);
-    const imgs = (list||[]).filter(a => a.is_image);
-    _oPhotos = imgs;
-    count.textContent = imgs.length ? `${imgs.length} photo${imgs.length===1?'':'s'}` : '';
-    body.innerHTML = (imgs.length
-        ? `<div class="wrd-photo-strip">${imgs.slice(0,8).map(p => `
-            <div class="wrd-photo-strip-thumb${p.is_primary_photo?' primary':''}"
-                 onclick="AttachmentManager._viewImage(${p.id},'${esc((p.label||p.original_filename||'').replace(/'/g,'&#39;'))}')">
-              <img src="/api/v1/attachments/thumb/${p.id}" alt="${esc(p.label||p.original_filename||'')}"
-                   onerror="this.parentElement.innerHTML='&#128247;'">
-            </div>`).join('')}</div>`
-        : '')
-      + `<button type="button" class="wrd-photo-add" onclick="openOutfitPhotos()">
-           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-           ${imgs.length ? 'Manage Photos' : '+ Add Cover Photo'}
-         </button>`;
-  } catch(e) {
-    count.textContent = '';
-    body.innerHTML = `<button type="button" class="wrd-photo-add" onclick="openOutfitPhotos()">+ Add Cover Photo</button>`;
-  }
-}
-
-async function openOutfitPhotos() {
-  try {
-    if (!_editingOutfitId) {
-      const saved = await saveOutfit({ keepOpen: true });
-      if (!saved) return;
-      renderOutfitPhotoPanel();
-    }
-    const name = document.getElementById('oName').value.trim();
-    const attDrawer = document.getElementById('attDrawer');
-    if (attDrawer) attDrawer.style.zIndex = '600';
-    AttachmentManager.open('outfit', _editingOutfitId, name);
-    const drawer = document.getElementById('attDrawer');
-    if (drawer) {
-      const observer = new MutationObserver(() => {
-        if (!drawer.classList.contains('open')) {
-          renderOutfitPhotoPanel();
-          observer.disconnect();
-        }
-      });
-      observer.observe(drawer, { attributes: true, attributeFilter: ['class'] });
-    }
-  } catch(e) {
-    console.error('openOutfitPhotos:', e);
-    toast('Photos error: ' + e.message, 'err');
-  }
-}
+let _pickerItems = [];
 
 async function renderItemPicker() {
   const memberId = document.getElementById('oMember').value;
   try {
     const items = await window.api('GET', `/wardrobe/items${memberId?'?member_id='+memberId:''}`);
+    _pickerItems = items;
     const el = document.getElementById('oItemPicker');
-    if (!items.length) { el.innerHTML = '<div style="color:var(--text3);font-size:12px">No wardrobe items — add items in the Items tab first</div>'; return; }
-    el.innerHTML = items.map(item => `
-      <div onclick="toggleOItem(${item.id})" style="display:flex;align-items:center;gap:8px;padding:8px;border-radius:8px;cursor:pointer;margin-bottom:4px;
-        background:${_oItemIds.includes(item.id)?'var(--accent-bg)':'var(--bg2)'};
-        border:1.5px solid ${_oItemIds.includes(item.id)?'var(--accent)':'var(--border)'}">
-        <div style="width:20px;height:20px;border-radius:50%;border:2px solid ${_oItemIds.includes(item.id)?'var(--accent)':'var(--border)'};
-          background:${_oItemIds.includes(item.id)?'var(--accent)':'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
-          ${_oItemIds.includes(item.id)?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 3.5,7.5 8.5,2.5" stroke="white" stroke-width="1.5" fill="none"/></svg>':''}
-        </div>
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${esc(item.wardrobe_nickname||item.name)}</div>
-          <div style="font-size:11px;color:var(--text3)">${esc(item.category||'')} ${esc(item.brand?'· '+item.brand:'')}</div>
-        </div>
-      </div>`).join('');
+    if (!items.length) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:12px">No items' + (memberId?' for this member':' yet') + '</div>';
+      return;
+    }
+    el.innerHTML = `<div class="wrd-item-picker-grid">${items.map(item => {
+      const sel = _oItemIds.includes(item.id);
+      const thumb = item.primary_photo?.id
+        ? `<img src="/api/v1/attachments/thumb/${item.primary_photo.id}" alt="" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none'">`
+        : `<div style="width:100%;height:100%;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:18px">${(item.category||'?').charAt(0)}</div>`;
+      return `<div class="wrd-item-pick-card${sel?' selected':''}" onclick="toggleOItem(${item.id})" title="${esc(item.wardrobe_nickname||item.name)}">
+        <div class="wrd-item-pick-thumb">${thumb}</div>
+        ${sel?`<div class="wrd-item-pick-check">✓</div>`:''}
+        <div class="wrd-item-pick-label">${esc((item.wardrobe_nickname||item.name).substring(0,14))}</div>
+      </div>`;
+    }).join('')}</div>`;
   } catch(e) {}
+}
+
+function syncOutfitTagsFromItems() {
+  const selected = _pickerItems.filter(i => _oItemIds.includes(i.id));
+  if (!selected.length) return;
+  const seasons   = [...new Set(selected.flatMap(i => i.season_tags||[]))];
+  const occasions = [...new Set(selected.flatMap(i => i.occasion_tags||[]))];
+  if (seasons.length)   { _oSeasonSel   = seasons;   renderTagPicker('oSeasonTags',   SEASON_OPTS,   _oSeasonSel,   'toggleOSeason'); }
+  if (occasions.length) { _oOccasionSel = occasions; renderTagPicker('oOccasionTags', OCCASION_OPTS, _oOccasionSel, 'toggleOOccasion'); }
 }
 
 function toggleOItem(id) {
   _oItemIds = _oItemIds.includes(id) ? _oItemIds.filter(x=>x!==id) : [..._oItemIds,id];
+  syncOutfitTagsFromItems();
   renderItemPicker();
-}
-
 async function saveOutfit(opts = {}) {
   const name = document.getElementById('oName').value.trim();
   if (!name) { toast('Name is required', 'err'); return false; }

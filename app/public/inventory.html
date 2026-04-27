@@ -781,6 +781,10 @@
     <div style="flex:1"></div>
     <!-- GH_VIEW toolbar — only in All Items mode -->
     <div id="invViewToolbar" style="display:flex;align-items:center"></div>
+    <!-- Clothing toggle -->
+    <span id="clothingToggleWrap" style="margin-right:4px">
+      <button id="clothingToggleBtn" onclick="toggleClothing()" style="font-size:11px;padding:4px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer" title="Clothing hidden">🧥 Hidden</button>
+    </span>
     <!-- Biz filter -->
     <span id="bizToggleInline" style="display:flex;gap:4px">
       <button class="view-tab active" id="bizAll"      onclick="setBizFilter('all')" style="font-size:12px;padding:4px 10px">All</button>
@@ -1493,6 +1497,7 @@ function setModeFilter(mode) {
   $('modeRooms').classList.toggle('active', mode === 'rooms');
   $('bizToggleInline').style.display   = mode === 'items' ? 'flex' : 'none';
   $('invViewToolbar').style.display    = mode === 'items' ? 'flex' : 'none';
+  const ctw = $('clothingToggleWrap'); if(ctw) ctw.style.display = mode === 'items' ? '' : 'none';
   $('roomTileGrid').style.display      = mode === 'rooms' ? 'block' : 'none';
   $('allItemsContent').style.display   = mode === 'items' ? 'block' : 'none';
   if (mode === 'rooms') renderRoomTiles();
@@ -1788,6 +1793,19 @@ function setBizFilter(mode) {
   renderBrowse();
 }
 
+window._invShowClothing = false;
+function toggleClothing() {
+  window._invShowClothing = !window._invShowClothing;
+  const btn = $('clothingToggleBtn');
+  if (btn) {
+    btn.textContent = window._invShowClothing ? '🧥 Showing' : '🧥 Hidden';
+    btn.style.color = window._invShowClothing ? 'var(--accent)' : 'var(--text3)';
+    btn.style.borderColor = window._invShowClothing ? 'var(--accent)' : 'var(--border)';
+  }
+  allItemsPage = 0;
+  renderBrowse();
+}
+
 let roomFilter = ''; // location id or ''
 async function loadRooms() {
   try {
@@ -1870,8 +1888,10 @@ async function renderBrowse() {
 
 async function renderAllItemsFlat(el) {
   try {
+    const CLOTHING_CATS = ['Clothing','Shoes','Accessories','Jewelry','Hats','Bags'];
     const bizQ = bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':'';
-    let items = await window.api('GET', `/inventory/items?${bizQ}`).catch(()=>[]);
+    const clothingQ = (!window._invShowClothing && !(window._invFilters||{}).category) ? '&exclude_clothing=1' : '';
+    let items = await window.api('GET', `/inventory/items?${bizQ}${clothingQ}`).catch(()=>[]);
     items.sort((a,b) => b.id - a.id);
 
     // Apply search text
