@@ -1340,7 +1340,7 @@ window.GH_VIEW = (function() {
     if (!container) return;
 
     const view = localStorage.getItem(storagePrefix + '_view') || options.defaultView || 'grid';
-    const cols = parseInt(localStorage.getItem(storagePrefix + '_cols')) || (window.innerWidth >= 600 ? 3 : 2);
+    const cols = parseInt(localStorage.getItem(storagePrefix + '_cols')) || options.defaultCols || (window.innerWidth >= 600 ? 3 : 2);
 
     const state = { view, cols, filters: {} };
 

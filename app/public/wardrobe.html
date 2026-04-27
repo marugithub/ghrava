@@ -528,8 +528,8 @@ let _editingItemId = null, _editingOutfitId = null;
 let _allItems = [], _iSeasonSel = [], _iOccasionSel = [];
 let _oSeasonSel = [], _oOccasionSel = [], _oItemIds = [];
 let _iPhotos = [], _oPhotos = [];
-let _itemView = 'grid', _itemCols = 2, _itemFilters = {};
-let _outfitView = 'grid', _outfitCols = 2, _outfitFilters = {};
+let _itemView = 'grid', _itemCols = +(localStorage.getItem('wrd_item_cols')||4), _itemFilters = {};
+let _outfitView = 'grid', _outfitCols = +(localStorage.getItem('wrd_outfit_cols')||4), _outfitFilters = {};
 
 function closeDrawer(id) { document.getElementById(id).classList.remove('open'); }
 function openDrawer(id)  { document.getElementById(id).classList.add('open'); }
@@ -548,9 +548,11 @@ async function init() {
 function initItemView() {
   GH_VIEW.init('itemViewToolbar', 'wrd_item', state => {
     _itemView = state.view; _itemCols = state.cols; _itemFilters = state.filters || {};
-    if (_currentTab === 'items') loadItems();
+    if (_currentTab === 'items')    loadItems();
+    if (_currentTab === 'outfits')  loadOutfits();
+    if (_currentTab === 'insights') loadInsights();
   }, {
-    defaultView: 'grid', defaultCols: 2,
+    defaultView: 'grid', defaultCols: 4,
     filterFields: [
       { key:'category', type:'select', label:'Category', options:[{value:'',label:'All'},{value:'Clothing',label:'Clothing'},{value:'Shoes',label:'Shoes'},{value:'Accessories',label:'Accessories'},{value:'Jewelry',label:'Jewelry'},{value:'Hats',label:'Hats'},{value:'Bags',label:'Bags'}]},
       { key:'season',   type:'select', label:'Season',   options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'},{value:'All-season',label:'All-season'}]},
@@ -561,10 +563,14 @@ function initItemView() {
 
 function initOutfitView() {
   GH_VIEW.init('outfitViewToolbar', 'wrd_outfit', state => {
-    _outfitView = state.view; _outfitCols = state.cols; _outfitFilters = state.filters || {};
-    if (_currentTab === 'outfits') loadOutfits();
+    _outfitView = state.view; _outfitCols = state.cols;
+    _itemCols = state.cols; // keep in sync
+    _outfitFilters = state.filters || {};
+    if (_currentTab === 'items')    loadItems();
+    if (_currentTab === 'outfits')  loadOutfits();
+    if (_currentTab === 'insights') loadInsights();
   }, {
-    defaultView: 'grid', defaultCols: 2,
+    defaultView: 'grid', defaultCols: 4,
     filterFields: [
       { key:'season',   type:'select', label:'Season',   options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'}]},
       { key:'occasion', type:'select', label:'Occasion', options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'School',label:'School'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'},{value:'Evening',label:'Evening'}]},
