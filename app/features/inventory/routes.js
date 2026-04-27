@@ -1025,9 +1025,8 @@ router.put('/items/:id/sell', (req, res) => {
 // Hard delete (only if already archived)
 router.delete('/items/:id', (req, res) => {
   try {
-    const item = db.prepare('SELECT is_archived FROM items WHERE id=?').get(req.params.id);
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(req.params.id);
     if (!item) return notFound(res, 'Item');
-    if (!item.is_archived) return badRequest(res, 'Archive the item before deleting permanently.');
     clearTags(req.params.id, 'item');
     db.prepare('DELETE FROM items WHERE id=?').run(req.params.id);
     res.json({ deleted: true });
