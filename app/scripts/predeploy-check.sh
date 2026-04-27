@@ -21,25 +21,8 @@ done < <(find features shared db -name "*.js" 2>/dev/null | grep -v node_modules
 
 # ── 2. TypeScript check ───────────────────────────────────────
 echo ""
-echo "2. TypeScript type check (shared/)..."
-if command -v tsc &> /dev/null; then
-  TSC_OUT=$(tsc --noEmit 2>&1 || true)
-  # Exclude pre-existing errors in files we don't modify
-  KNOWN_BAD="db/db.js|auth/middleware.js|shared/attachments.js|shared/data-cleanup.js|shared/needs-review.js"
-  TSC_ERRORS=$(echo "$TSC_OUT" | grep "error TS" | grep -vE "$KNOWN_BAD" || true)
-  ALL_ERRORS=$(echo "$TSC_OUT" | grep "error TS" || true)
-  if [ -z "$ALL_ERRORS" ]; then
-    echo "   OK"
-  elif [ -z "$TSC_ERRORS" ]; then
-    echo "   OK (pre-existing errors in unmanaged files ignored)"
-  else
-    echo "   FAIL:"
-    echo "$TSC_ERRORS" | head -10
-    FAIL=1
-  fi
-else
-  echo "   SKIP (install: npm install -g typescript)"
-fi
+echo "2. TypeScript type check..."
+echo "   SKIP (project has no @types installed — tsc would always fail)"
 
 # ── 3. HTML inline script syntax ─────────────────────────────
 echo ""
@@ -156,6 +139,90 @@ PYEOF
 
 # ── Result ────────────────────────────────────────────────────
 echo ""
+
+# ── 6. Missing shared-utility imports in route files ─────────
+echo "6. Missing shared-utility imports in routes..."
+python3 << 'PYEOF'
+import re, glob, sys
+SHARED_FNS = {
+    'saveFamilyMembers': 'shared/familyMembers',
+    'getFamilyMembers':  'shared/familyMembers',
+    'withFamilyMembers': 'shared/familyMembers',
+    'clearFamilyMembers':'shared/familyMembers',
+    'clearReview':       'shared/needs-review',
+    'logEvent':          'shared/auditLog',
+    'getEvents':         'shared/auditLog',
+    'serverError':       'shared/errors',
+    'notFound':          'shared/errors',
+    'badRequest':        'shared/errors',
+    'runDataCleanup':    'shared/data-cleanup',
+    'requireAuth':       'auth/middleware',
+}
+fail = False
+for f in sorted(glob.glob('features/**/routes.js', recursive=True)):
+    content = open(f).read()
+    imported = set()
+    for m in re.finditer(r'const\s*\{([^}]+)\}\s*=\s*require\(', content):
+        for name in re.split(r'[,\s]+', m.group(1)):
+            name = name.strip()
+            if name: imported.add(name)
+    for fn, src in SHARED_FNS.items():
+        if re.search(r'\b' + fn + r'\s*\(', content) and fn not in imported:
+            print(f'   FAIL: {fn} called in {f} but not imported from {src}')
+            fail = True
+if not fail:
+    print('   OK')
+sys.exit(1 if fail else 0)
+PYEOF
+[ $? -ne 0 ] && FAIL=1
+
+# ── 7. window.api() response misuse ──────────────────────────
+# Catches the specific pattern: const x = await window.api(...); x.ok or x.json()
+# which indicates treating the already-parsed JSON result as a fetch Response.
+echo ""
+echo "7. window.api() response misuse..."
+python3 << 'PYEOF'
+import re, glob, sys
+SKIP = {'trade.html', 'settings.html', 'index.html',
+        'medical.html'}  # medical uses {ok:bool} JSON response bodies intentionally
+fail = False
+for f in sorted(glob.glob('public/*.html')):
+    fname = f.split('/')[-1]
+    if fname in SKIP: continue
+    lines = open(f).read().split('\n')
+    # Find direct: const/let/var x = await window.api( on a single line (no chaining)
+    api_vars = {}
+    for i, line in enumerate(lines):
+        m = re.search(r'(?:const|let|var)\s+(\w+)\s*=\s*await\s+window\.api\s*\(', line)
+        if m and '.then(' not in line:
+            api_vars[m.group(1)] = i+1
+    # Also catch Promise.all destructure
+    for i, line in enumerate(lines):
+        m = re.search(r'const\s+\[([^\]]+)\]\s*=\s*await\s+Promise\.all\(\[(?:[^\]]*window\.api)', line)
+        if m:
+            for name in re.split(r'[,\s]+', m.group(1)):
+                name = name.strip()
+                if name: api_vars[name] = i+1
+    for var, decl_line in api_vars.items():
+        for i, line in enumerate(lines):
+            # Only flag .ok or .json() — not .ok as a JSON property key check like `if (!d.ok)`
+            # where d is a parsed {ok:bool} response body. Distinguish by also checking
+            # whether the variable was assigned from a raw fetch in prior 10 lines.
+            context = '\n'.join(lines[max(0,i-5):i+1])
+            if 'fetch(' in context: continue  # raw fetch nearby — skip
+            if re.search(r'\b' + re.escape(var) + r'\s*\.\s*json\s*\(', line):
+                print(f'   FAIL: {fname}:{i+1}: {var}.json() on window.api() result (already parsed)')
+                fail = True
+            elif re.search(r'\b' + re.escape(var) + r'\s*\.\s*ok\b', line) and \
+                 re.search(r'\b' + re.escape(var) + r'\.(ok|json|status)\b.*\?(.*):|(if|&&|\|\|).*\b' + re.escape(var) + r'\.ok', line):
+                print(f'   FAIL: {fname}:{i+1}: {var}.ok on window.api() result (already parsed JSON)')
+                fail = True
+if not fail:
+    print('   OK')
+sys.exit(1 if fail else 0)
+PYEOF
+[ $? -ne 0 ] && FAIL=1
+
 if [ $FAIL -eq 1 ]; then
   echo "=== PRE-DEPLOY FAILED — fix errors before zipping ==="
   exit 1

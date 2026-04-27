@@ -15,6 +15,7 @@
 const express = require('express');
 const router  = express.Router();
 const db      = require('../../db/db');
+const { serverError } = require('../../shared/errors');
 const fs      = require('fs');
 const path    = require('path');
 

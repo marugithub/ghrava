@@ -26,6 +26,7 @@ const db      = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('../../shared/familyMembers');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
 
 // requireAuth applied per-route on writes only
