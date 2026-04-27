@@ -46,12 +46,11 @@
 </div>
 
 <!-- Drawer -->
-<div class="gh-drawer" id="perfDrawer">
-  <div class="gh-drawer-header">
-    <div class="gh-drawer-title" id="perfDrawerTitle">Add Perfume</div>
-    <button class="gh-drawer-close" onclick="closeDrawer()">×</button>
-  </div>
-  <div class="gh-drawer-body">
+<div class="drawer-overlay" id="perfDrawer">
+ <div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="perfDrawerTitle">Add Perfume</div>
+  <div class="drawer-body">
     <!-- Fragella lookup -->
     <div class="form-group" id="lookupGroup">
       <label class="form-label">Lookup by name (Fragella)</label>
@@ -119,12 +118,14 @@
       <select class="form-select" id="pStatus"><option value="active">Active</option></select>
     </div>
     <div class="form-group"><label class="form-label">Notes / Review</label><textarea class="form-textarea" id="pNotes" style="min-height:70px"></textarea></div>
-    <div style="display:flex;gap:8px;padding-top:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="savePerfume()">Save</button>
-      <button class="btn btn-ghost" id="pDeleteBtn" style="display:none" onclick="deletePerfume()">Delete</button>
-    </div>
+  </div><!-- /drawer-body -->
+  <div class="drawer-foot">
+    <button class="btn btn-primary" onclick="savePerfume()">Save</button>
+    <button class="btn btn-ghost" onclick="closeDrawer()">Cancel</button>
+    <button class="btn btn-ghost" id="pDeleteBtn" style="display:none" onclick="deletePerfume()">Delete</button>
   </div>
-</div>
+ </div><!-- /drawer -->
+</div><!-- /drawer-overlay -->
 
 <button class="fab" onclick="openDrawer()">+</button>
 

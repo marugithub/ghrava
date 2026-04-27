@@ -364,12 +364,11 @@
 </div>
 
 <!-- Item Drawer -->
-<div class="gh-drawer" id="itemDrawer">
-  <div class="gh-drawer-header">
-    <div class="gh-drawer-title" id="itemDrawerTitle">Add Item</div>
-    <button class="gh-drawer-close" onclick="closeDrawer('itemDrawer')">×</button>
-  </div>
-  <div class="gh-drawer-body">
+<div class="drawer-overlay" id="itemDrawer">
+ <div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="itemDrawerTitle">Add Item</div>
+  <div class="drawer-body">
 
     <!-- UPC / Barcode row — scan or type, then Lookup pulls product data -->
     <div style="display:flex;gap:8px;margin-bottom:10px">
@@ -436,20 +435,21 @@
       <div id="iPhotoPanelBody"></div>
     </div>
 
-    <div style="display:flex;gap:8px;padding-top:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="saveItem()">Save</button>
-      <button class="btn btn-ghost" id="iDeleteBtn" style="display:none" onclick="deleteItem()">Delete</button>
-    </div>
+  </div><!-- /drawer-body -->
+  <div class="drawer-foot">
+    <button class="btn btn-primary" onclick="saveItem()">Save</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('itemDrawer')">Cancel</button>
+    <button class="btn btn-ghost" id="iDeleteBtn" style="display:none" onclick="deleteItem()">Delete</button>
   </div>
-</div>
+ </div><!-- /drawer -->
+</div><!-- /drawer-overlay -->
 
 <!-- Outfit Drawer -->
-<div class="gh-drawer" id="outfitDrawer">
-  <div class="gh-drawer-header">
-    <div class="gh-drawer-title" id="outfitDrawerTitle">New Outfit</div>
-    <button class="gh-drawer-close" onclick="closeDrawer('outfitDrawer')">×</button>
-  </div>
-  <div class="gh-drawer-body">
+<div class="drawer-overlay" id="outfitDrawer">
+ <div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="outfitDrawerTitle">New Outfit</div>
+  <div class="drawer-body">
     <div class="form-group"><label class="form-label">Name *</label><input class="form-input" id="oName" placeholder="e.g. Monday School"></div>
     <div class="form-group"><label class="form-label">Family Member</label>
       <select class="form-select" id="oMember"><option value="">— all —</option></select>
@@ -474,12 +474,14 @@
       <div id="oPhotoPanelBody"></div>
     </div>
 
-    <div style="display:flex;gap:8px;padding-top:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="saveOutfit()">Save</button>
-      <button class="btn btn-ghost" id="oDeleteBtn" style="display:none" onclick="deleteOutfit()">Delete</button>
-    </div>
+  </div><!-- /drawer-body -->
+  <div class="drawer-foot">
+    <button class="btn btn-primary" onclick="saveOutfit()">Save</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('outfitDrawer')">Cancel</button>
+    <button class="btn btn-ghost" id="oDeleteBtn" style="display:none" onclick="deleteOutfit()">Delete</button>
   </div>
-</div>
+ </div><!-- /drawer -->
+</div><!-- /drawer-overlay -->
 
 <!-- Barcode scanner overlay -->
 <div class="scanner-overlay" id="wrdScannerOverlay">

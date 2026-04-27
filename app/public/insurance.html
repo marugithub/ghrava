@@ -34,12 +34,11 @@
 </div>
 
 <!-- Add/Edit Drawer -->
-<div class="gh-drawer" id="insDrawer">
-  <div class="gh-drawer-header">
-    <div class="gh-drawer-title" id="insDrawerTitle">Add Policy</div>
-    <button class="gh-drawer-close" onclick="closeDrawer('insDrawer')">×</button>
-  </div>
-  <div class="gh-drawer-body">
+<div class="drawer-overlay" id="insDrawer">
+ <div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="insDrawerTitle">Add Policy</div>
+  <div class="drawer-body">
     <div class="form-row">
       <div class="form-group"><label class="form-label">Type *</label>
         <select class="form-select" id="iType"><option value="">—</option></select>
@@ -73,21 +72,22 @@
       </div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="iNotes" style="min-height:60px"></textarea></div>
-    <div style="display:flex;gap:8px;padding-top:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="savePolicy()">Save</button>
-      <button class="btn btn-ghost" id="iRenewBtn" style="display:none" onclick="openRenewDrawer()">Renew</button>
-      <button class="btn btn-ghost" id="iDeleteBtn" style="display:none" onclick="deletePolicy()">Delete</button>
-    </div>
+  </div><!-- /drawer-body -->
+  <div class="drawer-foot">
+    <button class="btn btn-primary" onclick="savePolicy()">Save</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('insDrawer')">Cancel</button>
+    <button class="btn btn-ghost" id="iRenewBtn" style="display:none" onclick="openRenewDrawer()">Renew</button>
+    <button class="btn btn-ghost" id="iDeleteBtn" style="display:none" onclick="deletePolicy()">Delete</button>
   </div>
-</div>
+ </div><!-- /drawer -->
+</div><!-- /drawer-overlay -->
 
 <!-- Renew Drawer -->
-<div class="gh-drawer" id="renewDrawer">
-  <div class="gh-drawer-header">
-    <div class="gh-drawer-title">Renew Policy</div>
-    <button class="gh-drawer-close" onclick="closeDrawer('renewDrawer')">×</button>
-  </div>
-  <div class="gh-drawer-body">
+<div class="drawer-overlay" id="renewDrawer">
+ <div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title">Renew Policy</div>
+  <div class="drawer-body">
     <div style="background:var(--bg3);border-radius:8px;padding:10px;font-size:13px;margin-bottom:16px;color:var(--text2)">
       Creates a new record in the same policy chain. The current policy is marked expired.
     </div>
@@ -100,12 +100,13 @@
       <div class="form-group"><label class="form-label">New Policy #</label><input class="form-input" id="rPolicyNum"></div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="rNotes" style="min-height:60px"></textarea></div>
-    <div style="display:flex;gap:8px;padding-top:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="confirmRenew()">Confirm Renewal</button>
-      <button class="btn btn-ghost" onclick="closeDrawer('renewDrawer')">Cancel</button>
-    </div>
+  </div><!-- /drawer-body -->
+  <div class="drawer-foot">
+    <button class="btn btn-primary" onclick="confirmRenew()">Confirm Renewal</button>
+    <button class="btn btn-ghost" onclick="closeDrawer('renewDrawer')">Cancel</button>
   </div>
-</div>
+ </div><!-- /drawer -->
+</div><!-- /drawer-overlay -->
 
 <button class="fab" onclick="openDrawer()">+</button>
 

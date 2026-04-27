@@ -34,12 +34,11 @@
 </div>
 
 <!-- Drawer -->
-<div class="gh-drawer" id="subDrawer">
-  <div class="gh-drawer-header">
-    <div class="gh-drawer-title" id="subDrawerTitle">Add Subscription</div>
-    <button class="gh-drawer-close" onclick="closeDrawer()">×</button>
-  </div>
-  <div class="gh-drawer-body">
+<div class="drawer-overlay" id="subDrawer">
+ <div class="drawer">
+  <div class="drawer-handle"></div>
+  <div class="drawer-title" id="subDrawerTitle">Add Subscription</div>
+  <div class="drawer-body">
     <div class="form-row">
       <div class="form-group" style="flex:2"><label class="form-label">Name *</label><input class="form-input" id="sName" placeholder="e.g. Netflix"></div>
       <div class="form-group" style="flex:1"><label class="form-label">Category</label>
@@ -68,12 +67,14 @@
       </div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="sNotes" style="min-height:70px"></textarea></div>
-    <div style="display:flex;gap:8px;padding-top:8px">
-      <button class="btn btn-primary" style="flex:1" onclick="saveSub()">Save</button>
-      <button class="btn btn-ghost" id="sDeleteBtn" style="display:none" onclick="deleteSub()">Delete</button>
-    </div>
+  </div><!-- /drawer-body -->
+  <div class="drawer-foot">
+    <button class="btn btn-primary" onclick="saveSub()">Save</button>
+    <button class="btn btn-ghost" onclick="closeDrawer()">Cancel</button>
+    <button class="btn btn-ghost" id="sDeleteBtn" style="display:none" onclick="deleteSub()">Delete</button>
   </div>
-</div>
+ </div><!-- /drawer -->
+</div><!-- /drawer-overlay -->
 
 <button class="fab" onclick="openDrawer()">+</button>
 
