@@ -122,13 +122,13 @@
     .lb-day-empty.past:hover{border-color:var(--border);color:var(--text4)}
 
     /* ── Items · polaroid grid (2-col mobile, 5-col desktop) ── */
-    .lb-items-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;
+    .lb-items-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
       row-gap:22px;padding:14px 14px 90px}
     @media(min-width:768px){
-      .lb-items-grid{grid-template-columns:repeat(4,1fr);gap:22px;row-gap:28px;padding:18px 28px 80px}
+      .lb-items-grid{gap:22px;row-gap:28px;padding:18px 28px 80px}
     }
     @media(min-width:1100px){
-      .lb-items-grid{grid-template-columns:repeat(5,1fr);gap:24px;row-gap:30px}
+      .lb-items-grid{gap:24px;row-gap:30px}
     }
     .lb-item-card{display:block;cursor:pointer}
     .lb-item-meta{display:flex;justify-content:space-between;margin-top:6px;
@@ -165,13 +165,13 @@
     .wrd-item-pick-label{font-size:9px;color:var(--text2);padding:2px 3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--bg2)}
 
     /* ── Outfits · full-bleed cover cards (2-col mobile, 3-col desktop) ── */
-    .lb-outfits-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;
+    .lb-outfits-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;
       padding:14px 16px 90px}
     @media(min-width:768px){
-      .lb-outfits-grid{grid-template-columns:repeat(3,1fr);gap:16px;padding:18px 28px 80px}
+      .lb-outfits-grid{gap:16px;padding:18px 28px 80px}
     }
     @media(min-width:1100px){
-      .lb-outfits-grid{grid-template-columns:repeat(4,1fr)}
+      .lb-outfits-grid{gap:18px}
     }
     .lb-outfit-card{position:relative;border-radius:10px;overflow:hidden;
       background:var(--bg2);border:1px solid var(--border);cursor:pointer;
@@ -218,8 +218,8 @@
     .lb-section-hdr-count{font-family:var(--mono);color:var(--text3);font-size:13px;
       font-weight:400;margin-left:6px}
 
-    .lb-triage-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:32px}
-    @media(min-width:768px){.lb-triage-grid{grid-template-columns:repeat(4,1fr)}}
+    .lb-triage-grid{display:grid;gap:18px;margin-bottom:32px}
+
     .lb-triage-actions{display:flex;justify-content:center;gap:6px;margin-top:10px}
     .lb-triage-actions button{padding:4px 12px;font-size:11px;border-radius:99px;
       font-weight:600;cursor:pointer;border:1px solid;font-family:inherit}
@@ -227,8 +227,8 @@
     .lb-triage-actions .donate{background:var(--amber-bg);border-color:var(--amber-bd);color:var(--amber)}
     .lb-triage-actions .sell{background:var(--bg3);border-color:var(--border2);color:var(--text2)}
 
-    .lb-most-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-bottom:30px}
-    @media(min-width:768px){.lb-most-grid{grid-template-columns:repeat(5,1fr)}}
+    .lb-most-grid{display:grid;gap:14px;margin-bottom:30px}
+
     .lb-most-card .lb-ph{aspect-ratio:1/1;width:100%}
     .lb-most-name{font-size:13px;font-weight:600;margin-top:8px;
       overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -385,6 +385,7 @@
   <div id="tab-insights" style="display:none">
     <div class="lb-toolbar-row">
       <div class="member-pills" id="memberPills_insights"></div>
+      <div class="lb-toolbar-actions" id="insightsViewToolbar"></div>
     </div>
     <div id="lbInsights"></div>
   </div>
@@ -539,6 +540,7 @@ async function init() {
   await loadMembers();
   initItemView();
   initOutfitView();
+  initInsightsView();
   updatePageHeader('planner');
   renderDays();
   loadWeather();
@@ -559,6 +561,15 @@ function initItemView() {
       { key:'occasion', type:'select', label:'Occasion', options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'School',label:'School'},{value:'Sports',label:'Sports'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'}]},
     ]
   });
+}
+
+function initInsightsView() {
+  GH_VIEW.init('insightsViewToolbar', 'wrd_item', state => {
+    _itemCols = state.cols; _itemView = state.view;
+    if (_currentTab === 'items')    loadItems();
+    if (_currentTab === 'outfits')  loadOutfits();
+    if (_currentTab === 'insights') loadInsights();
+  }, { defaultView: 'grid', defaultCols: 4 });
 }
 
 function initOutfitView() {
