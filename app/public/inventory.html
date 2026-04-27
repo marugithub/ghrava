@@ -3271,6 +3271,7 @@ $('itemSave').addEventListener('click', async ()=>{
       family_member_ids: GH_FAMILY.getIds('itmFamilyWrap')
     });
     const saved=r;
+    editingId = saved.id || editingId; // ensure re-saves always PUT
     // Save H&W details if category is Health & Wellness
     if (isHW($('itm_cat').value)) {
       await saveHWDetails(saved.id);
