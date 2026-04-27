@@ -9,6 +9,7 @@ const router   = express.Router();
 const db       = require('../../db/db');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
+const { saveFamilyMembers, getFamilyMembers, withFamilyMembers } = require('../../shared/familyMembers');
 const { runDataCleanup } = require('../../shared/data-cleanup');
 const { requireAuth } = require('../auth/middleware');
 const { logEvent, getEvents } = require('../../shared/auditLog');
