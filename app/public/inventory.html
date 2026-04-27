@@ -3101,9 +3101,9 @@ let _whereCtns = [];
 
 async function loadWhereLists(force=false) {
   if (!force && _whereLocs.length) return; // already loaded
-  const [locR, ctnR] = await Promise.all([window.api('GET','/inventory/locations/flat'), window.api('GET','/inventory/containers')]);
-  _whereLocs = locR.ok ? await locR.json() : [];
-  _whereCtns = ctnR.ok ? await ctnR.json() : [];
+  const [locs, ctns] = await Promise.all([window.api('GET','/inventory/locations/flat'), window.api('GET','/inventory/containers')]);
+  _whereLocs = Array.isArray(locs) ? locs : [];
+  _whereCtns = Array.isArray(ctns) ? ctns : [];
 }
 
 // ── Location/Container picker ────────────────────────────────
