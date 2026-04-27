@@ -105,6 +105,41 @@ router.get('/items/:id', (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+// ── DELETE /items/:id — hard delete (admin cleanup) ───────────
+router.delete('/items/:id', requireAuth, (req, res) => {
+  try {
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(req.params.id);
+    if (!item) return notFound(res, 'Item not found');
+    db.prepare('DELETE FROM wardrobe_outfit_items WHERE item_id=?').run(req.params.id);
+    db.prepare('DELETE FROM wardrobe_wear_log WHERE item_id=?').run(req.params.id);
+    db.prepare('DELETE FROM items WHERE id=?').run(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+// ── PATCH /items/:id/archive — soft archive with reason ───────
+router.patch('/items/:id/archive', requireAuth, (req, res) => {
+  try {
+    const { archive, reason, wardrobe_status, wardrobe_status_notes } = req.body || {};
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(req.params.id);
+    if (!item) return notFound(res, 'Item not found');
+    db.prepare(`UPDATE items SET
+      is_archived = ?, archived_at = CASE WHEN ? THEN CURRENT_TIMESTAMP ELSE NULL END,
+      archived_reason = ?,
+      wardrobe_status = COALESCE(?, wardrobe_status),
+      wardrobe_status_notes = COALESCE(?, wardrobe_status_notes),
+      updated_at = CURRENT_TIMESTAMP
+      WHERE id=?`).run(
+      archive ? 1 : 0, archive ? 1 : 0,
+      reason || null,
+      wardrobe_status || null,
+      wardrobe_status_notes || null,
+      req.params.id
+    );
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
 router.put('/items/:id', requireAuth, (req, res) => {
   try {
     const d = req.body || {};

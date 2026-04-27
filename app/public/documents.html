@@ -130,15 +130,41 @@
 
 <button class="fab" onclick="openDocDrawer()">+</button>
 
+<!-- Archive document modal -->
+<div class="drawer-overlay" id="docArchiveOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="drawer" style="max-width:420px">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Archive Document</div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">Reason <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <textarea class="form-textarea" id="docArchiveReason" placeholder="e.g. Expired, superseded by newer version…" style="min-height:70px"></textarea>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn btn-primary" onclick="saveDocArchive()">Archive</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('docArchiveOverlay').classList.remove('open')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- DOCUMENT MODAL -->
 <div class="doc-modal-overlay" id="docDrawer" onclick="if(event.target===this)closeDocModal()">
   <div class="doc-modal">
     <!-- Header -->
     <div class="doc-modal-header">
-      <div class="drawer-title" id="docDrawerTitle" style="margin:0;font-size:18px">Add Document</div>
-      <button onclick="closeDocModal()" class="doc-modal-x" title="Cancel">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
+      <div class="drawer-title" id="docDrawerTitle" style="margin:0;font-size:18px;flex:1">Add Document</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        <button id="dArchiveBtn" title="Archive document" style="display:none;width:30px;height:30px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="openDocArchive()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+        </button>
+        <button id="dDelBtn" title="Delete document" style="display:none;width:30px;height:30px;border-radius:var(--r);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="deleteDoc()">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        </button>
+        <button onclick="closeDocModal()" class="doc-modal-x" title="Cancel">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Body -->
@@ -211,7 +237,6 @@
     <div class="doc-modal-footer">
       <button class="btn btn-ghost" onclick="closeDocModal()">Cancel</button>
       <div style="display:flex;gap:8px;flex:1;justify-content:flex-end">
-        <button class="btn btn-ghost" id="dDelBtn" style="color:var(--red);display:none" onclick="deleteDoc()">Delete</button>
         <button class="btn btn-primary" id="dSave" onclick="saveDoc()">Save</button>
       </div>
     </div>
@@ -394,6 +419,10 @@ async function openDocDrawer(id) {
   editDocId = id||null;
   const d = id ? (allDocs.find(x=>x.id===id)||{}) : {};
   $('docDrawerTitle').textContent = id ? 'Edit Document' : 'Add Document';
+  const archBtn = $('dArchiveBtn');
+  const delBtn  = $('dDelBtn');
+  if (archBtn) archBtn.style.display = id ? 'flex' : 'none';
+  if (delBtn)  delBtn.style.display  = id ? 'flex' : 'none';
   $('dTitle').value     = d.title||'';
   $('dIssuer').value    = d.issuer||'';
   $('dDesc').value      = d.description||'';
@@ -453,10 +482,32 @@ async function saveDoc() {
   finally{btn.textContent='Save';btn.disabled=false;}
 }
 
+function openDocArchive() {
+  document.getElementById('docArchiveReason').value = '';
+  document.getElementById('docArchiveOverlay').classList.add('open');
+}
+
+async function saveDocArchive() {
+  if (!editDocId) return;
+  try {
+    await window.api('PATCH', `/documents/${editDocId}/archive`, {
+      reason: document.getElementById('docArchiveReason').value.trim() || null
+    });
+    document.getElementById('docArchiveOverlay').classList.remove('open');
+    $('docDrawer').classList.remove('open');
+    toast('Document archived', 'ok');
+    loadDocs();
+  } catch(e) { toast('Archive failed: ' + e.message, 'err'); }
+}
+
 async function deleteDoc() {
-  if (!await LT.confirm('Remove this document?')) return;
-  try { await window.api('DELETE',`/documents/${editDocId}`); toast('Removed'); $('docDrawer').classList.remove('open'); loadDocs(); }
-  catch(e){toast('Delete failed','err');}
+  if (!await LT.confirm('Delete this document permanently? This cannot be undone.')) return;
+  try {
+    await window.api('DELETE', `/documents/${editDocId}`);
+    toast('Deleted');
+    $('docDrawer').classList.remove('open');
+    loadDocs();
+  } catch(e) { toast('Delete failed', 'err'); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

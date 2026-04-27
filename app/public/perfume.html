@@ -49,7 +49,15 @@
 <div class="drawer-overlay" id="perfDrawer">
  <div class="drawer">
   <div class="drawer-handle"></div>
-  <div class="drawer-title" id="perfDrawerTitle">Add Perfume</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="drawer-title" id="perfDrawerTitle" style="flex:1">Add Perfume</div>
+    <button id="perfArchiveBtn" title="Archive perfume" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="openPerfArchive()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+    </button>
+    <button id="pDeleteBtn" title="Delete perfume" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="deletePerfume()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>
+  </div>
   <div class="drawer-body">
     <!-- Fragella lookup -->
     <div class="form-group" id="lookupGroup">
@@ -122,12 +130,38 @@
   <div class="drawer-foot">
     <button class="btn btn-primary" onclick="savePerfume()">Save</button>
     <button class="btn btn-ghost" onclick="closeDrawer()">Cancel</button>
-    <button class="btn btn-ghost" id="pDeleteBtn" style="display:none" onclick="deletePerfume()">Delete</button>
   </div>
  </div><!-- /drawer -->
 </div><!-- /drawer-overlay -->
 
 <button class="fab" onclick="openDrawer()">+</button>
+
+<!-- Archive perfume modal -->
+<div class="drawer-overlay" id="perfArchiveOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="drawer" style="max-width:420px">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Archive Perfume</div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">Disposition</label>
+        <select class="form-select" id="perfArchiveStatus">
+          <option value="empty">Finished / Empty</option>
+          <option value="given_away">Given Away / Gifted</option>
+          <option value="sold">Sold</option>
+          <option value="lost">Lost</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <textarea class="form-textarea" id="perfArchiveNotes" placeholder="Any notes…" style="min-height:60px"></textarea>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn btn-primary" onclick="savePerfArchive()">Archive</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('perfArchiveOverlay').classList.remove('open')">Cancel</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const SCENT_FAMILIES = ['Fresh','Citrus','Floral','Oriental','Woody','Gourmand','Aquatic','Spicy'];
@@ -149,7 +183,10 @@ function openDrawer(id) {
   _pScentSel = []; _pSeasonSel = []; _pOccasionSel = []; _pRating = 0;
 
   document.getElementById('perfDrawerTitle').textContent = id ? 'Edit Perfume' : 'Add Perfume';
-  document.getElementById('pDeleteBtn').style.display = id ? '' : 'none';
+  const archBtn = document.getElementById('perfArchiveBtn');
+  const delBtn  = document.getElementById('pDeleteBtn');
+  if (archBtn) archBtn.style.display = id ? 'flex' : 'none';
+  if (delBtn)  delBtn.style.display  = id ? 'flex' : 'none';
   document.getElementById('lookupGroup').style.display = id ? 'none' : '';
   document.getElementById('lookupResults').innerHTML = '';
   document.getElementById('lookupQuery').value = '';
@@ -309,6 +346,25 @@ async function savePerfume() {
     closeDrawer();
     load();
   } catch(e) { toast('Save failed: '+e.message, 'err'); }
+}
+
+function openPerfArchive() {
+  document.getElementById('perfArchiveStatus').value = 'empty';
+  document.getElementById('perfArchiveNotes').value = '';
+  document.getElementById('perfArchiveOverlay').classList.add('open');
+}
+
+async function savePerfArchive() {
+  if (!_editingId) return;
+  const status = document.getElementById('perfArchiveStatus').value;
+  const notes  = document.getElementById('perfArchiveNotes').value.trim();
+  try {
+    await window.api('PUT', `/perfume/${_editingId}`, { status, notes: notes || undefined });
+    document.getElementById('perfArchiveOverlay').classList.remove('open');
+    closeDrawer();
+    toast('Perfume archived', 'ok');
+    load();
+  } catch(e) { toast('Archive failed: ' + e.message, 'err'); }
 }
 
 async function deletePerfume() {

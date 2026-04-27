@@ -395,7 +395,15 @@
 <div class="drawer-overlay" id="itemDrawer">
  <div class="drawer">
   <div class="drawer-handle"></div>
-  <div class="drawer-title" id="itemDrawerTitle">Add Item</div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="drawer-title" id="itemDrawerTitle" style="flex:1">Add Item</div>
+    <button id="wrdItemArchiveBtn" title="Archive item" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="openWrdItemArchive()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+    </button>
+    <button id="wrdItemDeleteBtn" title="Delete item" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="confirmWrdItemDelete()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+    </button>
+  </div>
   <div class="drawer-body">
 
     <!-- UPC / Barcode row — scan or type, then Lookup pulls product data -->
@@ -511,9 +519,38 @@
   <button class="scanner-close" id="wrdScannerClose" onclick="wrdCloseScanner()">✕</button>
 </div>
 
-<!-- Planner add-outfit modal (replaces broken LT.modal call) -->
+<!-- Planner add-outfit modal -->
 <div id="wrdPlannerOverlay" onclick="if(event.target===this)closePlannerModal()">
   <div class="wrd-modal" id="wrdPlannerBody"></div>
+</div>
+
+<!-- Archive item modal -->
+<div class="drawer-overlay" id="wrdArchiveOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="drawer" style="max-width:420px">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Archive Item</div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">Disposition</label>
+        <select class="form-select" id="wrdArchiveStatus">
+          <option value="donated">Donated</option>
+          <option value="sold">Sold</option>
+          <option value="gifted">Gifted</option>
+          <option value="discarded">Discarded</option>
+          <option value="lost">Lost</option>
+          <option value="archived">Archived (keep record)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Reason <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <textarea class="form-textarea" id="wrdArchiveNotes" placeholder="e.g. Donated to Goodwill, sold on eBay…" style="min-height:70px"></textarea>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn btn-primary" onclick="saveWrdItemArchive()">Archive</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('wrdArchiveOverlay').classList.remove('open')">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <button class="fab" id="fabBtn" onclick="onFab()">+</button>
@@ -531,6 +568,48 @@ let _oSeasonSel = [], _oOccasionSel = [], _oItemIds = [];
 let _iPhotos = [], _oPhotos = [];
 let _itemView = 'grid', _itemCols = +(localStorage.getItem('wrd_item_cols')||4), _itemFilters = {};
 let _outfitView = 'grid', _outfitCols = +(localStorage.getItem('wrd_outfit_cols')||4), _outfitFilters = {};
+
+function openWrdItemArchive() {
+  document.getElementById('wrdArchiveStatus').value = 'donated';
+  document.getElementById('wrdArchiveNotes').value = '';
+  document.getElementById('wrdArchiveOverlay').classList.add('open');
+}
+
+async function saveWrdItemArchive() {
+  if (!_editingItemId) return;
+  const status = document.getElementById('wrdArchiveStatus').value;
+  const notes  = document.getElementById('wrdArchiveNotes').value.trim();
+  try {
+    await window.api('PATCH', `/wardrobe/items/${_editingItemId}/archive`, {
+      archive: true,
+      wardrobe_status: status,
+      wardrobe_status_notes: notes || null,
+      reason: notes || null
+    });
+    document.getElementById('wrdArchiveOverlay').classList.remove('open');
+    closeDrawer('itemDrawer');
+    toast('Item archived', 'ok');
+    loadItems();
+  } catch(e) { toast('Archive failed: ' + e.message, 'err'); }
+}
+
+function confirmWrdItemDelete() {
+  if (!_editingItemId) return;
+  LT.confirm({
+    title: 'Delete this item?',
+    msg: 'Permanently removes the item, photos and wear history. Cannot be undone.',
+    confirmLabel: 'Delete',
+    danger: true,
+    onConfirm: async () => {
+      try {
+        await window.api('DELETE', `/wardrobe/items/${_editingItemId}`);
+        closeDrawer('itemDrawer');
+        toast('Item deleted', 'ok');
+        loadItems();
+      } catch(e) { toast('Delete failed: ' + e.message, 'err'); }
+    }
+  });
+}
 
 function closeDrawer(id) { document.getElementById(id).classList.remove('open'); }
 function openDrawer(id)  { document.getElementById(id).classList.add('open'); }
@@ -1317,6 +1396,11 @@ async function openItemDrawer(id) {
   _editingItemId = id||null;
   _iSeasonSel = []; _iOccasionSel = [];
   _iPhotos = []; _pendingItemPhotos = [];
+  const isEdit = !!id;
+  const archBtn = document.getElementById('wrdItemArchiveBtn');
+  const delBtn  = document.getElementById('wrdItemDeleteBtn');
+  if (archBtn) archBtn.style.display = isEdit ? 'flex' : 'none';
+  if (delBtn)  delBtn.style.display  = isEdit ? 'flex' : 'none';
 
   // Populate platform dropdown
   await GH_SELECT.init('iSoldPlatform', 'sold_platform', '', { placeholder: '— select —', allowAdd: false });

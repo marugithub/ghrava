@@ -95,7 +95,9 @@ router.put('/:id', requireAuth, (req, res) => {
     db.prepare(`
       UPDATE books SET title=?, author=?, genre=?, status=?, rating=?, format=?,
         date_started=?, date_finished=?, notes=?, isbn=?, cover_url=?,
-        pages_total=?, pages_read=?, updated_at=CURRENT_TIMESTAMP
+        pages_total=?, pages_read=?,
+        physical_status=?, physical_status_notes=?, physical_status_date=?,
+        updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
       d.title||existing.title, d.author||null, d.genre||null,
@@ -104,6 +106,9 @@ router.put('/:id', requireAuth, (req, res) => {
       d.isbn||null, d.cover_url||null,
       d.pages_total !== undefined ? d.pages_total||null : existing.pages_total,
       d.pages_read  !== undefined ? d.pages_read||null  : existing.pages_read,
+      d.physical_status !== undefined ? d.physical_status||null : existing.physical_status,
+      d.physical_status_notes !== undefined ? d.physical_status_notes||null : existing.physical_status_notes,
+      d.physical_status_date !== undefined ? d.physical_status_date||null : existing.physical_status_date,
       req.params.id
     );
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'book', d.tags);
@@ -113,11 +118,28 @@ router.put('/:id', requireAuth, (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// PATCH /:id/archive
+router.patch('/:id/archive', requireAuth, (req, res) => {
+  try {
+    const { physical_status, physical_status_notes, physical_status_date } = req.body || {};
+    const existing = db.prepare('SELECT id FROM books WHERE id=?').get(req.params.id);
+    if (!existing) return notFound(res, 'Book');
+    db.prepare(`UPDATE books SET is_active=0,
+      physical_status=COALESCE(?,physical_status),
+      physical_status_notes=COALESCE(?,physical_status_notes),
+      physical_status_date=COALESCE(?,CURRENT_DATE),
+      updated_at=CURRENT_TIMESTAMP WHERE id=?`
+    ).run(physical_status||null, physical_status_notes||null, physical_status_date||null, req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+// DELETE /:id — hard delete
 router.delete('/:id', requireAuth, (req, res) => {
   try {
     clearFamilyMembers(req.params.id, 'book');
     clearTags(req.params.id, 'book');
-    db.prepare('UPDATE books SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(req.params.id);
+    db.prepare('DELETE FROM books WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });

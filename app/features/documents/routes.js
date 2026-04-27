@@ -141,17 +141,27 @@ router.put('/:id', requireAuth, (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
-// ── DELETE /:id ───────────────────────────────────────────────
-// ── Soft-delete (sets is_active=0, clears tags) ────────────────
+// ── PATCH /:id/archive — soft archive with reason ─────────────
+router.patch('/:id/archive', requireAuth, (req, res) => {
+  try {
+    const { reason } = req.body || {};
+    db.prepare(`UPDATE documents SET is_active=0,
+      archive_reason=COALESCE(?,archive_reason),
+      updated_at=CURRENT_TIMESTAMP WHERE id=?`
+    ).run(reason||null, req.params.id);
+    res.json({ ok: true });
+  } catch(e) { serverError(res, e); }
+});
+
+// ── DELETE /:id — hard delete ──────────────────────────────────
 router.delete('/:id', requireAuth, (req, res) => {
   try {
     clearFamilyMembers(req.params.id, 'document');
     clearTags(req.params.id, 'document');
-    db.prepare('UPDATE documents SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(req.params.id);
+    db.prepare('DELETE FROM documents WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
-
 
 
 

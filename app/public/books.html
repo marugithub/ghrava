@@ -111,6 +111,34 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 
 </div><!-- #app -->
 
+<!-- Archive book modal -->
+<div class="drawer-overlay" id="bkArchiveOverlay" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="drawer" style="max-width:420px">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Archive Book</div>
+    <div class="drawer-body">
+      <div class="form-group">
+        <label class="form-label">Disposition</label>
+        <select class="form-select" id="bkArchiveStatus">
+          <option value="donated">Donated</option>
+          <option value="sold">Sold</option>
+          <option value="gifted">Gifted</option>
+          <option value="lost">Lost</option>
+          <option value="archived">Archived (keep record)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes / Reason <span style="color:var(--text3);font-weight:400">(optional)</span></label>
+        <textarea class="form-textarea" id="bkArchiveNotes" placeholder="e.g. Donated to library…" style="min-height:70px"></textarea>
+      </div>
+    </div>
+    <div class="drawer-foot">
+      <button class="btn btn-primary" onclick="saveBkArchive()">Archive</button>
+      <button class="btn btn-ghost" onclick="document.getElementById('bkArchiveOverlay').classList.remove('open')">Cancel</button>
+    </div>
+  </div>
+</div>
+
 <!-- FAB -->
 <button class="fab" id="fabBtn" onclick="openAddMenu()" title="Add book">+</button>
 
@@ -120,7 +148,15 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 <div class="drawer-overlay" id="bookDrawer" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="drawer">
     <div class="drawer-handle"></div>
-    <div class="drawer-title" id="bookDrawerTitle">Add Book</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="drawer-title" id="bookDrawerTitle" style="flex:1">Add Book</div>
+      <button id="bkArchiveBtn" title="Archive book" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="openBkArchive()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+      </button>
+      <button id="bkDeleteBtn" title="Delete book" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="confirmDeleteBook()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </button>
+    </div>
 
     <div class="form-group"><label class="form-label">Title <span class="req">*</span></label><input class="form-input" id="bkTitle"></div>
     <div class="form-group"><label class="form-label">Author</label><input class="form-input" id="bkAuthor"></div>
@@ -171,7 +207,6 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
       </div>
     </div>
       <button class="btn btn-primary" id="bkSave" style="flex:1" onclick="saveBook()">Save</button>
-      <button class="btn btn-ghost" id="bkDeleteBtn" style="color:var(--red);display:none" onclick="deleteBook()">Delete</button>
     </div>
   </div>
 </div>
@@ -323,7 +358,10 @@ function setRating(n) {
 async function openBookDrawer(id) {
   editingBookId = id||null;
   $('bookDrawerTitle').textContent = id ? 'Edit Book' : 'Add Book';
-  $('bkDeleteBtn').style.display   = id ? 'inline-flex' : 'none';
+  const archBtn = $('bkArchiveBtn');
+  const delBtn  = $('bkDeleteBtn');
+  if (archBtn) archBtn.style.display = id ? 'flex' : 'none';
+  if (delBtn)  delBtn.style.display  = id ? 'flex' : 'none';
 
   const b = id ? (_allBooks.find(x=>x.id===id)||{}) : {};
   $('bkTitle').value    = b.title||'';
@@ -398,10 +436,31 @@ async function saveBook() {
   finally{ btn.textContent='Save'; btn.disabled=false; }
 }
 
-async function deleteBook() {
-  if(!await LT.confirm('Remove this book?')) return;
+function openBkArchive() {
+  document.getElementById('bkArchiveStatus').value = 'donated';
+  document.getElementById('bkArchiveNotes').value = '';
+  document.getElementById('bkArchiveOverlay').classList.add('open');
+}
+
+async function saveBkArchive() {
+  if (!editingBookId) return;
+  try {
+    await api('PATCH', `/${editingBookId}/archive`, {
+      physical_status: document.getElementById('bkArchiveStatus').value,
+      physical_status_notes: document.getElementById('bkArchiveNotes').value.trim() || null,
+    });
+    document.getElementById('bkArchiveOverlay').classList.remove('open');
+    $('bookDrawer').classList.remove('open');
+    toast('Book archived', 'ok');
+    loadBooks(); loadStats();
+  } catch(e) { toast('Archive failed: ' + e.message, 'err'); }
+}
+
+async function confirmDeleteBook() {
+  if (!editingBookId) return;
+  if (!await LT.confirm('Delete this book permanently? This cannot be undone.')) return;
   await api('DELETE', `/${editingBookId}`);
-  toast('Removed'); $('bookDrawer').classList.remove('open');
+  toast('Deleted'); $('bookDrawer').classList.remove('open');
   loadBooks(); loadStats();
 }
 
