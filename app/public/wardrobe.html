@@ -1080,7 +1080,7 @@ async function loadPlannerEntries() {
             ratio: 'tall',
             big: true
           });
-          return `<div class="lb-day-card" onclick="showPlannerCardMenu(${e.id},${e.outfit_id},'${esc((e.outfit_name||'Outfit').replace(/'/g,"\\'")}')">
+          return `<div class="lb-day-card" data-entry="${e.id}" data-outfit="${e.outfit_id}" data-name="${esc(e.outfit_name||'Outfit')}" onclick="showPlannerCardMenu(this)">
             ${polaroid}
             <div class="lb-day-card-meta">
               <span class="lb-day-card-owner">${memberName ? lbMemberDot(member, 6) + esc(memberName) : ''}</span>
@@ -1133,7 +1133,10 @@ async function confirmPlannerAdd(dateKey) {
   } catch(e) { toast('Failed to add', 'err'); }
 }
 
-function showPlannerCardMenu(entryId, outfitId, outfitName) {
+function showPlannerCardMenu(el) {
+  const entryId  = +el.dataset.entry;
+  const outfitId = +el.dataset.outfit;
+  const outfitName = el.dataset.name || 'Outfit';
   const body = document.getElementById('wrdPlannerBody');
   body.innerHTML = `
     <div class="lb-modal-title">${esc(outfitName)}</div>
@@ -1256,7 +1259,6 @@ async function loadItems() {
       }).join('');
     }
   } catch(e) { toast('Failed to load items', 'err'); }
-}
 }
 
 function renderTagPicker(containerId, opts, selected, onToggle) {
@@ -1657,6 +1659,7 @@ function toggleOItem(id) {
   _oItemIds = _oItemIds.includes(id) ? _oItemIds.filter(x=>x!==id) : [..._oItemIds,id];
   syncOutfitTagsFromItems();
   renderItemPicker();
+}
 async function saveOutfit(opts = {}) {
   const name = document.getElementById('oName').value.trim();
   if (!name) { toast('Name is required', 'err'); return false; }
