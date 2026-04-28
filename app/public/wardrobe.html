@@ -63,20 +63,20 @@
     .lb-ph::before{content:"";position:absolute;inset:0;
       background-image:repeating-linear-gradient(45deg,transparent 0 8px,rgba(255,255,255,.02) 8px 16px);
       pointer-events:none}
-    .lb-ph img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:contain;object-position:top;display:block}
+    .lb-ph img{position:absolute;top:8px;left:0;right:0;bottom:0;z-index:1;width:100%;height:calc(100% - 8px);object-fit:contain;object-position:top;display:block}
 
     /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
     .lb-polaroid{background:#f4ece0;border-radius:3px;
-      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:6px}
-    .lb-polaroid-photo{width:calc(100% - 16px);aspect-ratio:3/4;overflow:hidden;
+      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:0}
+    .lb-polaroid-photo{width:calc(100% - 16px);aspect-ratio:1/1;overflow:hidden;
       display:flex;align-items:center;justify-content:center;position:relative;
       margin:8px auto 0}
-    .lb-polaroid-photo.tall{aspect-ratio:3/4}
+    .lb-polaroid-photo.tall{aspect-ratio:1/1}
     .lb-polaroid-photo.primary{outline:2px solid var(--green);outline-offset:-2px}
     .lb-polaroid-cap{text-align:center;font-family:var(--mono);font-size:9px;
       color:#3a2c20;letter-spacing:.06em;margin-top:4px;text-transform:uppercase;
       overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
-      padding:0 2px;line-height:1.4}
+      padding:0 6px 4px;line-height:1.3}
     .lb-polaroid.big .lb-polaroid-cap{font-size:10px}
 
     /* Pleasing tilt cycle — index%4 picks one of these */
