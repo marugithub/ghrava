@@ -3015,3 +3015,18 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     font-size: 13px;
   }
 }
+
+/* ── Universal card shadow — applies to common module card patterns ── */
+.entry-card, .perf-card, .todo-item, .wrd-list-card, .expense-row,
+.kid-alert-card, .maint-card, .notif-card, .hsa-tile, .hsa-card,
+.data-card, .report-panel, .sb-card, .book-card, .sub-card,
+.ins-card, .prop-card, .res-card, .ctn-card, .loc-card,
+.item-grid-card, .item-card, .item-compact-card {
+  box-shadow: var(--shadow-card);
+}
+.entry-card:hover, .perf-card:hover, .todo-item:hover, .wrd-list-card:hover,
+.expense-row:hover, .kid-alert-card:hover, .maint-card:hover,
+.notif-card:hover, .hsa-card:hover, .data-card:hover,
+.ctn-card:hover, .item-grid-card:hover, .item-card:hover {
+  box-shadow: var(--shadow-card-hover);
+}
