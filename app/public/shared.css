@@ -12,9 +12,9 @@
   --bg5:       #E8E8EF;
 
   /* Borders */
-  --border:    rgba(0,0,0,.08);
-  --border2:   rgba(0,0,0,.13);
-  --border3:   rgba(0,0,0,.18);
+  --border:    rgba(0,0,0,.11);
+  --border2:   rgba(0,0,0,.18);
+  --border3:   rgba(0,0,0,.24);
 
   /* Text */
   --text:      #111111;
@@ -46,8 +46,8 @@
   --sans: 'Inter', -apple-system, system-ui, sans-serif;
   --mono: 'DM Mono', 'Fira Code', monospace;
 
-  --shadow-card: 0 1px 4px rgba(0,0,0,.06), 0 0 0 1px rgba(0,0,0,.03);
-  --shadow-card-hover: 0 4px 12px rgba(0,0,0,.09), 0 0 0 1px rgba(0,0,0,.04);
+  --shadow-card: 0 2px 8px rgba(0,0,0,.10), 0 0 0 1px rgba(0,0,0,.06);
+  --shadow-card-hover: 0 6px 18px rgba(0,0,0,.13), 0 0 0 1px rgba(0,0,0,.08);
   --shadow-modal: 0 8px 32px rgba(0,0,0,.12);
 
   /* Shape */
@@ -535,7 +535,7 @@ html, body {
   right: 20px;
   width: 54px;
   height: 54px;
-  background: var(--accent);
+  background: #3548eb;
   border: none;
   border-radius: 50%;
   color: #fff;
@@ -544,7 +544,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(92,114,250,0.45);
+  box-shadow: 0 4px 16px rgba(53,72,235,0.45);
   transition: all 0.2s;
   z-index: 150;
   -webkit-tap-highlight-color: transparent;
@@ -561,7 +561,7 @@ html, body {
 }
 .fab-pill span { letter-spacing: .01em; }
 
-.fab:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(92,114,250,0.6); }
+.fab:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(53,72,235,0.55); background: #2a3dd4; }
 .fab:active { transform: scale(0.97); }
 
 /* ── Cards ──────────────────────────────────────────────────── */
