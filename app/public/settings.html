@@ -264,6 +264,56 @@
   /* Drawers must appear above sub-panels (z-index 400) */
   .drawer-overlay { z-index: 500 !important; }
 
+  /* ── Imports/Exports panel (folded from former data.html) ── */
+  #panel-imports .data-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-lg); padding:20px; margin-bottom:16px; }
+  #panel-imports .data-card-title { font-size:16px; font-weight:700; color:var(--text); margin-bottom:4px; }
+  #panel-imports .data-card-desc { font-size:13px; color:var(--text3); margin-bottom:14px; line-height:1.5; }
+  #panel-imports .sheet-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:8px; margin-top:12px; }
+  #panel-imports .sheet-pill { background:var(--bg3); border:1px solid var(--border); border-radius:var(--r); padding:8px 12px; font-size:12px; }
+  #panel-imports .sheet-pill-name { font-weight:600; color:var(--text); margin-bottom:2px; }
+  #panel-imports .sheet-pill-key { color:var(--text3); font-family:var(--mono); font-size:11px; }
+  #panel-imports .sheet-pill-req { color:var(--amber); font-size:11px; margin-top:2px; }
+  #panel-imports .imp-drop { border:2px dashed var(--border2); border-radius:var(--r-lg); padding:32px; text-align:center; cursor:pointer; transition:all .15s; }
+  #panel-imports .imp-drop:hover, #panel-imports .imp-drop.drag { border-color:var(--accent); background:var(--accent-bg); }
+  #panel-imports .imp-drop-icon { font-size:36px; margin-bottom:8px; }
+  #panel-imports .imp-drop-label { font-size:14px; font-weight:600; color:var(--text); }
+  #panel-imports .imp-drop-sub { font-size:12px; color:var(--text3); margin-top:4px; }
+  #panel-imports .result-sheet { display:flex; align-items:center; justify-content:space-between; padding:8px 12px; border-bottom:1px solid var(--border); font-size:13px; }
+  #panel-imports .result-sheet:last-child { border-bottom:none; }
+  #panel-imports .result-sheet-name { font-weight:600; color:var(--text); }
+  #panel-imports .result-counts { display:flex; gap:10px; font-family:var(--mono); font-size:12px; }
+  #panel-imports .rc-ins { color:var(--green); }
+  #panel-imports .rc-upd { color:var(--accent); }
+  #panel-imports .rc-skip { color:var(--text3); }
+  #panel-imports .warn-box { background:rgba(245,158,11,.08); border:1px solid rgba(245,158,11,.25); border-radius:var(--r); padding:12px 14px; font-size:13px; color:var(--text); margin-bottom:14px; line-height:1.6; }
+
+  /* ── Diagnostics panel (folded from former tests.html) ───── */
+  #panel-diagnostics .test-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; flex-wrap:wrap; gap:10px; }
+  #panel-diagnostics .run-bar { display:flex; gap:8px; flex-wrap:wrap; }
+  #panel-diagnostics .summary-bar { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-bottom:20px; }
+  #panel-diagnostics .sb-card { background:var(--bg2); border:1px solid var(--border); border-radius:var(--r); padding:12px; text-align:center; }
+  #panel-diagnostics .sb-val { font-size:22px; font-weight:800; }
+  #panel-diagnostics .sb-lbl { font-size:10px; color:var(--text3); font-family:var(--mono); text-transform:uppercase; letter-spacing:.05em; }
+  #panel-diagnostics .cat-block { margin-bottom:20px; }
+  #panel-diagnostics .cat-header { display:flex; align-items:center; justify-content:space-between; padding:6px 0; border-bottom:1px solid var(--border); margin-bottom:8px; }
+  #panel-diagnostics .cat-name { font-family:var(--mono); font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em; color:var(--text3); }
+  #panel-diagnostics .cat-run { font-size:11px; color:var(--accent); cursor:pointer; background:none; border:none; padding:0; }
+  #panel-diagnostics .cat-run:hover { text-decoration:underline; }
+  #panel-diagnostics .test-row { display:flex; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
+  #panel-diagnostics .test-row:last-child { border-bottom:none; }
+  #panel-diagnostics .test-status { width:18px; text-align:center; flex-shrink:0; font-size:14px; }
+  #panel-diagnostics .test-name { flex:1; color:var(--text); }
+  #panel-diagnostics .test-time { font-size:11px; color:var(--text3); font-family:var(--mono); width:48px; text-align:right; flex-shrink:0; }
+  #panel-diagnostics .test-detail { font-size:11px; color:var(--text3); max-width:260px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #panel-diagnostics .test-row.running .test-status { animation:spin .6s linear infinite; }
+  #panel-diagnostics .test-row.pass .test-name { color:var(--text); }
+  #panel-diagnostics .test-row.fail .test-name { color:var(--red); }
+  #panel-diagnostics .test-row.skip .test-name { color:var(--text3); }
+  #panel-diagnostics .progress-track { height:4px; background:var(--bg3); border-radius:2px; margin-bottom:16px; overflow:hidden; display:none; }
+  #panel-diagnostics .progress-fill { height:100%; background:var(--accent); border-radius:2px; transition:width .2s; }
+  #panel-diagnostics .history-entry { font-size:12px; color:var(--text3); padding:4px 0; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
   /* ── Settings menu rows (inside .settings-card) ─────────── */
   .settings-group { margin: 0 0 8px; }
   .settings-group-label {
@@ -271,6 +321,98 @@
     text-transform: uppercase; color: var(--text3);
     padding: 20px 20px 8px;
   }
+
+  /* ── New rail-style settings layout ───────────────────────── */
+  .settings-rail-wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 16px;
+  }
+  .settings-search {
+    position: relative;
+    margin-bottom: 18px;
+  }
+  .settings-search input {
+    width: 100%;
+    padding: 10px 14px 10px 38px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    background: var(--bg2);
+    color: var(--text);
+    font-size: 14px;
+    font-family: inherit;
+    box-shadow: var(--shadow-card);
+  }
+  .settings-search svg {
+    position: absolute;
+    top: 50%; left: 12px; transform: translateY(-50%);
+    width: 16px; height: 16px;
+    color: var(--text3);
+  }
+  .settings-rail-group {
+    margin-bottom: 22px;
+  }
+  .settings-rail-group-label {
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .08em; text-transform: uppercase;
+    color: var(--text3);
+    padding: 0 0 8px 4px;
+  }
+  .settings-rail-list {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-card);
+  }
+  .settings-rail-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+    background: transparent;
+    transition: background .12s;
+  }
+  .settings-rail-item:first-child { border-top: none; }
+  .settings-rail-item:hover { background: var(--bg3); }
+  .settings-rail-icon {
+    width: 32px; height: 32px; border-radius: var(--r);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .settings-rail-icon svg { width: 16px; height: 16px; }
+  .settings-rail-label {
+    font-size: 14px; font-weight: 500; color: var(--text);
+  }
+  .settings-rail-desc {
+    font-size: 12px; color: var(--text3); margin-top: 1px;
+  }
+  .settings-rail-right {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 8px;
+    color: var(--text3);
+  }
+  .settings-rail-right svg { width: 14px; height: 14px; }
+  .settings-rail-badge {
+    background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 600;
+    padding: 2px 8px; border-radius: 999px;
+    font-family: var(--mono);
+  }
+  .settings-rail-pill {
+    font-size: 10px; color: var(--text3);
+    font-family: var(--mono);
+  }
+  .settings-rail-item.hidden { display: none; }
+  .settings-rail-empty {
+    text-align: center; padding: 30px;
+    font-size: 13px; color: var(--text3);
+  }
+  /* On wider screens, give it a slight 2-col feel — but keep single rail to match mockup */
+  @media (min-width: 900px) {
+    .settings-rail-wrap { max-width: 720px; }
+  }
+
   .settings-rows {
     background: var(--bg2);
     border-top: 1px solid var(--border);
@@ -338,234 +480,145 @@
     <!-- header injected by nav.js -->
 
     <div class="settings-page-bg">
+      <div class="settings-rail-wrap">
 
-      <!-- ── APPEARANCE ─────────────────────────────────── -->
-      <div class="settings-card">
-        <div class="settings-card-title">Appearance</div>
-        <div class="settings-card-desc">Choose your theme. Changes apply instantly.</div>
-        <div id="themeSwitch"></div>
+        <!-- Search -->
+        <div class="settings-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input id="settingsSearch" type="search" placeholder="Search settings — try 'export', 'password', 'tags'…" oninput="filterRail(this.value)">
+        </div>
+
+        <!-- Appearance (compact card with theme switch) -->
+        <div class="settings-rail-group">
+          <div class="settings-rail-group-label">Appearance</div>
+          <div class="settings-rail-list" style="padding:14px 16px">
+            <div id="themeSwitch"></div>
+          </div>
+        </div>
+
+        <!-- ── SETUP ──────────────────────────────────────── -->
+        <div class="settings-rail-group" data-group="setup">
+          <div class="settings-rail-group-label">Setup</div>
+          <div class="settings-rail-list">
+            <div class="settings-rail-item" onclick="openPanel('family')" data-search="family members people kids partner">
+              <div class="settings-rail-icon" style="background:rgba(99,102,241,.1);color:#6366f1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div>
+              <div><div class="settings-rail-label">Family</div><div class="settings-rail-desc">People who appear throughout Ghrava</div></div>
+              <div class="settings-rail-right"><span id="badge-family" class="settings-rail-badge" style="display:none"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('contacts')" data-search="contacts doctors vendors phone email">
+              <div class="settings-rail-icon" style="background:rgba(20,184,166,.1);color:#14b8a6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg></div>
+              <div><div class="settings-rail-label">Contacts</div><div class="settings-rail-desc">Doctors, pharmacies, services</div></div>
+              <div class="settings-rail-right"><span id="badge-contacts" class="settings-rail-badge" style="display:none"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('tags')" data-search="tags labels categories">
+              <div class="settings-rail-icon" style="background:rgba(167,139,250,.1);color:#a78bfa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg></div>
+              <div><div class="settings-rail-label">Tags</div><div class="settings-rail-desc">Labels used across all modules</div></div>
+              <div class="settings-rail-right"><span id="badge-tags" class="settings-rail-badge" style="display:none"></span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('dropdowns')" data-search="dropdowns lists categories types options">
+              <div class="settings-rail-icon" style="background:rgba(245,158,11,.1);color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg></div>
+              <div><div class="settings-rail-label">Dropdown lists</div><div class="settings-rail-desc">Categories, types, conditions</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('fields')" data-search="custom fields module attributes">
+              <div class="settings-rail-icon" style="background:rgba(249,115,22,.1);color:#f97316"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></div>
+              <div><div class="settings-rail-label">Custom fields</div><div class="settings-rail-desc">Add fields to any module</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── CONNECT ────────────────────────────────────── -->
+        <div class="settings-rail-group" data-group="connect">
+          <div class="settings-rail-group-label">Connect</div>
+          <div class="settings-rail-list">
+            <div class="settings-rail-item" onclick="openPanel('google')" data-search="google contacts calendar sync">
+              <div class="settings-rail-icon" style="background:rgba(66,133,244,.1)"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.99.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg></div>
+              <div><div class="settings-rail-label">Google</div><div class="settings-rail-desc">Sign-in, contacts sync, calendar</div></div>
+              <div class="settings-rail-right"><span id="badge-google" class="settings-rail-pill">Not connected</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('watcher')" data-search="folder watcher auto import nas">
+              <div class="settings-rail-icon" style="background:rgba(34,197,94,.1);color:#22c55e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg></div>
+              <div><div class="settings-rail-label">Folder watcher</div><div class="settings-rail-desc">Auto-import from NAS folders</div></div>
+              <div class="settings-rail-right"><span id="watcherStatusBadge" class="settings-rail-pill">○ Off</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('webhooks')" data-search="webhooks events triggers">
+              <div class="settings-rail-icon" style="background:rgba(236,72,153,.1);color:#ec4899"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></div>
+              <div><div class="settings-rail-label">Webhooks</div><div class="settings-rail-desc">Trigger external services on events</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('apis')" data-search="api keys lookups enrichment">
+              <div class="settings-rail-icon" style="background:rgba(20,184,166,.1);color:#14b8a6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg></div>
+              <div><div class="settings-rail-label">Free APIs</div><div class="settings-rail-desc">Auto-fill, lookups, enrichment</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('eob')" data-search="eob parser insurance app config thresholds">
+              <div class="settings-rail-icon" style="background:rgba(20,184,166,.1);color:#14b8a6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></div>
+              <div><div class="settings-rail-label">EOB parser &amp; app config</div><div class="settings-rail-desc">Insurance parser, reminders, thresholds</div></div>
+              <div class="settings-rail-right"><span id="eobParserBadge" class="settings-rail-pill">MHBP</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BACKUP & DATA ────────────────────────────────── -->
+        <div class="settings-rail-group" data-group="backup">
+          <div class="settings-rail-group-label">Backup &amp; data</div>
+          <div class="settings-rail-list">
+            <div class="settings-rail-item" onclick="openPanel('backup')" data-search="backup restore download">
+              <div class="settings-rail-icon" style="background:rgba(34,197,94,.1);color:#22c55e"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></div>
+              <div><div class="settings-rail-label">Backup &amp; restore</div><div class="settings-rail-desc">Export and restore your data</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('imports')" data-search="imports exports excel xlsx download upload data sheet">
+              <div class="settings-rail-icon" style="background:rgba(99,102,241,.1);color:#6366f1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+              <div><div class="settings-rail-label">Imports / exports</div><div class="settings-rail-desc">Excel-based bulk import &amp; export</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('deleted')" data-search="recently deleted trash restore items">
+              <div class="settings-rail-icon" style="background:rgba(100,116,139,.1);color:#64748b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg></div>
+              <div><div class="settings-rail-label">Recently deleted</div><div class="settings-rail-desc">Restore items deleted in the last 30 days</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('database')" data-search="database integrity vacuum maintenance size">
+              <div class="settings-rail-icon" style="background:rgba(139,92,246,.1);color:#8b5cf6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg></div>
+              <div><div class="settings-rail-label">Database</div><div class="settings-rail-desc">Size, integrity, maintenance log</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── SYSTEM ─────────────────────────────────────── -->
+        <div class="settings-rail-group" data-group="system">
+          <div class="settings-rail-group-label">System</div>
+          <div class="settings-rail-list">
+            <div class="settings-rail-item" onclick="openPanel('account')" data-search="account password security session">
+              <div class="settings-rail-icon" style="background:var(--accent-bg);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg></div>
+              <div><div class="settings-rail-label">Account</div><div class="settings-rail-desc">Change password, session</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('infra')" data-search="infrastructure base url qr server">
+              <div class="settings-rail-icon" style="background:rgba(100,116,139,.1);color:#64748b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg></div>
+              <div><div class="settings-rail-label">Infrastructure</div><div class="settings-rail-desc">Base URL, QR codes, app URL</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('diagnostics')" data-search="diagnostics tests api smoke check health">
+              <div class="settings-rail-icon" style="background:rgba(245,158,11,.1);color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11.5a2.5 2.5 0 105 0V3"/><path d="M9 3h5"/><path d="M3 14a9 9 0 0018 0v-3H3z"/></svg></div>
+              <div><div class="settings-rail-label">Diagnostics</div><div class="settings-rail-desc">Run automated API health tests</div></div>
+              <div class="settings-rail-right"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+            <div class="settings-rail-item" onclick="openPanel('about')" data-search="about version uptime changelog">
+              <div class="settings-rail-icon" style="background:rgba(92,114,250,.1);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+              <div><div class="settings-rail-label">About</div><div class="settings-rail-desc">Version, uptime, changelog</div></div>
+              <div class="settings-rail-right"><span id="badge-version" class="settings-rail-pill">—</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
+          </div>
+        </div>
+
+        <div id="settingsRailEmpty" class="settings-rail-empty" style="display:none">No settings match your search.</div>
+
       </div>
-
-      <!-- ── ACCOUNT ────────────────────────────────────── -->
-      <div class="settings-card">
-        <div class="settings-card-title">Account</div>
-        <div class="settings-card-desc">Manage your password and session.</div>
-        <div class="settings-row" onclick="openPanel('account')">
-          <div class="settings-row-icon" style="background:var(--accent-bg);color:var(--accent)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Change Password</div>
-            <div class="settings-row-desc">Update your Ghrava password</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>
-
-      <!-- ── PEOPLE ─────────────────────────────────────── -->
-      <div class="settings-card">
-        <div class="settings-card-title">People</div>
-        <div class="settings-card-desc">Family members and contacts used throughout the app.</div>
-        <div class="settings-row" onclick="openPanel('family')">
-          <div class="settings-row-icon" style="background:rgba(99,102,241,.1);color:#6366f1">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Family Members</div>
-            <div class="settings-row-desc">People who appear throughout Ghrava</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span id="badge-family" class="settings-row-badge" style="display:none"></span>
-            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-        <div class="settings-row" onclick="openPanel('contacts')">
-          <div class="settings-row-icon" style="background:rgba(20,184,166,.1);color:#14b8a6">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Contacts</div>
-            <div class="settings-row-desc">Doctors, pharmacies, services &amp; more</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span id="badge-contacts" class="settings-row-badge" style="display:none"></span>
-            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-        <div class="settings-row" onclick="openPanel('tags')">
-          <div class="settings-row-icon" style="background:rgba(167,139,250,.1);color:#a78bfa">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Tags</div>
-            <div class="settings-row-desc">Labels used across all modules</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span id="badge-tags" class="settings-row-badge" style="display:none"></span>
-            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-      </div>
-
-      <!-- ── CUSTOMIZATION ──────────────────────────────── -->
-      <div class="settings-card">
-        <div class="settings-card-title">Customization</div>
-        <div class="settings-card-desc">Manage dropdown options and custom fields used throughout the app.</div>
-        <div class="settings-row" onclick="openPanel('dropdowns')">
-          <div class="settings-row-icon" style="background:rgba(245,158,11,.1);color:#f59e0b">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Dropdown Lists</div>
-            <div class="settings-row-desc">Categories, types, conditions &amp; more</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="settings-row" onclick="openPanel('fields')">
-          <div class="settings-row-icon" style="background:rgba(249,115,22,.1);color:#f97316">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Custom Fields</div>
-            <div class="settings-row-desc">Add fields to inventory and other modules</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>
-
-      <!-- ── INTEGRATIONS / CONFIGURATIONS ──────────────── -->
-      <div class="settings-card">
-        <div class="settings-card-title">Integrations &amp; APIs</div>
-        <div class="settings-card-desc">Connect external services and configure API keys.</div>
-        <div class="settings-row" onclick="openPanel('google')">
-          <div class="settings-row-icon" style="background:rgba(66,133,244,.1)">
-            <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Google Services</div>
-            <div class="settings-row-desc">Tasks sync, Contacts import</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span id="badge-google" style="font-size:10px;color:var(--text3);font-family:var(--mono)">Not connected</span>
-            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-        <div class="settings-row" onclick="openPanel('apis')">
-          <div class="settings-row-icon" style="background:rgba(20,184,166,.1);color:#14b8a6">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 1v4M12 19v4M4.22 4.22l2.83 2.83M16.95 16.95l2.83 2.83M1 12h4M19 12h4M4.22 19.78l2.83-2.83M16.95 7.05l2.83-2.83"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Free APIs</div>
-            <div class="settings-row-desc">Auto-fill, lookups &amp; enrichment</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="settings-row" onclick="openPanel('eob')">
-          <div class="settings-row-icon" style="background:rgba(20,184,166,.1);color:#14b8a6">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">EOB Parser &amp; App Config</div>
-            <div class="settings-row-desc">Insurance parser, reminders, thresholds</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span id="eobParserBadge" style="font-size:10px;color:var(--text3);font-family:var(--mono)">MHBP</span>
-            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-        <div class="settings-row" onclick="openPanel('webhooks')">
-          <div class="settings-row-icon" style="background:rgba(236,72,153,.1);color:#ec4899">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Webhooks</div>
-            <div class="settings-row-desc">Trigger external services on events</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>
-
-      <!-- ── DATA ───────────────────────────────────────── -->
-      <div class="settings-card">
-        <div class="settings-card-title">Data</div>
-        <div class="settings-card-desc">Backup, restore, and export your data.</div>
-        <div class="settings-row" onclick="openPanel('backup')">
-          <div class="settings-row-icon" style="background:rgba(34,197,94,.1);color:#22c55e">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Backup &amp; Restore</div>
-            <div class="settings-row-desc">Export and restore your data</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="settings-row" onclick="openPanel('infra')">
-          <div class="settings-row-icon" style="background:rgba(100,116,139,.1);color:#64748b">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Infrastructure</div>
-            <div class="settings-row-desc">Base URL, QR codes, app URL</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-      </div>
-
-      <!-- ── SYSTEM ──────────────────────────────────────── -->
-      <div class="settings-card">
-        <div class="settings-card-title">System</div>
-        <div class="settings-card-desc">App information, diagnostics, and changelog.</div>
-        <div class="settings-row" onclick="openPanel('about')">
-          <div class="settings-row-icon" style="background:rgba(92,114,250,.1);color:var(--accent)">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">About &amp; Diagnostics</div>
-            <div class="settings-row-desc">Version, uptime, tests, changelog</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span id="badge-version" style="font-family:var(--mono);font-size:11px;color:var(--text3)">—</span>
-            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-        <div class="settings-row" onclick="openPanel('deleted')">
-          <div class="settings-row-icon" style="background:rgba(100,116,139,.1);color:#64748b">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Recently Deleted</div>
-            <div class="settings-row-desc">Restore items deleted in the last 30 days</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="settings-row" onclick="openPanel('database')">
-          <div class="settings-row-icon" style="background:rgba(139,92,246,.1);color:#8b5cf6">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Database Maintenance</div>
-            <div class="settings-row-desc">Integrity check, VACUUM, ANALYZE</div>
-          </div>
-          <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="settings-row" onclick="openPanel('watcher')">
-          <div class="settings-row-icon" style="background:rgba(34,197,94,.1);color:#22c55e">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-          </div>
-          <div style="flex:1">
-            <div class="settings-row-label">Folder Watcher</div>
-            <div class="settings-row-desc">Auto-import from NAS folders</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px">
-            <span id="watcherStatusBadge" style="font-size:10px;color:var(--text3)">○ Off</span>
-            <svg class="settings-row-right" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </div>
-        </div>
-      </div>
-
     </div>
   </div>
-
 
 
   <!-- ════════════════════════════════════════════════════════
@@ -1182,6 +1235,121 @@
         </a>
       </div>
 
+  <!-- DIAGNOSTICS — folded from former tests.html -->
+  <div class="sub-panel" id="panel-diagnostics">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('diagnostics')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Diagnostics</div>
+    </div>
+    <div class="content" style="padding:16px 16px 80px;max-width:860px;margin:0 auto">
+      <div class="test-header">
+        <div style="font-size:13px;color:var(--text2)">Run automated API health checks. Pass/fail per endpoint, history kept locally.</div>
+        <div class="run-bar">
+          <button class="btn btn-primary" id="runAllBtn" onclick="runAll()">▶ Run All</button>
+          <button class="btn btn-ghost" onclick="clearResults()">↺ Clear</button>
+          <button class="btn btn-ghost" onclick="toggleHistory()">📋 History</button>
+        </div>
+      </div>
+
+      <div class="summary-bar">
+        <div class="sb-card"><div class="sb-val" id="sPassed" style="color:var(--green)">—</div><div class="sb-lbl">Passed</div></div>
+        <div class="sb-card"><div class="sb-val" id="sFailed" style="color:var(--red)">—</div><div class="sb-lbl">Failed</div></div>
+        <div class="sb-card"><div class="sb-val" id="sSkipped" style="color:var(--text3)">—</div><div class="sb-lbl">Skipped</div></div>
+        <div class="sb-card"><div class="sb-val" id="sDuration" style="color:var(--text2)">—</div><div class="sb-lbl">Duration</div></div>
+      </div>
+
+      <div class="progress-track" id="progressTrack">
+        <div class="progress-fill" id="progressFill" style="width:0%"></div>
+      </div>
+
+      <div id="testCategories"></div>
+
+      <div id="historyBlock" style="display:none;margin-top:20px">
+        <div style="font-family:var(--mono);font-size:11px;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Recent Runs</div>
+        <div id="historyList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IMPORTS / EXPORTS — folded from former data.html -->
+  <div class="sub-panel" id="panel-imports">
+    <div class="sub-panel-header">
+      <button class="sub-back" onclick="closePanel('imports')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+        Settings
+      </button>
+      <div class="sub-panel-title">Imports / exports</div>
+    </div>
+    <div class="content" style="padding:16px;padding-bottom:80px">
+
+      <div class="data-card">
+        <div class="data-card-title">📤 Export All Data</div>
+        <div class="data-card-desc">
+          Downloads a single Excel workbook with all your Ghrava data — one sheet per module.
+          Includes an Instructions sheet explaining every column.
+          Use this to back up, review in Excel, or prepare a file for re-import.
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a class="btn btn-primary" href="/api/v1/data/export" download style="text-decoration:none">⬇ Download Full Export</a>
+          <a class="btn btn-ghost" href="/api/v1/data/template" download style="text-decoration:none">📋 Download Blank Template</a>
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:10px">
+          Template = same workbook with headers only, no data — useful for adding new records without downloading your full export.
+        </div>
+      </div>
+
+      <div class="data-card">
+        <div class="data-card-title">📑 Sheet Reference</div>
+        <div class="data-card-desc">Each sheet in the exported workbook and what the key column means. Use this when filling in a template for import — the key column is how Ghrava matches and updates existing rows.</div>
+        <div class="sheet-grid" id="sheetGrid"></div>
+      </div>
+
+      <div class="data-card">
+        <div class="data-card-title">📥 Import Ghrava Data</div>
+        <div class="warn-box">
+          ⚠ <strong>Before importing:</strong> Make a backup — go to Settings → Backup &amp; restore → Run Backup Now.
+          Import updates existing rows and adds new ones. It does not delete anything.
+        </div>
+        <div class="data-card-desc">
+          Upload the Ghrava export file (or a template you filled in).
+          <strong>Only sheets present in the workbook are processed</strong> — delete sheets you don't want to change before uploading.
+          Rows with a matching <code>id</code> are updated. Rows without an <code>id</code> are inserted as new.
+        </div>
+
+        <div class="imp-drop" id="impDrop"
+             onclick="document.getElementById('impFile').click()"
+             ondragover="event.preventDefault();this.classList.add('drag')"
+             ondragleave="this.classList.remove('drag')"
+             ondrop="handleImpDrop(event)">
+          <div class="imp-drop-icon">📂</div>
+          <div class="imp-drop-label">Drop Excel file here or tap to browse</div>
+          <div class="imp-drop-sub">.xlsx files only — Ghrava export or filled-in template</div>
+        </div>
+        <input type="file" id="impFile" accept=".xlsx" style="display:none" onchange="impFileSelected(this.files[0])">
+
+        <div id="impStatus" style="margin-top:14px;display:none"></div>
+      </div>
+
+      <div class="data-card">
+        <div class="data-card-title">🏦 Import Bank Statement</div>
+        <div class="data-card-desc">
+          Upload a statement from your bank to import transactions into the Finance module.
+          Supported banks: Chase, Bank of America, Navy Federal, Schwab, Vanguard, TSP,
+          Citi, Discover, Wells Fargo, Capital One, USAA — plus generic CSV.
+          Also accepts OFX and QFX formats.
+        </div>
+        <a class="btn btn-primary" href="/finance.html#import" style="text-decoration:none">Open Finance → Import Statement →</a>
+        <div style="font-size:12px;color:var(--text3);margin-top:10px">
+          Bank statements use the Finance module's Import tab — transactions are matched to accounts and auto-categorized using your category rules.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
 </div><!-- /app -->
 
 
@@ -1501,6 +1669,18 @@ async function doSettingsLogin() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Hash-based deep link → /settings.html#diagnostics opens that panel
+  const openFromHash = () => {
+    const h = (location.hash || '').replace(/^#/, '').trim();
+    if (!h) return;
+    if (document.getElementById('panel-' + h)) {
+      // small delay so panel-loaders + login state settle first
+      setTimeout(() => { try { openPanel(h); } catch(e){} }, 80);
+    }
+  };
+  openFromHash();
+  window.addEventListener('hashchange', openFromHash);
+
   // Logout
   const lbtn = $('logoutBtn');
   if (lbtn) lbtn.addEventListener('click', () => {
@@ -3559,6 +3739,538 @@ async function saveWatcherConfig() {
   try { await window.api('PUT', '/watcher/config', _watcherConfig); toast('Saved'); loadWatcherPanel(); }
   catch(e) { toast(e.message,'err'); }
 }
+// ── Imports/Exports panel: wrapped IIFE (folded from data.html) ──
+(function(){
+  const SHEETS = [
+    { sheet:'Items',           key:'item_ref',    required:'name, location_name' },
+    { sheet:'Books',           key:'id',          required:'title' },
+    { sheet:'Medications',     key:'id',          required:'name, patient' },
+    { sheet:'Conditions',      key:'id',          required:'condition_name, patient' },
+    { sheet:'Visit Notes',     key:'id',          required:'patient, visit_date' },
+    { sheet:'HSA Payments',    key:'id',          required:'date, patient' },
+    { sheet:'HSA OTC',         key:'id',          required:'purchase_date, item_name' },
+    { sheet:'Todos',           key:'id',          required:'title' },
+    { sheet:'Certifications',  key:'id',          required:'name' },
+    { sheet:'Jobs',            key:'id',          required:'company, title' },
+    { sheet:'Skills',          key:'id',          required:'name' },
+    { sheet:'Education',       key:'id',          required:'institution' },
+    { sheet:'Career Goals',    key:'id',          required:'title' },
+    { sheet:'Resources',       key:'id',          required:'name' },
+    { sheet:'Documents',       key:'id',          required:'title, category' },
+    { sheet:'Properties',      key:'id',          required:'nickname' },
+    { sheet:'Vehicles',        key:'id / vin',    required:'nickname' },
+    { sheet:'Daily Log',       key:'id',          required:'log_date, entry_text' },
+    { sheet:'Contacts',        key:'id',          required:'contact_type, name' },
+    { sheet:'Finance Accounts',key:'id',          required:'name, type' },
+  ];
+  function impEsc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+  function renderSheetGrid() {
+    const grid = document.getElementById('sheetGrid');
+    if (!grid || grid.dataset.rendered) return;
+    grid.innerHTML = SHEETS.map(s => `
+      <div class="sheet-pill">
+        <div class="sheet-pill-name">${s.sheet}</div>
+        <div class="sheet-pill-key">Key: ${s.key}</div>
+        <div class="sheet-pill-req">Required: ${s.required}</div>
+      </div>`).join('');
+    grid.dataset.rendered = '1';
+  }
+  function showImpStatus(type, msg) {
+    const status = document.getElementById('impStatus');
+    if (!status) return;
+    status.style.display = 'block';
+    const color = type === 'error' ? 'var(--red)' : 'var(--green)';
+    status.innerHTML = `<div style="padding:12px;color:${color};font-size:13px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r)">${impEsc(msg)}</div>`;
+  }
+  function renderResult(d, filename) {
+    const status = document.getElementById('impStatus');
+    const sheetsPresent = Object.keys(d.sheets || {});
+    const allOk = (d.errors || []).length === 0;
+    const sheetRows = sheetsPresent.map(name => {
+      const s = d.sheets[name];
+      return `<div class="result-sheet">
+        <div class="result-sheet-name">${impEsc(name)}</div>
+        <div class="result-counts">
+          <span class="rc-ins">+${s.inserted} new</span>
+          <span class="rc-upd">↑${s.updated} updated</span>
+          <span class="rc-skip">${s.skipped} skipped</span>
+        </div>
+      </div>`;
+    }).join('');
+    const errHtml = (d.errors || []).length ? `
+      <div style="margin-top:10px;padding:10px 12px;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:var(--r);font-size:12px;font-family:var(--mono);color:var(--red)">
+        ${d.errors.map(e => `<div>${impEsc(e)}</div>`).join('')}
+      </div>` : '';
+    status.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);overflow:hidden">
+        <div style="padding:12px 16px;background:${allOk?'rgba(34,197,94,.08)':'rgba(245,158,11,.08)'};border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-weight:700;color:var(--text);font-size:14px">${allOk ? '✓' : '⚠'} Import complete — ${impEsc(filename)}</div>
+            <div style="font-size:12px;color:var(--text3);margin-top:2px">${d.summary.inserted} inserted · ${d.summary.updated} updated · ${d.summary.skipped} skipped</div>
+          </div>
+          <div style="font-size:12px;color:var(--text3)">${sheetsPresent.length} sheet${sheetsPresent.length!==1?'s':''} processed</div>
+        </div>
+        ${sheetRows}
+      </div>
+      ${errHtml}`;
+  }
+  async function fileSelected(file) {
+    if (!file) return;
+    if (!file.name.endsWith('.xlsx')) { showImpStatus('error', 'Please upload an .xlsx file (Excel format).'); return; }
+    const status = document.getElementById('impStatus');
+    status.style.display = 'block';
+    status.innerHTML = `<div style="display:flex;align-items:center;gap:10px;padding:12px"><div class="spin" style="width:18px;height:18px;border-width:2px"></div><span style="color:var(--text3)">Importing ${impEsc(file.name)}…</span></div>`;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const tok = (window.LT && window.LT.authToken) || localStorage.getItem('lt_token') || '';
+      const res = await fetch('/api/v1/data/import', { method:'POST', body:fd, headers:{ 'Authorization': `Bearer ${tok}` } });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || `HTTP ${res.status}`);
+      renderResult(d, file.name);
+    } catch(e) { showImpStatus('error', e.message); }
+    document.getElementById('impFile').value = '';
+  }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('impDrop').classList.remove('drag');
+    const f = e.dataTransfer.files[0];
+    if (f) fileSelected(f);
+  }
+  // Expose what the inline onclick/onchange handlers need
+  window.impFileSelected = fileSelected;
+  window.handleImpDrop = handleDrop;
+  window._ghImportsRender = renderSheetGrid;
+})();
+
+// ── Settings rail search filter ────────────────────────────
+function filterRail(query) {
+  const q = (query || '').toLowerCase().trim();
+  const items = document.querySelectorAll('.settings-rail-item');
+  const groups = document.querySelectorAll('.settings-rail-group[data-group]');
+  let anyVisible = false;
+  items.forEach(it => {
+    const txt = (it.dataset.search || '') + ' ' + it.textContent.toLowerCase();
+    const match = !q || txt.toLowerCase().indexOf(q) !== -1;
+    it.classList.toggle('hidden', !match);
+    if (match) anyVisible = true;
+  });
+  groups.forEach(g => {
+    const visibleItems = g.querySelectorAll('.settings-rail-item:not(.hidden)');
+    g.style.display = visibleItems.length ? '' : 'none';
+  });
+  const empty = document.getElementById('settingsRailEmpty');
+  if (empty) empty.style.display = anyVisible ? 'none' : 'block';
+}
+
+// ── Diagnostics panel loader (registers panel-diagnostics) ──
+if (typeof PANEL_LOADERS !== 'undefined') {
+  PANEL_LOADERS.diagnostics = () => { try { window._ghDiagnosticsRender && window._ghDiagnosticsRender(); } catch(e){} };
+  PANEL_LOADERS.imports = () => { try { window._ghImportsRender && window._ghImportsRender(); } catch(e){} };
+}
+
+// ── Diagnostics panel: wrapped IIFE to avoid render()/esc() collisions ──
+(function(){
+
+// ── Test definitions ──────────────────────────────────────────
+// Each test: { id, name, cat, fn, skip? }
+// fn returns { ok, detail? } or throws on failure
+
+const api = (path) => window.api('GET', path);
+const apiPost = (path, body) => window.api('POST', path, body || {});
+
+const TESTS = [
+  // ── Core ──────────────────────────────────────────────────
+  { cat:'Core', name:'App info endpoint', fn: async () => {
+    const r = await fetch('/api/v1/app/info');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    return { detail: `v${d.version || '?'} · uptime ${Math.floor((d.uptime||0)/60)}m` };
+  }},
+  { cat:'Core', name:'Settings config readable', fn: async () => {
+    const c = await api('/settings/config');
+    if (!c || typeof c !== 'object') throw new Error('Invalid response');
+    return { detail: `${Object.keys(c).length} keys` };
+  }},
+  { cat:'Core', name:'Family members list', fn: async () => {
+    const d = await api('/settings/family');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} members` };
+  }},
+  { cat:'Core', name:'Contacts list', fn: async () => {
+    const d = await api('/settings/contacts');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} contacts` };
+  }},
+  { cat:'Core', name:'EOB parser configured', fn: async () => {
+    const c = await api('/settings/config');
+    if (!c.eob_parser) throw new Error('eob_parser not in config');
+    return { detail: c.eob_parser };
+  }},
+
+  // ── Dashboard ─────────────────────────────────────────────
+  { cat:'Dashboard', name:'Dashboard data loads', fn: async () => {
+    const d = await api('/dashboard');
+    if (!d || typeof d !== 'object') throw new Error('Invalid response');
+    return { detail: `inv:${d.inventory?.items||0} meds:${d.medical?.medications||0}` };
+  }},
+  { cat:'Dashboard', name:'Attention items', fn: async () => {
+    const d = await api('/dashboard/attention');
+    if (!d.items || !Array.isArray(d.items)) throw new Error('Expected items array');
+    return { detail: `${d.items.length} items` };
+  }},
+  { cat:'Dashboard', name:'Focus strip', fn: async () => {
+    const d = await api('/dashboard/focus');
+    if (!d.hasOwnProperty('items')) throw new Error('Missing items');
+    return { detail: `${d.items?.length||0} urgent items` };
+  }},
+  { cat:'Dashboard', name:'Backup health', fn: async () => {
+    const d = await api('/dashboard/backup-health');
+    if (!d.hasOwnProperty('status')) throw new Error('Missing status');
+    return { detail: d.message || d.status };
+  }},
+
+  // ── Inventory ─────────────────────────────────────────────
+  { cat:'Inventory', name:'Items list', fn: async () => {
+    const d = await api('/inventory/items');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} items` };
+  }},
+  { cat:'Inventory', name:'Locations list', fn: async () => {
+    const d = await api('/inventory/locations');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} locations` };
+  }},
+  { cat:'Inventory', name:'Item doc-links endpoint', fn: async () => {
+    const d = await api('/inventory/items/1/doc-links');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} links for item #1` };
+  }},
+
+  // ── Finance ───────────────────────────────────────────────
+  { cat:'Finance', name:'Accounts list', fn: async () => {
+    const d = await api('/finance/accounts');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} accounts` };
+  }},
+  { cat:'Finance', name:'Net worth current', fn: async () => {
+    const d = await api('/finance/net-worth/current');
+    if (!d.hasOwnProperty('net_worth')) throw new Error('Missing net_worth');
+    return { detail: `$${Math.round(d.net_worth||0).toLocaleString()}` };
+  }},
+  { cat:'Finance', name:'Recurring transactions', fn: async () => {
+    const d = await api('/finance/recurring');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} recurring` };
+  }},
+  { cat:'Finance', name:'Category rules list', fn: async () => {
+    const d = await api('/finance/category-rules');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} rules` };
+  }},
+  { cat:'Finance', name:'Portfolio performance', fn: async () => {
+    const d = await api('/finance/portfolio/performance?months=6');
+    if (!d.hasOwnProperty('performance')) throw new Error('Missing performance');
+    return { detail: `${d.performance?.length||0} snapshots, ${d.allocation?.length||0} assets` };
+  }},
+
+  // ── HSA ───────────────────────────────────────────────────
+  { cat:'HSA', name:'HSA summary', fn: async () => {
+    const d = await api('/hsa/summary');
+    if (!d || typeof d !== 'object') throw new Error('Invalid response');
+    return { detail: `pool: $${Math.round(d.expenses?.unreimbursed_pool||0)}` };
+  }},
+  { cat:'HSA', name:'HSA payments list', fn: async () => {
+    const d = await api('/hsa/payments');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} payments` };
+  }},
+
+  // ── Medical ───────────────────────────────────────────────
+  { cat:'Medical', name:'Medications list', fn: async () => {
+    const d = await api('/medical/medications');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} medications` };
+  }},
+  { cat:'Medical', name:'Conditions list', fn: async () => {
+    const d = await api('/medical/conditions');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} conditions` };
+  }},
+
+  // ── Documents ─────────────────────────────────────────────
+  { cat:'Documents', name:'Documents list', fn: async () => {
+    const d = await api('/documents');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} documents` };
+  }},
+  { cat:'Documents', name:'Document links endpoint', fn: async () => {
+    const d = await api('/documents/1/links');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `endpoint OK` };
+  }},
+
+  // ── Reports ───────────────────────────────────────────────
+  { cat:'Reports', name:'Emergency report JSON', fn: async () => {
+    const d = await api('/reports/emergency');
+    if (!d.hasOwnProperty('emergency_contacts')) throw new Error('Missing emergency_contacts');
+    return { detail: `${d.emergency_contacts?.length||0} contacts, ${d.medications?.length||0} meds` };
+  }},
+  { cat:'Reports', name:'Emergency report HTML', fn: async () => {
+    const r = await fetch('/api/v1/reports/emergency/html');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const t = await r.text();
+    if (!t.includes('Emergency')) throw new Error('Missing expected content');
+    return { detail: `${Math.round(t.length/1024)}KB` };
+  }},
+  { cat:'Reports', name:'Emergency report text', fn: async () => {
+    const r = await fetch('/api/v1/reports/emergency/text');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return { detail: 'OK' };
+  }},
+  { cat:'Reports', name:'Expiry timeline', fn: async () => {
+    const d = await api('/reports/expiry?months=12');
+    if (!d.hasOwnProperty('documents')) throw new Error('Missing documents');
+    return { detail: `${d.total||0} docs, ${d.expired||0} expired` };
+  }},
+  { cat:'Reports', name:'Insurance report', fn: async () => {
+    const d = await api('/receipts/insurance-report');
+    if (!d.hasOwnProperty('summary')) throw new Error('Missing summary');
+    return { detail: `${d.summary?.total_items||0} items` };
+  }},
+
+  // ── Search ────────────────────────────────────────────────
+  { cat:'Search', name:'Global search responds', fn: async () => {
+    const d = await api('/search?q=test');
+    if (!d.hasOwnProperty('groups')) throw new Error('Missing groups');
+    return { detail: `${d.total||0} results` };
+  }},
+  { cat:'Search', name:'Search short query handled', fn: async () => {
+    const d = await api('/search?q=a');
+    if (!d.hasOwnProperty('groups')) throw new Error('Missing groups');
+    return { detail: `min-length guard OK` };
+  }},
+
+  // ── Maintenance ───────────────────────────────────────────
+  { cat:'New Features', name:'Maintenance upcoming', fn: async () => {
+    const d = await api('/maintenance/upcoming?days=90');
+    if (!d.hasOwnProperty('items')) throw new Error('Missing items');
+    return { detail: `${d.total||0} tasks` };
+  }},
+  { cat:'New Features', name:'Templates list', fn: async () => {
+    const d = await api('/templates');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} templates` };
+  }},
+  { cat:'New Features', name:'Family snapshot endpoint', fn: async () => {
+    // Just check route responds — use member ID 1
+    const d = await api('/family-snapshot/1').catch(e => {
+      if (e.message.includes('not found') || e.message.includes('404')) return null;
+      throw e;
+    });
+    return { detail: d ? d.member?.display_name||'OK' : 'No member #1 (OK)' };
+  }},
+  { cat:'New Features', name:'Watcher status', fn: async () => {
+    const d = await api('/watcher/status');
+    if (!d.hasOwnProperty('enabled')) throw new Error('Missing enabled');
+    return { detail: `${d.enabled?'Active':'Inactive'} · ${d.rules?.length||0} rules` };
+  }},
+  { cat:'New Features', name:'Field templates endpoint', fn: async () => {
+    const d = await api('/receipts/templates/item/store_name');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} templates` };
+  }},
+
+  // ── System ────────────────────────────────────────────────
+  { cat:'System', name:'DB stats', fn: async () => {
+    const d = await api('/system/db/stats');
+    if (!d.size_formatted) throw new Error('Missing size_formatted');
+    return { detail: `${d.size_formatted} · ${d.table_count} tables · ${(d.total_rows||0).toLocaleString()} rows` };
+  }},
+  { cat:'System', name:'DB integrity check', fn: async () => {
+    const d = await apiPost('/system/db/integrity-check');
+    if (!d.hasOwnProperty('ok')) throw new Error('Missing ok');
+    if (!d.ok) throw new Error('Integrity check FAILED');
+    return { detail: 'Database is clean ✓' };
+  }},
+  { cat:'System', name:'Undo delete list', fn: async () => {
+    const d = await api('/system/deleted');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} restorable items` };
+  }},
+  { cat:'System', name:'Webhooks events list', fn: async () => {
+    const d = await api('/system/webhooks/events');
+    if (!Array.isArray(d)) throw new Error('Expected array');
+    return { detail: `${d.length} event types` };
+  }},
+  { cat:'System', name:'Recurring transactions scheduler', fn: async () => {
+    const d = await api('/finance/recurring');
+    if (!Array.isArray(d)) throw new Error('Recurring endpoint down');
+    return { detail: 'Scheduler routes OK' };
+  }},
+
+  // ── Google (non-blocking) ─────────────────────────────────
+  { cat:'Google', name:'Google status endpoint', fn: async () => {
+    const d = await api('/google/status');
+    if (!d.hasOwnProperty('connected')) throw new Error('Missing connected');
+    return { detail: d.connected ? '✓ Connected' : 'Not connected (OK if not configured)' };
+  }},
+  { cat:'Google', name:'Google debug connection', fn: async () => {
+    const d = await api('/google/debug/connection');
+    if (!d.hasOwnProperty('config')) throw new Error('Missing config');
+    const hasCreds = d.config.has_client_id && d.config.has_client_secret;
+    return { detail: hasCreds ? `DNS:${d.tests?.dns||'?'}` : 'No credentials (OK if not configured)' };
+  }},
+  { cat:'Google', name:'Todos Google sync button', fn: async () => {
+    const r = await fetch('/todos.html');
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const t = await r.text();
+    if (!t.includes('googleSyncBtn')) throw new Error('Sync button missing from todos.html');
+    return { detail: 'Button present ✓' };
+  }},
+];
+
+// ── State ──────────────────────────────────────────────────────
+const state = {};  // id → { status, detail, ms }
+let _running = false;
+
+// ── Render ─────────────────────────────────────────────────────
+function render() {
+  const cats = {};
+  TESTS.forEach(t => { if(!cats[t.cat]) cats[t.cat]=[]; cats[t.cat].push(t); });
+  let html = '';
+  Object.entries(cats).forEach(([cat, tests]) => {
+    const total   = tests.length;
+    const passed  = tests.filter(t => state[t.id]?.status === 'pass').length;
+    const failed  = tests.filter(t => state[t.id]?.status === 'fail').length;
+    const running = tests.filter(t => state[t.id]?.status === 'running').length;
+    let catStatus = '';
+    if (failed)  catStatus = `<span style="color:var(--red)">${failed} failed</span>`;
+    else if (passed === total) catStatus = `<span style="color:var(--green)">✓ all passed</span>`;
+    else if (running) catStatus = `<span style="color:var(--accent)">running…</span>`;
+
+    html += `<div class="cat-block">
+      <div class="cat-header">
+        <span class="cat-name">${cat} (${total})</span>
+        <span class="cat-status" style="font-size:11px">${catStatus}</span>
+        <button class="cat-run" onclick="runCategory('${cat}')">run</button>
+      </div>`;
+    tests.forEach(t => {
+      const s = state[t.id];
+      const icon  = !s ? '○' : s.status==='running'?'⟳':s.status==='pass'?'✅':s.status==='fail'?'❌':'⏭️';
+      const cls   = s?.status || '';
+      const ms    = s?.ms != null ? s.ms+'ms' : '';
+      const detail = s?.detail ? `<span class="test-detail" title="${esc(s.detail)}">${esc(s.detail)}</span>` : '';
+      html += `<div class="test-row ${cls}" id="row-${t.id}">
+        <span class="test-status">${icon}</span>
+        <span class="test-name">${esc(t.name)}</span>
+        ${detail}
+        <span class="test-time">${ms}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  });
+  document.getElementById('testCategories').innerHTML = html;
+  updateSummary();
+}
+
+function updateSummary() {
+  const all     = TESTS.map(t => state[t.id]).filter(Boolean);
+  const passed  = all.filter(s => s.status==='pass').length;
+  const failed  = all.filter(s => s.status==='fail').length;
+  const skipped = all.filter(s => s.status==='skip').length;
+  const total_ms = all.reduce((sum, s) => sum+(s.ms||0), 0);
+  document.getElementById('sPassed').textContent  = passed  || '—';
+  document.getElementById('sFailed').textContent  = failed  || '—';
+  document.getElementById('sSkipped').textContent = skipped || '—';
+  document.getElementById('sDuration').textContent = total_ms ? (total_ms/1000).toFixed(1)+'s' : '—';
+}
+
+// ── Run logic ──────────────────────────────────────────────────
+async function runTest(t) {
+  state[t.id] = { status:'running', detail:'', ms:null };
+  render();
+  const start = performance.now();
+  try {
+    const result = await t.fn();
+    state[t.id] = { status:'pass', detail: result?.detail||'', ms: Math.round(performance.now()-start) };
+  } catch(e) {
+    state[t.id] = { status:'fail', detail: e.message, ms: Math.round(performance.now()-start) };
+  }
+  render();
+}
+
+async function runCategory(cat) {
+  if (_running) return;
+  const tests = TESTS.filter(t => t.cat === cat);
+  for (const t of tests) await runTest(t);
+}
+
+async function runAll() {
+  if (_running) return;
+  _running = true;
+  const btn = document.getElementById('runAllBtn');
+  btn.textContent = '⏹ Running…'; btn.disabled = true;
+  const track = document.getElementById('progressTrack');
+  const fill  = document.getElementById('progressFill');
+  track.style.display = 'block';
+  const total = TESTS.length;
+  for (let i = 0; i < TESTS.length; i++) {
+    fill.style.width = Math.round((i/total)*100)+'%';
+    await runTest(TESTS[i]);
+  }
+  fill.style.width = '100%';
+  setTimeout(() => { track.style.display = 'none'; }, 800);
+  btn.textContent = '▶ Run All'; btn.disabled = false;
+  _running = false;
+  saveHistory();
+}
+
+function clearResults() {
+  TESTS.forEach(t => delete state[t.id]);
+  render();
+}
+
+// ── History ────────────────────────────────────────────────────
+function saveHistory() {
+  const passed = TESTS.filter(t => state[t.id]?.status==='pass').length;
+  const failed = TESTS.filter(t => state[t.id]?.status==='fail').length;
+  const entry = { ts: new Date().toISOString(), passed, failed, total: TESTS.length };
+  const hist = JSON.parse(localStorage.getItem('gh_test_history')||'[]');
+  hist.unshift(entry);
+  localStorage.setItem('gh_test_history', JSON.stringify(hist.slice(0,20)));
+  renderHistory();
+}
+
+function renderHistory() {
+  const hist = JSON.parse(localStorage.getItem('gh_test_history')||'[]');
+  const el = document.getElementById('historyList');
+  if (!hist.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">No history yet</div>'; return; }
+  el.innerHTML = hist.map(h => `
+    <div class="history-entry">
+      <span>${new Date(h.ts).toLocaleString()}</span>
+      <span style="color:${h.failed?'var(--red)':'var(--green)'}">${h.passed}/${h.total} passed${h.failed?' · '+h.failed+' failed':''}</span>
+    </div>`).join('');
+}
+
+function toggleHistory() {
+  const el = document.getElementById('historyBlock');
+  el.style.display = el.style.display === 'none' ? 'block' : 'none';
+  renderHistory();
+}
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// Give each test a stable ID
+TESTS.forEach((t, i) => { t.id = t.cat.replace(/\s+/g,'_')+'_'+i; });
+
+// Init handled by PANEL_LOADERS
+  window.runAll = runAll;
+  window.clearResults = clearResults;
+  window.toggleHistory = toggleHistory;
+  window._ghDiagnosticsRender = render;
+})();
+
 </script>
 </body>
 </html>

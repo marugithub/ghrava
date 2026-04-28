@@ -66,6 +66,8 @@ const REPORT_REGISTRY = [
   { id:'watcher',       category:'system',    name:'Folder Watcher Audit',      icon:'📁', desc:'Auto-import history',                 endpoint:'/watcher/history',          render:renderWatcher },
   { id:'database',      category:'system',     name:'Database Health',           icon:'🗄️', desc:'Size, integrity, maintenance',        endpoint:'/system/db/stats',          render:renderDatabase },
   { id:'tests',         category:'system',     name:'System Tests',              icon:'🧪', desc:'Run automated diagnostics',           endpoint:null,                        render:renderTests },
+  { id:'member-snapshot', category:'family',   name:'Member Snapshot',           icon:'👤', desc:'Everything about one family member',  endpoint:null,                        render:renderStub('Member Snapshot','Per-person rollup. Will pull from medical, kids, career, finance, documents, contacts. Filter by family member to see all data tied to them in one view.') },
+  { id:'maint-rollup',  category:'inventory',  name:'Maintenance Rollup',        icon:'🔧', desc:'All maintenance across home & items', endpoint:null,                        render:renderStub('Maintenance Rollup','Cross-module view of property_maintenance + item_maintenance_log + warranty_claims. Filterable by source (home / vehicle / item) and status (overdue / due-soon / done). Replaces the old standalone Maintenance page.') },
 ];
 
 const CATEGORIES = {
@@ -555,6 +557,18 @@ function renderTests(el) {
     <button class="btn btn-primary" id="runTestsBtn" onclick="runTests()">▶ Run All Tests</button>
     <div id="testOut" style="margin-top:16px;font-family:var(--mono);font-size:12px"></div>`
   );
+}
+
+// Factory for placeholder reports — renders a "coming soon" panel describing what the report will show
+function renderStub(title, description) {
+  return function(el) {
+    el.innerHTML = panelWrap('🚧', title,
+      `<div style="background:var(--bg3);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px">
+        <div style="font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--amber);margin-bottom:10px">Planned — Not Yet Built</div>
+        <p style="font-size:14px;line-height:1.6;color:var(--text);margin:0">${description}</p>
+      </div>`
+    );
+  };
 }
 
 async function runTests() {
