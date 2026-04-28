@@ -49,6 +49,7 @@ router.get('/status', (req, res) => {
           enabled:       oauth.getCfg('google_sync_contacts') === '1',
           last_sync:     lastConSync || null,
           contact_count: conCount,
+          label:         oauth.getCfg('google_contacts_label') || '',
         },
       },
     });
@@ -191,12 +192,35 @@ router.post('/sync/tasks/push/:id', requireAuth, async (req, res) => {
 });
 
 // ── Sync Contacts ─────────────────────────────────────────────
+// Optional label filter — body { label: "ghrava" } restricts sync
+// to contacts that are members of the matching contact group.
+// If label is missing, falsy, or matches no group, sync everyone.
 router.post('/sync/contacts', requireAuth, async (req, res) => {
   if (!oauth.isConnected()) return res.status(400).json({ error: 'Not connected to Google' });
   try {
     const token = await oauth.getValidToken();
+    const labelFilter = (req.body?.label || oauth.getCfg('google_contacts_label') || '').trim();
+
+    // Resolve label → contactGroup resourceName (case-insensitive)
+    let groupResource = null;
+    let groupNotFound = false;
+    if (labelFilter) {
+      const grpResp = await fetch(`${GPEOPLE_BASE}/contactGroups?pageSize=200`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (grpResp.ok) {
+        const grpData = await grpResp.json();
+        const lf = labelFilter.toLowerCase();
+        const match = (grpData.contactGroups || []).find(g =>
+          (g.formattedName || g.name || '').toLowerCase() === lf
+        );
+        if (match) groupResource = match.resourceName;
+        else groupNotFound = true;
+      }
+    }
+
     const params = new URLSearchParams({
-      personFields: 'names,emailAddresses,phoneNumbers,organizations,addresses,urls,biographies',
+      personFields: 'names,emailAddresses,phoneNumbers,organizations,addresses,urls,biographies,memberships',
       pageSize:     '1000',
     });
     const resp = await fetch(`${GPEOPLE_BASE}/people/me/connections?${params}`, {
@@ -227,10 +251,19 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
       WHERE google_id=?
     `);
 
-    let imported = 0;
+    let imported = 0, updated = 0, skippedByLabel = 0;
     for (const person of (data.connections || [])) {
       const name = person.names?.[0]?.displayName;
       if (!name) continue;
+
+      // Apply label filter if a group was resolved
+      if (groupResource) {
+        const inGroup = (person.memberships || []).some(m =>
+          m.contactGroupMembership?.contactGroupResourceName === groupResource
+        );
+        if (!inGroup) { skippedByLabel++; continue; }
+      }
+
       const email   = person.emailAddresses?.[0]?.value  || null;
       const phone1  = person.phoneNumbers?.[0]?.value    || null;
       const phone2  = person.phoneNumbers?.[1]?.value    || null;
@@ -250,11 +283,21 @@ router.post('/sync/contacts', requireAuth, async (req, res) => {
       } else {
         update.run(email, phone1, phone2, org, street, city, state, zip, website,
                    person.resourceName);
+        updated++;
       }
     }
 
     oauth.setCfg('google_last_con_sync', new Date().toISOString());
-    res.json({ ok: true, imported, total: data.connections?.length || 0 });
+    if (labelFilter) oauth.setCfg('google_contacts_label', labelFilter);
+    res.json({
+      ok: true,
+      imported, updated,
+      total: data.connections?.length || 0,
+      label: labelFilter || null,
+      label_resolved: !!groupResource,
+      label_not_found: groupNotFound,
+      skipped_by_label: skippedByLabel,
+    });
   } catch(e) { serverError(res, e); }
 });
 

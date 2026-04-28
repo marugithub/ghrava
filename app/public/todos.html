@@ -169,6 +169,17 @@
 <body class="module-todos">
 <div id="app">
 
+  <!-- ── Top-level view tabs: Todos | Templates ─────────────── -->
+  <div class="view-tabs" id="topViewTabs" style="--tab-color:#a78bfa;border-bottom:1px solid var(--border);background:transparent">
+    <button class="view-tab active" data-view="todos">📋 Todos</button>
+    <button class="view-tab" data-view="templates">🗂 Templates</button>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       VIEW: TODOS  (existing)
+       ════════════════════════════════════════════════════════ -->
+  <div id="todosView">
+
   <!-- Primary filter tabs — status modes -->
   <div class="view-tabs" id="statsRow" style="--tab-color:#a78bfa">
     <button class="view-tab active" data-filter="">All <span id="statTotal" class="tab-count"></span></button>
@@ -205,6 +216,42 @@
     <div class="spinner"><div class="spin"></div>Loading…</div>
   </div>
 
+  </div><!-- /todosView -->
+
+  <!-- ════════════════════════════════════════════════════════
+       VIEW: TEMPLATES  (folded from former templates.html)
+       ════════════════════════════════════════════════════════ -->
+  <div id="templatesView" style="display:none;padding:0 16px 80px">
+    <div style="padding:12px 0 16px;display:flex;justify-content:flex-end">
+      <button class="btn btn-primary" onclick="tplOpenDrawer()">+ New Template</button>
+    </div>
+    <div id="templateList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+  </div>
+
+</div>
+
+<!-- Template Drawer -->
+<div class="drawer-overlay" id="tplDrawer" onclick="if(event.target===this)tplCloseDrawer()">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title" id="tplDrawerTitle">New Template</div>
+    <div class="drawer-body">
+      <div class="form-group"><label class="form-label">Name</label><input class="form-input" id="tplName" placeholder="e.g. Monthly Finance Review"></div>
+      <div class="form-group"><label class="form-label">Category</label><input class="form-input" id="tplCategory" placeholder="e.g. Finance, Home, Kids"></div>
+      <div class="form-group"><label class="form-label">Description</label><input class="form-input" id="tplDesc" placeholder="Optional description"></div>
+      <div style="margin-top:16px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <span class="form-label" style="margin:0">Tasks</span>
+          <button class="btn btn-ghost" style="padding:3px 10px;font-size:12px" onclick="tplAddTaskRow()">+ Add</button>
+        </div>
+        <div id="tplTasks"></div>
+      </div>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn btn-ghost" onclick="tplCloseDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="tplSaveTemplate()">Save</button>
+    </div>
+  </div>
 </div>
 
 <!-- FAB -->
@@ -926,6 +973,146 @@ function triggerTodoSuggest() {
 
   GH_FAMILY.init('todoFamilyWrap', t?.family_members||[]);
 }
+
+// ── Top-level view switcher: Todos | Templates ────────────────
+(function(){
+  const tabs = document.querySelectorAll('#topViewTabs .view-tab[data-view]');
+  function setView(name) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.view === name));
+    const todosV = document.getElementById('todosView');
+    const tplV   = document.getElementById('templatesView');
+    const fab    = document.getElementById('fabBtn');
+    if (name === 'templates') {
+      todosV.style.display = 'none';
+      tplV.style.display = 'block';
+      if (fab) fab.style.display = 'none';
+      tplLoadList();
+      if (location.hash !== '#templates') history.replaceState(null,'','#templates');
+    } else {
+      todosV.style.display = '';
+      tplV.style.display = 'none';
+      if (fab) fab.style.display = '';
+      if (location.hash === '#templates') history.replaceState(null,'',location.pathname);
+    }
+  }
+  tabs.forEach(t => t.addEventListener('click', () => setView(t.dataset.view)));
+  // honor #templates deep link
+  if (location.hash === '#templates') {
+    document.addEventListener('DOMContentLoaded', () => setView('templates'));
+  }
+  window._ghTodosSetView = setView;
+})();
+
+// ── Templates panel: wrapped IIFE (folded from templates.html) ──
+(function(){
+  let editingId = null;
+  let taskRows = [];
+  function tplEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function loadList() {
+    const el = document.getElementById('templateList');
+    if (!el) return;
+    try {
+      const templates = await window.api('GET', '/templates');
+      if (!templates.length) {
+        el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">No templates yet. Create one to apply checklists to your todos.</div>';
+        return;
+      }
+      el.innerHTML = templates.map(t => `
+        <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;margin-bottom:10px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
+            <div>
+              <span style="font-weight:700;color:var(--text)">${tplEsc(t.name)}</span>
+              ${t.category ? `<span style="margin-left:8px;font-size:11px;color:var(--accent)">${tplEsc(t.category)}</span>` : ''}
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="tplApply(${t.id},'${tplEsc(t.name).replace(/'/g,"\\'")}')">▶ Apply</button>
+              <button class="btn btn-ghost" style="padding:4px 8px" onclick="tplEdit(${t.id})">✏️</button>
+              <button class="btn btn-ghost" style="padding:4px 8px;color:var(--red)" onclick="tplDelete(${t.id})">✕</button>
+            </div>
+          </div>
+          ${t.description ? `<div style="font-size:13px;color:var(--text2);margin-bottom:4px">${tplEsc(t.description)}</div>` : ''}
+          <div style="font-size:12px;color:var(--text3)">${t.item_count} task${t.item_count!==1?'s':''}</div>
+        </div>`).join('');
+    } catch(e) { el.innerHTML = `<div style="color:var(--red);padding:16px">${tplEsc(e.message)}</div>`; }
+  }
+
+  async function getItemCount(id) {
+    try { const t = await window.api('GET', `/templates/${id}`); return t.items?.length || 0; } catch { return '?'; }
+  }
+
+  async function applyTpl(id, name) {
+    if (!confirm(`Apply "${name}"? This will create ${await getItemCount(id)} new todos.`)) return;
+    try {
+      const r = await window.api('POST', `/templates/${id}/apply`, {});
+      if (typeof toast === 'function') toast(`Created ${r.created} todo${r.created!==1?'s':''}`);
+      // refresh todos list if user goes back to that view
+      if (typeof load === 'function') load();
+    } catch(e) { if (typeof toast === 'function') toast(e.message, 'err'); }
+  }
+
+  function openDrawer(template=null) {
+    editingId = template?.id || null;
+    document.getElementById('tplDrawerTitle').textContent = template ? 'Edit Template' : 'New Template';
+    document.getElementById('tplName').value = template?.name || '';
+    document.getElementById('tplCategory').value = template?.category || '';
+    document.getElementById('tplDesc').value = template?.description || '';
+    taskRows = (template?.items || []).map(i => ({title:i.title,priority:i.priority||'medium',offset:i.due_days_offset||0}));
+    if (!taskRows.length) taskRows = [{title:'',priority:'medium',offset:0}];
+    renderTaskRows();
+    document.getElementById('tplDrawer').classList.add('open');
+  }
+
+  function renderTaskRows() {
+    document.getElementById('tplTasks').innerHTML = taskRows.map((row, i) => `
+      <div style="display:flex;gap:6px;margin-bottom:6px;align-items:center">
+        <input class="form-input" value="${tplEsc(row.title)}" placeholder="Task title" oninput="window._tplRows[${i}].title=this.value" style="flex:1">
+        <select class="form-select" style="width:90px" onchange="window._tplRows[${i}].priority=this.value">
+          ${['low','medium','high','urgent'].map(p=>`<option value="${p}" ${row.priority===p?'selected':''}>${p}</option>`).join('')}
+        </select>
+        <button class="btn btn-ghost" style="padding:4px 8px;color:var(--red);flex-shrink:0" onclick="tplRemoveRow(${i})">✕</button>
+      </div>`).join('');
+    window._tplRows = taskRows; // expose for inline oninput
+  }
+
+  function addRow(){ taskRows.push({title:'',priority:'medium',offset:0}); renderTaskRows(); }
+  function removeRow(i){ taskRows.splice(i,1); renderTaskRows(); }
+
+  async function saveTpl() {
+    const name = document.getElementById('tplName').value.trim();
+    if (!name) { if (typeof toast==='function') toast('Name required','err'); return; }
+    const payload = {
+      name,
+      category: document.getElementById('tplCategory').value.trim() || null,
+      description: document.getElementById('tplDesc').value.trim() || null,
+      items: taskRows.filter(r=>r.title.trim()).map((r,i)=>({...r,sort_order:i}))
+    };
+    try {
+      if (editingId) { await window.api('PUT', `/templates/${editingId}`, payload); if (typeof toast==='function') toast('Updated'); }
+      else { await window.api('POST', '/templates', payload); if (typeof toast==='function') toast('Created'); }
+      closeDrawer(); loadList();
+    } catch(e) { if (typeof toast==='function') toast(e.message,'err'); }
+  }
+
+  async function editTpl(id) { try { const t = await window.api('GET', `/templates/${id}`); openDrawer(t); } catch(e){ if (typeof toast==='function') toast(e.message,'err'); } }
+  async function deleteTpl(id) {
+    if (!confirm('Delete this template?')) return;
+    try { await window.api('DELETE', `/templates/${id}`); if (typeof toast==='function') toast('Deleted'); loadList(); }
+    catch(e) { if (typeof toast==='function') toast(e.message,'err'); }
+  }
+  function closeDrawer() { document.getElementById('tplDrawer').classList.remove('open'); }
+
+  // Expose to inline handlers + view switcher
+  window.tplOpenDrawer  = () => openDrawer(null);
+  window.tplCloseDrawer = closeDrawer;
+  window.tplAddTaskRow  = addRow;
+  window.tplRemoveRow   = removeRow;
+  window.tplSaveTemplate= saveTpl;
+  window.tplEdit        = editTpl;
+  window.tplDelete      = deleteTpl;
+  window.tplApply       = applyTpl;
+  window.tplLoadList    = loadList;
+})();
 
 </script>
 </body>

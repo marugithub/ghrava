@@ -1128,6 +1128,14 @@
             </div>
             <input type="checkbox" id="googleSyncCon" onchange="saveGooglePrefs()" style="width:18px;height:18px;accent-color:var(--accent)">
           </label>
+          <div style="padding:0 14px 12px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;color:var(--text3);margin:10px 0 6px">Filter by Google contact label (optional). Only contacts in that label group get imported.</div>
+            <div style="display:flex;gap:6px;align-items:center">
+              <input class="form-input" id="googleContactsLabel" placeholder="ghrava" style="flex:1;font-size:13px;padding:6px 10px">
+              <button class="btn btn-primary" style="padding:6px 14px;font-size:13px;white-space:nowrap" onclick="syncGoogleContactsNow()">Sync now</button>
+            </div>
+            <div id="googleContactsSyncResult" style="font-size:12px;margin-top:8px;display:none"></div>
+          </div>
         </div>
       </div>
 
@@ -1781,6 +1789,12 @@ async function loadGooglePanel() {
     if (document.getElementById('googleSyncTasks')) document.getElementById('googleSyncTasks').checked = s.services.tasks?.enabled || false;
     if (document.getElementById('googleSyncCon'))   document.getElementById('googleSyncCon').checked   = s.services.contacts.enabled;
 
+    // Pre-fill saved contact-label filter
+    const labelEl = document.getElementById('googleContactsLabel');
+    if (labelEl && s.services.contacts?.label !== undefined) {
+      labelEl.value = s.services.contacts.label || '';
+    }
+
     // Pre-fill Client ID if already saved (never show secret)
     const clientIdEl = document.getElementById('googleClientId');
     if (clientIdEl) {
@@ -1881,11 +1895,41 @@ async function triggerTaskSync() {
 async function triggerConSync() {
   const btn = document.getElementById('conSyncBtn'); if (btn) { btn.disabled=true; btn.textContent='Syncing…'; }
   try {
-    const d = await window.api('POST', '/google/sync/contacts', {});
-    toast(`Imported ${d.imported||0} new contacts (${d.total||0} total)`, 'ok');
+    const label = (document.getElementById('googleContactsLabel')?.value || '').trim();
+    const d = await window.api('POST', '/google/sync/contacts', label ? { label } : {});
+    const labelInfo = d.label ? (d.label_resolved ? ` (label "${d.label}")` : ` (label "${d.label}" — not found, synced all)`) : '';
+    toast(`Imported ${d.imported||0} new${(d.updated||0)?', updated '+d.updated:''} contacts${labelInfo}`, 'ok');
     loadGooglePanel();
   } catch { toast('Sync failed', 'err'); }
   finally { if (btn) { btn.disabled=false; btn.textContent='👥 Sync Contacts'; } }
+}
+
+// New: in-panel "Sync now" beside the label input — gives inline feedback
+async function syncGoogleContactsNow() {
+  const result = document.getElementById('googleContactsSyncResult');
+  const label  = (document.getElementById('googleContactsLabel')?.value || '').trim();
+  if (result) {
+    result.style.display = 'block';
+    result.style.color = 'var(--text3)';
+    result.textContent = 'Syncing…';
+  }
+  try {
+    const d = await window.api('POST', '/google/sync/contacts', label ? { label } : {});
+    if (result) {
+      const parts = [];
+      parts.push(`Imported ${d.imported||0} new`);
+      if (d.updated) parts.push(`updated ${d.updated}`);
+      if (d.skipped_by_label) parts.push(`${d.skipped_by_label} skipped (not in label)`);
+      if (d.label && d.label_not_found) parts.push(`⚠ label "${d.label}" not found — synced all`);
+      result.textContent = parts.join(' · ');
+      result.style.color = (d.label && d.label_not_found) ? 'var(--amber)' : 'var(--green)';
+    }
+    if (typeof toast === 'function') toast(`Contacts: ${d.imported||0} new, ${d.updated||0} updated`, 'ok');
+    loadGooglePanel();
+  } catch(e) {
+    if (result) { result.textContent = 'Failed: ' + (e.message || 'unknown error'); result.style.color = 'var(--red)'; }
+    if (typeof toast === 'function') toast('Sync failed', 'err');
+  }
 }
 
 
