@@ -66,12 +66,11 @@
     .lb-ph img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:contain;display:block}
 
     /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
-    .lb-polaroid{padding:8px 8px 28px;background:#f4ece0;border-radius:3px;
-      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;overflow:hidden}
-    .lb-polaroid.big .lb-polaroid-photo{padding:10px 10px 32px}
-    .lb-polaroid-photo{width:100%;aspect-ratio:3/4;overflow:hidden;
+    .lb-polaroid{background:#f4ece0;border-radius:3px;
+      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:6px}
+    .lb-polaroid-photo{width:calc(100% - 16px);aspect-ratio:3/4;overflow:hidden;
       display:flex;align-items:center;justify-content:center;position:relative;
-      background:#e8ddd0;box-sizing:border-box}
+      background:#e8ddd0;margin:8px auto 0}
     .lb-polaroid-photo.tall{aspect-ratio:3/4}
     .lb-polaroid-photo.primary{outline:2px solid var(--green);outline-offset:-2px}
     .lb-polaroid-cap{text-align:center;font-family:var(--mono);font-size:9px;
