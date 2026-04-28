@@ -1311,6 +1311,13 @@ window.GH_VIEW = (function() {
 .gh-filter-dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:none}
 .gh-view-text-btn.has-filters .gh-filter-dot{display:block}
 .gh-adv-drawer{position:fixed;inset:0;z-index:800;display:none}
+.gh-more-btn.has-filters::after{content:'';position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--accent)}
+.gh-more-menu{position:absolute;right:0;top:calc(100% + 6px);background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-lg);min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.12);z-index:500;padding:6px 0}
+.gh-more-section-label{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.07em;padding:6px 12px 2px}
+.gh-more-sep{height:1px;background:var(--border);margin:4px 0}
+.gh-more-item{display:flex;align-items:center;gap:8px;width:100%;padding:8px 12px;background:transparent;border:none;font-size:13px;color:var(--text2);cursor:pointer;font-family:var(--sans);text-align:left}
+.gh-more-item:hover{background:var(--bg3);color:var(--text)}
+.gh-more-item.has-filters{color:var(--accent)}
 .gh-adv-drawer.open{display:flex}
 .gh-adv-scrim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
 .gh-adv-panel{position:absolute;bottom:0;left:0;right:0;background:var(--bg2);border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:88vh;display:flex;flex-direction:column;animation:slideup .24s cubic-bezier(.32,.72,0,1)}
@@ -1354,24 +1361,44 @@ window.GH_VIEW = (function() {
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="3" rx="1"/><rect x="1" y="5.5" width="12" height="3" rx="1"/><rect x="1" y="10" width="12" height="3" rx="1"/></svg>
         </button>
         <div class="gh-view-sep"></div>
-        <span style="font-size:11px;color:var(--text3)">Cols</span>
-        ${[2,3,4,5].map(n=>`<button class="gh-col-btn${n===cols?' active':''}" data-cols="${n}">${n}</button>`).join('')}
-        <div class="gh-view-sep"></div>
-        <button class="gh-view-text-btn" id="${storagePrefix}-sort">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-          Sort
-        </button>
-        <button class="gh-view-text-btn" id="${storagePrefix}-filter">
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-          Advanced Filters
-          <span class="gh-filter-dot"></span>
-        </button>
+        <div style="position:relative">
+          <button class="gh-view-btn gh-more-btn${state._hasFilters?' has-filters':''}" id="${storagePrefix}-more" title="More options">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+          <div class="gh-more-menu" id="${storagePrefix}-more-menu" style="display:none">
+            <div class="gh-more-section-label">Columns</div>
+            <div style="display:flex;gap:4px;padding:4px 10px 8px">
+              ${[2,3,4,5].map(n=>`<button class="gh-col-btn${n===cols?' active':''}" data-cols="${n}">${n}</button>`).join('')}
+            </div>
+            <div class="gh-more-sep"></div>
+            <button class="gh-more-item" id="${storagePrefix}-sort">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+              Sort
+            </button>
+            <button class="gh-more-item gh-filter-item${state._hasFilters?' has-filters':''}" id="${storagePrefix}-filter">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+              Advanced Filters
+              <span class="gh-filter-dot"></span>
+            </button>
+          </div>
+        </div>
       </div>
     `;
 
     // ── Wire toggle buttons ───────────────────────────────────
     container.querySelector(`#${storagePrefix}-vgrid`).addEventListener('click', () => _setView('grid'));
     container.querySelector(`#${storagePrefix}-vlist`).addEventListener('click', () => _setView('list'));
+    // ⋮ More menu toggle
+    const moreBtn = container.querySelector(`#${storagePrefix}-more`);
+    const moreMenu = container.querySelector(`#${storagePrefix}-more-menu`);
+    if (moreBtn && moreMenu) {
+      moreBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = moreMenu.style.display === 'block';
+        moreMenu.style.display = open ? 'none' : 'block';
+      });
+      document.addEventListener('click', () => { if(moreMenu) moreMenu.style.display = 'none'; });
+    }
     container.querySelectorAll('.gh-col-btn').forEach(b => {
       b.addEventListener('click', () => _setCols(+b.dataset.cols));
     });
