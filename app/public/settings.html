@@ -2796,6 +2796,25 @@ function _fillExtFields(c) {
   setVal('ct_kids',          c.enrolled_kids);
 }
 
+// Lightweight ZIP → city/state autofill. Uses zippopotam.us (free, no key).
+// Called from contact form ZIP input on every keystroke. No-ops until 5 digits.
+async function autoFillZip(zip, cityId, stateId) {
+  if (!zip || zip.length !== 5 || !/^\d{5}$/.test(zip)) return;
+  const cityEl  = document.getElementById(cityId);
+  const stateEl = document.getElementById(stateId);
+  // Don't overwrite values the user already typed
+  if ((cityEl?.value || '').trim() && (stateEl?.value || '').trim()) return;
+  try {
+    const r = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const place = d.places?.[0];
+    if (!place) return;
+    if (cityEl  && !cityEl.value.trim())  cityEl.value  = place['place name'] || '';
+    if (stateEl && !stateEl.value.trim()) stateEl.value = (place['state abbreviation'] || '').toUpperCase();
+  } catch(_) { /* offline / no internet — skip silently */ }
+}
+
 function openContactDrawer(contact=null, presetType=null) {
   try {
     editingId = contact?.id || null;
