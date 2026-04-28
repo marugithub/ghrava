@@ -5,42 +5,42 @@
 
 :root {
   /* Surfaces */
-  --bg:        #080c14;
-  --bg2:       #0e1421;
-  --bg3:       #141d2e;
-  --bg4:       #1c2840;
-  --bg5:       #243352;
+  --bg:        #F2F2F7;
+  --bg2:       #FFFFFF;
+  --bg3:       #F8F8F8;
+  --bg4:       #F0F0F5;
+  --bg5:       #E8E8EF;
 
   /* Borders */
-  --border:    #1e2d45;
-  --border2:   #2a3f5f;
-  --border3:   #3a5278;
+  --border:    rgba(0,0,0,.08);
+  --border2:   rgba(0,0,0,.13);
+  --border3:   rgba(0,0,0,.18);
 
   /* Text */
-  --text:      #e8edf6;
-  --text2:     #8fa3bf;
-  --text3:     #4d6480;
-  --text4:     #2d3f55;
+  --text:      #111111;
+  --text2:     #555555;
+  --text3:     #999999;
+  --text4:     #BBBBBB;
 
-  /* Accent — Ghrava indigo (derived from logo #3548eb, lightened for WCAG AA) */
-  --accent:    #5c72fa;   /* 4.9:1 on dark bg — passes AA */
-  --accent-h:  #7b8fff;   /* hover/lighter state */
-  --accent-logo: #3548eb; /* exact logo color — use only on logo SVG */
-  --accent-bg: rgba(92,114,250,0.10);
-  --accent-bd: rgba(92,114,250,0.26);
+  /* Accent */
+  --accent:    #5c72fa;
+  --accent-h:  #4558e8;
+  --accent-logo: #3548eb;
+  --accent-bg: rgba(92,114,250,0.08);
+  --accent-bd: rgba(92,114,250,0.25);
 
   /* Semantic */
-  --green:     #22c55e;
-  --green-bg:  rgba(34,197,94,0.1);
-  --green-bd:  rgba(34,197,94,0.25);
-  --amber:     #f59e0b;
-  --amber-bg:  rgba(245,158,11,0.1);
-  --amber-bd:  rgba(245,158,11,0.25);
-  --red:       #ef4444;
-  --red-bg:    rgba(239,68,68,0.08);
-  --red-bd:    rgba(239,68,68,0.25);
-  --purple:    #a78bfa;
-  --purple-bg: rgba(167,139,250,0.1);
+  --green:     #16a34a;
+  --green-bg:  rgba(22,163,74,0.08);
+  --green-bd:  rgba(22,163,74,0.22);
+  --amber:     #d97706;
+  --amber-bg:  rgba(217,119,6,0.08);
+  --amber-bd:  rgba(217,119,6,0.22);
+  --red:       #dc2626;
+  --red-bg:    rgba(220,38,38,0.07);
+  --red-bd:    rgba(220,38,38,0.22);
+  --purple:    #7c3aed;
+  --purple-bg: rgba(124,58,237,0.08);
 
   /* Type */
   --sans: 'Inter', -apple-system, system-ui, sans-serif;
@@ -52,22 +52,22 @@
   --r-lg: 16px;
   --r-xl: 22px;
 
-  /* Inventory category colors */
-  --cat-electronics: #5c72fa; --cat-electronics-bg: rgba(92,114,250,.15);
-  --cat-appliances:  #8b5cf6; --cat-appliances-bg:  rgba(139,92,246,.15);
-  --cat-furniture:   #f59e0b; --cat-furniture-bg:   rgba(245,158,11,.15);
-  --cat-tools:       #6b7280; --cat-tools-bg:       rgba(107,114,128,.15);
-  --cat-clothing:    #ec4899; --cat-clothing-bg:    rgba(236,72,153,.15);
-  --cat-sports:      #10b981; --cat-sports-bg:      rgba(16,185,129,.15);
-  --cat-toys:        #f97316; --cat-toys-bg:        rgba(249,115,22,.15);
-  --cat-kitchen:     #ef4444; --cat-kitchen-bg:     rgba(239,68,68,.15);
-  --cat-outdoor:     #22c55e; --cat-outdoor-bg:     rgba(34,197,94,.15);
-  --cat-documents:   #94a3b8; --cat-documents-bg:   rgba(148,163,184,.15);
-  --cat-medical:     #fb7185; --cat-medical-bg:     rgba(251,113,133,.15);
-  --cat-hw:          #fb7185; --cat-hw-bg:          rgba(251,113,133,.15);
-  --cat-holiday:     #e879f9; --cat-holiday-bg:     rgba(232,121,249,.15);
-  --cat-books:       #a78bfa; --cat-books-bg:       rgba(167,139,250,.15);
-  --cat-other:       #64748b; --cat-other-bg:       rgba(100,116,139,.15);
+  /* Inventory category colors — vivid on light bg */
+  --cat-electronics: #4338ca; --cat-electronics-bg: #EEF2FF;
+  --cat-appliances:  #7c3aed; --cat-appliances-bg:  #F5F3FF;
+  --cat-furniture:   #b45309; --cat-furniture-bg:   #FFFBEB;
+  --cat-tools:       #4b5563; --cat-tools-bg:       #F3F4F6;
+  --cat-clothing:    #be185d; --cat-clothing-bg:    #FDF2F8;
+  --cat-sports:      #065f46; --cat-sports-bg:      #ECFDF5;
+  --cat-toys:        #c2410c; --cat-toys-bg:        #FFF7ED;
+  --cat-kitchen:     #b91c1c; --cat-kitchen-bg:     #FEF2F2;
+  --cat-outdoor:     #166534; --cat-outdoor-bg:     #F0FDF4;
+  --cat-documents:   #475569; --cat-documents-bg:   #F8FAFC;
+  --cat-medical:     #9f1239; --cat-medical-bg:     #FFF1F2;
+  --cat-hw:          #9f1239; --cat-hw-bg:          #FFF1F2;
+  --cat-holiday:     #86198f; --cat-holiday-bg:     #FDF4FF;
+  --cat-books:       #5b21b6; --cat-books-bg:       #EDE9FE;
+  --cat-other:       #374151; --cat-other-bg:       #F9FAFB;
 }
 
 html, body {
@@ -303,7 +303,7 @@ html, body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(8,12,20,0.94); /* overridden by light themes */
+  background: rgba(242,242,247,0.94); /* overridden by light themes */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
@@ -413,7 +413,7 @@ html, body {
 .form-textarea::placeholder { color: var(--text3); }
 
 .form-select {
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234d6480' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23999999' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 32px;
@@ -1352,7 +1352,7 @@ html, body {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: rgba(8,12,20,0.95); /* overridden by light themes */
+  background: rgba(242,242,247,0.95); /* overridden by light themes */
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
