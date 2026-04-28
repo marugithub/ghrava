@@ -671,6 +671,18 @@ function initItemView() {
       { key:'occasion', type:'select', label:'Occasion', options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'School',label:'School'},{value:'Sports',label:'Sports'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'}]},
     ]
   });
+  // GH_BULK on items: archive / restore / delete
+  GH_BULK.init({
+    toolbarId:    'itemViewToolbar',
+    containerId:  'itemGrid',
+    cardSelector: '.lb-item-card, .wrd-list-card',
+    getId:        (el) => parseInt(el.dataset.id, 10),
+    isArchived:   (el) => el.classList.contains('is-archived'),
+    refresh:      () => loadItems(),
+    onArchive:    async (ids) => { for (const id of ids) await window.api('PATCH', `/wardrobe/items/${id}/archive`, { archive:true, wardrobe_status:'donated' }); },
+    onUnarchive:  async (ids) => { for (const id of ids) await window.api('PUT', `/wardrobe/items/${id}/unarchive`, {}); },
+    onDelete:     async (ids) => { for (const id of ids) await window.api('DELETE', `/wardrobe/items/${id}`, {}); },
+  });
 }
 
 function initInsightsView() {
@@ -1346,7 +1358,7 @@ async function loadItems() {
         const member = item.wardrobe_owner_id ? _memberById[item.wardrobe_owner_id] : null;
         const ownerName = item.owner_name || (member?.display_name || '');
         const thumbSrc = item.primary_photo?.id ? `/api/v1/attachments/thumb/${item.primary_photo.id}` : null;
-        return `<div class="wrd-list-card" onclick="openItemDrawer(${item.id})">
+        return `<div class="wrd-list-card${item.is_archived?' is-archived':''}" data-id="${item.id}" onclick="openItemDrawer(${item.id})">
           ${thumbSrc
             ? `<img class="wrd-list-thumb" src="${thumbSrc}" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
             : ''
@@ -1375,7 +1387,7 @@ async function loadItems() {
           label: item.wardrobe_nickname || item.name,
           ratio: 'square'
         });
-        return `<div class="lb-item-card ${tilt}" style="position:relative" onclick="openItemDrawer(${item.id})">
+        return `<div class="lb-item-card ${tilt}${item.is_archived?' is-archived':''}" data-id="${item.id}" style="position:relative" onclick="openItemDrawer(${item.id})">
           ${polaroid}
           <div class="lb-item-meta">
             <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>

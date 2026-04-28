@@ -1500,6 +1500,19 @@ async function initInvView() {
     ]
   });
   window._invFilters = {};
+
+  // GH_BULK — multi-select Archive / Restore / Delete on inventory items
+  GH_BULK.init({
+    toolbarId:    'invViewToolbar',
+    containerId:  'allItemsContent',
+    cardSelector: '.item-grid-card, .item-card, .item-compact-card',
+    getId:        (el) => parseInt(el.dataset.item, 10),
+    isArchived:   (el) => el.classList.contains('archived'),
+    refresh:      () => renderBrowse(),
+    onArchive:    async (ids) => { for (const id of ids) await window.api('PUT', `/inventory/items/${id}/archive`, {}); },
+    onUnarchive:  async (ids) => { for (const id of ids) await window.api('PUT', `/inventory/items/${id}/unarchive`, {}); },
+    onDelete:     async (ids) => { for (const id of ids) await window.api('DELETE', `/inventory/items/${id}`, {}); },
+  });
 }
 
 function setModeFilter(mode) {

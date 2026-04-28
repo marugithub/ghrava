@@ -345,7 +345,8 @@ function renderDocs() {
       const docStatusCls = exp
         ? (exp < today ? 'gh-s-red' : exp <= warn30 ? 'gh-s-amber' : 'gh-s-green')
         : 'gh-s-blue';
-      html += `<div class="gh-card ${docStatusCls} doc-card" onclick="openDocDrawer(${d.id})">
+      const archivedCls = d.is_active === 0 ? ' is-archived' : '';
+      html += `<div class="gh-card ${docStatusCls} doc-card${archivedCls}" data-id="${d.id}" onclick="openDocDrawer(${d.id})">
         <div class="doc-card-inner">
           <div class="doc-icon" style="background:${CAT_COLORS[d.category]||'rgba(148,163,184,.12)'}">${CAT_ICONS[d.category]||'📁'}</div>
           <div style="flex:1;min-width:0">
@@ -537,6 +538,17 @@ document.addEventListener('DOMContentLoaded', () => {
         options: [{label:'All',value:''},{label:'Expiring 90d',value:'90'},{label:'Expiring 30d',value:'30'}] },
       { key: 'tags', type: 'tags', label: 'Tags' },
     ]
+  });
+  GH_BULK.init({
+    toolbarId:    'docViewToolbar',
+    containerId:  'docList',
+    cardSelector: '.doc-card',
+    getId:        (el) => parseInt(el.dataset.id, 10),
+    isArchived:   (el) => el.classList.contains('is-archived'),
+    refresh:      () => loadDocs(),
+    onArchive:    async (ids) => { for (const id of ids) await window.api('PATCH', `/documents/${id}/archive`, {}); },
+    onUnarchive:  async (ids) => { for (const id of ids) await window.api('PUT',   `/documents/${id}/unarchive`, {}); },
+    onDelete:     async (ids) => { for (const id of ids) await window.api('DELETE',`/documents/${id}`, {}); },
   });
   loadCatStrip();
   loadDocs();

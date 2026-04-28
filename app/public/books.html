@@ -319,7 +319,8 @@ function bookCardHtml(b) {
     : null;
 
   const ghStatusCls = b.status==='Currently Reading' ? 'gh-s-blue' : b.status==='Read' ? 'gh-s-green' : 'gh-s-gray';
-  return `<div class="gh-card ${ghStatusCls} book-card" onclick="openBookDrawer(${b.id})">
+  const archivedCls = b.is_active === 0 ? ' is-archived' : '';
+  return `<div class="gh-card ${ghStatusCls} book-card${archivedCls}" data-id="${b.id}" onclick="openBookDrawer(${b.id})">
     ${coverSrc
       ? `<img src="${coverSrc}" class="book-cover-thumb" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">`
       : ''}
@@ -515,6 +516,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
         options: [{value:'',label:'Any'},{value:'5',label:'★★★★★'},{value:'4',label:'★★★★+'},{value:'3',label:'★★★+'}] },
       { key: 'tags',   type: 'tags',   label: 'Tags' },
     ]
+  });
+  GH_BULK.init({
+    toolbarId:    'bookViewToolbar',
+    containerId:  'bookList',
+    cardSelector: '.book-card',
+    getId:        (el) => parseInt(el.dataset.id, 10),
+    isArchived:   (el) => el.classList.contains('is-archived'),
+    refresh:      () => loadBooks(),
+    onArchive:    async (ids) => { for (const id of ids) await window.api('PATCH', `/books/${id}/archive`, {}); },
+    onUnarchive:  async (ids) => { for (const id of ids) await window.api('PUT',   `/books/${id}/unarchive`, {}); },
+    onDelete:     async (ids) => { for (const id of ids) await window.api('DELETE',`/books/${id}`, {}); },
   });
   loadBooks();
   loadStats();

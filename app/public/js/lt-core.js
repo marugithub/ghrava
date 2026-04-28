@@ -1969,3 +1969,261 @@ window.GH_TAG_SEARCH = (function() {
 
   return { open, close };
 })();
+
+
+// ──────────────────────────────────────────────────────────────
+// GH_BULK — Bulk select & action widget
+// ──────────────────────────────────────────────────────────────
+//
+// Adds a "Select" toggle to a module toolbar. When enabled, every card in
+// the configured container shows a checkbox overlay. Clicking a card toggles
+// its selection (drawer open is intercepted). A floating action bar at the
+// bottom shows count + actions.
+//
+// Usage:
+//   GH_BULK.init({
+//     toolbarId:    'wrdViewToolbar',
+//     containerId:  'wrdItemsGrid',
+//     cardSelector: '.lb-item-card',
+//     getId:        (cardEl) => cardEl.dataset.id,
+//     isArchived:   (cardEl) => cardEl.classList.contains('is-archived'),
+//     refresh:      () => loadItems(),
+//     onArchive:    async (ids) => { for (const id of ids) await window.api('PATCH', `/wardrobe/items/${id}/archive`, { archive:true }); },
+//     onUnarchive:  async (ids) => { for (const id of ids) await window.api('PUT', `/wardrobe/items/${id}/unarchive`, {}); },
+//     onDelete:     async (ids) => { for (const id of ids) await window.api('DELETE', `/wardrobe/items/${id}`); },
+//   });
+//
+// Modules must:
+//   1. Render cards with data-id="${item.id}"
+//   2. Optionally add an `.is-archived` class on archived cards
+//   3. Provide a toolbar slot where the Select button can go
+//
+// Each call replaces any prior init for the same toolbarId.
+window.GH_BULK = (function(){
+  const _instances = new Map(); // toolbarId → instance state
+
+  function _injectStylesOnce() {
+    if (document.getElementById('gh-bulk-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'gh-bulk-styles';
+    style.textContent = `
+      .gh-bulk-toggle {
+        font-size: 12px; padding: 5px 10px; border-radius: 999px;
+        border: 1px solid var(--border); background: var(--bg2);
+        color: var(--text2); cursor: pointer; font-family: var(--sans);
+        display: inline-flex; align-items: center; gap: 4px;
+        transition: background .12s, color .12s, border-color .12s;
+      }
+      .gh-bulk-toggle:hover { border-color: var(--accent); color: var(--accent); }
+      .gh-bulk-toggle.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+      .gh-bulk-mode .gh-bulk-card { position: relative; }
+      .gh-bulk-mode .gh-bulk-card::before {
+        content: ""; position: absolute; top: 6px; right: 6px;
+        width: 22px; height: 22px; border-radius: 50%;
+        border: 2px solid #fff; background: rgba(255,255,255,.8);
+        box-shadow: 0 1px 4px rgba(0,0,0,.25);
+        z-index: 50; pointer-events: none;
+      }
+      .gh-bulk-mode .gh-bulk-card.gh-bulk-selected::before {
+        background: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent), 0 0 0 4px rgba(255,255,255,.6);
+      }
+      .gh-bulk-mode .gh-bulk-card.gh-bulk-selected::after {
+        content: "✓"; position: absolute; top: 6px; right: 6px;
+        width: 22px; height: 22px; line-height: 22px;
+        text-align: center; color: #fff; font-weight: 700; font-size: 14px;
+        z-index: 51; pointer-events: none;
+      }
+      .gh-bulk-mode .gh-bulk-card { cursor: pointer; }
+      .gh-bulk-mode .gh-bulk-card.gh-bulk-selected {
+        outline: 2px solid var(--accent); outline-offset: -2px;
+      }
+      .gh-bulk-bar {
+        position: fixed; left: 50%; bottom: 76px; transform: translateX(-50%);
+        background: var(--text); color: var(--bg);
+        border-radius: 999px; padding: 8px 14px;
+        display: flex; align-items: center; gap: 6px;
+        box-shadow: 0 8px 24px rgba(0,0,0,.4);
+        z-index: 200; font-size: 13px;
+        max-width: calc(100vw - 32px);
+      }
+      .gh-bulk-bar-count { font-weight: 600; padding: 0 10px 0 4px; white-space: nowrap; }
+      .gh-bulk-bar button {
+        background: transparent; border: 1px solid rgba(255,255,255,.25);
+        color: inherit; border-radius: 999px;
+        padding: 5px 12px; font-size: 12px; font-weight: 500;
+        cursor: pointer; white-space: nowrap;
+        transition: background .12s;
+      }
+      .gh-bulk-bar button:hover:not(:disabled) { background: rgba(255,255,255,.12); }
+      .gh-bulk-bar button:disabled { opacity: .4; cursor: not-allowed; }
+      .gh-bulk-bar button.danger { border-color: rgba(239,68,68,.5); color: #fca5a5; }
+      .gh-bulk-bar button.danger:hover:not(:disabled) { background: rgba(239,68,68,.18); }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function _renderActionBar(inst) {
+    const sel = inst.selected;
+    const count = sel.size;
+    if (!count) {
+      if (inst.bar) { inst.bar.remove(); inst.bar = null; }
+      return;
+    }
+    if (!inst.bar) {
+      inst.bar = document.createElement('div');
+      inst.bar.className = 'gh-bulk-bar';
+      document.body.appendChild(inst.bar);
+    }
+    // Determine archive context: if every selected is archived → show Restore;
+    // if every selected is active → show Archive; mixed → both disabled with hint.
+    const cards = Array.from(inst.container.querySelectorAll(inst.cfg.cardSelector));
+    const selectedCards = cards.filter(c => sel.has(inst.cfg.getId(c)));
+    let allArchived = true, allActive = true;
+    if (typeof inst.cfg.isArchived === 'function') {
+      for (const c of selectedCards) {
+        if (inst.cfg.isArchived(c)) allActive = false; else allArchived = false;
+      }
+    } else { allArchived = false; }
+    const canArchive = allActive && typeof inst.cfg.onArchive === 'function';
+    const canUnarchive = allArchived && typeof inst.cfg.onUnarchive === 'function';
+    const canDelete = typeof inst.cfg.onDelete === 'function';
+
+    inst.bar.innerHTML = '';
+    const span = document.createElement('span');
+    span.className = 'gh-bulk-bar-count';
+    span.textContent = count + ' selected';
+    inst.bar.appendChild(span);
+
+    if (inst.cfg.onArchive) {
+      const b = document.createElement('button');
+      b.textContent = '🗄️ Archive';
+      b.disabled = !canArchive;
+      b.title = canArchive ? '' : 'All selected must be active to archive';
+      b.onclick = () => _bulkAction(inst, 'archive');
+      inst.bar.appendChild(b);
+    }
+    if (inst.cfg.onUnarchive) {
+      const b = document.createElement('button');
+      b.textContent = '↺ Restore';
+      b.disabled = !canUnarchive;
+      b.title = canUnarchive ? '' : 'All selected must be archived to restore';
+      b.onclick = () => _bulkAction(inst, 'unarchive');
+      inst.bar.appendChild(b);
+    }
+    if (canDelete) {
+      const b = document.createElement('button');
+      b.textContent = '🗑 Delete';
+      b.className = 'danger';
+      b.onclick = () => _bulkAction(inst, 'delete');
+      inst.bar.appendChild(b);
+    }
+    const cancel = document.createElement('button');
+    cancel.textContent = '✕';
+    cancel.title = 'Cancel selection';
+    cancel.onclick = () => { sel.clear(); _redraw(inst); };
+    inst.bar.appendChild(cancel);
+  }
+
+  async function _bulkAction(inst, action) {
+    const ids = Array.from(inst.selected);
+    if (!ids.length) return;
+    if (action === 'delete') {
+      if (!confirm(`Permanently delete ${ids.length} item${ids.length===1?'':'s'}? This cannot be undone.`)) return;
+    }
+    try {
+      if (action === 'archive')   await inst.cfg.onArchive(ids);
+      if (action === 'unarchive') await inst.cfg.onUnarchive(ids);
+      if (action === 'delete')    await inst.cfg.onDelete(ids);
+      const verb = action === 'archive' ? 'archived' : action === 'unarchive' ? 'restored' : 'deleted';
+      if (typeof toast === 'function') toast(`${ids.length} ${verb}`, 'ok');
+      inst.selected.clear();
+      _redraw(inst);
+      if (typeof inst.cfg.refresh === 'function') inst.cfg.refresh();
+    } catch(e) {
+      if (typeof toast === 'function') toast(`Bulk ${action} failed: ${e.message||e}`, 'err');
+    }
+  }
+
+  function _redraw(inst) {
+    const cards = inst.container.querySelectorAll(inst.cfg.cardSelector);
+    cards.forEach(c => {
+      c.classList.add('gh-bulk-card');
+      const id = inst.cfg.getId(c);
+      c.classList.toggle('gh-bulk-selected', inst.selected.has(id));
+    });
+    _renderActionBar(inst);
+  }
+
+  function _onContainerClick(inst, e) {
+    if (!inst.active) return;
+    const card = e.target.closest(inst.cfg.cardSelector);
+    if (!card || !inst.container.contains(card)) return;
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    const id = inst.cfg.getId(card);
+    if (id == null) return;
+    if (inst.selected.has(id)) inst.selected.delete(id);
+    else inst.selected.add(id);
+    _redraw(inst);
+  }
+
+  function _setActive(inst, on) {
+    inst.active = !!on;
+    inst.toggleBtn?.classList.toggle('active', inst.active);
+    inst.container.classList.toggle('gh-bulk-mode', inst.active);
+    if (!inst.active) {
+      inst.selected.clear();
+      _redraw(inst);
+    } else {
+      _redraw(inst);
+    }
+  }
+
+  function init(cfg) {
+    _injectStylesOnce();
+    if (!cfg || !cfg.toolbarId || !cfg.containerId || !cfg.cardSelector || typeof cfg.getId !== 'function') {
+      console.warn('GH_BULK.init: missing required config'); return;
+    }
+    const toolbar = document.getElementById(cfg.toolbarId);
+    const container = document.getElementById(cfg.containerId);
+    if (!toolbar || !container) {
+      console.warn('GH_BULK.init: toolbar or container not found', cfg.toolbarId, cfg.containerId);
+      return;
+    }
+    // Tear down any prior instance for same toolbar
+    if (_instances.has(cfg.toolbarId)) {
+      const old = _instances.get(cfg.toolbarId);
+      old.toggleBtn?.remove();
+      old.bar?.remove();
+      container.removeEventListener('click', old._handler, true);
+      container.classList.remove('gh-bulk-mode');
+    }
+    const inst = { cfg, toolbar, container, selected: new Set(), active: false, bar: null };
+    // Build toggle button
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'gh-bulk-toggle';
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Select';
+    btn.title = 'Bulk select';
+    btn.onclick = () => _setActive(inst, !inst.active);
+    inst.toggleBtn = btn;
+    toolbar.appendChild(btn);
+    // Capture-phase click handler
+    inst._handler = (e) => _onContainerClick(inst, e);
+    container.addEventListener('click', inst._handler, true);
+    // Re-tag cards on every redraw call by external code: use MutationObserver
+    inst._mo = new MutationObserver(() => { if (inst.active) _redraw(inst); });
+    inst._mo.observe(container, { childList: true, subtree: true });
+    _instances.set(cfg.toolbarId, inst);
+    return inst;
+  }
+
+  function refresh(toolbarId) {
+    const inst = _instances.get(toolbarId);
+    if (inst) _redraw(inst);
+  }
+
+  return { init, refresh };
+})();

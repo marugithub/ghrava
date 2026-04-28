@@ -395,7 +395,7 @@ async function load() {
     const cls = _perfumeView === 'list' ? 'perf-list' : 'perf-grid';
     document.getElementById('perfList').innerHTML = `<div class="${cls}" style="--perf-cols:${_perfumeCols}">
       ${rows.map(r => `
-        <div class="perf-card" onclick="openDrawer(${r.id})">
+        <div class="perf-card" data-id="${r.id}" onclick="openDrawer(${r.id})">
           <div class="perf-head">
             <div class="perf-icon">🧴</div>
             <div style="flex:1;min-width:0">
@@ -451,6 +451,15 @@ GH_VIEW.init('perfViewToolbar','perf', s => {
     { key:'occasion',  type:'select', label:'Occasion',     options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'},{value:'Evening',label:'Evening'}] },
     { key:'scent',     type:'text',   label:'Scent family', placeholder:'e.g. Woody' },
   ]
+});
+
+GH_BULK.init({
+  toolbarId:    'perfViewToolbar',
+  containerId:  'perfList',
+  cardSelector: '.perf-card',
+  getId:        (el) => parseInt(el.dataset.id, 10),
+  refresh:      () => load(),
+  onDelete:     async (ids) => { for (const id of ids) await window.api('DELETE', `/perfume/${id}`, {}); },
 });
 
 document.addEventListener('DOMContentLoaded', async () => {
