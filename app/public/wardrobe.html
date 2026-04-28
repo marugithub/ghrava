@@ -66,16 +66,17 @@
     .lb-ph img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:contain;display:block}
 
     /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
-    .lb-polaroid{padding:5px 5px 17px;background:#f4ece0;border-radius:3px;
+    .lb-polaroid{padding:6px 6px 22px;background:#f4ece0;border-radius:3px;
       box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block}
-    .lb-polaroid.big{padding:8px 8px 20px}
+    .lb-polaroid.big{padding:8px 8px 24px}
     .lb-polaroid-photo{width:100%;aspect-ratio:2/1;border-radius:1px;overflow:hidden;
       display:flex;align-items:center;justify-content:center;position:relative}
     .lb-polaroid-photo.tall{aspect-ratio:3/4}
     .lb-polaroid-photo.primary{outline:2px solid var(--green);outline-offset:-2px}
     .lb-polaroid-cap{text-align:center;font-family:var(--mono);font-size:9px;
       color:#3a2c20;letter-spacing:.06em;margin-top:4px;text-transform:uppercase;
-      overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 4px}
+      overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;
+      padding:0 2px;line-height:1.4}
     .lb-polaroid.big .lb-polaroid-cap{font-size:10px}
 
     /* Pleasing tilt cycle — index%4 picks one of these */
@@ -1660,28 +1661,22 @@ async function loadOutfits() {
     refreshMemberCache();
     el.className = 'lb-outfits-grid';
     el.style.gridTemplateColumns = `repeat(${_itemCols},1fr)`;
-    el.innerHTML = filtered.map(o => {
+    el.innerHTML = filtered.map((o, k) => {
+      const tilt = `lb-tilt-${k % 4}`;
       const member = o.family_member_id ? _memberById[o.family_member_id] : null;
       const ownerName = member?.display_name || o.owner_name || '';
-      // Cover photo (real or fallback)
-      const cover = o.primary_photo
-        ? `<img src="/api/v1/attachments/thumb/${o.primary_photo.id}" alt="${esc(o.name)}" onerror="lbImgError(this)">`
-        : `<div class="lb-ph lb-ph-hanger" style="width:100%;height:100%;border-radius:0">${HANGER_SVG}</div>`;
-      // Tags shown on the card (top 3, occasion first then season)
-      const allTags = [...(o.occasion_tags||[]), ...(o.season_tags||[])].slice(0,3);
-      // Item thumbnails strip (up to 5 small dots — placeholder color tiles since item primary_photo isn't on outfit GET)
-      const itemDots = (o.items||[]).slice(0,5).map(it => {
-        const catKey = CAT_PH_KEY[it.category] || '';
-        return `<div class="lb-outfit-card-item-thumb lb-ph${catKey?' lb-ph-tile cat-'+catKey:' lb-ph-hanger'}" title="${esc(it.wardrobe_nickname||it.name||'')}"></div>`;
-      }).join('');
-      return `<div class="lb-outfit-card" onclick="openOutfitDrawer(${o.id})">
-        <div class="lb-outfit-card-photo">${cover}</div>
-        <div class="lb-outfit-card-grad"></div>
-        ${ownerName ? `<div class="lb-outfit-card-owner">${lbMemberDot(member, 5)}<span>${esc(ownerName)}</span></div>` : ''}
-        <div class="lb-outfit-card-body">
-          <div class="lb-outfit-card-name">${esc(o.name)}</div>
-          ${itemDots ? `<div class="lb-outfit-card-items">${itemDots}</div>` : ''}
-          ${allTags.length ? `<div class="lb-outfit-card-tags">${allTags.map(t=>`<span class="lb-outfit-card-tag">${esc(t)}</span>`).join('')}</div>` : ''}
+      const polaroid = lbPolaroid({
+        primary_photo: o.primary_photo,
+        category: null,
+        name: o.name,
+        label: o.name,
+        ratio: 'square'
+      });
+      return `<div class="lb-item-card ${tilt}" style="position:relative" onclick="openOutfitDrawer(${o.id})">
+        ${polaroid}
+        <div class="lb-item-meta">
+          <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>
+          <span class="lb-item-meta-stat">${(o.items||[]).length ? `${o.items.length}pc` : '·'}</span>
         </div>
       </div>`;
     }).join('');
@@ -1835,8 +1830,7 @@ async function loadInsights() {
             category: it.category,
             name: it.wardrobe_nickname || it.name,
             label: it.wardrobe_nickname || it.name,
-            ratio: 'square',
-            big: true
+            ratio: 'square'
           });
           return `<div class="lb-tilt-${k%4}">
             <div onclick="openItemDrawer(${it.id})" style="cursor:pointer">${polaroid}</div>
@@ -1858,18 +1852,20 @@ async function loadInsights() {
         </div>
       </div>
       <div class="lb-most-grid" style="grid-template-columns:repeat(${_itemCols},1fr)">
-        ${d.most_worn.map(it => {
-          const photo = lbPhoto({
+        ${d.most_worn.map((it, k) => {
+          const tilt = `lb-tilt-${k % 4}`;
+          const polaroid = lbPolaroid({
             primary_photo: it.primary_photo,
             category: it.category,
             name: it.wardrobe_nickname || it.name,
+            label: it.wardrobe_nickname || it.name,
             ratio: 'square'
           });
-          const cpw = it.cost_per_wear ? `$${it.cost_per_wear}/W` : '—';
-          return `<div class="lb-most-card" onclick="openItemDrawer(${it.id})" style="cursor:pointer">
-            ${photo}
-            <div class="lb-most-name">${esc(it.wardrobe_nickname || it.name)}</div>
-            <div class="lb-most-stat">${it.times_worn} WEARS · ${cpw}</div>
+          return `<div class="lb-item-card ${tilt}" onclick="openItemDrawer(${it.id})" style="cursor:pointer">
+            ${polaroid}
+            <div class="lb-item-meta">
+              <span class="lb-item-meta-stat">${it.times_worn}W</span>
+            </div>
           </div>`;
         }).join('')}
       </div>` : '';
