@@ -545,9 +545,20 @@ html, body {
   z-index: 150;
   -webkit-tap-highlight-color: transparent;
 }
+.fab-pill {
+  width: auto;
+  height: 46px;
+  border-radius: 99px;
+  padding: 0 20px;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--sans);
+}
+.fab-pill span { letter-spacing: .01em; }
 
-.fab:hover { transform: scale(1.08); box-shadow: 0 6px 28px rgba(92,114,250,0.6); }
-.fab:active { transform: scale(0.95); }
+.fab:hover { transform: scale(1.05); box-shadow: 0 6px 28px rgba(92,114,250,0.6); }
+.fab:active { transform: scale(0.97); }
 
 /* ── Cards ──────────────────────────────────────────────────── */
 .card {

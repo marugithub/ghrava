@@ -455,7 +455,7 @@
   display: grid;
   grid-template-columns: repeat(var(--ai-cols, 2), 1fr);
   gap: 10px;
-  padding: 10px 0 4px;
+  padding: 10px 0 80px;
 }
 
 .det-icon-btn {
@@ -473,46 +473,45 @@
 
 .ai-card {
   background: var(--bg2);
-  border: 1.5px solid var(--border3);
+  border: 1px solid var(--border);
   border-radius: var(--r-lg);
   overflow: hidden;
   cursor: pointer;
-  transition: all .15s;
+  transition: border-color .12s, transform .12s;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 2px 6px rgba(0,0,0,.09);
   position: relative;
 }
-.ai-card:hover { border-color: var(--accent-bd); transform: translateY(-1px); box-shadow: 0 5px 16px rgba(0,0,0,.14); }
+.ai-card:hover { border-color: var(--border2); transform: translateY(-1px); }
 .ai-card:hover .ai-card-edit-btn { opacity: 1; transform: scale(1); }
 .ai-card-edit-btn {
   position: absolute;
-  bottom: 8px; right: 8px;
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid rgba(255,255,255,.25);
+  top: 7px; right: 7px;
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  background: rgba(0,0,0,.5);
+  border: none;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0.15;
+  opacity: 0;
   transform: scale(.9);
   transition: opacity .15s, transform .15s;
   z-index: 2;
-  box-shadow: 0 3px 10px rgba(0,0,0,.3);
 }
 .ai-list-card:hover .ai-list-edit-btn { opacity: 1; }
 .ai-list-edit-btn {
-  width: 36px; height: 36px;
-  border-radius: 50%;
-  background: var(--accent);
-  border: 2px solid rgba(255,255,255,.2);
+  width: 30px; height: 30px;
+  border-radius: 8px;
+  background: transparent;
+  border: none;
   cursor: pointer;
   display: flex; align-items: center; justify-content: center;
-  opacity: 0.15;
+  opacity: 0;
   transition: opacity .15s;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(0,0,0,.2);
+  color: var(--text3);
 }
+.ai-list-card:hover .ai-list-edit-btn { opacity: 1; }
 .ai-qty-badge {
   position: absolute;
   top: 7px; right: 7px;
@@ -574,45 +573,41 @@
   display: grid;
   grid-template-columns: repeat(var(--ai-cols, 1), 1fr);
   gap: 6px;
-  padding: 10px 0 4px;
+  padding: 10px 0 80px;
 }
 .ai-list-card {
   background: var(--bg2);
-  border: 1.5px solid var(--border3);
-  border-radius: var(--r);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   cursor: pointer;
-  transition: all .15s;
+  transition: background .12s, border-color .12s;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px 8px 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,.07);
+  gap: 12px;
+  padding: 10px 12px;
   position: relative;
-  min-height: 68px;
 }
-.ai-list-card:hover { border-color: var(--accent-bd); background: var(--accent-bg); box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+.ai-list-card:hover { border-color: var(--border2); background: var(--bg3); }
 .ai-list-thumb {
-  width: 52px; height: 52px;
-  border-radius: 6px;
+  width: 54px; height: 54px;
+  border-radius: 10px;
   object-fit: cover;
   flex-shrink: 0;
-  border: 1px solid var(--border);
 }
 .ai-list-placeholder {
-  width: 52px; height: 52px;
-  border-radius: 6px;
+  width: 54px; height: 54px;
+  border-radius: 10px;
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
-  font-size: 22px;
-  border: 1px solid var(--border);
+  font-size: 24px;
 }
 .ai-list-body { flex: 1; min-width: 0; }
 .ai-list-name {
-  font-size: 13px; font-weight: 600; color: var(--text);
+  font-size: 14px; font-weight: 500; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ai-list-loc {
-  font-size: 11px; color: var(--text3); margin-top: 2px;
+  font-size: 12px; color: var(--text3); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ai-list-qty {
@@ -838,8 +833,9 @@
 </div><!-- #app -->
 
 <!-- FAB -->
-<button class="fab" id="fabBtn">
-  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+<button class="fab fab-pill" id="fabBtn">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  <span>Add</span>
 </button>
 
 <!-- ══ BARCODE SCANNER OVERLAY ══════════════════════════════ -->
@@ -1959,7 +1955,7 @@ async function renderAllItemsFlat(el) {
             ${loc ? `<div class="ai-list-loc">&#x1F4CD; ${esc(loc)}</div>` : ''}
           </div>
           ${item.quantity > 1 ? `<div class="ai-list-qty">${item.quantity}</div>` : ''}
-          <button class="ai-list-edit-btn" title="Edit" onclick="event.stopPropagation();editItem(${item.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="ai-list-edit-btn" title="Options" onclick="event.stopPropagation();editItem(${item.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
         </div>`;
       }).join('');
     } else {
@@ -1976,7 +1972,7 @@ async function renderAllItemsFlat(el) {
             <div class="ai-card-name">${esc(item.name)}</div>
             ${loc ? `<div class="ai-card-loc">&#x1F4CD; ${esc(loc)}</div>` : ''}
           </div>
-          <button class="ai-card-edit-btn" title="Edit" onclick="event.stopPropagation();editItem(${item.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+          <button class="ai-card-edit-btn" title="Edit" onclick="event.stopPropagation();editItem(${item.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         </div>`;
       }).join('');
     }
