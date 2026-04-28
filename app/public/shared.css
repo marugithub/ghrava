@@ -886,25 +886,42 @@ html, body {
   padding: 4px 0 14px;
 }
 
-/* ── gh-drawer — right-side slide panel ─────────────────────── */
-/* Used by: perfume, wardrobe, insurance, subscriptions          */
+/* ── gh-drawer — centered modal (was right-side slide) ────── */
+/* Used by: inventory item detail drawer.                       */
+/* `:has()`-based backdrop so no HTML changes needed.           */
+body:has(.gh-drawer.open)::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+  z-index: 399;
+  animation: fadein .18s ease;
+  pointer-events: none;
+}
 .gh-drawer {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: min(520px, 100vw);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -48%) scale(.96);
+  width: min(540px, 94vw);
+  max-height: 90vh;
   z-index: 400;
   background: var(--bg2);
-  border-left: 1px solid var(--border2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-xl);
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
-  transition: transform 0.25s cubic-bezier(0.32, 0.72, 0, 1);
-  box-shadow: -8px 0 40px rgba(0,0,0,.22);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .22s cubic-bezier(.32,.72,0,1), opacity .18s ease;
+  box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  overflow: hidden;
 }
 .gh-drawer.open {
-  transform: translateX(0);
+  transform: translate(-50%, -50%) scale(1);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .gh-drawer-header {
@@ -2675,7 +2692,7 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 }
 .tags-text-input {
   flex: 1;
-  min-width: 140px;
+  min-width: 180px;        /* was 140px — give user more typing room with chips */
   background: none;
   border: none;
   outline: none;

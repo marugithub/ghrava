@@ -1366,7 +1366,7 @@ window.GH_VIEW = (function() {
         <button class="gh-view-btn${view==='list'?' active':''}" id="${storagePrefix}-vlist" title="List view">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="3" rx="1"/><rect x="1" y="5.5" width="12" height="3" rx="1"/><rect x="1" y="10" width="12" height="3" rx="1"/></svg>
         </button>
-        <div class="gh-view-sep"></div>
+        <div style="flex:1"></div>
         <div style="position:relative">
           <button class="gh-view-btn gh-more-btn${state._hasFilters?' has-filters':''}" id="${storagePrefix}-more" title="More options" style="width:auto;padding:0 10px;gap:4px;font-size:11px;font-weight:600;color:var(--text2)">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
@@ -2209,7 +2209,12 @@ window.GH_BULK = (function(){
     btn.title = 'Bulk select';
     btn.onclick = () => _setActive(inst, !inst.active);
     inst.toggleBtn = btn;
-    toolbar.appendChild(btn);
+    // If the toolbar contains a .gh-view-toolbar (built by GH_VIEW), put the Select
+    // button inside it so it shares the same flex row and stays right-aligned with
+    // More. Otherwise append directly to the toolbar element.
+    const innerToolbar = toolbar.querySelector('.gh-view-toolbar');
+    if (innerToolbar) innerToolbar.appendChild(btn);
+    else toolbar.appendChild(btn);
     // Capture-phase click handler
     inst._handler = (e) => _onContainerClick(inst, e);
     container.addEventListener('click', inst._handler, true);
@@ -2219,6 +2224,20 @@ window.GH_BULK = (function(){
     _instances.set(cfg.toolbarId, inst);
     return inst;
   }
+
+  // Global Escape handler — exits select mode for whichever instance is active
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    for (const inst of _instances.values()) {
+      if (inst.active) { _setActive(inst, false); break; }
+    }
+  });
+
+  // ── Escape closes any open .gh-drawer centered modal ─────────
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.gh-drawer.open').forEach(d => d.classList.remove('open'));
+  });
 
   function refresh(toolbarId) {
     const inst = _instances.get(toolbarId);
