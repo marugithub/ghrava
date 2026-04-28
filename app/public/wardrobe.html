@@ -65,6 +65,17 @@
       pointer-events:none}
     .lb-ph img{position:absolute;top:8px;left:0;right:0;bottom:0;z-index:1;width:100%;height:calc(100% - 8px);object-fit:contain;object-position:top;display:block}
 
+    /* ─────────────────────────────────────────────────────────────────────
+       LOCKED — Polaroid sizing/spacing (v202604.075, Apr 28 2026)
+       Took multiple iterations to land. Do NOT change without intent.
+       Spec:
+       - photo well: square (1/1), 8px cream margin on left/right/top
+       - image: object-fit:contain, anchored to top (top:8px, height:calc(100% - 8px))
+       - caption: 2-line clamp, 4px bottom padding
+       - polaroid wrapper: padding-bottom:0
+       Visual reference: HANDOFF.md → "Polaroid spec screenshot"
+       If a problem arises, change deliberately and update HANDOFF screenshot.
+       ───────────────────────────────────────────────────────────────────── */
     /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
     .lb-polaroid{background:#f4ece0;border-radius:3px;
       box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:0}
