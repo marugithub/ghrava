@@ -75,10 +75,16 @@
 <body class="module-settings">
 <div id="app">
 
+  <!-- Top-level tabs: Notifications | Inbox (folded from former watcher-inbox.html) -->
+  <div class="view-tabs" id="topNotifTabs" style="--tab-color:#ef4444;border-bottom:1px solid var(--border);background:transparent">
+    <button class="view-tab active" data-view="notifs">🔔 Notifications <span id="unreadBadge" class="unread-badge" style="display:none">0</span></button>
+    <button class="view-tab" data-view="inbox">📥 Smart Inbox <span id="inboxBadge" class="unread-badge" style="display:none">0</span></button>
+  </div>
+
+  <!-- VIEW: Notifications -->
+  <div id="notifView">
   <div class="controls-bar">
-    <span style="font-size:15px;font-weight:700;color:var(--text)">Notifications
-      <span class="unread-badge" id="unreadBadge" style="display:none">0</span>
-    </span>
+    <span style="font-size:15px;font-weight:700;color:var(--text)">Notifications</span>
     <div style="margin-left:auto;display:flex;gap:8px">
       <button class="btn btn-ghost" style="font-size:12px" onclick="markAllRead()">✓ Mark all read</button>
       <button class="btn btn-ghost" style="font-size:12px" onclick="loadNotifs()">↺ Refresh</button>
@@ -87,6 +93,22 @@
 
   <div class="notif-list" id="notifList">
     <div class="spinner"><div class="spin"></div>Loading…</div>
+  </div>
+  </div>
+
+  <!-- VIEW: Smart Inbox (folded from former watcher-inbox.html) -->
+  <div id="inboxView" style="display:none">
+    <div style="max-width:800px;margin:0 auto;padding:0 16px 80px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 0 16px">
+        <div class="sum-card"><div class="sum-val" id="pendingCount" style="color:var(--amber)">—</div><div class="sum-lbl">Pending</div></div>
+        <div class="sum-card"><div class="sum-val" id="failedCount" style="color:var(--red)">—</div><div class="sum-lbl">Failed</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <button class="btn btn-ghost" style="flex:1" onclick="loadInbox()">🔄 Refresh</button>
+        <a href="/settings.html" class="btn btn-ghost" style="flex:1;text-align:center">⚙️ Configure Rules</a>
+      </div>
+      <div id="inboxList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    </div>
   </div>
 
 </div>
@@ -196,6 +218,103 @@ async function dismiss(id) {
 }
 
 document.addEventListener('DOMContentLoaded', loadNotifs);
+
+// ── Top tab switcher: Notifications | Smart Inbox ─────────────
+(function(){
+  const tabs = document.querySelectorAll('#topNotifTabs .view-tab[data-view]');
+  function setView(name) {
+    tabs.forEach(t => t.classList.toggle('active', t.dataset.view === name));
+    document.getElementById('notifView').style.display = name === 'notifs' ? '' : 'none';
+    document.getElementById('inboxView').style.display = name === 'inbox' ? '' : 'none';
+    if (name === 'inbox') loadInbox();
+    if (name === 'notifs' && location.hash === '#inbox') history.replaceState(null,'',location.pathname);
+    if (name === 'inbox'  && location.hash !== '#inbox') history.replaceState(null,'','#inbox');
+  }
+  tabs.forEach(t => t.addEventListener('click', () => setView(t.dataset.view)));
+  if (location.hash === '#inbox') {
+    document.addEventListener('DOMContentLoaded', () => setView('inbox'));
+  }
+  window._notifSetView = setView;
+})();
+
+// ── Smart Inbox: wrapped IIFE (folded from former watcher-inbox.html) ──
+(function(){
+  const FILE_ICONS = { pdf:'📄', csv:'📊', xlsx:'📈', ofx:'💱', qfx:'💱', txt:'📝' };
+  function fileIcon(name){ const ext=(name||'').split('.').pop().toLowerCase(); return FILE_ICONS[ext]||'📎'; }
+  function suggest(p) {
+    const f = (p||'').toLowerCase();
+    if (/eob|explanation/.test(f)) return { module:'eob', label:'EOB Statement' };
+    if (/statement|chase|schwab|navy|usaa/.test(f)) return { module:'statement', label:'Bank Statement' };
+    if (/receipt|pharmacy|cvs|walgreen/.test(f)) return { module:'receipt', label:'Receipt' };
+    return null;
+  }
+  function fmtSize(b){ if(!b) return ''; if(b<1048576) return (b/1024).toFixed(0)+'KB'; return (b/1048576).toFixed(1)+'MB'; }
+  function ibEsc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  async function load() {
+    try {
+      const data  = await window.api('GET', '/watcher/pending?limit=100');
+      const stats = await window.api('GET', '/watcher/status');
+      document.getElementById('pendingCount').textContent = data.total || 0;
+      document.getElementById('failedCount').textContent  = stats.stats?.failed || 0;
+      const ibBadge = document.getElementById('inboxBadge');
+      if (ibBadge) {
+        if (data.total) { ibBadge.textContent = data.total; ibBadge.style.display = 'inline-block'; }
+        else ibBadge.style.display = 'none';
+      }
+      const el = document.getElementById('inboxList');
+      if (!data.files?.length) {
+        el.innerHTML = '<div style="text-align:center;padding:60px 20px;color:var(--text3)"><div style="font-size:48px;margin-bottom:16px">📭</div><h3 style="margin-bottom:8px">Inbox Zero!</h3><p style="font-size:13px">All files processed. New files will appear here automatically.</p></div>';
+        return;
+      }
+      el.innerHTML = data.files.map(f => {
+        const fname = f.file_path.split('/').pop();
+        const folder = f.file_path.split('/').slice(0,-1).join('/');
+        const hint = suggest(f.file_path);
+        return `
+          <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;margin-bottom:10px">
+            <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:10px">
+              <span style="font-size:24px;flex-shrink:0">${fileIcon(fname)}</span>
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:600;color:var(--text);word-break:break-all">${ibEsc(fname)}</div>
+                <div style="font-size:11px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${ibEsc(folder)}">${ibEsc(folder)}</div>
+                ${f.file_size?`<div style="font-size:11px;color:var(--text3)">${fmtSize(f.file_size)}</div>`:''}
+              </div>
+            </div>
+            ${hint?`
+            <div style="background:var(--accent-bg);border:1px solid var(--accent-bd);border-radius:var(--r);padding:8px 12px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between">
+              <span style="font-size:13px;color:var(--accent)">💡 Looks like: ${hint.label}</span>
+              <button class="btn btn-primary" style="padding:4px 12px;font-size:12px" onclick="ibAccept(${f.id})">✓ Accept</button>
+            </div>`:''}
+            <div style="display:flex;gap:8px">
+              <select class="form-select" id="mod_${f.id}" style="flex:1;font-size:13px">
+                <option value="">— Choose module —</option>
+                <option value="eob"       ${hint?.module==='eob'?'selected':''}>📋 EOB Statement</option>
+                <option value="statement" ${hint?.module==='statement'?'selected':''}>🏦 Bank Statement</option>
+                <option value="document">📄 Document</option>
+                <option value="ignore">🚫 Ignore</option>
+              </select>
+              <button class="btn btn-primary" onclick="ibProcess(${f.id})">Import</button>
+            </div>
+          </div>`;
+      }).join('');
+    } catch(e) {
+      document.getElementById('inboxList').innerHTML = `<div style="color:var(--red);padding:20px">${ibEsc(e.message)}</div>`;
+    }
+  }
+  async function process(id) {
+    const mod = document.getElementById(`mod_${id}`)?.value;
+    if (!mod) { if (typeof toast==='function') toast('Select a module first','err'); return; }
+    try {
+      await window.api('POST', '/watcher/process', { file_id: id, action: mod === 'ignore' ? 'ignore' : 'import' });
+      if (typeof toast==='function') toast(mod === 'ignore' ? 'Ignored' : 'Processing…');
+      load();
+    } catch(e) { if (typeof toast==='function') toast(e.message,'err'); }
+  }
+  window.loadInbox = load;
+  window.ibAccept = async (id) => process(id);
+  window.ibProcess = process;
+})();
 </script>
 </body>
 </html>

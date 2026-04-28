@@ -52,7 +52,7 @@
     trading:   { href:'/trade.html',      label:'↗ Terminal', color:'#22c55e', bg:'rgba(34,197,94,.12)',    svgKey:'finance', newTab: true },
     resources: { href:'/resources.html',  label:'Resources', color:'#64748b', bg:'rgba(100,116,139,.12)', svgKey:'resources' },
     todos:     { href:'/todos.html',      label:'To Do',     color:'#a78bfa', bg:'rgba(167,139,250,.12)', svgKey:'todos' },
-    maintenance: { href:'/maintenance.html', label:'Maintenance', color:'#f97316', bg:'rgba(249,115,22,.1)', svgKey:'maintenance' },
+    maintenance: { href:'/reports.html?open=maint-rollup', label:'Maintenance', color:'#f97316', bg:'rgba(249,115,22,.1)', svgKey:'maintenance' },
     templates:   { href:'/todos.html#templates',   label:'Templates',   color:'#a78bfa', bg:'rgba(167,139,250,.1)', svgKey:'templates'   },
     tests:     { href:'/settings.html#diagnostics', label:'System Tests', color:'#22c55e', bg:'rgba(34,197,94,.1)',   svgKey:'tests' },
     help:      { href:'/help.html',       label:'Help',          color:'#64748b', bg:'rgba(100,116,139,.1)',   svgKey:'help' },
@@ -78,11 +78,11 @@
   const SIDEBAR_SECTIONS = [
     { label: 'Daily',     keys: ['dailylog', 'todos', 'resources'] },
     { label: 'Finance',   keys: ['finance', 'trading', 'subscriptions'] },
-    { label: 'Household', keys: ['inventory', 'property', 'documents', 'wardrobe', 'perfume', 'maintenance'] },
+    { label: 'Household', keys: ['inventory', 'property', 'documents', 'wardrobe', 'perfume'] },
     { label: 'Family',    keys: ['medical', 'kids', 'insurance'] },
     { label: 'Personal',  keys: ['career', 'books'] },
     { label: 'Reports',   keys: ['reports'] },
-    { label: 'Admin',     keys: ['notifications', 'data', 'settings', 'templates', 'tests'] },
+    { label: 'Admin',     keys: ['notifications', 'settings'] },
   ];
 
   const currentPath = window.location.pathname;

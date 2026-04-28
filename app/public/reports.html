@@ -66,8 +66,8 @@ const REPORT_REGISTRY = [
   { id:'watcher',       category:'system',    name:'Folder Watcher Audit',      icon:'📁', desc:'Auto-import history',                 endpoint:'/watcher/history',          render:renderWatcher },
   { id:'database',      category:'system',     name:'Database Health',           icon:'🗄️', desc:'Size, integrity, maintenance',        endpoint:'/system/db/stats',          render:renderDatabase },
   { id:'tests',         category:'system',     name:'System Tests',              icon:'🧪', desc:'Run automated diagnostics',           endpoint:null,                        render:renderTests },
-  { id:'member-snapshot', category:'family',   name:'Member Snapshot',           icon:'👤', desc:'Everything about one family member',  endpoint:null,                        render:renderStub('Member Snapshot','Per-person rollup. Will pull from medical, kids, career, finance, documents, contacts. Filter by family member to see all data tied to them in one view.') },
-  { id:'maint-rollup',  category:'inventory',  name:'Maintenance Rollup',        icon:'🔧', desc:'All maintenance across home & items', endpoint:null,                        render:renderStub('Maintenance Rollup','Cross-module view of property_maintenance + item_maintenance_log + warranty_claims. Filterable by source (home / vehicle / item) and status (overdue / due-soon / done). Replaces the old standalone Maintenance page.') },
+  { id:'member-snapshot', category:'family',   name:'Member Snapshot',           icon:'👤', desc:'Everything about one family member',  endpoint:null,                        render:renderMemberSnapshot },
+  { id:'maint-rollup',  category:'inventory',  name:'Maintenance Rollup',        icon:'🔧', desc:'All maintenance across home & items', endpoint:null,                        render:renderMaintRollup },
 ];
 
 const CATEGORIES = {
@@ -570,6 +570,155 @@ function renderStub(title, description) {
     );
   };
 }
+
+// ── Maintenance Rollup (folded from former maintenance.html) ──
+const _MAINT_ICONS = { property:'🏠', vehicle:'🚗', item:'📦' };
+async function renderMaintRollup(el) {
+  el.innerHTML = panelWrap('🔧','Maintenance Rollup', `
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap" id="maintDaysChips">
+      <button class="filter-chip active" data-days="90"  onclick="setMaintDays(90,this)">90 days</button>
+      <button class="filter-chip"        data-days="180" onclick="setMaintDays(180,this)">6 months</button>
+      <button class="filter-chip"        data-days="365" onclick="setMaintDays(365,this)">1 year</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">
+      <div class="sum-card"><div class="sum-val" id="mOverdue" style="color:var(--red)">—</div><div class="sum-lbl">Overdue</div></div>
+      <div class="sum-card"><div class="sum-val" id="mDue30" style="color:var(--amber)">—</div><div class="sum-lbl">Due 30d</div></div>
+      <div class="sum-card"><div class="sum-val" id="mTotal">—</div><div class="sum-lbl">Upcoming</div></div>
+    </div>
+    <div id="maintList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+  `);
+  loadMaintRollup(90);
+}
+async function loadMaintRollup(days) {
+  try {
+    const [data, summary] = await Promise.all([
+      window.api('GET', `/maintenance/upcoming?days=${days}`),
+      window.api('GET', '/maintenance/summary'),
+    ]);
+    const set = (id, v) => { const e=document.getElementById(id); if(e) e.textContent=v; };
+    set('mOverdue', summary.overdue || 0);
+    set('mDue30',   summary.due_30_days || 0);
+    set('mTotal',   data.total || 0);
+    const el = document.getElementById('maintList');
+    if (!el) return;
+    if (!data.items?.length) {
+      el.innerHTML = '<div style="text-align:center;padding:40px;color:var(--text3)">✅ No upcoming maintenance in this period</div>';
+      return;
+    }
+    el.innerHTML = data.items.map(item => {
+      const daysUntil = item.next_due_date ? Math.ceil((new Date(item.next_due_date) - new Date()) / 86400000) : null;
+      const cls = daysUntil === null || daysUntil < 0 ? 'border-left:3px solid var(--red)' : daysUntil <= 30 ? 'border-left:3px solid var(--amber)' : 'border-left:3px solid var(--green)';
+      const badge = daysUntil === null ? '' : daysUntil < 0 ? `<span style="font-size:10px;font-weight:700;color:var(--red)">${Math.abs(daysUntil)}d OVERDUE</span>`
+        : daysUntil === 0 ? `<span style="font-size:10px;font-weight:700;color:var(--red)">TODAY</span>`
+        : daysUntil <= 30 ? `<span style="font-size:10px;color:var(--amber)">${daysUntil}d</span>`
+        : `<span style="font-size:10px;color:var(--text3)">${daysUntil}d</span>`;
+      return `<div style="background:var(--bg2);border:1px solid var(--border);${cls};border-radius:var(--r-lg);padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer" onclick="window.location.href='${item.href}'">
+        <div style="width:40px;height:40px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;background:var(--bg3)">${_MAINT_ICONS[item.source]||'🔧'}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-weight:600;color:var(--text);margin-bottom:2px">${esc(item.description||item.category)}</div>
+          <div style="font-size:12px;color:var(--text3)">${esc(item.entity_name)} · ${item.next_due_date||'—'}</div>
+        </div>
+        ${badge}
+        ${item.cost ? `<div style="font-size:12px;color:var(--text3);margin-left:8px">$${Number(item.cost).toFixed(0)}</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) {
+    const el = document.getElementById('maintList');
+    if (el) el.innerHTML = `<div style="color:var(--red);padding:20px">${esc(e.message)}</div>`;
+  }
+}
+function setMaintDays(days, btn) {
+  document.querySelectorAll('#maintDaysChips [data-days]').forEach(b => b.classList.toggle('active', b === btn));
+  loadMaintRollup(days);
+}
+window.setMaintDays = setMaintDays;
+
+// ── Member Snapshot (folded from former snapshot.html) ──
+async function renderMemberSnapshot(el) {
+  el.innerHTML = panelWrap('👤','Member Snapshot', `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:16px">
+      <span style="font-size:13px;color:var(--text3)">Family member:</span>
+      <select id="msMemberSel" onchange="loadMemberSnap(this.value)" style="flex:1;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);background:var(--bg2);color:var(--text);font-size:13px">
+        <option value="">— select —</option>
+      </select>
+      <button class="btn btn-ghost" id="msPrintBtn" style="display:none;padding:6px 12px;font-size:12px" onclick="printMemberSnap()">🖨️ Print</button>
+    </div>
+    <div id="msContent"><div style="text-align:center;padding:30px;color:var(--text3);font-size:13px">Pick a family member to see their full rollup.</div></div>
+  `);
+  try {
+    const fam = await window.api('GET', '/settings/family');
+    const sel = document.getElementById('msMemberSel');
+    if (sel) sel.innerHTML = '<option value="">— select —</option>' + fam.map(m => `<option value="${m.id}">${esc(m.display_name||m.full_name||('Member #'+m.id))}</option>`).join('');
+    if (window._reportPreselectMember && sel) {
+      sel.value = String(window._reportPreselectMember);
+      loadMemberSnap(sel.value);
+      window._reportPreselectMember = null;
+    }
+  } catch(e) {}
+}
+async function loadMemberSnap(memberId) {
+  const cont = document.getElementById('msContent');
+  const printBtn = document.getElementById('msPrintBtn');
+  if (printBtn) printBtn.style.display = 'none';
+  if (!memberId) { cont.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text3);font-size:13px">Pick a family member to see their full rollup.</div>'; return; }
+  cont.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  try {
+    const d = await window.api('GET', `/family-snapshot/${memberId}`);
+    const m = d.member;
+    const age = m.date_of_birth ? Math.floor((Date.now() - new Date(m.date_of_birth)) / (365.25*24*3600*1000)) + ' yrs' : null;
+    let html = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-bottom:20px">
+        <div style="font-size:24px;font-weight:800;color:var(--text);margin-bottom:4px">${esc(m.display_name)}</div>
+        <div style="font-size:13px;color:var(--text3)">${[m.relationship, age].filter(Boolean).join(' · ')}</div>
+        ${m.emergency_notes ? `<div style="margin-top:8px;font-size:13px;color:var(--text2);padding:8px 12px;background:var(--red-bg,#fef2f2);border-radius:var(--r)">${esc(m.emergency_notes)}</div>` : ''}
+      </div>`;
+    const section = (icon, title, count, body) => `<div style="margin-bottom:20px"><div style="font-family:var(--mono);font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);margin-bottom:8px">${icon} ${title}${count!=null?' ('+count+')':''}</div>${body}</div>`;
+    if (d.medications?.length) {
+      const rows = d.medications.map(x => {
+        const active = x.status === 'Active';
+        return `<div style="display:flex;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">
+          <span style="color:var(--text);font-weight:500;flex:1">${esc(x.name)}${x.dosage?' · '+esc(x.dosage):''}</span>
+          <span style="display:inline-block;padding:2px 8px;border-radius:99px;font-size:11px;font-weight:600;background:${active?'rgba(34,197,94,.1)':'var(--bg3)'};color:${active?'var(--green)':'var(--text3)'}">${esc(x.status)}</span>
+        </div>`;
+      }).join('');
+      html += section('💊','Medications', d.medications.length, rows);
+    }
+    if (d.conditions?.length) {
+      const rows = d.conditions.map(x => `<div style="display:flex;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text);font-weight:500;flex:1">${esc(x.condition_name)}</span><span style="color:var(--text3);min-width:120px">${esc(x.status||'')}</span></div>`).join('');
+      html += section('🩺','Conditions', d.conditions.length, rows);
+    }
+    if (d.todos?.length) {
+      const rows = d.todos.map(x => {
+        const overdue = x.due_date && x.due_date < new Date().toISOString().slice(0,10);
+        return `<div style="display:flex;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text);font-weight:500;flex:1">${esc(x.title)}</span>${x.due_date?`<span style="color:${overdue?'var(--red)':'var(--text3)'};min-width:90px;text-align:right">${x.due_date}</span>`:''}</div>`;
+      }).join('');
+      html += section('✓','Open Todos', d.todos.length, rows);
+    }
+    if (d.visits?.length) {
+      const rows = d.visits.slice(0,5).map(x => `<div style="display:flex;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text3);min-width:90px">${esc(x.visit_date)}</span><span style="color:var(--text);font-weight:500;flex:1">${x.physician?esc(x.physician)+' · ':''}${esc((x.questions||'').slice(0,60))}</span></div>`).join('');
+      html += section('🏥','Recent Visits', d.visits.length, rows);
+    }
+    if (d.hsa?.length) {
+      const total = d.hsa.reduce((s,x) => s + (x.you_paid||0), 0);
+      const rows = d.hsa.slice(0,5).map(x => `<div style="display:flex;align-items:baseline;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px"><span style="color:var(--text3);min-width:90px">${esc(x.date)}</span><span style="color:var(--text);font-weight:500;flex:1">${esc(x.provider||x.category||'')}</span><span style="font-weight:600;color:var(--text)">$${Number(x.you_paid||0).toFixed(2)}</span></div>`).join('');
+      html += section('❤️',`Recent HSA — $${total.toFixed(2)} total`, null, rows);
+    }
+    if (!d.medications?.length && !d.conditions?.length && !d.todos?.length) {
+      html += `<div style="text-align:center;padding:40px;color:var(--text3)">No linked data found for this family member.</div>`;
+    }
+    html += `<div style="margin-top:16px;font-size:11px;color:var(--text3);text-align:center">Generated ${new Date().toLocaleString()}</div>`;
+    cont.innerHTML = html;
+    if (printBtn) { printBtn.style.display = 'inline-flex'; printBtn.dataset.memberId = memberId; }
+  } catch(e) {
+    cont.innerHTML = `<div style="color:var(--red);padding:20px">${esc(e.message)}</div>`;
+  }
+}
+function printMemberSnap() {
+  const id = document.getElementById('msPrintBtn')?.dataset.memberId;
+  if (id) window.open(`/api/v1/family-snapshot/${id}/html`, '_blank');
+}
+window.loadMemberSnap = loadMemberSnap;
+window.printMemberSnap = printMemberSnap;
 
 async function runTests() {
   const btn = document.getElementById('runTestsBtn');
