@@ -720,6 +720,146 @@ function printMemberSnap() {
 window.loadMemberSnap = loadMemberSnap;
 window.printMemberSnap = printMemberSnap;
 
+function renderTests(el) {
+  el.innerHTML = panelWrap('🧪','System Tests', `
+    <div style="display:flex;gap:6px;margin-bottom:14px;border-bottom:1px solid var(--border)">
+      <button class="view-tab active" data-test-tab="nightly" onclick="setTestTab('nightly',this)" style="padding:8px 14px">Nightly E2E</button>
+      <button class="view-tab"        data-test-tab="smoke"   onclick="setTestTab('smoke',this)"   style="padding:8px 14px">Quick Smoke</button>
+    </div>
+
+    <!-- Nightly Playwright run history -->
+    <div id="testTab-nightly">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:13px;color:var(--text2)">Results posted by <code style="font-size:11px">tests/run-tests.ps1</code> after each scheduled run.</div>
+        <button class="btn btn-ghost" style="font-size:12px;padding:4px 10px" onclick="loadTestRuns()">↺ Refresh</button>
+      </div>
+      <div id="testRunSummary"></div>
+      <div id="testRunList"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+      <div id="testRunDetail" style="margin-top:16px"></div>
+    </div>
+
+    <!-- On-demand smoke tests -->
+    <div id="testTab-smoke" style="display:none">
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px">Quick health-check of key API endpoints. Runs in the browser, not browser automation.</p>
+      <button class="btn btn-primary" id="runTestsBtn" onclick="runTests()">▶ Run Smoke Tests</button>
+      <div id="testOut" style="margin-top:16px;font-family:var(--mono);font-size:12px"></div>
+    </div>
+  `);
+  loadTestRuns();
+}
+
+function setTestTab(tab, btn) {
+  document.querySelectorAll('[data-test-tab]').forEach(b => b.classList.toggle('active', b === btn));
+  document.getElementById('testTab-nightly').style.display = tab === 'nightly' ? '' : 'none';
+  document.getElementById('testTab-smoke').style.display   = tab === 'smoke'   ? '' : 'none';
+}
+window.setTestTab = setTestTab;
+
+async function loadTestRuns() {
+  const list = document.getElementById('testRunList');
+  const summary = document.getElementById('testRunSummary');
+  const detail = document.getElementById('testRunDetail');
+  if (detail) detail.innerHTML = '';
+  if (list)   list.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  try {
+    const runs = await window.api('GET', '/app/test-results');
+    if (!runs.length) {
+      if (summary) summary.innerHTML = '';
+      if (list) list.innerHTML = `<div style="text-align:center;padding:40px;color:var(--text3);font-size:13px">
+        No test runs recorded yet.<br>
+        <span style="font-size:11px">Run <code>tests/run-tests.ps1</code> on the deploy machine to populate this view.</span>
+      </div>`;
+      return;
+    }
+    // Summary card based on most recent
+    const latest = runs[0];
+    const ago = _timeAgo(latest.started_at);
+    const passClass = latest.failed === 0 ? 'green' : 'red';
+    if (summary) summary.innerHTML = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;margin-bottom:14px;display:flex;align-items:center;gap:14px">
+        <div style="width:48px;height:48px;border-radius:50%;background:${latest.failed===0?'rgba(34,197,94,.15)':'rgba(239,68,68,.15)'};display:flex;align-items:center;justify-content:center;font-size:22px">${latest.failed===0?'✓':'✕'}</div>
+        <div style="flex:1">
+          <div style="font-size:15px;font-weight:700;color:var(--text)">${latest.passed}/${latest.total} passed</div>
+          <div style="font-size:12px;color:var(--text3)">${ago} · ${(latest.duration_ms/1000).toFixed(1)}s · ${latest.suites||0} suite${latest.suites===1?'':'s'}</div>
+        </div>
+        ${latest.failed > 0
+          ? `<span style="font-size:11px;font-weight:700;color:var(--red);background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.3);padding:3px 10px;border-radius:99px">${latest.failed} FAIL</span>`
+          : `<span style="font-size:11px;font-weight:700;color:var(--green);background:rgba(34,197,94,.12);border:1px solid rgba(34,197,94,.3);padding:3px 10px;border-radius:99px">ALL GREEN</span>`}
+      </div>
+    `;
+    // List of all runs
+    if (list) list.innerHTML = `
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:8px 0 6px;border-bottom:1px solid var(--border);margin-bottom:6px">Recent Runs (${runs.length})</div>
+      ${runs.map(r => {
+        const ok = r.failed === 0;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:var(--r);transition:background .12s"
+          onmouseenter="this.style.background='var(--bg3)'" onmouseleave="this.style.background=''"
+          onclick="loadTestRunDetail('${r.filename}')">
+          <span style="width:8px;height:8px;border-radius:50%;background:${ok?'var(--green)':'var(--red)'};flex-shrink:0"></span>
+          <span style="flex:1;font-size:13px;color:var(--text)">${_timeAgo(r.started_at)}</span>
+          <span style="font-size:12px;color:${ok?'var(--green)':'var(--red)'};font-weight:600">${r.passed}/${r.total}</span>
+          <span style="font-size:11px;color:var(--text3);min-width:50px;text-align:right">${(r.duration_ms/1000).toFixed(1)}s</span>
+        </div>`;
+      }).join('')}
+    `;
+  } catch(e) {
+    if (list) list.innerHTML = `<div style="color:var(--red);padding:16px;font-size:13px">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+
+async function loadTestRunDetail(filename) {
+  const detail = document.getElementById('testRunDetail');
+  if (!detail) return;
+  detail.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  try {
+    const run = await window.api('GET', '/app/test-results/' + filename);
+    const html = `
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;margin-top:8px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div>
+            <div style="font-size:14px;font-weight:700;color:var(--text)">${_dateString(run.started_at)}</div>
+            <div style="font-size:12px;color:var(--text3)">${run.passed}/${run.total} passed · ${(run.duration_ms/1000).toFixed(1)}s · target: ${esc(run.ghrava_url||'')}</div>
+          </div>
+          <button class="btn btn-ghost" style="font-size:11px;padding:3px 9px" onclick="document.getElementById('testRunDetail').innerHTML=''">Close</button>
+        </div>
+        ${(run.suites||[]).map(s => `
+          <div style="margin-top:12px">
+            <div style="font-family:var(--mono);font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">${esc(s.name||'(unnamed suite)')}</div>
+            ${(s.tests||[]).map(t => {
+              const ok = t.status === 'passed';
+              return `<div style="display:flex;align-items:flex-start;gap:8px;padding:4px 0;font-size:12px">
+                <span style="color:${ok?'var(--green)':'var(--red)'};flex-shrink:0;font-family:var(--mono)">${ok?'✓':'✕'}</span>
+                <span style="flex:1;color:var(--text)">${esc(t.title||'')}</span>
+                <span style="color:var(--text3);font-size:11px;flex-shrink:0">${t.duration_ms||0}ms</span>
+              </div>${t.error ? `<div style="color:var(--red);font-size:11px;font-family:var(--mono);padding:4px 0 4px 20px;white-space:pre-wrap">${esc(t.error)}</div>` : ''}`;
+            }).join('')}
+          </div>
+        `).join('')}
+      </div>
+    `;
+    detail.innerHTML = html;
+  } catch(e) {
+    detail.innerHTML = `<div style="color:var(--red);padding:14px;font-size:13px">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+window.loadTestRuns = loadTestRuns;
+window.loadTestRunDetail = loadTestRunDetail;
+
+function _timeAgo(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const sec = (Date.now() - d.getTime()) / 1000;
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return Math.floor(sec/60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec/3600) + 'h ago';
+  if (sec < 86400 * 7) return Math.floor(sec/86400) + 'd ago';
+  return d.toLocaleDateString();
+}
+function _dateString(iso) {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString();
+}
+
 async function runTests() {
   const btn = document.getElementById('runTestsBtn');
   const out  = document.getElementById('testOut');
@@ -741,7 +881,7 @@ async function runTests() {
   const p=results.filter(r=>r.ok).length, f=results.filter(r=>!r.ok).length;
   if (out) out.innerHTML = `<div style="margin-bottom:8px"><span style="color:var(--green)">✅ ${p} passed</span> · <span style="color:var(--red)">❌ ${f} failed</span></div>` +
     results.map(r=>`<div style="color:${r.ok?'var(--green)':'var(--red)'};padding:2px 0">${r.ok?'✅':'❌'} ${r.name}${r.err?' — '+esc(r.err):''}</div>`).join('');
-  if (btn) { btn.textContent='▶ Run All Tests'; btn.disabled=false; }
+  if (btn) { btn.textContent='▶ Run Smoke Tests'; btn.disabled=false; }
 }
 
 // ── Helpers ───────────────────────────────────────────────────

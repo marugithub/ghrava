@@ -1,8 +1,9 @@
 # Ghrava Handoff — Session 12
 
 **Last updated:** April 2026
-**Latest version:** `v202604.084`
+**Latest version:** `v202604.088`
 **Latest migration:** `114_wardrobe_color.sql`
+**Validation:** see `VALIDATION.md` + `app/scripts/validate-static.py`
 
 ## Stack & Runtime
 
@@ -124,23 +125,78 @@ Final spec at top of wardrobe.html, marked LOCKED:
 
 ---
 
-## Predeploy Sanity (run from inside `app/`)
+## Predeploy Sanity
 
 ```bash
-# JS files
-node --check public/js/lt-core.js
-node --check features/google/routes.js features/wardrobe/routes.js features/books/routes.js features/documents/routes.js
-
-# Inline scripts in HTML — extract + check
-python3 -c "
-import re, subprocess, tempfile, os
-for fp in ['public/wardrobe.html','public/inventory.html','public/books.html','public/documents.html','public/perfume.html','public/notifications.html','public/todos.html','public/reports.html','public/settings.html']:
-    for i, s in enumerate(re.findall(r'<script(?![^>]*\bsrc\b)[^>]*>(.*?)</script>', open(fp).read(), re.DOTALL)):
-        if len(s.strip()) < 5: continue
-        with tempfile.NamedTemporaryFile(suffix='.js', mode='w', delete=False) as t:
-            t.write(s); t.flush()
-            r = subprocess.run(['node','--check',t.name], capture_output=True, text=True); os.unlink(t.name)
-            print(f\"{'PASS' if r.returncode==0 else 'FAIL'} {fp}#{i}\")
-            if r.returncode: print(r.stderr[:300])
-"
+cd app
+python3 scripts/validate-static.py
 ```
+
+Runs 5 static checks: JS syntax, onclick→function existence, window.api()→route
+matching, migration validity, db.prepare() static SQL. Exit 0 = clean.
+
+See **`VALIDATION.md`** at repo root for what's checked, what isn't, and the
+list of real bugs caught so far. This is the truth on testing — read it before
+shipping anything new.
+
+---
+
+## Real bugs caught by validation suite this session
+
+These were live and would have manifested in production:
+
+| Drop | Bug | Caught by |
+|------|-----|-----------|
+| v086 | `autoFillZip` undefined → console error every keystroke in contact + property ZIP fields | Onclick→function existence check |
+| v087 | `DELETE /api/v1/notifications/:id` — UI dismiss button silently 404'd | Endpoint cross-check |
+| v087 | `GET /api/v1/inventory/containers/:id/move-preview` — container move dialog crashed on open | Endpoint cross-check |
+
+---
+
+## Testing infrastructure (end-to-end)
+
+Three layers, each separate:
+
+### 1. Static validation (in-sandbox, before every deploy)
+`app/scripts/validate-static.py` — see VALIDATION.md. Catches the "broke the
+page" class of bugs without running anything.
+
+### 2. In-browser API smoke (Settings → Diagnostics)
+Manual button. Hits a curated list of endpoints from the user's browser,
+shows pass/fail with response times. Lives in `settings.html` panel-diagnostics.
+Use when you want immediate "is the server alive and answering" check.
+
+### 3. Nightly Playwright E2E (Reports → System Tests)
+Lives entirely OUTSIDE the container, on the deploy machine:
+- `tests/playwright.config.js` — Playwright config
+- `tests/ghrava-e2e.spec.js` — 617-line spec hitting every page + API surface
+- `tests/run-tests.ps1` — PowerShell scheduled task. Boots Playwright, parses
+  results.json, posts structured run data to `POST /api/v1/app/test-results`,
+  copies HTML report to `Z:\ghrava\test-results\`, prunes to last 30.
+
+Backend persistence (already in `server.js` at L420-466):
+- `POST /api/v1/app/test-results` — runner posts here
+- `GET  /api/v1/app/test-results` — list last 30 runs (summary only)
+- `GET  /api/v1/app/test-results/:filename` — one run with full suite/test detail
+
+Storage: `/app/data/test-reports/run_YYYY-MM-DD_HHMM.json`
+
+UI: Reports → System Tests has two tabs:
+- **Nightly E2E** — pulls run history from API, summary card showing latest
+  pass/fail with ago timestamp, clickable list of all runs, drill-down to
+  per-suite per-test detail with error messages
+- **Quick Smoke** — same in-browser API checker as before, kept for ad-hoc use
+
+### Setup notes
+- `tests/` directory lives at `Z:\ghrava\tests\` (sibling of `Z:\ghrava\app\`),
+  NOT inside the container. Deploy zips don't touch tests/.
+- Task Scheduler: `powershell.exe -NonInteractive -File Z:\ghrava\tests\run-tests.ps1`,
+  Start in: `Z:\ghrava`
+- First-run: `cd tests && npm init -y && npm install @playwright/test && npx playwright install chromium`
+
+### When updating the spec for new app changes
+The spec file is shipped with deploys (in `tests/`) when bundled, but typically
+lives only on the deploy machine. When pages get folded into other pages
+(like the v088 work folding tests/data/templates/maintenance/snapshot/
+watcher-inbox into other pages), update the spec to test the new locations
+rather than the redirect stubs. Already done for `data.html → settings.html#imports`.

@@ -595,15 +595,20 @@ test.describe('API Contract', () => {
     expect(errors.filter(e => !e.includes('favicon')), 'notifications page JS errors').toHaveLength(0);
   });
 
-  test('GET /data page loads without JS errors', async ({ page }) => {
+  test('GET /data redirect stub loads without JS errors', async ({ page }) => {
+    // data.html is a redirect stub — content folded into settings.html#imports.
+    // We test the stub loads clean (no JS errors) and the new location renders.
     const errors = [];
     page.on('pageerror', e => errors.push(e.message));
     await page.goto(`${BASE}/data.html`, { waitUntil: 'load' });
-    await page.waitForSelector('#app', { timeout: 5000 });
-    expect(errors.filter(e => !e.includes('favicon')), 'data page JS errors').toHaveLength(0);
-    // Sheet reference grid should be populated
-    const chips = await page.locator('.sheet-pill').count();
-    expect(chips, 'data page should show sheet pills').toBeGreaterThan(5);
+    expect(errors.filter(e => !e.includes('favicon')), 'data redirect stub JS errors').toHaveLength(0);
+
+    // Now verify the new location loads without errors too
+    const errors2 = [];
+    page.on('pageerror', e => errors2.push(e.message));
+    await page.goto(`${BASE}/settings.html#imports`, { waitUntil: 'load' });
+    await page.waitForTimeout(1000); // settings panels load lazily
+    expect(errors2.filter(e => !e.includes('favicon')), 'settings imports panel JS errors').toHaveLength(0);
   });
 
   test('Finance budget routes exist', async ({ request }) => {
