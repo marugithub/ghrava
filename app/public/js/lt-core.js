@@ -2246,3 +2246,26 @@ window.GH_BULK = (function(){
 
   return { init, refresh };
 })();
+
+
+// ──────────────────────────────────────────────────────────────
+// autoFillZip — lightweight ZIP → city/state autofill
+// ──────────────────────────────────────────────────────────────
+// Used by contact/property forms on `oninput="autoFillZip(this.value,'cityId','stateId')"`.
+// No-ops until 5 digits typed; doesn't overwrite values the user already typed.
+// Uses zippopotam.us (free, no key, no rate limit).
+window.autoFillZip = async function(zip, cityId, stateId) {
+  if (!zip || zip.length !== 5 || !/^\d{5}$/.test(zip)) return;
+  const cityEl  = document.getElementById(cityId);
+  const stateEl = document.getElementById(stateId);
+  if ((cityEl?.value || '').trim() && (stateEl?.value || '').trim()) return;
+  try {
+    const r = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    const place = d.places?.[0];
+    if (!place) return;
+    if (cityEl  && !cityEl.value.trim())  cityEl.value  = place['place name'] || '';
+    if (stateEl && !stateEl.value.trim()) stateEl.value = (place['state abbreviation'] || '').toUpperCase();
+  } catch(_) { /* offline — skip silently */ }
+};

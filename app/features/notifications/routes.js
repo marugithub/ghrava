@@ -207,4 +207,14 @@ router.patch('/read-all', (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
+// DELETE /api/v1/notifications/:id — dismiss a notification
+// Called from notifications UI dismiss(id) handler. The header comment promised
+// this route but it was never implemented; client was getting 404 silently.
+router.delete('/:id', (req, res) => {
+  try {
+    db.prepare("DELETE FROM notifications WHERE id=?").run(req.params.id);
+    res.json({ ok: true });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
 module.exports = router;

@@ -849,6 +849,34 @@ router.put('/containers/:id/move', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+// GET /containers/:id/move-preview — counts everything inside the container
+// so the UI can warn "moving X will also move N sub-items".
+// Used by the move dialog before user picks a destination.
+router.get('/containers/:id/move-preview', (req, res) => {
+  try {
+    const id = req.params.id;
+    const container = db.prepare('SELECT id, name FROM containers WHERE id=?').get(id);
+    if (!container) return notFound(res, 'Container');
+    // Recursive count: items directly inside + items in nested containers
+    const directItems  = db.prepare("SELECT COUNT(*) AS n FROM items WHERE parent_type='container' AND parent_id=? AND is_active=1").get(id).n;
+    const childContainers = db.prepare("SELECT id FROM containers WHERE parent_type='container' AND parent_id=?").all(id);
+    let nestedItems = 0;
+    const visit = (cid) => {
+      nestedItems += db.prepare("SELECT COUNT(*) AS n FROM items WHERE parent_type='container' AND parent_id=? AND is_active=1").get(cid).n;
+      const kids = db.prepare("SELECT id FROM containers WHERE parent_type='container' AND parent_id=?").all(cid);
+      for (const k of kids) visit(k.id);
+    };
+    for (const c of childContainers) visit(c.id);
+    res.json({
+      container,
+      total_children: directItems + nestedItems,
+      direct_items: directItems,
+      nested_items: nestedItems,
+      child_containers: childContainers.length,
+    });
+  } catch (err) { serverError(res, err); }
+});
+
 router.delete('/containers/:id', (req, res) => {
   try {
     const hasC = db.prepare("SELECT 1 FROM containers WHERE parent_type='container' AND parent_id=?").get(req.params.id);
