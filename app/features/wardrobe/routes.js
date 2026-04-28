@@ -140,6 +140,20 @@ router.patch('/items/:id/archive', requireAuth, (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+// ── PUT /items/:id/unarchive — restore archived item ──────────
+router.put('/items/:id/unarchive', requireAuth, (req, res) => {
+  try {
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(req.params.id);
+    if (!item) return notFound(res, 'Item not found');
+    db.prepare(`UPDATE items SET
+      is_archived = 0, archived_at = NULL, archived_reason = NULL,
+      wardrobe_status = 'active', wardrobe_status_notes = NULL,
+      updated_at = CURRENT_TIMESTAMP
+      WHERE id=?`).run(req.params.id);
+    res.json({ ok: true, unarchived: true });
+  } catch(e) { serverError(res, e); }
+});
+
 router.put('/items/:id', requireAuth, (req, res) => {
   try {
     const d = req.body || {};
@@ -177,6 +191,7 @@ router.put('/items/:id', requireAuth, (req, res) => {
     const wardrobe_owner_id      = pick('wardrobe_owner_id');
     const wardrobe_sequence      = pick('wardrobe_sequence');
     const wardrobe_nickname      = pick('wardrobe_nickname');
+    const wardrobe_color         = pick('wardrobe_color');
     const season_tags_in         = Object.prototype.hasOwnProperty.call(d, 'season_tags')
       ? (d.season_tags ? JSON.stringify(d.season_tags) : null)
       : existing.season_tags;
@@ -197,7 +212,7 @@ router.put('/items/:id', requireAuth, (req, res) => {
       UPDATE items SET
         name=?, brand=?, category=?, purchase_price=?, purchase_date=?, notes=?,
         upc_barcode=?,
-        wardrobe_owner_id=?, wardrobe_sequence=?, wardrobe_nickname=?,
+        wardrobe_owner_id=?, wardrobe_sequence=?, wardrobe_nickname=?, wardrobe_color=?,
         season_tags=?, occasion_tags=?,
         wardrobe_status=?, wardrobe_status_date=?, wardrobe_status_notes=?,
         sold_price=?, sold_date=?, sold_platform=?,
@@ -207,7 +222,7 @@ router.put('/items/:id', requireAuth, (req, res) => {
     `).run(
       name, brand, category, purchase_price, purchase_date, notes,
       upc_barcode,
-      wardrobe_owner_id, wardrobe_sequence, wardrobe_nickname,
+      wardrobe_owner_id, wardrobe_sequence, wardrobe_nickname, wardrobe_color,
       season_tags_in, occasion_tags_in,
       wardrobe_status, wardrobe_status_date, wardrobe_status_notes,
       sold_price, sold_date, sold_platform,

@@ -134,6 +134,18 @@ router.patch('/:id/archive', requireAuth, (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+// PUT /:id/unarchive — restore archived book
+router.put('/:id/unarchive', requireAuth, (req, res) => {
+  try {
+    const existing = db.prepare('SELECT id FROM books WHERE id=?').get(req.params.id);
+    if (!existing) return notFound(res, 'Book');
+    db.prepare(`UPDATE books SET is_active=1,
+      physical_status=NULL, physical_status_notes=NULL, physical_status_date=NULL,
+      updated_at=CURRENT_TIMESTAMP WHERE id=?`).run(req.params.id);
+    res.json({ ok: true, unarchived: true });
+  } catch(e) { serverError(res, e); }
+});
+
 // DELETE /:id — hard delete
 router.delete('/:id', requireAuth, (req, res) => {
   try {

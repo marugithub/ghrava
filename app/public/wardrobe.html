@@ -409,7 +409,7 @@
   <div class="drawer-handle"></div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="drawer-title" id="itemDrawerTitle" style="flex:1">Add Item</div>
-    <button id="wrdItemArchiveBtn" title="Archive item" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="openWrdItemArchive()">
+    <button id="wrdItemArchiveBtn" title="Archive item" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg3);color:var(--text3);cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="toggleWrdItemArchive()">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
     </button>
     <button id="wrdItemDeleteBtn" title="Delete item" style="display:none;width:32px;height:32px;border-radius:var(--r);border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;cursor:pointer;align-items:center;justify-content:center;flex-shrink:0" onclick="confirmWrdItemDelete()">
@@ -441,6 +441,7 @@
       <div class="form-group"><label class="form-label">Brand</label><input class="form-input" id="iBrand"></div>
       <div class="form-group"><label class="form-label">Nickname</label><input class="form-input" id="iNickname" placeholder="Optional label"></div>
     </div>
+    <div class="form-group"><label class="form-label">Color</label><input class="form-input" id="iColor" placeholder="navy, off-white, burgundy + cream stripes…"></div>
     <div class="form-group"><label class="form-label">Season Tags</label>
       <div id="iSeasonTags" style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0"></div>
     </div>
@@ -585,6 +586,24 @@ function openWrdItemArchive() {
   document.getElementById('wrdArchiveStatus').value = 'donated';
   document.getElementById('wrdArchiveNotes').value = '';
   document.getElementById('wrdArchiveOverlay').classList.add('open');
+}
+
+// Context-aware: archive if item is active, restore if archived
+async function toggleWrdItemArchive() {
+  const btn = document.getElementById('wrdItemArchiveBtn');
+  if (btn?.dataset.archived === '1') {
+    // Currently archived → restore
+    if (!_editingItemId) return;
+    if (!confirm('Restore this item from archive?')) return;
+    try {
+      await window.api('PUT', `/wardrobe/items/${_editingItemId}/unarchive`, {});
+      closeDrawer('itemDrawer');
+      toast('Item restored', 'ok');
+      loadItems();
+    } catch(e) { toast('Restore failed: ' + e.message, 'err'); }
+  } else {
+    openWrdItemArchive();
+  }
 }
 
 async function saveWrdItemArchive() {
@@ -1335,7 +1354,7 @@ async function loadItems() {
           <div class="wrd-list-placeholder" style="${thumbSrc?'display:none':''}">${(item.category||'?').charAt(0)}</div>
           <div class="wrd-list-body">
             <div class="wrd-list-name">${esc(item.wardrobe_nickname||item.name)}</div>
-            <div class="wrd-list-meta">${esc(item.category||'')}${item.brand?' · '+esc(item.brand):''}</div>
+            <div class="wrd-list-meta">${esc(item.category||'')}${item.brand?' · '+esc(item.brand):''}${item.wardrobe_color?' · '+esc(item.wardrobe_color):''}</div>
           </div>
           ${ownerName ? `<span class="wrd-list-owner">${lbMemberDot(member,5)}${esc(ownerName)}</span>` : ''}
           <button class="wrd-list-edit-btn" title="Edit" onclick="event.stopPropagation();openItemDrawer(${item.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -1360,6 +1379,7 @@ async function loadItems() {
           ${polaroid}
           <div class="lb-item-meta">
             <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>
+            ${item.wardrobe_color ? `<span class="lb-item-meta-color" style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">${esc(item.wardrobe_color)}</span>` : ''}
             <span class="lb-item-meta-stat">${(item.times_worn||0) ? `${item.times_worn}w` : '·'}</span>
           </div>
           <button class="wrd-card-edit-btn" title="Edit" onclick="event.stopPropagation();openItemDrawer(${item.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -1436,9 +1456,28 @@ async function openItemDrawer(id) {
   if (id) {
     try {
       const item = await window.api('GET', `/wardrobe/items/${id}`);
+      // Update archive button to show Restore if already archived
+      const archBtn = document.getElementById('wrdItemArchiveBtn');
+      if (archBtn) {
+        archBtn.dataset.archived = item.is_archived ? '1' : '0';
+        if (item.is_archived) {
+          archBtn.title = 'Restore item';
+          archBtn.style.color = 'var(--green)';
+          archBtn.style.borderColor = 'rgba(34,197,94,.3)';
+          archBtn.style.background = 'rgba(34,197,94,.08)';
+          archBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 7 5 5 7 7"/><path d="M5 5v6a4 4 0 004 4h6"/><polyline points="17 17 19 19 21 17"/><path d="M19 19v-6a4 4 0 00-4-4H9"/></svg>';
+        } else {
+          archBtn.title = 'Archive item';
+          archBtn.style.color = 'var(--text3)';
+          archBtn.style.borderColor = 'var(--border)';
+          archBtn.style.background = 'var(--bg3)';
+          archBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>';
+        }
+      }
       document.getElementById('iName').value     = item.name||'';
       document.getElementById('iBrand').value    = item.brand||'';
       document.getElementById('iNickname').value = item.wardrobe_nickname||'';
+      document.getElementById('iColor').value    = item.wardrobe_color||'';
       document.getElementById('iPrice').value    = item.purchase_price||'';
       document.getElementById('iPDate').value    = item.purchase_date||'';
       document.getElementById('iNotes').value    = item.notes||'';
@@ -1568,6 +1607,7 @@ async function saveItem(opts = {}) {
     upc_barcode:         document.getElementById('iBarcode').value.trim() || null,
     wardrobe_owner_id:   parseInt(document.getElementById('iOwner').value)||null,
     wardrobe_nickname:   document.getElementById('iNickname').value.trim()||null,
+    wardrobe_color:      document.getElementById('iColor').value.trim()||null,
     season_tags:         _iSeasonSel,
     occasion_tags:       _iOccasionSel,
     wardrobe_status:     document.getElementById('iStatus').value,
