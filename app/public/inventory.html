@@ -30,7 +30,7 @@
   background: var(--bg2); border: 1px solid var(--border);
   border-radius: var(--r-lg); padding: 14px 16px; text-align:center;
   cursor: default;
-  box-shadow: 0 1px 3px rgba(0,0,0,.04);
+  box-shadow: var(--shadow-card);
 }
 .stat-num { font-family: var(--mono); font-size: 24px; font-weight: 700; color: var(--text); line-height:1; }
 .stat-lbl { font-size: 11px; color: var(--text3); margin-top: 4px; text-transform: uppercase; letter-spacing: .05em; }
@@ -478,12 +478,13 @@
   border-radius: var(--r-lg);
   overflow: hidden;
   cursor: pointer;
-  transition: border-color .12s, transform .12s;
+  transition: border-color .12s, transform .12s, box-shadow .12s;
   display: flex;
   flex-direction: column;
   position: relative;
+  box-shadow: var(--shadow-card);
 }
-.ai-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+.ai-card:hover { border-color: var(--border2); transform: translateY(-1px); box-shadow: var(--shadow-card-hover); }
 .ai-card:hover .ai-card-edit-btn { opacity: 1; transform: scale(1); }
 .ai-card-edit-btn {
   position: absolute;
@@ -558,6 +559,7 @@
 .ai-card-loc {
   font-size: 11px; color: var(--text3); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 3px;
 }
 /* Column picker and view toggle now in GH_VIEW (lt-core.js) */
 
@@ -573,14 +575,15 @@
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   cursor: pointer;
-  transition: background .12s, border-color .12s;
+  transition: background .12s, border-color .12s, box-shadow .12s;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
   position: relative;
+  box-shadow: var(--shadow-card);
 }
-.ai-list-card:hover { border-color: var(--border2); background: var(--bg3); }
+.ai-list-card:hover { border-color: var(--border2); background: var(--bg3); box-shadow: var(--shadow-card-hover); }
 .ai-list-thumb {
   width: 54px; height: 54px;
   border-radius: 10px;
@@ -602,6 +605,7 @@
 .ai-list-loc {
   font-size: 12px; color: var(--text3); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 3px;
 }
 .ai-list-qty {
   min-width: 22px; height: 22px; padding: 0 6px;
@@ -683,10 +687,11 @@
 .add-modal-body { padding:8px 16px 16px; display:flex; flex-direction:column; gap:8px; }
 .add-card {
   width:100%; display:flex; align-items:center; gap:14px;
-  padding:14px 16px; border-radius:var(--r);
-  border:1px solid var(--border); background:var(--bg3);
+  padding:14px 16px; border-radius:var(--r-lg);
+  border:1px solid var(--border); background:var(--bg2);
   cursor:pointer; text-align:left; transition:all .15s;
   -webkit-tap-highlight-color:transparent;
+  box-shadow: var(--shadow-card);
 }
 .add-card:hover { border-color:var(--accent-bd); background:var(--accent-bg); }
 .add-card:hover .add-card-arrow { color:var(--accent); transform:translateX(3px); }
@@ -1471,11 +1476,22 @@ async function initInvView() {
     aiView = state.view;
     aiCols = state.cols;
     window._invFilters = state.filters || {};
+    window._invSort    = state.sort    || '';
+    window._invSortDir = state.sortDir || 'asc';
     allItemsPage = 0;
     renderBrowse();
   }, {
     defaultView: 'grid',
+    defaultCols: window.innerWidth >= 768 ? 4 : 2,
+    defaultColsList: 1,
     views: ['grid','list','gallery'],
+    sortFields: [
+      { key: 'name',     label: 'Name' },
+      { key: 'category', label: 'Category' },
+      { key: 'location', label: 'Location' },
+      { key: 'value',    label: 'Value' },
+      { key: 'created',  label: 'Date Added' },
+    ],
     filterFields: [
       { key: 'location_id', type: 'select', label: 'Location / Room', options: locOptions },
       { key: 'category',    type: 'select', label: 'Category',        options: catOptions },
@@ -1900,7 +1916,15 @@ async function renderAllItemsFlat(el) {
     const bizQ = bizFilter==='home'?'&is_business=0':bizFilter==='business'?'&is_business=1':'';
     const clothingQ = (!window._invShowClothing && !(window._invFilters||{}).category) ? '&exclude_clothing=1' : '';
     let items = await window.api('GET', `/inventory/items?${bizQ}${clothingQ}`).catch(()=>[]);
-    items.sort((a,b) => b.id - a.id);
+    items.sort((a,b) => {
+      const sortKey = (window._invSort || '');
+      const dir = (window._invSortDir || 'asc') === 'asc' ? 1 : -1;
+      if (!sortKey) return b.id - a.id; // default: newest first
+      const map = { name: a=>a.name||'', category: a=>a.category||'', location: a=>a.location_path||'', value: a=>+(a.purchase_price||0), created: a=>a.id };
+      const fn = map[sortKey] || (a=>a.id);
+      const av = fn(a), bv = fn(b);
+      return av < bv ? -dir : av > bv ? dir : 0;
+    });
 
     // Apply search text
     const searchQ = ($('invSearch')?.value || '').trim().toLowerCase();
@@ -1959,7 +1983,7 @@ async function renderAllItemsFlat(el) {
           <div class="ai-list-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
           <div class="ai-list-body">
             <div class="ai-list-name">${esc(item.name)}</div>
-            ${loc ? `<div class="ai-list-loc">${esc(loc)}</div>` : ''}
+            ${loc ? `<div class="ai-list-loc"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;opacity:.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${esc(loc)}</div>` : ''}
           </div>
           ${item.quantity > 1 ? `<div class="ai-list-qty">${item.quantity}</div>` : ''}
           <button class="ai-list-edit-btn" title="Options" onclick="event.stopPropagation();editItem(${item.id})"><svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg></button>
@@ -1977,7 +2001,7 @@ async function renderAllItemsFlat(el) {
           <div class="ai-card-placeholder" style="background:${cfg.bg};${thumbSrc?'display:none':''}">${cfg.icon}</div>
           <div class="ai-card-body">
             <div class="ai-card-name">${esc(item.name)}</div>
-            ${loc ? `<div class="ai-card-loc">${esc(loc)}</div>` : ''}
+            ${loc ? `<div class="ai-card-loc"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="flex-shrink:0;opacity:.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> ${esc(loc)}</div>` : ''}
           </div>
           <button class="ai-card-edit-btn" title="Edit" onclick="event.stopPropagation();editItem(${item.id})"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
         </div>`;

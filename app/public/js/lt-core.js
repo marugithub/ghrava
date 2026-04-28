@@ -1347,7 +1347,13 @@ window.GH_VIEW = (function() {
     if (!container) return;
 
     const view = localStorage.getItem(storagePrefix + '_view') || options.defaultView || 'grid';
-    const cols = parseInt(localStorage.getItem(storagePrefix + '_cols')) || options.defaultCols || (window.innerWidth >= 600 ? 3 : 2);
+    const savedGridCols = parseInt(localStorage.getItem(storagePrefix + '_cols'));
+    const savedListCols = parseInt(localStorage.getItem(storagePrefix + '_list_cols'));
+    const defaultGrid = options.defaultCols || (window.innerWidth >= 768 ? 4 : 2);
+    const defaultList = options.defaultColsList || 1;
+    const cols = view === 'list'
+      ? (savedListCols || defaultList)
+      : (savedGridCols || defaultGrid);
 
     const state = { view, cols, filters: {} };
 
@@ -1362,8 +1368,9 @@ window.GH_VIEW = (function() {
         </button>
         <div class="gh-view-sep"></div>
         <div style="position:relative">
-          <button class="gh-view-btn gh-more-btn${state._hasFilters?' has-filters':''}" id="${storagePrefix}-more" title="More options">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          <button class="gh-view-btn gh-more-btn${state._hasFilters?' has-filters':''}" id="${storagePrefix}-more" title="More options" style="width:auto;padding:0 10px;gap:4px;font-size:11px;font-weight:600;color:var(--text2)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
+            More
           </button>
           <div class="gh-more-menu" id="${storagePrefix}-more-menu" style="display:none">
             <div class="gh-more-section-label">Columns</div>
@@ -1404,21 +1411,35 @@ window.GH_VIEW = (function() {
     });
 
     // ── Filter button — opens drawer ──────────────────────────
-    container.querySelector(`#${storagePrefix}-filter`).addEventListener('click', () => {
+    container.querySelector(`#${storagePrefix}-filter`)?.addEventListener('click', () => {
+      if (moreMenu) moreMenu.style.display = 'none';
       _openFilterDrawer(storagePrefix, state, callback, options.filterFields);
+    });
+
+    // ── Sort button ───────────────────────────────────────────
+    container.querySelector(`#${storagePrefix}-sort`)?.addEventListener('click', () => {
+      if (moreMenu) moreMenu.style.display = 'none';
+      _openSortDrawer(storagePrefix, state, callback, options.sortFields || []);
     });
 
     function _setView(v) {
       state.view = v;
       localStorage.setItem(storagePrefix + '_view', v);
       container.querySelectorAll('.gh-view-btn').forEach(b => b.classList.remove('active'));
-      container.querySelector(`#${storagePrefix}-v${v}`).classList.add('active');
+      container.querySelector(`#${storagePrefix}-v${v}`)?.classList.add('active');
+      // Restore cols for this view
+      const savedCols = v === 'list'
+        ? (parseInt(localStorage.getItem(storagePrefix + '_list_cols')) || options.defaultColsList || 1)
+        : (parseInt(localStorage.getItem(storagePrefix + '_cols')) || options.defaultCols || (window.innerWidth >= 768 ? 4 : 2));
+      state.cols = savedCols;
+      container.querySelectorAll('.gh-col-btn').forEach(b => b.classList.toggle('active', +b.dataset.cols === savedCols));
       callback && callback({ ...state });
     }
 
     function _setCols(n) {
       state.cols = n;
-      localStorage.setItem(storagePrefix + '_cols', n);
+      const colKey = state.view === 'list' ? storagePrefix + '_list_cols' : storagePrefix + '_cols';
+      localStorage.setItem(colKey, n);
       container.querySelectorAll('.gh-col-btn').forEach(b => b.classList.toggle('active', +b.dataset.cols === n));
       callback && callback({ ...state });
     }
@@ -1541,6 +1562,53 @@ window.GH_VIEW = (function() {
     if (!btn) return;
     const hasFilters = Object.keys(inst.state.filters).length > 0;
     btn.classList.toggle('has-filters', hasFilters);
+  }
+
+  function _openSortDrawer(prefix, state, callback, fields) {
+    if (!fields.length) return;
+    document.getElementById('gh-sort-drawer')?.remove();
+    const drawer = document.createElement('div');
+    drawer.id = 'gh-sort-drawer';
+    drawer.className = 'gh-adv-drawer open';
+    const currentSort = state.sort || '';
+    const currentDir  = state.sortDir || 'asc';
+    drawer.innerHTML = `
+      <div class="gh-adv-scrim"></div>
+      <div class="gh-adv-panel">
+        <div class="gh-adv-handle"></div>
+        <div class="gh-adv-header"><div class="gh-adv-title">Sort</div></div>
+        <div class="gh-adv-body">
+          ${fields.map(f => `
+            <button data-sort="${f.key}" class="gh-more-item${currentSort===f.key?' active':''}" style="border-radius:var(--r);border:1px solid ${currentSort===f.key?'var(--accent-bd)':'var(--border)'};background:${currentSort===f.key?'var(--accent-bg)':'transparent'};margin-bottom:4px;color:${currentSort===f.key?'var(--accent)':'var(--text2)'};font-weight:${currentSort===f.key?'600':'400'}">
+              ${f.label}
+              ${currentSort===f.key?`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-left:auto">${currentDir==='asc'?'<polyline points="18 15 12 9 6 15"/>':'<polyline points="6 9 12 15 18 9"/>'}</svg>`:''}
+            </button>`).join('')}
+        </div>
+        <div class="gh-adv-footer">
+          <button class="gh-adv-reset" id="gh-sort-clear">Clear</button>
+          <button class="gh-adv-apply" id="gh-sort-close">Done</button>
+        </div>
+      </div>`;
+    document.body.appendChild(drawer);
+    drawer.querySelector('.gh-adv-scrim').addEventListener('click', () => drawer.remove());
+    drawer.querySelector('#gh-sort-close').addEventListener('click', () => drawer.remove());
+    drawer.querySelector('#gh-sort-clear').addEventListener('click', () => {
+      state.sort = ''; state.sortDir = 'asc';
+      callback && callback({...state});
+      drawer.remove();
+    });
+    drawer.querySelectorAll('[data-sort]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.sort;
+        if (state.sort === key) {
+          state.sortDir = state.sortDir === 'asc' ? 'desc' : 'asc';
+        } else {
+          state.sort = key; state.sortDir = 'asc';
+        }
+        callback && callback({...state});
+        drawer.remove();
+      });
+    });
   }
 
   // Wire tag input — Enter/comma to add
