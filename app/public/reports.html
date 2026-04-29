@@ -13,25 +13,65 @@
   <script src="/theme.js"></script>
   <script>if(localStorage.getItem('gh_nav_collapsed')==='1'){document.documentElement.classList.add('nav-collapsed-init');}</script>
   <style>
-    /* Landing grid stays in a comfortable 1100px column for card readability.
-       Detail view goes full width so reports with wide tables / charts use
-       all available horizontal space and don't feel like floating cards. */
-    .reports-container{padding:16px}
-    #reportsMainView{max-width:1100px;margin:0 auto}
-    #reportDetailView{max-width:none}
-    .reports-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:8px}
-    .report-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;cursor:pointer;transition:all .15s}
-    .report-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
-    .report-icon{font-size:26px;margin-bottom:10px}
-    .report-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
-    .report-desc{font-size:12px;color:var(--text3);line-height:1.5}
-    .category-section{margin-bottom:24px}
-    .category-header{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);padding:6px 0;border-bottom:1px solid var(--border);margin-bottom:10px}
-    .report-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:20px;margin-top:4px}
-    .report-panel-header{display:flex;align-items:center;gap:12px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border)}
-    .report-panel-back{width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-    .report-panel-back:hover{background:var(--bg4);border-color:var(--border2)}
-    .report-panel-title{font-size:18px;font-weight:700;color:var(--text);flex:1}
+    /* ── Page shell ──────────────────────────────────────── */
+    .reports-container{padding:16px;max-width:none}
+
+    /* ── Tab bar ────────────────────────────────────────── */
+    .reports-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+    .reports-tab{flex-shrink:0;padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;transition:color .15s,border-color .15s}
+    .reports-tab:hover{color:var(--text)}
+    .reports-tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+
+    /* ── Two-pane layout ─────────────────────────────────── */
+    .reports-shell{display:flex;gap:16px;align-items:flex-start;position:relative}
+    .reports-left{flex:1;min-width:0}
+    .reports-right{flex:0 0 480px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);max-height:calc(100vh - 140px);overflow-y:auto;position:sticky;top:80px}
+    .reports-right.empty{display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:13px;padding:40px 16px;text-align:center;min-height:200px}
+    @media (max-width:899px){
+      .reports-shell{display:block}
+      .reports-right{position:fixed;top:0;left:0;right:0;bottom:0;flex:none;z-index:500;max-height:100vh;border-radius:0;display:none}
+      .reports-right.open{display:block}
+      .reports-right.empty{display:none}
+    }
+
+    /* ── Drilldown row pattern (used by all tabs) ────────── */
+    .rep-row{display:flex;align-items:center;gap:12px;padding:14px 16px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:8px;cursor:pointer;transition:all .12s}
+    .rep-row:hover{border-color:var(--accent);transform:translateX(2px)}
+    .rep-row.active{border-color:var(--accent);background:var(--bg3)}
+    .rep-row-icon{font-size:22px;flex-shrink:0}
+    .rep-row-body{flex:1;min-width:0}
+    .rep-row-title{font-size:14px;font-weight:600;color:var(--text)}
+    .rep-row-desc{font-size:12px;color:var(--text3);margin-top:2px}
+    .rep-row-chev{color:var(--text3);font-size:18px;flex-shrink:0}
+
+    /* ── Right pane content ──────────────────────────────── */
+    .rep-detail-header{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--bg2);z-index:1}
+    .rep-detail-back{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+    .rep-detail-back:hover{background:var(--bg4)}
+    .rep-detail-title{font-size:15px;font-weight:700;color:var(--text);flex:1}
+    .rep-detail-edit{font-size:12px;color:var(--accent);text-decoration:none;flex-shrink:0;padding:4px 10px;border:1px solid var(--accent);border-radius:6px}
+    .rep-detail-edit:hover{background:rgba(20,184,166,.1)}
+    .rep-detail-body{padding:16px}
+
+    /* ── Family avatars row ──────────────────────────────── */
+    .fam-avatars{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+    .fam-avatar{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;padding:8px;border-radius:var(--r);transition:background .12s}
+    .fam-avatar:hover{background:var(--bg3)}
+    .fam-avatar.active{background:var(--bg3);outline:2px solid var(--accent)}
+    .fam-avatar-circle{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white;background:var(--accent)}
+    .fam-avatar-name{font-size:12px;color:var(--text);font-weight:500}
+
+    /* ── Overview tile grid ──────────────────────────────── */
+    .ov-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px}
+    .ov-tile{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;cursor:pointer;transition:transform .12s,border-color .12s}
+    .ov-tile:hover{border-color:var(--accent);transform:translateY(-1px)}
+    .ov-tile-label{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--text3);font-family:var(--mono);margin-bottom:6px}
+    .ov-tile-value{font-size:24px;font-weight:800;color:var(--text)}
+    .ov-tile-sub{font-size:11px;color:var(--text3);margin-top:4px}
+
+    /* ── Existing report-panel styles (kept for renderXxx() funcs) ── */
+    .report-panel{background:none;border:none;padding:0}
+    .report-panel-header{display:none}
     .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px}
     .stat-item{background:var(--bg3);border-radius:var(--r);padding:12px;text-align:center}
     .stat-value{font-size:20px;font-weight:800;color:var(--text)}
@@ -46,10 +86,21 @@
 
 <div id="app">
   <div class="reports-container">
-    <div id="reportsMainView">
-      <div id="reportsGridContainer"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+    <div class="reports-tabs" id="reportsTabs">
+      <button class="reports-tab active" data-tab="overview"    onclick="switchTab('overview',this)">Overview</button>
+      <button class="reports-tab"        data-tab="family"      onclick="switchTab('family',this)">Family</button>
+      <button class="reports-tab"        data-tab="money"       onclick="switchTab('money',this)">Money</button>
+      <button class="reports-tab"        data-tab="maintenance" onclick="switchTab('maintenance',this)">Maintenance</button>
+      <button class="reports-tab"        data-tab="system"      onclick="switchTab('system',this)">System</button>
     </div>
-    <div id="reportDetailView" style="display:none"></div>
+    <div class="reports-shell">
+      <div class="reports-left" id="reportsLeft">
+        <div class="spinner"><div class="spin"></div>Loading…</div>
+      </div>
+      <div class="reports-right empty" id="reportsRight">
+        <div>Select a report on the left to see details here.</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -75,61 +126,263 @@ const REPORT_REGISTRY = [
   { id:'maint-rollup',  category:'inventory',  name:'Maintenance Rollup',        icon:'🔧', desc:'All maintenance across home & items', endpoint:null,                        render:renderMaintRollup },
 ];
 
-const CATEGORIES = {
-  overview:  { name:'Overview',             icon:'📋' },
-  family:    { name:'Family & Emergency',   icon:'👨‍👩‍👧‍👦' },
-  inventory: { name:'Inventory & Home',     icon:'📦' },
-  documents: { name:'Documents',            icon:'📄' },
-  finance:   { name:'Finance & HSA',        icon:'💰' },
-  system:    { name:'System & Auditing',    icon:'⚙️' },
+// ── Tab → reports mapping ─────────────────────────────────────
+// Maps each top-level tab to which report IDs from REPORT_REGISTRY belong there.
+// "editPath" gives the right pane an "Edit in Module →" link when the report is
+// editable from another page; null means it's read-only / no module to edit in.
+const TABS = {
+  overview: {
+    label: 'Overview',
+    reports: ['summary'],
+  },
+  family: {
+    label: 'Family',
+    reports: ['member-snapshot', 'emergency', 'family-snap', 'memories', 'ins-summary'],
+    showFamilyAvatars: true,
+  },
+  money: {
+    label: 'Money',
+    reports: ['networth', 'spending', 'hsa', 'portfolio', 'subscriptions'],
+  },
+  maintenance: {
+    label: 'Maintenance',
+    reports: ['maint-rollup', 'expiry', 'insurance'],
+  },
+  system: {
+    label: 'System',
+    reports: ['tests', 'database', 'watcher'],
+  },
 };
 
-// ── Render main grid ──────────────────────────────────────────
-function renderMainGrid() {
-  const container = document.getElementById('reportsGridContainer');
-  const grouped = {};
-  REPORT_REGISTRY.forEach(r => { if(!grouped[r.category]) grouped[r.category]=[]; grouped[r.category].push(r); });
+const EDIT_PATHS = {
+  summary: null,
+  emergency: null,
+  'family-snap': '/kids.html',
+  memories: '/daily-log.html',
+  expiry: '/documents.html',
+  insurance: '/insurance.html',
+  hsa: '/medical.html#hsa',
+  spending: '/finance.html',
+  networth: '/finance.html',
+  portfolio: '/finance.html',
+  subscriptions: '/subscriptions.html',
+  'ins-summary': '/insurance.html',
+  watcher: '/settings.html#watcher',
+  database: '/settings.html#database',
+  tests: null,
+  'member-snapshot': '/kids.html',
+  'maint-rollup': '/property.html',
+};
+
+let activeTab = 'overview';
+let activeReportId = null;
+
+// ── Render left pane for a given tab ──────────────────────────
+function renderTabContent(tabId) {
+  activeTab = tabId;
+  activeReportId = null;
+  closeRightPane();
+  const tab = TABS[tabId];
+  if (!tab) return;
+  const left = document.getElementById('reportsLeft');
   let html = '';
-  Object.entries(CATEGORIES).forEach(([catId, cat]) => {
-    const reports = grouped[catId]||[];
-    if(!reports.length) return;
-    html += `<div class="category-section"><div class="category-header">${cat.icon} ${cat.name}</div><div class="reports-grid">`;
-    reports.forEach(r => {
-      html += `<div class="report-card" onclick="openReport('${r.id}')">
-        <div class="report-icon">${r.icon}</div>
-        <div class="report-title">${r.name}</div>
-        <div class="report-desc">${r.desc}</div>
-      </div>`;
-    });
-    html += `</div></div>`;
+
+  // Overview tab: show summary tiles inline (not as drilldown rows)
+  if (tabId === 'overview') {
+    html = '<div id="overviewTiles"><div class="spinner"><div class="spin"></div>Loading summary…</div></div>';
+    left.innerHTML = html;
+    loadOverviewTiles();
+    return;
+  }
+
+  // Family tab: avatars row at top
+  if (tab.showFamilyAvatars) {
+    html += '<div class="fam-avatars" id="famAvatars"><div class="spinner"><div class="spin"></div>Loading family…</div></div>';
+  }
+
+  // Reports list as drilldown rows
+  html += '<div class="rep-rows">';
+  tab.reports.forEach(rid => {
+    const r = REPORT_REGISTRY.find(x => x.id === rid);
+    if (!r) return;
+    html += `<div class="rep-row" data-report="${r.id}" onclick="openReportInPane('${r.id}', this)">
+      <div class="rep-row-icon">${r.icon}</div>
+      <div class="rep-row-body">
+        <div class="rep-row-title">${esc(r.name)}</div>
+        <div class="rep-row-desc">${esc(r.desc)}</div>
+      </div>
+      <div class="rep-row-chev">›</div>
+    </div>`;
   });
-  container.innerHTML = html;
+  html += '</div>';
+  left.innerHTML = html;
+
+  if (tab.showFamilyAvatars) loadFamilyAvatars();
 }
 
-// ── Open / close report ───────────────────────────────────────
-async function openReport(id) {
-  const report = REPORT_REGISTRY.find(r => r.id === id);
-  if (!report) return;
-  document.getElementById('reportsMainView').style.display = 'none';
-  const detail = document.getElementById('reportDetailView');
-  detail.style.display = 'block';
-  detail.innerHTML = `<div class="report-panel"><div class="report-panel-header"><button class="report-panel-back" onclick="closeReport()">←</button><span class="report-panel-title">${report.icon} ${report.name}</span></div><div class="spinner"><div class="spin"></div>Loading…</div></div>`;
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.reports-tab').forEach(b => b.classList.toggle('active', b === btn));
+  renderTabContent(tabId);
+  history.replaceState(null, '', `?tab=${tabId}`);
+}
+window.switchTab = switchTab;
+
+// ── Overview tile load ────────────────────────────────────────
+async function loadOverviewTiles() {
+  const c = document.getElementById('overviewTiles');
+  if (!c) return;
   try {
-    const data = report.endpoint ? await window.api('GET', report.endpoint) : null;
-    report.render(detail, data);
+    const d = await window.api('GET', '/dashboard');
+    const tiles = [
+      ['Inventory Items',  (d.inventory?.total_items ?? 0).toLocaleString(),       'items',   '/inventory.html'],
+      ['Est. Value',       fmtMoney(d.inventory?.estimated_value || 0),              null,      '/inventory.html'],
+      ['Net Worth',        fmtMoney(d.finance?.net_worth || 0),                     null,      '/finance.html'],
+      ['Overdue Todos',    (d.todos?.overdue ?? 0).toString(),                      'tasks',   '/todos.html'],
+      ['Expiring Docs',    (d.documents?.expiring_90d ?? 0).toString(),             '90 days', '/documents.html'],
+      ['HSA Balance',      fmtMoney((d.hsa?.contributions || 0) - (d.hsa?.expenses || 0)), null, '/medical.html#hsa'],
+    ];
+    c.outerHTML = `<div class="ov-tiles">${tiles.map(([label, value, sub, href]) =>
+      `<a href="${href}" style="text-decoration:none;color:inherit"><div class="ov-tile">
+         <div class="ov-tile-label">${label}</div>
+         <div class="ov-tile-value">${value}</div>
+         ${sub ? `<div class="ov-tile-sub">${sub}</div>` : ''}
+       </div></a>`).join('')}</div>`;
   } catch(e) {
-    detail.innerHTML = `<div class="report-panel"><div class="report-panel-header"><button class="report-panel-back" onclick="closeReport()">←</button><span class="report-panel-title">${report.icon} ${report.name}</span></div><div style="color:var(--red);padding:20px;text-align:center">Failed to load: ${esc(e.message)}</div></div>`;
+    c.innerHTML = `<div style="color:var(--red);padding:20px">Failed to load: ${esc(e.message)}</div>`;
   }
 }
 
-function closeReport() {
-  document.getElementById('reportsMainView').style.display = 'block';
-  document.getElementById('reportDetailView').style.display = 'none';
+function fmtMoney(n) {
+  if (n == null) return '—';
+  return '$' + Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 });
 }
 
+// ── Family avatars ────────────────────────────────────────────
+async function loadFamilyAvatars() {
+  const c = document.getElementById('famAvatars');
+  if (!c) return;
+  try {
+    const fam = await window.api('GET', '/settings/family');
+    if (!fam.length) { c.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">No family members yet. Add in Settings → Family.</div>'; return; }
+    const colors = ['#14b8a6','#6366f1','#f97316','#ec4899','#84cc16','#06b6d4'];
+    c.innerHTML = fam.slice(0, 6).map((m, i) => {
+      const initials = (m.display_name || '?').split(/\s+/).map(s => s[0]).slice(0,2).join('').toUpperCase();
+      return `<div class="fam-avatar" data-member="${m.id}" onclick="openMemberInPane(${m.id}, '${esc(m.display_name)}', this)">
+        <div class="fam-avatar-circle" style="background:${colors[i % colors.length]}">${esc(initials)}</div>
+        <div class="fam-avatar-name">${esc(m.display_name)}</div>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    c.innerHTML = `<div style="color:var(--red);padding:8px;font-size:12px">Failed: ${esc(e.message)}</div>`;
+  }
+}
+
+// ── Right pane: open a report by id ───────────────────────────
+async function openReportInPane(id, rowEl) {
+  const r = REPORT_REGISTRY.find(x => x.id === id);
+  if (!r) return;
+  activeReportId = id;
+  // Highlight active row
+  document.querySelectorAll('.rep-row').forEach(el => el.classList.toggle('active', el === rowEl));
+  document.querySelectorAll('.fam-avatar').forEach(el => el.classList.remove('active'));
+
+  const right = document.getElementById('reportsRight');
+  right.classList.remove('empty');
+  right.classList.add('open');
+  const editPath = EDIT_PATHS[id];
+  right.innerHTML = `
+    <div class="rep-detail-header">
+      <button class="rep-detail-back" onclick="closeRightPane()" title="Close">×</button>
+      <span class="rep-detail-title">${r.icon} ${esc(r.name)}</span>
+      ${editPath ? `<a class="rep-detail-edit" href="${editPath}">Edit →</a>` : ''}
+    </div>
+    <div class="rep-detail-body" id="repDetailBody">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>`;
+  try {
+    const data = r.endpoint ? await window.api('GET', r.endpoint) : null;
+    // Existing renderXxx functions write into a container — reuse them by
+    // passing the body div and the data they expect.
+    const body = document.getElementById('repDetailBody');
+    body.innerHTML = '';
+    r.render(body, data);
+  } catch(e) {
+    document.getElementById('repDetailBody').innerHTML =
+      `<div style="color:var(--red);padding:14px;text-align:center">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+window.openReportInPane = openReportInPane;
+
+// ── Right pane: open a family-member snapshot ─────────────────
+async function openMemberInPane(memberId, memberName, avatarEl) {
+  activeReportId = `member-${memberId}`;
+  document.querySelectorAll('.fam-avatar').forEach(el => el.classList.toggle('active', el === avatarEl));
+  document.querySelectorAll('.rep-row').forEach(el => el.classList.remove('active'));
+
+  const right = document.getElementById('reportsRight');
+  right.classList.remove('empty');
+  right.classList.add('open');
+  right.innerHTML = `
+    <div class="rep-detail-header">
+      <button class="rep-detail-back" onclick="closeRightPane()" title="Close">×</button>
+      <span class="rep-detail-title">👤 ${esc(memberName)}</span>
+      <a class="rep-detail-edit" href="/kids.html?member=${memberId}">Edit →</a>
+    </div>
+    <div class="rep-detail-body" id="repDetailBody">
+      <div class="spinner"><div class="spin"></div>Loading snapshot…</div>
+    </div>`;
+  try {
+    const data = await window.api('GET', `/settings/family/${memberId}/report`);
+    const body = document.getElementById('repDetailBody');
+    body.innerHTML = renderMemberSummary(data);
+  } catch(e) {
+    document.getElementById('repDetailBody').innerHTML =
+      `<div style="color:var(--red);padding:14px;text-align:center">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+window.openMemberInPane = openMemberInPane;
+
+function renderMemberSummary(d) {
+  const m = d.member || {};
+  const sections = [];
+  if (m.dob)            sections.push(['Date of Birth', m.dob]);
+  if (m.relationship)   sections.push(['Relationship', m.relationship]);
+  if (m.role)           sections.push(['Role', m.role]);
+  let html = `<div style="margin-bottom:14px">` +
+    sections.map(([k,v]) => `<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px"><span style="color:var(--text3)">${k}</span><span>${esc(v)}</span></div>`).join('') +
+    `</div>`;
+  const counts = d.counts || {};
+  html += `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px">` +
+    [['Conditions', counts.conditions||0], ['Medications', counts.medications||0],
+     ['Visits', counts.visits||0], ['Documents', counts.documents||0],
+     ['Activities', counts.activities||0], ['Todos', counts.todos||0]]
+    .map(([l,v]) => `<div class="stat-item"><div class="stat-value">${v}</div><div class="stat-label">${l}</div></div>`).join('') +
+    `</div>`;
+  return html;
+}
+
+function closeRightPane() {
+  const right = document.getElementById('reportsRight');
+  right.classList.remove('open');
+  right.classList.add('empty');
+  right.innerHTML = `<div>Select a report on the left to see details here.</div>`;
+  activeReportId = null;
+  document.querySelectorAll('.rep-row, .fam-avatar').forEach(el => el.classList.remove('active'));
+}
+window.closeRightPane = closeRightPane;
+
+// Esc key closes right pane
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && activeReportId) closeRightPane();
+});
+
 // ── Render functions ──────────────────────────────────────────
+// Right pane already renders its own header with back button + title +
+// "Edit →" link. Existing renderXxx() funcs call panelWrap(icon, name, body)
+// expecting it to wrap with header markup — make it a passthrough so we
+// don't double-render the title or break with closeReport() (now closeRightPane).
 function panelWrap(icon, name, content) {
-  return `<div class="report-panel"><div class="report-panel-header"><button class="report-panel-back" onclick="closeReport()">←</button><span class="report-panel-title">${icon} ${name}</span></div>${content}</div>`;
+  return content;
 }
 function summaryRow(label, value, color) {
   return `<div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><span>${label}</span><span style="font-weight:600;color:${color||'var(--text)'}">${value}</span></div>`;
@@ -907,19 +1160,32 @@ async function copyEmText() {
 }
 
 // ── Init ──────────────────────────────────────────────────────
-renderMainGrid();
+(function init() {
+  const params = new URLSearchParams(window.location.search);
+  const tabParam = params.get('tab');
+  let tabId = (tabParam && TABS[tabParam]) ? tabParam : 'overview';
 
-// Open a report by ID via ?open=ID query param. Optional ?member=ID for
-// the family snapshot to pre-select the member.
-(function autoOpenFromQuery() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const open = params.get('open');
-    if (!open) return;
-    const memberId = params.get('member');
-    if (memberId) window._reportPreselectMember = parseInt(memberId, 10);
-    setTimeout(() => openReport(open), 50);
-  } catch (_) {}
+  // Legacy: ?open=reportId — find which tab it lives in, switch, open in pane
+  const openId = params.get('open');
+  if (openId) {
+    for (const [tid, t] of Object.entries(TABS)) {
+      if (t.reports.includes(openId)) { tabId = tid; break; }
+    }
+  }
+
+  // Activate matching tab button
+  document.querySelectorAll('.reports-tab').forEach(b => {
+    b.classList.toggle('active', b.dataset.tab === tabId);
+  });
+  renderTabContent(tabId);
+
+  // Auto-open requested report after tab content renders
+  if (openId) {
+    setTimeout(() => {
+      const row = document.querySelector(`.rep-row[data-report="${openId}"]`);
+      if (row) openReportInPane(openId, row);
+    }, 100);
+  }
 })();
 </script>
 </body>
