@@ -54,12 +54,11 @@
     .rep-detail-body{padding:16px}
 
     /* ── Family avatars row ──────────────────────────────── */
-    .fam-avatars{display:flex;gap:12px;margin-bottom:16px;flex-wrap:wrap}
-    .fam-avatar{display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;padding:8px;border-radius:var(--r);transition:background .12s}
+    .fam-avatars{display:flex;gap:14px;margin-bottom:18px;flex-wrap:wrap;padding:4px 0}
+    .fam-avatar{display:flex;flex-direction:column;align-items:center;gap:4px;cursor:pointer;padding:4px 6px;border-radius:var(--r);transition:background .12s;min-width:56px}
     .fam-avatar:hover{background:var(--bg3)}
-    .fam-avatar.active{background:var(--bg3);outline:2px solid var(--accent)}
-    .fam-avatar-circle{width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:white;background:var(--accent)}
-    .fam-avatar-name{font-size:12px;color:var(--text);font-weight:500}
+    .fam-avatar.active .gh-avatar{outline:2px solid var(--accent);outline-offset:2px}
+    .fam-avatar-name{font-size:12px;color:var(--text);font-weight:500;text-align:center;max-width:64px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
     /* ── Overview tile grid ──────────────────────────────── */
     .ov-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:16px}
@@ -137,7 +136,7 @@ const TABS = {
   },
   family: {
     label: 'Family',
-    reports: ['member-snapshot', 'emergency', 'family-snap', 'memories', 'ins-summary'],
+    reports: ['emergency', 'family-snap', 'memories', 'ins-summary'],
     showFamilyAvatars: true,
   },
   money: {
@@ -262,16 +261,15 @@ async function loadFamilyAvatars() {
   const c = document.getElementById('famAvatars');
   if (!c) return;
   try {
+    await GH_AVATAR.preload();
     const fam = await window.api('GET', '/settings/family');
     if (!fam.length) { c.innerHTML = '<div style="font-size:12px;color:var(--text3);padding:8px">No family members yet. Add in Settings → Family.</div>'; return; }
-    const colors = ['#14b8a6','#6366f1','#f97316','#ec4899','#84cc16','#06b6d4'];
-    c.innerHTML = fam.slice(0, 6).map((m, i) => {
-      const initials = (m.display_name || '?').split(/\s+/).map(s => s[0]).slice(0,2).join('').toUpperCase();
-      return `<div class="fam-avatar" data-member="${m.id}" onclick="openMemberInPane(${m.id}, '${esc(m.display_name)}', this)">
-        <div class="fam-avatar-circle" style="background:${colors[i % colors.length]}">${esc(initials)}</div>
-        <div class="fam-avatar-name">${esc(m.display_name)}</div>
-      </div>`;
-    }).join('');
+    c.innerHTML = fam.slice(0, 8).map(m =>
+      `<div class="fam-avatar" data-member="${m.id}" onclick="openMemberInPane(${m.id}, '${esc(m.display_name)}', this)">
+         ${GH_AVATAR.render(m, 'md')}
+         <div class="fam-avatar-name">${esc(m.display_name)}</div>
+       </div>`
+    ).join('');
   } catch(e) {
     c.innerHTML = `<div style="color:var(--red);padding:8px;font-size:12px">Failed: ${esc(e.message)}</div>`;
   }

@@ -491,6 +491,20 @@ router.delete('/family/:id', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+// PUT /api/v1/settings/family/:id/avatar
+// Body: { attachment_id: <number> } to set, or { attachment_id: null } to clear.
+// Set independently of other fields so the existing PUT /family/:id flow stays unchanged.
+router.put('/family/:id/avatar', (req, res) => {
+  try {
+    const aid = req.body.attachment_id;
+    db.prepare('UPDATE family_members SET avatar_attachment_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?')
+      .run(aid == null ? null : Number(aid), req.params.id);
+    const m = db.prepare('SELECT * FROM family_members WHERE id=?').get(req.params.id);
+    if (!m) return notFound(res, 'Family member');
+    res.json(m);
+  } catch (err) { serverError(res, err); }
+});
+
 // ══════════════════════════════════════════════════════════════
 // CONTACTS
 // ══════════════════════════════════════════════════════════════

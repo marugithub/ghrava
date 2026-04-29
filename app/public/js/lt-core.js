@@ -2269,3 +2269,112 @@ window.autoFillZip = async function(zip, cityId, stateId) {
     if (stateEl && !stateEl.value.trim()) stateEl.value = (place['state abbreviation'] || '').toUpperCase();
   } catch(_) { /* offline — skip silently */ }
 };
+
+
+// ──────────────────────────────────────────────────────────────
+// GH_AVATAR — global family-member avatar renderer
+// ──────────────────────────────────────────────────────────────
+// Single source of truth for how members appear visually across the app.
+// Renders either the uploaded photo (via /attachments/file/<id>) or a
+// colored circle with the member's initials. Color is stable per-member
+// (hash on id mod palette) so Sara is always teal everywhere.
+//
+// Usage:
+//   GH_AVATAR.render(member, 'md')         // member object
+//   GH_AVATAR.renderById(memberId, 'sm')   // looks up cached list
+//   GH_AVATAR.refresh()                    // re-renders every <span class="gh-avatar-host">
+//   GH_AVATAR.preload()                    // fetches /settings/family once, caches
+//
+// The cache is keyed on member id and stores { id, display_name, avatar_attachment_id }.
+// Sizes: 'sm' (28px), 'md' (40px), 'lg' (80px).
+window.GH_AVATAR = (function() {
+  const PALETTE = ['#14b8a6','#6366f1','#f97316','#ec4899','#84cc16','#06b6d4','#a855f7','#ef4444'];
+  let _cache = null;       // member-id → member object
+  let _cachePromise = null; // dedupe in-flight fetches
+
+  async function preload() {
+    if (_cache) return _cache;
+    if (_cachePromise) return _cachePromise;
+    _cachePromise = (async () => {
+      try {
+        const list = await window.api('GET', '/settings/family');
+        _cache = {};
+        list.forEach(m => { _cache[m.id] = m; });
+        return _cache;
+      } finally {
+        _cachePromise = null;
+      }
+    })();
+    return _cachePromise;
+  }
+
+  function colorFor(id) {
+    const n = Math.abs(parseInt(id, 10) || 0);
+    return PALETTE[n % PALETTE.length];
+  }
+
+  function initials(name) {
+    return String(name || '?')
+      .split(/\s+/).map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+  }
+
+  /**
+   * Render an avatar. Returns HTML string (call with .innerHTML or template literal).
+   * @param {Object} member  — member object with at least { id, display_name, avatar_attachment_id }
+   * @param {string} size    — 'sm' | 'md' | 'lg'
+   * @param {Object} opts    — optional { onclick: string, extraClass: string, title: string }
+   */
+  function render(member, size, opts) {
+    if (!member || !member.id) return '';
+    size = size || 'md';
+    opts = opts || {};
+    const c = colorFor(member.id);
+    const ini = initials(member.display_name);
+    const cls = ['gh-avatar', 'gh-avatar-' + size, opts.extraClass || ''].filter(Boolean).join(' ');
+    const title = opts.title || member.display_name || '';
+    const onclick = opts.onclick ? ` onclick="${opts.onclick}"` : '';
+    const inner = member.avatar_attachment_id
+      ? `<img src="/api/v1/attachments/file/${member.avatar_attachment_id}" alt="${title}">`
+      : ini;
+    return `<span class="${cls}" data-member="${member.id}" style="background:${c}" title="${title}"${onclick}>${inner}</span>`;
+  }
+
+  /** Same as render() but takes id; uses cached member from preload(). */
+  function renderById(memberId, size, opts) {
+    if (!_cache || !_cache[memberId]) return '';
+    return render(_cache[memberId], size, opts);
+  }
+
+  /**
+   * Refresh all rendered avatars on the page. Call after photo upload/remove
+   * so every avatar of that member updates without page reload.
+   * Drops the cache and re-fetches family list, then walks every .gh-avatar
+   * with a data-member attribute and replaces it.
+   */
+  async function refresh() {
+    _cache = null;
+    await preload();
+    document.querySelectorAll('.gh-avatar[data-member]').forEach(el => {
+      const id = parseInt(el.dataset.member, 10);
+      const member = _cache[id];
+      if (!member) return;
+      // Preserve size class + custom classes
+      const sizeMatch = el.className.match(/gh-avatar-(sm|md|lg)/);
+      const size = sizeMatch ? sizeMatch[1] : 'md';
+      const tmp = document.createElement('div');
+      tmp.innerHTML = render(member, size, { title: el.title });
+      const newEl = tmp.firstElementChild;
+      // Copy over any additional classes (active, etc) that aren't avatar/size
+      el.classList.forEach(c => {
+        if (!c.startsWith('gh-avatar')) newEl.classList.add(c);
+      });
+      // Preserve onclick if it was set inline
+      if (el.onclick) newEl.onclick = el.onclick;
+      el.replaceWith(newEl);
+    });
+  }
+
+  function getCached(id) { return _cache?.[id] || null; }
+
+  return { render, renderById, refresh, preload, colorFor, initials, getCached };
+})();

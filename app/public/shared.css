@@ -3047,3 +3047,24 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 .ctn-card:hover, .item-grid-card:hover, .item-card:hover {
   box-shadow: var(--shadow-card-hover);
 }
+
+/* ── GH_AVATAR — family-member avatar renderer ──────────────── */
+/* Three sizes used across the app. Color is set inline by the renderer. */
+.gh-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-weight: 600;
+  color: white;
+  flex-shrink: 0;
+  overflow: hidden;
+  user-select: none;
+  vertical-align: middle;
+}
+.gh-avatar-sm { width: 28px; height: 28px; font-size: 11px; }
+.gh-avatar-md { width: 40px; height: 40px; font-size: 14px; }
+.gh-avatar-lg { width: 80px; height: 80px; font-size: 28px; }
+.gh-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gh-avatar[onclick] { cursor: pointer; transition: transform .12s; }
+.gh-avatar[onclick]:hover { transform: scale(1.06); }
