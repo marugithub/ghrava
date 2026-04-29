@@ -2546,6 +2546,11 @@ async function changePassword() {
 }
 
 function openPanel(name) {
+  // Close any other open panel first — switching between rail items would
+  // otherwise leave both panels at translateX(0) and overlay each other.
+  document.querySelectorAll('.sub-panel.open').forEach(el => {
+    if (el.id !== `panel-${name}`) el.classList.remove('open');
+  });
   activePanel = name;
   const panel = document.getElementById(`panel-${name}`);
   if (!panel) {
