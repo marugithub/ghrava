@@ -1,4 +1,4 @@
-# tests/run-tests.ps1
+﻿# tests/run-tests.ps1
 # Ghrava Nightly E2E Test Runner
 #
 # Runs Playwright tests against the live Ghrava instance,
@@ -24,7 +24,8 @@
 
 param(
     [string]$GhUrl     = "http://192.168.4.62:3001",
-    [string]$ReportDir = "Z:\ghrava\test-results"
+    [string]$ReportDir = "Z:\ghrava\test-results",
+    [string]$AuthToken = ""
 )
 
 $ErrorActionPreference = "Continue"
@@ -42,17 +43,17 @@ Write-Host ""
 $ScriptDir   = Split-Path -Parent $MyInvocation.MyCommand.Path
 $TestsDir    = $ScriptDir
 $ResultsDir  = Join-Path $TestsDir "test-results"
+$ReportHtmlDir = Join-Path $TestsDir "playwright-report"
 
 # Ensure test-results/ exists before Playwright tries to write into it.
 # On Windows/NAS mapped drives this can fail with EPERM if the path doesn't
-# pre-exist — creating it here prevents Playwright from crashing on scandir.
+# pre-exist - creating it here prevents Playwright from crashing on scandir.
 if (-not (Test-Path $ResultsDir)) {
     try {
         New-Item -ItemType Directory -Path $ResultsDir -Force | Out-Null
-        New-Item -ItemType Directory -Path (Join-Path $ResultsDir "html") -Force | Out-Null
         Write-Host "Created test-results/ directory" -ForegroundColor DarkGray
     } catch {
-        Write-Host "Warning: could not create test-results/ — $_" -ForegroundColor Yellow
+        Write-Host "Warning: could not create test-results/ - $_" -ForegroundColor Yellow
     }
 }
 
@@ -72,7 +73,7 @@ try {
     $health = Invoke-RestMethod -Uri "$GhUrl/health" -TimeoutSec 10
     Write-Host " OK (v$($health.version))" -ForegroundColor Green
 } catch {
-    Write-Host " FAILED — $GhUrl is not reachable" -ForegroundColor Red
+    Write-Host " FAILED - $GhUrl is not reachable" -ForegroundColor Red
     Write-Host "Is the container running? Run: docker start ghrava" -ForegroundColor Yellow
     exit 1
 }
@@ -81,13 +82,39 @@ try {
 Write-Host ""
 Write-Host "Running tests..." -ForegroundColor Cyan
 $env:GHRAVA_URL = $GhUrl
+if ($AuthToken) {
+    $env:GHRAVA_TOKEN = $AuthToken
+    Write-Host "  Auth token provided - CRUD tests will run" -ForegroundColor Green
+} else {
+    Remove-Item Env:\GHRAVA_TOKEN -ErrorAction SilentlyContinue
+    Write-Host "  No auth token - CRUD tests will fail with 401 (expected)" -ForegroundColor DarkYellow
+}
+$env:PW_TEST_HTML_REPORT_OPEN = 'never'
+$env:PLAYWRIGHT_HTML_OPEN     = 'never'
 
-# Use the call operator (&) instead of Start-Process — Start-Process -Wait
-# can hang on Windows/mapped drives when Playwright's browser child processes
-# don't cleanly exit the process group. & runs inline, exits when done.
-& $PwPath test --config="$TestsDir\playwright.config.js" --reporter=list,json,html 2>&1
+# Use the call operator (&) — simple, streams output live, returns when
+# Playwright exits. We tried .NET Process API for a hard timeout but the
+# event-handler complexity wasn't worth it; this pipeline returns reliably
+# now that the duplication bug is fixed (testDir: __dirname).
+#
+# IMPORTANT: cd into tests/ before invoking Playwright. Without this,
+# Playwright scans from the parent CWD and runs every test TWICE.
+# ALSO IMPORTANT: do NOT pass --reporter on the CLI — it overrides the
+# config's reporter array, which is the only place 'open: never' lives.
+Push-Location $TestsDir
+try {
+    & $PwPath test --config="$TestsDir\playwright.config.js" 2>&1
+} finally {
+    Pop-Location
+}
+$ExitCode = $LASTEXITCODE
 
-$ExitCode   = $LASTEXITCODE
+# Kill any orphan playwright/chromium children that may still be holding
+# file handles after the parent exits. Defensive — usually a no-op.
+Get-Process -Name 'chrome', 'chromium', 'playwright', 'headless_shell' -ErrorAction SilentlyContinue |
+    Where-Object { $_.Path -and $_.Path -like "*ms-playwright*" } |
+    Stop-Process -Force -ErrorAction SilentlyContinue
+
 $EndTime    = Get-Date
 $DurationMs = [int]($EndTime - $StartTime).TotalMilliseconds
 
@@ -137,23 +164,23 @@ if (Test-Path $ResultsJson) {
         Write-Host ""
         Write-Host "Results: $passed passed, $failed failed ($total total)" -ForegroundColor $(if ($failed -eq 0) { "Green" } else { "Red" })
     } catch {
-        Write-Host "Warning: could not parse results.json — $_" -ForegroundColor Yellow
+        Write-Host "Warning: could not parse results.json - $_" -ForegroundColor Yellow
     }
 }
 
 # ── Copy HTML report to NAS backup dir ───────────────────────
 if (Test-Path $ReportDir -PathType Container) {
-    $HtmlReport  = Join-Path $ResultsDir "html\index.html"
+    $HtmlReport  = Join-Path $ReportHtmlDir "index.html"
     $ReportStamp = $StartTime.ToString("yyyy-MM-dd_HHmm")
     $DestFile    = Join-Path $ReportDir "ghrava_e2e_$ReportStamp.html"
 
     if (Test-Path $HtmlReport) {
-        # Copy HTML report (single file — playwright html reporter generates multi-file,
+        # Copy HTML report (single file - playwright html reporter generates multi-file,
         # so we grab the index and note the asset path)
         Copy-Item $HtmlReport $DestFile -ErrorAction SilentlyContinue
         Write-Host "Report saved: $DestFile" -ForegroundColor Cyan
 
-        # Prune old reports — keep last 30
+        # Prune old reports - keep last 30
         $OldReports = Get-ChildItem $ReportDir -Filter "ghrava_e2e_*.html" |
             Sort-Object LastWriteTime | Select-Object -SkipLast 30
         foreach ($old in $OldReports) { Remove-Item $old.FullName -Force }
@@ -171,7 +198,7 @@ if ($RunData) {
             -Method POST -Body $body -ContentType "application/json" -TimeoutSec 10
         Write-Host "Results posted to Ghrava: $($posted.filename)" -ForegroundColor Green
     } catch {
-        Write-Host "Warning: could not post results to Ghrava — $_" -ForegroundColor Yellow
+        Write-Host "Warning: could not post results to Ghrava - $_" -ForegroundColor Yellow
         Write-Host "         Results are still in $ResultsJson" -ForegroundColor Yellow
     }
 }
@@ -182,7 +209,7 @@ Write-Host "══════════════════════�
 if ($ExitCode -eq 0) {
     Write-Host "  ALL TESTS PASSED" -ForegroundColor Green
 } else {
-    Write-Host "  TESTS FAILED — check Reports → Testing in Ghrava" -ForegroundColor Red
+    Write-Host "  TESTS FAILED - check Reports → Testing in Ghrava" -ForegroundColor Red
 }
 Write-Host "  Duration: $([math]::Round($DurationMs/1000,1))s" -ForegroundColor Cyan
 Write-Host "══════════════════════════════════════════════" -ForegroundColor Cyan
@@ -190,14 +217,14 @@ Write-Host ""
 
 # ── Clean up test-results folder so deploy script doesn't hit EPERM ──
 # Results are already saved to $ReportDir and posted to Ghrava above.
-# The local test-results/ folder is a temp artifact — safe to remove.
+# The local test-results/ folder is a temp artifact - safe to remove.
 $LocalResults = Join-Path $TestsDir "test-results"
 if (Test-Path $LocalResults) {
     try {
         Remove-Item $LocalResults -Recurse -Force -ErrorAction SilentlyContinue
         Write-Host "Cleaned up local test-results folder" -ForegroundColor DarkGray
     } catch {
-        Write-Host "Note: could not remove test-results/ — $_ (safe to ignore)" -ForegroundColor DarkGray
+        Write-Host "Note: could not remove test-results/ - $_ (safe to ignore)" -ForegroundColor DarkGray
     }
 }
 

@@ -1259,6 +1259,7 @@
           <button class="btn btn-primary" id="runAllBtn" onclick="runAll()">▶ Run All</button>
           <button class="btn btn-ghost" onclick="clearResults()">↺ Clear</button>
           <button class="btn btn-ghost" onclick="toggleHistory()">📋 History</button>
+          <button class="btn btn-ghost" onclick="cleanupDiagData()" title="Delete leftover _diag_* records from failed test runs">🧹 Clean Leftovers</button>
         </div>
       </div>
 
@@ -4269,6 +4270,27 @@ async function runAll() {
   _running = false;
   saveHistory();
 }
+
+// Sweeps any leftover _diag_* records the diagnostic CRUD tests created.
+// When a test fails mid-run, the cleanup DELETE doesn't fire and a record
+// can leak into the live DB. This calls a server endpoint that deletes
+// those records from every table the diagnostics touch.
+async function cleanupDiagData() {
+  if (!confirm('Delete all records starting with "_diag_" from inventory, todos, books, contacts, kids, etc.?\n\nThis only affects records created by failed Diagnostics test runs.')) return;
+  try {
+    const r = await window.api('POST', '/system/diag/cleanup');
+    if (r.ok) {
+      const lines = Object.entries(r.by_table || {})
+        .map(([t,n]) => `${t}: ${n}`).join('\n');
+      alert(`Deleted ${r.total_deleted} leftover _diag_* records.${lines ? '\n\n' + lines : ''}`);
+    } else {
+      alert('Cleanup did not complete cleanly: ' + JSON.stringify(r));
+    }
+  } catch (e) {
+    alert('Cleanup failed: ' + (e.message || e));
+  }
+}
+window.cleanupDiagData = cleanupDiagData;
 
 function clearResults() {
   TESTS.forEach(t => delete state[t.id]);

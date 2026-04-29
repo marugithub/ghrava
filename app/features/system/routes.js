@@ -53,6 +53,58 @@ router.post('/db/analyze', requireAuth, (req, res) => {
   try { res.json(runAnalyze()); } catch(e) { serverError(res, e); }
 });
 
+// POST /api/v1/system/diag/cleanup
+// Sweeps every table that the Settings → Diagnostics CRUD tests insert into,
+// deleting any record whose primary text field starts with "_diag_".
+// Safe to run anytime — only matches records the diagnostic suite created.
+// Returns counts deleted per table for visibility.
+router.post('/diag/cleanup', requireAuth, (req, res) => {
+  try {
+    const db = require('../../db/db');
+    // [table, columnToMatch] pairs. Ordered safely (children before parents).
+    const sweep = [
+      ['kids_activities',     'name'],
+      ['kids_notes',          'body'],
+      ['kids',                'display_name'],
+      ['career_goals',        'title'],
+      ['career_certifications','name'],
+      ['property_maintenance','description'],
+      ['property_vehicles',   'nickname'],
+      ['todos',               'title'],
+      ['daily_log',           'entry_text'],
+      ['hsa_payments',        'provider'],
+      ['medical_notes',       'patient'],
+      ['medical_medications', 'name'],
+      ['medical_conditions',  'condition_name'],
+      ['items',               'name'],
+      ['contacts',            'name'],
+      ['tags',                'name'],
+      ['documents',           'title'],
+      ['books',               'title'],
+      ['financial_accounts',  'nickname'],
+    ];
+    const results = {};
+    let total = 0;
+    for (const [table, col] of sweep) {
+      try {
+        // Underscore is a single-char wildcard in LIKE, so we must escape
+        // each literal underscore. '\_diag\_%' ESCAPE '\' matches strings
+        // that literally start with _diag_.
+        const info = db.prepare(
+          `DELETE FROM ${table} WHERE ${col} LIKE '\\_diag\\_%' ESCAPE '\\'`
+        ).run();
+        if (info.changes > 0) {
+          results[table] = info.changes;
+          total += info.changes;
+        }
+      } catch (e) {
+        results[table] = `error: ${e.message}`;
+      }
+    }
+    res.json({ ok: true, total_deleted: total, by_table: results });
+  } catch (e) { serverError(res, e); }
+});
+
 // ── Webhooks ─────────────────────────────────────────────────
 router.get('/webhooks', (req, res) => {
   try { res.json(getWebhooks()); } catch(e) { serverError(res, e); }
