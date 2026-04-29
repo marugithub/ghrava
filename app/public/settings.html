@@ -205,17 +205,28 @@
 
   /* ── Sub-panel slide system ──────────────────────────────── */
   .sub-panel {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    z-index: 400; /* above sidebar (300), drawers (300), everything */
-    background: var(--bg);
-    transform: translateX(100%);
-    transition: transform 0.28s cubic-bezier(0.4,0,0.2,1);
+    /* TEMP DEBUG — center modal with hard z-index/border so it's
+       impossible to miss. Revert to slide-in once we confirm visibility. */
+    position: fixed !important;
+    top: 50% !important;
+    left: 50% !important;
+    right: auto !important;
+    bottom: auto !important;
+    transform: translate(-50%, -50%) !important;
+    width: min(900px, 92vw) !important;
+    height: 85vh !important;
+    z-index: 99999 !important;
+    background: var(--bg) !important;
+    border: 4px solid red !important;
+    box-shadow: 0 0 0 9999px rgba(0,0,0,0.6) !important;
     overflow-y: auto;
     overscroll-behavior: contain;
     -webkit-overflow-scrolling: touch;
+    display: none !important;
   }
-  .sub-panel.open { transform: translateX(0); }
+  .sub-panel.open {
+    display: block !important;
+  }
 
   /* Desktop: sidebar is always 220px — panel slides in beside it */
   @media (min-width: 900px) {
