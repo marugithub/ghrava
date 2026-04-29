@@ -126,29 +126,67 @@ if (Test-Path $ResultsJson) {
     try {
         $pw = Get-Content $ResultsJson -Raw | ConvertFrom-Json
 
-        # Build structured run data for Ghrava API
-        $suites = @()
-        foreach ($suite in $pw.suites) {
-            $tests = @()
-            foreach ($spec in $suite.specs) {
-                foreach ($t in $spec.tests) {
-                    $result = $t.results | Select-Object -First 1
-                    $tests += @{
-                        title       = $spec.title
-                        status      = if ($t.status -eq "expected") { "passed" } else { $t.status }
-                        duration_ms = if ($result) { $result.duration } else { 0 }
-                        error       = if ($result -and $result.error) { $result.error.message } else { $null }
+        # Playwright's results.json nests suites recursively:
+        #   suites[].suites[].specs[].tests[].results[]
+        # The previous flat parse missed everything because top-level suites
+        # only have child suites, not specs. Walk recursively to flatten.
+        $allTests = New-Object System.Collections.ArrayList
+        $allSuiteNames = New-Object System.Collections.ArrayList
+
+        function Walk-Suite {
+            param($node, $parentName)
+            $here = if ($node.title) { $node.title } else { $parentName }
+            if ($node.specs) {
+                foreach ($spec in $node.specs) {
+                    foreach ($t in $spec.tests) {
+                        $result = $t.results | Select-Object -First 1
+                        $errMsg = $null
+                        if ($result -and $result.error) {
+                            $errMsg = $result.error.message
+                            if (-not $errMsg) { $errMsg = $result.error.value }
+                        }
+                        $script:flatTest = @{
+                            title       = $spec.title
+                            suite       = $here
+                            status      = if ($t.status -eq "expected") { "passed" } else { $t.status }
+                            duration_ms = if ($result) { [int]$result.duration } else { 0 }
+                            error       = $errMsg
+                        }
+                        [void]$script:allTests.Add($script:flatTest)
                     }
                 }
             }
-            $suites += @{
-                name  = $suite.title
-                tests = $tests
+            if ($node.suites) {
+                foreach ($child in $node.suites) {
+                    Walk-Suite -node $child -parentName $here
+                }
             }
         }
 
-        $passed = ($suites | ForEach-Object { $_.tests } | Where-Object { $_.status -eq "passed" }).Count
-        $failed = ($suites | ForEach-Object { $_.tests } | Where-Object { $_.status -ne "passed" }).Count
+        foreach ($topSuite in $pw.suites) {
+            Walk-Suite -node $topSuite -parentName $topSuite.title
+            [void]$allSuiteNames.Add($topSuite.title)
+        }
+
+        # Group flat tests back into suites for the API payload
+        $suiteMap = @{}
+        foreach ($t in $allTests) {
+            $sname = $t.suite
+            if (-not $suiteMap.ContainsKey($sname)) { $suiteMap[$sname] = @() }
+            $suiteMap[$sname] += @{
+                title       = $t.title
+                status      = $t.status
+                duration_ms = $t.duration_ms
+                error       = $t.error
+            }
+        }
+        $suites = @()
+        foreach ($sname in $suiteMap.Keys) {
+            $suites += @{ name = $sname; tests = $suiteMap[$sname] }
+        }
+
+        $passed = @($allTests | Where-Object { $_.status -eq "passed" }).Count
+        $failed = @($allTests | Where-Object { $_.status -ne "passed" }).Count
         $total  = $passed + $failed
 
         $RunData = @{

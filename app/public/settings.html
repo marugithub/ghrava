@@ -2547,10 +2547,27 @@ async function changePassword() {
 
 function openPanel(name) {
   activePanel = name;
-  document.getElementById(`panel-${name}`).classList.add('open');
+  const panel = document.getElementById(`panel-${name}`);
+  if (!panel) {
+    console.error(`openPanel: no element #panel-${name}`);
+    alert(`Panel "${name}" is not defined. Check console.`);
+    return;
+  }
+  panel.classList.add('open');
   document.body.classList.add('panel-open');
   history.pushState({ panel: name }, '', '');
-  PANEL_LOADERS[name]?.();
+  // Run the loader after panel is visible — even if it throws, the panel
+  // stays open so the user can see what panel they clicked into.
+  try {
+    PANEL_LOADERS[name]?.();
+  } catch (err) {
+    console.error(`Panel loader for "${name}" failed:`, err);
+    const content = panel.querySelector('.content, .sub-panel-content') || panel;
+    const errBox = document.createElement('div');
+    errBox.style.cssText = 'background:rgba(239,68,68,.1);border:1px solid var(--red);color:var(--red);padding:14px;border-radius:8px;margin:14px;font-size:13px;font-family:var(--mono)';
+    errBox.textContent = `Panel loader error: ${err.message}\n${err.stack ? err.stack.split('\n').slice(0,3).join('\n') : ''}`;
+    content.prepend(errBox);
+  }
 }
 
 function closePanel(name) {
@@ -4176,6 +4193,8 @@ const TESTS = [
 ];
 
 // ── State ──────────────────────────────────────────────────────
+// Auto-assign id from cat+name so state[t.id] keys work properly.
+TESTS.forEach((t,i) => { if (!t.id) t.id = `${t.cat}_${i}_${t.name}`.replace(/[^a-z0-9_]/gi,'_').toLowerCase(); });
 const state = {};  // id → { status, detail, ms }
 let _running = false;
 

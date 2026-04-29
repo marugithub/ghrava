@@ -22,17 +22,30 @@ const BASE = process.env.GHRAVA_URL || 'http://192.168.4.62:3001';
 const API  = BASE + '/api/v1';
 
 // ── Auth ──────────────────────────────────────────────────────
-// If GHRAVA_TOKEN is set in the environment, attach Bearer auth to every
-// protected request. The launcher passes -AuthToken through to run-tests.ps1
-// which exports it as GHRAVA_TOKEN. Without this, all POST/PUT/DELETE
-// against an auth-enabled Ghrava instance return 401.
-const AUTH_TOKEN = process.env.GHRAVA_TOKEN || '';
-const AUTH_HEADERS = AUTH_TOKEN ? { 'Authorization': `Bearer ${AUTH_TOKEN}` } : {};
+// GHRAVA_TOKEN env var holds the user's PASSWORD (passed via -AuthToken in
+// run-tests.ps1). Ghrava's auth system requires us to exchange the password
+// for a session token via POST /auth/login. Tokens live in a DB table; the
+// raw password sent as Bearer fails with "Session expired".
+const AUTH_PASSWORD = process.env.GHRAVA_TOKEN || '';
+let SESSION_TOKEN   = '';   // set by test.beforeAll, used by all writes
+let AUTH_HEADERS    = {};   // populated after login
 
-/** Skip helper — call at top of any test that mutates state */
-function requireAuth(testInfo) {
-  if (!AUTH_TOKEN) testInfo.skip(true, 'GHRAVA_TOKEN not set — skipping auth-required test');
-}
+test.beforeAll(async () => {
+  if (!AUTH_PASSWORD) return;  // open mode — no password required
+  const r = await fetch(`${API}/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: AUTH_PASSWORD }),
+  });
+  if (!r.ok) {
+    console.error(`Login failed: ${r.status} ${await r.text()}`);
+    return;
+  }
+  const data = await r.json();
+  SESSION_TOKEN = data.token;
+  AUTH_HEADERS  = { 'Authorization': `Bearer ${SESSION_TOKEN}` };
+  console.log(`Logged in — session token acquired (expires in ${data.expires_in_hours}h)`);
+});
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -564,7 +577,7 @@ test.describe('API Contract', () => {
     const r = await request.post(`${API}/books`, {
       data: {}, headers: { 'Content-Type': 'application/json' }
     });
-    if (AUTH_TOKEN) {
+    if (AUTH_PASSWORD) {
       // Verify auth IS enforced — we sent no token, should be 401
       expect([400, 401]).toContain(r.status());
     } else {
