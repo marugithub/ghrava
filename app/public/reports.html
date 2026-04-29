@@ -13,7 +13,12 @@
   <script src="/theme.js"></script>
   <script>if(localStorage.getItem('gh_nav_collapsed')==='1'){document.documentElement.classList.add('nav-collapsed-init');}</script>
   <style>
-    .reports-container{padding:16px;max-width:900px;margin:0 auto}
+    /* Landing grid stays in a comfortable 1100px column for card readability.
+       Detail view goes full width so reports with wide tables / charts use
+       all available horizontal space and don't feel like floating cards. */
+    .reports-container{padding:16px}
+    #reportsMainView{max-width:1100px;margin:0 auto}
+    #reportDetailView{max-width:none}
     .reports-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:8px}
     .report-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);padding:16px;cursor:pointer;transition:all .15s}
     .report-card:hover{border-color:var(--accent);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
