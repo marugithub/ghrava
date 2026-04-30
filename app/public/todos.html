@@ -366,6 +366,8 @@
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-config-todos.js"></script>
 <script>
 const API = '/api/v1/todos';
 const api = window.makeApi('/todos');
@@ -504,6 +506,56 @@ function render() {
   list.className = '';
   wireItems();
 }
+
+// ── GH_CARD v2 feature flag ────────────────────────────────────
+// New card design is opt-in via ?cards=v2 query param while we iterate.
+// When set, we override render() to use the shared GH_CARD pipeline.
+// Flip the default once approved.
+(function() {
+  const url = new URL(location.href);
+  const cardsV2 = url.searchParams.get('cards') === 'v2';
+  if (!cardsV2) return;
+  if (!window.GH_CARD) {
+    console.warn('[todos] cards=v2 requested but GH_CARD not loaded');
+    return;
+  }
+
+  const _origRender = window.render;
+  window.render = function() {
+    const list = document.getElementById('todoList');
+    if (!list) return _origRender();
+
+    // Reuse the same filter logic as the original render
+    const q = (window._todoSearch || '').toLowerCase();
+    let displayTodos = q
+      ? todos.filter(t =>
+          (t.title||'').toLowerCase().includes(q) ||
+          (t.notes||'').toLowerCase().includes(q) ||
+          (t.category||'').toLowerCase().includes(q)
+        )
+      : todos.slice();
+    if (_todoFilters.priority) displayTodos = displayTodos.filter(t => t.priority === _todoFilters.priority);
+    if (_todoFilters.category) displayTodos = displayTodos.filter(t => t.category === _todoFilters.category);
+    if (_todoFilters.tags?.length) displayTodos = displayTodos.filter(t => _todoFilters.tags.every(tag => (t.tags||[]).includes(tag)));
+
+    if (!displayTodos.length) {
+      list.innerHTML = `<div class="todos-empty">
+        <div class="todos-empty-icon">${filterMode === 'done' ? '✅' : '🎉'}</div>
+        <div class="todos-empty-title">${filterMode === 'done' ? 'Nothing completed yet' : 'All clear'}</div>
+        <div class="todos-empty-sub">${filterMode === 'done' ? 'Completed items from the last 7 days show here.' : ('No open to-dos' + (filterCat ? ' in ' + filterCat : '') + '. Tap + to add one.')}</div>
+      </div>`;
+      return;
+    }
+
+    list.innerHTML = '';
+    list.className = '';
+    list.style.padding = '16px';
+    const grouped = window.GH_CARD.renderGrouped('todos', displayTodos, { layout: 'list' });
+    list.appendChild(grouped);
+  };
+
+  console.log('[todos] cards=v2 active — using GH_CARD pipeline');
+})();
 
 function isSectionCollapsed(key) {
   return localStorage.getItem('gh_todo_sec_' + key) === '0';

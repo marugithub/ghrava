@@ -72,6 +72,95 @@
   --cat-holiday:     #86198f; --cat-holiday-bg:     #FDF4FF;
   --cat-books:       #5b21b6; --cat-books-bg:       #EDE9FE;
   --cat-other:       #374151; --cat-other-bg:       #F9FAFB;
+
+  /* ════════════════════════════════════════════════════════════════
+     GH DESIGN SYSTEM v2 — new tokens (per CARD_SPEC.md)
+     These coexist with legacy tokens above. New components use
+     --gh-*, legacy components keep their existing variables.
+     ════════════════════════════════════════════════════════════════ */
+
+  /* Status — used for dots, badges, alert tints */
+  --gh-status-good:    #34c759;
+  --gh-status-warn:    #f59e0b;
+  --gh-status-bad:     #ef4444;
+  --gh-status-neutral: #94a3b8;
+
+  /* Brand */
+  --gh-brand:          #14b8a6;
+  --gh-brand-hover:    #0d9488;
+  --gh-brand-soft:     rgba(20,184,166,0.10);
+  --gh-brand-border:   rgba(20,184,166,0.30);
+
+  /* Text */
+  --gh-text-primary:   #1a1a1a;
+  --gh-text-secondary: #475569;
+  --gh-text-tertiary:  #94a3b8;
+  --gh-text-quiet:     #cbd5e1;
+
+  /* Surface */
+  --gh-card-bg:        #ffffff;
+  --gh-card-border:    #e5e7eb;
+  --gh-card-divider:   #f1f5f9;
+  --gh-page-bg:        #ffffff;
+
+  /* Soft tints + matching foregrounds — instruction icons, condition chips */
+  --gh-tint-purple:    rgba(99,102,241,0.10);  --gh-tint-purple-fg: #4f46e5;
+  --gh-tint-amber:     rgba(217,119,6,0.10);   --gh-tint-amber-fg:  #d97706;
+  --gh-tint-red:       rgba(220,38,38,0.10);   --gh-tint-red-fg:    #dc2626;
+  --gh-tint-blue:      rgba(2,132,199,0.10);   --gh-tint-blue-fg:   #0284c7;
+  --gh-tint-green:     rgba(22,163,74,0.10);   --gh-tint-green-fg:  #16a34a;
+  --gh-tint-pink:      rgba(236,72,153,0.10);  --gh-tint-pink-fg:   #db2777;
+  --gh-tint-teal:      rgba(20,184,166,0.10);  --gh-tint-teal-fg:   #0d9488;
+
+  /* Status alert backgrounds (zone 3) */
+  --gh-alert-warn-bg:    rgba(254,243,199,0.30);
+  --gh-alert-warn-bd:    rgba(245,158,11,0.30);
+  --gh-alert-bad-bg:     rgba(254,226,226,0.30);
+  --gh-alert-bad-bd:     rgba(220,38,38,0.30);
+  --gh-alert-good-bg:    rgba(220,252,231,0.30);
+  --gh-alert-good-bd:    rgba(34,197,94,0.30);
+
+  /* Sizes */
+  --gh-radius-card:    18px;
+  --gh-radius-chip:    9px;
+  --gh-radius-button:  9px;
+  --gh-radius-pill:    999px;
+
+  --gh-tap-min:        32px;
+  --gh-tap-comfort:    44px;
+
+  --gh-icon-sm:        14px;
+  --gh-icon-md:        18px;
+  --gh-icon-lg:        24px;
+
+  --gh-avatar-sm:      28px;
+  --gh-avatar-md:      36px;
+  --gh-avatar-lg:      48px;
+
+  --gh-card-pad-x:     18px;
+  --gh-card-pad-y:     14px;
+  --gh-card-gap:       16px;
+
+  /* Type */
+  --gh-text-title:     20px;
+  --gh-text-title-sm:  18px;
+  --gh-text-body:      14px;
+  --gh-text-meta:      12px;
+  --gh-text-label:     11px;
+  --gh-text-micro:     10px;
+
+  --gh-weight-bold:    600;
+  --gh-weight-medium:  500;
+  --gh-weight-normal:  400;
+
+  /* Motion */
+  --gh-motion-fast:    120ms ease;
+  --gh-motion-base:    220ms ease;
+  --gh-motion-slow:    320ms ease;
+
+  /* Shadows */
+  --gh-shadow-card:       0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);
+  --gh-shadow-card-hover: 0 4px 12px rgba(0,0,0,0.08), 0 16px 40px rgba(0,0,0,0.10);
 }
 
 html, body {
@@ -3084,3 +3173,452 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
  * To restore in any module, remove the .legacy-hidden class on its
  * <div class="search-wrap"> wrapper. */
 .search-wrap.legacy-hidden { display: none !important; }
+
+
+/* ════════════════════════════════════════════════════════════════════
+   GH CARD COMPONENT v2 — per CARD_SPEC.md
+   Single shared card system. Module configs (in JS) drive content;
+   CSS structure is identical for every module.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Base card ─────────────────────────────────────────────────── */
+.gh-card {
+  background: var(--gh-card-bg);
+  border: 0.5px solid var(--gh-card-border);
+  border-radius: var(--gh-radius-card);
+  overflow: hidden;
+  box-shadow: var(--gh-shadow-card);
+  transition: transform var(--gh-motion-fast), box-shadow var(--gh-motion-fast), border-color var(--gh-motion-fast);
+  font-family: var(--sans);
+  color: var(--gh-text-primary);
+  position: relative;
+}
+.gh-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--gh-shadow-card-hover);
+  border-color: var(--gh-brand-soft);
+}
+.gh-card[data-state="completed"],
+.gh-card[data-state="archived"] {
+  opacity: 0.55;
+}
+
+/* ── Compact mode (single-row) ─────────────────────────────────── */
+.gh-card--compact { display: block; }
+.gh-card--compact .gh-card__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px var(--gh-card-pad-x);
+}
+
+/* ── Zone 1 · status row ───────────────────────────────────────── */
+.gh-card__status-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px var(--gh-card-pad-x) 0;
+}
+.gh-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.gh-status-dot--good    { background: var(--gh-status-good);    box-shadow: 0 0 0 4px rgba(52,199,89,0.16); }
+.gh-status-dot--warn    { background: var(--gh-status-warn);    box-shadow: 0 0 0 4px rgba(245,158,11,0.16); }
+.gh-status-dot--bad     { background: var(--gh-status-bad);     box-shadow: 0 0 0 4px rgba(239,68,68,0.16); }
+.gh-status-dot--neutral { background: var(--gh-status-neutral); box-shadow: 0 0 0 4px rgba(148,163,184,0.16); }
+
+/* Category chip (e.g. "Cholesterol", "Garage › Workbench") */
+.gh-cat-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px 4px 7px;
+  border-radius: var(--gh-radius-pill);
+  cursor: pointer;
+  font-size: var(--gh-text-label);
+  font-weight: var(--gh-weight-medium);
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: background var(--gh-motion-fast);
+  border: none;
+  background: var(--gh-tint-blue);
+  color: var(--gh-tint-blue-fg);
+}
+.gh-cat-chip__icon { width: 14px; height: 14px; display: inline-flex; align-items: center; justify-content: center; }
+.gh-cat-chip__icon img,
+.gh-cat-chip__icon svg { width: 100%; height: 100%; display: block; }
+.gh-cat-chip--purple { background: var(--gh-tint-purple); color: var(--gh-tint-purple-fg); }
+.gh-cat-chip--amber  { background: var(--gh-tint-amber);  color: var(--gh-tint-amber-fg); }
+.gh-cat-chip--red    { background: var(--gh-tint-red);    color: var(--gh-tint-red-fg); }
+.gh-cat-chip--blue   { background: var(--gh-tint-blue);   color: var(--gh-tint-blue-fg); }
+.gh-cat-chip--green  { background: var(--gh-tint-green);  color: var(--gh-tint-green-fg); }
+.gh-cat-chip--pink   { background: var(--gh-tint-pink);   color: var(--gh-tint-pink-fg); }
+.gh-cat-chip--teal   { background: var(--gh-tint-teal);   color: var(--gh-tint-teal-fg); }
+
+/* Quiet category tag (e.g. "Statin") */
+.gh-cat-tag {
+  font-size: var(--gh-text-label);
+  color: var(--gh-text-tertiary);
+  font-weight: var(--gh-weight-medium);
+  white-space: nowrap;
+}
+
+.gh-card__spacer { flex: 1; min-width: 0; }
+
+/* Tappable icon button (pin, menu) */
+.gh-icon-tap {
+  width: var(--gh-tap-min);
+  height: var(--gh-tap-min);
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: background var(--gh-motion-fast);
+  color: var(--gh-text-tertiary);
+  flex-shrink: 0;
+  padding: 0;
+}
+.gh-icon-tap:hover { background: rgba(0,0,0,0.04); }
+.gh-icon-tap__svg { width: var(--gh-icon-md); height: var(--gh-icon-md); display: inline-flex; }
+.gh-icon-tap__svg img,
+.gh-icon-tap__svg svg { width: 100%; height: 100%; display: block; }
+
+/* ── Zone 2 · identity ─────────────────────────────────────────── */
+.gh-card__identity {
+  display: flex;
+  gap: var(--gh-card-gap);
+  padding: 16px var(--gh-card-pad-x) 14px;
+  align-items: center;
+}
+.gh-card__hero {
+  flex: 0 0 132px;
+  height: 84px;
+  border-radius: 12px;
+  background: var(--gh-card-divider);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.gh-card__hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.gh-card__hero svg { display: block; }
+
+.gh-card__title-block { flex: 1; min-width: 0; }
+.gh-card__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.gh-card__title {
+  font-size: var(--gh-text-title-sm);
+  font-weight: var(--gh-weight-bold);
+  color: var(--gh-text-primary);
+  line-height: 1.15;
+  letter-spacing: -0.01em;
+}
+.gh-card__title--lg { font-size: var(--gh-text-title); }
+.gh-card__subtitle {
+  font-size: var(--gh-text-body);
+  color: var(--gh-text-secondary);
+  font-weight: var(--gh-weight-medium);
+}
+.gh-card__meta {
+  font-size: var(--gh-text-meta);
+  color: var(--gh-text-tertiary);
+}
+.gh-card__meta--with-mt { margin-top: 6px; }
+.gh-card__schedule {
+  font-size: var(--gh-text-body);
+  color: var(--gh-text-secondary);
+  margin-top: 6px;
+}
+
+/* Instruction icons (32px chip with 18px duotone icon inside) */
+.gh-instr-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.gh-instr {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--gh-radius-chip);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  flex-shrink: 0;
+  padding: 0;
+}
+.gh-instr__svg { width: 18px; height: 18px; display: inline-flex; }
+.gh-instr__svg img,
+.gh-instr__svg svg { width: 100%; height: 100%; display: block; }
+.gh-instr--purple { background: var(--gh-tint-purple); color: var(--gh-tint-purple-fg); }
+.gh-instr--amber  { background: var(--gh-tint-amber);  color: var(--gh-tint-amber-fg); }
+.gh-instr--red    { background: var(--gh-tint-red);    color: var(--gh-tint-red-fg); }
+.gh-instr--blue   { background: var(--gh-tint-blue);   color: var(--gh-tint-blue-fg); }
+.gh-instr--green  { background: var(--gh-tint-green);  color: var(--gh-tint-green-fg); }
+.gh-instr--pink   { background: var(--gh-tint-pink);   color: var(--gh-tint-pink-fg); }
+.gh-instr--teal   { background: var(--gh-tint-teal);   color: var(--gh-tint-teal-fg); }
+
+/* Quick-fact chips (in identity zone — $129, 2022, Warranty 1y) */
+.gh-fact-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.gh-fact {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--gh-radius-pill);
+  background: var(--gh-card-divider);
+  font-size: var(--gh-text-label);
+  color: var(--gh-text-secondary);
+  font-weight: var(--gh-weight-medium);
+}
+.gh-fact__icon { width: 12px; height: 12px; display: inline-flex; }
+.gh-fact__icon img,
+.gh-fact__icon svg { width: 100%; height: 100%; display: block; }
+
+/* Condition badge (e.g. WORKING) — small uppercase */
+.gh-badge {
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: var(--gh-text-micro);
+  font-weight: var(--gh-weight-bold);
+  letter-spacing: 0.04em;
+}
+.gh-badge--good { background: var(--gh-tint-green); color: var(--gh-tint-green-fg); }
+.gh-badge--warn { background: var(--gh-tint-amber); color: var(--gh-tint-amber-fg); }
+.gh-badge--bad  { background: var(--gh-tint-red);   color: var(--gh-tint-red-fg); }
+
+/* ── Zone 3 · action / alert ───────────────────────────────────── */
+.gh-card__alert {
+  margin: 0 var(--gh-card-pad-x) 16px;
+  padding: 14px;
+  border-radius: 12px;
+  border: 0.5px solid var(--gh-alert-warn-bd);
+  background: var(--gh-alert-warn-bg);
+}
+.gh-card__alert--bad  { background: var(--gh-alert-bad-bg);  border-color: var(--gh-alert-bad-bd); }
+.gh-card__alert--good { background: var(--gh-alert-good-bg); border-color: var(--gh-alert-good-bd); }
+
+.gh-card__alert-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.gh-card__alert-row:last-child { margin-bottom: 0; }
+.gh-card__alert-text {
+  font-size: var(--gh-text-body);
+  font-weight: var(--gh-weight-bold);
+  color: var(--gh-text-primary);
+}
+.gh-card__alert-meta {
+  font-size: var(--gh-text-label);
+  color: var(--gh-text-tertiary);
+  font-weight: var(--gh-weight-medium);
+}
+.gh-card__alert-meta--mono {
+  font-family: var(--mono);
+  color: var(--gh-text-secondary);
+}
+
+/* Primary action button */
+.gh-btn {
+  padding: 8px 14px;
+  border-radius: var(--gh-radius-button);
+  background: var(--gh-brand);
+  border: none;
+  color: white;
+  font-size: var(--gh-text-meta);
+  font-weight: var(--gh-weight-bold);
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(20,184,166,0.30);
+  transition: background var(--gh-motion-fast), transform var(--gh-motion-fast);
+  font-family: var(--sans);
+}
+.gh-btn:hover { background: var(--gh-brand-hover); }
+.gh-btn:active { transform: scale(0.97); }
+.gh-btn--amber { background: var(--gh-status-warn); box-shadow: 0 1px 3px rgba(245,158,11,0.40); }
+.gh-btn--amber:hover { background: #d97706; }
+.gh-btn--red { background: var(--gh-status-bad); box-shadow: 0 1px 3px rgba(239,68,68,0.40); }
+.gh-btn--red:hover { background: #dc2626; }
+
+/* ── Zone 4 · linked entities ──────────────────────────────────── */
+.gh-card__entities {
+  display: flex;
+  gap: 12px;
+  padding: 16px var(--gh-card-pad-x) 18px;
+  align-items: center;
+  border-top: 0.5px solid var(--gh-card-divider);
+}
+.gh-entity {
+  width: var(--gh-avatar-md);
+  height: var(--gh-avatar-md);
+  border-radius: 50%;
+  color: white;
+  font-size: var(--gh-text-meta);
+  font-weight: var(--gh-weight-bold);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform var(--gh-motion-fast), box-shadow var(--gh-motion-fast);
+  overflow: hidden;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+  border: none;
+  padding: 0;
+  font-family: var(--sans);
+}
+.gh-entity:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+.gh-entity img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+.gh-entity--sm { width: var(--gh-avatar-sm); height: var(--gh-avatar-sm); font-size: var(--gh-text-label); }
+.gh-entity--brand-3 { font-size: var(--gh-text-micro); letter-spacing: 0.04em; font-weight: 700; }
+
+/* Drill-down link (Timeline →, History →) */
+.gh-drill-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  font-size: var(--gh-text-label);
+  color: var(--gh-text-secondary);
+  font-weight: var(--gh-weight-medium);
+  transition: background var(--gh-motion-fast);
+  font-family: var(--sans);
+}
+.gh-drill-link:hover { background: rgba(0,0,0,0.04); }
+.gh-drill-link__chev { width: 14px; height: 14px; color: var(--gh-text-tertiary); display: inline-flex; }
+.gh-drill-link__chev svg { width: 100%; height: 100%; display: block; fill: currentColor; }
+
+/* ── Compact-mode tap circle (todos) ───────────────────────────── */
+.gh-tap-circle {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  padding: 0;
+  transition: background var(--gh-motion-fast);
+}
+.gh-tap-circle:hover { background: rgba(0,0,0,0.04); }
+.gh-tap-circle__svg {
+  width: 26px;
+  height: 26px;
+  color: var(--gh-text-quiet);
+  display: inline-flex;
+  transition: color var(--gh-motion-base);
+}
+.gh-tap-circle__svg img,
+.gh-tap-circle__svg svg { width: 100%; height: 100%; display: block; }
+.gh-tap-circle--done .gh-tap-circle__svg { color: var(--gh-tint-green-fg); }
+
+.gh-compact-title {
+  font-size: 15px;
+  font-weight: var(--gh-weight-medium);
+  color: var(--gh-text-primary);
+  line-height: 1.3;
+}
+.gh-compact-title--done {
+  color: var(--gh-text-secondary);
+  text-decoration: line-through;
+  text-decoration-color: var(--gh-text-quiet);
+}
+.gh-compact-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: var(--gh-text-meta);
+  color: var(--gh-text-tertiary);
+}
+.gh-compact-meta__divider { color: var(--gh-text-quiet); }
+.gh-compact-meta__urgent { color: #b45309; font-weight: var(--gh-weight-medium); }
+.gh-compact-meta__icon { width: 12px; height: 12px; display: inline-flex; vertical-align: middle; }
+.gh-compact-meta__icon img,
+.gh-compact-meta__icon svg { width: 100%; height: 100%; display: block; }
+
+/* ── Card grid container ───────────────────────────────────────── */
+.gh-card-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+}
+.gh-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── Group section header ──────────────────────────────────────── */
+.gh-group-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
+  margin-top: 28px;
+}
+.gh-group-header:first-child { margin-top: 0; }
+.gh-group-header__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  align-self: center;
+}
+.gh-group-header__label {
+  font-size: var(--gh-text-label);
+  font-weight: var(--gh-weight-bold);
+  color: var(--gh-text-primary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.gh-group-header__count {
+  font-size: var(--gh-text-label);
+  color: var(--gh-text-tertiary);
+}
+
+/* ── Mobile responsive ─────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .gh-card__hero { flex: 0 0 100px; height: 70px; }
+  .gh-card__title { font-size: 17px; }
+  .gh-card__title--lg { font-size: 18px; }
+  .gh-card-grid { grid-template-columns: 1fr; }
+}

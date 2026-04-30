@@ -1,0 +1,482 @@
+/**
+ * GH_CARD — shared card renderer.
+ *
+ * One render path for every module's cards. Takes a record + a module
+ * config and returns DOM. Module configs live in their own files (e.g.
+ * gh-card-config-todos.js) and register themselves with GH_CARD.
+ *
+ * See CARD_SPEC.md (in spec/) for full design rationale.
+ *
+ * Usage:
+ *   GH_CARD.register('todos', { mode: 'compact', ... });
+ *   const el = GH_CARD.render('todos', record);
+ *   container.appendChild(el);
+ *
+ * Avatar fallback chain (per spec):
+ *   1. If photo/logo uploaded → use it
+ *   2. Else brand-color background + brand initials
+ *   3. Else initials on a generated gradient (hashed by ID)
+ */
+(function() {
+  'use strict';
+
+  const PHOSPHOR_BASE = '/assets/icons/phosphor/duotone/';
+  // Fallback to shared-resources mount once we wire that up
+  // const PHOSPHOR_SHARED = '/shared-resources/icons/phosphor/duotone/';
+
+  const TINT_NAMES = ['purple', 'amber', 'red', 'blue', 'green', 'pink', 'teal'];
+  const STATUS_NAMES = ['good', 'warn', 'bad', 'neutral'];
+
+  // Stable color generator for entity avatars without photos.
+  // Takes any string (entity id), returns a {from, to} gradient.
+  const AVATAR_GRADIENTS = [
+    { from: '#f472b6', to: '#db2777' },  // pink
+    { from: '#34d399', to: '#047857' },  // green
+    { from: '#60a5fa', to: '#2563eb' },  // blue
+    { from: '#fbbf24', to: '#d97706' },  // amber
+    { from: '#a78bfa', to: '#7c3aed' },  // purple
+    { from: '#fb7185', to: '#be123c' },  // rose
+    { from: '#22d3ee', to: '#0891b2' },  // cyan
+    { from: '#facc15', to: '#a16207' },  // yellow
+  ];
+
+  function hashStr(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h);
+  }
+
+  function gradientFor(seed) {
+    return AVATAR_GRADIENTS[hashStr(String(seed)) % AVATAR_GRADIENTS.length];
+  }
+
+  function initialsOf(text, count = 2) {
+    if (!text) return '?';
+    const parts = String(text).trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, count).toUpperCase();
+    return parts.slice(0, count).map(p => p[0]).join('').toUpperCase();
+  }
+
+  // ── DOM helpers ────────────────────────────────────────────────
+  function el(tag, attrs = {}, children = []) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === 'class') node.className = v;
+      else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v);
+      else if (k === 'dataset') Object.assign(node.dataset, v);
+      else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+      else if (k === 'html') node.innerHTML = v;
+      else node.setAttribute(k, v);
+    }
+    for (const child of [].concat(children)) {
+      if (child == null || child === false) continue;
+      if (typeof child === 'string') node.appendChild(document.createTextNode(child));
+      else node.appendChild(child);
+    }
+    return node;
+  }
+
+  function phosphorIcon(name, size = 18) {
+    const img = el('img', {
+      src: PHOSPHOR_BASE + name + '-duotone.svg',
+      alt: '',
+      width: size,
+      height: size,
+      style: { width: '100%', height: '100%', display: 'block' },
+    });
+    img.addEventListener('error', () => {
+      // Graceful fallback: render an empty span so layout doesn't collapse
+      img.style.visibility = 'hidden';
+    });
+    return img;
+  }
+
+  // ── Public API ─────────────────────────────────────────────────
+  const _configs = {};
+
+  function register(moduleId, config) {
+    _configs[moduleId] = config;
+  }
+
+  function render(moduleId, record) {
+    const config = _configs[moduleId];
+    if (!config) {
+      console.warn(`[GH_CARD] No config registered for "${moduleId}"`);
+      return el('div', { class: 'gh-card', style: { padding: '16px', color: 'red' } },
+        `Missing card config: ${moduleId}`);
+    }
+    const ctx = { record, config, moduleId };
+    return config.mode === 'compact' ? renderCompact(ctx) : renderFull(ctx);
+  }
+
+  // ── Compact-mode renderer (todos, dense lists) ─────────────────
+  function renderCompact(ctx) {
+    const { record, config } = ctx;
+    const isDone = config.isDone ? config.isDone(record) : false;
+
+    const tapCircle = el('button', {
+      class: 'gh-tap-circle' + (isDone ? ' gh-tap-circle--done' : ''),
+      title: isDone ? 'Mark incomplete' : 'Mark complete',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (config.onToggle) config.onToggle(record);
+      },
+    }, el('span', { class: 'gh-tap-circle__svg' },
+      phosphorIcon(isDone ? 'check-circle' : 'circle', 26)
+    ));
+
+    const title = el('div', {
+      class: 'gh-compact-title' + (isDone ? ' gh-compact-title--done' : '')
+    }, config.title ? config.title(record) : (record.title || record.name || ''));
+
+    const metaItems = (config.compactMeta ? config.compactMeta(record) : []).filter(Boolean);
+    const metaRow = el('div', { class: 'gh-compact-meta' }, metaItems.flatMap((m, i) => {
+      const items = [];
+      if (i > 0) items.push(el('span', { class: 'gh-compact-meta__divider' }, '·'));
+      if (typeof m === 'string') {
+        items.push(el('span', {}, m));
+      } else if (m.icon) {
+        const span = el('span', { class: m.urgent ? 'gh-compact-meta__urgent' : '' }, [
+          el('span', { class: 'gh-compact-meta__icon', style: { color: m.iconColor || 'currentColor' } },
+            phosphorIcon(m.icon, 12)),
+          ' ',
+          m.text,
+        ]);
+        items.push(span);
+      } else {
+        items.push(el('span', { class: m.urgent ? 'gh-compact-meta__urgent' : '' }, m.text));
+      }
+      return items;
+    }));
+
+    const middle = el('div', { class: 'gh-card__spacer' }, [title, metaRow]);
+
+    const right = [];
+    const entities = (config.linkedEntities ? config.linkedEntities(record) : []).filter(Boolean);
+    if (entities.length) right.push(renderEntity(entities[0], 'sm'));
+    right.push(renderMenuButton(record, config));
+
+    return el('div', {
+      class: 'gh-card gh-card--compact',
+      dataset: { module: ctx.moduleId, recordId: record.id, state: isDone ? 'completed' : 'active' },
+      onclick: () => config.onClick && config.onClick(record),
+    }, el('div', { class: 'gh-card__row' }, [tapCircle, middle, ...right]));
+  }
+
+  // ── Full-mode renderer (medications, inventory, etc) ───────────
+  function renderFull(ctx) {
+    const { record, config } = ctx;
+    const card = el('div', {
+      class: 'gh-card',
+      dataset: { module: ctx.moduleId, recordId: record.id },
+    });
+
+    card.appendChild(renderStatusRow(ctx));
+    card.appendChild(renderIdentity(ctx));
+
+    const alert = renderAlert(ctx);
+    if (alert) card.appendChild(alert);
+
+    card.appendChild(renderEntities(ctx));
+    return card;
+  }
+
+  // ── Zone 1 ─────────────────────────────────────────────────────
+  function renderStatusRow(ctx) {
+    const { record, config } = ctx;
+    const status = config.statusDot ? config.statusDot(record) : 'neutral';
+    const safeStatus = STATUS_NAMES.includes(status) ? status : 'neutral';
+
+    const children = [el('div', { class: `gh-status-dot gh-status-dot--${safeStatus}` })];
+
+    if (config.categoryChip) {
+      const chip = config.categoryChip(record);
+      if (chip) children.push(renderCatChip(chip));
+    }
+    if (config.categoryTag) {
+      const tag = config.categoryTag(record);
+      if (tag) children.push(el('span', { class: 'gh-cat-tag' }, tag));
+    }
+
+    children.push(el('div', { class: 'gh-card__spacer' }));
+    children.push(renderPinButton(record, config));
+    children.push(renderMenuButton(record, config));
+
+    return el('div', { class: 'gh-card__status-row' }, children);
+  }
+
+  function renderCatChip(chip) {
+    const tint = TINT_NAMES.includes(chip.tint) ? chip.tint : 'blue';
+    const inner = [];
+    if (chip.icon) {
+      inner.push(el('span', { class: 'gh-cat-chip__icon' }, phosphorIcon(chip.icon, 14)));
+    }
+    inner.push(el('span', {}, chip.label || ''));
+    return el('button', {
+      class: `gh-cat-chip gh-cat-chip--${tint}`,
+      title: chip.tooltip || chip.label,
+      onclick: chip.onClick ? (e) => { e.stopPropagation(); chip.onClick(); } : null,
+    }, inner);
+  }
+
+  function renderPinButton(record, config) {
+    const isPinned = config.isPinned ? config.isPinned(record) : false;
+    return el('button', {
+      class: 'gh-icon-tap',
+      title: isPinned ? 'Unpin' : 'Pin',
+      style: isPinned ? { color: '#f59e0b' } : null,
+      onclick: (e) => {
+        e.stopPropagation();
+        if (config.onPin) config.onPin(record);
+      },
+    }, el('span', { class: 'gh-icon-tap__svg' },
+      phosphorIcon(isPinned ? 'push-pin' : 'push-pin', 18)
+    ));
+  }
+
+  function renderMenuButton(record, config) {
+    return el('button', {
+      class: 'gh-icon-tap',
+      title: 'More',
+      onclick: (e) => {
+        e.stopPropagation();
+        if (config.onMenu) config.onMenu(record, e);
+      },
+    }, el('span', { class: 'gh-icon-tap__svg' }, phosphorIcon('dots-three', 18)));
+  }
+
+  // ── Zone 2 ─────────────────────────────────────────────────────
+  function renderIdentity(ctx) {
+    const { record, config } = ctx;
+
+    const hero = el('div', { class: 'gh-card__hero' });
+    if (config.hero) {
+      const h = config.hero(record);
+      if (h instanceof Node) hero.appendChild(h);
+      else if (typeof h === 'string') hero.innerHTML = h;
+    }
+
+    const titleRow = [];
+    titleRow.push(el('div', { class: 'gh-card__title' },
+      config.title ? config.title(record) : (record.name || record.title || '')));
+
+    if (config.subtitle) {
+      const sub = config.subtitle(record);
+      if (sub) titleRow.push(el('div', { class: 'gh-card__subtitle' }, sub));
+    }
+
+    titleRow.push(el('div', { class: 'gh-card__spacer' }));
+
+    if (config.badge) {
+      const b = config.badge(record);
+      if (b) {
+        const tone = STATUS_NAMES.includes(b.tone) ? b.tone : 'good';
+        titleRow.push(el('span', { class: `gh-badge gh-badge--${tone}` }, b.label));
+      }
+    }
+
+    if (config.instructionIcons) {
+      const icons = config.instructionIcons(record).filter(Boolean);
+      for (const ic of icons) {
+        const tint = TINT_NAMES.includes(ic.tint) ? ic.tint : 'blue';
+        titleRow.push(el('button', {
+          class: `gh-instr gh-instr--${tint}`,
+          title: ic.tip || ic.icon,
+          onclick: ic.onClick ? (e) => { e.stopPropagation(); ic.onClick(); } : null,
+        }, el('span', { class: 'gh-instr__svg' }, phosphorIcon(ic.icon, 18))));
+      }
+    }
+
+    const titleBlock = [el('div', { class: 'gh-card__title-row' }, titleRow)];
+
+    if (config.metaLine) {
+      const meta = config.metaLine(record);
+      if (meta) titleBlock.push(el('div', { class: 'gh-card__meta' }, meta));
+    }
+    if (config.scheduleLine) {
+      const sched = config.scheduleLine(record);
+      if (sched) titleBlock.push(el('div', { class: 'gh-card__schedule' }, sched));
+    }
+
+    if (config.factChips) {
+      const facts = config.factChips(record).filter(Boolean);
+      if (facts.length) {
+        const factRow = el('div', { class: 'gh-fact-row' });
+        for (const f of facts) {
+          const factEl = el('span', { class: 'gh-fact' });
+          if (f.icon) {
+            factEl.appendChild(el('span',
+              { class: 'gh-fact__icon', style: { color: f.iconColor || 'inherit' } },
+              phosphorIcon(f.icon, 12)));
+          }
+          factEl.appendChild(document.createTextNode(f.text));
+          factRow.appendChild(factEl);
+        }
+        titleBlock.push(factRow);
+      }
+    }
+
+    return el('div', { class: 'gh-card__identity' }, [
+      hero,
+      el('div', { class: 'gh-card__title-block' }, titleBlock),
+    ]);
+  }
+
+  // ── Zone 3 ─────────────────────────────────────────────────────
+  function renderAlert(ctx) {
+    const { record, config } = ctx;
+    if (!config.alert) return null;
+    const a = config.alert(record);
+    if (!a || a.visible === false) return null;
+
+    const tone = STATUS_NAMES.includes(a.tone) ? a.tone : 'warn';
+    const toneClass = tone === 'good' ? 'gh-card__alert--good'
+                    : tone === 'bad'  ? 'gh-card__alert--bad'
+                    : '';
+
+    const topRow = [
+      el('div', { class: 'gh-card__alert-text' }, a.text || ''),
+    ];
+    if (a.metaText) topRow.push(el('div', { class: 'gh-card__alert-meta' }, a.metaText));
+    topRow.push(el('div', { class: 'gh-card__spacer' }));
+    if (a.actionLabel) {
+      const btnClass = a.actionTone === 'amber' ? 'gh-btn gh-btn--amber'
+                     : a.actionTone === 'red'   ? 'gh-btn gh-btn--red'
+                     : 'gh-btn';
+      topRow.push(el('button', {
+        class: btnClass,
+        onclick: (e) => {
+          e.stopPropagation();
+          if (a.onAction) a.onAction(record);
+        },
+      }, a.actionLabel));
+    }
+
+    const rows = [el('div', { class: 'gh-card__alert-row' }, topRow)];
+    if (a.subText || a.subTextMono) {
+      const subRow = el('div', { class: 'gh-card__alert-row' });
+      if (a.subText) subRow.appendChild(el('span', { class: 'gh-card__alert-meta' }, a.subText));
+      if (a.subTextMono) {
+        if (a.subText) subRow.appendChild(el('span', { class: 'gh-compact-meta__divider' }, '·'));
+        subRow.appendChild(el('span', { class: 'gh-card__alert-meta gh-card__alert-meta--mono' }, a.subTextMono));
+      }
+      rows.push(subRow);
+    }
+
+    return el('div', { class: `gh-card__alert ${toneClass}` }, rows);
+  }
+
+  // ── Zone 4 ─────────────────────────────────────────────────────
+  function renderEntities(ctx) {
+    const { record, config } = ctx;
+    const children = [];
+    if (config.linkedEntities) {
+      const entities = config.linkedEntities(record).filter(Boolean);
+      for (const e of entities) children.push(renderEntity(e));
+    }
+    children.push(el('div', { class: 'gh-card__spacer' }));
+
+    if (config.metaSuffix) {
+      const m = config.metaSuffix(record);
+      if (m) children.push(el('span', { class: 'gh-card__alert-meta' }, m));
+    }
+
+    if (config.drillDown) {
+      const d = typeof config.drillDown === 'function' ? config.drillDown(record) : config.drillDown;
+      if (d) {
+        const link = el('button', {
+          class: 'gh-drill-link',
+          title: d.tooltip || d.label,
+          onclick: (e) => { e.stopPropagation(); if (d.onClick) d.onClick(record); },
+        }, [
+          el('span', {}, d.label || 'Open'),
+          el('span', { class: 'gh-drill-link__chev', html:
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M184,128a8,8,0,0,1-2.34,5.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66A8,8,0,0,1,101.66,42.34l80,80A8,8,0,0,1,184,128Z"/></svg>'
+          }),
+        ]);
+        children.push(link);
+      }
+    }
+
+    return el('div', { class: 'gh-card__entities' }, children);
+  }
+
+  function renderEntity(entity, size = 'md') {
+    // entity = { id, type, name, photoUrl, brandColor, brandInitials, onClick }
+    const sizeClass = size === 'sm' ? ' gh-entity--sm' : '';
+    const brandClass = entity.brandInitials && entity.brandInitials.length === 3 ? ' gh-entity--brand-3' : '';
+    const node = el('button', {
+      class: `gh-entity${sizeClass}${brandClass}`,
+      title: entity.name || '',
+      onclick: entity.onClick ? (e) => { e.stopPropagation(); entity.onClick(); } : null,
+    });
+
+    if (entity.photoUrl) {
+      node.appendChild(el('img', { src: entity.photoUrl, alt: entity.name || '' }));
+    } else if (entity.brandColor) {
+      // Brand mark — solid color background, brand initials in white
+      node.style.background = entity.brandColor;
+      node.appendChild(document.createTextNode(entity.brandInitials || initialsOf(entity.name)));
+    } else {
+      // Fallback gradient on hashed seed
+      const seed = entity.id || entity.name || '?';
+      const g = gradientFor(seed);
+      node.style.background = `linear-gradient(135deg, ${g.from}, ${g.to})`;
+      node.appendChild(document.createTextNode(initialsOf(entity.name || '?')));
+    }
+    return node;
+  }
+
+  // ── Module-helper: render a card list with status groups ──────
+  function renderGrouped(moduleId, records, opts = {}) {
+    const config = _configs[moduleId];
+    if (!config) return el('div', {}, 'No config');
+
+    const wrap = el('div', { class: opts.layout === 'list' ? 'gh-card-list' : 'gh-card-grid' });
+
+    if (config.groupBy) {
+      const groups = {};
+      const order = [];
+      for (const r of records) {
+        const g = config.groupBy(r);
+        const key = (g && g.key) || 'other';
+        if (!groups[key]) { groups[key] = { ...g, items: [] }; order.push(key); }
+        groups[key].items.push(r);
+      }
+      const container = el('div', {});
+      for (const k of order) {
+        const g = groups[k];
+        if (!g.items.length) continue;
+        const header = el('div', { class: 'gh-group-header' }, [
+          el('div', {
+            class: `gh-group-header__dot`,
+            style: { background: g.color || 'var(--gh-status-neutral)' }
+          }),
+          el('div', { class: 'gh-group-header__label' }, g.label || k),
+          el('div', { class: 'gh-group-header__count' }, String(g.items.length)),
+        ]);
+        const groupGrid = el('div', { class: opts.layout === 'list' ? 'gh-card-list' : 'gh-card-grid' });
+        for (const r of g.items) groupGrid.appendChild(render(moduleId, r));
+        container.appendChild(header);
+        container.appendChild(groupGrid);
+      }
+      return container;
+    }
+
+    for (const r of records) wrap.appendChild(render(moduleId, r));
+    return wrap;
+  }
+
+  window.GH_CARD = {
+    register,
+    render,
+    renderGrouped,
+    // Expose helpers for module configs that want to compose
+    renderEntity,
+    phosphorIcon,
+    initialsOf,
+    gradientFor,
+  };
+})();
