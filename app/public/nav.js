@@ -87,6 +87,9 @@
     return icon(m.svgKey || 'home', sizePx);
   }
 
+  // Sidebar groups places-to-go-do-work. Utility actions (Search, Print,
+  // Notifications, Help, Settings) live in the always-visible top bar built
+  // by buildPageHeader() — duplicating them in the sidebar adds noise.
   const SIDEBAR_SECTIONS = [
     { label: 'Daily',     keys: ['dailylog', 'todos', 'resources'] },
     { label: 'Finance',   keys: ['finance', 'trading', 'subscriptions'] },
@@ -94,7 +97,6 @@
     { label: 'Family',    keys: ['medical', 'kids', 'insurance'] },
     { label: 'Personal',  keys: ['career', 'books'] },
     { label: 'Reports',   keys: ['reports'] },
-    { label: 'Admin',     keys: ['notifications', 'settings'] },
   ];
 
   const currentPath = window.location.pathname;
@@ -267,20 +269,20 @@
       <div class="gh-header-actions">
         ${cfg.rightExtra || ''}
         <button class="gh-icon-btn" id="ghSearchBtn" aria-label="Search" onclick="window.GH_NAV && GH_NAV.toggleSearch()" title="Search (Ctrl+K)">
-          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.search || '<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><line x1=\"16.5\" y1=\"16.5\" x2=\"21\" y2=\"21\"/></svg>'}</span>
+          <span style="width:18px;height:18px;display:flex;align-items:center;justify-content:center">${SVG.search || '<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><line x1=\"16.5\" y1=\"16.5\" x2=\"21\" y2=\"21\"/></svg>'}</span>
         </button>
-        <button class="gh-icon-btn" aria-label="Print" onclick="window.print()">
-          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.print}</span>
+        <button class="gh-icon-btn" aria-label="Print" onclick="window.print()" title="Print">
+          <span style="width:18px;height:18px;display:flex;align-items:center;justify-content:center">${SVG.print}</span>
         </button>
-        <button class="gh-icon-btn" id="ghNotifBtn" aria-label="Notifications" onclick="window.GH_NAV && GH_NAV.toggleNotif()">
-          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.bell}</span>
+        <button class="gh-icon-btn" id="ghNotifBtn" aria-label="Notifications" onclick="window.GH_NAV && GH_NAV.toggleNotif()" title="Notifications">
+          <span style="width:18px;height:18px;display:flex;align-items:center;justify-content:center">${SVG.bell}</span>
           <span class="gh-notif-badge" style="display:none">0</span>
         </button>
-        <a href="/help.html" class="gh-icon-btn" aria-label="Help">
-          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.help}</span>
+        <a href="/help.html" class="gh-icon-btn" aria-label="Help" title="Help">
+          <span style="width:18px;height:18px;display:flex;align-items:center;justify-content:center">${SVG.help}</span>
         </a>
-        <a href="/settings.html" class="gh-icon-btn" aria-label="Settings">
-          <span style="width:16px;height:16px;display:flex;align-items:center;justify-content:center">${SVG.settings}</span>
+        <a href="/settings.html" class="gh-icon-btn" aria-label="Settings" title="Settings">
+          <span style="width:18px;height:18px;display:flex;align-items:center;justify-content:center">${SVG.settings}</span>
         </a>
       </div>`;
 

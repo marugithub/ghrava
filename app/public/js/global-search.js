@@ -1,84 +1,97 @@
 /**
  * public/js/global-search.js
- * Global search modal — Cmd+K / Ctrl+K
+ * Unified search modal — Cmd+K / Ctrl+K
  *
- * Searches your DATA (records you create): inventory, todos, documents, medical,
- * finance transactions, contacts, family members, kids, books, etc.
- * Does NOT search settings/configuration. Tags are filtered out server-side.
+ * Searches DATA only (records you create). Tags and other configuration
+ * are excluded server-side.
  *
- * Module scoping: a row of pills under the input filters by module. Pages can
- * also pre-open the modal scoped to themselves via:
- *   GH_Search.open({ scope: 'Medical' })
+ * Module scoping: NO scope pills. Section headers ARE the filter — click a
+ * section header in the results to scope to that module. Click again or
+ * click the × on the active header to clear. This keeps the chrome quiet
+ * until you actually have results to act on.
+ *
+ * Pages can pre-open scoped via:  GH_Search.open({ scope: 'Medical' })
  *
  * Backend: GET /api/v1/search?q=<query>&module=<comma-separated-names>
  */
 (function() {
   'use strict';
 
-  // Scope choices shown as pills. "All" passes no module filter (everything).
-  // The labels MUST match the group names emitted by features/search/routes.js
-  // since the backend filters by exact case-insensitive match on those names.
-  const SCOPES = [
-    { id: '',              label: 'All' },
-    { id: 'Inventory',     label: 'Inventory' },
-    { id: 'Wardrobe',      label: 'Wardrobe' },
-    { id: 'Documents',     label: 'Documents' },
-    { id: 'Medical',       label: 'Medical' },
-    { id: 'Todos',         label: 'Todos' },
-    { id: 'Finance,Investments,Transactions', label: 'Finance' },
-    { id: 'Property,Vehicles', label: 'Property' },
-    { id: 'Family,Contacts', label: 'People' },
-    { id: 'Kids',          label: 'Kids' },
-    { id: 'Books',         label: 'Books' },
-    { id: 'Career',        label: 'Career' },
-    { id: 'Daily Log',     label: 'Daily Log' },
-  ];
+  // Map external short names → backend group names. Used by .open({scope})
+  // when a module page wants to pre-scope. Not shown in the UI.
+  const SCOPE_ALIAS = {
+    inventory: 'Inventory',
+    wardrobe:  'Wardrobe',
+    documents: 'Documents',
+    medical:   'Medical',
+    todos:     'Todos',
+    finance:   'Finance,Investments,Transactions',
+    property:  'Property,Vehicles',
+    family:    'Family,Contacts',
+    kids:      'Kids',
+    books:     'Books',
+    career:    'Career',
+    'daily-log': 'Daily Log',
+    perfume:   'Perfume',
+    resources: 'Resources',
+  };
 
-  let _modal = null, _input = null, _results = null, _scopeRow = null;
+  let _modal = null, _input = null, _results = null, _empty = null;
   let _debounce = null, _selected = -1, _items = [];
-  let _scope = '';   // current scope id (comma-separated allowed)
+  let _scope = '';     // current scope (comma-separated group names) — empty = all
   let _lastData = null;
 
   function build() {
     if (_modal) return;
     _modal = document.createElement('div');
-    _modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:none;align-items:flex-start;justify-content:center;padding-top:80px';
+    _modal.id = 'ghSearchModal';
+    _modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.5);display:none;align-items:flex-start;justify-content:center;padding-top:96px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)';
     _modal.innerHTML = `
-      <div style="width:min(620px,calc(100% - 32px));background:var(--bg2);border:1px solid var(--border2);border-radius:var(--r-xl,14px);overflow:hidden;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-        <div style="display:flex;align-items:center;padding:14px 16px;border-bottom:1px solid var(--border);gap:10px">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input id="ghSearchInput" placeholder="Search your data…" autocomplete="off" style="flex:1;background:none;border:none;outline:none;font-size:15px;color:var(--text)">
-          <kbd style="background:var(--bg3);border:1px solid var(--border2);border-radius:4px;padding:2px 7px;font-size:11px;color:var(--text3);font-family:monospace">Esc</kbd>
+      <div style="width:min(640px,calc(100% - 32px));background:var(--bg2);border-radius:16px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.35);display:flex;flex-direction:column;max-height:calc(100vh - 160px)">
+        <!-- Search field — generous padding, thin separator, no chunky border -->
+        <div style="display:flex;align-items:center;padding:18px 20px 16px;gap:14px;border-bottom:1px solid var(--border)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;transition:opacity .15s,stroke .15s" id="ghSearchIcon">
+            <circle cx="11" cy="11" r="7"/>
+            <path d="M20 20l-3.5-3.5"/>
+          </svg>
+          <input id="ghSearchInput" placeholder="Search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+            style="flex:1;background:none;border:none;outline:none;font-size:17px;color:var(--text);font-family:inherit;font-weight:400;letter-spacing:-0.01em;padding:0">
+          <kbd style="background:var(--bg3);border:1px solid var(--border);border-radius:5px;padding:2px 7px;font-size:11px;color:var(--text3);font-family:var(--mono);font-weight:500">esc</kbd>
         </div>
-        <div id="ghSearchScope" style="display:flex;gap:6px;padding:10px 16px;border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:thin"></div>
-        <div id="ghSearchResults" style="max-height:380px;overflow-y:auto;background:var(--bg)"></div>
-        <div style="padding:8px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text3);display:flex;gap:16px">
-          <span>↑↓ navigate</span><span>↵ open</span><span>Esc close</span>
+
+        <!-- Active scope chip (only shown when scoped) -->
+        <div id="ghSearchActiveScope" style="display:none;padding:10px 20px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text2)">
+          <span style="color:var(--text3)">In</span>
+          <span id="ghSearchScopeName" style="color:var(--accent);font-weight:600;margin:0 6px"></span>
+          <button onclick="window.GH_Search._clearScope()" type="button"
+            style="border:none;background:none;color:var(--text3);cursor:pointer;font-size:13px;padding:0 4px;line-height:1">×</button>
+        </div>
+
+        <!-- Results scroll -->
+        <div id="ghSearchResults" style="flex:1;overflow-y:auto;background:var(--bg)"></div>
+
+        <!-- Quiet empty state -->
+        <div id="ghSearchEmpty" style="display:none;flex-direction:column;align-items:center;justify-content:center;padding:48px 20px;color:var(--text3);gap:10px;flex:1">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.4">
+            <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+          </svg>
+          <div id="ghSearchEmptyMsg" style="font-size:14px">Type to search</div>
         </div>
       </div>`;
     _modal.addEventListener('mousedown', e => { if (e.target === _modal) close(); });
     document.body.appendChild(_modal);
     _input    = document.getElementById('ghSearchInput');
     _results  = document.getElementById('ghSearchResults');
-    _scopeRow = document.getElementById('ghSearchScope');
-    _input.addEventListener('input', () => { clearTimeout(_debounce); _debounce = setTimeout(doSearch, 200); });
+    _empty    = document.getElementById('ghSearchEmpty');
+    _input.addEventListener('input', () => { clearTimeout(_debounce); _debounce = setTimeout(doSearch, 180); });
     _input.addEventListener('keydown', onKey);
-    renderScopePills();
-  }
-
-  function renderScopePills() {
-    if (!_scopeRow) return;
-    _scopeRow.innerHTML = SCOPES.map(s => {
-      const active = s.id === _scope;
-      return `<button data-scope="${esc(s.id)}" type="button"
-        style="flex-shrink:0;padding:5px 12px;border-radius:99px;border:1px solid ${active?'var(--accent)':'var(--border)'};background:${active?'var(--accent)':'var(--bg3)'};color:${active?'#fff':'var(--text2)'};font-size:12px;font-weight:600;cursor:pointer">${esc(s.label)}</button>`;
-    }).join('');
-    _scopeRow.querySelectorAll('button[data-scope]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        _scope = btn.dataset.scope || '';
-        renderScopePills();
-        if (_input.value.trim().length >= 2) doSearch();
-      });
+    _input.addEventListener('focus', () => {
+      const ic = document.getElementById('ghSearchIcon');
+      if (ic) { ic.setAttribute('stroke', 'var(--text2)'); ic.style.opacity = '1'; }
+    });
+    _input.addEventListener('blur', () => {
+      const ic = document.getElementById('ghSearchIcon');
+      if (ic) { ic.setAttribute('stroke', 'var(--text3)'); ic.style.opacity = '0.7'; }
     });
   }
 
@@ -88,9 +101,6 @@
     else if (e.key === 'Enter') { e.preventDefault(); activate(); }
     else if (e.key === 'Escape') { close(); }
   }
-
-  // Cmd+K / Ctrl+K is registered globally by keyboard-shortcuts.js — no
-  // duplicate listener here.
 
   function move(dir) {
     _selected = Math.max(-1, Math.min(_items.length - 1, _selected + dir));
@@ -106,13 +116,25 @@
     }
   }
 
+  function _setScope(scope, displayName) {
+    _scope = scope || '';
+    const bar  = document.getElementById('ghSearchActiveScope');
+    const name = document.getElementById('ghSearchScopeName');
+    if (bar && name) {
+      if (_scope) {
+        bar.style.display = 'block';
+        name.textContent = displayName || _scope;
+      } else {
+        bar.style.display = 'none';
+      }
+    }
+    if (_input.value.trim().length >= 2) doSearch();
+  }
+
   async function doSearch() {
     const q = _input?.value.trim() || '';
-    if (q.length < 2) {
-      if (_results) _results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">Type at least 2 characters…</div>';
-      _items = []; _selected = -1; return;
-    }
-    if (_results) _results.innerHTML = '<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">Searching…</div>';
+    showEmpty(q.length < 2 ? (_scope ? 'Type to search' : 'Type to search') : null);
+    if (q.length < 2) { _items = []; _selected = -1; return; }
     try {
       const url = `/search?q=${encodeURIComponent(q)}` + (_scope ? `&module=${encodeURIComponent(_scope)}` : '');
       const data = await window.api('GET', url);
@@ -121,7 +143,20 @@
       _selected = _items.length ? 0 : -1;
       render(data);
     } catch(e) {
-      if (_results) _results.innerHTML = `<div style="padding:16px;color:var(--red);font-size:13px">Search error: ${esc(e.message)}</div>`;
+      showEmpty(`Search error: ${e.message || e}`);
+    }
+  }
+
+  function showEmpty(msg) {
+    if (!_empty || !_results) return;
+    if (msg == null) {
+      _empty.style.display = 'none';
+      _results.style.display = 'block';
+    } else {
+      _results.style.display = 'none';
+      _empty.style.display = 'flex';
+      const m = document.getElementById('ghSearchEmptyMsg');
+      if (m) m.textContent = msg;
     }
   }
 
@@ -130,22 +165,36 @@
   function render(data) {
     if (!_results || !data) return;
     const groups = data.groups || {};
-    if (!Object.keys(groups).length) {
-      _results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">No results' + (_scope ? ' in this section' : '') + '</div>';
+    const totalKeys = Object.keys(groups);
+    if (!totalKeys.length) {
+      showEmpty(_scope ? 'No matches in this section' : 'No matches');
       return;
     }
+    showEmpty(null);
     let html = '', idx = 0;
     for (const [mod, items] of Object.entries(groups)) {
-      html += `<div style="padding:8px 16px 4px;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);background:var(--bg2)">${esc(mod)}</div>`;
+      const count = items.length;
+      // Section header is the filter affordance. Subtle — just slightly bolder
+      // text + count badge; clickable. Hover hint via opacity.
+      html += `<button type="button" data-scope-name="${esc(mod)}"
+        onclick="window.GH_Search._scopeFromHeader('${esc(mod)}')"
+        style="display:flex;align-items:center;gap:8px;width:100%;padding:14px 20px 6px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;color:var(--text3);transition:color .15s"
+        onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">
+        <span style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase">${esc(mod)}</span>
+        <span style="font-size:11px;color:var(--text3);font-weight:500;letter-spacing:0;text-transform:none">${count}</span>
+        <span style="margin-left:auto;font-size:11px;color:var(--text3);opacity:0.6">filter</span>
+      </button>`;
       for (const item of items) {
         const active = idx === _selected;
         html += `<div data-idx="${idx}"
-          style="display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;background:${active?'var(--accent-bg)':'transparent'};border-left:3px solid ${active?'var(--accent)':'transparent'}"
+          style="display:flex;align-items:center;gap:14px;padding:12px 20px;cursor:pointer;background:${active?'var(--bg3)':'transparent'};transition:background .1s"
+          onmouseover="this.style.background='var(--bg3)'"
+          onmouseout="this.style.background='${active?'var(--bg3)':'transparent'}'"
           onclick="window.location.href='${esc(item.href)}';window.GH_Search.close()">
-          <span style="font-size:18px;flex-shrink:0">${esc(item.icon)}</span>
+          <span style="font-size:20px;flex-shrink:0;width:24px;text-align:center">${esc(item.icon)}</span>
           <div style="flex:1;min-width:0">
-            <div style="font-size:14px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.label)}</div>
-            ${item.sub ? `<div style="font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.sub)}</div>` : ''}
+            <div style="font-size:15px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-0.01em">${esc(item.label)}</div>
+            ${item.sub ? `<div style="font-size:12px;color:var(--text3);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.sub)}</div>` : ''}
           </div>
         </div>`;
         idx++;
@@ -154,20 +203,15 @@
     _results.innerHTML = html;
   }
 
-  /**
-   * Open the modal.
-   * @param {Object} opts
-   * @param {string} opts.scope    — pre-selected scope id (must match SCOPES.id)
-   * @param {string} opts.query    — pre-fill the query
-   */
   function open(opts) {
     build();
     _modal.style.display = 'flex';
-    if (opts && typeof opts.scope === 'string') {
-      // Match against known scopes; fall back to "all"
-      const found = SCOPES.find(s => s.id === opts.scope || s.label.toLowerCase() === opts.scope.toLowerCase());
-      _scope = found ? found.id : '';
-      renderScopePills();
+    if (opts && typeof opts.scope === 'string' && opts.scope) {
+      // Resolve alias if a short name was passed
+      const resolved = SCOPE_ALIAS[opts.scope.toLowerCase()] || opts.scope;
+      _setScope(resolved, opts.scope.charAt(0).toUpperCase() + opts.scope.slice(1).replace(/-/g,' '));
+    } else {
+      _setScope('', null);
     }
     setTimeout(() => _input?.focus(), 50);
     if (opts && opts.query) {
@@ -175,7 +219,7 @@
       doSearch();
     } else {
       _input.value = '';
-      _results.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">Type to search…</div>';
+      showEmpty('Type to search');
     }
     _items = []; _selected = -1;
   }
@@ -183,7 +227,18 @@
   function close() {
     if (_modal) _modal.style.display = 'none';
     if (_input) _input.value = '';
+    _setScope('', null);
   }
 
-  window.GH_Search = { open, close };
+  // Internal helpers exposed for inline onclicks
+  window.GH_Search = {
+    open, close,
+    _scopeFromHeader(name) {
+      // Toggle: if same scope already, clear. Otherwise set.
+      if (_scope === name) _setScope('', null);
+      else _setScope(name, name);
+      _input?.focus();
+    },
+    _clearScope() { _setScope('', null); _input?.focus(); },
+  };
 })();
