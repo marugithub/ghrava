@@ -1,4 +1,4 @@
-# Deploy-Patch.ps1 — Ghrava v202604.107
+# Deploy-Patch.ps1 — Ghrava v202604.108
 # Copies only the changed files from this patch to Z:\ghrava, then restarts the container.
 # Usage: Right-click → "Run with PowerShell"  (or: .\Deploy-Patch.ps1)
 
@@ -7,20 +7,16 @@ $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# ── Files in this patch (v202604.107) ─────────────────────────
-# 1. Card grid fix on todos v2 (multi-column instead of full-width)
-# 2. Mobile-responsive drawers (full-screen iPhone-style on phone)
-# 3. Cards v2 propagation to medical (gated behind ?cards=v2)
+# ── Files in this patch (v202604.108) ─────────────────────────
+# Drawer flicker fix — replace display:none→display:flex animation pattern
+# with always-flex opacity/transform pattern. No more top-left flash.
 $PatchFiles = @(
     'app\public\shared.css',
-    'app\public\todos.html',
-    'app\public\medical.html',
-    'app\public\js\gh-card-config-medical.js',
     'app\version.txt'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.107' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.108' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray

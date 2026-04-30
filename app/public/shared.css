@@ -887,19 +887,30 @@ html, body {
 .badge-grey   { background: var(--bg4);       color: var(--text2);    border: 1px solid var(--border2); }
 
 /* ── Drawer / modal ─────────────────────────────────────────── */
+/* v202604.108 — flicker-free pattern.                            */
+/* Overlay is ALWAYS display:flex (centered) but with opacity:0 + */
+/* pointer-events:none when closed. This eliminates the           */
+/* display:none → display:flex layout flash where the drawer      */
+/* would briefly render at top-left before flex centering kicked  */
+/* in. The drawer itself transitions transform + opacity via the  */
+/* parent's .open class (no @keyframes animation needed).         */
 .drawer-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.55);
   z-index: 500;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
   backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
 }
 .drawer-overlay.open {
-  display: flex;
-  animation: fadein .18s ease;
+  opacity: 1;
+  pointer-events: auto;
 }
 @keyframes fadein { from { opacity:0 } to { opacity:1 } }
 
@@ -910,16 +921,20 @@ html, body {
   border-radius: var(--r-xl);
   width: min(540px, 94vw);
   max-height: 90vh;
-  /* Flex column: header fixed top, body scrolls, footer fixed bottom */
   display: flex;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0,0,0,.28);
-  animation: modal-in .22s cubic-bezier(0.32,0.72,0,1);
+  /* Initial closed state: slightly down + scaled. */
+  transform: translateY(12px) scale(.97);
+  opacity: 0;
+  transition:
+    transform .24s cubic-bezier(.32,.72,0,1),
+    opacity   .2s  ease;
 }
-@keyframes modal-in {
-  from { opacity:0; transform: scale(.95) translateY(8px); }
-  to   { opacity:1; transform: scale(1)  translateY(0); }
+.drawer-overlay.open .drawer {
+  transform: translateY(0) scale(1);
+  opacity: 1;
 }
 
 /* Fixed header: handle + title */
@@ -3624,11 +3639,12 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 }
 
 /* ───────────────────────────────────────────────────────────────────
- * v202604.107 — Mobile-responsive drawers (iPhone-style edit overlay)
+ * v202604.107/108 — Mobile-responsive drawers (iPhone-style edit overlay)
  *
  * On phone viewports (≤640px), .drawer and .gh-drawer become full-screen
- * overlays. Header sticks to top with the close/back affordance; existing
- * footer (Save/Cancel) stays pinned to the bottom via flex layout.
+ * overlays. Header sticks to top; existing footer (Save/Cancel) stays
+ * pinned to the bottom via flex layout. Slide-up animation via transform
+ * on the .open class (matches the desktop flicker-free pattern).
  * No JS or HTML changes — purely CSS over the existing markup.
  * ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
@@ -3642,7 +3658,7 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     justify-content: stretch;
   }
 
-  /* .drawer pattern (used by ~16 modules) */
+  /* .drawer pattern (used by ~16 modules) — slide up from bottom */
   .drawer {
     width: 100vw;
     max-width: 100vw;
@@ -3651,7 +3667,12 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     border-radius: 0;
     border: none;
     box-shadow: none;
-    animation: drawer-slide-up .24s cubic-bezier(.32,.72,0,1);
+    /* Override desktop closed state with a full slide from below */
+    transform: translateY(100%);
+    transition: transform .26s cubic-bezier(.32,.72,0,1);
+  }
+  .drawer-overlay.open .drawer {
+    transform: translateY(0);
   }
   .drawer-handle { display: none; }
   .drawer-header {
@@ -3677,12 +3698,11 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* .gh-drawer pattern (inventory + settings) */
+  /* .gh-drawer pattern (inventory + settings) — slide up from bottom */
   body:has(.gh-drawer.open)::before { display: none; }
   .gh-drawer {
     top: 0;
     left: 0;
-    transform: translate(0, 0);
     width: 100vw;
     max-width: 100vw;
     height: 100vh;
@@ -3690,10 +3710,8 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     border-radius: 0;
     border: none;
     box-shadow: none;
-    transition: transform .24s cubic-bezier(.32,.72,0,1), opacity .18s ease;
-  }
-  .gh-drawer:not(.open) {
     transform: translate(0, 100%);
+    transition: transform .26s cubic-bezier(.32,.72,0,1), opacity .18s ease;
   }
   .gh-drawer.open {
     transform: translate(0, 0);
@@ -3732,9 +3750,4 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   .gh-drawer-body {
     padding: 16px 16px 24px;
   }
-}
-
-@keyframes drawer-slide-up {
-  from { opacity: 0; transform: translateY(100%); }
-  to   { opacity: 1; transform: translateY(0); }
 }
