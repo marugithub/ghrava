@@ -79,12 +79,8 @@
        If a problem arises, change deliberately and update HANDOFF screenshot.
        ───────────────────────────────────────────────────────────────────── */
     /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
-    /* HALF-SIZE option (session-12). Polaroid sits centered inside its grid
-       cell at 50% width — internal photo (calc(100% - 16px)) and caption
-       scale proportionally. To revert: remove max-width + margin lines. */
     .lb-polaroid{background:#f4ece0;border-radius:3px;
-      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:0;
-      max-width:50%;margin-left:auto;margin-right:auto}
+      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:0}
     .lb-polaroid-photo{width:calc(100% - 16px);aspect-ratio:1/1;overflow:hidden;
       display:flex;align-items:center;justify-content:center;position:relative;
       margin:8px auto 0}
@@ -139,7 +135,10 @@
     .lb-day-empty.past{cursor:default}
     .lb-day-empty.past:hover{border-color:var(--border);color:var(--text4)}
 
-    /* ── Items · polaroid grid (2-col mobile, 5-col desktop) ── */
+    /* ── Items · polaroid grid ──
+       Columns are controlled by a user-facing toggle (`_itemCols`), not by
+       CSS breakpoints — see loadItems(). The grid-template-columns is set
+       inline at render time. CSS only owns gap/padding/row-gap. */
     .lb-items-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;
       row-gap:22px;padding:14px 14px 90px}
     @media(min-width:768px){
@@ -586,6 +585,9 @@ let _allItems = [], _iSeasonSel = [], _iOccasionSel = [];
 let _oSeasonSel = [], _oOccasionSel = [], _oItemIds = [];
 let _iPhotos = [], _oPhotos = [];
 let _itemView = 'grid', _itemCols = +(localStorage.getItem('wrd_item_cols')||4), _itemFilters = {};
+// Wardrobe items pagination — see loadItems() and loadMoreWrdItems().
+const WRD_BATCH_SIZE = 60;
+let _wrdRenderedCount = 0;
 let _outfitView = 'grid', _outfitCols = +(localStorage.getItem('wrd_outfit_cols')||4), _outfitFilters = {};
 
 function openWrdItemArchive() {
@@ -1338,6 +1340,60 @@ async function loadWeather() {
 }
 
 // ── Items ─────────────────────────────────────────────────────
+// ── Wardrobe items "Load more" pagination ──────────────────────
+// Card rendering extracted so loadItems() and loadMoreWrdItems() share it.
+function _renderWrdItemCard(item, k) {
+  const tilt = `lb-tilt-${k % 4}`;
+  const member = item.wardrobe_owner_id ? _memberById[item.wardrobe_owner_id] : null;
+  const ownerName = item.owner_name || (member?.display_name || '');
+  const polaroid = lbPolaroid({
+    primary_photo: item.primary_photo,
+    category: item.category,
+    name: item.wardrobe_nickname || item.name,
+    label: item.wardrobe_nickname || item.name,
+    ratio: 'square'
+  });
+  return `<div class="lb-item-card ${tilt}${item.is_archived?' is-archived':''}" data-id="${item.id}" style="position:relative" onclick="openItemDrawer(${item.id})">
+    ${polaroid}
+    <div class="lb-item-meta">
+      <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>
+      ${item.wardrobe_color ? `<span class="lb-item-meta-color" style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">${esc(item.wardrobe_color)}</span>` : ''}
+      <span class="lb-item-meta-stat">${(item.times_worn||0) ? `${item.times_worn}w` : '·'}</span>
+    </div>
+    <button class="wrd-card-edit-btn" title="Edit" onclick="event.stopPropagation();openItemDrawer(${item.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+  </div>`;
+}
+
+function _wrdRenderLoadMoreBtn() {
+  const remaining = (_allItems?.length || 0) - _wrdRenderedCount;
+  if (remaining <= 0) return '';
+  return `<div id="wrdLoadMore" style="display:flex;justify-content:center;padding:14px 14px 90px">
+    <button onclick="loadMoreWrdItems()" style="padding:9px 24px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text2);cursor:pointer;font-size:13px;font-weight:600;font-family:var(--sans)">
+      Load more <span style="color:var(--text3);font-weight:400">· ${remaining} remaining</span>
+    </button>
+  </div>`;
+}
+
+function loadMoreWrdItems() {
+  const grid = document.getElementById('itemGrid');
+  if (!grid || !_allItems) return;
+  const next = _allItems.slice(_wrdRenderedCount, _wrdRenderedCount + WRD_BATCH_SIZE);
+  const startIdx = _wrdRenderedCount;
+  _wrdRenderedCount += next.length;
+  const html = next.map((item, i) => _renderWrdItemCard(item, startIdx + i)).join('');
+  grid.insertAdjacentHTML('beforeend', html);
+  // Replace or remove the "Load more" button
+  const wrap = document.getElementById('wrdLoadMore');
+  if (wrap) {
+    if (_wrdRenderedCount < _allItems.length) {
+      wrap.outerHTML = _wrdRenderLoadMoreBtn();
+    } else {
+      wrap.remove();
+    }
+  }
+}
+window.loadMoreWrdItems = loadMoreWrdItems;
+
 async function loadItems() {
   try {
     const cat     = _itemFilters.category || '';
@@ -1385,27 +1441,18 @@ async function loadItems() {
       const cols = _itemCols || 2;
       grid.className = 'lb-items-grid';
       grid.style.gridTemplateColumns = `repeat(${cols},1fr)`;
-      grid.innerHTML = _allItems.map((item, k) => {
-        const tilt = `lb-tilt-${k % 4}`;
-        const member = item.wardrobe_owner_id ? _memberById[item.wardrobe_owner_id] : null;
-        const ownerName = item.owner_name || (member?.display_name || '');
-        const polaroid = lbPolaroid({
-          primary_photo: item.primary_photo,
-          category: item.category,
-          name: item.wardrobe_nickname || item.name,
-          label: item.wardrobe_nickname || item.name,
-          ratio: 'square'
-        });
-        return `<div class="lb-item-card ${tilt}${item.is_archived?' is-archived':''}" data-id="${item.id}" style="position:relative" onclick="openItemDrawer(${item.id})">
-          ${polaroid}
-          <div class="lb-item-meta">
-            <span class="lb-item-meta-owner">${ownerName ? lbMemberDot(member, 5) + esc(ownerName) : ''}</span>
-            ${item.wardrobe_color ? `<span class="lb-item-meta-color" style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase;letter-spacing:.05em">${esc(item.wardrobe_color)}</span>` : ''}
-            <span class="lb-item-meta-stat">${(item.times_worn||0) ? `${item.times_worn}w` : '·'}</span>
-          </div>
-          <button class="wrd-card-edit-btn" title="Edit" onclick="event.stopPropagation();openItemDrawer(${item.id})"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
-        </div>`;
-      }).join('');
+      // "Load more" pagination: render the first WRD_BATCH items, then a
+      // button at the bottom appends the next batch. Keeps the DOM small
+      // even for 1000s of items. Filters still run against full _allItems.
+      _wrdRenderedCount = Math.min(WRD_BATCH_SIZE, _allItems.length);
+      const firstBatch = _allItems.slice(0, _wrdRenderedCount);
+      grid.innerHTML = firstBatch.map((item, k) => _renderWrdItemCard(item, k)).join('');
+      // Append the load-more button below the grid (sibling, not inside grid)
+      let lm = document.getElementById('wrdLoadMore');
+      if (lm) lm.remove();
+      if (_wrdRenderedCount < _allItems.length) {
+        grid.insertAdjacentHTML('afterend', _wrdRenderLoadMoreBtn());
+      }
     }
   } catch(e) { toast('Failed to load items', 'err'); }
 }
