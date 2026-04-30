@@ -30,8 +30,13 @@
     goMedical:     () => { window.location.href = '/medical.html'; },
     goSettings:    () => { window.location.href = '/settings.html'; },
     focusSearch:   () => {
-      const el = document.querySelector('#invSearch,#medSearch,#todoSearch,.search-input,[placeholder*="Search"]');
-      if (el) el.focus();
+      // After per-module search bars were removed, the / shortcut opens the
+      // unified search modal pre-scoped to the current page (if any).
+      if (window.GH_NAV && typeof GH_NAV.toggleSearch === 'function') {
+        GH_NAV.toggleSearch();
+      } else if (window.GH_Search) {
+        GH_Search.open();
+      }
     },
     closeModal:    () => {
       const open = document.querySelector('.drawer-overlay.open,.modal-overlay.open');

@@ -95,7 +95,8 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
   </div>
 
   <!-- Search -->
-  <div style="padding:6px 16px 0">
+  <!-- HIDDEN per session-12 search consolidation. Input stays in DOM so loadBooks() can read its value (always ''). To restore, remove style="display:none" on the wrapping div. Use Cmd+K (or nav search icon) for unified search; Filter for in-view filtering. -->
+  <div style="padding:6px 16px 0;display:none">
     <input class="form-input" id="bookSearch" placeholder="Search title or author…" oninput="loadBooks()" style="font-size:13px">
   </div>
   <!-- Genre sub-filter populated dynamically -->

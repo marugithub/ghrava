@@ -94,13 +94,38 @@ Final spec at top of wardrobe.html, marked LOCKED:
 
 ## Backlog (priority order)
 
-1. **Tag-based reports filter** (user backlogged) — filter reports output by tag(s). Probably a chip strip above the report content.
-2. **Voiding statements** — financial records void/exclude flag (not delete). Needs spec on which records: transactions? imported statements? both?
-3. **Settings cleanup** — hide non-functional sections, polish broken UI. Needs spec on which sections.
-4. **Bulk Tag/Family actions** in GH_BULK — needs picker UI design + per-module backend wiring.
-5. **Click-outside-to-close** for `.gh-drawer` — held back due to race condition with card onclick (needs proper "ignore initial bubble" guard or backdrop element rather than pseudo).
-6. **Mobile UX** — phone-first capture (broad, multi-screen).
-7. **Global search** across modules.
+1. **UI polish pass — overall visual quality** (user concern: "I don't know how horrible our UI is"). Audit needed across all modules for: color usage (most pages are very gray/flat), card backgrounds, hover states, empty states, modal/drawer styling consistency. Apply light backgrounds where currently all-white/all-gray. **Do this as a focused UI pass, not piecemeal during feature work.**
+
+2. **Right-side panel pattern evaluation** — earlier session (different AI) introduced a right-side slide-in panel pattern for some workflows. Evaluate whether to standardize on it (vs the current bottom-drawer + center-modal mix) or remove. Requires inventory of where it's currently used.
+
+3. **Tag-based reports filter** — filter reports output by tag(s). Chip strip above report content.
+
+4. **Voiding statements** — financial records void/exclude flag (not delete). Needs spec on which records: transactions? imported statements? both?
+
+5. **Settings cleanup** — hide non-functional sections, polish broken UI. Needs spec on which sections.
+
+6. **Bulk Tag/Family actions** in GH_BULK — picker UI design + per-module backend wiring.
+
+7. **Click-outside-to-close** for `.gh-drawer` — held back due to race condition with card onclick (needs proper "ignore initial bubble" guard or backdrop element rather than pseudo).
+
+8. **Mobile UX** — phone-first capture (broad, multi-screen).
+
+---
+
+## Resolved this session — search consolidation (v202604.100)
+
+- **Global search gained module scoping.** Backend `GET /api/v1/search` accepts `?module=Inventory,Wardrobe` (comma-separated, case-insensitive against group names). Tags removed from results (config, not data).
+- **Modal UI now has a pill row** under the search input: `All` / `Inventory` / `Wardrobe` / `Documents` / `Medical` / `Todos` / `Finance` / `Property` / `People` / `Kids` / `Books` / `Career` / `Daily Log`. Click to scope, results re-query.
+- **Two global entry points consolidated.** `nav.js` `toggleSearch()` now opens `GH_Search` modal pre-scoped by `window.GH_PAGE.module` instead of building its own panel. `buildSearchPanel()` no longer called.
+- **Per-module search bars hidden, NOT removed.** All 12 module pages (books, career, daily-log, documents, finance, inventory, kids, medical, perfume, property, resources, todos) now have their `.search-wrap` (or wrapping div for books/perfume) tagged with `class="legacy-hidden"` or `style="display:none"`. JS filter logic preserved — inputs are still in DOM, `.value` reads always return `''`. To restore any module's bar: remove the `legacy-hidden` class from its wrapper. CSS rule `.search-wrap.legacy-hidden { display: none !important; }` lives at the bottom of `shared.css`.
+- **Global-search.js auto-loaded by nav.js** so every page that has nav has the modal. Previously only loaded on index.html.
+- **Cmd+K duplicated handler removed** from global-search.js — `keyboard-shortcuts.js` is now the only listener for Cmd+K. `/` shortcut also opens the unified modal.
+- **Advanced filter panel UX:**
+  - Desktop: now a centered modal (440px wide, 80vh max) instead of full-width bottom sheet
+  - Header gets an X close button (top-right)
+  - Footer adds a Cancel button (separate from Reset, which clears AND applies; Cancel just dismisses)
+  - Esc key closes both Advanced Filter and Sort drawers
+  - Sort drawer also gets an X close button for consistency
 
 ---
 

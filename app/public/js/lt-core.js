@@ -1320,15 +1320,26 @@ window.GH_VIEW = (function() {
 .gh-more-item.has-filters{color:var(--accent)}
 .gh-adv-drawer.open{display:flex}
 .gh-adv-scrim{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+/* Mobile (default): bottom-sheet drawer */
 .gh-adv-panel{position:absolute;bottom:0;left:0;right:0;background:var(--bg2);border-radius:var(--r-lg) var(--r-lg) 0 0;max-height:88vh;display:flex;flex-direction:column;animation:slideup .24s cubic-bezier(.32,.72,0,1)}
+/* Desktop: centered, narrower modal so it doesn't span the whole window. */
+@media (min-width:900px){
+  .gh-adv-panel{position:absolute;left:50%;top:50%;right:auto;bottom:auto;transform:translate(-50%,-50%);width:min(440px,92vw);max-height:80vh;border-radius:var(--r-lg);animation:fadein .18s ease-out}
+  .gh-adv-handle{display:none}
+}
+@keyframes fadein{from{opacity:0;transform:translate(-50%,-48%)}to{opacity:1;transform:translate(-50%,-50%)}}
 .gh-adv-handle{width:36px;height:4px;border-radius:2px;background:var(--border2);margin:10px auto 0}
-.gh-adv-header{padding:12px 20px 8px;border-bottom:1px solid var(--border)}
-.gh-adv-title{font-size:17px;font-weight:700;color:var(--text)}
+.gh-adv-header{padding:12px 20px 8px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.gh-adv-title{font-size:17px;font-weight:700;color:var(--text);flex:1}
+.gh-adv-close{width:30px;height:30px;border-radius:8px;border:1px solid var(--border);background:var(--bg3);color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px;line-height:1;font-family:var(--sans)}
+.gh-adv-close:hover{background:var(--bg4);color:var(--text)}
 .gh-adv-body{overflow-y:auto;padding:16px 20px;flex:1;display:flex;flex-direction:column;gap:18px}
 .gh-adv-section-label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);margin-bottom:6px}
 .gh-adv-footer{padding:12px 20px 20px;border-top:1px solid var(--border);display:flex;gap:8px}
 .gh-adv-reset{flex:1;padding:11px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .15s}
 .gh-adv-reset:hover{background:var(--bg3)}
+.gh-adv-cancel{flex:1;padding:11px;border-radius:var(--r);border:1px solid var(--border);background:transparent;color:var(--text2);font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans);transition:all .15s}
+.gh-adv-cancel:hover{background:var(--bg3)}
 .gh-adv-apply{flex:2;padding:11px;border-radius:var(--r);border:none;background:var(--accent);color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:var(--sans);transition:opacity .15s}
 .gh-adv-apply:hover{opacity:.9}
 .gh-tag-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 10px;border-radius:20px;background:var(--accent-bg);border:1px solid var(--accent-bd);color:var(--accent);font-size:12px;font-weight:600;cursor:pointer}
@@ -1465,11 +1476,13 @@ window.GH_VIEW = (function() {
         <div class="gh-adv-handle"></div>
         <div class="gh-adv-header">
           <div class="gh-adv-title">Advanced Filters</div>
+          <button class="gh-adv-close" id="gh-adv-close" aria-label="Close" title="Close">×</button>
         </div>
         <div class="gh-adv-body">${fieldsHtml}</div>
         <div class="gh-adv-footer">
-          <button class="gh-adv-reset" id="gh-adv-reset">Reset All</button>
-          <button class="gh-adv-apply" id="gh-adv-apply">Apply</button>
+          <button class="gh-adv-reset"  id="gh-adv-reset"  type="button">Reset</button>
+          <button class="gh-adv-cancel" id="gh-adv-cancel" type="button">Cancel</button>
+          <button class="gh-adv-apply"  id="gh-adv-apply"  type="button">Apply</button>
         </div>
       </div>
     `;
@@ -1479,7 +1492,20 @@ window.GH_VIEW = (function() {
     // Scrim close
     drawer.querySelector('.gh-adv-scrim').addEventListener('click', () => drawer.remove());
 
-    // Reset
+    // Esc key closes (matches close-button behaviour — discards unapplied edits)
+    const onEsc = (e) => {
+      if (e.key === 'Escape') {
+        drawer.remove();
+        document.removeEventListener('keydown', onEsc);
+      }
+    };
+    document.addEventListener('keydown', onEsc);
+
+    // X close (top-right of header) and Cancel (footer) both discard unapplied edits.
+    drawer.querySelector('#gh-adv-close')?.addEventListener('click', () => drawer.remove());
+    drawer.querySelector('#gh-adv-cancel').addEventListener('click', () => drawer.remove());
+
+    // Reset — clear all filters AND apply (so the user sees the unfiltered list).
     drawer.querySelector('#gh-adv-reset').addEventListener('click', () => {
       state.filters = {};
       drawer.remove();
@@ -1576,7 +1602,10 @@ window.GH_VIEW = (function() {
       <div class="gh-adv-scrim"></div>
       <div class="gh-adv-panel">
         <div class="gh-adv-handle"></div>
-        <div class="gh-adv-header"><div class="gh-adv-title">Sort</div></div>
+        <div class="gh-adv-header">
+          <div class="gh-adv-title">Sort</div>
+          <button class="gh-adv-close" id="gh-sort-x" aria-label="Close" title="Close">×</button>
+        </div>
         <div class="gh-adv-body">
           ${fields.map(f => `
             <button data-sort="${f.key}" class="gh-more-item${currentSort===f.key?' active':''}" style="border-radius:var(--r);border:1px solid ${currentSort===f.key?'var(--accent-bd)':'var(--border)'};background:${currentSort===f.key?'var(--accent-bg)':'transparent'};margin-bottom:4px;color:${currentSort===f.key?'var(--accent)':'var(--text2)'};font-weight:${currentSort===f.key?'600':'400'}">
@@ -1591,7 +1620,10 @@ window.GH_VIEW = (function() {
       </div>`;
     document.body.appendChild(drawer);
     drawer.querySelector('.gh-adv-scrim').addEventListener('click', () => drawer.remove());
+    drawer.querySelector('#gh-sort-x')?.addEventListener('click', () => drawer.remove());
     drawer.querySelector('#gh-sort-close').addEventListener('click', () => drawer.remove());
+    const _sortEsc = (e) => { if (e.key === 'Escape') { drawer.remove(); document.removeEventListener('keydown', _sortEsc); } };
+    document.addEventListener('keydown', _sortEsc);
     drawer.querySelector('#gh-sort-clear').addEventListener('click', () => {
       state.sort = ''; state.sortDir = 'asc';
       callback && callback({...state});

@@ -320,7 +320,8 @@
       <button class="btn btn-ghost" style="padding:5px 10px;font-size:13px" onclick="runRecategorize()" id="recatBtn" title="Apply category rules to uncategorized transactions">🏷 Auto-tag</button>
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openTxDrawer()">+ Add</button>
     </div>
-    <div class="search-wrap" style="margin:6px 16px 0">
+    <!-- HIDDEN per session-12 search consolidation. Live-filter logic preserved in JS; remove .legacy-hidden to restore. Use Cmd+K (or nav search icon) for unified search; Filter/Advanced Filter for in-view filtering. -->
+  <div class="search-wrap legacy-hidden" style="margin:6px 16px 0">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
       <input class="search-input" id="txSearch" type="search" placeholder="Search description, category…" autocomplete="off">
     </div>

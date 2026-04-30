@@ -225,7 +225,8 @@
   <!-- Header -->
   <!-- Search + controls moved below gh-page-header -->
   <div style="padding:8px 16px 0;display:flex;align-items:center;gap:8px">
-    <div class="search-wrap" style="flex:1;margin-top:0">
+    <!-- HIDDEN per session-12 search consolidation. Live-filter logic preserved in JS; remove .legacy-hidden to restore. Use Cmd+K (or nav search icon) for unified search; Filter/Advanced Filter for in-view filtering. -->
+  <div class="search-wrap legacy-hidden" style="flex:1;margin-top:0">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
       <input class="search-input" id="searchInput" type="search" placeholder="Search entries…" autocomplete="off">
     </div>

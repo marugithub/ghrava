@@ -3068,3 +3068,11 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 .gh-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .gh-avatar[onclick] { cursor: pointer; transition: transform .12s; }
 .gh-avatar[onclick]:hover { transform: scale(1.06); }
+
+/* ── Per-module search bar hide (session-12 search consolidation) ──
+ * Search consolidated into the global Cmd+K modal with module scoping.
+ * Per-module .search-wrap and #*Search inputs are kept in DOM (so JS
+ * filter pipelines that read .value don't break) but hidden visually.
+ * To restore in any module, remove the .legacy-hidden class on its
+ * <div class="search-wrap"> wrapper. */
+.search-wrap.legacy-hidden { display: none !important; }

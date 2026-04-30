@@ -258,7 +258,8 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
   <div class="kid-strip-divider"></div>
 
   <!-- Search bar — filters across all kids data when typing -->
-  <div class="search-wrap" id="kidsSearchWrap" style="margin:8px 16px 0;display:none">
+  <!-- HIDDEN per session-12 search consolidation. Live-filter logic preserved in JS; remove .legacy-hidden to restore. Use Cmd+K (or nav search icon) for unified search; Filter/Advanced Filter for in-view filtering. -->
+  <div class="search-wrap legacy-hidden" id="kidsSearchWrap" style="margin:8px 16px 0;display:none">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <input class="search-input" id="kidsSearch" type="search" placeholder="Search activities, notes…" autocomplete="off">
   </div>

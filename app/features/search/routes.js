@@ -38,11 +38,22 @@ router.get('/', (req, res) => {
     const q = String(req.query.q || '').trim();
     if (q.length < MIN_LEN) return res.json({ groups: {}, total: 0, query: q });
 
+    // Optional module-scoping. Comma-separated allowed: ?module=Inventory,Wardrobe
+    // Match is case-insensitive against the group names this route emits.
+    // When omitted, returns everything (current behavior).
+    const moduleParam = String(req.query.module || '').trim().toLowerCase();
+    const moduleSet = moduleParam ? new Set(moduleParam.split(',').map(s => s.trim()).filter(Boolean)) : null;
+
     const like = `%${q}%`;
     const groups = {};
 
     function add(module, items) {
       if (!items.length) return;
+      // Skip the entire `add()` call if a scope is set and this module isn't in it.
+      // Cheaper than running the query and filtering after, but this fn is invoked
+      // AFTER `safe()` already ran — so we still pay the DB cost. Keep simple:
+      // filter by module name here. The DB queries are tiny (LIMIT 8).
+      if (moduleSet && !moduleSet.has(module.toLowerCase())) return;
       groups[module] = (groups[module] || []).concat(items);
     }
 
@@ -267,14 +278,8 @@ router.get('/', (req, res) => {
       })
     ));
 
-    // Tags
-    add('Tags', safe(
-      `SELECT id, name, color_hex,
-        (SELECT COUNT(*) FROM taggables tb WHERE tb.tag_id = tags.id) AS usage_count
-       FROM tags WHERE name LIKE ? ORDER BY usage_count DESC LIMIT ?`,
-      [like, PER_MODULE_LIMIT],
-      r => ({ module: 'Tags', id: r.id, label: r.name, sub: `${r.usage_count} uses`, href: '/settings.html#tags', icon: '\ud83c\udff7\ufe0f' })
-    ));
+    // (Tags removed from global search — they are configuration, not data.
+    // Search them via Settings → Tags if needed.)
 
     const total = Object.values(groups).reduce((acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0), 0);
     res.json({ groups, total, query: q });

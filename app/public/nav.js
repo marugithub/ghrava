@@ -4,6 +4,18 @@
  */
 (function() {
 
+  // Ensure the unified search modal script is loaded on every page that
+  // includes nav.js. Pages used to need to <script src="...global-search.js">
+  // individually; centralizing it here means the nav search button and Cmd+K
+  // shortcut work everywhere with no per-page change.
+  if (!document.querySelector('script[data-gh-search]') && !window.GH_Search) {
+    const s = document.createElement('script');
+    s.src = '/js/global-search.js';
+    s.dataset.ghSearch = '1';
+    s.async = false;
+    document.head.appendChild(s);
+  }
+
   // ── SVG icon library — thin-stroke outlined style ────────────
   const SVG = {
     home:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,
@@ -404,64 +416,35 @@
         }).catch(()=>{});
     },
     toggleSearch() {
-      const panel = document.getElementById('ghSearchPanel');
-      if (!panel) return;
-      const opening = !panel.classList.contains('open');
-      panel.classList.toggle('open');
-      if (opening) {
-        const input = document.getElementById('ghSearchInput');
-        if (input) { input.value = ''; setTimeout(()=>input.focus(), 30); }
-        const list = document.getElementById('ghSearchResults');
-        if (list) list.innerHTML = '<div class="gh-search-hint">Type at least 2 characters to search</div>';
+      // Delegate to the unified global search modal. Pre-scope to the current
+      // module if the page declared one via window.GH_PAGE.module — that's a
+      // hint, not a hard filter; the user can flip back to "All" with a click.
+      const cfg = window.GH_PAGE || {};
+      const pageModule = cfg.module || '';
+      // Map nav module keys to GH_Search scope ids (which match server group names)
+      const scopeMap = {
+        inventory: 'Inventory', wardrobe: 'Wardrobe', medical: 'Medical',
+        todos: 'Todos', documents: 'Documents', kids: 'Kids', books: 'Books',
+        career: 'Career', property: 'Property,Vehicles', finance: 'Finance,Investments,Transactions',
+        'daily-log': 'Daily Log', resources: 'Resources', perfume: 'Perfume',
+      };
+      const scope = scopeMap[pageModule] || '';
+      if (window.GH_Search) {
+        window.GH_Search.open({ scope });
+      } else {
+        // Fallback if the modal script didn't load (older cached pages)
+        console.warn('GH_Search not available; nav search no-op');
       }
     },
     closeSearch() {
-      document.getElementById('ghSearchPanel')?.classList.remove('open');
+      if (window.GH_Search) window.GH_Search.close();
     },
     _searchTimer: null,
     _searchSeq: 0,
     runSearch(q) {
-      clearTimeout(window.GH_NAV._searchTimer);
-      const list = document.getElementById('ghSearchResults');
-      if (!list) return;
-      q = (q || '').trim();
-      if (q.length < 2) {
-        list.innerHTML = '<div class="gh-search-hint">Type at least 2 characters to search</div>';
-        return;
-      }
-      window.GH_NAV._searchTimer = setTimeout(() => {
-        const seq = ++window.GH_NAV._searchSeq;
-        list.innerHTML = '<div class="gh-search-hint">Searching\u2026</div>';
-        fetch('/api/v1/search?q=' + encodeURIComponent(q))
-          .then(r => r.ok ? r.json() : { groups:{}, total:0 })
-          .then(data => {
-            // Drop stale responses
-            if (seq !== window.GH_NAV._searchSeq) return;
-            const groups = data.groups || {};
-            const total  = data.total || 0;
-            if (!total) { list.innerHTML = '<div class="gh-search-hint">No matches found</div>'; return; }
-            const html = Object.keys(groups).map(mod => {
-              const items = groups[mod];
-              if (!items.length) return '';
-              return `<div class="gh-search-group">
-                <div class="gh-search-group-title">${mod} <span class="gh-search-group-count">${items.length}</span></div>
-                ${items.map(it => `
-                  <a class="gh-search-item" href="${it.href}">
-                    <span class="gh-search-icon">${it.icon || ''}</span>
-                    <div class="gh-search-text">
-                      <div class="gh-search-label">${(it.label||'').replace(/</g,'&lt;')}</div>
-                      ${it.sub ? `<div class="gh-search-sub">${String(it.sub).replace(/</g,'&lt;')}</div>` : ''}
-                    </div>
-                  </a>`).join('')}
-              </div>`;
-            }).join('');
-            list.innerHTML = html;
-          })
-          .catch(() => {
-            if (seq !== window.GH_NAV._searchSeq) return;
-            list.innerHTML = '<div class="gh-search-hint">Search failed</div>';
-          });
-      }, 220);
+      // Legacy entry retained for backwards-compat with the old in-nav panel.
+      // The unified modal owns search now; opening it pre-scopes appropriately.
+      if (window.GH_Search) window.GH_Search.open({ query: q });
     },
     toggleSection,
   };
@@ -474,7 +457,7 @@
     document.addEventListener('DOMContentLoaded', buildPageHeader);
   }
   buildNotifPanel();
-  buildSearchPanel();
+  // (Old nav search panel removed — toggleSearch() now opens GH_Search modal)
 
   // Keyboard shortcut: Ctrl/Cmd + K opens search
   document.addEventListener('keydown', e => {

@@ -35,7 +35,8 @@
 <div id="app">
   <div class="gh-page-header"></div>
   <div style="padding:10px 16px 0;display:flex;gap:8px;align-items:center">
-    <input id="perfSearch" class="search-input" type="search" placeholder="Search perfume, notes, brand…" style="flex:1">
+  <!-- HIDDEN per session-12 search consolidation. Input stays in DOM so load() can read its value (always ''). To restore, remove style="display:none" on the input. Use Cmd+K for unified search; Filter for in-view filtering. -->
+    <input id="perfSearch" class="search-input" type="search" placeholder="Search perfume, notes, brand…" style="flex:1;display:none">
     <select class="form-select" id="perfStatus" onchange="load()" style="width:120px">
       <option value="active">Active</option>
       <option value="all">All</option>
