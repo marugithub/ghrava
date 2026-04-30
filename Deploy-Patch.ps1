@@ -1,4 +1,4 @@
-# Deploy-Patch.ps1
+# Deploy-Patch.ps1 — Ghrava v202604.107
 # Copies only the changed files from this patch to Z:\ghrava, then restarts the container.
 # Usage: Right-click → "Run with PowerShell"  (or: .\Deploy-Patch.ps1)
 
@@ -7,18 +7,21 @@ $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# ── Files in this patch ───────────────────────────────────────
+# ── Files in this patch (v202604.107) ─────────────────────────
+# 1. Card grid fix on todos v2 (multi-column instead of full-width)
+# 2. Mobile-responsive drawers (full-screen iPhone-style on phone)
+# 3. Cards v2 propagation to medical (gated behind ?cards=v2)
 $PatchFiles = @(
     'app\public\shared.css',
-    'app\public\perfume.html',
-    'app\public\wardrobe.html',
-    'app\public\insurance.html',
-    'app\public\subscriptions.html'
+    'app\public\todos.html',
+    'app\public\medical.html',
+    'app\public\js\gh-card-config-medical.js',
+    'app\version.txt'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy' -ForegroundColor Cyan
-Write-Host '  ─────────────────────────────────────────' -ForegroundColor DarkGray
+Write-Host '  Ghrava Patch Deploy - v202604.107' -ForegroundColor Cyan
+Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray
 Write-Host ''
@@ -52,7 +55,7 @@ foreach ($rel in $PatchFiles) {
 
 Write-Host ''
 Write-Host "  Copied $ok file(s)" -ForegroundColor Cyan
-if ($fail -gt 0) { Write-Host "  $fail file(s) missing — check zip contents" -ForegroundColor Yellow }
+if ($fail -gt 0) { Write-Host "  $fail file(s) missing - check zip contents" -ForegroundColor Yellow }
 Write-Host ''
 
 # ── Restart container ─────────────────────────────────────────
@@ -66,6 +69,8 @@ try {
 }
 
 Write-Host ''
-Write-Host '  Done.' -ForegroundColor Green
+Write-Host '  Done. Test URLs:' -ForegroundColor Green
+Write-Host '    http://192.168.4.62:3001/todos.html?cards=v2'   -ForegroundColor White
+Write-Host '    http://192.168.4.62:3001/medical.html?cards=v2' -ForegroundColor White
 Write-Host ''
 Read-Host 'Press Enter to close'

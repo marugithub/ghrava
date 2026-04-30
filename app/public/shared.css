@@ -3622,3 +3622,119 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   .gh-card__title--lg { font-size: 18px; }
   .gh-card-grid { grid-template-columns: 1fr; }
 }
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.107 — Mobile-responsive drawers (iPhone-style edit overlay)
+ *
+ * On phone viewports (≤640px), .drawer and .gh-drawer become full-screen
+ * overlays. Header sticks to top with the close/back affordance; existing
+ * footer (Save/Cancel) stays pinned to the bottom via flex layout.
+ * No JS or HTML changes — purely CSS over the existing markup.
+ * ─────────────────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+
+  /* Drop the dimmed backdrop on phones — drawer fills viewport */
+  .drawer-overlay {
+    background: var(--bg);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    align-items: stretch;
+    justify-content: stretch;
+  }
+
+  /* .drawer pattern (used by ~16 modules) */
+  .drawer {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    animation: drawer-slide-up .24s cubic-bezier(.32,.72,0,1);
+  }
+  .drawer-handle { display: none; }
+  .drawer-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg2);
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .drawer-title {
+    font-size: 16px;
+    padding: 8px 0;
+    text-align: center;
+  }
+  .drawer-body {
+    padding: 16px 16px 24px;
+  }
+  .drawer-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* .gh-drawer pattern (inventory + settings) */
+  body:has(.gh-drawer.open)::before { display: none; }
+  .gh-drawer {
+    top: 0;
+    left: 0;
+    transform: translate(0, 0);
+    width: 100vw;
+    max-width: 100vw;
+    height: 100vh;
+    max-height: 100vh;
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    transition: transform .24s cubic-bezier(.32,.72,0,1), opacity .18s ease;
+  }
+  .gh-drawer:not(.open) {
+    transform: translate(0, 100%);
+  }
+  .gh-drawer.open {
+    transform: translate(0, 0);
+  }
+  .gh-drawer-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--bg2);
+    padding: 10px 12px;
+    min-height: 52px;
+  }
+  .gh-drawer-title {
+    font-size: 16px;
+    text-align: center;
+  }
+  /* Re-style the close ✕ as a back chevron on mobile */
+  .gh-drawer-close {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    font-size: 0; /* hide the ✕ glyph */
+    position: relative;
+  }
+  .gh-drawer-close::before {
+    content: "";
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 11px; height: 11px;
+    border-left: 2px solid var(--text);
+    border-bottom: 2px solid var(--text);
+    transform: translate(-30%, -50%) rotate(45deg);
+  }
+  .gh-drawer-body {
+    padding: 16px 16px 24px;
+  }
+}
+
+@keyframes drawer-slide-up {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}

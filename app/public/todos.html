@@ -550,7 +550,8 @@ function render() {
     list.innerHTML = '';
     list.className = '';
     list.style.padding = '16px';
-    const grouped = window.GH_CARD.renderGrouped('todos', displayTodos, { layout: 'list' });
+    // v202604.107 — multi-column grid on desktop; CSS auto-collapses to 1 col on mobile.
+    const grouped = window.GH_CARD.renderGrouped('todos', displayTodos, { layout: 'grid' });
     list.appendChild(grouped);
   };
 

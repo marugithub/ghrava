@@ -375,6 +375,8 @@
 <script src="/js/lt-messages.js"></script>
 <script src="/js/lt-shared-data.js"></script>
 <script src="/js/lt-refs.js"></script>
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-config-medical.js"></script>
 <script>
 // ── Auth ──────────────────────────────────────────────────────
 // Auth token from lt-core.js (LT.authToken)
@@ -802,6 +804,76 @@ async function renderNotes() {
     area.innerHTML = errorState(e.message, '');
   }
 }
+
+// ── GH_CARD v2 feature flag ────────────────────────────────────
+// New card design is opt-in via ?cards=v2 query param while we iterate.
+// When set, we override the three render fns to use the shared GH_CARD pipeline.
+// Flip the default once approved. Added v202604.107.
+(function() {
+  const url = new URL(location.href);
+  const cardsV2 = url.searchParams.get('cards') === 'v2';
+  if (!cardsV2) return;
+  if (!window.GH_CARD) {
+    console.warn('[medical] cards=v2 requested but GH_CARD not loaded');
+    return;
+  }
+
+  // Helper to swap a render: fetch, filter, then GH_CARD.renderGrouped into #listArea.
+  function makeV2Render(moduleId, urlPath, searchKeys, statusFilterKey, emptyKey) {
+    return async function() {
+      const area = document.getElementById('listArea');
+      area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+      try {
+        let u = urlPath;
+        if (window.currentPatient) {
+          u += (u.includes('?') ? '&' : '?') + 'patient=' + encodeURIComponent(window.currentPatient);
+        }
+        let rows = await window.api('GET', u);
+        const term = (window._medSearch || '').toLowerCase();
+        if (term) rows = rows.filter(r => searchKeys.some(k => (r[k]||'').toLowerCase().includes(term)));
+        if (statusFilterKey && window._medFilters?.status) {
+          rows = rows.filter(r => r.status === window._medFilters.status);
+        }
+        if (window._medFilters?.tags?.length) {
+          rows = rows.filter(r => window._medFilters.tags.every(t => (r.tags||[]).includes(t)));
+        }
+        if (!rows.length) {
+          area.innerHTML = window.emptyState(...window.GH_EMPTY[emptyKey]);
+          return;
+        }
+        area.innerHTML = '';
+        area.style.padding = '16px';
+        const grouped = window.GH_CARD.renderGrouped(moduleId, rows, { layout: 'grid' });
+        area.appendChild(grouped);
+
+        // Run interaction check for medications (preserve legacy behavior)
+        if (moduleId === 'medical_medications' && window.checkInteractionsForAll) {
+          window.checkInteractionsForAll(rows);
+        }
+      } catch (e) {
+        area.innerHTML = window.errorState(e.message, '');
+      }
+    };
+  }
+
+  window.renderMedications = makeV2Render(
+    'medical_medications', '/medical/medications',
+    ['name','patient','dosage','frequency','purpose','notes'],
+    'status', 'medications'
+  );
+  window.renderConditions = makeV2Render(
+    'medical_conditions', '/medical/conditions',
+    ['condition','patient','notes'],
+    null, 'conditions'
+  );
+  window.renderNotes = makeV2Render(
+    'medical_notes', '/medical/notes',
+    ['patient','questions','doctors_response','notes'],
+    null, 'visits'
+  );
+
+  console.log('[medical] cards=v2 active — using GH_CARD pipeline');
+})();
 
 // ── FAB routing ────────────────────────────────────────────────
 function openAddDrawer() {
