@@ -660,7 +660,9 @@ $('formSave').addEventListener('click', async () => {
 
 async function doDelete() {
   try {
-    await apiDelete(`/daily-log/${deletingId}`);
+    // Use local api (already prefixed with /daily-log) — pass only the id portion.
+    // Avoids any chance of /api/v1/daily-log/daily-log/{id} double-prefix bug.
+    await api('DELETE', `/${deletingId}`);
     toast('Entry deleted');
     await load();
   } catch { toast('Delete failed','err'); }

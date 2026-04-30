@@ -2,7 +2,7 @@
  * sw.js — Ghrava Service Worker
  * Network-first strategy: always try network, cache static assets as fallback.
  */
-const CACHE = 'ghrava-v1';
+const CACHE = 'ghrava-v2';
 const STATIC = ['/shared.css', '/theme.js', '/nav.js', '/offline.html',
   '/js/lt-core.js', '/js/lt-messages.js', '/js/global-search.js',
   '/js/keyboard-shortcuts.js', '/js/quick-capture.js'];

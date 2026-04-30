@@ -624,20 +624,20 @@ function clearSelection() {
 }
 async function bulkComplete() {
   if (!selected.size) return;
-  await Promise.all([...selected].map(id => apiPatch(`/todos/${id}/status`, {status:'done'}).catch(()=>{})));
+  await Promise.all([...selected].map(id => api('PATCH', `/${id}/status`, {status:'done'}).catch(()=>{})));
   toast(`✓ ${selected.size} completed`); clearSelection(); await load();
 }
 async function bulkSnooze() {
   if (!selected.size) return;
   const d = new Date(); d.setDate(d.getDate()+1);
   const due = d.toISOString().slice(0,10);
-  await Promise.all([...selected].map(id => apiPut(`/todos/${id}`, {due_date:due}).catch(()=>{})));
+  await Promise.all([...selected].map(id => api('PUT', `/${id}`, {due_date:due}).catch(()=>{})));
   toast(`⏰ ${selected.size} snoozed`); clearSelection(); await load();
 }
 async function bulkDelete() {
   if (!selected.size) return;
   if (!await LT.confirm(`Delete ${selected.size} todo${selected.size>1?'s':''}?`)) return;
-  await Promise.all([...selected].map(id => apiDelete(`/todos/${id}`).catch(()=>{})));
+  await Promise.all([...selected].map(id => api('DELETE', `/${id}`).catch(()=>{})));
   toast(`Deleted ${selected.size}`); clearSelection(); await load();
 }
 
@@ -661,7 +661,7 @@ function wireItems() {
 // ── Actions ───────────────────────────────────────────────────
 async function toggleDone(id, markDone) {
   try {
-    await apiPatch(`/todos/${id}/status`, { status: markDone ? 'done' : 'open' });
+    await api('PATCH', `/${id}/status`, { status: markDone ? 'done' : 'open' });
     toast(markDone ? '✓ Done' : 'Reopened');
     await load();
   } catch { toast('Failed', 'err'); }
@@ -669,7 +669,7 @@ async function toggleDone(id, markDone) {
 
 async function dismiss(id) {
   try {
-    await apiPatch(`/todos/${id}/status`, { status: 'dismissed' });
+    await api('PATCH', `/${id}/status`, { status: 'dismissed' });
     toast('Dismissed');
     await load();
   } catch { toast('Failed', 'err'); }
@@ -682,7 +682,7 @@ async function deleteTodo(id) {
     confirmLabel: 'Delete',
     onConfirm: async () => {
       try {
-        await apiDelete(`/todos/${id}`);
+        await api('DELETE', `/${id}`);
         toast('Deleted');
         await load();
       } catch { toast('Delete failed', 'err'); }
@@ -880,7 +880,7 @@ async function loadCategoryPills() {
 // ── Snooze ────────────────────────────────────────────────────
 async function snooze(id) {
   try {
-    await apiPatch(`/todos/${id}/snooze`, { days: 1 });
+    await api('PATCH', `/${id}/snooze`, { days: 1 });
     toast('Snoozed 1 day');
     await load();
   } catch { toast('Failed', 'err'); }

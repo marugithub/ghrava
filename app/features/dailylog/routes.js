@@ -139,11 +139,12 @@ router.get('/:id', (req, res) => {
 });
 
 // ── All routes below require authentication ──────────────────
-// requireAuth applied per-route on writes only
+// All routes are public — daily-log is not gated behind auth (per project rules,
+// only settings/routes.js requires auth).
 
 // ── POST /api/v1/daily-log ─────────────────────────────────────
 // ── Create an entry ────────────────────────────────────────────
-router.post('/', requireAuth, (req, res) => {
+router.post('/', (req, res) => {
   try {
     const { log_date, category, entry_text, follow_up_needed, follow_up_date, tags,
             is_memory, memory_category, member_ids } = req.body;
@@ -178,7 +179,7 @@ router.post('/', requireAuth, (req, res) => {
 
 // ── PUT /api/v1/daily-log/:id ──────────────────────────────────
 // ── Update an entry (also replaces tags) ───────────────────────
-router.put('/:id', requireAuth, (req, res) => {
+router.put('/:id', (req, res) => {
   try {
     const { log_date, category, entry_text, follow_up_needed, follow_up_date, tags,
             is_memory, memory_category, member_ids } = req.body;
@@ -223,7 +224,7 @@ router.put('/:id', requireAuth, (req, res) => {
 
 
 // ── PATCH /api/v1/daily-log/:id — partial update (e.g. clear follow-up) ──
-router.patch('/:id', requireAuth, (req, res) => {
+router.patch('/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT * FROM daily_log WHERE id = ?').get(req.params.id);
     if (!existing) return notFound(res, 'Log entry');
@@ -248,7 +249,7 @@ router.patch('/:id', requireAuth, (req, res) => {
 
 // ── DELETE /api/v1/daily-log/:id ───────────────────────────────
 // ── Soft-delete ─────────────────────────────────────────────────
-router.delete('/:id', requireAuth, (req, res) => {
+router.delete('/:id', (req, res) => {
   try {
     const existing = db.prepare('SELECT id FROM daily_log WHERE id = ?').get(req.params.id);
     if (!existing) return notFound(res, 'Log entry');
