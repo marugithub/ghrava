@@ -79,8 +79,12 @@
        If a problem arises, change deliberately and update HANDOFF screenshot.
        ───────────────────────────────────────────────────────────────────── */
     /* ── Polaroid frame — cream paper backing, drop shadow, mono caption ── */
+    /* HALF-SIZE option (session-12). Polaroid sits centered inside its grid
+       cell at 50% width — internal photo (calc(100% - 16px)) and caption
+       scale proportionally. To revert: remove max-width + margin lines. */
     .lb-polaroid{background:#f4ece0;border-radius:3px;
-      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:0}
+      box-shadow:0 4px 12px rgba(0,0,0,.35);position:relative;display:block;padding-bottom:0;
+      max-width:50%;margin-left:auto;margin-right:auto}
     .lb-polaroid-photo{width:calc(100% - 16px);aspect-ratio:1/1;overflow:hidden;
       display:flex;align-items:center;justify-content:center;position:relative;
       margin:8px auto 0}

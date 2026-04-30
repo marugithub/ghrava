@@ -81,6 +81,12 @@
 @media (min-width: 500px) { .inv-grid { grid-template-columns: repeat(3, 1fr); } }
 
 .item-grid-card {
+  /* HALF-SIZE option (session-12). Card sits centered inside its grid cell
+     at 50% width — image and card padding/border scale together because
+     image is aspect-ratio:1 and body padding is unchanged. To revert:
+     remove the max-width + margin lines below. */
+  max-width: 50%;
+  margin: 0 auto;
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
