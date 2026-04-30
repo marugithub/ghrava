@@ -34,7 +34,10 @@
 .patient-strip::-webkit-scrollbar { display: none; }
 .patient-pill {
   flex-shrink: 0;
-  padding: 5px 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 4px;
   border-radius: 20px;
   font-size: 12px;
   font-weight: 600;
@@ -45,6 +48,8 @@
   transition: all .15s;
   -webkit-tap-highlight-color: transparent;
 }
+.patient-pill .gh-avatar { width: 22px !important; height: 22px !important; font-size: 9px !important; }
+.patient-pill-name { line-height: 22px; }
 .patient-pill.active {
   background: var(--accent-bg);
   border-color: var(--accent-bd);
@@ -96,7 +101,7 @@
 
   <!-- ── Patient filter ───────────────────────────────────── -->
   <div class="patient-strip" id="patientStrip">
-    <button class="patient-pill active" data-patient="" onclick="setPatient(this,'')">All</button>
+    <button class="patient-pill active" data-patient="" onclick="setPatient(this,'')" style="padding:4px 14px"><span class="patient-pill-name">All</span></button>
   </div>
 
   <!-- Search bar -->
@@ -620,8 +625,12 @@ async function renderMedications() {
     const byPatient = {};
     rows.forEach(r => { (byPatient[r.patient] = byPatient[r.patient]||[]).push(r); });
 
-    area.innerHTML = Object.entries(byPatient).map(([patient, meds]) => `
-      <div class="section-label">${esc(patient)}</div>
+    area.innerHTML = Object.entries(byPatient).map(([patient, meds]) => {
+      // Look up the member by display_name to get id (for GH_AVATAR + photo).
+      const member = (familyMembers || []).find(m => m.display_name === patient);
+      const avatar = (member && window.GH_AVATAR) ? GH_AVATAR.render(member, 'sm') : '';
+      return `
+      <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
       ${meds.map(r => `
         <div class="gh-card gh-s-gray card" onclick="editMedication(${r.id})">
           <div class="card-right">
@@ -647,7 +656,8 @@ async function renderMedications() {
           ${r.attachment_count?AttachmentManager.staticBadge('med_medication',r.id,r.attachment_count):''}
         </div>
       `).join('')}
-    `).join('');
+    `;
+    }).join('');
     // Non-blocking interaction check — fires after render
     checkInteractionsForAll(rows);
   } catch (e) {
@@ -993,11 +1003,15 @@ async function _medBoot() {
   // Populate patient filter strip from family members
   const strip = document.getElementById('patientStrip');
   if (strip && familyMembers.length) {
+    // Hydrate the global avatar cache so initials are unique + photos load
+    if (window.GH_AVATAR) { try { await GH_AVATAR.preload(); } catch(_) {} }
     familyMembers.forEach(m => {
       const btn = document.createElement('button');
       btn.className = 'patient-pill';
       btn.dataset.patient = m.display_name;
-      btn.textContent = m.display_name;
+      // Avatar (sm) + name. innerHTML so the GH_AVATAR span renders.
+      const avatar = window.GH_AVATAR ? GH_AVATAR.render(m, 'sm') : '';
+      btn.innerHTML = `${avatar}<span class="patient-pill-name">${m.display_name}</span>`;
       btn.onclick = function() { setPatient(this, m.display_name); };
       strip.appendChild(btn);
     });

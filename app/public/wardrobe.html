@@ -30,10 +30,12 @@
     /* ── Member pill strip ── */
     .member-pills{display:flex;gap:6px;flex-wrap:wrap;padding:10px 16px 6px;overflow-x:auto;scrollbar-width:none}
     .member-pills::-webkit-scrollbar{display:none}
-    .member-pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:99px;
+    .member-pill{display:inline-flex;align-items:center;gap:6px;padding:3px 12px 3px 4px;border-radius:99px;
       font-size:12px;font-weight:600;cursor:pointer;border:1.5px solid var(--border);
       color:var(--text2);background:var(--bg2);transition:all .15s;flex-shrink:0;user-select:none}
     .member-pill.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .member-pill .gh-avatar{width:22px !important;height:22px !important;font-size:9px !important}
+    .member-pill .member-pill-name{line-height:22px}
     .member-pill .member-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
 
     /* ── Tab bar (underline) ── */
@@ -719,6 +721,8 @@ async function loadMembers() {
     // Decorate each with a stable color (index-based)
     _members.forEach((m, i) => { m.color = MEMBER_COLORS[i % MEMBER_COLORS.length]; });
     refreshMemberCache();
+    // Hydrate the global avatar cache so pills show photos and unique initials
+    if (window.GH_AVATAR) { try { await GH_AVATAR.preload(); } catch(_) {} }
     // Populate one pill strip per tab (so each tab's row is self-contained
     // and we don't have to move a single strip around when tabs switch).
     ['planner','items','outfits','insights'].forEach(tab => {
@@ -733,7 +737,8 @@ async function loadMembers() {
       _members.forEach(m => {
         const p = document.createElement('div');
         p.className = 'member-pill'; p.dataset.id = m.id;
-        p.innerHTML = `<span class="member-dot" style="background:${m.color}"></span>${esc(m.display_name)}`;
+        const avatar = window.GH_AVATAR ? GH_AVATAR.render(m, 'sm') : '';
+        p.innerHTML = `${avatar}<span class="member-pill-name">${esc(m.display_name)}</span>`;
         p.onclick = () => selectMember(m.id, p);
         pills.appendChild(p);
       });

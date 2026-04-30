@@ -357,6 +357,7 @@ let _kids=[],_currentKid=null,_editingKidId=null,_editingActId=null,_editingNote
 
 async function loadKids(){
   try{
+    if (window.GH_AVATAR) { try { await GH_AVATAR.preload(); } catch(_) {} }
     _kids=await api('GET', '/');
     renderKidsTabs();
     // Auto-select first child
@@ -369,7 +370,9 @@ async function loadKids(){
 function renderKidsTabs(){
   const tabs = $('kidsTabs');
   if(!_kids.length){ tabs.innerHTML=emptyState(...GH_EMPTY.kids); return; }
-  // Avatar gradient pool — cycles per kid
+  // Use the global family-member avatar for each kid so it matches medical /
+  // reports / settings. Falls back to a local gradient circle when a kid has
+  // no linked family_member_id (legacy records).
   const GRADS = [
     'linear-gradient(135deg,#ec4899,#8b5cf6)',
     'linear-gradient(135deg,#3b82f6,#06b6d4)',
@@ -377,19 +380,37 @@ function renderKidsTabs(){
     'linear-gradient(135deg,#22c55e,#14b8a6)',
   ];
   tabs.innerHTML = _kids.map((k,i)=>{
-    const initial = k.display_name[0].toUpperCase();
     const grad = GRADS[i % GRADS.length];
+    let avatar;
+    if (k.family_member_id && window.GH_AVATAR) {
+      const m = GH_AVATAR.getCached(k.family_member_id);
+      if (m) {
+        avatar = GH_AVATAR.render(m, 'md', { extraClass: 'kid-tab-avatar' });
+      }
+    }
+    if (!avatar) {
+      const initial = (k.display_name || '?')[0].toUpperCase();
+      avatar = `<div class="kid-tab-avatar" style="background:${grad}">${esc(initial)}</div>`;
+    }
     return `<button class="kid-tab${i===0?' active':''}" data-kid-id="${k.id}" onclick="openKidDetail(${k.id})">
-      <div class="kid-tab-avatar" style="background:${grad}">${esc(initial)}</div>
+      ${avatar}
       <div class="kid-tab-name">${esc(k.display_name.split(' ')[0])}</div>
     </button>`;
   }).join('');
 }
 
 function kidCard(k){
-  const initial=k.display_name[0].toUpperCase();
   const ageLine=[k.age!=null?k.age+' yrs':'',k.grade||''].filter(Boolean).join(' · ');
-  return `<div class="gh-card gh-s-blue kid-card"><div class="kid-card-header" style="padding:12px 14px" id="kid-${k.id}"><div class="kid-avatar">${esc(initial)}</div><div style="flex:1"><div class="kid-name">${esc(k.display_name)}</div><div class="kid-meta">${esc(ageLine)||'No age/grade set'}</div>${k.allergies?`<div style="font-size:11px;color:var(--red);margin-top:2px">⚠ ${esc(k.allergies)}</div>`:''}</div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div><div class="kid-stats"><div class="kid-stat"><div class="kid-stat-val">${k.activity_count||0}</div><div class="kid-stat-lbl">Activities</div></div><div class="kid-stat"><div class="kid-stat-val">${k.note_count||0}</div><div class="kid-stat-lbl">Notes</div></div>${k.school_name?`<div class="kid-stat" style="text-align:left;flex:1"><div style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(k.school_name)}</div><div class="kid-stat-lbl">School</div></div>`:''}</div></div>`;
+  let avatarHtml;
+  if (k.family_member_id && window.GH_AVATAR) {
+    const m = GH_AVATAR.getCached(k.family_member_id);
+    if (m) avatarHtml = GH_AVATAR.render(m, 'md', { extraClass: 'kid-avatar' });
+  }
+  if (!avatarHtml) {
+    const initial = (k.display_name || '?')[0].toUpperCase();
+    avatarHtml = `<div class="kid-avatar">${esc(initial)}</div>`;
+  }
+  return `<div class="gh-card gh-s-blue kid-card"><div class="kid-card-header" style="padding:12px 14px" id="kid-${k.id}">${avatarHtml}<div style="flex:1"><div class="kid-name">${esc(k.display_name)}</div><div class="kid-meta">${esc(ageLine)||'No age/grade set'}</div>${k.allergies?`<div style="font-size:11px;color:var(--red);margin-top:2px">⚠ ${esc(k.allergies)}</div>`:''}</div><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div><div class="kid-stats"><div class="kid-stat"><div class="kid-stat-val">${k.activity_count||0}</div><div class="kid-stat-lbl">Activities</div></div><div class="kid-stat"><div class="kid-stat-val">${k.note_count||0}</div><div class="kid-stat-lbl">Notes</div></div>${k.school_name?`<div class="kid-stat" style="text-align:left;flex:1"><div style="font-size:12px;font-weight:600;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(k.school_name)}</div><div class="kid-stat-lbl">School</div></div>`:''}</div></div>`;
 }
 
 async function openKidDetail(id){
@@ -411,12 +432,20 @@ async function openKidDetail(id){
     ];
     const kidIdx = _kids.findIndex(x=>x.id===id);
     const grad = GRADS[kidIdx % GRADS.length];
-    const initial = k.display_name[0].toUpperCase();
     const ageLine = [k.age!=null?k.age+' yrs':'', k.grade?'Grade '+k.grade:'', k.school_name||''].filter(Boolean).join(' · ');
+    let heroAvatar;
+    if (k.family_member_id && window.GH_AVATAR) {
+      const m = GH_AVATAR.getCached(k.family_member_id);
+      if (m) heroAvatar = GH_AVATAR.render(m, 'lg', { extraClass: 'kid-hero-avatar' });
+    }
+    if (!heroAvatar) {
+      const initial = (k.display_name || '?')[0].toUpperCase();
+      heroAvatar = `<div class="kid-hero-avatar">${esc(initial)}</div>`;
+    }
     $('kidSectionHeader').style.display = 'block';
     $('kidSectionHeader').innerHTML = `
       <div class="kid-hero" style="background:${grad}">
-        <div class="kid-hero-avatar">${esc(initial)}</div>
+        ${heroAvatar}
         <div style="flex:1;min-width:0">
           <div class="kid-hero-name">${esc(k.display_name)}</div>
           <div class="kid-hero-sub">${esc(ageLine)||'No age set'}</div>

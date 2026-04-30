@@ -1670,12 +1670,14 @@ window.GH_FAMILY = (function() {
 }
 .gh-fam-field:focus-within { border-color:var(--accent); }
 .gh-fam-pill {
-  display:inline-flex;align-items:center;gap:4px;
-  padding:2px 8px 2px 10px;border-radius:20px;
+  display:inline-flex;align-items:center;gap:6px;
+  padding:2px 8px 2px 4px;border-radius:20px;
   background:var(--accent-bg);border:1px solid var(--accent-bd);
   color:var(--accent);font-size:12px;font-weight:600;
   white-space:nowrap;
 }
+.gh-fam-pill .gh-avatar { width:20px !important; height:20px !important; font-size:9px !important; }
+.gh-fam-pill-name { line-height:20px; }
 .gh-fam-pill-x {
   width:14px;height:14px;border-radius:50%;
   display:flex;align-items:center;justify-content:center;
@@ -1737,10 +1739,26 @@ window.GH_FAMILY = (function() {
       if (m && m.id) selected.set(m.id, m.display_name || m.name || '');
     });
 
+    // Ensure GH_AVATAR cache is hydrated so pill avatars match elsewhere
+    if (window.GH_AVATAR) { try { await GH_AVATAR.preload(); } catch(_) {} }
+
+    function _avatar(id, name, size) {
+      // Prefer GH_AVATAR (gives photos when uploaded); fall back to inline circle.
+      if (window.GH_AVATAR) {
+        const cached = GH_AVATAR.getCached(id);
+        if (cached) return GH_AVATAR.render(cached, size || 'sm');
+        // Member not in cache yet — render inline using the name we have
+        return GH_AVATAR.render({ id, display_name: name }, size || 'sm');
+      }
+      const ini = (name || '?')[0].toUpperCase();
+      return `<span class="gh-fam-opt-avatar">${ini}</span>`;
+    }
+
     function render() {
       const pills = [...selected.entries()].map(([id, name]) => `
         <span class="gh-fam-pill" data-fam-id="${id}">
-          ${esc(name)}
+          ${_avatar(id, name, 'sm')}
+          <span class="gh-fam-pill-name">${esc(name)}</span>
           <button class="gh-fam-pill-x" data-remove="${id}" type="button">×</button>
         </span>`).join('');
 
@@ -1777,7 +1795,7 @@ window.GH_FAMILY = (function() {
         if (!opts.length || !q) { dropdown.classList.remove('open'); return; }
         dropdown.innerHTML = opts.map(m => `
           <div class="gh-fam-opt" data-id="${m.id}" data-name="${esc(m.display_name)}">
-            <div class="gh-fam-opt-avatar">${(m.display_name||'?')[0].toUpperCase()}</div>
+            ${_avatar(m.id, m.display_name, 'sm')}
             ${esc(m.display_name)}${m.relationship ? `<span style="font-size:11px;color:var(--text3);margin-left:4px">${esc(m.relationship)}</span>` : ''}
           </div>`).join('');
         dropdown.classList.add('open');
@@ -2289,8 +2307,9 @@ window.autoFillZip = async function(zip, cityId, stateId) {
 // Sizes: 'sm' (28px), 'md' (40px), 'lg' (80px).
 window.GH_AVATAR = (function() {
   const PALETTE = ['#14b8a6','#6366f1','#f97316','#ec4899','#84cc16','#06b6d4','#a855f7','#ef4444'];
-  let _cache = null;       // member-id → member object
-  let _cachePromise = null; // dedupe in-flight fetches
+  let _cache = null;            // member-id → member object
+  let _cachePromise = null;     // dedupe in-flight fetches
+  let _uniqueInitials = null;   // member-id → unique 2-char initial string
 
   async function preload() {
     if (_cache) return _cache;
@@ -2300,6 +2319,7 @@ window.GH_AVATAR = (function() {
         const list = await window.api('GET', '/settings/family');
         _cache = {};
         list.forEach(m => { _cache[m.id] = m; });
+        _uniqueInitials = computeUniqueInitials(list);
         return _cache;
       } finally {
         _cachePromise = null;
@@ -2313,9 +2333,122 @@ window.GH_AVATAR = (function() {
     return PALETTE[n % PALETTE.length];
   }
 
-  function initials(name) {
-    return String(name || '?')
-      .split(/\s+/).map(s => s[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '?';
+  /**
+   * Default 2-letter initial for a single name, no roster awareness.
+   * - Multi-word: first letter of word 1 + first letter of word 2
+   * - Single-word: first 2 letters of that word
+   * Used as a fallback when no roster context is available.
+   */
+  function defaultInitials(name) {
+    const s = String(name || '?').trim();
+    if (!s) return '?';
+    const words = s.split(/\s+/).filter(Boolean);
+    if (words.length >= 2) {
+      return ((words[0][0] || '') + (words[1][0] || '')).toUpperCase();
+    }
+    // Single word — first two characters
+    return (s.length >= 2 ? s.slice(0, 2) : (s[0] + s[0])).toUpperCase();
+  }
+
+  /**
+   * Given the full family roster, compute a unique 2-letter initial per member.
+   * - Pass 1: assign default initial (defaultInitials).
+   * - Pass 2: for members whose default collides with another, try alternates:
+   *     * Multi-word: first letter + first letter of each subsequent word
+   *     * Single-word: first letter + 2nd char, then 3rd, then 4th…
+   * - Pass 3: if still colliding, append a digit from member.id (last digit) so
+   *           we still produce a 2-char string but break the tie deterministically.
+   *
+   * Returns an object: { [memberId]: 'AB' }
+   */
+  function computeUniqueInitials(roster) {
+    const map = {};
+    if (!Array.isArray(roster) || !roster.length) return map;
+
+    // Pass 1: defaults
+    roster.forEach(m => { map[m.id] = defaultInitials(m.display_name); });
+
+    // Helper: list of candidate initials for a name, in priority order.
+    function candidatesFor(name) {
+      const s = String(name || '').trim();
+      const out = [];
+      const words = s.split(/\s+/).filter(Boolean);
+      if (words.length >= 2) {
+        const f = words[0][0] || '';
+        // First word + each subsequent word's first letter
+        for (let i = 1; i < words.length; i++) {
+          out.push((f + (words[i][0] || '')).toUpperCase());
+        }
+        // Then first word's first letter + first word's 2nd, 3rd char
+        for (let j = 1; j < words[0].length; j++) {
+          out.push((f + words[0][j]).toUpperCase());
+        }
+      } else if (s.length) {
+        // Single-word: first letter paired with subsequent characters
+        const f = s[0];
+        for (let j = 1; j < s.length; j++) {
+          out.push((f + s[j]).toUpperCase());
+        }
+      }
+      return out;
+    }
+
+    // Pass 2: resolve collisions. Group by current value, walk candidates for dups.
+    let changed = true, safety = 0;
+    while (changed && safety++ < 8) {
+      changed = false;
+      const groups = {};
+      Object.entries(map).forEach(([id, val]) => {
+        (groups[val] = groups[val] || []).push(id);
+      });
+      Object.entries(groups).forEach(([val, ids]) => {
+        if (ids.length < 2) return;
+        // Keep the lowest-id member with this value (stable). Others try alternates.
+        ids.sort((a, b) => Number(a) - Number(b));
+        for (let i = 1; i < ids.length; i++) {
+          const m = roster.find(r => String(r.id) === String(ids[i]));
+          if (!m) continue;
+          const cands = candidatesFor(m.display_name);
+          // Pick first candidate not already taken by another member
+          const taken = new Set(Object.values(map));
+          const pick = cands.find(c => !taken.has(c));
+          if (pick) {
+            map[m.id] = pick;
+            changed = true;
+          }
+        }
+      });
+    }
+
+    // Pass 3: any remaining ties get a digit suffix from id
+    const seen = {};
+    Object.entries(map).forEach(([id, val]) => {
+      if (seen[val]) {
+        const lastDigit = String(Math.abs(parseInt(id, 10) || 0)).slice(-1);
+        map[id] = (val[0] || '?') + lastDigit;
+      } else {
+        seen[val] = id;
+      }
+    });
+
+    return map;
+  }
+
+  /**
+   * Initials for a member.
+   * - If member object passed and roster cache populated → returns the precomputed
+   *   unique initial (collision-free across the roster).
+   * - If only a name string passed, or cache not loaded → falls back to default
+   *   2-letter initial without uniqueness check.
+   */
+  function initials(memberOrName) {
+    if (memberOrName && typeof memberOrName === 'object' && memberOrName.id != null) {
+      if (_uniqueInitials && _uniqueInitials[memberOrName.id]) {
+        return _uniqueInitials[memberOrName.id];
+      }
+      return defaultInitials(memberOrName.display_name);
+    }
+    return defaultInitials(memberOrName);
   }
 
   /**
@@ -2323,18 +2456,29 @@ window.GH_AVATAR = (function() {
    * @param {Object} member  — member object with at least { id, display_name, avatar_attachment_id }
    * @param {string} size    — 'sm' | 'md' | 'lg'
    * @param {Object} opts    — optional { onclick: string, extraClass: string, title: string }
+   *
+   * If `member.avatar_attachment_id` is set, the photo is shown.
+   * If not, the cache is consulted: if cache has a photo for this id, that is
+   * shown instead (handles stale caller objects passed before cache hydrated).
+   * Only when neither source has a photo do we fall back to the unique initial.
    */
   function render(member, size, opts) {
     if (!member || !member.id) return '';
     size = size || 'md';
     opts = opts || {};
+    // Prefer cached version if it has a photo and caller's copy doesn't —
+    // protects against stale member objects that haven't had avatar_attachment_id
+    // hydrated yet (e.g. older cached lists in module pages).
+    const cached = _cache && _cache[member.id];
+    let attId = member.avatar_attachment_id;
+    if (!attId && cached && cached.avatar_attachment_id) attId = cached.avatar_attachment_id;
     const c = colorFor(member.id);
-    const ini = initials(member.display_name);
+    const ini = initials(member);
     const cls = ['gh-avatar', 'gh-avatar-' + size, opts.extraClass || ''].filter(Boolean).join(' ');
     const title = opts.title || member.display_name || '';
     const onclick = opts.onclick ? ` onclick="${opts.onclick}"` : '';
-    const inner = member.avatar_attachment_id
-      ? `<img src="/api/v1/attachments/file/${member.avatar_attachment_id}" alt="${title}">`
+    const inner = attId
+      ? `<img src="/api/v1/attachments/file/${attId}" alt="${title}">`
       : ini;
     return `<span class="${cls}" data-member="${member.id}" style="background:${c}" title="${title}"${onclick}>${inner}</span>`;
   }
@@ -2353,6 +2497,7 @@ window.GH_AVATAR = (function() {
    */
   async function refresh() {
     _cache = null;
+    _uniqueInitials = null;
     await preload();
     document.querySelectorAll('.gh-avatar[data-member]').forEach(el => {
       const id = parseInt(el.dataset.member, 10);
