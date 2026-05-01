@@ -1,4 +1,4 @@
-# Deploy-Patch.ps1 — Ghrava v202604.110
+# Deploy-Patch.ps1 — Ghrava v202604.111
 # Copies only the changed files from this patch to Z:\ghrava, then restarts the container.
 # Usage: Right-click → "Run with PowerShell"  (or: .\Deploy-Patch.ps1)
 
@@ -7,17 +7,18 @@ $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# ── Files in this patch (v202604.110) ─────────────────────────
-# Desktop tri-pane layout (≥900px): drawer becomes a third column.
-# Center pane shrinks to make room; no dimmed backdrop. Mobile + tablet
-# unchanged from v109 (full-screen on phone, slide-from-right on tablet).
+# ── Files in this patch (v202604.111) ─────────────────────────
+# Drawer content alignment fix — switch .drawer from flex column with
+# overflow:hidden to block layout with internal scroll. Content now
+# flows top-down naturally regardless of structured/loose pattern.
+# Header/footer use position:sticky for the same anchored behavior.
 $PatchFiles = @(
     'app\public\shared.css',
     'app\version.txt'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.110' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.111' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray

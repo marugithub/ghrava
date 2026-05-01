@@ -914,6 +914,10 @@ html, body {
 @keyframes fadein { from { opacity:0 } to { opacity:1 } }
 
 /* ── Drawer — right-anchored side panel ───────────────────────── */
+/* v202604.111 — block layout with internal scroll. Content flows  */
+/* top-down naturally. Loose pattern (todos, most modules) just     */
+/* drops children inside .drawer. Structured pattern's header /     */
+/* footer become sticky via position:sticky overrides below.        */
 .drawer {
   background: var(--bg2);
   border-left: 1px solid var(--border2);
@@ -921,9 +925,10 @@ html, body {
   width: min(540px, 100vw);
   height: 100vh;
   max-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+  display: block;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 20px 20px;
   box-shadow: -16px 0 48px rgba(0,0,0,.28);
   transform: translateX(100%);
   transition: transform .28s cubic-bezier(.32,.72,0,1);
@@ -932,29 +937,33 @@ html, body {
   transform: translateX(0);
 }
 
-/* Fixed header: handle + title */
+/* Fixed header: handle + title — sticky to top of scrollable area  */
 .drawer-header {
-  flex-shrink: 0;
-  padding: 0 20px;
+  position: sticky;
+  top: -8px;                 /* compensate for .drawer top padding   */
+  z-index: 2;
+  background: var(--bg2);
+  margin: -8px -20px 12px;
+  padding: 8px 20px;
   border-bottom: 1px solid var(--border);
 }
 
-/* Scrollable form area */
+/* Body of structured pattern — no special layout, just flows.      */
 .drawer-body {
-  flex: 1;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 16px 20px 8px;
+  display: block;
 }
 
-/* Fixed footer: Save / Cancel / Delete — never scrolls */
+/* Sticky footer — stays at bottom even when content scrolls        */
 .drawer-foot {
-  flex-shrink: 0;
+  position: sticky;
+  bottom: -20px;             /* compensate for .drawer bottom padding */
+  z-index: 2;
+  background: var(--bg2);
+  margin: 16px -20px -20px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--border);
   display: flex;
   gap: 8px;
-  padding: 12px 20px 16px;
-  border-top: 1px solid var(--border);
-  background: var(--bg2);
 }
 .drawer-foot .btn { flex: 1; }
 
@@ -974,7 +983,7 @@ html, body {
   height: 4px;
   background: var(--border2);
   border-radius: 2px;
-  margin: 14px auto 10px;
+  margin: 6px auto 10px;
 }
 
 .drawer-title {
