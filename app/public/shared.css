@@ -887,26 +887,25 @@ html, body {
 .badge-grey   { background: var(--bg4);       color: var(--text2);    border: 1px solid var(--border2); }
 
 /* ── Drawer / modal ─────────────────────────────────────────── */
-/* v202604.108 — flicker-free pattern.                            */
-/* Overlay is ALWAYS display:flex (centered) but with opacity:0 + */
-/* pointer-events:none when closed. This eliminates the           */
-/* display:none → display:flex layout flash where the drawer      */
-/* would briefly render at top-left before flex centering kicked  */
-/* in. The drawer itself transitions transform + opacity via the  */
-/* parent's .open class (no @keyframes animation needed).         */
+/* v202604.109 — slide-from-right side-panel pattern (iOS push   */
+/* navigation style). Overlay is always display:flex; drawer     */
+/* anchors to the right edge and slides in via translateX.       */
+/* Desktop: ~540px panel, full viewport height, dimmed backdrop  */
+/*          on the left of the panel (clickable to close).       */
+/* Mobile : 100vw × 100dvh, fully covers the previous screen.    */
 .drawer-overlay {
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,.55);
   z-index: 500;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: flex-end;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .2s ease;
+  transition: opacity .22s ease;
 }
 .drawer-overlay.open {
   opacity: 1;
@@ -914,27 +913,23 @@ html, body {
 }
 @keyframes fadein { from { opacity:0 } to { opacity:1 } }
 
-/* ── Drawer — centered modal, flex column so footer never scrolls ── */
+/* ── Drawer — right-anchored side panel ───────────────────────── */
 .drawer {
   background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: var(--r-xl);
-  width: min(540px, 94vw);
-  max-height: 90vh;
+  border-left: 1px solid var(--border2);
+  border-radius: 0;
+  width: min(540px, 100vw);
+  height: 100vh;
+  max-height: 100vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 24px 64px rgba(0,0,0,.28);
-  /* Initial closed state: slightly down + scaled. */
-  transform: translateY(12px) scale(.97);
-  opacity: 0;
-  transition:
-    transform .24s cubic-bezier(.32,.72,0,1),
-    opacity   .2s  ease;
+  box-shadow: -16px 0 48px rgba(0,0,0,.28);
+  transform: translateX(100%);
+  transition: transform .28s cubic-bezier(.32,.72,0,1);
 }
 .drawer-overlay.open .drawer {
-  transform: translateY(0) scale(1);
-  opacity: 1;
+  transform: translateX(0);
 }
 
 /* Fixed header: handle + title */
@@ -990,9 +985,9 @@ html, body {
   padding: 4px 0 14px;
 }
 
-/* ── gh-drawer — centered modal (was right-side slide) ────── */
-/* Used by: inventory item detail drawer.                       */
-/* `:has()`-based backdrop so no HTML changes needed.           */
+/* ── gh-drawer — right-anchored side panel ──────────────────── */
+/* Used by: inventory item detail drawer, settings sub-pages.    */
+/* `:has()`-based backdrop so no HTML changes needed.            */
 body:has(.gh-drawer.open)::before {
   content: "";
   position: fixed;
@@ -1005,25 +1000,26 @@ body:has(.gh-drawer.open)::before {
 }
 .gh-drawer {
   position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -48%) scale(.96);
-  width: min(540px, 94vw);
-  max-height: 90vh;
+  top: 0;
+  right: 0;
+  width: min(540px, 100vw);
+  height: 100vh;
+  max-height: 100vh;
   z-index: 400;
   background: var(--bg2);
-  border: 1px solid var(--border2);
-  border-radius: var(--r-xl);
+  border-left: 1px solid var(--border2);
+  border-radius: 0;
   display: flex;
   flex-direction: column;
+  transform: translateX(100%);
   opacity: 0;
   pointer-events: none;
-  transition: transform .22s cubic-bezier(.32,.72,0,1), opacity .18s ease;
-  box-shadow: 0 24px 64px rgba(0,0,0,.28);
+  transition: transform .28s cubic-bezier(.32,.72,0,1), opacity .18s ease;
+  box-shadow: -16px 0 48px rgba(0,0,0,.28);
   overflow: hidden;
 }
 .gh-drawer.open {
-  transform: translate(-50%, -50%) scale(1);
+  transform: translateX(0);
   opacity: 1;
   pointer-events: auto;
 }
@@ -3639,40 +3635,67 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 }
 
 /* ───────────────────────────────────────────────────────────────────
- * v202604.107/108 — Mobile-responsive drawers (iPhone-style edit overlay)
+ * v202604.110 — Desktop tri-pane layout (≥900px)
  *
- * On phone viewports (≤640px), .drawer and .gh-drawer become full-screen
- * overlays. Header sticks to top; existing footer (Save/Cancel) stays
- * pinned to the bottom via flex layout. Slide-up animation via transform
- * on the .open class (matches the desktop flicker-free pattern).
- * No JS or HTML changes — purely CSS over the existing markup.
+ * When the drawer is open on desktop with a visible side-nav, treat the
+ * drawer as a third column instead of a floating modal:
+ *   ▸ Side-nav (220px or 58px collapsed)  │  Center pane  │  Drawer (540px)
+ * The dimmed backdrop is dropped — center pane stays visible. The
+ * #app width shrinks via `body:has(...)` so the cards re-flow into
+ * fewer columns instead of being covered. Below 900px the drawer
+ * reverts to a normal floating panel; ≤640px reverts to full-screen.
+ * ─────────────────────────────────────────────────────────────────── */
+@media (min-width: 900px) {
+  /* No dimmed backdrop — center pane remains fully visible */
+  .drawer-overlay {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  body:has(.gh-drawer.open)::before {
+    background: transparent;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* Shrink the main content area to make room for the right panel */
+  body:has(.drawer-overlay.open) #app,
+  body:has(.gh-drawer.open) #app {
+    width: calc(100% - 220px - 540px);
+  }
+  body.nav-collapsed:has(.drawer-overlay.open) #app,
+  body.nav-collapsed:has(.gh-drawer.open) #app {
+    width: calc(100% - 58px - 540px);
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.107/108/109 — Mobile drawer overrides
+ *
+ * Slide direction is consistent (from right) at all viewport sizes —
+ * see the base .drawer / .gh-drawer rules above. On phone we override:
+ *   • width   → 100vw (cover full screen)
+ *   • height  → 100dvh (dynamic viewport — fixes iOS Safari URL-bar
+ *               cutoff that was happening with 100vh)
+ *   • drop the dimmed backdrop (drawer fully covers, nothing to show)
  * ─────────────────────────────────────────────────────────────────── */
 @media (max-width: 640px) {
 
-  /* Drop the dimmed backdrop on phones — drawer fills viewport */
+  /* No backdrop visible behind a full-screen drawer */
   .drawer-overlay {
-    background: var(--bg);
+    background: transparent;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
-    align-items: stretch;
-    justify-content: stretch;
   }
 
-  /* .drawer pattern (used by ~16 modules) — slide up from bottom */
+  /* .drawer pattern (used by ~16 modules) */
   .drawer {
     width: 100vw;
     max-width: 100vw;
-    height: 100vh;
-    max-height: 100vh;
-    border-radius: 0;
-    border: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-left: none;
     box-shadow: none;
-    /* Override desktop closed state with a full slide from below */
-    transform: translateY(100%);
-    transition: transform .26s cubic-bezier(.32,.72,0,1);
-  }
-  .drawer-overlay.open .drawer {
-    transform: translateY(0);
   }
   .drawer-handle { display: none; }
   .drawer-header {
@@ -3698,23 +3721,15 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
-  /* .gh-drawer pattern (inventory + settings) — slide up from bottom */
+  /* .gh-drawer pattern (inventory + settings) */
   body:has(.gh-drawer.open)::before { display: none; }
   .gh-drawer {
-    top: 0;
-    left: 0;
     width: 100vw;
     max-width: 100vw;
-    height: 100vh;
-    max-height: 100vh;
-    border-radius: 0;
-    border: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-left: none;
     box-shadow: none;
-    transform: translate(0, 100%);
-    transition: transform .26s cubic-bezier(.32,.72,0,1), opacity .18s ease;
-  }
-  .gh-drawer.open {
-    transform: translate(0, 0);
   }
   .gh-drawer-header {
     position: sticky;
