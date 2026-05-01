@@ -112,10 +112,39 @@
       if (fn) fn(t.id);
     },
 
-    onMenu: (t, event) => {
-      // Could open context menu — for now, just trigger edit
+    // Urgency drives the card's left stripe + shadow:
+    //   overdue   → red stripe + faint red wash
+    //   urgent    → red stripe
+    //   high      → amber stripe
+    //   normal    → no stripe
+    //   done      → faded
+    urgency: (t) => {
+      if (t.status === 'done' || t.status === 'dismissed') return 'done';
+      if (isOverdue(t)) return 'overdue';
+      if (t.priority === 'urgent') return 'urgent';
+      if (t.priority === 'high') return 'high';
+      return 'normal';
+    },
+
+    // Card-level direct action icons (replaces ⋯ overflow when present).
+    // Auto-generated todos cannot be edited — guard with a check.
+    onEdit: (t) => {
+      if (t.is_auto) {
+        if (window.showToast) window.showToast('Auto-generated todos cannot be edited');
+        return;
+      }
       const fn = window.openEdit;
       if (fn) fn(t.id);
+    },
+
+    onDelete: (t) => {
+      if (window.deleteTodo) {
+        window.deleteTodo(t.id);
+      } else if (window.confirm('Delete this todo?')) {
+        // Fallback: minimal inline delete
+        fetch(`/api/v1/todos/${t.id}`, { method: 'DELETE' })
+          .then(() => window.location.reload());
+      }
     },
 
     // Group by priority — same grouping as the legacy view

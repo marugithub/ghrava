@@ -1,4 +1,4 @@
-# Deploy-Patch.ps1 — Ghrava v202604.111
+# Deploy-Patch.ps1 — Ghrava v202604.112
 # Copies only the changed files from this patch to Z:\ghrava, then restarts the container.
 # Usage: Right-click → "Run with PowerShell"  (or: .\Deploy-Patch.ps1)
 
@@ -7,18 +7,28 @@ $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# ── Files in this patch (v202604.111) ─────────────────────────
-# Drawer content alignment fix — switch .drawer from flex column with
-# overflow:hidden to block layout with internal scroll. Content now
-# flows top-down naturally regardless of structured/loose pattern.
-# Header/footer use position:sticky for the same anchored behavior.
+# ── Files in this patch (v202604.112) ─────────────────────────
+# Card design pass: urgency stripes, hover action cluster (edit/archive/
+# delete), narrower 280px cards. Drawer header redesign: sticky bar
+# with [< back] [title] [V Save] icon+label primary action. Todos as
+# the validated pilot — medical and others propagate next round.
 $PatchFiles = @(
     'app\public\shared.css',
+    'app\public\todos.html',
+    'app\public\js\gh-card.js',
+    'app\public\js\gh-card-config-todos.js',
+    'app\public\assets\icons\phosphor\duotone\caret-left-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\check-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\pencil-simple-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\archive-box-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\trash-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\x-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\alarm-duotone.svg',
     'app\version.txt'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.111' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.112' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray

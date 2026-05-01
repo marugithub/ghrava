@@ -265,9 +265,18 @@
 <!-- Add/Edit Drawer -->
 <div class="drawer-overlay" id="formDrawer">
   <div class="drawer">
-    <div class="drawer-handle"></div>
-    <div class="drawer-title" id="drawerTitle">New To-Do</div>
-
+    <!-- v202604.112 — sticky drawer header with back / title / save -->
+    <div class="drawer-header drawer-header--bar">
+      <button type="button" class="drawer-header__back" id="formBack" title="Back">
+        <img src="/assets/icons/phosphor/duotone/caret-left-duotone.svg" alt="" width="20" height="20">
+      </button>
+      <div class="drawer-header__title" id="drawerTitle">New To-Do</div>
+      <button type="button" class="drawer-header__primary" id="formSave" title="Save">
+        <img src="/assets/icons/phosphor/duotone/check-duotone.svg" alt="" width="16" height="16">
+        <span>Save</span>
+      </button>
+    </div>
+    <div class="drawer-body">
     <div class="form-group">
       <label class="form-label">Title <span class="req">*</span></label>
       <input class="form-input" id="fTitle" placeholder="What needs to be done?">
@@ -328,20 +337,31 @@
         <input id="todoTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
       </div>
     </div>
-    <div class="btn-row">
-      <button class="btn btn-ghost" id="formCancel">Cancel</button>
-      <button class="btn btn-primary" id="formSave">Save</button>
-    </div>
+    </div><!-- /drawer-body -->
   </div>
 </div>
 
 <!-- Detail Drawer -->
 <div class="drawer-overlay" id="detailDrawer">
   <div class="drawer">
-    <div class="drawer-handle"></div>
-    <div id="detailContent"></div>
+    <!-- v202604.112 — sticky drawer header -->
+    <div class="drawer-header drawer-header--bar">
+      <button type="button" class="drawer-header__back" id="detailBack" title="Back">
+        <img src="/assets/icons/phosphor/duotone/caret-left-duotone.svg" alt="" width="20" height="20">
+      </button>
+      <div class="drawer-header__title" id="detailTitle">Details</div>
+      <div id="detailHeaderAction"></div>
+    </div>
+    <div class="drawer-body" id="detailContent"></div>
   </div>
 </div>
+<script>
+  // Wire detail back button (added v202604.112)
+  document.addEventListener('DOMContentLoaded', () => {
+    const back = document.getElementById('detailBack');
+    if (back) back.addEventListener('click', () => document.getElementById('detailDrawer').classList.remove('open'));
+  });
+</script>
 
 <script>
   window.GH_PAGE = {
@@ -750,6 +770,29 @@ function openDetail(id) {
   const sl = sourceLink(t);
   const isDone = t.status === 'done' || t.status === 'dismissed';
 
+  // Populate the sticky header bar (v202604.112)
+  $('detailTitle').textContent = t.title || 'Details';
+  const action = $('detailHeaderAction');
+  if (!isDone) {
+    action.innerHTML = `<button type="button" class="drawer-header__primary" id="detailMarkDone" title="Mark Done">
+      <img src="/assets/icons/phosphor/duotone/check-duotone.svg" alt="" width="16" height="16">
+      <span>Mark Done</span>
+    </button>`;
+    document.getElementById('detailMarkDone').addEventListener('click', () => {
+      toggleDone(t.id, 1);
+      $('detailDrawer').classList.remove('open');
+    });
+  } else {
+    action.innerHTML = `<button type="button" class="drawer-header__primary drawer-header__primary--ghost" id="detailReopen" title="Reopen">
+      <img src="/assets/icons/phosphor/duotone/circle-duotone.svg" alt="" width="16" height="16">
+      <span>Reopen</span>
+    </button>`;
+    document.getElementById('detailReopen').addEventListener('click', () => {
+      toggleDone(t.id, 0);
+      $('detailDrawer').classList.remove('open');
+    });
+  }
+
   $('detailContent').innerHTML = `
     <div class="detail-meta" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">
       <span class="todo-cat cat-${t.category}">${t.category}</span>
@@ -757,19 +800,13 @@ function openDetail(id) {
       ${t.is_auto ? `<span class="badge badge-purple">Auto-generated</span>` : ''}
       ${t.due_date ? `<span class="todo-due ${dueClass(t.due_date)}" style="font-size:12px">${dueLabel(t.due_date)} · ${t.due_date}</span>` : ''}
     </div>
-    <div style="font-size:17px;font-weight:700;letter-spacing:-.01em;margin-bottom:12px;line-height:1.4">${esc(t.title)}</div>
     ${t.notes ? `<div style="font-size:14px;color:var(--text2);line-height:1.7;white-space:pre-wrap;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:14px">${esc(t.notes)}</div>` : ''}
     ${t.reminder_date ? `<div style="font-size:12px;color:var(--text3);margin-bottom:14px">🔔 Reminder: ${fmtDate(t.reminder_date)}</div>` : ''}
     ${sl ? `<a class="btn btn-ghost btn-full" href="${sl.href}" style="margin-bottom:8px;text-decoration:none">
       ${sl.icon} ${sl.label}
     </a>` : ''}
-    <div class="btn-row">
-      <button class="btn btn-ghost" id="detailClose">Close</button>
-      ${!isDone ? `<button class="btn btn-primary" onclick="toggleDone(${t.id}, 1); $('detailDrawer').classList.remove('open')">Mark Done</button>` : `<button class="btn btn-ghost" onclick="toggleDone(${t.id}, 0); $('detailDrawer').classList.remove('open')">Reopen</button>`}
-      ${!t.is_auto ? `<button class="btn btn-ghost" onclick="openEdit(${t.id}); $('detailDrawer').classList.remove('open')">Edit</button>` : ''}
-    </div>
+    ${!t.is_auto ? `<button class="btn btn-ghost btn-full" onclick="openEdit(${t.id}); $('detailDrawer').classList.remove('open')" style="margin-top:8px">Edit</button>` : ''}
   `;
-  document.getElementById('detailClose').addEventListener('click', () => $('detailDrawer').classList.remove('open'));
   $('detailDrawer').classList.add('open');
 }
 
@@ -843,7 +880,7 @@ GH_VIEW.init('todoViewToolbar', 'td', state => {
     { key: 'tags', type: 'tags', label: 'Tags' },
   ]
 });
-$('formCancel').addEventListener('click', () => $('formDrawer').classList.remove('open'));
+$('formBack').addEventListener('click', () => $('formDrawer').classList.remove('open'));
 onDrawerBg('formDrawer');
 onDrawerBg('detailDrawer');
 
@@ -851,7 +888,11 @@ $('formSave').addEventListener('click', async () => {
   const title = $('fTitle').value.trim();
   if (!title) { toast('Title is required', 'err'); return; }
   const btn = $('formSave');
-  btn.textContent = 'Saving…'; btn.disabled = true;
+  // Preserve icon+label structure when toggling save state
+  const labelSpan = btn.querySelector('span');
+  const originalLabel = labelSpan ? labelSpan.textContent : 'Save';
+  if (labelSpan) labelSpan.textContent = 'Saving…';
+  btn.disabled = true;
   try {
     const body = {
       title,
@@ -875,7 +916,10 @@ $('formSave').addEventListener('click', async () => {
     toast(editingId ? 'Updated' : 'To-do added');
     await load();
   } catch(e) { toast(e.message, 'err'); }
-  finally { btn.textContent = 'Save'; btn.disabled = false; }
+  finally {
+    if (labelSpan) labelSpan.textContent = originalLabel;
+    btn.disabled = false;
+  }
 });
 
 // ── Stat chips ────────────────────────────────────────────────

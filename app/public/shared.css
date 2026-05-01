@@ -948,6 +948,97 @@ html, body {
   border-bottom: 1px solid var(--border);
 }
 
+/* ── v202604.112 — drawer-header--bar (back / title / primary) ──── */
+/* Tri-zone sticky bar: back chevron | title | primary action.       */
+/* Standard size 52px (44 touch target + 8 padding). Universal       */
+/* across all modules once migrated.                                  */
+.drawer-header--bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 52px;
+  padding: 0 8px 0 4px;
+  margin: -8px -20px 14px;
+}
+
+.drawer-header__back {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: var(--text2);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background .12s ease, color .12s ease;
+}
+.drawer-header__back:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+.drawer-header__back img {
+  display: block;
+  filter: none;
+}
+
+.drawer-header__title {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.drawer-header__primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px 0 12px;
+  border: none;
+  border-radius: 10px;
+  background: var(--gh-brand, #14b8a6);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -.005em;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background .12s ease, transform .08s ease;
+}
+.drawer-header__primary:hover {
+  background: var(--gh-brand-strong, #0f9c8a);
+}
+.drawer-header__primary:active {
+  transform: scale(0.97);
+}
+.drawer-header__primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.drawer-header__primary img {
+  display: block;
+  filter: brightness(0) invert(1);
+}
+.drawer-header__primary--ghost {
+  background: var(--bg3);
+  color: var(--text);
+}
+.drawer-header__primary--ghost img {
+  filter: none;
+}
+.drawer-header__primary--ghost:hover {
+  background: var(--border);
+}
+
 /* Body of structured pattern — no special layout, just flows.      */
 .drawer-body {
   display: block;
@@ -3598,13 +3689,125 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 /* ── Card grid container ───────────────────────────────────────── */
 .gh-card-grid {
   display: grid;
-  gap: 16px;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 14px;
+  /* v202604.112 — narrower cards, taller is OK. 280–320 range. */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  align-items: start; /* prevent cards from stretching to row height */
 }
 .gh-card-list {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.112 — Card urgency vocabulary + hover action cluster
+ *
+ * Urgency drives the LEFT STRIPE color and shadow elevation. Stripe
+ * is implemented as a 4px ::before so it doesn't disturb card padding.
+ * ─────────────────────────────────────────────────────────────────── */
+.gh-card {
+  position: relative;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+
+/* Left urgency stripe — pseudo-element so card padding is unchanged */
+.gh-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: transparent;
+  border-radius: var(--gh-card-radius, 14px) 0 0 var(--gh-card-radius, 14px);
+  pointer-events: none;
+  transition: background .15s ease;
+}
+
+.gh-card--u-urgent::before  { background: #dc2626; }
+.gh-card--u-overdue::before { background: #dc2626; }
+.gh-card--u-high::before    { background: #d97706; }
+.gh-card--u-normal::before  { background: transparent; }
+.gh-card--u-done::before    { background: transparent; }
+
+.gh-card--u-overdue {
+  background: linear-gradient(90deg,
+    rgba(220, 38, 38, 0.06) 0%,
+    rgba(220, 38, 38, 0.02) 30%,
+    var(--gh-card-bg, var(--bg2)) 100%);
+}
+.gh-card--u-urgent {
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.12), 0 1px 3px rgba(0,0,0,0.06);
+}
+.gh-card--u-done {
+  opacity: 0.55;
+  box-shadow: none;
+}
+
+/* Subtle hover lift on PCs */
+@media (hover: hover) {
+  .gh-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.04);
+  }
+  .gh-card--u-urgent:hover {
+    box-shadow: 0 8px 20px rgba(220, 38, 38, 0.18), 0 2px 4px rgba(0,0,0,0.06);
+  }
+}
+
+/* ── Card-level action cluster (edit / archive / delete) ──────── */
+.gh-card-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+  margin-left: 4px;
+  flex-shrink: 0;
+}
+
+.gh-card-action {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--gh-text-secondary, var(--text2));
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background .12s ease, color .12s ease, opacity .15s ease;
+  /* On PCs, hide actions at rest — appear only on hover of parent card */
+  opacity: 0;
+}
+
+.gh-card-action__svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+.gh-card-action__svg img,
+.gh-card-action__svg svg { width: 100%; height: 100%; display: block; }
+
+.gh-card-action:hover {
+  background: var(--gh-bg-3, var(--bg3));
+  color: var(--gh-text-primary, var(--text));
+}
+.gh-card-action--danger:hover {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+}
+
+@media (hover: hover) {
+  .gh-card:hover .gh-card-action,
+  .gh-card:focus-within .gh-card-action {
+    opacity: 1;
+  }
+}
+
+/* On touch devices: actions always visible but subtle */
+@media (hover: none) {
+  .gh-card-action { opacity: 0.5; }
+  .gh-card-action:active { opacity: 1; }
 }
 
 /* ── Group section header ──────────────────────────────────────── */
@@ -3714,6 +3917,19 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     background: var(--bg2);
     padding: 8px 16px;
     border-bottom: 1px solid var(--border);
+  }
+  .drawer-header--bar {
+    margin: 0 -16px 12px;
+    padding: 0 4px;
+    padding-top: env(safe-area-inset-top, 0);
+  }
+  .drawer-header__title {
+    font-size: 15px;
+  }
+  .drawer-header__primary {
+    height: 34px;
+    padding: 0 12px 0 10px;
+    font-size: 12px;
   }
   .drawer-title {
     font-size: 16px;

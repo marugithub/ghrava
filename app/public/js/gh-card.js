@@ -115,6 +115,7 @@
   function renderCompact(ctx) {
     const { record, config } = ctx;
     const isDone = config.isDone ? config.isDone(record) : false;
+    const urgency = config.urgency ? config.urgency(record) : (isDone ? 'done' : 'normal');
 
     const tapCircle = el('button', {
       class: 'gh-tap-circle' + (isDone ? ' gh-tap-circle--done' : ''),
@@ -156,13 +157,46 @@
     const right = [];
     const entities = (config.linkedEntities ? config.linkedEntities(record) : []).filter(Boolean);
     if (entities.length) right.push(renderEntity(entities[0], 'sm'));
-    right.push(renderMenuButton(record, config));
+
+    const actions = renderActionCluster(record, config);
+    if (actions) right.push(actions);
 
     return el('div', {
-      class: 'gh-card gh-card--compact',
+      class: `gh-card gh-card--compact gh-card--u-${urgency}`,
       dataset: { module: ctx.moduleId, recordId: record.id, state: isDone ? 'completed' : 'active' },
       onclick: () => config.onClick && config.onClick(record),
     }, el('div', { class: 'gh-card__row' }, [tapCircle, middle, ...right]));
+  }
+
+  // ── Action cluster — direct icons (edit / archive / delete) ──────
+  // Replaces the overflow ⋯ menu when config provides handlers.
+  // Hover-revealed on PC; subtly always-visible on mobile via CSS.
+  function renderActionCluster(record, config) {
+    const acts = [];
+    if (config.onEdit) {
+      acts.push({ icon: 'pencil-simple', title: 'Edit',
+        onClick: (e) => { e.stopPropagation(); config.onEdit(record); } });
+    }
+    if (config.onArchive) {
+      acts.push({ icon: 'archive-box', title: 'Archive',
+        onClick: (e) => { e.stopPropagation(); config.onArchive(record); } });
+    }
+    if (config.onDelete) {
+      acts.push({ icon: 'trash', title: 'Delete', danger: true,
+        onClick: (e) => { e.stopPropagation(); config.onDelete(record); } });
+    }
+    if (!acts.length) {
+      // Fallback to the legacy ⋯ menu so existing onMenu handlers keep working
+      if (config.onMenu) return renderMenuButton(record, config);
+      return null;
+    }
+    return el('div', { class: 'gh-card-actions' }, acts.map(a =>
+      el('button', {
+        class: 'gh-card-action' + (a.danger ? ' gh-card-action--danger' : ''),
+        title: a.title,
+        onclick: a.onClick,
+      }, el('span', { class: 'gh-card-action__svg' }, phosphorIcon(a.icon, 16)))
+    ));
   }
 
   // ── Full-mode renderer (medications, inventory, etc) ───────────
