@@ -1,27 +1,22 @@
-# Deploy-Patch.ps1 — Ghrava v202604.113
-# Card v5 rollout: shared renderer extensions, shared helpers module,
-# configs for vehicles/subs/finance/HSA/maintenance/books/trade.
-# 10 new Playwright tests added to the existing nightly E2E suite.
-# Module pages remain unchanged - cards still gated behind ?cards=v2.
-# Run: right-click -> Run with PowerShell
-
+# Deploy-Patch.ps1 — Ghrava v202604.114
+# Test infrastructure fixes:
+#   1. Reports test updated to use .rep-row (was looking for removed .report-card)
+#   2. POST /test-results endpoint now returns diagnostic body on 400/500
+#   3. run-tests.ps1 auto-creates ReportDir + captures POST response body
+#      on failure + saves payload locally for offline debugging
 $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $PatchFiles = @(
-    'app\public\shared.css',
-    'app\public\js\gh-card.js',
-    'app\public\js\gh-card-shared.js',
-    'app\public\js\gh-card-configs-batch1.js',
+    'app\server.js',
     'app\version.txt',
-    'CARDS_FINAL.md',
-    'TRANSACTION_LINKING_SPEC.md',
-    'tests\ghrava-e2e.spec.js'
+    'tests\ghrava-e2e.spec.js',
+    'tests\run-tests.ps1'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.113' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.114' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray
@@ -60,8 +55,9 @@ try {
     Write-Host "  docker restart failed: $_" -ForegroundColor Red
 }
 Write-Host ''
-Write-Host '  Done. Run the existing E2E suite to verify card tests:' -ForegroundColor Green
-Write-Host '    .\tests\run-tests.ps1' -ForegroundColor White
-Write-Host '  (10 new Card Renderer tests included in the nightly suite.)' -ForegroundColor White
+Write-Host '  Done. Re-run the suite:' -ForegroundColor Green
+Write-Host "    .\tests\run-tests.ps1 -AuthToken 'ravisoni'" -ForegroundColor White
+Write-Host '  - Reports test should now pass (uses .rep-row)' -ForegroundColor White
+Write-Host '  - POST failure (if any) will show server response body' -ForegroundColor White
 Write-Host ''
 Read-Host 'Press Enter to close'

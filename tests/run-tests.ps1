@@ -207,6 +207,16 @@ if (Test-Path $ResultsJson) {
 }
 
 # ── Copy HTML report to NAS backup dir ───────────────────────
+# Ensure the destination exists - older script just warned and skipped.
+if (-not (Test-Path $ReportDir)) {
+    try {
+        New-Item -ItemType Directory -Path $ReportDir -Force | Out-Null
+        Write-Host "Created report dir: $ReportDir" -ForegroundColor DarkGray
+    } catch {
+        Write-Host "Warning: could not create report dir $ReportDir - $_" -ForegroundColor Yellow
+    }
+}
+
 if (Test-Path $ReportDir -PathType Container) {
     $HtmlReport  = Join-Path $ReportHtmlDir "index.html"
     $ReportStamp = $StartTime.ToString("yyyy-MM-dd_HHmm")
@@ -224,11 +234,13 @@ if (Test-Path $ReportDir -PathType Container) {
         foreach ($old in $OldReports) { Remove-Item $old.FullName -Force }
     }
 } else {
-    Write-Host "Note: Report dir not found: $ReportDir" -ForegroundColor Yellow
-    Write-Host "      Create it or update -ReportDir parameter" -ForegroundColor Yellow
+    Write-Host "Note: Report dir not accessible: $ReportDir" -ForegroundColor Yellow
 }
 
 # ── POST results to Ghrava ────────────────────────────────────
+# On failure, capture and display the response body. The endpoint returns
+# diagnostic info (received_keys, content_type) when validation fails -
+# show it instead of swallowing into a generic error.
 if ($RunData) {
     try {
         $body = $RunData | ConvertTo-Json -Depth 10 -Compress
@@ -236,7 +248,26 @@ if ($RunData) {
             -Method POST -Body $body -ContentType "application/json" -TimeoutSec 10
         Write-Host "Results posted to Ghrava: $($posted.filename)" -ForegroundColor Green
     } catch {
-        Write-Host "Warning: could not post results to Ghrava - $_" -ForegroundColor Yellow
+        $errMsg = $_.Exception.Message
+        $respBody = ""
+        if ($_.Exception.Response) {
+            try {
+                $stream = $_.Exception.Response.GetResponseStream()
+                $reader = New-Object System.IO.StreamReader($stream)
+                $respBody = $reader.ReadToEnd()
+                $reader.Close()
+            } catch {}
+        }
+        Write-Host "Warning: POST to Ghrava failed - $errMsg" -ForegroundColor Yellow
+        if ($respBody) {
+            Write-Host "         Server response: $respBody" -ForegroundColor Yellow
+        }
+        # Fall back: write the payload to disk for offline inspection
+        $PayloadFile = Join-Path $ResultsDir "last-payload.json"
+        try {
+            $body | Out-File -FilePath $PayloadFile -Encoding UTF8
+            Write-Host "         Payload saved to: $PayloadFile" -ForegroundColor DarkGray
+        } catch {}
         Write-Host "         Results are still in $ResultsJson" -ForegroundColor Yellow
     }
 }

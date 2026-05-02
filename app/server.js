@@ -425,14 +425,27 @@ const TEST_REPORT_DIR = '/app/data/test-reports';
   app.post('/api/v1/app/test-results', (req, res) => {
     try {
       const run = req.body;
-      if (!run || !run.started_at) return res.status(400).json({ error: 'started_at required' });
+      if (!run || !run.started_at) {
+        // Log the actual payload shape so we can diagnose runner-side issues
+        const keys = run ? Object.keys(run).join(',') : '(no body)';
+        const ct = req.headers['content-type'] || '(no content-type)';
+        console.warn(`[test-results] 400: missing started_at. content-type=${ct}, keys=${keys}`);
+        return res.status(400).json({
+          error: 'started_at required',
+          received_keys: run ? Object.keys(run) : [],
+          content_type: ct,
+        });
+      }
       const stamp = run.started_at.replace(/[^0-9T]/g, '-').replace(/T/, '_').slice(0, 16);
       const filename = `run_${stamp}.json`;
       const filepath = path.join(TEST_REPORT_DIR, filename);
       fs.writeFileSync(filepath, JSON.stringify({ ...run, filename }, null, 2));
       console.log(`[test-results] saved ${filename} — ${run.passed}/${run.total} passed`);
       res.status(201).json({ ok: true, filename });
-    } catch(e) { res.status(500).json({ error: e.message }); }
+    } catch(e) {
+      console.error(`[test-results] 500: ${e.message}`);
+      res.status(500).json({ error: e.message });
+    }
   });
 
   app.get('/api/v1/app/test-results', (req, res) => {

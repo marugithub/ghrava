@@ -342,20 +342,23 @@ test.describe('Key UI Elements', () => {
   });
 
   test('Reports page renders report cards from registry', async ({ page }) => {
-    // reports.html is now a registry-driven landing (no tabs). Cards render
-    // grouped by category. Verify the grid populates and a card opens a panel.
+    // reports.html is now a tabs/shell layout (Overview | Family | Money |
+    // Maintenance | System) with a left rail of `.rep-row` items per tab and
+    // a right `.rep-detail-*` pane. Test verifies the rail populates and a
+    // click opens the detail pane without raw HTML/JS bleeding through.
+    // Updated v202604.113 (was looking for the removed `.report-card` class).
     await page.goto(BASE + '/reports.html', { waitUntil: 'load' });
-    await page.locator('.report-card').first().waitFor({ state: 'attached', timeout: 5000 });
-    const cardCount = await page.locator('.report-card').count();
-    expect(cardCount, 'No report cards rendered').toBeGreaterThan(3);
-    // Click the first card and verify a panel opens
-    await page.locator('.report-card').first().click();
-    await page.locator('.report-panel').waitFor({ state: 'visible', timeout: 5000 });
-    // Panel content should not contain raw HTML/JS as visible text
-    const rawHtml = await page.locator('.report-panel').evaluate(el =>
+    await page.locator('.rep-row').first().waitFor({ state: 'attached', timeout: 5000 });
+    const rowCount = await page.locator('.rep-row').count();
+    expect(rowCount, 'No report rows rendered').toBeGreaterThan(3);
+    // Click the first row and verify the detail pane opens
+    await page.locator('.rep-row').first().click();
+    await page.locator('.rep-detail-header').waitFor({ state: 'visible', timeout: 5000 });
+    // Detail body should not contain raw HTML/JS as visible text
+    const rawHtml = await page.locator('#repDetailBody').evaluate(el =>
       /<button[^>]*onclick=/.test(el.textContent) || /window\.LT/.test(el.textContent)
     );
-    expect(rawHtml, 'Report panel contains raw HTML/JS').toBe(false);
+    expect(rawHtml, 'Report detail pane contains raw HTML/JS').toBe(false);
   });
 
   test('Settings page loads key sections', async ({ page }) => {
