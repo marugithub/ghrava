@@ -93,7 +93,7 @@ window.GH_PAGE = { module: 'career', title: 'Career' };
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
-<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<!-- v202604.117 — card view available via GH_VIEW toolbar (3-view: list/grid/card) -->
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-shared.js"></script>
 <script src="/js/gh-card-brands.js"></script>
@@ -801,17 +801,10 @@ async function loadJobs() {
       ? rows.filter(r => ['title','company','location','notes'].some(k => (r[k]||'').toLowerCase().includes(_careerSearch)))
       : rows;
 
-    // v2 opt-in (?cards=v2). Renders jobs via career_jobs config.
-    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
-      const mounted = window.GH_MOUNT.intoContainer({
-        containerId: 'jobsList',
-        moduleId:    'career_jobs',
-        records:     _filtered_jobs,
-        onClick:     (r) => openJobDrawer(r.id),
-        onEmpty:     () => emptyState(...GH_EMPTY.jobs),
-      });
-      if (mounted) return;
-    }
+    // NOTE: Card view for jobs deferred. Career page has multiple sections
+    // (jobs, certs, skills, learning, education) — only certs has a GH_VIEW
+    // toolbar today. Adding a per-section toolbar for jobs needs UX work.
+    // Card config + derive exist in /js/gh-card-configs-batch2.js when needed.
 
     if (!_filtered_jobs.length) { el.innerHTML = emptyState(...GH_EMPTY.jobs); return; }
     el.innerHTML = _filtered_jobs.map(j => `

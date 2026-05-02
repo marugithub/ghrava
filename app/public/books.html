@@ -69,7 +69,7 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
-<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<!-- v202604.117 — card view available via GH_VIEW toolbar (3-view: list/grid/card) -->
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-shared.js"></script>
 <script src="/js/gh-card-brands.js"></script>
@@ -291,9 +291,9 @@ async function loadBooks() {
     el.classList.toggle('gh-list', _bkView === 'list');
     el.style.setProperty('--bk-cols', _bkCols);
 
-    // v2 opt-in (?cards=v2). Renders books via the books config (reading
-    // dashboard style — progress bar, pace, cross-module strip).
-    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+    // Card view: render via GH_CARD when user picks "card" in the toolbar.
+    // List/grid views fall through to the legacy renderer below.
+    if (_bkView === 'card' && window.GH_MOUNT) {
       const mounted = window.GH_MOUNT.intoContainer({
         containerId: 'bookList',
         moduleId:    'books',
@@ -580,6 +580,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     loadBooks();
   }, {
     defaultView: 'list',
+    views: ['grid','list','card'],
     filterFields: [
       { key: 'status', type: 'select', label: 'Status',
         options: [{value:'',label:'All'},{value:'Currently Reading',label:'Reading'},{value:'Want to Read',label:'Want to Read'},{value:'Read',label:'Read'}] },

@@ -2,12 +2,37 @@
 
 **Status:** Audit complete, fixes pending
 **Last updated:** 2026-05-01
-**Scope:** Pages wired in v202604.116. Lists exact fields each card config reads,
+**Scope:** Pages wired in v202604.118. Lists exact fields each card config reads,
 whether they exist in the API response today, what they need to come alive.
 
 This is the input list for the *next* session of backend work — once these
 fields exist on API responses, cards will light up across the board with no
 further frontend changes (configs already read from these names).
+
+---
+
+## Rollout model (as of v202604.118)
+
+Cards are not a global flag. Each module's list page now offers **three views**
+via the `GH_VIEW` toolbar:
+
+- **Grid** (existing visual grid, e.g. wardrobe item thumbnails)
+- **List** (existing dense rows, fast scan)
+- **Card** (the v5 rich card from this design)
+
+User toggle persists per module via localStorage. List/grid are the legacy
+renderers, untouched. Card view calls into `GH_MOUNT.intoContainer` which
+runs the page's data through field-mapping + derive into the registered card
+config and renders via `GH_CARD.renderGrouped`.
+
+**Wired pages with the 3-view toggle:** subscriptions, books, perfume,
+insurance, documents, wardrobe, property (properties + vehicles share the
+property toolbar).
+
+**Deferred (need UX placement work for the toolbar):** finance.html (multi-tab
+dashboard — accounts is one tab; where does the toolbar go?), career.html
+(multi-section page — only certs has a toolbar today, jobs section needs one
+of its own).
 
 ---
 

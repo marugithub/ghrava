@@ -734,7 +734,7 @@ test.describe('API Contract', () => {
 // and asserts the rendered DOM contains the expected zones (status row,
 // identity, optional cross-module strip, optional alert with optional
 // stacked secondaries, entities). Failures here mean the card system
-// won't render correctly when a module page opts in to ?cards=v2.
+// won't render correctly when a user picks the "card" view on any page.
 // ─────────────────────────────────────────────────────────────────
 test.describe('Card Renderer (GH_CARD v5)', () => {
 
@@ -1077,35 +1077,27 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
   // ─────────────────────────────────────────────────────────────
   // GH_MOUNT helper — opt-in mount infrastructure used by every page
   // ─────────────────────────────────────────────────────────────
-  test('GH_MOUNT — v2 inactive returns false (legacy path stays default)', async ({ page }) => {
+  // Cards are now driven by each page's GH_VIEW toggle (3 views: list/grid/card)
+  // not a query param. GH_MOUNT just renders into a container when the page
+  // says "card view selected" — it doesn't gate anything itself.
+
+  test('GH_MOUNT — intoContainer renders a gh-card into the target container', async ({ page }) => {
     await loadCardSystem(page);
-    const result = await page.evaluate(() => {
-      // Inject a test container, call without ?cards=v2 in URL
+    const html = await page.evaluate(() => {
       const div = document.createElement('div');
       div.id = 'mountTest1';
       document.body.appendChild(div);
-      return window.GH_MOUNT.intoContainer({
+      window.GH_MOUNT.intoContainer({
         containerId: 'mountTest1', moduleId: 'subscriptions',
-        records: [{ id: 1, name: 'Test' }],
+        records: [{ id: 1, name: 'Netflix', category: 'Streaming' }],
       });
+      return document.getElementById('mountTest1').innerHTML;
     });
-    // loadCardSystem navigates to /index.html (no query param), so v2 is off
-    expect(result, 'should return false when ?cards=v2 not present').toBe(false);
+    expect(html.includes('gh-card'), 'should render gh-card into container').toBe(true);
   });
 
   test('GH_MOUNT — fieldMap renames source field into target field', async ({ page }) => {
-    // Need a page loaded WITH ?cards=v2 for isV2() to return true
-    await page.goto(`${BASE}/index.html?cards=v2`, { waitUntil: 'load' });
-    await page.evaluate(() => {
-      window.familyMembers = [{ id: 1, display_name: 'Al', avatar_attachment_id: null }];
-    });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-brands.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-mount.js` });
-    await page.waitForFunction(() => window.GH_MOUNT, { timeout: 4000 });
-
+    await loadCardSystem(page);
     const html = await page.evaluate(() => {
       const div = document.createElement('div');
       div.id = 'mountTest2';
@@ -1122,14 +1114,7 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
   });
 
   test('GH_MOUNT — onEmpty called when records array is empty', async ({ page }) => {
-    await page.goto(`${BASE}/index.html?cards=v2`, { waitUntil: 'load' });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-brands.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-mount.js` });
-    await page.waitForFunction(() => window.GH_MOUNT, { timeout: 4000 });
-
+    await loadCardSystem(page);
     const html = await page.evaluate(() => {
       const div = document.createElement('div');
       div.id = 'mountTest3';
@@ -1143,24 +1128,23 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     expect(html.includes('empty-marker'), 'onEmpty HTML should render').toBe(true);
   });
 
-  test('GH_MOUNT — per-mount onClick does not mutate the registered config', async ({ page }) => {
-    // Regression test: an earlier implementation set config.onClick directly,
-    // which meant two mounts of different modules (or same module on two
-    // pages) would stomp each other's drawer functions. The fix threads
-    // overrides through render() per-call, leaving the registered config
-    // untouched. Verify that here.
-    await page.goto(`${BASE}/index.html?cards=v2`, { waitUntil: 'load' });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-brands.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
-    await page.addScriptTag({ url: `${BASE}/js/gh-card-mount.js` });
-    await page.waitForFunction(() => window.GH_MOUNT, { timeout: 4000 });
+  test('GH_MOUNT — missing container returns false without throwing', async ({ page }) => {
+    await loadCardSystem(page);
+    const out = await page.evaluate(() => {
+      return window.GH_MOUNT.intoContainer({
+        containerId: 'doesnotexist', moduleId: 'subscriptions',
+        records: [{ id: 1 }],
+      });
+    });
+    expect(out, 'missing container should return false').toBe(false);
+  });
 
+  test('GH_MOUNT — per-mount onClick does not mutate the registered config', async ({ page }) => {
+    // Regression: an earlier impl set config.onClick directly, which made
+    // two mounts of different modules stomp each other's drawer functions.
+    // The fix threads overrides through render() per-call. Verify here.
+    await loadCardSystem(page);
     const result = await page.evaluate(() => {
-      // First mount: pass an onClick. Second mount on a different container
-      // omits onClick entirely. If the bug was present, mount #2 would
-      // inherit mount #1's onClick from the mutated registered config.
       const div1 = document.createElement('div');
       div1.id = 'mountA';
       document.body.appendChild(div1);
@@ -1177,9 +1161,8 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
       window.GH_MOUNT.intoContainer({
         containerId: 'mountB', moduleId: 'subscriptions',
         records: [{ id: 2, name: 'Test2' }],
-        // No onClick here on purpose
+        // No onClick on purpose. Click on B should NOT fire A's handler.
       });
-      // Now click mount B. Should NOT call mount A's handler.
       const cardB = div2.querySelector('.gh-card');
       cardB && cardB.click();
       return { calledFromBClick: called };
@@ -1187,6 +1170,9 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     expect(result.calledFromBClick, 'mount B click leaked into mount A onClick').toBe(0);
   });
 
+  // ─────────────────────────────────────────────────────────────
+  // Brand lookup
+  // ─────────────────────────────────────────────────────────────
   test('GH_CARD_SHARED.brandColorFor — known brand returns hex, unknown returns null', async ({ page }) => {
     await loadCardSystem(page);
     const result = await page.evaluate(() => ({
@@ -1224,35 +1210,105 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
   });
 
   // ─────────────────────────────────────────────────────────────
-  // Page wiring — ?cards=v2 actually flips each wired page
+  // GH_VIEW — 3-view toolbar (grid / list / card)
   // ─────────────────────────────────────────────────────────────
-  // These tests verify the v2 hook is wired correctly on each page. Each
-  // navigates with ?cards=v2 and confirms (a) the page loads without JS
-  // errors, (b) the GH_CARD library is available on the page (script tag
-  // wired in correctly).
-  // Doesn't assert that data renders because that needs real records and
-  // we don't seed test data — but if the page crashes, we'd see it here.
+  test('GH_VIEW — renders only grid + list buttons by default (no card button)', async ({ page }) => {
+    await page.goto(`${BASE}/index.html`, { waitUntil: 'load' });
+    await page.waitForFunction(() => window.GH_VIEW, { timeout: 4000 });
+    const result = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'viewToolbarDefault';
+      document.body.appendChild(div);
+      window.GH_VIEW.init('viewToolbarDefault', 'tdef', () => {});
+      return {
+        hasGrid: !!div.querySelector('#tdef-vgrid'),
+        hasList: !!div.querySelector('#tdef-vlist'),
+        hasCard: !!div.querySelector('#tdef-vcard'),
+      };
+    });
+    expect(result.hasGrid, 'default toolbar should have grid button').toBe(true);
+    expect(result.hasList, 'default toolbar should have list button').toBe(true);
+    expect(result.hasCard, 'default toolbar should NOT have card button').toBe(false);
+  });
+
+  test('GH_VIEW — renders card button when views array includes "card"', async ({ page }) => {
+    await page.goto(`${BASE}/index.html`, { waitUntil: 'load' });
+    await page.waitForFunction(() => window.GH_VIEW, { timeout: 4000 });
+    const result = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'viewToolbar3';
+      document.body.appendChild(div);
+      window.GH_VIEW.init('viewToolbar3', 't3', () => {}, {
+        views: ['grid','list','card'],
+      });
+      return {
+        hasGrid: !!div.querySelector('#t3-vgrid'),
+        hasList: !!div.querySelector('#t3-vlist'),
+        hasCard: !!div.querySelector('#t3-vcard'),
+      };
+    });
+    expect(result.hasGrid, '3-view toolbar should have grid button').toBe(true);
+    expect(result.hasList, '3-view toolbar should have list button').toBe(true);
+    expect(result.hasCard, '3-view toolbar should have card button').toBe(true);
+  });
+
+  test('GH_VIEW — clicking card button updates state.view to "card" and fires callback', async ({ page }) => {
+    await page.goto(`${BASE}/index.html`, { waitUntil: 'load' });
+    await page.waitForFunction(() => window.GH_VIEW, { timeout: 4000 });
+    const result = await page.evaluate(async () => {
+      const div = document.createElement('div');
+      div.id = 'viewToolbarClick';
+      document.body.appendChild(div);
+      // Use a unique storage prefix so we don't collide with localStorage
+      // residue from prior test runs.
+      const prefix = 'tclick' + Math.random().toString(36).slice(2, 7);
+      const states = [];
+      window.GH_VIEW.init(div.id, prefix, (s) => states.push(s.view), {
+        views: ['grid','list','card'], defaultView: 'grid',
+      });
+      const btn = div.querySelector(`#${prefix}-vcard`);
+      btn && btn.click();
+      // Check button now has .active class
+      return {
+        cardActive: btn && btn.classList.contains('active'),
+        gridActive: div.querySelector(`#${prefix}-vgrid`).classList.contains('active'),
+        lastCallbackView: states[states.length - 1] || null,
+      };
+    });
+    expect(result.lastCallbackView, 'callback fired with view=card').toBe('card');
+    expect(result.cardActive, 'card button has active class').toBe(true);
+    expect(result.gridActive, 'grid button no longer active').toBe(false);
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Page wiring — pages with the 3-view toolbar load without errors
+  // ─────────────────────────────────────────────────────────────
+  // Confirms each wired page (a) loads without JS errors, (b) exposes the
+  // GH_CARD + GH_MOUNT + GH_VIEW globals required by the card view.
+  // We can't assert cards render without seeding records and toggling the
+  // view button — that's a heavier integration test deferred for now.
   for (const wired of [
     { page: 'subscriptions.html' },
-    { page: 'finance.html' },
     { page: 'books.html' },
     { page: 'perfume.html' },
     { page: 'insurance.html' },
     { page: 'documents.html' },
     { page: 'wardrobe.html' },
     { page: 'property.html' },
-    { page: 'career.html' },
   ]) {
-    test(`page wiring — ${wired.page} loads with ?cards=v2 and exposes GH_CARD`, async ({ page }) => {
+    test(`page wiring — ${wired.page} loads cleanly with card view available`, async ({ page }) => {
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
-      await page.goto(`${BASE}/${wired.page}?cards=v2`, { waitUntil: 'load' });
+      await page.goto(`${BASE}/${wired.page}`, { waitUntil: 'load' });
       await page.waitForTimeout(500);
-      const hasGhCard = await page.evaluate(() => !!window.GH_CARD);
-      const hasMount  = await page.evaluate(() => !!window.GH_MOUNT);
-      expect(hasGhCard, `${wired.page}: GH_CARD not loaded`).toBe(true);
-      expect(hasMount,  `${wired.page}: GH_MOUNT not loaded`).toBe(true);
-      // Allow favicon errors but nothing else
+      const globals = await page.evaluate(() => ({
+        ghCard:  !!window.GH_CARD,
+        ghMount: !!window.GH_MOUNT,
+        ghView:  !!window.GH_VIEW,
+      }));
+      expect(globals.ghCard,  `${wired.page}: GH_CARD not loaded`).toBe(true);
+      expect(globals.ghMount, `${wired.page}: GH_MOUNT not loaded`).toBe(true);
+      expect(globals.ghView,  `${wired.page}: GH_VIEW not loaded`).toBe(true);
       const real = errors.filter(e => !e.includes('favicon'));
       expect(real, `${wired.page}: page-load errors: ${real.join('; ')}`).toHaveLength(0);
     });

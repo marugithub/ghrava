@@ -16,7 +16,7 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
-<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<!-- v202604.117 — card view available via GH_VIEW toolbar (3-view: list/grid/card) -->
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-shared.js"></script>
 <script src="/js/gh-card-brands.js"></script>
@@ -107,10 +107,9 @@ async function load() {
     let rows = await window.api('GET', `/subscriptions/?${status!=='all'?'status='+status:''}`);
     if (cat) rows = rows.filter(r => r.category === cat);
 
-    // v2 opt-in (?cards=v2). When active, GH_MOUNT renders into the same
-    // container and we skip the legacy markup builder. Field map adapts the
-    // subscriptions API response to what the card config expects.
-    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+    // Card view: render via GH_CARD when user picks "card" in the toolbar.
+    // List/grid views fall through to the legacy renderer below.
+    if (_subView === 'card' && window.GH_MOUNT) {
       const mounted = window.GH_MOUNT.intoContainer({
         containerId: 'subList',
         moduleId:    'subscriptions',
@@ -289,6 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }, {
     defaultView: 'grid',
     defaultCols: 2,
+    views: ['grid','list','card'],
     filterFields: [
       { key:'status',   type:'select', label:'Status',   options:[{value:'',label:'All'},{value:'active',label:'Active'},{value:'paused',label:'Paused'},{value:'cancelled',label:'Cancelled'}] },
       { key:'category', type:'select', label:'Category', options:[{value:'',label:'All'},{value:'Streaming',label:'Streaming'},{value:'Music',label:'Music'},{value:'Software',label:'Software'},{value:'Fitness',label:'Fitness'},{value:'Gaming',label:'Gaming'},{value:'News',label:'News'},{value:'Utilities',label:'Utilities'},{value:'Other',label:'Other'}] },

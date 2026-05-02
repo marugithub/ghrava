@@ -32,7 +32,7 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
-<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<!-- v202604.117 — card view available via GH_VIEW toolbar (3-view: list/grid/card) -->
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-shared.js"></script>
 <script src="/js/gh-card-brands.js"></script>
@@ -371,8 +371,8 @@ async function loadProps(){
     $('pEquity').textContent=fmt$(eq);
     $('pEquity').style.color=eq>=0?'var(--green)':'var(--red)';
 
-    // v2 opt-in (?cards=v2). Renders properties via properties config.
-    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+    // Card view: render via GH_CARD when user picks "card" in the toolbar.
+    if (window._propView === 'card' && window.GH_MOUNT) {
       const mounted = window.GH_MOUNT.intoContainer({
         containerId: 'propList',
         moduleId:    'properties',
@@ -472,8 +472,8 @@ async function loadVehs(){
   try{
     const vs=await api('GET', '/vehicles');
 
-    // v2 opt-in (?cards=v2). Renders vehicles via vehicles config.
-    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+    // Card view: render via GH_CARD when user picks "card" in the (shared) toolbar.
+    if (window._propView === 'card' && window.GH_MOUNT) {
       const mounted = window.GH_MOUNT.intoContainer({
         containerId: 'vehList',
         moduleId:    'vehicles',
@@ -716,11 +716,14 @@ document.addEventListener('DOMContentLoaded',()=>{ AttachmentManager.injectStyle
     _reloadPropTab();
   });
   window._propFilters = {};
+  window._propView = 'list';  // capture view state for card-mode rendering
   GH_VIEW.init('propViewToolbar', 'prop', state => {
     window._propFilters = state.filters || {};
+    window._propView = state.view;
     _reloadPropTab();
   }, {
     defaultView: 'list',
+    views: ['grid','list','card'],
     filterFields: [
       { key: 'type', type: 'select', label: 'Type',
         options: [{value:'',label:'All'},{value:'House',label:'House'},{value:'Condo',label:'Condo'},{value:'Rental',label:'Rental'},{value:'Land',label:'Land'},{value:'Other',label:'Other'}] },

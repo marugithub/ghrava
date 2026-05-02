@@ -1,20 +1,25 @@
-# Deploy-Patch.ps1 — Ghrava v202604.117
-# Cumulative since v112: card v5 system end-to-end.
+# Deploy-Patch.ps1 — Ghrava v202604.118
+# Cards now offered as a third view alongside grid + list.
 #
-# Includes:
-#   - Shared renderer + helpers + brands lookup + mount helper
-#   - 17 module configs (batch1, batch2, batch3)
-#   - 9 module pages wired to opt-in via ?cards=v2
-#   - 5 body-icon Phosphor SVGs
-#   - Finance route improvement: linked_subs_count + balance_change_30d
-#   - Reports test fix (uses .rep-row, not removed .report-card)
-#   - Test runner: auto-creates ReportDir, captures POST diagnostics
-#   - Server: POST /test-results returns diagnostic body on validation fail
-#   - 25+ Playwright tests added to existing E2E suite
-#   - 3 spec docs (CARDS_FINAL.md, TRANSACTION_LINKING_SPEC.md, CARD_FIELD_GAPS.md)
+# Major change vs v117:
+#   - Removed ?cards=v2 query param gate entirely (was rollout artifact)
+#   - Extended GH_VIEW (lt-core.js) to render a third "Card" button when
+#     the page passes views: ['grid','list','card'] in its init options
+#   - Each wired page now branches on its existing view-state variable
+#     (_subView/_bkView/_perfumeView/etc.) === 'card' to call GH_MOUNT
+#   - List + grid views fall through to the existing legacy renderers
+#   - Per-module persistence of view choice via localStorage (already how
+#     GH_VIEW worked — no new storage)
 #
-# All paths gated behind ?cards=v2 — legacy render is the default until each
-# page is flipped. Backend changes are additive (no schema migrations).
+# Pages with full 3-view toggle: subscriptions, books, perfume, insurance,
+#   documents, wardrobe, property (properties + vehicles)
+#
+# Deferred (need toolbar UX placement work): finance, career
+#
+# Untouched: medical, todos — already use their own legacy ?cards=v2
+# flag from earlier iterations, do NOT call GH_MOUNT, keep working as before
+#
+# All paths additive, no schema migrations.
 
 $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
@@ -30,6 +35,8 @@ $PatchFiles = @(
     'app\public\js\gh-card-configs-batch1.js',
     'app\public\js\gh-card-configs-batch2.js',
     'app\public\js\gh-card-configs-batch3.js',
+    # GH_VIEW now renders a 3rd "card" button when views: ['grid','list','card']
+    'app\public\js\lt-core.js',
     # CSS additions for v5 (cross-module strip, progress bar, asterisk, alert stack)
     'app\public\shared.css',
     # Body-icon SVGs for medical conditions + visit cards
@@ -38,19 +45,19 @@ $PatchFiles = @(
     'app\public\assets\icons\phosphor\duotone\stethoscope-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\calendar-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\note-pencil-duotone.svg',
-    # 9 module pages wired with ?cards=v2 short-circuit
+    # Pages wired with 3-view toggle
     'app\public\subscriptions.html',
-    'app\public\finance.html',
     'app\public\books.html',
     'app\public\perfume.html',
     'app\public\insurance.html',
     'app\public\documents.html',
     'app\public\wardrobe.html',
     'app\public\property.html',
+    # Pages with v2 references removed (deferred but cleaned up)
+    'app\public\finance.html',
     'app\public\career.html',
-    # Backend: finance route now returns linked_subs_count + balance_change_30d
+    # Backend
     'app\features\finance\routes.js',
-    # Backend: test-results POST returns diagnostics on 400 (helps debug runner issues)
     'app\server.js',
     # Test infra
     'tests\ghrava-e2e.spec.js',
@@ -64,7 +71,7 @@ $PatchFiles = @(
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.117' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.118' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray
@@ -103,10 +110,12 @@ try {
     Write-Host "  docker restart failed: $_" -ForegroundColor Red
 }
 Write-Host ''
-Write-Host '  v117 deployed. Cards still gated behind ?cards=v2.' -ForegroundColor Green
-Write-Host '  Test by visiting any wired page with that param, e.g.' -ForegroundColor White
-Write-Host '    http://192.168.4.62:3001/subscriptions.html?cards=v2' -ForegroundColor White
-Write-Host '    http://192.168.4.62:3001/finance.html?cards=v2' -ForegroundColor White
-Write-Host '  Legacy render is default at /subscriptions.html (no param).' -ForegroundColor White
+Write-Host '  v118 deployed.' -ForegroundColor Green
+Write-Host '  Cards now a 3rd view in the toolbar (grid / list / card).' -ForegroundColor White
+Write-Host '  No query param needed. Toggle persists per module.' -ForegroundColor White
+Write-Host ''
+Write-Host '  Wired pages (try the 3rd toolbar button):' -ForegroundColor Cyan
+Write-Host '    /subscriptions.html  /books.html  /perfume.html'  -ForegroundColor White
+Write-Host '    /insurance.html  /documents.html  /wardrobe.html  /property.html' -ForegroundColor White
 Write-Host ''
 Read-Host 'Press Enter to close'

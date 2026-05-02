@@ -872,7 +872,7 @@ window.GH_PAGE = {
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
-<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<!-- v202604.117 — card view available via GH_VIEW toolbar (3-view: list/grid/card) -->
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-shared.js"></script>
 <script src="/js/gh-card-brands.js"></script>
@@ -1703,51 +1703,11 @@ async function loadAccounts() {
     ]);
     renderNetWorthStrip(nw);
 
-    // v2 opt-in (?cards=v2). Renders accounts as full cards via the
-    // finance_accounts config. Net worth strip still rendered above.
-    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
-      const mounted = window.GH_MOUNT.intoContainer({
-        containerId: 'accountsList',
-        moduleId:    'finance_accounts',
-        records:     accounts,
-        onClick:     (r) => openAccountDrawer(r.id),
-        fieldMap: {
-          nickname:        'name',
-          last_four:       'account_last4',
-          balance_current: 'current_balance',
-          account_type:    'type',
-        },
-        derive: (r) => ({
-          // Bank brand from institution if not already set
-          bank_brand:       r.bank_brand || r.institution || null,
-          // Use shared brand lookup — covers all major US banks centrally
-          // and any future additions automatically apply everywhere.
-          bank_brand_color: r.bank_brand_color
-                         || (window.GH_CARD_SHARED?.brandColorFor(r.institution))
-                         || null,
-          bank_brand_initials: r.bank_brand_initials
-                            || (window.GH_CARD_SHARED?.brandInitialsFor(r.institution))
-                            || null,
-          // is_joint inferred from owner field if present
-          is_joint:         !!r.is_joint || (r.owners_count && r.owners_count > 1),
-          // Default low-balance threshold heuristic (only for checking/savings)
-          low_balance_threshold: r.low_balance_threshold ||
-            (r.type === 'Checking' || r.type === 'Savings' ? 500 : null),
-          // YTD activity from API-supplied tx_count. This is all-time count
-          // until the API exposes per-year counts — flag as amber asterisk.
-          ytd_activity_count: r.tx_count != null ? r.tx_count : null,
-          ytd_activity_count_asterisk: r.tx_count != null ? 'amber' : null,
-          // 30-day delta — needs server-side window query, not in API today.
-          // Leave null so the row doesn't render. Will light up when added.
-          balance_change_30d: r.balance_change_30d || null,
-          // Linked subscription count — needs join with subscriptions table.
-          // Server can compute as: SELECT COUNT(*) FROM subscriptions WHERE finance_account_id = ?
-          linked_subs_count: r.linked_subs_count != null ? r.linked_subs_count : null,
-        }),
-        onEmpty: () => emptyState(...GH_EMPTY.accounts),
-      });
-      if (mounted) return;
-    }
+    // NOTE: Card view for accounts deferred. Finance is a multi-tab dashboard,
+    // not a single list page — adding a view-toggle to "just the accounts tab"
+    // needs UX placement work (where does the toolbar go?). Until then, the
+    // accounts tab stays on legacy row rendering. Card config + derive
+    // closure exist in /js/gh-card-configs-batch1.js when we need them.
 
     if (!accounts.length) { el.innerHTML = emptyState(...GH_EMPTY.accounts); return; }
     const grouped = {};

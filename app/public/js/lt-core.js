@@ -1368,7 +1368,18 @@ window.GH_VIEW = (function() {
 
     const state = { view, cols, filters: {} };
 
+    // Determine which view buttons to render. Default is grid+list; pages
+    // that want a third "card" view declare it via options.views.
+    const enabledViews = Array.isArray(options.views) && options.views.length
+      ? options.views
+      : ['grid', 'list'];
+    const showCard = enabledViews.includes('card');
+
     // ── Build toolbar HTML ────────────────────────────────────
+    const cardBtnHtml = showCard ? `
+        <button class="gh-view-btn${view==='card'?' active':''}" id="${storagePrefix}-vcard" title="Card view">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="12" height="10" rx="1.5"/><line x1="1" y1="6" x2="13" y2="6"/></svg>
+        </button>` : '';
     container.innerHTML = `
       <div class="gh-view-toolbar">
         <button class="gh-view-btn${view==='grid'?' active':''}" id="${storagePrefix}-vgrid" title="Grid view">
@@ -1376,7 +1387,7 @@ window.GH_VIEW = (function() {
         </button>
         <button class="gh-view-btn${view==='list'?' active':''}" id="${storagePrefix}-vlist" title="List view">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="3" rx="1"/><rect x="1" y="5.5" width="12" height="3" rx="1"/><rect x="1" y="10" width="12" height="3" rx="1"/></svg>
-        </button>
+        </button>${cardBtnHtml}
         <div style="flex:1"></div>
         <div style="position:relative">
           <button class="gh-view-btn gh-more-btn${state._hasFilters?' has-filters':''}" id="${storagePrefix}-more" title="More options" style="width:auto;padding:0 10px;gap:4px;font-size:11px;font-weight:600;color:var(--text2)">
@@ -1406,6 +1417,9 @@ window.GH_VIEW = (function() {
     // ── Wire toggle buttons ───────────────────────────────────
     container.querySelector(`#${storagePrefix}-vgrid`).addEventListener('click', () => _setView('grid'));
     container.querySelector(`#${storagePrefix}-vlist`).addEventListener('click', () => _setView('list'));
+    if (showCard) {
+      container.querySelector(`#${storagePrefix}-vcard`)?.addEventListener('click', () => _setView('card'));
+    }
     // ⋮ More menu toggle
     const moreBtn = container.querySelector(`#${storagePrefix}-more`);
     const moreMenu = container.querySelector(`#${storagePrefix}-more-menu`);

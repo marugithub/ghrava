@@ -1,41 +1,31 @@
 /**
- * gh-card-mount.js — One-call opt-in for module pages.
+ * gh-card-mount.js — One-call helper for rendering cards into a container.
  *
- * Pages that want to use cards add ONE line:
+ * Pages call this from their existing render function when the GH_VIEW
+ * toggle is set to 'card'. Replaces ~12 lines of boilerplate per page:
  *
- *   GH_MOUNT.intoContainer({
- *     containerId: 'subList',
- *     moduleId:    'subscriptions',
- *     records:     rowsFromApi,
- *     fieldMap:    { cost: 'price' },          // optional renaming
- *     derive:      (r) => ({ ytd: r.cost*12 }),// optional computed fields
- *     onEmpty:     () => '<div>No subs</div>', // optional empty state HTML
- *     layout:      'grid',                     // 'grid' (default) | 'list'
- *   });
+ *   if (state.view === 'card') {
+ *     GH_MOUNT.intoContainer({
+ *       containerId: 'subList', moduleId: 'subscriptions',
+ *       records, fieldMap, derive, onClick, onEmpty,
+ *     });
+ *     return;
+ *   }
  *
  * The helper:
- *   - Returns immediately (does nothing) if `?cards=v2` query param isn't set,
- *     so the legacy render path stays the default until a page is flipped.
  *   - Verifies GH_CARD is loaded (warns + bails if not).
  *   - Applies fieldMap and derive to normalize record shape into what the
- *     module's config expects. This is the bridge between an existing page's
- *     API response shape and the card config's field expectations.
+ *     module's config expects.
  *   - Mounts the rendered DOM into containerId, replacing whatever was there.
+ *   - Returns true on success, false if GH_CARD missing or container missing.
  *
- * Why this matters: previously each page had to repeat the same ~12 lines
- * of (param check + GH_CARD existence check + render call + mount). Pages
- * call this once and we keep the "how to wire cards" knowledge in one place.
+ * No longer gated by ?cards=v2 — that was a rollout artifact. Cards are now
+ * one of three views (list/grid/card) chosen by the user via GH_VIEW toolbar.
  *
  * Spec: CARDS_FINAL.md
  */
 (function() {
   'use strict';
-
-  function v2Active() {
-    try {
-      return new URL(location.href).searchParams.get('cards') === 'v2';
-    } catch { return false; }
-  }
 
   function applyFieldMap(record, map) {
     if (!map) return record;
@@ -60,14 +50,13 @@
   }
 
   /**
-   * Wire one container to the card renderer. Safe to call even when v2 is
-   * off — silently returns. Safe to call repeatedly (replaces container
-   * contents each time).
+   * Render cards into a container. Safe to call repeatedly (replaces
+   * container contents each time). Returns false if GH_CARD library or
+   * container DOM element is missing.
    */
   function intoContainer(opts) {
-    if (!v2Active()) return false;
     if (!window.GH_CARD) {
-      console.warn(`[GH_MOUNT] cards=v2 set but GH_CARD not loaded for ${opts.moduleId}`);
+      console.warn(`[GH_MOUNT] GH_CARD not loaded; cannot mount ${opts.moduleId}`);
       return false;
     }
 
@@ -108,13 +97,5 @@
     return true;
   }
 
-  /**
-   * Test helper: returns true if v2 is currently active. Pages that need to
-   * skip their legacy render path entirely when v2 is on can branch on this.
-   */
-  function isV2() { return v2Active(); }
-
-  window.GH_MOUNT = { intoContainer, isV2 };
-
-  if (v2Active()) console.log('[GH_MOUNT] cards=v2 active — pages will use GH_CARD pipeline if wired');
+  window.GH_MOUNT = { intoContainer };
 })();

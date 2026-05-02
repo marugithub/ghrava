@@ -349,7 +349,7 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
-<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<!-- v202604.117 — card view available via GH_VIEW toolbar (3-view: list/grid/card) -->
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-shared.js"></script>
 <script src="/js/gh-card-brands.js"></script>
@@ -679,6 +679,7 @@ function initItemView() {
     if (_currentTab === 'insights') loadInsights();
   }, {
     defaultView: 'grid', defaultCols: 4,
+    views: ['grid','list','card'],
     filterFields: [
       { key:'category', type:'select', label:'Category', options:[{value:'',label:'All'},{value:'Clothing',label:'Clothing'},{value:'Shoes',label:'Shoes'},{value:'Accessories',label:'Accessories'},{value:'Jewelry',label:'Jewelry'},{value:'Hats',label:'Hats'},{value:'Bags',label:'Bags'}]},
       { key:'season',   type:'select', label:'Season',   options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'},{value:'All-season',label:'All-season'}]},
@@ -1413,8 +1414,8 @@ async function loadItems() {
     _allItems = await window.api('GET', url);
     const grid = document.getElementById('itemGrid');
 
-    // v2 opt-in (?cards=v2). Renders wardrobe items via wardrobe config.
-    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+    // Card view: render via GH_CARD when user picks "card" in the toolbar.
+    if (_itemView === 'card' && window.GH_MOUNT) {
       const mounted = window.GH_MOUNT.intoContainer({
         containerId: 'itemGrid',
         moduleId:    'wardrobe',
