@@ -210,11 +210,51 @@
     card.appendChild(renderStatusRow(ctx));
     card.appendChild(renderIdentity(ctx));
 
+    // v5: Cross-module strip — between identity and alert. 3 numbers, dashed top border.
+    // Hidden when config.crossModule is missing or returns no rows.
+    const cross = renderCrossModule(ctx);
+    if (cross) card.appendChild(cross);
+
     const alert = renderAlert(ctx);
     if (alert) card.appendChild(alert);
 
     card.appendChild(renderEntities(ctx));
     return card;
+  }
+
+  // v5: Cross-module strip — declarative. config.crossModule(record) returns
+  //   [{ label, value, asterisk: 'red'|'amber'|null, onClick, tooltip }, ...]
+  // Hidden if returns falsy/empty. Asterisk pattern from TRANSACTION_LINKING_SPEC.md.
+  function renderCrossModule(ctx) {
+    const { record, config } = ctx;
+    if (!config.crossModule) return null;
+    const rows = (config.crossModule(record) || []).filter(Boolean);
+    if (!rows.length) return null;
+
+    const items = rows.map(r => {
+      const inner = [
+        el('span', { class: 'gh-cross__label' }, r.label || ''),
+        document.createTextNode(' '),
+        el('strong', {}, r.value == null ? '—' : String(r.value)),
+      ];
+      if (r.asterisk) {
+        const aClass = r.asterisk === 'red' ? 'gh-cross__ast gh-cross__ast--red'
+                     : r.asterisk === 'amber' ? 'gh-cross__ast gh-cross__ast--amber'
+                     : 'gh-cross__ast';
+        inner.push(el('span', {
+          class: aClass,
+          title: r.asteriskTooltip || 'This figure may be incomplete. Tap to review.',
+        }, '*'));
+      }
+      const node = el('span', {
+        class: r.onClick ? 'gh-cross__item gh-cross__item--clickable' : 'gh-cross__item',
+        title: r.tooltip || '',
+        onclick: r.onClick ? (e) => { e.stopPropagation(); r.onClick(record); } : null,
+      }, inner);
+      return node;
+    });
+
+    return el('div', { class: 'gh-card__cross' }, items);
   }
 
   // ── Zone 1 ─────────────────────────────────────────────────────
@@ -225,7 +265,12 @@
 
     const children = [el('div', { class: `gh-status-dot gh-status-dot--${safeStatus}` })];
 
-    if (config.categoryChip) {
+    // v5: multiple chips supported via statusRowChips (returns array).
+    // Falls back to single categoryChip for back-compat.
+    if (config.statusRowChips) {
+      const chips = (config.statusRowChips(record) || []).filter(Boolean);
+      for (const chip of chips) children.push(renderCatChip(chip));
+    } else if (config.categoryChip) {
       const chip = config.categoryChip(record);
       if (chip) children.push(renderCatChip(chip));
     }
@@ -352,6 +397,25 @@
       }
     }
 
+    // v5: Progress bar (CEU/PDU, odometer, contribution capacity, reading progress).
+    // config.progressBar(record) returns { label, fillPct (0-100), valueText, tone, tooltip }
+    if (config.progressBar) {
+      const p = config.progressBar(record);
+      if (p && p.fillPct != null) {
+        const tone = STATUS_NAMES.includes(p.tone) ? p.tone : 'good';
+        const bar = el('div', { class: 'gh-progress', title: p.tooltip || '' }, [
+          p.label ? el('span', { class: 'gh-progress__label' }, p.label) : null,
+          el('div', { class: 'gh-progress__bar' },
+            el('div', {
+              class: `gh-progress__fill gh-progress__fill--${tone}`,
+              style: { width: Math.max(0, Math.min(100, p.fillPct)) + '%' },
+            })),
+          p.valueText ? el('span', { class: 'gh-progress__value' }, p.valueText) : null,
+        ].filter(Boolean));
+        titleBlock.push(bar);
+      }
+    }
+
     return el('div', { class: 'gh-card__identity' }, [
       hero,
       el('div', { class: 'gh-card__title-block' }, titleBlock),
@@ -389,6 +453,25 @@
     }
 
     const rows = [el('div', { class: 'gh-card__alert-row' }, topRow)];
+
+    // v5: Stacked secondary alerts (vehicle: registration + insurance under primary).
+    // a.secondaries: array of { icon, text, label } — each renders as a sub-row,
+    // separated by dashed border within the alert panel.
+    if (Array.isArray(a.secondaries) && a.secondaries.length) {
+      const stack = el('div', { class: 'gh-card__alert-stack' });
+      for (const s of a.secondaries) {
+        const subRow = el('div', { class: 'gh-card__alert-substack-row' }, [
+          s.icon ? el('span', { class: 'gh-card__alert-substack-icon' },
+            phosphorIcon(s.icon, 14)) : null,
+          el('span', {}, s.text || ''),
+          el('div', { class: 'gh-card__spacer' }),
+          s.label ? el('span', { class: 'gh-card__alert-meta' }, s.label) : null,
+        ].filter(Boolean));
+        stack.appendChild(subRow);
+      }
+      rows.push(stack);
+    }
+
     if (a.subText || a.subTextMono) {
       const subRow = el('div', { class: 'gh-card__alert-row' });
       if (a.subText) subRow.appendChild(el('span', { class: 'gh-card__alert-meta' }, a.subText));
