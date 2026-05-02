@@ -722,3 +722,206 @@ test.describe('API Contract', () => {
   });
 
 });
+
+// ─────────────────────────────────────────────────────────────────
+// Card Renderer (GH_CARD v5) — added v202604.113
+//
+// Loads gh-card.js + gh-card-shared.js + gh-card-configs-batch1.js into
+// a real browser context, feeds each registered config a synthetic record,
+// and asserts the rendered DOM contains the expected zones (status row,
+// identity, optional cross-module strip, optional alert with optional
+// stacked secondaries, entities). Failures here mean the card system
+// won't render correctly when a module page opts in to ?cards=v2.
+// ─────────────────────────────────────────────────────────────────
+test.describe('Card Renderer (GH_CARD v5)', () => {
+
+  // Single fixture: blank page, scripts loaded, a global helper installed
+  // for asserting against rendered DOM strings.
+  async function loadCardSystem(page) {
+    await page.goto(`${BASE}/index.html`, { waitUntil: 'load' });
+    // Stub familyMembers global before card scripts execute
+    await page.evaluate(() => {
+      window.familyMembers = [
+        { id: 1, display_name: 'Al',    first_name: 'Al',    avatar_attachment_id: null },
+        { id: 2, display_name: 'Sarah', first_name: 'Sarah', avatar_attachment_id: null },
+      ];
+    });
+    // Add the card scripts. Index already has many scripts, but the card
+    // renderer + configs aren't loaded by default on /index.html.
+    await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
+    await page.waitForFunction(() => window.GH_CARD && window.GH_CARD_SHARED, { timeout: 4000 });
+  }
+
+  // Helper: render a record and check zone presence.
+  async function renderAndCheck(page, moduleId, record, expect_) {
+    const html = await page.evaluate(({ m, r }) => {
+      const node = window.GH_CARD.render(m, r);
+      return node ? node.outerHTML : null;
+    }, { m: moduleId, r: record });
+    expect(html, `${moduleId} render returned null`).not.toBeNull();
+
+    if (expect_.hasStatusRow !== undefined) {
+      expect(/<div class="gh-card__status-row/.test(html), `${moduleId} status row`).toBe(expect_.hasStatusRow);
+    }
+    if (expect_.hasIdentity !== undefined) {
+      expect(/<div class="gh-card__identity/.test(html), `${moduleId} identity`).toBe(expect_.hasIdentity);
+    }
+    if (expect_.hasCrossModule !== undefined) {
+      expect(/<div class="gh-card__cross/.test(html), `${moduleId} cross-module strip`).toBe(expect_.hasCrossModule);
+    }
+    if (expect_.hasAlert !== undefined) {
+      // Match the alert *zone* class specifically, not alert-meta which is reused in zone 4
+      expect(/<div class="gh-card__alert(\s|"|\sgh-)/.test(html), `${moduleId} alert zone`).toBe(expect_.hasAlert);
+    }
+    if (expect_.hasEntities !== undefined) {
+      expect(/<div class="gh-card__entities/.test(html), `${moduleId} entities`).toBe(expect_.hasEntities);
+    }
+    if (expect_.hasProgress !== undefined) {
+      expect(/<div class="gh-progress/.test(html), `${moduleId} progress bar`).toBe(expect_.hasProgress);
+    }
+    if (expect_.hasStackedAlerts !== undefined) {
+      expect(/<div class="gh-card__alert-stack/.test(html), `${moduleId} stacked alerts`).toBe(expect_.hasStackedAlerts);
+    }
+    return html;
+  }
+
+  test('renderer + helpers + configs load without error', async ({ page }) => {
+    await loadCardSystem(page);
+    const registered = await page.evaluate(() => {
+      // Probe each known config
+      const ids = ['vehicles', 'subscriptions', 'finance_accounts', 'hsa_accounts',
+                   'maintenance', 'books', 'trade_positions'];
+      const results = {};
+      for (const id of ids) {
+        try {
+          const node = window.GH_CARD.render(id, { id: 999 });
+          results[id] = !!node && node.classList.contains('gh-card');
+        } catch (e) { results[id] = `THREW: ${e.message}`; }
+      }
+      return results;
+    });
+    for (const [id, ok] of Object.entries(registered)) {
+      expect(ok, `${id} failed minimal render`).toBe(true);
+    }
+  });
+
+  test('vehicles — healthy daily driver renders no alert', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'vehicles', {
+      id: 1, make: 'Honda', model: 'Civic LX', year: 2022,
+      odometer_current: 34210, last_service_odometer: 31270, next_service_miles: 36270,
+      registration_expires_at: '2027-07-31',  // far out
+      ytd_fuel: 642, service_ytd: 0,
+      owner_family_member_id: 1,
+      insurer_brand: 'State Farm', insurer_brand_color: '#d50000',
+      attachment_count: 3, plate_number: 'ABC-7392',
+      location: 'Garage at home', usage_type: 'Daily driver',
+    }, {
+      hasStatusRow: true, hasIdentity: true, hasCrossModule: true,
+      hasAlert: false, hasEntities: true, hasProgress: true,
+    });
+  });
+
+  test('vehicles — multi-alert with stacked secondaries', async ({ page }) => {
+    await loadCardSystem(page);
+    // Service threshold reached + reg + insurance all due → stacked alert
+    await renderAndCheck(page, 'vehicles', {
+      id: 2, make: 'Toyota', model: '4Runner SR5', year: 2018,
+      odometer_current: 87940, last_service_odometer: 83120, next_service_miles: 88120,
+      registration_expires_at: '2026-07-31',
+      insurance_renewal_at: '2026-08-15',
+      ytd_fuel: 1180, service_ytd: 420,
+      owner_family_member_id: 1, plate_number: 'XYZ-9921',
+    }, {
+      hasAlert: true, hasStackedAlerts: true,
+    });
+  });
+
+  test('subscriptions — price increase alert + asterisk on annual', async ({ page }) => {
+    await loadCardSystem(page);
+    const html = await renderAndCheck(page, 'subscriptions', {
+      id: 1, service_name: 'Netflix', plan_name: 'Premium · 4K',
+      brand_color: '#E50914', brand_wordmark: 'NETFLIX',
+      next_charge_at: '2026-06-22',
+      annual_cost: 263.88, last_3_charges_total: 66.97, active_since: '2019-09-01',
+      price_increased_recently: true,
+      price_delta: 2, previous_price: 20.99, current_price: 22.99,
+      price_change_at: '2026-05-14',
+      annual_cost_asterisk: 'red',
+      owner_family_member_id: 1, category: 'Entertainment',
+    }, { hasAlert: true, hasCrossModule: true });
+    // Verify the asterisk actually rendered in the cross-module strip
+    expect(/gh-cross__ast--red/.test(html), 'red asterisk should render for incomplete annual cost').toBe(true);
+  });
+
+  test('subscriptions — healthy stable price renders no alert', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'subscriptions', {
+      id: 2, service_name: 'Spotify', plan_name: 'Family · 6 accounts',
+      brand_color: '#1DB954', brand_wordmark: 'Spotify',
+      next_charge_at: '2026-06-14',
+      annual_cost: 203.88, last_3_charges_total: 50.97, active_since: '2021-03-01',
+      price_increased_recently: false, owner_family_member_id: 1,
+    }, { hasAlert: false });
+  });
+
+  test('finance_accounts — low balance triggers alert', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'finance_accounts', {
+      id: 1, nickname: 'Joint Savings', institution: 'Navy Fed',
+      account_type: 'savings',
+      balance_current: 250, low_balance_threshold: 1000,
+      bank_brand: 'Navy Fed',
+      owner_family_member_id: 1, is_joint: true,
+    }, { hasAlert: true });
+  });
+
+  test('hsa_accounts — receipts pending triggers alert + progress bar', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'hsa_accounts', {
+      id: 1, tax_year: 2026, plan_type: 'family',
+      contribution_limit: 8300, contribution_ytd: 5460,
+      provider_brand: 'Fidelity',
+      spent_ytd: 2840, receipts_pending_count: 3, eligible_matches_count: 7,
+      owner_family_member_id: 1,
+    }, { hasAlert: true, hasProgress: true });
+  });
+
+  test('maintenance — overdue task triggers alert', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'maintenance', {
+      id: 1, name: 'HVAC Filter', system: 'HVAC',
+      frequency_days: 90,
+      last_done_at: '2026-01-15',  // ~3.5 months ago — overdue
+      next_due_at: '2026-04-15',
+      last_cost: 18, avg_cost: 18,
+      assignee_family_member_id: 1,
+    }, { hasAlert: true });
+  });
+
+  test('books — reading dashboard renders progress + cross-module', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'books', {
+      id: 1, title: 'The Pragmatic Programmer', author: 'Hunt & Thomas',
+      status: 'reading', genre: 'Tech', format: 'Hardcover',
+      total_pages: 320, current_page: 184,
+      target_finish_at: '2026-06-14', pages_per_day_needed: 4,
+      pages_today: 12, streak_days: 7, pace_status: 'on track',
+      reader_family_member_id: 1,
+    }, { hasProgress: true, hasCrossModule: true, hasAlert: false });
+  });
+
+  test('trade_positions — long position with no alert', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'trade_positions', {
+      id: 1, symbol: 'AAPL', company_name: 'Apple Inc.',
+      position_type: 'long', sector: 'Technology',
+      current_price: 178.42, day_change_pct: 1.24,
+      cost_basis: 12500, current_value: 14820, realized_ytd: 0,
+      account_id: 1, account_brand: 'Schwab',
+    }, { hasAlert: false, hasCrossModule: true });
+  });
+
+});

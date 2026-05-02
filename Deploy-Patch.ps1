@@ -1,8 +1,9 @@
 # Deploy-Patch.ps1 — Ghrava v202604.113
-# Card v5 rollout: shared renderer extensions, helper module, configs for
-# vehicles/subs/finance/HSA/maintenance/books/trade, headless smoke test.
-# Pages remain unchanged — configs register but only render when wired.
-# Run: right-click → Run with PowerShell
+# Card v5 rollout: shared renderer extensions, shared helpers module,
+# configs for vehicles/subs/finance/HSA/maintenance/books/trade.
+# 10 new Playwright tests added to the existing nightly E2E suite.
+# Module pages remain unchanged - cards still gated behind ?cards=v2.
+# Run: right-click -> Run with PowerShell
 
 $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
@@ -16,7 +17,7 @@ $PatchFiles = @(
     'app\version.txt',
     'CARDS_FINAL.md',
     'TRANSACTION_LINKING_SPEC.md',
-    'tests\smoke-cards.js'
+    'tests\ghrava-e2e.spec.js'
 )
 
 Write-Host ''
@@ -59,7 +60,8 @@ try {
     Write-Host "  docker restart failed: $_" -ForegroundColor Red
 }
 Write-Host ''
-Write-Host '  Done. v113 ships configs only - module pages unchanged.' -ForegroundColor Green
-Write-Host '  Cards still gated behind ?cards=v2 on todos.html and medical.html.' -ForegroundColor White
+Write-Host '  Done. Run the existing E2E suite to verify card tests:' -ForegroundColor Green
+Write-Host '    .\tests\run-tests.ps1' -ForegroundColor White
+Write-Host '  (10 new Card Renderer tests included in the nightly suite.)' -ForegroundColor White
 Write-Host ''
 Read-Host 'Press Enter to close'
