@@ -182,7 +182,16 @@ router.get('/accounts', (req, res) => {
     const rows = db.prepare(`
       SELECT a.*,
         (SELECT COALESCE(SUM(amount), 0) FROM finance_transactions WHERE account_id = a.id) AS tx_total,
-        (SELECT COUNT(*) FROM finance_transactions WHERE account_id = a.id) AS tx_count
+        (SELECT COUNT(*) FROM finance_transactions WHERE account_id = a.id) AS tx_count,
+        -- v202604.116 card field gaps: surface counts for cross-module strip.
+        -- These joins are cheap (indexed FKs) and let the card render the
+        -- "Linked subs" cross-module row without a second round-trip.
+        (SELECT COUNT(*) FROM subscriptions WHERE finance_account_id = a.id AND status = 'active') AS linked_subs_count,
+        -- Last-30-day balance delta from imported_transactions linked to this account.
+        -- Net change of inflows - outflows. Null when the account hasn't been linked
+        -- to any imported transactions, so the card row simply omits.
+        (SELECT COALESCE(SUM(amount), 0) FROM finance_transactions
+           WHERE account_id = a.id AND date >= date('now','-30 days')) AS balance_change_30d
       FROM finance_accounts a
       WHERE a.is_active = 1
       ORDER BY a.sort_order ASC, a.name ASC

@@ -1,30 +1,70 @@
-# Deploy-Patch.ps1 — Ghrava v202604.115
-# Card configs batch 2 + 3:
-#   batch2: wardrobe, perfumes, properties, documents, insurance_policies, career_jobs
-#   batch3: medical_conditions, medical_visits, daily_log_entries (compact),
-#           calendar_events (compact)
-# Plus 5 body-icon Phosphor SVGs and 11 new Playwright assertions in the
-# existing Card Renderer (GH_CARD v5) describe block.
-# Module pages still unchanged - configs ready, opt-in per page when desired.
+# Deploy-Patch.ps1 — Ghrava v202604.117
+# Cumulative since v112: card v5 system end-to-end.
+#
+# Includes:
+#   - Shared renderer + helpers + brands lookup + mount helper
+#   - 17 module configs (batch1, batch2, batch3)
+#   - 9 module pages wired to opt-in via ?cards=v2
+#   - 5 body-icon Phosphor SVGs
+#   - Finance route improvement: linked_subs_count + balance_change_30d
+#   - Reports test fix (uses .rep-row, not removed .report-card)
+#   - Test runner: auto-creates ReportDir, captures POST diagnostics
+#   - Server: POST /test-results returns diagnostic body on validation fail
+#   - 25+ Playwright tests added to existing E2E suite
+#   - 3 spec docs (CARDS_FINAL.md, TRANSACTION_LINKING_SPEC.md, CARD_FIELD_GAPS.md)
+#
+# All paths gated behind ?cards=v2 — legacy render is the default until each
+# page is flipped. Backend changes are additive (no schema migrations).
 
 $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $PatchFiles = @(
+    # Renderer + shared infra
+    'app\public\js\gh-card.js',
+    'app\public\js\gh-card-shared.js',
+    'app\public\js\gh-card-brands.js',
+    'app\public\js\gh-card-mount.js',
+    # Module configs
+    'app\public\js\gh-card-configs-batch1.js',
     'app\public\js\gh-card-configs-batch2.js',
     'app\public\js\gh-card-configs-batch3.js',
+    # CSS additions for v5 (cross-module strip, progress bar, asterisk, alert stack)
+    'app\public\shared.css',
+    # Body-icon SVGs for medical conditions + visit cards
     'app\public\assets\icons\phosphor\duotone\heart-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\brain-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\stethoscope-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\calendar-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\note-pencil-duotone.svg',
-    'app\version.txt',
-    'tests\ghrava-e2e.spec.js'
+    # 9 module pages wired with ?cards=v2 short-circuit
+    'app\public\subscriptions.html',
+    'app\public\finance.html',
+    'app\public\books.html',
+    'app\public\perfume.html',
+    'app\public\insurance.html',
+    'app\public\documents.html',
+    'app\public\wardrobe.html',
+    'app\public\property.html',
+    'app\public\career.html',
+    # Backend: finance route now returns linked_subs_count + balance_change_30d
+    'app\features\finance\routes.js',
+    # Backend: test-results POST returns diagnostics on 400 (helps debug runner issues)
+    'app\server.js',
+    # Test infra
+    'tests\ghrava-e2e.spec.js',
+    'tests\run-tests.ps1',
+    # Specs
+    'CARDS_FINAL.md',
+    'TRANSACTION_LINKING_SPEC.md',
+    'CARD_FIELD_GAPS.md',
+    # Version
+    'app\version.txt'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.115' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.117' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray
@@ -63,7 +103,10 @@ try {
     Write-Host "  docker restart failed: $_" -ForegroundColor Red
 }
 Write-Host ''
-Write-Host '  Done. 17 of 17 module configs render cleanly in JSDOM.' -ForegroundColor Green
-Write-Host "  Re-run Playwright when convenient: .\tests\run-tests.ps1 -AuthToken 'ravisoni'" -ForegroundColor White
+Write-Host '  v117 deployed. Cards still gated behind ?cards=v2.' -ForegroundColor Green
+Write-Host '  Test by visiting any wired page with that param, e.g.' -ForegroundColor White
+Write-Host '    http://192.168.4.62:3001/subscriptions.html?cards=v2' -ForegroundColor White
+Write-Host '    http://192.168.4.62:3001/finance.html?cards=v2' -ForegroundColor White
+Write-Host '  Legacy render is default at /subscriptions.html (no param).' -ForegroundColor White
 Write-Host ''
 Read-Host 'Press Enter to close'

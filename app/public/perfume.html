@@ -31,6 +31,12 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-shared.js"></script>
+<script src="/js/gh-card-brands.js"></script>
+<script src="/js/gh-card-configs-batch2.js"></script>
+<script src="/js/gh-card-mount.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
@@ -386,6 +392,29 @@ async function load() {
     if (q) rows = rows.filter(r =>
       [r.name,r.brand,r.top_notes,r.middle_notes,r.base_notes,...(r.scent_family||[])]
         .join(' ').toLowerCase().includes(q));
+
+    // v2 opt-in (?cards=v2). Renders perfumes via the perfumes config.
+    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+      const mounted = window.GH_MOUNT.intoContainer({
+        containerId: 'perfList',
+        moduleId:    'perfumes',
+        records:     rows,
+        onClick:     (r) => openDrawer(r.id),
+        derive: (r) => ({
+          // scent_family / season_tags may already be arrays from API or JSON strings
+          season_tags: Array.isArray(r.season_tags) ? JSON.stringify(r.season_tags) : r.season_tags,
+          scent_family: Array.isArray(r.scent_family) ? JSON.stringify(r.scent_family) : r.scent_family,
+          // photo: perfume API uses primary_photo_id similar to books
+          photo_attachment_id: r.photo_attachment_id || r.primary_photo_id || null,
+        }),
+        onEmpty: () => `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
+          <div style="font-size:48px;margin-bottom:12px">🧴</div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:6px">No fragrances yet</div>
+          <div style="font-size:13px">Tap + to add your first perfume</div></div>`,
+      });
+      if (mounted) return;
+    }
+
     if (!rows.length) {
       document.getElementById('perfList').innerHTML = `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
         <div style="font-size:48px;margin-bottom:12px">🧴</div>

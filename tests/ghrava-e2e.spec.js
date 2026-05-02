@@ -753,10 +753,12 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     // renderer + configs aren't loaded by default on /index.html.
     await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
     await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-brands.js` });
     await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
     await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch2.js` });
     await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch3.js` });
-    await page.waitForFunction(() => window.GH_CARD && window.GH_CARD_SHARED, { timeout: 4000 });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-mount.js` });
+    await page.waitForFunction(() => window.GH_CARD && window.GH_CARD_SHARED && window.GH_MOUNT, { timeout: 4000 });
   }
 
   // Helper: render a record and check zone presence.
@@ -1071,5 +1073,189 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     expect(/gh-card--u-urgent/.test(html), 'today event should render urgent class').toBe(true);
     expect(/Today/.test(html), 'should display "Today" label').toBe(true);
   });
+
+  // ─────────────────────────────────────────────────────────────
+  // GH_MOUNT helper — opt-in mount infrastructure used by every page
+  // ─────────────────────────────────────────────────────────────
+  test('GH_MOUNT — v2 inactive returns false (legacy path stays default)', async ({ page }) => {
+    await loadCardSystem(page);
+    const result = await page.evaluate(() => {
+      // Inject a test container, call without ?cards=v2 in URL
+      const div = document.createElement('div');
+      div.id = 'mountTest1';
+      document.body.appendChild(div);
+      return window.GH_MOUNT.intoContainer({
+        containerId: 'mountTest1', moduleId: 'subscriptions',
+        records: [{ id: 1, name: 'Test' }],
+      });
+    });
+    // loadCardSystem navigates to /index.html (no query param), so v2 is off
+    expect(result, 'should return false when ?cards=v2 not present').toBe(false);
+  });
+
+  test('GH_MOUNT — fieldMap renames source field into target field', async ({ page }) => {
+    // Need a page loaded WITH ?cards=v2 for isV2() to return true
+    await page.goto(`${BASE}/index.html?cards=v2`, { waitUntil: 'load' });
+    await page.evaluate(() => {
+      window.familyMembers = [{ id: 1, display_name: 'Al', avatar_attachment_id: null }];
+    });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-brands.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-mount.js` });
+    await page.waitForFunction(() => window.GH_MOUNT, { timeout: 4000 });
+
+    const html = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'mountTest2';
+      document.body.appendChild(div);
+      window.GH_MOUNT.intoContainer({
+        containerId: 'mountTest2', moduleId: 'subscriptions',
+        records: [{ id: 1, name: 'Netflix', plan: 'Premium', category: 'Entertainment' }],
+        fieldMap: { service_name: 'name', plan_name: 'plan' },
+      });
+      return document.getElementById('mountTest2').innerHTML;
+    });
+    expect(html.includes('Netflix'), 'mapped service_name should appear').toBe(true);
+    expect(html.includes('gh-card'), 'card should render').toBe(true);
+  });
+
+  test('GH_MOUNT — onEmpty called when records array is empty', async ({ page }) => {
+    await page.goto(`${BASE}/index.html?cards=v2`, { waitUntil: 'load' });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-brands.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-mount.js` });
+    await page.waitForFunction(() => window.GH_MOUNT, { timeout: 4000 });
+
+    const html = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'mountTest3';
+      document.body.appendChild(div);
+      window.GH_MOUNT.intoContainer({
+        containerId: 'mountTest3', moduleId: 'subscriptions', records: [],
+        onEmpty: () => '<div id="empty-marker">nothing here</div>',
+      });
+      return document.getElementById('mountTest3').innerHTML;
+    });
+    expect(html.includes('empty-marker'), 'onEmpty HTML should render').toBe(true);
+  });
+
+  test('GH_MOUNT — per-mount onClick does not mutate the registered config', async ({ page }) => {
+    // Regression test: an earlier implementation set config.onClick directly,
+    // which meant two mounts of different modules (or same module on two
+    // pages) would stomp each other's drawer functions. The fix threads
+    // overrides through render() per-call, leaving the registered config
+    // untouched. Verify that here.
+    await page.goto(`${BASE}/index.html?cards=v2`, { waitUntil: 'load' });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-brands.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-mount.js` });
+    await page.waitForFunction(() => window.GH_MOUNT, { timeout: 4000 });
+
+    const result = await page.evaluate(() => {
+      // First mount: pass an onClick. Second mount on a different container
+      // omits onClick entirely. If the bug was present, mount #2 would
+      // inherit mount #1's onClick from the mutated registered config.
+      const div1 = document.createElement('div');
+      div1.id = 'mountA';
+      document.body.appendChild(div1);
+      const div2 = document.createElement('div');
+      div2.id = 'mountB';
+      document.body.appendChild(div2);
+
+      let called = 0;
+      window.GH_MOUNT.intoContainer({
+        containerId: 'mountA', moduleId: 'subscriptions',
+        records: [{ id: 1, name: 'Test1' }],
+        onClick: () => { called++; },
+      });
+      window.GH_MOUNT.intoContainer({
+        containerId: 'mountB', moduleId: 'subscriptions',
+        records: [{ id: 2, name: 'Test2' }],
+        // No onClick here on purpose
+      });
+      // Now click mount B. Should NOT call mount A's handler.
+      const cardB = div2.querySelector('.gh-card');
+      cardB && cardB.click();
+      return { calledFromBClick: called };
+    });
+    expect(result.calledFromBClick, 'mount B click leaked into mount A onClick').toBe(0);
+  });
+
+  test('GH_CARD_SHARED.brandColorFor — known brand returns hex, unknown returns null', async ({ page }) => {
+    await loadCardSystem(page);
+    const result = await page.evaluate(() => ({
+      netflix:    window.GH_CARD_SHARED.brandColorFor('Netflix'),
+      chase:      window.GH_CARD_SHARED.brandColorFor('Chase'),
+      sapphire:   window.GH_CARD_SHARED.brandColorFor('Chase Sapphire'),  // partial match
+      stateFarm:  window.GH_CARD_SHARED.brandColorFor('State Farm'),
+      unknown:    window.GH_CARD_SHARED.brandColorFor('Acme Bank Of Nowhere'),
+      empty:      window.GH_CARD_SHARED.brandColorFor(''),
+      nullCheck:  window.GH_CARD_SHARED.brandColorFor(null),
+    }));
+    expect(result.netflix, 'Netflix should resolve').toBe('#E50914');
+    expect(result.chase, 'Chase should resolve').toBe('#0a4abf');
+    expect(result.sapphire, 'Chase Sapphire should resolve via first-word match').toBe('#0a4abf');
+    expect(result.stateFarm, 'State Farm should resolve').toBe('#d50000');
+    expect(result.unknown, 'Unknown brand returns null').toBeNull();
+    expect(result.empty, 'Empty string returns null').toBeNull();
+    expect(result.nullCheck, 'null input returns null').toBeNull();
+  });
+
+  test('GH_CARD_SHARED.brandInitialsFor — known brand returns curated initials, unknown computes generic', async ({ page }) => {
+    await loadCardSystem(page);
+    const result = await page.evaluate(() => ({
+      netflix:    window.GH_CARD_SHARED.brandInitialsFor('Netflix'),
+      hd:         window.GH_CARD_SHARED.brandInitialsFor('Home Depot'),
+      acme:       window.GH_CARD_SHARED.brandInitialsFor('Acme Bank'),
+      single:     window.GH_CARD_SHARED.brandInitialsFor('Wesabe'),
+      empty:      window.GH_CARD_SHARED.brandInitialsFor(''),
+    }));
+    expect(result.netflix, 'curated initials').toBe('NF');
+    expect(result.hd, 'Home Depot curated initials').toBe('HD');
+    expect(result.acme, 'unknown brand: first letters of words').toBe('AB');
+    expect(result.single, 'unknown single word: first 3 chars').toBe('WES');
+    expect(result.empty, 'empty returns ?').toBe('?');
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Page wiring — ?cards=v2 actually flips each wired page
+  // ─────────────────────────────────────────────────────────────
+  // These tests verify the v2 hook is wired correctly on each page. Each
+  // navigates with ?cards=v2 and confirms (a) the page loads without JS
+  // errors, (b) the GH_CARD library is available on the page (script tag
+  // wired in correctly).
+  // Doesn't assert that data renders because that needs real records and
+  // we don't seed test data — but if the page crashes, we'd see it here.
+  for (const wired of [
+    { page: 'subscriptions.html' },
+    { page: 'finance.html' },
+    { page: 'books.html' },
+    { page: 'perfume.html' },
+    { page: 'insurance.html' },
+    { page: 'documents.html' },
+    { page: 'wardrobe.html' },
+    { page: 'property.html' },
+    { page: 'career.html' },
+  ]) {
+    test(`page wiring — ${wired.page} loads with ?cards=v2 and exposes GH_CARD`, async ({ page }) => {
+      const errors = [];
+      page.on('pageerror', e => errors.push(e.message));
+      await page.goto(`${BASE}/${wired.page}?cards=v2`, { waitUntil: 'load' });
+      await page.waitForTimeout(500);
+      const hasGhCard = await page.evaluate(() => !!window.GH_CARD);
+      const hasMount  = await page.evaluate(() => !!window.GH_MOUNT);
+      expect(hasGhCard, `${wired.page}: GH_CARD not loaded`).toBe(true);
+      expect(hasMount,  `${wired.page}: GH_MOUNT not loaded`).toBe(true);
+      // Allow favicon errors but nothing else
+      const real = errors.filter(e => !e.includes('favicon'));
+      expect(real, `${wired.page}: page-load errors: ${real.join('; ')}`).toHaveLength(0);
+    });
+  }
 
 });

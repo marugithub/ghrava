@@ -349,6 +349,12 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-shared.js"></script>
+<script src="/js/gh-card-brands.js"></script>
+<script src="/js/gh-card-configs-batch2.js"></script>
+<script src="/js/gh-card-mount.js"></script>
 <script src="/attachments.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js" crossorigin="anonymous"></script>
 
@@ -1406,6 +1412,28 @@ async function loadItems() {
     if (occasion)url += `occasion=${encodeURIComponent(occasion)}&`;
     _allItems = await window.api('GET', url);
     const grid = document.getElementById('itemGrid');
+
+    // v2 opt-in (?cards=v2). Renders wardrobe items via wardrobe config.
+    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+      const mounted = window.GH_MOUNT.intoContainer({
+        containerId: 'itemGrid',
+        moduleId:    'wardrobe',
+        records:     _allItems,
+        onClick:     (r) => openItemDrawer(r.id),
+        derive: (r) => ({
+          // wardrobe stores tags as JSON strings — keep them as-is for the config
+          // photo: API uses primary_photo.{id} or attachment_id
+          photo_attachment_id: r.primary_photo?.id || r.attachment_id || null,
+        }),
+        onEmpty: () => `<div class="lb-empty">
+          <div class="lb-empty-icon">👔</div>
+          <div class="lb-empty-title">The closet's empty</div>
+          <div class="lb-empty-sub">Tap + to add your first piece. Photo + tag = 10 seconds.</div>
+        </div>`,
+      });
+      if (mounted) { refreshMemberCache(); return; }
+    }
+
     if (!_allItems.length) {
       grid.className = '';
       grid.innerHTML = `<div class="lb-empty">

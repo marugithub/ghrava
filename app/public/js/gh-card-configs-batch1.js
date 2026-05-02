@@ -251,7 +251,10 @@
         }));
       }
       if (r.last_3_charges_total != null) {
-        rows.push(S.crossRow('Last 3', S.money(r.last_3_charges_total)));
+        rows.push(S.crossRow('Last 3', S.money(r.last_3_charges_total), {
+          asterisk: r.last_3_charges_total_asterisk,
+          asteriskTooltip: 'Estimated from current price — actual transactions not yet linked.',
+        }));
       }
       if (r.active_since) {
         rows.push(S.crossRow('Active since', S.fmtDateShort(r.active_since)));
@@ -349,9 +352,14 @@
     crossModule: (r) => {
       const rows = [];
       if (r.ytd_activity_count != null) {
+        // Use explicit asterisk field if set, fall back to statement gap detection
+        const ast = r.ytd_activity_count_asterisk
+                 || (r.statement_gap_detected ? 'amber' : null);
         rows.push(S.crossRow('YTD activity', r.ytd_activity_count + ' tx', {
-          asterisk: r.statement_gap_detected ? 'amber' : null,
-          asteriskTooltip: 'Statement gap detected — some transactions may be missing.',
+          asterisk: ast,
+          asteriskTooltip: r.statement_gap_detected
+            ? 'Statement gap detected — some transactions may be missing.'
+            : 'All-time count shown — per-year totals not yet computed.',
         }));
       }
       if (r.balance_change_30d != null) {

@@ -16,6 +16,12 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-shared.js"></script>
+<script src="/js/gh-card-brands.js"></script>
+<script src="/js/gh-card-configs-batch1.js"></script>
+<script src="/js/gh-card-mount.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
@@ -100,6 +106,60 @@ async function load() {
   try {
     let rows = await window.api('GET', `/subscriptions/?${status!=='all'?'status='+status:''}`);
     if (cat) rows = rows.filter(r => r.category === cat);
+
+    // v2 opt-in (?cards=v2). When active, GH_MOUNT renders into the same
+    // container and we skip the legacy markup builder. Field map adapts the
+    // subscriptions API response to what the card config expects.
+    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+      const mounted = window.GH_MOUNT.intoContainer({
+        containerId: 'subList',
+        moduleId:    'subscriptions',
+        records:     rows,
+        onClick:     (r) => openDrawer(r.id),
+        fieldMap: {
+          service_name:        'name',
+          plan_name:           'plan',
+          next_charge_at:      'next_billing_date',
+          paying_account_brand:'account_name',
+          owner_family_member_id: 'family_member_id',
+        },
+        derive: (r) => ({
+          // Brand color: prefer the shared brand lookup (covers Netflix,
+          // Spotify, Adobe, etc.). Falls back to category-level color when
+          // the service name isn't a known brand.
+          brand_color: (window.GH_CARD_SHARED?.brandColorFor(r.name)) || ({
+            Streaming: '#E50914', Music: '#1DB954', Software: '#0284c7',
+            Fitness:   '#16a34a', News:  '#475569', Gaming:   '#7c3aed',
+            Utilities: '#d97706', Other: '#475569',
+          })[r.category] || '#475569',
+          brand_wordmark: r.name || '',
+          cycle: r.billing_cycle,
+          // Annual cost: extrapolate from cost + cycle. Approx — exact computation
+          // belongs server-side; this is good enough for the card display.
+          annual_cost: r.cost ? (
+            r.billing_cycle === 'monthly'   ? r.cost * 12 :
+            r.billing_cycle === 'weekly'    ? r.cost * 52 :
+            r.billing_cycle === 'quarterly' ? r.cost * 4  :
+            r.cost
+          ) : null,
+          shared_with_family: (r.members || []).length > 0,
+          shared_count:       (r.members || []).length,
+          // Active since: API returns created_at on every record (s.*)
+          active_since: r.active_since || r.created_at || null,
+          // Last 3 charges: provisional approximation from current price.
+          // Real value needs imported_transactions linked to this sub —
+          // see TRANSACTION_LINKING_SPEC.md. For now show 3x current price
+          // and amber-asterisk it so user knows it's an estimate.
+          last_3_charges_total: r.cost ? r.cost * 3 : null,
+          last_3_charges_total_asterisk: 'amber',
+        }),
+        onEmpty: () => `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
+          <div style="font-size:48px;margin-bottom:12px">📦</div>
+          <div style="font-weight:700;font-size:15px;margin-bottom:6px">No subscriptions yet</div>
+          <div style="font-size:13px">Tap + to add your first subscription</div></div>`,
+      });
+      if (mounted) { loadSummary(); return; }
+    }
 
     const el = document.getElementById('subList');
     if (!rows.length) {

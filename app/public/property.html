@@ -32,6 +32,13 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-shared.js"></script>
+<script src="/js/gh-card-brands.js"></script>
+<script src="/js/gh-card-configs-batch1.js"></script>
+<script src="/js/gh-card-configs-batch2.js"></script>
+<script src="/js/gh-card-mount.js"></script>
 <div id="app" style="padding-bottom:100px">
   <div class="view-tabs" style="--tab-color:#ef4444">
     <button class="view-tab active" onclick="switchTab('props',this)">🏠 Properties</button>
@@ -363,6 +370,19 @@ async function loadProps(){
     $('pTotalMort').textContent=fmt$(tm);
     $('pEquity').textContent=fmt$(eq);
     $('pEquity').style.color=eq>=0?'var(--green)':'var(--red)';
+
+    // v2 opt-in (?cards=v2). Renders properties via properties config.
+    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+      const mounted = window.GH_MOUNT.intoContainer({
+        containerId: 'propList',
+        moduleId:    'properties',
+        records:     ps,
+        onClick:     (r) => openPropDrawer(r.id),
+        onEmpty: () => emptyState('🏠', 'No properties', 'Add a property to track value and maintenance.', ''),
+      });
+      if (mounted) return;
+    }
+
     if(!ps.length){el.innerHTML=emptyState('🏠', 'No properties', 'Add a property to track value and maintenance.', '');return;}
     const ICONS={'Primary Residence':'🏠',Rental:'🏢',Vacation:'🏖️',Land:'🌳',Other:'🏗️'};
     el.innerHTML=ps.map(p=>{
@@ -451,6 +471,37 @@ async function loadVehs(){
   const el=$('vehList');if(!el)return;
   try{
     const vs=await api('GET', '/vehicles');
+
+    // v2 opt-in (?cards=v2). Renders vehicles via vehicles config.
+    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+      const mounted = window.GH_MOUNT.intoContainer({
+        containerId: 'vehList',
+        moduleId:    'vehicles',
+        records:     vs,
+        onClick:     (r) => openVehDrawer(r.id),
+        fieldMap: {
+          // API field names → config field names
+          registration_expires_at: 'registration_expires',
+          insurance_renewal_at:    'insurance_renewal',
+          odometer_current:        'odometer',
+        },
+        derive: (r) => ({
+          // Make + model + year display assembled by config; ensure presence
+          body_type: r.body_type || r.type || null,
+          // Owner: vehicles use owner_family_member_id natively in some installs
+          owner_family_member_id: r.owner_family_member_id || r.family_member_id || null,
+          // Insurance brand: from insurance_carrier or insurer fields
+          insurer_brand:       r.insurer_brand || r.insurance_carrier || null,
+          insurer_brand_color: r.insurer_brand_color || null,
+          // Shop: preferred_shop or service_shop
+          shop_brand:       r.shop_brand || r.preferred_shop || null,
+          shop_brand_color: r.shop_brand_color || null,
+        }),
+        onEmpty: () => emptyState('🚗', 'No vehicles', 'Add a vehicle to track service history and registration.', ''),
+      });
+      if (mounted) return;
+    }
+
     if(!vs.length){el.innerHTML=emptyState('🚗', 'No vehicles', 'Add a vehicle to track service history and registration.', '');return;}
     const today=new Date().toISOString().slice(0,10);
     const warn30=new Date(Date.now()+30*864e5).toISOString().slice(0,10);

@@ -69,6 +69,12 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-shared.js"></script>
+<script src="/js/gh-card-brands.js"></script>
+<script src="/js/gh-card-configs-batch1.js"></script>
+<script src="/js/gh-card-mount.js"></script>
 <script src="/js/lt-shared-data.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js" crossorigin="anonymous"></script>
 <div id="nav-container"></div>
@@ -284,6 +290,42 @@ async function loadBooks() {
     el.classList.toggle('gh-grid', _bkView === 'grid');
     el.classList.toggle('gh-list', _bkView === 'list');
     el.style.setProperty('--bk-cols', _bkCols);
+
+    // v2 opt-in (?cards=v2). Renders books via the books config (reading
+    // dashboard style — progress bar, pace, cross-module strip).
+    if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+      const mounted = window.GH_MOUNT.intoContainer({
+        containerId: 'bookList',
+        moduleId:    'books',
+        records:     filtered,
+        onClick:     (r) => openBookDrawer(r.id),
+        fieldMap: {
+          cover_attachment_id: 'primary_photo_id',
+          current_page:        'pages_read',
+          total_pages:         'page_count',
+        },
+        derive: (r) => ({
+          // Translate API status strings to the config's status keys
+          status: ({
+            'Currently Reading': 'reading',
+            'Read':              'finished',
+            'Want to Read':      'want_to_read',
+            'Abandoned':         'abandoned',
+          })[r.status] || (r.status || '').toLowerCase().replace(/\s+/g,'_'),
+          reader_family_member_id: r.family_member_id || r.owner_family_member_id,
+          // Days reading: if started but not finished, show elapsed
+          days_reading: r.date_started && !r.date_finished
+            ? Math.max(0, Math.round((Date.now() - new Date(r.date_started)) / 86400000))
+            : null,
+          // No progress data in current schema — bar won't render until
+          // reading-session tracking is added (see CARD_FIELD_GAPS.md).
+          // current_page / total_pages stay null.
+          // pace_status, streak_days, pages_today same — null until sessions exist.
+        }),
+        onEmpty: () => emptyState(...GH_EMPTY.books),
+      });
+      if (mounted) return;
+    }
 
     if(!filtered.length){
       el.innerHTML=emptyState(...GH_EMPTY.books);

@@ -100,13 +100,17 @@
     _configs[moduleId] = config;
   }
 
-  function render(moduleId, record) {
-    const config = _configs[moduleId];
-    if (!config) {
+  function render(moduleId, record, overrides) {
+    const baseConfig = _configs[moduleId];
+    if (!baseConfig) {
       console.warn(`[GH_CARD] No config registered for "${moduleId}"`);
       return el('div', { class: 'gh-card', style: { padding: '16px', color: 'red' } },
         `Missing card config: ${moduleId}`);
     }
+    // Per-call overrides (e.g. per-page onClick from GH_MOUNT) merge in front
+    // of the base config without mutating it. Pages that mount multiple
+    // modules with different drawer functions don't stomp each other.
+    const config = overrides ? { ...baseConfig, ...overrides } : baseConfig;
     const ctx = { record, config, moduleId };
     return config.mode === 'compact' ? renderCompact(ctx) : renderFull(ctx);
   }
@@ -205,7 +209,14 @@
     const card = el('div', {
       class: 'gh-card',
       dataset: { module: ctx.moduleId, recordId: record.id },
+      // Top-level click opens record detail. Internal controls (chips, action
+      // button, drill link, instruction icons, menu) all stopPropagation, so
+      // they don't trigger this. Falls back to no-op when no onClick configured.
+      onclick: (e) => {
+        if (config.onClick) config.onClick(record, e);
+      },
     });
+    if (config.onClick) card.style.cursor = 'pointer';
 
     card.appendChild(renderStatusRow(ctx));
     card.appendChild(renderIdentity(ctx));
@@ -551,6 +562,10 @@
     const config = _configs[moduleId];
     if (!config) return el('div', {}, 'No config');
 
+    // Per-mount overrides (typically just onClick) — passed through to
+    // render() without mutating the registered config.
+    const overrides = opts.overrides || null;
+
     const wrap = el('div', { class: opts.layout === 'list' ? 'gh-card-list' : 'gh-card-grid' });
 
     if (config.groupBy) {
@@ -575,14 +590,14 @@
           el('div', { class: 'gh-group-header__count' }, String(g.items.length)),
         ]);
         const groupGrid = el('div', { class: opts.layout === 'list' ? 'gh-card-list' : 'gh-card-grid' });
-        for (const r of g.items) groupGrid.appendChild(render(moduleId, r));
+        for (const r of g.items) groupGrid.appendChild(render(moduleId, r, overrides));
         container.appendChild(header);
         container.appendChild(groupGrid);
       }
       return container;
     }
 
-    for (const r of records) wrap.appendChild(render(moduleId, r));
+    for (const r of records) wrap.appendChild(render(moduleId, r, overrides));
     return wrap;
   }
 

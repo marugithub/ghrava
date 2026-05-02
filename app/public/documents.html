@@ -106,6 +106,12 @@
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.116 — opt-in card system, behind ?cards=v2 -->
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-shared.js"></script>
+<script src="/js/gh-card-brands.js"></script>
+<script src="/js/gh-card-configs-batch2.js"></script>
+<script src="/js/gh-card-mount.js"></script>
 <div id="nav-container"></div>
 
 <div id="app" style="padding-bottom:100px">
@@ -322,6 +328,18 @@ function renderDocs() {
     const cutStr = cutoff.toISOString().slice(0,10);
     const todayStr = new Date().toISOString().slice(0,10);
     docs = docs.filter(d => d.expiry_date && d.expiry_date >= todayStr && d.expiry_date <= cutStr);
+  }
+
+  // v2 opt-in (?cards=v2). Renders documents via documents config.
+  if (window.GH_MOUNT && window.GH_MOUNT.isV2()) {
+    const mounted = window.GH_MOUNT.intoContainer({
+      containerId: 'docList',
+      moduleId:    'documents',
+      records:     docs,
+      onClick:     (r) => openDocDrawer(r.id),
+      onEmpty:     () => emptyState(...GH_EMPTY.documents),
+    });
+    if (mounted) return;
   }
 
   if (!docs.length) { el.innerHTML = emptyState(...GH_EMPTY.documents); return; }
