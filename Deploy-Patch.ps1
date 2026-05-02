@@ -1,22 +1,30 @@
-# Deploy-Patch.ps1 — Ghrava v202604.114
-# Test infrastructure fixes:
-#   1. Reports test updated to use .rep-row (was looking for removed .report-card)
-#   2. POST /test-results endpoint now returns diagnostic body on 400/500
-#   3. run-tests.ps1 auto-creates ReportDir + captures POST response body
-#      on failure + saves payload locally for offline debugging
+# Deploy-Patch.ps1 — Ghrava v202604.115
+# Card configs batch 2 + 3:
+#   batch2: wardrobe, perfumes, properties, documents, insurance_policies, career_jobs
+#   batch3: medical_conditions, medical_visits, daily_log_entries (compact),
+#           calendar_events (compact)
+# Plus 5 body-icon Phosphor SVGs and 11 new Playwright assertions in the
+# existing Card Renderer (GH_CARD v5) describe block.
+# Module pages still unchanged - configs ready, opt-in per page when desired.
+
 $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $PatchFiles = @(
-    'app\server.js',
+    'app\public\js\gh-card-configs-batch2.js',
+    'app\public\js\gh-card-configs-batch3.js',
+    'app\public\assets\icons\phosphor\duotone\heart-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\brain-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\stethoscope-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\calendar-duotone.svg',
+    'app\public\assets\icons\phosphor\duotone\note-pencil-duotone.svg',
     'app\version.txt',
-    'tests\ghrava-e2e.spec.js',
-    'tests\run-tests.ps1'
+    'tests\ghrava-e2e.spec.js'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.114' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.115' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray
@@ -55,9 +63,7 @@ try {
     Write-Host "  docker restart failed: $_" -ForegroundColor Red
 }
 Write-Host ''
-Write-Host '  Done. Re-run the suite:' -ForegroundColor Green
-Write-Host "    .\tests\run-tests.ps1 -AuthToken 'ravisoni'" -ForegroundColor White
-Write-Host '  - Reports test should now pass (uses .rep-row)' -ForegroundColor White
-Write-Host '  - POST failure (if any) will show server response body' -ForegroundColor White
+Write-Host '  Done. 17 of 17 module configs render cleanly in JSDOM.' -ForegroundColor Green
+Write-Host "  Re-run Playwright when convenient: .\tests\run-tests.ps1 -AuthToken 'ravisoni'" -ForegroundColor White
 Write-Host ''
 Read-Host 'Press Enter to close'

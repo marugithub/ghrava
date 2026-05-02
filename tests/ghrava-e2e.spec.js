@@ -729,7 +729,7 @@ test.describe('API Contract', () => {
 // ─────────────────────────────────────────────────────────────────
 // Card Renderer (GH_CARD v5) — added v202604.113
 //
-// Loads gh-card.js + gh-card-shared.js + gh-card-configs-batch1.js into
+// Loads gh-card.js + gh-card-shared.js + gh-card-configs-batch{1,2,3}.js into
 // a real browser context, feeds each registered config a synthetic record,
 // and asserts the rendered DOM contains the expected zones (status row,
 // identity, optional cross-module strip, optional alert with optional
@@ -754,6 +754,8 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     await page.addScriptTag({ url: `${BASE}/js/gh-card.js` });
     await page.addScriptTag({ url: `${BASE}/js/gh-card-shared.js` });
     await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch1.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch2.js` });
+    await page.addScriptTag({ url: `${BASE}/js/gh-card-configs-batch3.js` });
     await page.waitForFunction(() => window.GH_CARD && window.GH_CARD_SHARED, { timeout: 4000 });
   }
 
@@ -793,9 +795,16 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
   test('renderer + helpers + configs load without error', async ({ page }) => {
     await loadCardSystem(page);
     const registered = await page.evaluate(() => {
-      // Probe each known config
-      const ids = ['vehicles', 'subscriptions', 'finance_accounts', 'hsa_accounts',
-                   'maintenance', 'books', 'trade_positions'];
+      // Probe each known config across all three batches
+      const ids = [
+        // batch1
+        'vehicles', 'subscriptions', 'finance_accounts', 'hsa_accounts',
+        'maintenance', 'books', 'trade_positions',
+        // batch2
+        'wardrobe', 'perfumes', 'properties', 'documents', 'insurance_policies', 'career_jobs',
+        // batch3
+        'medical_conditions', 'medical_visits', 'daily_log_entries', 'calendar_events',
+      ];
       const results = {};
       for (const id of ids) {
         try {
@@ -925,6 +934,142 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
       cost_basis: 12500, current_value: 14820, realized_ytd: 0,
       account_id: 1, account_brand: 'Schwab',
     }, { hasAlert: false, hasCrossModule: true });
+  });
+
+  // ── Batch 2 ────────────────────────────────────────────────────
+  test('wardrobe — stale item triggers donation alert', async ({ page }) => {
+    await loadCardSystem(page);
+    // 200 days ago — beyond the 180-day stale threshold
+    const stale = new Date(); stale.setDate(stale.getDate() - 200);
+    await renderAndCheck(page, 'wardrobe', {
+      id: 1, brand: 'Patagonia', wardrobe_nickname: 'Black puffer',
+      color: 'Black', category: 'Outerwear', size: 'M',
+      season_tags: '["Fall","Winter"]', occasion_tags: '["Casual","Outdoor"]',
+      wardrobe_status: 'active',
+      purchase_price: 220, times_worn: 4, cost_per_wear: 55,
+      last_worn_at: stale.toISOString().slice(0, 10),
+      wardrobe_owner_id: 1,
+    }, { hasAlert: true });
+  });
+
+  test('perfumes — empty bottle triggers alert', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'perfumes', {
+      id: 1, name: 'Sauvage', brand: 'Dior', concentration: 'EDP',
+      amount_level: 'Empty', size_ml: 100,
+      season_tags: '["Spring","Summer"]',
+      purchase_price: 145, rating: 4,
+      owner_family_member_id: 1,
+    }, { hasAlert: true });
+  });
+
+  test('properties — healthy primary residence renders no alert', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'properties', {
+      id: 1, nickname: 'Main Home', property_type: 'Primary Residence',
+      address_street: '123 Oak Ln', address_city: 'Leeds', address_state: 'AL',
+      current_est_value: 425000, mortgage_balance: 280000,
+      property_tax_annual: 4200, insurance_annual: 1800,
+      insurance_company: 'State Farm', mortgage_lender: 'Wells Fargo',
+      is_active: 1,
+    }, { hasAlert: false, hasCrossModule: true });
+  });
+
+  test('documents — passport expiring renders renewal alert', async ({ page }) => {
+    await loadCardSystem(page);
+    const soon = new Date(); soon.setDate(soon.getDate() + 45);
+    await renderAndCheck(page, 'documents', {
+      id: 1, title: 'Passport - Sarah', category: 'Identity',
+      issuer: 'US State Dept',
+      issue_date: '2016-05-12', expiry_date: soon.toISOString().slice(0, 10),
+      family_member: 'Sarah',
+    }, { hasAlert: true });
+  });
+
+  test('insurance — auto policy renewal in 45 days triggers alert', async ({ page }) => {
+    await loadCardSystem(page);
+    const soon = new Date(); soon.setDate(soon.getDate() + 45);
+    await renderAndCheck(page, 'insurance_policies', {
+      id: 1, policy_type: 'Auto',
+      provider_name: 'State Farm', provider_brand: 'State Farm', provider_brand_color: '#d50000',
+      policy_number: '1234567', coverage_start_date: '2025-08-15',
+      coverage_end_date: soon.toISOString().slice(0, 10),
+      premium_amount: 1240, premium_frequency: 'annual',
+      deductible: 500, status: 'active',
+      alert_days_before: 60,
+    }, { hasAlert: true });
+  });
+
+  test('career_jobs — current job with tenure progress', async ({ page }) => {
+    await loadCardSystem(page);
+    await renderAndCheck(page, 'career_jobs', {
+      id: 1, company: 'Acme Corp', title: 'Senior PM',
+      employment_type: 'Full-time',
+      start_date: '2023-03-15', end_date: null, is_current: 1,
+      location: 'Remote',
+    }, { hasProgress: true });
+  });
+
+  // ── Batch 3 ────────────────────────────────────────────────────
+  test('medical_conditions — checkup overdue triggers alert', async ({ page }) => {
+    await loadCardSystem(page);
+    const past = new Date(); past.setDate(past.getDate() - 20);
+    await renderAndCheck(page, 'medical_conditions', {
+      id: 1, condition_name: 'Hypertension', status: 'Active',
+      severity: 'Mild',
+      start_date: '2022-06-01',
+      physician: 'Dr. Patel',
+      next_checkup_at: past.toISOString().slice(0, 10),
+      active_meds_count: 1, open_todos_count: 0, related_visits_count: 4,
+      family_member_id: 1,
+    }, { hasAlert: true });
+  });
+
+  test('medical_visits — follow-up needed triggers alert', async ({ page }) => {
+    await loadCardSystem(page);
+    const soon = new Date(); soon.setDate(soon.getDate() + 7);
+    await renderAndCheck(page, 'medical_visits', {
+      id: 1, physician_name: 'Dr. Patel', specialty: 'Cardiology',
+      visit_type: 'Follow-up', visit_date: '2026-04-15',
+      follow_up_needed: true,
+      follow_up_date: soon.toISOString().slice(0, 10),
+      visit_cost: 280, hsa_paid: 280,
+      family_member_id: 1, attachment_count: 2,
+    }, { hasAlert: true });
+  });
+
+  test('daily_log_entries — compact entry with action item', async ({ page }) => {
+    await loadCardSystem(page);
+    const html = await page.evaluate(() => {
+      const node = window.GH_CARD.render('daily_log_entries', {
+        id: 1,
+        entry_text: 'Check stock prices for Netflix tomorrow morning',
+        entry_time: '7:14 AM',
+        tags: ['finance'],
+        has_action_item: true,
+        author_family_member_id: 1,
+      });
+      return node ? node.outerHTML : null;
+    });
+    expect(html).not.toBeNull();
+    expect(/gh-card--compact/.test(html), 'log entry should be compact mode').toBe(true);
+    expect(/Action flagged/.test(html), 'action-flagged meta should render').toBe(true);
+  });
+
+  test('calendar_events — today event flags as urgent', async ({ page }) => {
+    await loadCardSystem(page);
+    const today = new Date().toISOString().slice(0, 10);
+    const html = await page.evaluate((t) => {
+      const node = window.GH_CARD.render('calendar_events', {
+        id: 1, title: 'Doctor appointment', start_at: t,
+        start_time: '2:00 PM', location: 'Patel Clinic',
+        attendee_count: 1, organizer_family_member_id: 1,
+      });
+      return node ? node.outerHTML : null;
+    }, today);
+    expect(html).not.toBeNull();
+    expect(/gh-card--u-urgent/.test(html), 'today event should render urgent class').toBe(true);
+    expect(/Today/.test(html), 'should display "Today" label').toBe(true);
   });
 
 });
