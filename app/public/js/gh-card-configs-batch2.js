@@ -516,18 +516,31 @@
   }
   function photoHero(attId, fallbackText, fallbackColor) {
     const div = document.createElement('div');
-    div.style.cssText = 'width:100%;height:100%;border-radius:12px;border:1px solid var(--gh-card-border,#e5e7eb);overflow:hidden;display:flex;align-items:center;justify-content:center;';
+    div.style.cssText = 'width:100%;height:100%;border-radius:12px;border:1px solid var(--gh-card-border,#e5e7eb);overflow:hidden;display:flex;align-items:center;justify-content:center;position:relative;';
+
+    // Always render the fallback layer (gradient + text) underneath. If the
+    // image loads, it covers the fallback; if it 404s or is missing, the
+    // fallback shows through. This way every card has *something* visible.
+    div.style.background = `linear-gradient(135deg, ${fallbackColor}, ${fallbackColor}99)`;
+    div.style.color = '#fff';
+    div.style.fontSize = '12px';
+    div.style.fontWeight = '600';
+    div.style.padding = '8px';
+    div.style.textAlign = 'center';
+    div.textContent = fallbackText || '';
+
     if (attId) {
-      div.style.background = `url(/api/v1/attachments/${attId}/thumb) center/cover`;
-    } else {
-      div.style.background = `linear-gradient(135deg, ${fallbackColor}, ${fallbackColor}99)`;
-      div.style.color = '#fff';
-      div.style.fontSize = '12px';
-      div.style.fontWeight = '600';
-      div.style.padding = '8px';
-      div.style.textAlign = 'center';
-      div.textContent = fallbackText || '';
+      // Layer the photo on top via a real <img> so we can detect load failures.
+      // On error we hide the img — the fallback below stays visible.
+      const img = document.createElement('img');
+      img.src = `/api/v1/attachments/${attId}/thumb`;
+      img.alt = fallbackText || '';
+      img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;';
+      img.onerror = () => { img.style.display = 'none'; };
+      img.onload  = () => { div.textContent = ''; };  // hide the fallback text once image loads
+      div.appendChild(img);
     }
+
     return div;
   }
 

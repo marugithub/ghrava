@@ -491,11 +491,24 @@ async function loadVehs(){
           // Owner: vehicles use owner_family_member_id natively in some installs
           owner_family_member_id: r.owner_family_member_id || r.family_member_id || null,
           // Insurance brand: from insurance_carrier or insurer fields
-          insurer_brand:       r.insurer_brand || r.insurance_carrier || null,
-          insurer_brand_color: r.insurer_brand_color || null,
-          // Shop: preferred_shop or service_shop
-          shop_brand:       r.shop_brand || r.preferred_shop || null,
-          shop_brand_color: r.shop_brand_color || null,
+          insurer_brand:       r.insurer_brand || r.insurance_carrier || r.insurance_company || null,
+          insurer_brand_color: r.insurer_brand_color
+                            || (window.GH_CARD_SHARED?.brandColorFor(r.insurance_company))
+                            || null,
+          // Shop: preferred_shop or service_shop or last service's shop
+          shop_brand:       r.shop_brand || r.preferred_shop || r.last_service?.shop || null,
+          shop_brand_color: r.shop_brand_color
+                         || (window.GH_CARD_SHARED?.brandColorFor(r.last_service?.shop))
+                         || null,
+          // v202604.121: surface service-log data — vehicle API already returns
+          // last_service + upcoming_service objects, just hoist the fields the
+          // card config reads.
+          last_service_at:        r.last_service?.service_date || null,
+          last_service_odometer:  r.last_service?.mileage || null,
+          last_service_type:      r.last_service?.service_type || null,
+          next_service_at:        r.upcoming_service?.next_due_date || null,
+          next_service_miles:     r.upcoming_service?.next_due_miles || null,
+          next_service_type:      r.upcoming_service?.service_type || null,
         }),
         onEmpty: () => emptyState('🚗', 'No vehicles', 'Add a vehicle to track service history and registration.', ''),
       });
@@ -716,7 +729,10 @@ document.addEventListener('DOMContentLoaded',()=>{ AttachmentManager.injectStyle
     _reloadPropTab();
   });
   window._propFilters = {};
-  window._propView = 'list';  // capture view state for card-mode rendering
+  // Read saved view from localStorage at init so cards render correctly on
+  // first load. Without this, the initial loadProps() runs before GH_VIEW.init
+  // callback fires and we'd render legacy until something else triggered reload.
+  window._propView = localStorage.getItem('prop_view') || 'list';
   GH_VIEW.init('propViewToolbar', 'prop', state => {
     window._propFilters = state.filters || {};
     window._propView = state.view;
@@ -743,6 +759,12 @@ let _editMaintId = null;
 let _allProps = [];
 
 async function loadMaint(){
+  // Note: maintenance shares the property-page toolbar but has no card
+  // config (it's a flat list of service records, not a primary entity).
+  // If user toggles the toolbar to card while on this tab, the legacy
+  // renderer below still runs — toolbar choice is honored on prop+vehs
+  // tabs only. A future iteration could add a maintenance card config
+  // or per-tab toolbar configuration.
   const el = $('maintList'); if(!el) return;
   // Populate property selector
   if(!_allProps.length){

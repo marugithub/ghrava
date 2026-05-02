@@ -330,7 +330,7 @@ async function deletePolicy() {
   });
 }
 
-let _insView = 'grid', _insCols = 2, _insFilters = {};
+let _insView = localStorage.getItem('ins_view') || 'grid', _insCols = 2, _insFilters = {};
 
 document.addEventListener('DOMContentLoaded', () => {
   GH_VIEW.init('insViewToolbar', 'ins', state => {

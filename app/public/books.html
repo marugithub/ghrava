@@ -317,10 +317,12 @@ async function loadBooks() {
           days_reading: r.date_started && !r.date_finished
             ? Math.max(0, Math.round((Date.now() - new Date(r.date_started)) / 86400000))
             : null,
-          // No progress data in current schema — bar won't render until
-          // reading-session tracking is added (see CARD_FIELD_GAPS.md).
-          // current_page / total_pages stay null.
-          // pace_status, streak_days, pages_today same — null until sessions exist.
+          // Books table uses pages_total / pages_read (since migration 049).
+          // Card config reads total_pages / current_page — alias here.
+          total_pages: r.total_pages != null ? r.total_pages : (r.pages_total ?? null),
+          current_page: r.current_page != null ? r.current_page : (r.pages_read ?? null),
+          // Pages_today / streak_days / pace_status all need a reading-sessions
+          // table that doesn't exist yet — leave null. Card just hides those.
         }),
         onEmpty: () => emptyState(...GH_EMPTY.books),
       });

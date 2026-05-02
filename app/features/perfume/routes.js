@@ -21,7 +21,16 @@ router.get('/', (req, res) => {
     else           { where += " AND p.status='active'"; }
 
     const rows = db.prepare(`
-      SELECT p.*, fm.display_name AS owner_name
+      SELECT p.*, fm.display_name AS owner_name,
+        -- v202604.119: surface primary-photo attachment id for the card hero.
+        -- Same pattern as wardrobe items. Falls back to first image if no
+        -- primary marked.
+        (SELECT id FROM attachments
+           WHERE entity_type='perfume' AND entity_id=p.id AND is_image=1 AND is_primary_photo=1
+           LIMIT 1) AS primary_photo_id,
+        (SELECT id FROM attachments
+           WHERE entity_type='perfume' AND entity_id=p.id AND is_image=1
+           ORDER BY sort_order, created_at LIMIT 1) AS first_photo_id
       FROM perfumes p
       LEFT JOIN family_members fm ON fm.id=p.owner_family_member_id
       WHERE ${where}

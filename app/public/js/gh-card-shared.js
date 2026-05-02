@@ -112,7 +112,21 @@
   // Looks up a family member by ID and returns a card-entity descriptor.
   // Falls back to initials gradient when no avatar is uploaded.
   function familyMemberEntity(id, onClick) {
-    const list = window.familyMembers || [];
+    if (id == null) return null;
+    // Try multiple sources in order — some pages set window.familyMembers
+    // directly, others use the shared LT.data cache, others have a
+    // page-local cache. If none have loaded yet, just return null and the
+    // entity won't render. This is graceful degradation, not a bug.
+    let list = null;
+    if (Array.isArray(window.familyMembers)) {
+      list = window.familyMembers;
+    } else if (window.LT && window.LT.data && Array.isArray(window.LT.data.familyMembers)) {
+      // LT.data exposes familyMembers as a getter property
+      list = window.LT.data.familyMembers;
+    } else if (Array.isArray(window._familyMembers)) {
+      list = window._familyMembers;
+    }
+    if (!list || !list.length) return null;
     const fm = list.find(m => String(m.id) === String(id));
     if (!fm) return null;
     const name = fm.display_name

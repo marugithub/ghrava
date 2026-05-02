@@ -33,7 +33,12 @@ const { saveFamilyMembers, withFamilyMembers, clearFamilyMembers } = require('..
 // ── List / search documents ─────────────────────────────────────
 router.get('/', (req, res) => {
   try {
-    let sql = 'SELECT * FROM documents WHERE is_active=1';
+    // v202604.119: surface attachment_count for the documents card cross-module
+    // strip. file_size and last_viewed_at not available in current schema.
+    let sql = `SELECT *,
+        (SELECT COUNT(*) FROM attachments
+           WHERE entity_type='document' AND entity_id=documents.id) AS attachment_count
+      FROM documents WHERE is_active=1`;
     const p = [];
     if (req.query.category) { sql += ' AND category=?'; p.push(req.query.category); }
     if (req.query.member) {

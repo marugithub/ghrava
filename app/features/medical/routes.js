@@ -151,7 +151,21 @@ router.get('/notes/export/csv', (req, res) => {
 // GET /api/v1/medical/conditions?patient=Self&status=Active
 router.get('/conditions', (req, res) => {
   try {
-    let sql = `SELECT c.*, fm.display_name AS family_member_name
+    // v202604.119: surface counts that the medical_conditions card config
+    // reads. We can't link meds to a specific condition (no FK on
+    // med_medications.condition_id) — but we CAN count active meds for the
+    // same patient or family_member_id, which is the useful data anyway:
+    // "this patient has N active meds, M open todos, V visits on file."
+    let sql = `SELECT c.*, fm.display_name AS family_member_name,
+        (SELECT COUNT(*) FROM med_medications m
+           WHERE m.status='Active' AND
+                 ((c.family_member_id IS NOT NULL AND m.family_member_id = c.family_member_id)
+                  OR m.patient = c.patient)
+        ) AS active_meds_count,
+        (SELECT COUNT(*) FROM med_visit_notes v
+           WHERE (c.family_member_id IS NOT NULL AND v.family_member_id = c.family_member_id)
+              OR v.patient = c.patient
+        ) AS related_visits_count
       FROM med_conditions c
       LEFT JOIN family_members fm ON fm.id = c.family_member_id
       WHERE 1=1`;

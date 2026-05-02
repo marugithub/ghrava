@@ -3438,16 +3438,30 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   color: var(--gh-text-primary);
   line-height: 1.15;
   letter-spacing: -0.01em;
+  /* Long brand+name combos shouldn't push the card out — clamp to 2 lines.
+     Also prevents one absurd record from making the entire grid row taller. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  word-break: break-word;
 }
 .gh-card__title--lg { font-size: var(--gh-text-title); }
 .gh-card__subtitle {
   font-size: var(--gh-text-body);
   color: var(--gh-text-secondary);
   font-weight: var(--gh-weight-medium);
+  /* Single-line for the secondary line — keeps vertical rhythm consistent */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .gh-card__meta {
   font-size: var(--gh-text-meta);
   color: var(--gh-text-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .gh-card__meta--with-mt { margin-top: 6px; }
 .gh-card__schedule {
@@ -3690,8 +3704,12 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 .gh-card-grid {
   display: grid;
   gap: 14px;
-  /* v202604.112 — narrower cards, taller is OK. 280–320 range. */
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  /* v202604.112 — narrower cards, taller is OK. 280–320 range.
+     v202604.121 — also cap with a max-content lane via minmax + max so
+     very wide screens don't stretch each card to 400+px. The auto-fit/fill
+     interaction with max here means cards stay in a 280-360 band. */
+  grid-template-columns: repeat(auto-fill, minmax(280px, 360px));
+  justify-content: start;
   align-items: start; /* prevent cards from stretching to row height */
 }
 .gh-card-list {
@@ -3752,6 +3770,27 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   .gh-card--u-urgent:hover {
     box-shadow: 0 8px 20px rgba(220, 38, 38, 0.18), 0 2px 4px rgba(0,0,0,0.06);
   }
+}
+
+/* Keyboard focus ring — only when navigating via keyboard, not mouse click.
+   :focus-visible avoids the ugly outline on every click while preserving it
+   for tab-key users. Outline rather than border so card geometry doesn't
+   shift on focus. */
+.gh-card[tabindex]:focus { outline: none; }
+.gh-card[tabindex]:focus-visible {
+  outline: 2px solid var(--accent, #14b8a6);
+  outline-offset: 2px;
+}
+
+/* Error placeholder — shown when a single record's render throws. The card
+   content is replaced with a minimal "tap to open" indicator so the user
+   can still get to the underlying record and fix it. */
+.gh-card--error {
+  background: var(--bg2, #f8fafc);
+  min-height: 72px;
+}
+.gh-card--error:hover {
+  background: var(--bg3, #f1f5f9);
 }
 
 /* ── Card-level action cluster (edit / archive / delete) ──────── */

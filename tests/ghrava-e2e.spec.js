@@ -1300,18 +1300,194 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       await page.goto(`${BASE}/${wired.page}`, { waitUntil: 'load' });
-      await page.waitForTimeout(500);
+      await page.waitForTimeout(800);  // give GH_VIEW.init time to render
       const globals = await page.evaluate(() => ({
         ghCard:  !!window.GH_CARD,
         ghMount: !!window.GH_MOUNT,
         ghView:  !!window.GH_VIEW,
+        // Look for ANY card button on the page — they're all <button id="X-vcard">
+        cardBtnPresent: !!document.querySelector('[id$="-vcard"]'),
+        // Number of buttons in any visible gh-view-toolbar (should be ≥3 with card)
+        toolbarBtnCount: (() => {
+          const tb = document.querySelector('.gh-view-toolbar');
+          if (!tb) return 0;
+          return tb.querySelectorAll('button[id$="-vgrid"], button[id$="-vlist"], button[id$="-vcard"]').length;
+        })(),
       }));
       expect(globals.ghCard,  `${wired.page}: GH_CARD not loaded`).toBe(true);
       expect(globals.ghMount, `${wired.page}: GH_MOUNT not loaded`).toBe(true);
       expect(globals.ghView,  `${wired.page}: GH_VIEW not loaded`).toBe(true);
+      expect(globals.cardBtnPresent,
+        `${wired.page}: card button not in toolbar — check views:['grid','list','card'] is set`).toBe(true);
+      expect(globals.toolbarBtnCount,
+        `${wired.page}: expected 3 view buttons in toolbar, found ${globals.toolbarBtnCount}`).toBe(3);
       const real = errors.filter(e => !e.includes('favicon'));
       expect(real, `${wired.page}: page-load errors: ${real.join('; ')}`).toHaveLength(0);
     });
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // Resilience features added in v120/121
+  // ─────────────────────────────────────────────────────────────
+
+  test('GH_CARD — single broken record renders error placeholder, others render normally', async ({ page }) => {
+    await loadCardSystem(page);
+    const result = await page.evaluate(() => {
+      // Register a config that throws on a specific id
+      window.GH_CARD.register('test_throw', {
+        mode: 'full',
+        title: (r) => {
+          if (r.id === 99) throw new Error('intentional test throw');
+          return r.name;
+        },
+        statusDot: () => 'good',
+        hero: (r) => { const d = document.createElement('div'); d.textContent = r.name; return d; },
+      });
+      const div = document.createElement('div');
+      div.id = 'errTest';
+      document.body.appendChild(div);
+      const wrap = window.GH_CARD.renderGrouped('test_throw', [
+        { id: 1, name: 'Good A' },
+        { id: 99, name: 'BROKEN' },
+        { id: 2, name: 'Good B' },
+      ]);
+      div.appendChild(wrap);
+      return {
+        cardCount: div.querySelectorAll('.gh-card').length,
+        errorCardCount: div.querySelectorAll('.gh-card--error').length,
+        normalCount: div.querySelectorAll('.gh-card:not(.gh-card--error)').length,
+      };
+    });
+    expect(result.cardCount, 'should render 3 cards total').toBe(3);
+    expect(result.errorCardCount, 'should render 1 error placeholder').toBe(1);
+    expect(result.normalCount, 'should render 2 normal cards').toBe(2);
+  });
+
+  test('GH_CARD — keyboard Enter on focused card activates onClick', async ({ page }) => {
+    await loadCardSystem(page);
+    const callCount = await page.evaluate(async () => {
+      let calls = 0;
+      const div = document.createElement('div');
+      div.id = 'kbTest';
+      document.body.appendChild(div);
+      // Register override-able config
+      const node = window.GH_CARD.render('subscriptions',
+        { id: 1, name: 'Test', category: 'Streaming' },
+        { onClick: () => { calls++; } }
+      );
+      div.appendChild(node);
+      // Focus the card and press Enter
+      node.focus();
+      const event = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+      Object.defineProperty(event, 'target', { value: node });
+      Object.defineProperty(event, 'currentTarget', { value: node });
+      node.dispatchEvent(event);
+      return calls;
+    });
+    expect(callCount, 'Enter on focused card should fire onClick').toBe(1);
+  });
+
+  test('GH_CARD — clickable card has tabindex=0 and role=button', async ({ page }) => {
+    await loadCardSystem(page);
+    const result = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'a11yTest';
+      document.body.appendChild(div);
+      const node = window.GH_CARD.render('subscriptions',
+        { id: 1, name: 'Test', category: 'Streaming' },
+        { onClick: () => {} }
+      );
+      div.appendChild(node);
+      return {
+        tabindex: node.getAttribute('tabindex'),
+        role: node.getAttribute('role'),
+        ariaLabel: node.getAttribute('aria-label'),
+      };
+    });
+    expect(result.tabindex, 'tabindex should be "0"').toBe('0');
+    expect(result.role, 'role should be "button"').toBe('button');
+    expect(result.ariaLabel, 'aria-label should be present').toBeTruthy();
+  });
+
+  test('GH_CARD — non-clickable card has no tabindex (not in tab order)', async ({ page }) => {
+    await loadCardSystem(page);
+    const tabindex = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'a11yTest2';
+      document.body.appendChild(div);
+      const node = window.GH_CARD.render('subscriptions',
+        { id: 1, name: 'Test', category: 'Streaming' }
+        // no onClick override
+      );
+      div.appendChild(node);
+      return node.getAttribute('tabindex');
+    });
+    expect(tabindex, 'card without onClick should not have tabindex').toBeNull();
+  });
+
+  test('GH_CARD — photoHero falls back to brand text when image 404s', async ({ page }) => {
+    await loadCardSystem(page);
+    const result = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'photoTest';
+      document.body.appendChild(div);
+      // Render a perfume card with a fake attachment id that will 404
+      const node = window.GH_CARD.render('perfumes', {
+        id: 1, name: 'Sauvage', brand: 'Dior',
+        photo_attachment_id: 99999999,  // will 404
+      });
+      div.appendChild(node);
+      const hero = node.querySelector('.gh-card__hero');
+      const img = hero && hero.querySelector('img');
+      return {
+        heroHasFallbackText: hero && hero.textContent.includes('Sauvage'),
+        heroHasImg: !!img,
+        imgAlt: img && img.alt,
+      };
+    });
+    expect(result.heroHasImg, 'should render an <img> for the photo').toBe(true);
+    expect(result.heroHasFallbackText, 'fallback text should be in hero').toBe(true);
+    expect(result.imgAlt, 'img should have meaningful alt text').toBeTruthy();
+  });
+
+  test('GH_MOUNT — defensive: container className reset before card mount', async ({ page }) => {
+    await loadCardSystem(page);
+    const result = await page.evaluate(() => {
+      const div = document.createElement('div');
+      div.id = 'classTest';
+      div.className = 'wrd-list-grid lb-items-grid leftover-class';
+      div.style.gridTemplateColumns = 'repeat(7, 1fr)';
+      document.body.appendChild(div);
+      window.GH_MOUNT.intoContainer({
+        containerId: 'classTest', moduleId: 'subscriptions',
+        records: [{ id: 1, name: 'Test', category: 'Streaming' }],
+      });
+      return {
+        className: div.className,
+        gridCols: div.style.gridTemplateColumns,
+      };
+    });
+    expect(result.className.includes('wrd-list-grid'), 'leftover wrd-list-grid should be cleared').toBe(false);
+    expect(result.className.includes('lb-items-grid'), 'leftover lb-items-grid should be cleared').toBe(false);
+    expect(result.gridCols, 'leftover gridTemplateColumns should be cleared').toBe('');
+  });
+
+  test('GH_CARD — defensive: linkedEntities returning null does not throw', async ({ page }) => {
+    await loadCardSystem(page);
+    const ok = await page.evaluate(() => {
+      window.GH_CARD.register('test_null_entities', {
+        mode: 'full',
+        title: (r) => r.name,
+        statusDot: () => 'good',
+        hero: (r) => { const d = document.createElement('div'); return d; },
+        linkedEntities: () => null,  // should not crash
+      });
+      try {
+        const node = window.GH_CARD.render('test_null_entities', { id: 1, name: 'Test' });
+        return !!node && !node.classList.contains('gh-card--error');
+      } catch { return false; }
+    });
+    expect(ok, 'config returning null from linkedEntities should not crash render').toBe(true);
+  });
 
 });

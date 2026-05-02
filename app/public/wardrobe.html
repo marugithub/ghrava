@@ -590,7 +590,7 @@ let _editingItemId = null, _editingOutfitId = null;
 let _allItems = [], _iSeasonSel = [], _iOccasionSel = [];
 let _oSeasonSel = [], _oOccasionSel = [], _oItemIds = [];
 let _iPhotos = [], _oPhotos = [];
-let _itemView = 'grid', _itemCols = +(localStorage.getItem('wrd_item_cols')||4), _itemFilters = {};
+let _itemView = localStorage.getItem('wrd_item_view') || 'grid', _itemCols = +(localStorage.getItem('wrd_item_cols')||4), _itemFilters = {};
 // Wardrobe items pagination — see loadItems() and loadMoreWrdItems().
 const WRD_BATCH_SIZE = 60;
 let _wrdRenderedCount = 0;
@@ -1416,6 +1416,9 @@ async function loadItems() {
 
     // Card view: render via GH_CARD when user picks "card" in the toolbar.
     if (_itemView === 'card' && window.GH_MOUNT) {
+      // Bridge our local family cache into the global the cards' helpers
+      // read from. _members is populated by refreshMemberCache() before this.
+      if (Array.isArray(_members) && _members.length) window.familyMembers = _members;
       const mounted = window.GH_MOUNT.intoContainer({
         containerId: 'itemGrid',
         moduleId:    'wardrobe',
@@ -1425,6 +1428,14 @@ async function loadItems() {
           // wardrobe stores tags as JSON strings — keep them as-is for the config
           // photo: API uses primary_photo.{id} or attachment_id
           photo_attachment_id: r.primary_photo?.id || r.attachment_id || null,
+          // API already returns times_worn + last_worn via subqueries in
+          // /wardrobe/items. Card config reads last_worn_at (with suffix);
+          // alias here. cost_per_wear = purchase_price / times_worn,
+          // null when unworn so the row simply doesn't render.
+          last_worn_at: r.last_worn_at || r.last_worn || null,
+          cost_per_wear: (r.purchase_price && r.times_worn)
+            ? Math.round((r.purchase_price / r.times_worn) * 100) / 100
+            : null,
         }),
         onEmpty: () => `<div class="lb-empty">
           <div class="lb-empty-icon">👔</div>

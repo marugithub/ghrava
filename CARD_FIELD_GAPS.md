@@ -34,6 +34,12 @@ dashboard — accounts is one tab; where does the toolbar go?), career.html
 (multi-section page — only certs has a toolbar today, jobs section needs one
 of its own).
 
+**Configs registered but intentionally not wired:** `daily_log_entries` and
+`calendar_events` (in batch3). The daily-log page has a custom date-grouped
+layout and the calendar page is a custom grid — neither benefits from a
+flat compact-card list. Configs preserved in batch3 in case a future
+"unified inbox" or "today's items" view wants to use them.
+
 ---
 
 ## Cross-cutting needs
@@ -108,18 +114,19 @@ Card needs:
 | **linked_subs_count** | ❌ missing | Easy join: SELECT COUNT(*) FROM subscriptions WHERE finance_account_id = ? |
 | statement_gap_detected | ❌ missing | Needs gap-detection on imported_transactions |
 
-### Books ✅ wired, ⚠️ thin data (schema gap)
+### Books ✅ wired, ⚠️ partial data
 | Field | Status | Notes |
 |---|---|---|
 | title, author, status, genre, format | ✅ direct | |
 | cover_attachment_id | ✅ via fieldMap (primary_photo_id) | |
-| **current_page, total_pages** | ❌ schema gap | books table has no page-tracking columns |
-| **target_finish_at, pages_per_day_needed** | ❌ schema gap | Reading-session model needed |
-| **pages_today, streak_days, pace_status** | ❌ schema gap | Same |
+| **current_page, total_pages** | ✅ via derive alias (DB columns are pages_read / pages_total from migration 049) | |
+| **target_finish_date, pages_per_day_needed** | ❌ schema gap | Needs new column on books + computed field |
+| **pages_today, streak_days, pace_status** | ❌ schema gap | Needs `book_reading_sessions` table — daily pages-read deltas |
 | reader_family_member_id | ✅ via fieldMap | |
 
-**Schema work needed:** Add `total_pages, current_page, target_finish_date`
-to `books`. Add `book_reading_sessions` table for per-day pages.
+**Schema work needed:** Optional — `target_finish_date` column on books +
+`book_reading_sessions` table for streak/pace. Card already shows progress
+bar correctly with existing pages_total / pages_read data.
 
 ### Perfume ✅ wired, ⚠️ wear data missing
 | Field | Status | Notes |

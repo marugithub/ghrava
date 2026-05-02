@@ -279,7 +279,7 @@ async function deleteSub() {
   });
 }
 
-let _subView = 'grid', _subCols = 2, _subFilters = {};
+let _subView = localStorage.getItem('sub_view') || 'grid', _subCols = 2, _subFilters = {};
 
 document.addEventListener('DOMContentLoaded', () => {
   GH_VIEW.init('subViewToolbar', 'sub', state => {

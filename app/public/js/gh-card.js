@@ -112,7 +112,29 @@
     // modules with different drawer functions don't stomp each other.
     const config = overrides ? { ...baseConfig, ...overrides } : baseConfig;
     const ctx = { record, config, moduleId };
-    return config.mode === 'compact' ? renderCompact(ctx) : renderFull(ctx);
+    // A throw inside any one config function (bad date, missing FK, etc.)
+    // should fail just that record, not break the whole list. Replace the
+    // broken card with a minimal placeholder so the user can still see and
+    // open the record. Real fix happens in the config or the data.
+    try {
+      return config.mode === 'compact' ? renderCompact(ctx) : renderFull(ctx);
+    } catch (e) {
+      console.error(`[GH_CARD] render failed for ${moduleId}#${record && record.id}:`, e);
+      return el('div', {
+        class: 'gh-card gh-card--error',
+        dataset: { module: moduleId, recordId: record && record.id },
+        style: { padding: '16px', cursor: config.onClick ? 'pointer' : 'default',
+                 border: '1px dashed var(--gh-status-bad,#dc2626)' },
+        onclick: config.onClick ? (e) => config.onClick(record, e) : null,
+      }, [
+        el('div', { style: { fontSize: '12px', color: 'var(--text3,#94a3b8)' } },
+          `${moduleId} #${record && record.id || '?'}`),
+        el('div', { style: { fontWeight: 600, marginTop: '4px' } },
+          (record && (record.name || record.title || record.condition_name)) || 'Record'),
+        el('div', { style: { fontSize: '11px', color: 'var(--gh-status-bad,#dc2626)', marginTop: '6px' } },
+          'Card render error — tap to open record'),
+      ]);
+    }
   }
 
   // ── Compact-mode renderer (todos, dense lists) ─────────────────
@@ -136,7 +158,7 @@
       class: 'gh-compact-title' + (isDone ? ' gh-compact-title--done' : '')
     }, config.title ? config.title(record) : (record.title || record.name || ''));
 
-    const metaItems = (config.compactMeta ? config.compactMeta(record) : []).filter(Boolean);
+    const metaItems = (config.compactMeta ? (config.compactMeta(record) || []) : []).filter(Boolean);
     const metaRow = el('div', { class: 'gh-compact-meta' }, metaItems.flatMap((m, i) => {
       const items = [];
       if (i > 0) items.push(el('span', { class: 'gh-compact-meta__divider' }, '·'));
@@ -159,7 +181,7 @@
     const middle = el('div', { class: 'gh-card__spacer' }, [title, metaRow]);
 
     const right = [];
-    const entities = (config.linkedEntities ? config.linkedEntities(record) : []).filter(Boolean);
+    const entities = (config.linkedEntities ? (config.linkedEntities(record) || []) : []).filter(Boolean);
     if (entities.length) right.push(renderEntity(entities[0], 'sm'));
 
     const actions = renderActionCluster(record, config);
@@ -168,7 +190,18 @@
     return el('div', {
       class: `gh-card gh-card--compact gh-card--u-${urgency}`,
       dataset: { module: ctx.moduleId, recordId: record.id, state: isDone ? 'completed' : 'active' },
+      tabindex: config.onClick ? '0' : null,
+      role:     config.onClick ? 'button' : null,
+      'aria-label': config.onClick
+        ? ((config.title ? config.title(record) : (record.title || record.name || 'item')) + (isDone ? ' (completed)' : ''))
+        : null,
       onclick: () => config.onClick && config.onClick(record),
+      onkeydown: config.onClick ? (e) => {
+        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+          e.preventDefault();
+          config.onClick(record);
+        }
+      } : null,
     }, el('div', { class: 'gh-card__row' }, [tapCircle, middle, ...right]));
   }
 
@@ -209,12 +242,25 @@
     const card = el('div', {
       class: 'gh-card',
       dataset: { module: ctx.moduleId, recordId: record.id },
-      // Top-level click opens record detail. Internal controls (chips, action
-      // button, drill link, instruction icons, menu) all stopPropagation, so
-      // they don't trigger this. Falls back to no-op when no onClick configured.
+      // Keyboard activation: when card has an onClick, make it focusable and
+      // respond to Enter/Space. Mirrors the click handler — internal controls
+      // already stopPropagation on click; for keyboard we only listen on the
+      // outer card so inner buttons keep their native focus + activation.
+      tabindex: config.onClick ? '0' : null,
+      role:     config.onClick ? 'button' : null,
+      'aria-label': config.onClick ? (config.title ? config.title(record) : 'Open record') : null,
       onclick: (e) => {
         if (config.onClick) config.onClick(record, e);
       },
+      onkeydown: config.onClick ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          // Only fire when the card itself is focused (not a child button)
+          if (e.target === e.currentTarget) {
+            e.preventDefault();
+            config.onClick(record, e);
+          }
+        }
+      } : null,
     });
     if (config.onClick) card.style.cursor = 'pointer';
 
@@ -368,7 +414,7 @@
     }
 
     if (config.instructionIcons) {
-      const icons = config.instructionIcons(record).filter(Boolean);
+      const icons = (config.instructionIcons(record) || []).filter(Boolean);
       for (const ic of icons) {
         const tint = TINT_NAMES.includes(ic.tint) ? ic.tint : 'blue';
         titleRow.push(el('button', {
@@ -501,7 +547,8 @@
     const { record, config } = ctx;
     const children = [];
     if (config.linkedEntities) {
-      const entities = config.linkedEntities(record).filter(Boolean);
+      const raw = config.linkedEntities(record);
+      const entities = Array.isArray(raw) ? raw.filter(Boolean) : [];
       for (const e of entities) children.push(renderEntity(e));
     }
     children.push(el('div', { class: 'gh-card__spacer' }));

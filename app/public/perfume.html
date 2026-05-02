@@ -175,7 +175,7 @@ const SCENT_FAMILIES = ['Fresh','Citrus','Floral','Oriental','Woody','Gourmand',
 const SEASONS        = ['Spring','Summer','Fall','Winter','Rainy','All-season'];
 const OCCASIONS      = ['Casual','Work','Formal','Sport','Evening'];
 
-let _perfumeView = 'grid';
+let _perfumeView = localStorage.getItem('perf_view') || 'grid';
 let _perfumeCols = parseInt(localStorage.getItem('perf_cols'))||(window.innerWidth>=600?2:1);
 let _editingId   = null;
 let _pScentSel   = [], _pSeasonSel = [], _pOccasionSel = [];
@@ -395,6 +395,7 @@ async function load() {
 
     // Card view: render via GH_CARD when user picks "card" in the toolbar.
     if (_perfumeView === 'card' && window.GH_MOUNT) {
+      if (Array.isArray(_members) && _members.length) window.familyMembers = _members;
       const mounted = window.GH_MOUNT.intoContainer({
         containerId: 'perfList',
         moduleId:    'perfumes',
@@ -404,8 +405,8 @@ async function load() {
           // scent_family / season_tags may already be arrays from API or JSON strings
           season_tags: Array.isArray(r.season_tags) ? JSON.stringify(r.season_tags) : r.season_tags,
           scent_family: Array.isArray(r.scent_family) ? JSON.stringify(r.scent_family) : r.scent_family,
-          // photo: perfume API uses primary_photo_id similar to books
-          photo_attachment_id: r.photo_attachment_id || r.primary_photo_id || null,
+          // photo: API now returns primary_photo_id + first_photo_id (added v202604.119)
+          photo_attachment_id: r.photo_attachment_id || r.primary_photo_id || r.first_photo_id || null,
         }),
         onEmpty: () => `<div style="text-align:center;padding:40px 20px;color:var(--text3)">
           <div style="font-size:48px;margin-bottom:12px">🧴</div>
