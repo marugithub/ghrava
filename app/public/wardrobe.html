@@ -355,6 +355,9 @@
 <script src="/js/gh-card-brands.js"></script>
 <script src="/js/gh-card-configs-batch2.js"></script>
 <script src="/js/gh-card-mount.js"></script>
+<!-- v202604.124 — The Lens (items tab only) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <script src="/attachments.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js" crossorigin="anonymous"></script>
 
@@ -387,8 +390,11 @@
   <div id="tab-items" style="display:none">
     <div class="lb-toolbar-row">
       <div class="member-pills" id="memberPills_items"></div>
-      <div class="lb-toolbar-actions" id="itemViewToolbar"></div>
     </div>
+    <div style="padding: 0 0 0 0">
+      <div id="itemLens"></div>
+    </div>
+    <div id="itemViewToolbar" style="display:none"></div>
     <div id="itemGrid"></div>
   </div>
 
@@ -672,19 +678,34 @@ async function init() {
 }
 
 function initItemView() {
-  GH_VIEW.init('itemViewToolbar', 'wrd_item', state => {
-    _itemView = state.view; _itemCols = state.cols; _itemFilters = state.filters || {};
-    if (_currentTab === 'items')    loadItems();
-    if (_currentTab === 'outfits')  loadOutfits();
-    if (_currentTab === 'insights') loadInsights();
-  }, {
-    defaultView: 'grid', defaultCols: 4,
+  function lensToItemFilters(lensFilters) {
+    const out = {};
+    for (const f of lensFilters) {
+      if (f.dim === 'status') out.status = f.value;
+      if (f.dim === 'person') out.owner  = f.value;
+      if (f.dim === 'time')   out.last_worn = f.value;
+      if (f.dim === 'tag')    out.tag    = f.value;
+    }
+    return out;
+  }
+  GH_LENS.init({
+    container: 'itemLens',
+    moduleId: 'wardrobe',
     views: ['grid','list','card'],
-    filterFields: [
-      { key:'category', type:'select', label:'Category', options:[{value:'',label:'All'},{value:'Clothing',label:'Clothing'},{value:'Shoes',label:'Shoes'},{value:'Accessories',label:'Accessories'},{value:'Jewelry',label:'Jewelry'},{value:'Hats',label:'Hats'},{value:'Bags',label:'Bags'}]},
-      { key:'season',   type:'select', label:'Season',   options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'},{value:'All-season',label:'All-season'}]},
-      { key:'occasion', type:'select', label:'Occasion', options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'School',label:'School'},{value:'Sports',label:'Sports'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'}]},
-    ]
+    defaultView: 'grid',
+    sortFields: [
+      { key: 'name',           label: 'Name' },
+      { key: 'category',       label: 'Category' },
+      { key: 'last_worn',      label: 'Recently worn' },
+      { key: 'purchase_price', label: 'Price' },
+    ],
+    onChange: ({ filters, view }) => {
+      _itemView = view;
+      _itemFilters = lensToItemFilters(filters);
+      if (_currentTab === 'items')    loadItems();
+      if (_currentTab === 'outfits')  loadOutfits();
+      if (_currentTab === 'insights') loadInsights();
+    },
   });
   // GH_BULK on items: archive / restore / delete
   GH_BULK.init({
@@ -1406,12 +1427,18 @@ async function loadItems() {
     const cat     = _itemFilters.category || '';
     const season  = _itemFilters.season   || '';
     const occasion= _itemFilters.occasion || '';
+    const owner   = _itemFilters.owner;  // from lens
     let url = '/wardrobe/items?';
-    if (_activeMember) url += `member_id=${_activeMember}&`;
+    if (owner != null)  url += `member_id=${owner}&`;
+    else if (_activeMember) url += `member_id=${_activeMember}&`;
     if (cat)     url += `category=${encodeURIComponent(cat)}&`;
     if (season)  url += `season=${encodeURIComponent(season)}&`;
     if (occasion)url += `occasion=${encodeURIComponent(occasion)}&`;
     _allItems = await window.api('GET', url);
+    if (_itemFilters.tag) {
+      _allItems = _allItems.filter(r => (r.tags || []).includes(_itemFilters.tag));
+    }
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(_allItems.length);
     const grid = document.getElementById('itemGrid');
 
     // Card view: render via GH_CARD when user picks "card" in the toolbar.

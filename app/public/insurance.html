@@ -22,6 +22,9 @@
 <script src="/js/gh-card-brands.js"></script>
 <script src="/js/gh-card-configs-batch2.js"></script>
 <script src="/js/gh-card-mount.js"></script>
+<!-- v202604.124 — The Lens -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
@@ -32,9 +35,8 @@
     <div class="stat-item"><div class="stat-value" id="sumPremium" style="color:var(--red)">—</div><div class="stat-label">Annual Premium</div></div>
   </div>
 
-  <div style="padding:6px 16px 0;display:flex;align-items:center">
-    <div style="flex:1"></div>
-    <div id="insViewToolbar"></div>
+  <div style="padding: 12px 16px 0">
+    <div id="insLens"></div>
   </div>
   <div id="insList" style="padding-top:8px"></div>
 </div>
@@ -138,11 +140,13 @@ function expiryClass(days) {
 
 async function load() {
   const status = _insFilters.status || 'active';
-  const type   = _insFilters.type || '';
+  const tagF   = _insFilters.tag || '';
   try {
     let url = `/insurance/?${status!=='all'?'status='+status:''}`;
-    if (type) url += `&type=${encodeURIComponent(type)}`;
-    const rows = await window.api('GET', url);
+    let rows = await window.api('GET', url);
+    if (tagF) rows = rows.filter(r => (r.tags || []).includes(tagF));
+
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
 
     // Card view: render via GH_CARD when user picks "card" in the toolbar.
     if (_insView === 'card' && window.GH_MOUNT) {
@@ -332,18 +336,32 @@ async function deletePolicy() {
 
 let _insView = localStorage.getItem('ins_view') || 'grid', _insCols = 2, _insFilters = {};
 
+function lensToInsFilters(lensFilters) {
+  const out = {};
+  for (const f of lensFilters) {
+    if (f.dim === 'status')   out.status   = f.value;
+    if (f.dim === 'time')     out.renewing = f.value;
+    if (f.dim === 'tag')      out.tag      = f.value;
+  }
+  return out;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  GH_VIEW.init('insViewToolbar', 'ins', state => {
-    _insView = state.view; _insCols = state.cols; _insFilters = state.filters || {};
-    load();
-  }, {
-    defaultView: 'grid',
-    defaultCols: 2,
+  GH_LENS.init({
+    container: 'insLens',
+    moduleId: 'insurance_policies',
     views: ['grid','list','card'],
-    filterFields: [
-      { key:'status', type:'select', label:'Status', options:[{value:'active',label:'Active'},{value:'all',label:'All'}] },
-      { key:'type',   type:'select', label:'Type',   options:[{value:'',label:'All'},{value:'Auto',label:'Auto'},{value:'Home',label:'Home'},{value:'Life',label:'Life'},{value:'Health',label:'Health'},{value:'Umbrella',label:'Umbrella'},{value:'Dental',label:'Dental'},{value:'Vision',label:'Vision'},{value:'Other',label:'Other'}] },
-    ]
+    defaultView: 'grid',
+    sortFields: [
+      { key: 'coverage_end_date', label: 'Renews soonest' },
+      { key: 'policy_type',       label: 'Type' },
+      { key: 'premium_amount',    label: 'Premium' },
+    ],
+    onChange: ({ filters, view }) => {
+      _insView = view;
+      _insFilters = lensToInsFilters(filters);
+      load();
+    },
   });
   load();
 });

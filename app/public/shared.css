@@ -4154,3 +4154,319 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 .gh-card__alert--bad .gh-card__alert-substack-icon {
   color: #ef4444;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+ * The Lens — sentence-shaped filter UI
+ * v202604.124
+ *
+ * Replaces the GH_VIEW toolbar's filter drawer + chip system on enabled
+ * pages. Reads as English: "Subscriptions  12  for Jamie renewing this
+ * month   reset"
+ * ═══════════════════════════════════════════════════════════════════ */
+.gh-lens {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg, 12px);
+  padding: 12px 14px;
+  margin: 0 0 12px 0;
+  position: relative;
+}
+
+/* Sentence row — module name, count, verbs, pills, input, reset */
+.gh-lens__sentence {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 16px;
+  line-height: 1.5;
+  min-height: 32px;
+}
+
+/* "Subscriptions" — the module name */
+.gh-lens__module {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 17px;
+}
+
+/* The count, smaller and muted */
+.gh-lens__count {
+  color: var(--text3);
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Connective verbs ("for", "renewing", "tagged") */
+.gh-lens__verb {
+  color: var(--text3);
+  font-size: 15px;
+  margin: 0 -2px;
+}
+
+/* Pills — clickable, with dotted underline */
+.gh-lens__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: none;
+  border-radius: var(--r, 8px);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .12s ease;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+.gh-lens__pill:hover {
+  background: var(--accent-bd);
+  color: #fff;
+  text-decoration-color: rgba(255,255,255,0.7);
+}
+.gh-lens__pill--editing {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.gh-lens__pill-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.gh-lens__pill-avatar--initial {
+  background: var(--accent);
+  color: var(--accent-bg);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+.gh-lens__pill-label {
+  white-space: nowrap;
+}
+
+/* Input area — phantom cursor lives here */
+.gh-lens__input-wrap {
+  flex: 1;
+  min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+}
+.gh-lens__input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-family: inherit;
+  font-size: 15px;
+  color: var(--text);
+  width: 100%;
+  padding: 2px 0;
+  caret-color: var(--accent);
+}
+.gh-lens__input::placeholder {
+  color: var(--text3);
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* Reset link — italicized at end of sentence */
+.gh-lens__reset {
+  background: transparent;
+  border: none;
+  color: var(--text3);
+  font-style: italic;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 2px 6px;
+  font-family: inherit;
+  margin-left: auto;
+}
+.gh-lens__reset:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+/* Toolbar row — view toggle + sort, sits under the sentence */
+.gh-lens__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.gh-lens__views {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--r, 8px);
+  overflow: hidden;
+  background: var(--bg3);
+}
+.gh-lens__view-btn {
+  width: 32px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .12s ease;
+}
+.gh-lens__view-btn + .gh-lens__view-btn {
+  border-left: 1px solid var(--border);
+}
+.gh-lens__view-btn.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.gh-lens__view-btn:hover:not(.active) {
+  color: var(--text2);
+}
+
+.gh-lens__sort-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--r, 8px);
+  padding: 4px 12px;
+  font-size: 12px;
+  color: var(--text2);
+  font-weight: 500;
+  cursor: pointer;
+  margin-left: auto;
+  font-family: inherit;
+}
+.gh-lens__sort-btn:hover {
+  border-color: var(--border2);
+  color: var(--text);
+}
+
+.gh-lens__sort-menu {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-lg, 12px);
+  min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);
+  padding: 6px 0;
+}
+.gh-lens__sort-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: inherit;
+}
+.gh-lens__sort-item:hover { background: var(--bg3); color: var(--text); }
+.gh-lens__sort-item.active { color: var(--accent); font-weight: 600; }
+
+/* Suggestion panel — pops below the sentence row when input focused */
+.gh-lens__suggestions {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: calc(100% + 4px);
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-lg, 12px);
+  box-shadow: 0 8px 24px rgba(0,0,0,.10);
+  padding: 6px 0;
+  z-index: 600;
+  max-height: 320px;
+  overflow-y: auto;
+}
+.gh-lens__sugg-head {
+  font-size: 11px;
+  color: var(--text3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 8px 14px 4px;
+  font-weight: 600;
+}
+.gh-lens__sugg-empty {
+  padding: 14px;
+  text-align: center;
+  color: var(--text3);
+  font-size: 13px;
+}
+.gh-lens__sugg-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+}
+.gh-lens__sugg-item:hover,
+.gh-lens__sugg-item.active {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.gh-lens__sugg-verb {
+  color: var(--text3);
+  font-size: 12px;
+  min-width: 80px;
+}
+.gh-lens__sugg-item:hover .gh-lens__sugg-verb,
+.gh-lens__sugg-item.active .gh-lens__sugg-verb {
+  color: var(--accent);
+  opacity: 0.7;
+}
+.gh-lens__sugg-label {
+  font-weight: 500;
+}
+.gh-lens__sugg-dim {
+  margin-left: auto;
+  color: var(--text3);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.gh-lens__sugg-sep {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+.gh-lens__sugg-remove {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: var(--red);
+  cursor: pointer;
+  font-family: inherit;
+}
+.gh-lens__sugg-remove:hover { background: rgba(239, 68, 68, 0.08); }
+
+/* Mobile — stack toolbar below sentence on narrow screens */
+@media (max-width: 640px) {
+  .gh-lens { padding: 10px 12px; }
+  .gh-lens__module { font-size: 16px; }
+  .gh-lens__pill { font-size: 14px; }
+  .gh-lens__input { font-size: 14px; }
+  .gh-lens__suggestions { left: 8px; right: 8px; }
+}

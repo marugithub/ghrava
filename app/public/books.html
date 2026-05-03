@@ -75,6 +75,9 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
 <script src="/js/gh-card-brands.js"></script>
 <script src="/js/gh-card-configs-batch1.js"></script>
 <script src="/js/gh-card-mount.js"></script>
+<!-- v202604.124 — The Lens -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <script src="/js/lt-shared-data.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.2/umd/index.min.js" crossorigin="anonymous"></script>
 <div id="nav-container"></div>
@@ -109,7 +112,10 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
   <div style="display:flex;gap:6px;padding:4px 16px;overflow-x:auto;scrollbar-width:none" id="genreFilters"></div>
 
   <!-- GH_VIEW toolbar -->
-  <div id="bookViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
+  <div style="padding: 12px 16px 0">
+    <div id="bookLens"></div>
+  </div>
+  <div id="bookViewToolbar" style="display:none"></div>
 
   <!-- Book list -->
   <div id="bookList" style="padding:4px 16px 100px">
@@ -279,12 +285,17 @@ async function loadBooks() {
       ? books.filter(b=>(b.title+' '+(b.author||'')).toLowerCase().includes(search.toLowerCase()))
       : books;
 
-    // Apply GH_VIEW advanced filters
+    // Apply lens-driven filters (status/owner/started/tag)
     if (_bkFilters.tags?.length)   filtered = filtered.filter(b => _bkFilters.tags.every(t => (b.tags||[]).includes(t)));
+    if (_bkFilters.tag)            filtered = filtered.filter(b => (b.tags||[]).includes(_bkFilters.tag));
     if (_bkFilters.rating)         filtered = filtered.filter(b => (b.rating||0) >= parseInt(_bkFilters.rating));
     if (_bkFilters.status)         filtered = filtered.filter(b => b.status === _bkFilters.status);
     if (_bkFilters.format)         filtered = filtered.filter(b => b.format === _bkFilters.format);
     if (_bkFilters.genre)          filtered = filtered.filter(b => (b.genre||'').toLowerCase().includes(_bkFilters.genre.toLowerCase()));
+    if (_bkFilters.owner != null)  filtered = filtered.filter(b => String(b.family_member_id) === String(_bkFilters.owner));
+
+    // Push count to lens
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(filtered.length);
 
     // Apply grid/list view
     el.classList.toggle('gh-grid', _bkView === 'grid');
@@ -573,26 +584,37 @@ function triggerBookSuggest() {
 }
 
 }
+// Lens → _bkFilters bridge
+function lensToBkFilters(lensFilters) {
+  const out = {};
+  for (const f of lensFilters) {
+    if (f.dim === 'status') out.status = f.value;
+    if (f.dim === 'person') out.owner  = f.value;
+    if (f.dim === 'time')   out.started = f.value;
+    if (f.dim === 'tag')    out.tag    = f.value;
+  }
+  return out;
+}
+
 document.addEventListener('DOMContentLoaded', ()=>{
   AttachmentManager.injectStyles();
-  GH_VIEW.init('bookViewToolbar', 'bk', state => {
-    _bkView    = state.view;
-    _bkCols    = state.cols;
-    _bkFilters = state.filters || {};
-    loadBooks();
-  }, {
-    defaultView: 'list',
+  GH_LENS.init({
+    container: 'bookLens',
+    moduleId: 'books',
     views: ['grid','list','card'],
-    filterFields: [
-      { key: 'status', type: 'select', label: 'Status',
-        options: [{value:'',label:'All'},{value:'Currently Reading',label:'Reading'},{value:'Want to Read',label:'Want to Read'},{value:'Read',label:'Read'}] },
-      { key: 'format', type: 'select', label: 'Format',
-        options: [{value:'',label:'All'},{value:'Physical',label:'Physical'},{value:'Kindle',label:'Kindle'},{value:'Audible',label:'Audible'}] },
-      { key: 'genre',  type: 'text',   label: 'Genre', placeholder: 'e.g. Fiction…' },
-      { key: 'rating', type: 'select', label: 'Min Rating',
-        options: [{value:'',label:'Any'},{value:'5',label:'★★★★★'},{value:'4',label:'★★★★+'},{value:'3',label:'★★★+'}] },
-      { key: 'tags',   type: 'tags',   label: 'Tags' },
-    ]
+    defaultView: 'list',
+    sortFields: [
+      { key: 'updated_at',   label: 'Last updated' },
+      { key: 'title',        label: 'Title' },
+      { key: 'author',       label: 'Author' },
+      { key: 'date_started', label: 'Started date' },
+      { key: 'rating',       label: 'Rating' },
+    ],
+    onChange: ({ filters, view }) => {
+      _bkView = view;
+      _bkFilters = lensToBkFilters(filters);
+      loadBooks();
+    },
   });
   GH_BULK.init({
     toolbarId:    'bookViewToolbar',

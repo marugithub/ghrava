@@ -110,7 +110,10 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
     <input class="search-input" id="medSearch" type="search" placeholder="Search medications, conditions, notes…" autocomplete="off">
   </div>
-  <div id="medViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
+  <div id="medViewToolbar" style="display:none"></div>
+  <div style="padding: 12px 16px 0">
+    <div id="medLens"></div>
+  </div>
 
   <!-- ── Main list ────────────────────────────────────────── -->
   <div class="content" style="padding-top:12px">
@@ -377,6 +380,9 @@
 <script src="/js/lt-refs.js"></script>
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-config-medical.js"></script>
+<!-- v202604.124 — The Lens (replaces GH_VIEW filter drawer + ?cards=v2 flag) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <script>
 // ── Auth ──────────────────────────────────────────────────────
 // Auth token from lt-core.js (LT.authToken)
@@ -805,21 +811,17 @@ async function renderNotes() {
   }
 }
 
-// ── GH_CARD v2 feature flag ────────────────────────────────────
-// New card design is opt-in via ?cards=v2 query param while we iterate.
-// When set, we override the three render fns to use the shared GH_CARD pipeline.
-// Flip the default once approved. Added v202604.107.
+// ── Card view (formerly behind ?cards=v2 — now always on, v202604.124) ─
+// Overrides the three legacy render fns to use the shared GH_CARD pipeline.
+// The Lens (gh-lens.js) sits above the list area and drives filters.
 (function() {
-  const url = new URL(location.href);
-  const cardsV2 = url.searchParams.get('cards') === 'v2';
-  if (!cardsV2) return;
   if (!window.GH_CARD) {
-    console.warn('[medical] cards=v2 requested but GH_CARD not loaded');
+    console.warn('[medical] GH_CARD not loaded; falling back to legacy renderers');
     return;
   }
 
   // Helper to swap a render: fetch, filter, then GH_CARD.renderGrouped into #listArea.
-  function makeV2Render(moduleId, urlPath, searchKeys, statusFilterKey, emptyKey) {
+  function makeCardRender(moduleId, urlPath, searchKeys, statusFilterKey, emptyKey) {
     return async function() {
       const area = document.getElementById('listArea');
       area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
@@ -837,6 +839,13 @@ async function renderNotes() {
         if (window._medFilters?.tags?.length) {
           rows = rows.filter(r => window._medFilters.tags.every(t => (r.tags||[]).includes(t)));
         }
+        if (window._medFilters?.tag) {
+          rows = rows.filter(r => (r.tags||[]).includes(window._medFilters.tag));
+        }
+        if (window._medFilters?.person != null) {
+          rows = rows.filter(r => String(r.family_member_id) === String(window._medFilters.person));
+        }
+        if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
         if (!rows.length) {
           area.innerHTML = window.emptyState(...window.GH_EMPTY[emptyKey]);
           return;
@@ -856,23 +865,21 @@ async function renderNotes() {
     };
   }
 
-  window.renderMedications = makeV2Render(
+  window.renderMedications = makeCardRender(
     'medical_medications', '/medical/medications',
     ['name','patient','dosage','frequency','purpose','notes'],
     'status', 'medications'
   );
-  window.renderConditions = makeV2Render(
+  window.renderConditions = makeCardRender(
     'medical_conditions', '/medical/conditions',
     ['condition','patient','notes'],
     null, 'conditions'
   );
-  window.renderNotes = makeV2Render(
+  window.renderNotes = makeCardRender(
     'medical_notes', '/medical/notes',
     ['patient','questions','doctors_response','notes'],
     null, 'visits'
   );
-
-  console.log('[medical] cards=v2 active — using GH_CARD pipeline');
 })();
 
 // ── FAB routing ────────────────────────────────────────────────
@@ -1097,20 +1104,40 @@ async function _medBoot() {
       renderCurrentView();
     });
   }
-  // GH_VIEW toolbar
+  // The Lens — re-inits per active subview (medications / conditions / visits)
+  // because each has a different module config (verbs, statuses).
   window._medFilters = {};
-  if (window.GH_VIEW) {
-    GH_VIEW.init('medViewToolbar', 'med', state => {
-      window._medFilters = state.filters || {};
-      renderCurrentView();
-    }, {
-      defaultView: 'list',
-      filterFields: [
-        { key: 'status', type: 'select', label: 'Status',
-          options: [{value:'',label:'All'},{value:'Active',label:'Active'},{value:'As Needed',label:'As Needed'},{value:'Discontinued',label:'Discontinued'},{value:'Completed',label:'Completed'}] },
-        { key: 'tags', type: 'tags', label: 'Tags' },
-      ]
+  function initMedLens(view) {
+    const moduleId = view === 'conditions' ? 'medical_conditions'
+                   : view === 'notes'      ? 'medical_notes'
+                   :                         'medical_medications';
+    GH_LENS.init({
+      container: 'medLens',
+      moduleId,
+      // Medical doesn't have a card view distinct from the default — so no
+      // viewToolbar (only the sentence). The card render IS the legacy view.
+      viewToolbar: false,
+      onChange: ({ filters }) => {
+        const f = {};
+        for (const flt of filters) {
+          if (flt.dim === 'person') f.person = flt.value;
+          if (flt.dim === 'status') f.status = flt.value;
+          if (flt.dim === 'tag')    f.tag    = flt.value;
+        }
+        window._medFilters = f;
+        renderCurrentView();
+      },
     });
+  }
+  // Initial — the medical page's renderCurrentView decides which subview is up
+  initMedLens(window._medActiveView || 'medications');
+  // Hook into setMedView if defined to re-init lens on subview change
+  const _origSetMedView = window.setMedView;
+  if (typeof _origSetMedView === 'function') {
+    window.setMedView = function(v, btn) {
+      _origSetMedView(v, btn);
+      initMedLens(v);
+    };
   }
   renderMedications();
 }

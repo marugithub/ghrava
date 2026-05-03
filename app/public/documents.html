@@ -112,6 +112,9 @@
 <script src="/js/gh-card-brands.js"></script>
 <script src="/js/gh-card-configs-batch2.js"></script>
 <script src="/js/gh-card-mount.js"></script>
+<!-- v202604.124 — The Lens -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <div id="nav-container"></div>
 
 <div id="app" style="padding-bottom:100px">
@@ -130,7 +133,10 @@
   </div>
 
   <!-- GH_VIEW toolbar -->
-  <div id="docViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
+  <div style="padding: 12px 16px 0">
+    <div id="docLens"></div>
+  </div>
+  <div id="docViewToolbar" style="display:none"></div>
 
   <div id="docList" style="padding:0 16px"></div>
 </div>
@@ -318,10 +324,12 @@ function renderDocs() {
   el.classList.toggle('gh-list', _docView === 'list');
   el.style.setProperty('--doc-cols', _docCols);
 
-  // Apply tag filter from GH_VIEW
+  // Apply lens filters
   let docs = allDocs;
+  if (_docFilters.tag)           docs = docs.filter(d => (d.tags||[]).includes(_docFilters.tag));
   if (_docFilters.tags?.length)  docs = docs.filter(d => _docFilters.tags.every(t => (d.tags||[]).includes(t)));
   if (_docFilters.category)      docs = docs.filter(d => d.category === _docFilters.category);
+  if (_docFilters.person)        docs = docs.filter(d => d.family_member === _docFilters.person || String(d.family_member_id) === String(_docFilters.person));
   if (_docFilters.expiring) {
     const days = parseInt(_docFilters.expiring);
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + days);
@@ -329,6 +337,8 @@ function renderDocs() {
     const todayStr = new Date().toISOString().slice(0,10);
     docs = docs.filter(d => d.expiry_date && d.expiry_date >= todayStr && d.expiry_date <= cutStr);
   }
+
+  if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(docs.length);
 
   // Card view: render via GH_CARD when user picks "card" in the toolbar.
   if (_docView === 'card' && window.GH_MOUNT) {
@@ -574,21 +584,32 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   });
 
-  GH_VIEW.init('docViewToolbar', 'doc', state => {
-    _docView    = state.view;
-    _docCols    = state.cols;
-    _docFilters = state.filters || {};
-    renderDocs();
-  }, {
-    defaultView: 'list',
+  function lensToDocFilters(lensFilters) {
+    const out = {};
+    for (const f of lensFilters) {
+      if (f.dim === 'person') out.person   = f.value;
+      if (f.dim === 'time')   out.expiring = f.value;
+      if (f.dim === 'tag')    out.tag      = f.value;
+    }
+    return out;
+  }
+
+  GH_LENS.init({
+    container: 'docLens',
+    moduleId: 'documents',
     views: ['grid','list','card'],
-    filterFields: [
-      { key: 'category', type: 'select', label: 'Category',
-        options: [{value:'',label:'All'},{value:'Tax',label:'Tax'},{value:'Legal',label:'Legal'},{value:'Insurance',label:'Insurance'},{value:'Warranty',label:'Warranty'},{value:'Medical',label:'Medical'},{value:'Financial',label:'Financial'},{value:'Property',label:'Property'},{value:'Vehicle',label:'Vehicle'},{value:'Career',label:'Career'},{value:'Other',label:'Other'}] },
-      { key: 'expiring', type: 'toggle', label: 'Expiring Soon',
-        options: [{label:'All',value:''},{label:'Expiring 90d',value:'90'},{label:'Expiring 30d',value:'30'}] },
-      { key: 'tags', type: 'tags', label: 'Tags' },
-    ]
+    defaultView: 'list',
+    sortFields: [
+      { key: 'expiry_date', label: 'Expiring soonest' },
+      { key: 'category',    label: 'Category' },
+      { key: 'title',       label: 'Title' },
+      { key: 'updated_at',  label: 'Recently updated' },
+    ],
+    onChange: ({ filters, view }) => {
+      _docView = view;
+      _docFilters = lensToDocFilters(filters);
+      renderDocs();
+    },
   });
   GH_BULK.init({
     toolbarId:    'docViewToolbar',

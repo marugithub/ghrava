@@ -1,227 +1,151 @@
-# Ghrava Handoff — Session 12
+# Ghrava Handoff — Session 13 (Lens v202604.124, IN PROGRESS)
 
-**Last updated:** April 2026
-**Latest version:** `v202604.088`
-**Latest migration:** `114_wardrobe_color.sql`
-**Validation:** see `VALIDATION.md` + `app/scripts/validate-static.py`
-
-## Stack & Runtime
-
-- Node.js/Express + SQLite (better-sqlite3) + Vanilla JS frontend
-- Docker on QNAP NAS: `192.168.4.62:3001`, container: `ghrava`
-- Build session dir: `/home/claude/ghrava_live/ghrava/`
-- Deploy zip: `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (filename literal — case sensitive: `Ghrava_DEPLOY.zip`)
-- NAS mapped at `Z:\ghrava` on Windows
-- Deploy script: `ghrava_deploy.ps1` — uses `robocopy /E` (no `/MIR`) so deletes don't propagate; folded pages were converted to redirect stubs rather than deleted to handle this.
+**Last updated:** May 2026
+**Status:** The Lens shipped to 8 pages in sandbox. NOT yet packaged. NOT yet deployed.
 
 ---
 
-## Major Work This Session
+## What this session built
 
-### Schema
-- **Migration 114** — `wardrobe_color` TEXT column on `items`. Free-text (no validation). Surfaced in wardrobe drawer between Brand/Nickname row and Status; shown in grid card meta row + list-view subline.
+**The Lens** — a sentence-shaped filter UI that replaces GH_VIEW's filter drawer. Reads as English: *"Subscriptions  12  for Jamie renewing this month   reset"*
 
-### Page Consolidation (6 pages folded)
-All folded into existing modules with redirect stubs at the original URL:
+### New files
+- `app/public/js/lens-config.js` — verb/dimension table per module. **EDIT HERE** to change verbs, never in HTML pages. All 13 modules in one file.
+- `app/public/js/gh-lens.js` — the Lens component. Public API: `GH_LENS.init(opts)`, `setCount(n)`, `getState()`, `applyFilter()`, `clear()`.
 
-| Old page | Now at | Status |
-|---|---|---|
-| `tests.html` | `settings.html#diagnostics` | Settings panel |
-| `data.html` | `settings.html#imports` | Settings panel |
-| `templates.html` | `todos.html#templates` | Top-level tab in Todos |
-| `maintenance.html` | `reports.html?open=maint-rollup` | Reports renderer |
-| `snapshot.html` | `reports.html?open=member-snapshot` | Reports renderer (with member dropdown) |
-| `watcher-inbox.html` | `notifications.html#inbox` | Top-level tab in Notifications |
+### Modified files
+- `app/public/shared.css` — Lens styles appended (`.gh-lens`, `.gh-lens__pill`, etc.)
+- `app/public/subscriptions.html` — wired
+- `app/public/books.html` — wired (kept hidden `bookViewToolbar` for GH_BULK)
+- `app/public/insurance.html` — wired (no GH_BULK)
+- `app/public/documents.html` — wired (kept hidden `docViewToolbar` for GH_BULK)
+- `app/public/perfume.html` — wired (kept hidden `perfViewToolbar` for GH_BULK)
+- `app/public/wardrobe.html` — wired ITEMS TAB ONLY (kept hidden `itemViewToolbar` for GH_BULK)
+- `app/public/property.html` — wired with tab-aware re-init. Bug fix: `_reloadPropTab` had `currentTab` (undefined) → changed to `tab` (correct variable name)
+- `app/public/medical.html` — wired with subview-aware re-init. **Dropped `?cards=v2` URL flag entirely** — cards are now always on.
 
-`nav.js` updated: removed `tests/templates/data/maintenance` from Admin/Household groups; maintenance entry redirects to Reports.
-
-### Settings Overhaul (left-rail layout)
-- Replaced landing card grid with search bar + 4 grouped lists (Setup / Connect / Backup & data / System)
-- Hash deep-linking (`/settings.html#diagnostics`) opens panels directly
-- 16 existing sub-panels preserved + 2 new (`panel-diagnostics`, `panel-imports`)
-- Folded panels use IIFE wrappers to avoid `render()`/`esc()` collisions
-
-### Google Contacts Sync — Label Filter
-Backend route `POST /api/v1/google/sync/contacts` now accepts `body.label` (or saved `google_contacts_label` config). Resolves label → `contactGroups`, filters by `memberships`. Returns `{imported, updated, total, label, label_resolved, label_not_found, skipped_by_label}`. Settings UI exposes label input + dedicated "Sync now" button under Google Contacts toggle.
-
-### Unarchive Routes
-- `PUT /api/v1/wardrobe/items/:id/unarchive`
-- `PUT /api/v1/books/:id/unarchive`
-- `PUT /api/v1/documents/:id/unarchive`
-- (Inventory already had `PUT /items/:id/unarchive`)
-
-Single-item drawers in wardrobe, books, and documents now have a context-aware archive button: shows green "restore" icon when item is archived, calls unarchive on click. (`toggleWrdItemArchive`, `toggleBkRestore`, `toggleDocRestore`.)
-
-### GH_BULK Widget (NEW shared component)
-`window.GH_BULK` in `lt-core.js` — adds a "Select" toggle to a module toolbar. When enabled: capture-phase click intercept, checkbox overlay on cards, floating bottom action bar with Archive / Restore / Delete + Cancel.
-
-**Wired into 5 modules:**
-- inventory.html (cardSelector: `.item-grid-card, .item-card, .item-compact-card`)
-- wardrobe.html (cardSelector: `.lb-item-card, .wrd-list-card`)
-- books.html (cardSelector: `.book-card`)
-- perfume.html (cardSelector: `.perf-card`) — Delete only, no archive concept
-- documents.html (cardSelector: `.doc-card`)
-
-Each module: cards got `data-id="${item.id}"` and `is-archived` class on archived items.
-
-Context-aware action bar: Archive disabled if any selected is archived; Restore disabled if any is active; Delete always available.
-
-Escape key cancels select mode globally.
-
-### Drawer Restyle
-- `.gh-drawer` (inventory item detail) restyled from right-side slide → centered modal. Uses `body:has(.gh-drawer.open)::before` for backdrop (no HTML changes needed).
-- All other drawers (`.drawer-overlay`/`.drawer`, archive overlays) were already centered.
-- Escape closes any open `.gh-drawer`.
-
-### GH_VIEW Toolbar — More Button Right-Aligned
-Replaced the separator between view buttons and the More wrapper with a `<div style="flex:1">` spacer. Pushes More + GH_BULK Select button to the right edge of the toolbar.
-
-### Wardrobe Polaroid CSS Lock (from earlier in session)
-Final spec at top of wardrobe.html, marked LOCKED:
-- `.lb-polaroid-photo`: `width:calc(100% - 16px); aspect-ratio:1/1; margin:8px auto 0`
-- `.lb-polaroid-photo.tall` ALSO `aspect-ratio:1/1` (override default 'tall' ratio)
-- `.lb-ph img`: `position:absolute; top:8px; left:0; right:0; bottom:0; height:calc(100% - 8px); object-fit:contain; object-position:top`
-- `.lb-polaroid`: `padding-bottom:0`
-- `.lb-polaroid-cap`: 2-line clamp, `padding:0 6px 4px; line-height:1.3`
-
-### Other polish
-- Templates folded into Todos as "Templates" top-level tab
-- FAB pills (`+ Add X`) across 7 modules: books, documents, perfume, subscriptions, insurance, finance, medical
-- Tag text input min-width 140→180px
-- Books + documents drawer Restore button toggle (parallel to wardrobe pattern)
+### Sandbox tests
+30/30 lens behavior tests pass. Plus 17/17 cards configs, 8/8 mount, 17/17 brands, 10/10 resilience tests still pass.
 
 ---
 
-## Backlog (priority order)
+## What still needs to be done before deploy
 
-1. **UI polish pass — overall visual quality** (user concern: "I don't know how horrible our UI is"). Audit needed across all modules for: color usage (most pages are very gray/flat), card backgrounds, hover states, empty states, modal/drawer styling consistency. Apply light backgrounds where currently all-white/all-gray. **Do this as a focused UI pass, not piecemeal during feature work.**
+### 1. Wire `todos.html` (last lens-enabled page)
+Same pattern as medical:
+- Add lens-config.js + gh-lens.js script tags
+- Drop `?cards=v2` URL flag
+- Add `<div id="todoLens"></div>` container, hide existing toolbar div for GH_BULK
+- Replace `GH_VIEW.init` with `GH_LENS.init({ moduleId: 'todos', ... })`
+- Adapter: `lensToTodoFilters(filters)` → flat object the existing renderer expects
+- Push `GH_LENS.setCount(rows.length)` after filtering
 
-2. **Right-side panel pattern evaluation** — earlier session (different AI) introduced a right-side slide-in panel pattern for some workflows. Evaluate whether to standardize on it (vs the current bottom-drawer + center-modal mix) or remove. Requires inventory of where it's currently used.
+### 2. Final integrity sweep
+- Run inline-script syntax check against ALL HTML pages
+- Sandbox tests one more time
 
-3. **Tag-based reports filter** — filter reports output by tag(s). Chip strip above report content.
+### 3. Update e2e tests
+- Add lens behavior tests in `tests/ghrava-e2e.spec.js`
 
-4. **Voiding statements** — financial records void/exclude flag (not delete). Needs spec on which records: transactions? imported statements? both?
+### 4. Bump version
+- `app/version.txt` → `202604.124`
 
-5. **Settings cleanup** — hide non-functional sections, polish broken UI. Needs spec on which sections.
+### 5. Update Deploy-Patch.ps1
+- Add `app/public/js/lens-config.js`
+- Add `app/public/js/gh-lens.js`
+- Add all 8 modified HTML pages
+- Add this updated HANDOFF.md
 
-6. **Bulk Tag/Family actions** in GH_BULK — picker UI design + per-module backend wiring.
-
-7. **Click-outside-to-close** for `.gh-drawer` — held back due to race condition with card onclick (needs proper "ignore initial bubble" guard or backdrop element rather than pseudo).
-
-8. **Mobile UX** — phone-first capture (broad, multi-screen).
-
----
-
-## Resolved this session — search consolidation (v202604.100)
-
-- **Global search gained module scoping.** Backend `GET /api/v1/search` accepts `?module=Inventory,Wardrobe` (comma-separated, case-insensitive against group names). Tags removed from results (config, not data).
-- **Modal UI now has a pill row** under the search input: `All` / `Inventory` / `Wardrobe` / `Documents` / `Medical` / `Todos` / `Finance` / `Property` / `People` / `Kids` / `Books` / `Career` / `Daily Log`. Click to scope, results re-query.
-- **Two global entry points consolidated.** `nav.js` `toggleSearch()` now opens `GH_Search` modal pre-scoped by `window.GH_PAGE.module` instead of building its own panel. `buildSearchPanel()` no longer called.
-- **Per-module search bars hidden, NOT removed.** All 12 module pages (books, career, daily-log, documents, finance, inventory, kids, medical, perfume, property, resources, todos) now have their `.search-wrap` (or wrapping div for books/perfume) tagged with `class="legacy-hidden"` or `style="display:none"`. JS filter logic preserved — inputs are still in DOM, `.value` reads always return `''`. To restore any module's bar: remove the `legacy-hidden` class from its wrapper. CSS rule `.search-wrap.legacy-hidden { display: none !important; }` lives at the bottom of `shared.css`.
-- **Global-search.js auto-loaded by nav.js** so every page that has nav has the modal. Previously only loaded on index.html.
-- **Cmd+K duplicated handler removed** from global-search.js — `keyboard-shortcuts.js` is now the only listener for Cmd+K. `/` shortcut also opens the unified modal.
-- **Advanced filter panel UX:**
-  - Desktop: now a centered modal (440px wide, 80vh max) instead of full-width bottom sheet
-  - Header gets an X close button (top-right)
-  - Footer adds a Cancel button (separate from Reset, which clears AND applies; Cancel just dismisses)
-  - Esc key closes both Advanced Filter and Sort drawers
-  - Sort drawer also gets an X close button for consistency
+### 6. Build & present zip
+- `Ghrava_Deploy.zip` via `present_files` to `/mnt/user-data/outputs/`
 
 ---
 
-## Architecture Rules (preserved — non-negotiable)
+## Lens design — LOCKED decisions
 
-- SQLite must use `journal_mode = DELETE` + `synchronous = FULL`. NO WAL.
-- `ON DELETE CASCADE` is never used anywhere in the schema.
-- `requireAuth` exists only in `settings/routes.js`; all other modules are public. Read-only GETs (tags, family, contacts, dropdowns) always go before any auth wall.
-- Migrations are additive only. Field mappings documented in `UPGRADE_NOTES.md` before any schema change.
-- Records not matching a new data pattern must display as-is and never be rejected or blanked.
-- `finance_accounts` (banking) and `financial_accounts` (investment) are NEVER mixed.
-- `backup` (full SQLite DB file) and `export` (per-module CSV/JSON) are distinct operations — never conflate.
+Don't re-litigate:
 
----
-
-## Deploy Procedure
-
-1. Apply zip to `Z:\ghrava\` (deploy script extracts and robocopies)
-2. `docker restart ghrava` — migrations auto-run on startup
-3. Use `--build` flag ONLY if `package.json` changed (it didn't this session)
-4. After restart, verify version in footer matches `app/version.txt`
+- **Empty hint:** *"narrow by family member, status, time…"* (not "person")
+- **Persistence:** sessionStorage only. Survives page navigation within session, gone on tab close. NOT localStorage.
+- **Pills:** blue dotted underline (Notion-style affordance), click to edit. NO per-pill ✕ by default.
+- **Clearing:** italic "reset" at end of sentence + backspace eats last pill + hover reveals ✕.
+- **Cross-module:** filters persist across module switches within session. Filters not applicable to new module dropped silently.
+- **Phantom cursor:** input's native blinking caret signals typeability. No separate input element.
+- **Keyboard:** `/` from anywhere focuses lens. ↑↓ navigate, Enter accepts top, Esc dismisses.
+- **Verb table:** lives in `lens-config.js` only. User edits this file when verbs feel wrong.
 
 ---
 
-## Predeploy Sanity
+## Today page — DESIGNED, NOT BUILT
 
-```bash
-cd app
-python3 scripts/validate-static.py
-```
+User locked this design at end of session. Build AFTER lens is shipped.
 
-Runs 5 static checks: JS syntax, onclick→function existence, window.api()→route
-matching, migration validity, db.prepare() static SQL. Exit 0 = clean.
+### Strategy
+- Move existing `app/public/index.html` → `app/public/dashboard.html` (preserve)
+- Build new `index.html` as Today
+- Add "Stats" nav link → dashboard.html
+- If Today flops, swap nav back in 30 seconds
 
-See **`VALIDATION.md`** at repo root for what's checked, what isn't, and the
-list of real bugs caught so far. This is the truth on testing — read it before
-shipping anything new.
+### Two sections only
+- **Now (red):** due ≤ 0 days (today or overdue)
+- **Soon (amber):** due 1–7 days
+- 30-day pipeline as footer: *"12 more items in next month"* (expandable)
+
+### Endpoint
+Single `GET /api/v1/today?lookahead=30` — aggregates from subscriptions, documents, insurance, todos. Returns `{ now: [...], soon: [...], pipeline_count: N }`. Each item: `{ severity, title, subtitle, module, record_id, due_date, action_label }`.
+
+### Visual
+Dense vertical rows (NOT cards). Color-coded left dot (🔴/🟡), two-line text, Open + Snooze buttons right-aligned.
+
+### Snooze (lower priority)
+- Default +7 days
+- New table `today_snoozes (record_kind, record_id, snoozed_until)`
+- Ship Today without snooze if needed
+
+### Header
+*"Saturday, May 2 — 3 things today, 5 this week"*
+
+### Empty state
+*"Nothing needs your attention. N items in the pipeline."*
 
 ---
 
-## Real bugs caught by validation suite this session
+## Backlog from this session (priority order)
 
-These were live and would have manifested in production:
+1. **Per-device family filter** — first-time prompt "who is this device for?", localStorage only, scope indicator near nav avatar. NO DB changes.
 
-| Drop | Bug | Caught by |
-|------|-----|-----------|
-| v086 | `autoFillZip` undefined → console error every keystroke in contact + property ZIP fields | Onclick→function existence check |
-| v087 | `DELETE /api/v1/notifications/:id` — UI dismiss button silently 404'd | Endpoint cross-check |
-| v087 | `GET /api/v1/inventory/containers/:id/move-preview` — container move dialog crashed on open | Endpoint cross-check |
+2. **Photo-first wardrobe entry** — drag/drop or camera capture creates draft item, fill rest later via existing drawer. Lower priority than initially thought.
+
+3. **Amazon orders → inventory via Gmail** — verify email content first. If too sparse, drop. NO AI cost (regex parsing).
+
+4. **Calendar sync** — Google Calendar → read-only birthdays/appointments inbox. Backlog low.
+
+5. **Browser extension** — defer indefinitely.
+
+### REJECTED
+- Email receipt tracking (duplicates bank data)
+- User profile switching / multi-tenancy (Ghrava is one-household-per-install)
 
 ---
 
-## Testing infrastructure (end-to-end)
+## Working style for next chat
 
-Three layers, each separate:
+- Discuss design BEFORE code, prototype FIRST (visualize widget)
+- ALWAYS check existing infrastructure before building new
+- Verify DB schema before treating as field gap
+- Centralized/shared code preferred
+- Continue without check-ins until natural pause
+- User signaled chat was getting heavy — start fresh next time
 
-### 1. Static validation (in-sandbox, before every deploy)
-`app/scripts/validate-static.py` — see VALIDATION.md. Catches the "broke the
-page" class of bugs without running anything.
+---
 
-### 2. In-browser API smoke (Settings → Diagnostics)
-Manual button. Hits a curated list of endpoints from the user's browser,
-shows pass/fail with response times. Lives in `settings.html` panel-diagnostics.
-Use when you want immediate "is the server alive and answering" check.
+## Critical rules (unchanged)
 
-### 3. Nightly Playwright E2E (Reports → System Tests)
-Lives entirely OUTSIDE the container, on the deploy machine:
-- `tests/playwright.config.js` — Playwright config
-- `tests/ghrava-e2e.spec.js` — 617-line spec hitting every page + API surface
-- `tests/run-tests.ps1` — PowerShell scheduled task. Boots Playwright, parses
-  results.json, posts structured run data to `POST /api/v1/app/test-results`,
-  copies HTML report to `Z:\ghrava\test-results\`, prunes to last 30.
-
-Backend persistence (already in `server.js` at L420-466):
-- `POST /api/v1/app/test-results` — runner posts here
-- `GET  /api/v1/app/test-results` — list last 30 runs (summary only)
-- `GET  /api/v1/app/test-results/:filename` — one run with full suite/test detail
-
-Storage: `/app/data/test-reports/run_YYYY-MM-DD_HHMM.json`
-
-UI: Reports → System Tests has two tabs:
-- **Nightly E2E** — pulls run history from API, summary card showing latest
-  pass/fail with ago timestamp, clickable list of all runs, drill-down to
-  per-suite per-test detail with error messages
-- **Quick Smoke** — same in-browser API checker as before, kept for ad-hoc use
-
-### Setup notes
-- `tests/` directory lives at `Z:\ghrava\tests\` (sibling of `Z:\ghrava\app\`),
-  NOT inside the container. Deploy zips don't touch tests/.
-- Task Scheduler: `powershell.exe -NonInteractive -File Z:\ghrava\tests\run-tests.ps1`,
-  Start in: `Z:\ghrava`
-- First-run: `cd tests && npm init -y && npm install @playwright/test && npx playwright install chromium`
-
-### When updating the spec for new app changes
-The spec file is shipped with deploys (in `tests/`) when bundled, but typically
-lives only on the deploy machine. When pages get folded into other pages
-(like the v088 work folding tests/data/templates/maintenance/snapshot/
-watcher-inbox into other pages), update the spec to test the new locations
-rather than the redirect stubs. Already done for `data.html → settings.html#imports`.
+- SQLite `journal_mode=DELETE` + `synchronous=FULL` — no WAL
+- NO `ON DELETE CASCADE`
+- `requireAuth` ONLY in `settings/routes.js`
+- `finance_accounts` ≠ `financial_accounts`
+- Backup ≠ export
+- Verify column names against live DB
+- Migrations additive only
+- Records not matching new patterns display as-is, never blanked

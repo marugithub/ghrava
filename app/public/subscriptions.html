@@ -22,6 +22,9 @@
 <script src="/js/gh-card-brands.js"></script>
 <script src="/js/gh-card-configs-batch1.js"></script>
 <script src="/js/gh-card-mount.js"></script>
+<!-- v202604.124 — The Lens (sentence-shaped filter UI) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
@@ -32,9 +35,8 @@
     <div class="stat-item"><div class="stat-value" id="sumCount">—</div><div class="stat-label">Active</div></div>
   </div>
 
-  <div style="padding:6px 16px 0;display:flex;align-items:center">
-    <div style="flex:1"></div>
-    <div id="subViewToolbar"></div>
+  <div style="padding: 12px 16px 0">
+    <div id="subLens"></div>
   </div>
   <div id="subList" style="padding-top:8px"></div>
 </div>
@@ -102,10 +104,15 @@ function daysUntil(dateStr) {
 
 async function load() {
   const status = _subFilters.status || 'active';
-  const cat    = _subFilters.category || '';
+  const owner  = _subFilters.owner;
   try {
     let rows = await window.api('GET', `/subscriptions/?${status!=='all'?'status='+status:''}`);
-    if (cat) rows = rows.filter(r => r.category === cat);
+    if (owner != null) rows = rows.filter(r => String(r.family_member_id || r.owner_family_member_id) === String(owner));
+
+    // Push the live count back to the lens so the sentence updates
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
+      GH_LENS.setCount(rows.length);
+    }
 
     // Card view: render via GH_CARD when user picks "card" in the toolbar.
     // List/grid views fall through to the legacy renderer below.
@@ -281,18 +288,36 @@ async function deleteSub() {
 
 let _subView = localStorage.getItem('sub_view') || 'grid', _subCols = 2, _subFilters = {};
 
+// Lens state → _subFilters bridge. The Lens emits filters as
+// [{dim:'status', value:'active'}, {dim:'person', value:7}, ...]
+// — translate into the flat object the legacy load() expects.
+function lensToSubFilters(lensFilters) {
+  const out = {};
+  for (const f of lensFilters) {
+    if (f.dim === 'status')   out.status   = f.value;
+    if (f.dim === 'person')   out.owner    = f.value;
+    if (f.dim === 'time')     out.renewing = f.value;
+    if (f.dim === 'tag')      out.tag      = f.value;
+  }
+  return out;
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  GH_VIEW.init('subViewToolbar', 'sub', state => {
-    _subView = state.view; _subCols = state.cols; _subFilters = state.filters || {};
-    load();
-  }, {
-    defaultView: 'grid',
-    defaultCols: 2,
+  GH_LENS.init({
+    container: 'subLens',
+    moduleId: 'subscriptions',
     views: ['grid','list','card'],
-    filterFields: [
-      { key:'status',   type:'select', label:'Status',   options:[{value:'',label:'All'},{value:'active',label:'Active'},{value:'paused',label:'Paused'},{value:'cancelled',label:'Cancelled'}] },
-      { key:'category', type:'select', label:'Category', options:[{value:'',label:'All'},{value:'Streaming',label:'Streaming'},{value:'Music',label:'Music'},{value:'Software',label:'Software'},{value:'Fitness',label:'Fitness'},{value:'Gaming',label:'Gaming'},{value:'News',label:'News'},{value:'Utilities',label:'Utilities'},{value:'Other',label:'Other'}] },
-    ]
+    defaultView: 'grid',
+    sortFields: [
+      { key: 'name',           label: 'Name' },
+      { key: 'next_charge_at', label: 'Renews soonest' },
+      { key: 'cost',           label: 'Cost' },
+    ],
+    onChange: ({ filters, view }) => {
+      _subView = view;
+      _subFilters = lensToSubFilters(filters);
+      load();
+    },
   });
   load();
 });
