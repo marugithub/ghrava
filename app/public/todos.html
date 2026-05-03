@@ -202,8 +202,11 @@
     <input class="search-input" id="todoSearch" type="search" placeholder="Search todos…" autocomplete="off">
   </div>
 
-  <!-- GH_VIEW toolbar -->
-  <div id="todoViewToolbar" style="display:flex;align-items:center;padding:4px 16px 0"></div>
+  <!-- GH_VIEW toolbar (HIDDEN v202604.124 — kept for GH_BULK compatibility) -->
+  <div id="todoViewToolbar" style="display:none"></div>
+  <div style="padding: 12px 16px 0">
+    <div id="todoLens"></div>
+  </div>
 
   <!-- List -->
   <div id="bulkBar" class="bulk-bar">
@@ -388,6 +391,9 @@
 <script src="/js/lt-messages.js"></script>
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-config-todos.js"></script>
+<!-- v202604.124 — The Lens (replaces GH_VIEW filter drawer + ?cards=v2 flag) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <script>
 const API = '/api/v1/todos';
 const api = window.makeApi('/todos');
@@ -485,9 +491,16 @@ function render() {
         (t.category||'').toLowerCase().includes(q)
       )
     : todos;
-  if (_todoFilters.priority) displayTodos = displayTodos.filter(t => t.priority === _todoFilters.priority);
-  if (_todoFilters.category) displayTodos = displayTodos.filter(t => t.category === _todoFilters.category);
-  if (_todoFilters.tags?.length) displayTodos = displayTodos.filter(t => _todoFilters.tags.every(tag => (t.tags||[]).includes(tag)));
+  // Lens-derived filters (v202604.124). Priority/category were dropped
+  // when the GH_VIEW filter drawer was unwired in favor of the Lens.
+  if (_todoFilters.person != null) {
+    displayTodos = displayTodos.filter(t => {
+      const ids = Array.isArray(t.family_member_ids) ? t.family_member_ids : [];
+      return ids.map(String).includes(String(_todoFilters.person));
+    });
+  }
+  if (_todoFilters.status) displayTodos = displayTodos.filter(t => t.status === _todoFilters.status);
+  if (_todoFilters.tag)    displayTodos = displayTodos.filter(t => (t.tags||[]).includes(_todoFilters.tag));
 
   if (!displayTodos.length) {
     if (filterMode === 'done') {
@@ -527,16 +540,13 @@ function render() {
   wireItems();
 }
 
-// ── GH_CARD v2 feature flag ────────────────────────────────────
-// New card design is opt-in via ?cards=v2 query param while we iterate.
-// When set, we override render() to use the shared GH_CARD pipeline.
-// Flip the default once approved.
+// ── GH_CARD pipeline (always on — formerly behind ?cards=v2) ─────
+// v202604.124: card view is the default render, and lens-derived filters
+// (person/status/time/tag) drive the result set. Legacy GH_VIEW filters
+// (priority/category/tags) were removed when GH_VIEW was unwired.
 (function() {
-  const url = new URL(location.href);
-  const cardsV2 = url.searchParams.get('cards') === 'v2';
-  if (!cardsV2) return;
   if (!window.GH_CARD) {
-    console.warn('[todos] cards=v2 requested but GH_CARD not loaded');
+    console.warn('[todos] GH_CARD not loaded; falling back to legacy render');
     return;
   }
 
@@ -545,7 +555,6 @@ function render() {
     const list = document.getElementById('todoList');
     if (!list) return _origRender();
 
-    // Reuse the same filter logic as the original render
     const q = (window._todoSearch || '').toLowerCase();
     let displayTodos = q
       ? todos.filter(t =>
@@ -554,9 +563,28 @@ function render() {
           (t.category||'').toLowerCase().includes(q)
         )
       : todos.slice();
-    if (_todoFilters.priority) displayTodos = displayTodos.filter(t => t.priority === _todoFilters.priority);
-    if (_todoFilters.category) displayTodos = displayTodos.filter(t => t.category === _todoFilters.category);
-    if (_todoFilters.tags?.length) displayTodos = displayTodos.filter(t => _todoFilters.tags.every(tag => (t.tags||[]).includes(tag)));
+
+    // Lens-derived filters (set by GH_LENS onChange via lensToTodoFilters)
+    if (_todoFilters.person != null) {
+      displayTodos = displayTodos.filter(t => {
+        const ids = Array.isArray(t.family_member_ids) ? t.family_member_ids : [];
+        return ids.map(String).includes(String(_todoFilters.person));
+      });
+    }
+    if (_todoFilters.status) {
+      displayTodos = displayTodos.filter(t => t.status === _todoFilters.status);
+    }
+    if (_todoFilters.tag) {
+      displayTodos = displayTodos.filter(t => (t.tags||[]).includes(_todoFilters.tag));
+    }
+    // Note: lens "time" dim (due_date) is captured by the adapter but not yet
+    // applied here, matching how the other 8 lens-wired pages (subscriptions,
+    // books, insurance, documents, perfume, wardrobe, property, medical) work.
+    // See HANDOFF for the planned across-the-board time-filter pass.
+
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
+      GH_LENS.setCount(displayTodos.length);
+    }
 
     if (!displayTodos.length) {
       list.innerHTML = `<div class="todos-empty">
@@ -574,8 +602,6 @@ function render() {
     const grouped = window.GH_CARD.renderGrouped('todos', displayTodos, { layout: 'grid' });
     list.appendChild(grouped);
   };
-
-  console.log('[todos] cards=v2 active — using GH_CARD pipeline');
 })();
 
 function isSectionCollapsed(key) {
@@ -866,19 +892,31 @@ $('todoSearch').addEventListener('input', e => {
 });
 window._todoSearch = '';
 let _todoView = 'list', _todoFilters = {};
-GH_VIEW.init('todoViewToolbar', 'td', state => {
-  _todoView    = state.view;
-  _todoFilters = state.filters || {};
-  render();
-}, {
-  defaultView: 'list',
-  filterFields: [
-    { key: 'priority', type: 'select', label: 'Priority',
-      options: [{value:'',label:'All'},{value:'urgent',label:'🔴 Urgent'},{value:'high',label:'🟡 High'},{value:'medium',label:'🔵 Medium'},{value:'low',label:'⚪ Low'}] },
-    { key: 'category', type: 'select', label: 'Category',
-      options: [{value:'',label:'All'},{value:'General',label:'General'},{value:'Finance',label:'Finance'},{value:'Health',label:'Health'},{value:'Home',label:'Home'},{value:'Car',label:'Car'},{value:'Work',label:'Work'},{value:'Family',label:'Family'},{value:'Kids',label:'Kids'}] },
-    { key: 'tags', type: 'tags', label: 'Tags' },
-  ]
+
+// Lens state → _todoFilters bridge. The Lens emits filters as
+// [{dim:'status', value:'open'}, {dim:'person', value:7}, ...]
+// — translate into the flat object the renderer expects.
+function lensToTodoFilters(lensFilters) {
+  const out = {};
+  for (const f of lensFilters) {
+    if (f.dim === 'person') out.person = f.value;
+    if (f.dim === 'status') out.status = f.value;
+    if (f.dim === 'time')   out.time   = f.value;
+    if (f.dim === 'tag')    out.tag    = f.value;
+  }
+  return out;
+}
+
+GH_LENS.init({
+  container: 'todoLens',
+  moduleId: 'todos',
+  // Todos has no separate card/grid/list toggle in the lens — the page
+  // already groups by priority. Hide the view toolbar like medical does.
+  viewToolbar: false,
+  onChange: ({ filters }) => {
+    _todoFilters = lensToTodoFilters(filters);
+    render();
+  },
 });
 $('formBack').addEventListener('click', () => $('formDrawer').classList.remove('open'));
 onDrawerBg('formDrawer');

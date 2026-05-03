@@ -1,130 +1,117 @@
-# Ghrava Handoff — Session 13 (Lens v202604.124, IN PROGRESS)
+# Ghrava Handoff — Session 14 (Lens v202604.124, SHIPPED)
 
 **Last updated:** May 2026
-**Status:** The Lens shipped to 8 pages in sandbox. NOT yet packaged. NOT yet deployed.
+**Status:** Lens shipped to all 9 lens-eligible pages. Packaged. Ready to deploy.
 
 ---
 
 ## What this session built
 
-**The Lens** — a sentence-shaped filter UI that replaces GH_VIEW's filter drawer. Reads as English: *"Subscriptions  12  for Jamie renewing this month   reset"*
+**The Lens** is now wired on all 9 pages it was scoped to. Last session got 8 done in sandbox; this session finished `todos.html` and packaged the deploy.
 
-### New files
-- `app/public/js/lens-config.js` — verb/dimension table per module. **EDIT HERE** to change verbs, never in HTML pages. All 13 modules in one file.
-- `app/public/js/gh-lens.js` — the Lens component. Public API: `GH_LENS.init(opts)`, `setCount(n)`, `getState()`, `applyFilter()`, `clear()`.
+### Pages wired (9)
+- subscriptions
+- books
+- insurance
+- documents
+- perfume
+- wardrobe (items tab only)
+- property (tab-aware re-init)
+- medical (subview-aware re-init; `?cards=v2` flag dropped)
+- **todos** ← finished this session; `?cards=v2` flag dropped, cards always on, GH_VIEW filter drawer replaced
 
-### Modified files
-- `app/public/shared.css` — Lens styles appended (`.gh-lens`, `.gh-lens__pill`, etc.)
-- `app/public/subscriptions.html` — wired
-- `app/public/books.html` — wired (kept hidden `bookViewToolbar` for GH_BULK)
-- `app/public/insurance.html` — wired (no GH_BULK)
-- `app/public/documents.html` — wired (kept hidden `docViewToolbar` for GH_BULK)
-- `app/public/perfume.html` — wired (kept hidden `perfViewToolbar` for GH_BULK)
-- `app/public/wardrobe.html` — wired ITEMS TAB ONLY (kept hidden `itemViewToolbar` for GH_BULK)
-- `app/public/property.html` — wired with tab-aware re-init. Bug fix: `_reloadPropTab` had `currentTab` (undefined) → changed to `tab` (correct variable name)
-- `app/public/medical.html` — wired with subview-aware re-init. **Dropped `?cards=v2` URL flag entirely** — cards are now always on.
+### Files in the v124 deploy zip
+```
+app/public/js/lens-config.js     (new — verb table per module)
+app/public/js/gh-lens.js         (new — lens component)
+app/public/shared.css            (lens styles appended)
+app/public/subscriptions.html
+app/public/books.html
+app/public/insurance.html
+app/public/documents.html
+app/public/perfume.html
+app/public/wardrobe.html
+app/public/property.html
+app/public/medical.html
+app/public/todos.html
+app/version.txt                  (-> 202604.124)
+HANDOFF.md                       (this file)
+Deploy-Patch.ps1                 (v124 file list)
+```
 
-### Sandbox tests
-30/30 lens behavior tests pass. Plus 17/17 cards configs, 8/8 mount, 17/17 brands, 10/10 resilience tests still pass.
-
----
-
-## What still needs to be done before deploy
-
-### 1. Wire `todos.html` (last lens-enabled page)
-Same pattern as medical:
-- Add lens-config.js + gh-lens.js script tags
-- Drop `?cards=v2` URL flag
-- Add `<div id="todoLens"></div>` container, hide existing toolbar div for GH_BULK
-- Replace `GH_VIEW.init` with `GH_LENS.init({ moduleId: 'todos', ... })`
-- Adapter: `lensToTodoFilters(filters)` → flat object the existing renderer expects
-- Push `GH_LENS.setCount(rows.length)` after filtering
-
-### 2. Final integrity sweep
-- Run inline-script syntax check against ALL HTML pages
-- Sandbox tests one more time
-
-### 3. Update e2e tests
-- Add lens behavior tests in `tests/ghrava-e2e.spec.js`
-
-### 4. Bump version
-- `app/version.txt` → `202604.124`
-
-### 5. Update Deploy-Patch.ps1
-- Add `app/public/js/lens-config.js`
-- Add `app/public/js/gh-lens.js`
-- Add all 8 modified HTML pages
-- Add this updated HANDOFF.md
-
-### 6. Build & present zip
-- `Ghrava_Deploy.zip` via `present_files` to `/mnt/user-data/outputs/`
+### Sandbox checks (this session)
+- 9/9 inline-script syntax check on every wired HTML page
+- Both lens JS files node-check clean
+- No stale `GH_VIEW.init` calls left on any wired page (only doc-comment refs)
 
 ---
 
-## Lens design — LOCKED decisions
+## Known scope gaps (carry forward)
 
-Don't re-litigate:
+### 1. Lens "time" pill is decorative on all 9 pages
+Every adapter captures the time value (`out.renewing`, `out.expiring`, `out.started`, `out.last_worn`, `out.time` for todos), but **none of the pages actually filter the result set by date**. The pill displays, the count doesn't change.
 
-- **Empty hint:** *"narrow by family member, status, time…"* (not "person")
-- **Persistence:** sessionStorage only. Survives page navigation within session, gone on tab close. NOT localStorage.
-- **Pills:** blue dotted underline (Notion-style affordance), click to edit. NO per-pill ✕ by default.
-- **Clearing:** italic "reset" at end of sentence + backspace eats last pill + hover reveals ✕.
+This was inherited from session 13 — fixing it on todos alone would have made todos' lens behave differently from the other 8 pages, so todos was kept consistent. **Plan: an across-the-board time-filter pass on all 9 modules in one go**, with date helpers shared in `gh-lens.js` or `lt-core.js`.
+
+### 2. Todos lost priority/category filter dimensions
+The lens config for `todos` only includes `person/status/time/tag` — `priority` and `category` are gone. The page still groups visually by priority, but you can no longer filter the list to "only urgent" via a dropdown.
+
+**Decision deferred to next chat:** add `priority` (and maybe `category`) as lens dimensions in `lens-config.js`? If yes, I just edit lens-config.js + the todos adapter — no other changes needed because the lens auto-renders any dimension you add.
+
+### 3. e2e tests not updated
+HANDOFF v123 said "Add lens behavior tests in `tests/ghrava-e2e.spec.js`." Sandbox-side lens tests pass (30/30) but the Playwright e2e suite isn't covering the lens yet. Deferred — would prefer to write these alongside the time-filter pass when behavior is final.
+
+---
+
+## Lens design — LOCKED decisions (unchanged)
+
+- **Empty hint:** *"narrow by family member, status, time…"*
+- **Persistence:** sessionStorage only.
+- **Pills:** blue dotted underline (Notion-style). Click to edit. No per-pill ✕ by default; hover reveals it.
+- **Clearing:** italic "reset" + backspace eats last pill.
 - **Cross-module:** filters persist across module switches within session. Filters not applicable to new module dropped silently.
-- **Phantom cursor:** input's native blinking caret signals typeability. No separate input element.
-- **Keyboard:** `/` from anywhere focuses lens. ↑↓ navigate, Enter accepts top, Esc dismisses.
-- **Verb table:** lives in `lens-config.js` only. User edits this file when verbs feel wrong.
+- **Keyboard:** `/` focuses lens; ↑↓ navigate; Enter accepts top; Esc dismisses.
+- **Verb table:** `lens-config.js` only. Edit there to change verbs.
 
 ---
 
 ## Today page — DESIGNED, NOT BUILT
 
-User locked this design at end of session. Build AFTER lens is shipped.
+(Carrying forward from last session — locked design, build next.)
 
-### Strategy
-- Move existing `app/public/index.html` → `app/public/dashboard.html` (preserve)
+- Move `app/public/index.html` → `app/public/dashboard.html`
 - Build new `index.html` as Today
 - Add "Stats" nav link → dashboard.html
-- If Today flops, swap nav back in 30 seconds
-
-### Two sections only
-- **Now (red):** due ≤ 0 days (today or overdue)
-- **Soon (amber):** due 1–7 days
-- 30-day pipeline as footer: *"12 more items in next month"* (expandable)
-
-### Endpoint
-Single `GET /api/v1/today?lookahead=30` — aggregates from subscriptions, documents, insurance, todos. Returns `{ now: [...], soon: [...], pipeline_count: N }`. Each item: `{ severity, title, subtitle, module, record_id, due_date, action_label }`.
-
-### Visual
-Dense vertical rows (NOT cards). Color-coded left dot (🔴/🟡), two-line text, Open + Snooze buttons right-aligned.
-
-### Snooze (lower priority)
-- Default +7 days
-- New table `today_snoozes (record_kind, record_id, snoozed_until)`
-- Ship Today without snooze if needed
-
-### Header
-*"Saturday, May 2 — 3 things today, 5 this week"*
-
-### Empty state
-*"Nothing needs your attention. N items in the pipeline."*
+- Two sections: **Now** (red, due ≤ 0 days) + **Soon** (amber, 1–7 days)
+- 30-day pipeline as footer: *"12 more items in next month"*
+- Endpoint: `GET /api/v1/today?lookahead=30` aggregating subscriptions/documents/insurance/todos
+- Each item: `{ severity, title, subtitle, module, record_id, due_date, action_label }`
+- Dense vertical rows (NOT cards), color-coded left dot, Open + Snooze buttons
+- Snooze table `today_snoozes (record_kind, record_id, snoozed_until)`; default +7d
+- Header: *"Saturday, May 2 — 3 things today, 5 this week"*
+- Empty state: *"Nothing needs your attention. N items in the pipeline."*
 
 ---
 
-## Backlog from this session (priority order)
+## Open item Al raised twice (do this next)
 
-1. **Per-device family filter** — first-time prompt "who is this device for?", localStorage only, scope indicator near nav avatar. NO DB changes.
+**Center-of-page modals/drawers across all modules.** Al asked for this twice in past chats and past Claude punted both times into backlog. This is a real correction, not a feature request.
 
-2. **Photo-first wardrobe entry** — drag/drop or camera capture creates draft item, fill rest later via existing drawer. Lower priority than initially thought.
+Approach: all 25 module drawers → center modals. Restyle `.gh-drawer` in `shared.css`. **Discuss approach before coding** per Al's working style.
 
-3. **Amazon orders → inventory via Gmail** — verify email content first. If too sparse, drop. NO AI cost (regex parsing).
+---
 
-4. **Calendar sync** — Google Calendar → read-only birthdays/appointments inbox. Backlog low.
+## Backlog (priority order, unchanged)
 
+1. **Per-device family filter** — first-time prompt "who is this device for?", localStorage, scope indicator near nav avatar. NO DB changes.
+2. **Photo-first wardrobe entry** — drag/drop or camera capture creates draft item.
+3. **Amazon orders → inventory via Gmail** — verify email content first; regex parsing, no AI cost.
+4. **Calendar sync** — Google Calendar → read-only birthdays/appointments inbox.
 5. **Browser extension** — defer indefinitely.
 
 ### REJECTED
 - Email receipt tracking (duplicates bank data)
-- User profile switching / multi-tenancy (Ghrava is one-household-per-install)
+- User profile switching / multi-tenancy
 
 ---
 
@@ -135,7 +122,7 @@ Dense vertical rows (NOT cards). Color-coded left dot (🔴/🟡), two-line text
 - Verify DB schema before treating as field gap
 - Centralized/shared code preferred
 - Continue without check-ins until natural pause
-- User signaled chat was getting heavy — start fresh next time
+- HANDOFF on major changes only, not every drop
 
 ---
 
