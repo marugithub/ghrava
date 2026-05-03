@@ -1,118 +1,101 @@
-# Ghrava Handoff — Session 16 (Lens rollout pt. 2, v202604.126)
+# Ghrava Handoff — Session 17 (Lens engine extension + gap closures, v202604.127)
 
-**Last updated:** May 2026
-**Status:** Shipped. 4 more pages on the lens.
+**Status:** Shipped. Generic select dim, time-filter pass, snooze undo, wardrobe outfits/insights wired.
 
 ---
 
 ## What this session built
 
-Continuing the lens rollout with no deviation — uniform look across modules.
+Big drop. Three pieces of unfinished business closed plus one engine extension.
 
-### Pages newly wired (4)
-- `inventory.html` — replaces GH_VIEW with GH_LENS. Grid/list/gallery view toggle preserved. Person + tag dimensions. **Lost:** location, category, brand, has_photo filters (would need dynamic-values dim support — see "extending the lens" below).
-- `career.html` (certifications tab) — replaces GH_VIEW. Status (Active/Expired/Expiring Soon/Pending) + time + tag. Grid/list view toggle. The existing `loadCerts()` already read `_careerFilters.{status,tags}` so no renderer changes.
-- `kids.html` — replaces GH_VIEW (which was actually broken — it pointed at a non-existent `kidsViewToolbar` div). Person + status (category as Sports/Music/Arts/...) + tag. View toggle disabled (kids has its own kid-strip + sub-tab UX). Lens shows only when a kid is selected.
-- `resources.html` — replaces GH_VIEW. Status (link_type as website/login/document/...) + tag. Grid/list view toggle. **Lost:** favorite toggle (would need a custom 'toggle' dim type).
+### 1. Generic `select` dim type (gh-lens.js + lens-config.js)
+The lens engine now supports custom single-select dimensions beyond the four built-ins (person/status/time/tag). Shape:
+```js
+season: { type: 'select', verb: 'in', field: 'season',
+          values: ['Spring','Summer','Fall','Winter'] }
+```
+- `buildAllSuggestions` recognizes `dcfg.type === 'select'` and emits one suggestion per value
+- Persisted-filter validation also handles select dims
+- Pill rendering, click-to-edit, suggestion popover all work unchanged
 
-### Lens config additions
-`lens-config.js` gained 3 new module entries:
-- `career_certs` (status: cert states, time: expiring, tag)
-- `kids_activities` (person, status: category, tag)
-- `resources` (status: link_type, tag)
+This unblocks any module that needs multiple single-select filters under custom names.
 
-Plus the existing `inventory` entry, unchanged.
+### 2. Time-filter pass (across-the-board)
+Added `LENS_CONFIG.timeMatch(dateStr, presetLabel, presetHint)` — a shared helper that interprets time presets per the `cmp` fields already in lens-config. Adapters now apply the time pill on six pages:
+- todos → `due_date` (future)
+- subscriptions → `next_billing_date` (future)
+- insurance → `coverage_end_date` (future)
+- documents → `expiry_date` (future) — replaced the pre-existing manual numeric-days filter
+- books → `date_started` (future)
+- wardrobe items → `last_worn` (past)
 
-### What "status repurposed" means
-The lens has 4 fixed dimensions: person / status / time / tag. Some modules need single-select filters that aren't called "status" — category (kids), link_type (resources), cert state (career). Convention adopted this session: when a module needs a single-select dim that isn't a true status field, repurpose the `status` dimension with a custom verb ("of type", "in", etc) and the appropriate `field` and `values`. The adapter maps `f.dim === 'status'` to whatever flat-filter key the renderer wants (`category`, `link_type`, `status`).
+The "time pill is decorative" gap from sessions 13–16 is closed.
 
-This is deliberate scope discipline — adding a generic `select` dim type would require a non-trivial gh-lens.js rewrite. See backlog.
+### 3. Wardrobe outfits + insights tabs wired
+Both outfit and insights tabs now use the lens (formerly GH_VIEW). Outfits gets the new `wardrobe_outfits` config with **person + season + occasion + tag** — season and occasion are select dims. Insights is presentational so it just gets a grid/list view toggle. Filter state for outfits is preserved (`_outfitFilters.season/.occasion/.tag/.person`).
+
+### 4. Today page snooze undo
+Snoozing a row now shows a 5-second toast at the bottom of the page with an Undo button. Click Undo → `DELETE /api/v1/today/snooze/:kind/:id` → row reappears. Toast auto-dismisses after 5s.
+
+### 5. Bonus: gallery view button
+gh-lens.js now renders a 4th view-toggle button when `views: ['gallery']` is included. Inventory uses this. Was a missing icon since v124.
 
 ---
 
 ## Files in this drop
 
 ```
-app/public/js/lens-config.js   (3 new module entries)
-app/public/inventory.html      (lens wired)
-app/public/career.html         (lens wired)
-app/public/kids.html           (lens wired)
-app/public/resources.html      (lens wired)
-app/version.txt                → 202604.126
+app/public/js/gh-lens.js              (select dim + gallery button)
+app/public/js/lens-config.js          (timeMatch helper + wardrobe_outfits)
+app/public/index.html                 (snooze undo toast)
+app/public/todos.html                 (time filter)
+app/public/subscriptions.html         (time filter)
+app/public/insurance.html             (time filter)
+app/public/documents.html             (time filter — manual replaced)
+app/public/books.html                 (time filter)
+app/public/wardrobe.html              (lens on outfits + insights, time filter on items)
+app/version.txt                       → 202604.127
 HANDOFF.md
 ```
 
-7 files. No CSS, no migrations, no server-side. Pure HTML + lens config.
+11 files. No CSS, no migrations, no server-side.
 
 ---
 
 ## Lens rollout status (after this drop)
 
-**13 of 25 modules on the lens** (52%):
-- subscriptions, books, insurance, documents, perfume, wardrobe (items tab), property, medical, todos — from previous sessions
-- inventory, career, kids, resources — this session
+**15 of 25 modules on the lens** (60%):
+Previously 13. This drop adds wardrobe outfits and wardrobe insights as separate "modules" (they share the wardrobe page but each tab has its own lens instance now). All 9 originally wired pages plus inventory, career, kids, resources, wardrobe (items + outfits + insights tabs).
 
-**Modules still on old toolbars / no toolbar (12):**
-- wardrobe outfits + insights tabs (items tab is lens'd, but outfits has season+occasion multi-select that needs gh-lens.js extension; insights is just a view toggle)
-- finance — multi-tab, no GH_VIEW currently. Likely needs lens per tab.
-- daily-log — chronological log, no GH_VIEW currently. Lens may not fit this UX.
-- hsa — multi-tab, no GH_VIEW. Possibly fits.
-- notifications — inbox-style, no GH_VIEW. Probably skip.
-- calendar — date UI, doesn't fit.
-- search — global search UI, doesn't fit.
-- dashboard (now /stats) — aggregator, doesn't fit.
-- family-snapshot — settings page, doesn't fit.
-- a few smaller pages
+**Modules still on old toolbars / no toolbar:**
+- finance — multi-tab (HSA / Accounts / Transactions / Net Worth / Budgets / Gift Cards). No GH_VIEW currently. Each tab needs its own lens config + wiring. Not done — flagged as next big chunk.
+- daily-log — has its own custom pill+tag filter UI (NOT GH_VIEW). Lens would mean redesigning the existing UX, not a swap.
+- hsa — summary dashboard, not a list-of-records page. Doesn't fit the lens pattern. Skip.
+- notifications — inbox, not list-with-filters. Skip.
+- calendar — date UI. Doesn't fit. Skip.
+- search, dashboard (now /stats), family-snapshot — don't fit. Skip.
 
-So the realistic remaining target list is: **wardrobe outfits/insights, finance tabs, hsa tabs**. Three multi-tab pages, all of which need either gh-lens.js extension (multi-select dims) or per-tab discipline.
+Realistic remaining target = **finance (6 sub-tabs)**. After that, the lens rollout is "done" in the meaningful sense — the modules that don't use it are ones where it doesn't apply.
 
 ---
 
-## Extending the lens — backlog item
+## Sandbox checks
 
-To finish the rollout uniformly, gh-lens.js needs a generic `select` dimension type. Sketch:
-
-```js
-// lens-config.js entry
-wardrobe_outfits: {
-  label: 'Outfits', plural: 'outfits',
-  dimensions: {
-    person:   { verb: 'for', field: 'family_member_id' },
-    season:   { type: 'select', verb: 'in', field: 'season',
-                values: ['Spring','Summer','Fall','Winter'] },
-    occasion: { type: 'select', verb: 'for', field: 'occasion',
-                values: ['Casual','School','Work','Formal','Evening'] },
-    tag:      { verb: 'tagged', field: 'tags' },
-  },
-}
-```
-
-Where `gh-lens.js` recognizes `dcfg.type === 'select'` and treats it the same as status (custom values list) but allows multiple per module. About a 30-line patch in `buildAllSuggestions`, the rendering switch, and the state filter logic.
-
-Once that lands, finishing the rollout to wardrobe outfits/insights, finance tabs, and hsa tabs becomes mechanical.
-
----
-
-## What's NOT in this drop (intentional)
-
-- Wardrobe outfits/insights tabs — needs the dim extension above
-- Finance, hsa, daily-log, calendar, notifications — either need extension or don't fit
-- The "time pill is decorative" gap — still inherited
-- The Today page snooze undo button — still TODO
-- Center-modal niceties (Esc to close, focus trap) — most modules already wire Esc
+- Node syntax: gh-lens.js, lens-config.js — OK
+- Inline scripts on all 7 changed HTML files — all OK
+- No GH_VIEW.init left on any wired page (only doc-comment refs)
 
 ---
 
 ## Carrying forward (backlog, priority order)
 
-1. **Generic `select` dim type in gh-lens.js** — unblocks wardrobe outfits, finance, hsa
-2. **Across-the-board time-filter pass** — make the time pill actually filter on all 13 wired pages
-3. **Snooze undo on Today page** — toast with "Undo" button, calls DELETE /api/v1/today/snooze/...
-4. **Per-device family filter** — first-time prompt, localStorage scope
-5. **Photo-first wardrobe entry**
-6. **Amazon orders → inventory via Gmail**
-7. **Calendar sync** (read-only)
-8. **Browser extension** — defer indefinitely
+1. **Finance tabs lens rollout** (6 tabs × adapter+config). Big drop.
+2. **Daily-log custom-UI → lens migration** (UX redesign, discuss first).
+3. **Per-device family filter** — first-time prompt, localStorage scope.
+4. **Photo-first wardrobe entry**.
+5. **Amazon orders → inventory via Gmail**.
+6. **Calendar sync** (read-only).
+7. **Browser extension** — defer indefinitely.
 
 ### REJECTED
 - Email receipt tracking (duplicates bank data)
@@ -120,26 +103,17 @@ Once that lands, finishing the rollout to wardrobe outfits/insights, finance tab
 
 ---
 
-## Working style for next chat
+## Working style / Critical rules — unchanged
 
 - Discuss design BEFORE code, prototype FIRST when needed
 - Always check existing infrastructure before building new
-- Verify DB schema before treating as field gap
 - Centralized/shared code preferred
-- Continue without check-ins until natural pause
 - HANDOFF on major changes only
 - Fewer releases, bigger drops; only changed files in correct structure
-- Al doesn't test releases — be extra careful with sandbox checks before packaging
-
----
-
-## Critical rules (unchanged)
-
 - SQLite `journal_mode=DELETE` + `synchronous=FULL` — no WAL
 - NO `ON DELETE CASCADE`
 - `requireAuth` ONLY in `settings/routes.js`
 - `finance_accounts` ≠ `financial_accounts`
 - Backup ≠ export
-- Verify column names against live DB
 - Migrations additive only
 - Records not matching new patterns display as-is, never blanked

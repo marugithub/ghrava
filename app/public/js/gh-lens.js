@@ -151,6 +151,13 @@
           out.push({ dim, verb: dcfg.verb, value: t.name || t,
             label: t.name || t });
         }
+      } else if (dcfg.type === 'select') {
+        // v202604.127 — Generic single-select dim with custom values list.
+        // Same shape as status but allows multiple per module under custom
+        // dim names (e.g. season + occasion on wardrobe outfits).
+        for (const v of (dcfg.values || [])) {
+          out.push({ dim, verb: dcfg.verb, value: v, label: v });
+        }
       }
     }
     return out;
@@ -197,6 +204,10 @@
         const dcfg = modCfg.dimensions[f.dim];
         if (!dcfg) return false;
         if (f.dim === 'status') {
+          return (dcfg.values || []).includes(f.value);
+        }
+        if (dcfg.type === 'select') {
+          // v202604.127 — generic select dims validate against their values list
           return (dcfg.values || []).includes(f.value);
         }
         return true;
@@ -452,9 +463,11 @@
       const SVG_GRID = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>';
       const SVG_LIST = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="12" height="3" rx="1"/><rect x="1" y="5.5" width="12" height="3" rx="1"/><rect x="1" y="10" width="12" height="3" rx="1"/></svg>';
       const SVG_CARD = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="12" height="10" rx="1.5"/><line x1="1" y1="6" x2="13" y2="6"/></svg>';
-      if (instance.views.includes('grid')) wrap.appendChild(make('grid', 'Grid view', SVG_GRID));
-      if (instance.views.includes('list')) wrap.appendChild(make('list', 'List view', SVG_LIST));
-      if (instance.views.includes('card')) wrap.appendChild(make('card', 'Card view', SVG_CARD));
+      const SVG_GALLERY = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="8" height="12" rx="1"/><rect x="10" y="1" width="3" height="5.5" rx="1"/><rect x="10" y="7.5" width="3" height="5.5" rx="1"/></svg>';
+      if (instance.views.includes('grid'))    wrap.appendChild(make('grid',    'Grid view',    SVG_GRID));
+      if (instance.views.includes('list'))    wrap.appendChild(make('list',    'List view',    SVG_LIST));
+      if (instance.views.includes('card'))    wrap.appendChild(make('card',    'Card view',    SVG_CARD));
+      if (instance.views.includes('gallery')) wrap.appendChild(make('gallery', 'Gallery view', SVG_GALLERY));
       return wrap;
     },
 

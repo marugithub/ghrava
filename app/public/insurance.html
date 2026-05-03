@@ -145,6 +145,10 @@ async function load() {
     let url = `/insurance/?${status!=='all'?'status='+status:''}`;
     let rows = await window.api('GET', url);
     if (tagF) rows = rows.filter(r => (r.tags || []).includes(tagF));
+    // v202604.127 — apply lens time filter on coverage_end_date.
+    if (_insFilters.renewing && window.LENS_CONFIG?.timeMatch) {
+      rows = rows.filter(r => window.LENS_CONFIG.timeMatch(r.coverage_end_date, _insFilters.renewing, 'future'));
+    }
 
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
 

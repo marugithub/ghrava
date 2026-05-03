@@ -293,6 +293,10 @@ async function loadBooks() {
     if (_bkFilters.format)         filtered = filtered.filter(b => b.format === _bkFilters.format);
     if (_bkFilters.genre)          filtered = filtered.filter(b => (b.genre||'').toLowerCase().includes(_bkFilters.genre.toLowerCase()));
     if (_bkFilters.owner != null)  filtered = filtered.filter(b => String(b.family_member_id) === String(_bkFilters.owner));
+    // v202604.127 — lens time filter on date_started.
+    if (_bkFilters.started && window.LENS_CONFIG?.timeMatch) {
+      filtered = filtered.filter(b => window.LENS_CONFIG.timeMatch(b.date_started, _bkFilters.started, 'future'));
+    }
 
     // Push count to lens
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(filtered.length);

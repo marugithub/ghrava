@@ -330,12 +330,9 @@ function renderDocs() {
   if (_docFilters.tags?.length)  docs = docs.filter(d => _docFilters.tags.every(t => (d.tags||[]).includes(t)));
   if (_docFilters.category)      docs = docs.filter(d => d.category === _docFilters.category);
   if (_docFilters.person)        docs = docs.filter(d => d.family_member === _docFilters.person || String(d.family_member_id) === String(_docFilters.person));
-  if (_docFilters.expiring) {
-    const days = parseInt(_docFilters.expiring);
-    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() + days);
-    const cutStr = cutoff.toISOString().slice(0,10);
-    const todayStr = new Date().toISOString().slice(0,10);
-    docs = docs.filter(d => d.expiry_date && d.expiry_date >= todayStr && d.expiry_date <= cutStr);
+  // v202604.127 — lens time filter on expiry_date (preset-based).
+  if (_docFilters.expiring && window.LENS_CONFIG?.timeMatch) {
+    docs = docs.filter(d => window.LENS_CONFIG.timeMatch(d.expiry_date, _docFilters.expiring, 'future'));
   }
 
   if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(docs.length);

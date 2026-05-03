@@ -501,6 +501,9 @@ function render() {
   }
   if (_todoFilters.status) displayTodos = displayTodos.filter(t => t.status === _todoFilters.status);
   if (_todoFilters.tag)    displayTodos = displayTodos.filter(t => (t.tags||[]).includes(_todoFilters.tag));
+  if (_todoFilters.time && window.LENS_CONFIG?.timeMatch) {
+    displayTodos = displayTodos.filter(t => window.LENS_CONFIG.timeMatch(t.due_date, _todoFilters.time, 'future'));
+  }
 
   if (!displayTodos.length) {
     if (filterMode === 'done') {
@@ -577,10 +580,10 @@ function render() {
     if (_todoFilters.tag) {
       displayTodos = displayTodos.filter(t => (t.tags||[]).includes(_todoFilters.tag));
     }
-    // Note: lens "time" dim (due_date) is captured by the adapter but not yet
-    // applied here, matching how the other 8 lens-wired pages (subscriptions,
-    // books, insurance, documents, perfume, wardrobe, property, medical) work.
-    // See HANDOFF for the planned across-the-board time-filter pass.
+    // v202604.127 — time pill applies on due_date (future preset).
+    if (_todoFilters.time && window.LENS_CONFIG?.timeMatch) {
+      displayTodos = displayTodos.filter(t => window.LENS_CONFIG.timeMatch(t.due_date, _todoFilters.time, 'future'));
+    }
 
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
       GH_LENS.setCount(displayTodos.length);

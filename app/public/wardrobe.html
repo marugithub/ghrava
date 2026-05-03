@@ -722,28 +722,45 @@ function initItemView() {
 }
 
 function initInsightsView() {
-  GH_VIEW.init('insightsViewToolbar', 'wrd_item', state => {
-    _itemCols = state.cols; _itemView = state.view;
-    if (_currentTab === 'items')    loadItems();
-    if (_currentTab === 'outfits')  loadOutfits();
-    if (_currentTab === 'insights') loadInsights();
-  }, { defaultView: 'grid', defaultCols: 4 });
+  // v202604.127 — Lens replaces GH_VIEW. Insights tab is presentational
+  // (charts) so it doesn't filter records — just provides a grid/list
+  // view toggle for consistency with the items tab.
+  GH_LENS.init({
+    container: 'insightsViewToolbar',
+    moduleId:  'wardrobe',
+    views:     ['grid','list'],
+    defaultView: _itemView || 'grid',
+    onChange: ({ view }) => {
+      if (view) _itemView = view;
+      if (_currentTab === 'items')    loadItems();
+      if (_currentTab === 'outfits')  loadOutfits();
+      if (_currentTab === 'insights') loadInsights();
+    },
+  });
 }
 
 function initOutfitView() {
-  GH_VIEW.init('outfitViewToolbar', 'wrd_outfit', state => {
-    _outfitView = state.view; _outfitCols = state.cols;
-    _itemCols = state.cols; // keep in sync
-    _outfitFilters = state.filters || {};
-    if (_currentTab === 'items')    loadItems();
-    if (_currentTab === 'outfits')  loadOutfits();
-    if (_currentTab === 'insights') loadInsights();
-  }, {
-    defaultView: 'grid', defaultCols: 4,
-    filterFields: [
-      { key:'season',   type:'select', label:'Season',   options:[{value:'',label:'All'},{value:'Spring',label:'Spring'},{value:'Summer',label:'Summer'},{value:'Fall',label:'Fall'},{value:'Winter',label:'Winter'}]},
-      { key:'occasion', type:'select', label:'Occasion', options:[{value:'',label:'All'},{value:'Casual',label:'Casual'},{value:'School',label:'School'},{value:'Work',label:'Work'},{value:'Formal',label:'Formal'},{value:'Evening',label:'Evening'}]},
-    ]
+  // v202604.127 — Lens replaces GH_VIEW with new wardrobe_outfits config
+  // (person + season + occasion + tag — season/occasion are select dims).
+  GH_LENS.init({
+    container: 'outfitViewToolbar',
+    moduleId:  'wardrobe_outfits',
+    views:     ['grid','list'],
+    defaultView: _outfitView || 'grid',
+    onChange: ({ filters, view }) => {
+      if (view) _outfitView = view;
+      const out = {};
+      for (const f of filters) {
+        if (f.dim === 'person')   out.person   = f.value;
+        if (f.dim === 'season')   out.season   = f.value;
+        if (f.dim === 'occasion') out.occasion = f.value;
+        if (f.dim === 'tag')      out.tag      = f.value;
+      }
+      _outfitFilters = out;
+      if (_currentTab === 'items')    loadItems();
+      if (_currentTab === 'outfits')  loadOutfits();
+      if (_currentTab === 'insights') loadInsights();
+    },
   });
 }
 // Deterministic color palette for member dots — derived from the existing token palette only.
@@ -1437,6 +1454,10 @@ async function loadItems() {
     _allItems = await window.api('GET', url);
     if (_itemFilters.tag) {
       _allItems = _allItems.filter(r => (r.tags || []).includes(_itemFilters.tag));
+    }
+    // v202604.127 — lens time filter on last_worn (past preset).
+    if (_itemFilters.last_worn && window.LENS_CONFIG?.timeMatch) {
+      _allItems = _allItems.filter(r => window.LENS_CONFIG.timeMatch(r.last_worn, _itemFilters.last_worn, 'past'));
     }
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(_allItems.length);
     const grid = document.getElementById('itemGrid');

@@ -209,6 +209,19 @@
       },
     },
 
+    wardrobe_outfits: {
+      label: 'Outfits',
+      plural: 'outfits',
+      dimensions: {
+        person:   { verb: 'for', field: 'family_member_id' },
+        season:   { type: 'select', verb: 'in', field: 'season',
+          values: ['Spring', 'Summer', 'Fall', 'Winter'] },
+        occasion: { type: 'select', verb: 'for', field: 'occasion',
+          values: ['Casual', 'School', 'Work', 'Formal', 'Evening'] },
+        tag:      { verb: 'tagged', field: 'tags' },
+      },
+    },
+
   };
 
   // Time presets — shared across all modules. The `preset` hint on a
@@ -242,6 +255,43 @@
     return presetHint === 'past' ? TIME_PRESETS_PAST : TIME_PRESETS_FUTURE;
   }
 
+  // v202604.127 — Shared time-match helper. Adapters call this with a
+  // record's date string and the lens time-pill value to decide whether
+  // the record passes the time filter. Returns true if no filter active.
+  //
+  //   LENS_CONFIG.timeMatch(record.due_date, '_todoFilters.time', 'future')
+  //
+  // dateStr      — ISO date 'YYYY-MM-DD' or null
+  // presetLabel  — the label of a time preset (e.g. 'this week') or falsy
+  // presetHint   — 'past' or 'future' (matches the dim's preset hint)
+  //
+  // Behavior matches the cmp types in TIME_PRESETS_FUTURE / _PAST.
+  function timeMatch(dateStr, presetLabel, presetHint) {
+    if (!presetLabel) return true;
+    const presets = getTimePresets(presetHint);
+    const p = presets.find(x => x.label === presetLabel);
+    if (!p) return true;
+
+    // 'never' — no date set
+    if (p.cmp === 'is-null') return !dateStr;
+    if (!dateStr) return false;
+
+    // Normalize to a Date at midnight
+    const d = new Date(dateStr.length === 10 ? dateStr + 'T00:00:00' : dateStr);
+    if (isNaN(d.getTime())) return false;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const diffDays = Math.round((d - today) / 86400000);
+
+    switch (p.cmp) {
+      case 'on':            return diffDays === p.days;
+      case 'within':        return diffDays >= 0 && diffDays <= p.days;
+      case 'before-today':  return diffDays < 0;
+      case 'within-past':   return diffDays <= 0 && diffDays >= p.days;
+      case 'before':        return diffDays < p.days;
+      default: return true;
+    }
+  }
+
   function listAllModules() {
     return Object.keys(LENS_CONFIG);
   }
@@ -250,6 +300,7 @@
   window.LENS_CONFIG = {
     get: getModuleConfig,
     timePresets: getTimePresets,
+    timeMatch,
     modules: listAllModules,
     // Raw access for debugging / settings UI someday
     _raw: LENS_CONFIG,

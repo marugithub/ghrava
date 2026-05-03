@@ -108,6 +108,13 @@ async function load() {
   try {
     let rows = await window.api('GET', `/subscriptions/?${status!=='all'?'status='+status:''}`);
     if (owner != null) rows = rows.filter(r => String(r.family_member_id || r.owner_family_member_id) === String(owner));
+    // v202604.127 — apply lens time filter on next_billing_date.
+    if (_subFilters.renewing && window.LENS_CONFIG?.timeMatch) {
+      rows = rows.filter(r => window.LENS_CONFIG.timeMatch(r.next_billing_date, _subFilters.renewing, 'future'));
+    }
+    if (_subFilters.tag) {
+      rows = rows.filter(r => (r.tags||[]).includes(_subFilters.tag));
+    }
 
     // Push the live count back to the lens so the sentence updates
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
