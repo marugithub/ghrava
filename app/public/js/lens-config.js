@@ -4,26 +4,37 @@
  * EDIT THIS FILE to change how the Lens reads on any module.
  *
  * Each module entry has:
- *   label      — what the module is called in the sentence ("Subscriptions")
- *   plural     — how the count word reads ("subscriptions")
- *   dimensions — which filter dimensions apply, with their verb and field name
+ *   label         — module name in the sentence ("Subscriptions")
+ *   plural        — count word ("subscriptions")
+ *   personPrimary — (optional) true if the per-device family scope
+ *                   should auto-apply a person pill on this module.
+ *                   Defaults to false. Set true only when person is
+ *                   the primary axis (kids, medical records, todos).
+ *   dimensions    — keyed object of filter dimensions
  *
- * Dimension types (built-in, the lens knows how to render each):
+ * Built-in dimension keys (the lens has dedicated handling for these):
  *   person  — picks from /settings/family (avatars + names)
- *   status  — picks from a fixed list of values
- *   time    — picks a date range (this week / month / quarter / year / overdue / etc)
+ *   status  — fixed list under `values: [...]`
+ *   time    — date range presets (this week / month / etc.)
  *   tag     — picks from /api/v1/tags
  *
- * Each dimension has:
- *   verb    — the connective phrase ("for", "renewing", "expiring")
- *   field   — the API field name to filter on
- *   values  — (status only) the allowed values
- *   preset  — (time only) override default time presets if needed
+ * Pluggable dimension types (use any custom dim name):
+ *   { type: 'select', verb, field, values: [...] }
+ *     — single-select with a hardcoded values list
  *
- * If you add a NEW module: add an entry below. The Lens will work
- * automatically — no other code changes needed.
+ *   { type: 'api', verb, field, source: '/api/v1/…',
+ *     labelField?: 'name', valueField?: 'id' }
+ *     — single-select with values fetched from an API endpoint at
+ *       lens init. Use for category, location, room, etc. — anything
+ *       backed by a DB-loaded dropdown.
  *
- * If you change a VERB: just edit the string. Reload page, see the change.
+ *   { type: 'text', verb, field }
+ *     — free-text input. Whatever the user types becomes the filter
+ *       value. Renderer applies it however it wants (substring match,
+ *       exact match, etc.).
+ *
+ * If you add a NEW module: add an entry below. The Lens auto-renders
+ * it. If you change a VERB: just edit the string. Reload page, see it.
  *
  * If you DON'T want a dimension on a module: omit it. Picker hides it.
  */
@@ -37,11 +48,16 @@
       label: 'Subscriptions',
       plural: 'subscriptions',
       dimensions: {
-        person: { verb: 'for', field: 'owner_family_member_id' },
-        status: { verb: 'that are', field: 'status',
+        person:        { verb: 'for', field: 'owner_family_member_id' },
+        status:        { verb: 'that are', field: 'status',
           values: ['active', 'paused', 'cancelled'] },
-        time:   { verb: 'renewing', field: 'next_charge_at' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        billing_cycle: { type: 'select', verb: 'billed', field: 'billing_cycle',
+          values: ['monthly', 'annual', 'quarterly', 'weekly'] },
+        category:      { type: 'api', verb: 'in', field: 'category',
+          source: '/settings/dropdowns/subscription_category',
+          labelField: 'label', valueField: 'value' },
+        time:          { verb: 'renewing', field: 'next_billing_date' },
+        tag:           { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -49,11 +65,16 @@
       label: 'Books',
       plural: 'books',
       dimensions: {
-        person: { verb: 'belonging to', field: 'family_member_id' },
-        status: { verb: 'that are', field: 'status',
+        person:  { verb: 'belonging to', field: 'family_member_id' },
+        status:  { verb: 'that are', field: 'status',
           values: ['Currently Reading', 'Want to Read', 'Read', 'Abandoned'] },
-        time:   { verb: 'started', field: 'date_started' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        format:  { type: 'select', verb: 'in', field: 'format',
+          values: ['Hardcover', 'Paperback', 'eBook', 'Audiobook'] },
+        rating:  { type: 'select', verb: 'rated at least', field: 'rating',
+          values: ['5', '4', '3', '2', '1'] },
+        genre:   { type: 'text', verb: 'in genre', field: 'genre' },
+        time:    { verb: 'started', field: 'date_started' },
+        tag:     { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -61,10 +82,13 @@
       label: 'Perfumes',
       plural: 'perfumes',
       dimensions: {
-        person: { verb: 'belonging to', field: 'owner_family_member_id' },
-        status: { verb: 'that are', field: 'status',
+        person:    { verb: 'belonging to', field: 'owner_family_member_id' },
+        status:    { verb: 'that are', field: 'status',
           values: ['active', 'empty', 'given_away', 'lost'] },
-        tag:    { verb: 'tagged', field: 'tags' },
+        brand:     { type: 'text', verb: 'made by', field: 'brand' },
+        season:    { type: 'select', verb: 'for', field: 'season',
+          values: ['Spring', 'Summer', 'Fall', 'Winter', 'All Year'] },
+        tag:       { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -72,10 +96,12 @@
       label: 'Insurance',
       plural: 'policies',
       dimensions: {
-        status: { verb: 'that are', field: 'status',
+        policy_type: { type: 'select', verb: 'of type', field: 'policy_type',
+          values: ['Auto', 'Home', 'Life', 'Health', 'Umbrella', 'Dental', 'Vision', 'Other'] },
+        status:      { verb: 'that are', field: 'status',
           values: ['active', 'expired', 'cancelled'] },
-        time:   { verb: 'renewing', field: 'coverage_end_date' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        time:        { verb: 'renewing', field: 'coverage_end_date' },
+        tag:         { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -83,9 +109,13 @@
       label: 'Documents',
       plural: 'documents',
       dimensions: {
-        person: { verb: 'for', field: 'family_member' },
-        time:   { verb: 'expiring', field: 'expiry_date' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        person:   { verb: 'for', field: 'family_member' },
+        category: { type: 'api', verb: 'in', field: 'category',
+          source: '/settings/dropdowns/document_category',
+          labelField: 'label', valueField: 'value' },
+        issuer:   { type: 'text', verb: 'issued by', field: 'issuer' },
+        time:     { verb: 'expiring', field: 'expiry_date' },
+        tag:      { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -93,12 +123,16 @@
       label: 'Wardrobe',
       plural: 'items',
       dimensions: {
-        person: { verb: 'belonging to', field: 'wardrobe_owner_id' },
-        status: { verb: 'that are', field: 'wardrobe_status',
+        person:   { verb: 'belonging to', field: 'wardrobe_owner_id' },
+        status:   { verb: 'that are', field: 'wardrobe_status',
           values: ['active', 'archived', 'donated', 'discarded'] },
-        time:   { verb: 'last worn', field: 'last_worn',
-          preset: 'past' },  // hint: presets should be past-leaning ("this week", "this year", "never")
-        tag:    { verb: 'tagged', field: 'tags' },
+        category: { type: 'api', verb: 'in', field: 'category',
+          source: '/settings/dropdowns/wardrobe_category',
+          labelField: 'label', valueField: 'value' },
+        brand:    { type: 'text', verb: 'made by', field: 'brand' },
+        time:     { verb: 'last worn', field: 'last_worn',
+          preset: 'past' },
+        tag:      { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -107,6 +141,8 @@
       plural: 'properties',
       dimensions: {
         person: { verb: 'owned by', field: 'family_member_id' },
+        type:   { type: 'select', verb: 'of type', field: 'property_type',
+          values: ['House', 'Condo', 'Apartment', 'Land', 'Other'] },
         tag:    { verb: 'tagged', field: 'tags' },
       },
     },
@@ -116,6 +152,8 @@
       plural: 'vehicles',
       dimensions: {
         person: { verb: 'owned by', field: 'family_member_id' },
+        type:   { type: 'select', verb: 'of type', field: 'vehicle_type',
+          values: ['Car', 'Truck', 'Motorcycle', 'RV', 'Boat', 'Other'] },
         time:   { verb: 'serviced', field: 'last_service_date',
           preset: 'past' },
         tag:    { verb: 'tagged', field: 'tags' },
@@ -125,18 +163,22 @@
     medical_medications: {
       label: 'Medications',
       plural: 'medications',
+      personPrimary: true,
       dimensions: {
-        person: { verb: 'for', field: 'family_member_id' },
-        status: { verb: 'that are', field: 'status',
+        person:   { verb: 'for', field: 'family_member_id' },
+        status:   { verb: 'that are', field: 'status',
           values: ['Active', 'Discontinued', 'As Needed', 'Completed'] },
-        time:   { verb: 'started', field: 'start_date' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        form:     { type: 'select', verb: 'in form', field: 'form',
+          values: ['Tablet', 'Capsule', 'Liquid', 'Injection', 'Topical', 'Other'] },
+        time:     { verb: 'started', field: 'start_date' },
+        tag:      { verb: 'tagged', field: 'tags' },
       },
     },
 
     medical_conditions: {
       label: 'Conditions',
       plural: 'conditions',
+      personPrimary: true,
       dimensions: {
         person: { verb: 'for', field: 'family_member_id' },
         status: { verb: 'that are', field: 'status',
@@ -149,6 +191,7 @@
     medical_notes: {
       label: 'Visit notes',
       plural: 'visits',
+      personPrimary: true,
       dimensions: {
         person: { verb: 'for', field: 'family_member_id' },
         time:   { verb: 'on', field: 'visit_date' },
@@ -159,22 +202,40 @@
     todos: {
       label: 'Todos',
       plural: 'todos',
+      personPrimary: true,
       dimensions: {
-        person: { verb: 'for', field: 'family_member_id' },
-        status: { verb: 'that are', field: 'status',
-          values: ['open', 'done'] },
-        time:   { verb: 'due', field: 'due_date' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        person:   { verb: 'for', field: 'family_member_id' },
+        status:   { verb: 'that are', field: 'status',
+          values: ['open', 'in_progress', 'done', 'dismissed'] },
+        priority: { type: 'select', verb: 'with priority', field: 'priority',
+          values: ['urgent', 'high', 'medium', 'low'] },
+        category: { type: 'api', verb: 'in', field: 'category',
+          source: '/settings/dropdowns/todo_category',
+          labelField: 'label', valueField: 'value' },
+        time:     { verb: 'due', field: 'due_date' },
+        tag:      { verb: 'tagged', field: 'tags' },
       },
     },
 
     inventory: {
       label: 'Items',
       plural: 'items',
+      // Person is OPTIONAL on inventory (most items have no owner) so do
+      // NOT auto-apply device scope here. Person dim removed entirely;
+      // family-member queries on inventory aren't really useful — most
+      // items belong to the household, not an individual.
       dimensions: {
-        person:      { verb: 'owned by', field: 'family_member_id' },
+        category:    { type: 'api', verb: 'in category', field: 'category',
+          source: '/settings/dropdowns/inventory_category',
+          labelField: 'label', valueField: 'value' },
+        location:    { type: 'api', verb: 'in', field: 'location_id',
+          source: '/inventory/locations',
+          labelField: 'name', valueField: 'id' },
+        brand:       { type: 'text', verb: 'made by', field: 'brand' },
         is_business: { type: 'select', verb: 'that are', field: 'is_business',
           values: ['home items', 'business items'] },
+        has_photo:   { type: 'select', verb: 'with', field: 'has_photo',
+          values: ['photo', 'no photo'] },
         tag:         { verb: 'tagged', field: 'tags' },
       },
     },
@@ -183,21 +244,23 @@
       label: 'Certifications',
       plural: 'certifications',
       dimensions: {
-        status: { verb: 'that are', field: 'status',
+        status:        { verb: 'that are', field: 'status',
           values: ['Active', 'Expired', 'Expiring Soon', 'Pending'] },
-        time:   { verb: 'expiring', field: 'expiry_date' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        issuing_body:  { type: 'text', verb: 'issued by', field: 'issuing_body' },
+        time:          { verb: 'expiring', field: 'expiry_date' },
+        tag:           { verb: 'tagged', field: 'tags' },
       },
     },
 
     kids_activities: {
       label: 'Activities',
       plural: 'activities',
+      personPrimary: true,
       dimensions: {
-        person: { verb: 'for', field: 'family_member_id' },
-        status: { verb: 'in', field: 'category',
+        person:   { verb: 'for', field: 'family_member_id' },
+        category: { type: 'select', verb: 'in', field: 'category',
           values: ['Sports', 'Music', 'Arts', 'Academic', 'Social', 'Other'] },
-        tag:    { verb: 'tagged', field: 'tags' },
+        tag:      { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -205,9 +268,9 @@
       label: 'Resources',
       plural: 'resources',
       dimensions: {
-        status: { verb: 'of type', field: 'link_type',
+        link_type: { type: 'select', verb: 'of type', field: 'link_type',
           values: ['website', 'login', 'document', 'contact', 'other'] },
-        tag:    { verb: 'tagged', field: 'tags' },
+        tag:       { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -228,10 +291,11 @@
       label: 'Gift cards',
       plural: 'gift cards',
       dimensions: {
-        status: { verb: 'that are', field: 'status',
+        status:   { verb: 'that are', field: 'status',
           values: ['active', 'expired', 'redeemed'] },
-        time:   { verb: 'expiring', field: 'expiry_date' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        retailer: { type: 'text', verb: 'from', field: 'retailer' },
+        time:     { verb: 'expiring', field: 'expiry_date' },
+        tag:      { verb: 'tagged', field: 'tags' },
       },
     },
 
@@ -268,17 +332,15 @@
     return presetHint === 'past' ? TIME_PRESETS_PAST : TIME_PRESETS_FUTURE;
   }
 
-  // v202604.127 — Shared time-match helper. Adapters call this with a
-  // record's date string and the lens time-pill value to decide whether
-  // the record passes the time filter. Returns true if no filter active.
+  // Shared time-match helper. Adapters call this with a record's date
+  // string and the lens time-pill value to decide whether the record
+  // passes the time filter. Returns true if no filter active.
   //
   //   LENS_CONFIG.timeMatch(record.due_date, '_todoFilters.time', 'future')
   //
   // dateStr      — ISO date 'YYYY-MM-DD' or null
   // presetLabel  — the label of a time preset (e.g. 'this week') or falsy
   // presetHint   — 'past' or 'future' (matches the dim's preset hint)
-  //
-  // Behavior matches the cmp types in TIME_PRESETS_FUTURE / _PAST.
   function timeMatch(dateStr, presetLabel, presetHint) {
     if (!presetLabel) return true;
     const presets = getTimePresets(presetHint);

@@ -1492,16 +1492,19 @@ async function initInvView() {
   // filter (v202604.129 — formerly the bizToggleInline pills).
   // Location/Category/Brand filters were dropped during conversion
   // (would need dynamic-values dim support — flagged for a future drop).
+  // v202604.131 — Lens dimensions reworked to match actual inventory data:
+  // category, location (room), brand (text), has_photo, is_business, tag.
+  // Person dim was REMOVED from inventory (most items are unowned).
   function lensToInvFilters(lensFilters) {
     const out = {};
     bizFilter = 'all';  // reset; re-applied below if a pill is present
     for (const f of lensFilters) {
-      if (f.dim === 'person') out.family_member_id = f.value;
-      if (f.dim === 'tag')    out.tag = f.value;
+      if (f.dim === 'tag')      out.tags = [f.value];   // existing render uses tags array
+      if (f.dim === 'category') out.category = f.value;
+      if (f.dim === 'location') out.location_id = f.value;
+      if (f.dim === 'brand')    out.brand = String(f.value || '');
+      if (f.dim === 'has_photo') out.has_photo = f.value === 'photo' ? '1' : '0';
       if (f.dim === 'is_business') {
-        // Lens emits 'home items' or 'business items' — drive the existing
-        // global `bizFilter` so all the URL-builders (lines ~1711, ~1955,
-        // ~2136) continue to work without a per-callsite rewrite.
         bizFilter = f.value === 'business items' ? 'business'
                   : f.value === 'home items'     ? 'home'
                   :                                 'all';

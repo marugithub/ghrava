@@ -85,6 +85,40 @@
     return _tagFetchPromise;
   }
 
+  // v202604.131 — API value cache for `type: 'api'` dims.
+  // Each unique source URL is fetched once per page life. Result is the
+  // raw response (array). The dim config tells us how to read label/value.
+  const _apiValueCache = new Map();      // url -> rows[]
+  const _apiValuePromises = new Map();   // url -> in-flight Promise
+  function fetchApiValues(source) {
+    if (!source) return Promise.resolve([]);
+    if (_apiValueCache.has(source)) return Promise.resolve(_apiValueCache.get(source));
+    if (_apiValuePromises.has(source)) return _apiValuePromises.get(source);
+    if (!window.api) return Promise.resolve([]);
+    const p = window.api('GET', source)
+      .then(rows => {
+        const arr = Array.isArray(rows) ? rows : [];
+        _apiValueCache.set(source, arr);
+        return arr;
+      })
+      .catch(() => { _apiValueCache.set(source, []); return []; });
+    _apiValuePromises.set(source, p);
+    return p;
+  }
+
+  // Helper: extract a {label, value} pair from an API row using dim config.
+  // Defaults: labelField = 'label' || 'name', valueField = 'value' || 'id'.
+  // If row is a plain string, label === value === string.
+  function readApiRow(row, dcfg) {
+    if (typeof row === 'string' || typeof row === 'number') {
+      return { label: String(row), value: row };
+    }
+    const lf = dcfg.labelField || (row.label != null ? 'label' : 'name');
+    const vf = dcfg.valueField || (row.value != null ? 'value' : 'id');
+    return { label: row[lf] != null ? String(row[lf]) : String(row[vf]),
+             value: row[vf] != null ? row[vf] : row[lf] };
+  }
+
   // ── Session storage ─────────────────────────────────────────────
   function loadState() {
     try {
@@ -124,8 +158,10 @@
   // ── Suggestion building ─────────────────────────────────────────
   // Builds a flat list of all suggestions for a module — each tagged with
   // its dimension. Typing fuzzy-matches the LABEL of each.
-  function buildAllSuggestions(modCfg, family, tags) {
+  // apiValues: Map<dim, rows[]> — pre-fetched values for `type: 'api'` dims.
+  function buildAllSuggestions(modCfg, family, tags, apiValues) {
     const out = [];
+    apiValues = apiValues || new Map();
     for (const [dim, dcfg] of Object.entries(modCfg.dimensions)) {
       if (dim === 'person') {
         for (const fm of family) {
@@ -153,12 +189,20 @@
         }
       } else if (dcfg.type === 'select') {
         // v202604.127 — Generic single-select dim with custom values list.
-        // Same shape as status but allows multiple per module under custom
-        // dim names (e.g. season + occasion on wardrobe outfits).
         for (const v of (dcfg.values || [])) {
           out.push({ dim, verb: dcfg.verb, value: v, label: v });
         }
+      } else if (dcfg.type === 'api') {
+        // v202604.131 — Dynamic-values dim. Values fetched from API at init.
+        const rows = apiValues.get(dim) || [];
+        for (const row of rows) {
+          const { label, value } = readApiRow(row, dcfg);
+          if (label != null) out.push({ dim, verb: dcfg.verb, value, label });
+        }
       }
+      // type: 'text' is a special case — no pre-built suggestions; the
+      // input field itself becomes the value source. Handled in the
+      // suggestion popover renderer via a synthetic "use as filter" item.
     }
     return out;
   }
@@ -210,14 +254,21 @@
           // v202604.127 — generic select dims validate against their values list
           return (dcfg.values || []).includes(f.value);
         }
+        // v202604.131 — api / text dims accept any value; api dims will get
+        // their label backfilled after the values fetch returns.
         return true;
       });
 
-      // v202604.128 — auto-apply per-device family scope as a person pill
-      // if the module has a person dim and no person filter is already set.
+      // v202604.128 / v202604.131 — auto-apply per-device family scope
+      // as a person pill, BUT only on modules where person is the primary
+      // axis (kids, medical, todos). On modules where person is optional
+      // or rarely set (inventory, books, perfume, subscriptions, etc.),
+      // auto-applying scope returns mostly-empty lists which surprises the
+      // user. Modules opt in via `personPrimary: true` in lens-config.
       try {
         const scope = window.GH_NAV?.getScope?.();
-        if (scope && modCfg.dimensions.person && !filters.some(f => f.dim === 'person')) {
+        if (scope && modCfg.personPrimary && modCfg.dimensions.person
+            && !filters.some(f => f.dim === 'person')) {
           filters.push({
             dim:   'person',
             verb:  modCfg.dimensions.person.verb,
@@ -254,11 +305,31 @@
       this._instance = instance;
       this._render(instance);
 
-      // Lazy-fetch family + tags, then re-render to populate suggestions
-      Promise.all([fetchFamily(), fetchTags()]).then(([fam, tg]) => {
+      // Lazy-fetch family + tags + any api-dim values, then re-render.
+      const apiPromises = [];
+      const apiDims = [];
+      for (const [dim, dcfg] of Object.entries(modCfg.dimensions)) {
+        if (dcfg.type === 'api' && dcfg.source) {
+          apiDims.push(dim);
+          apiPromises.push(fetchApiValues(dcfg.source));
+        }
+      }
+      Promise.all([fetchFamily(), fetchTags(), ...apiPromises]).then((results) => {
+        const fam = results[0];
+        const tg  = results[1];
+        const apiValues = new Map();
+        apiDims.forEach((dim, i) => apiValues.set(dim, results[2 + i] || []));
         instance.family = fam;
         instance.tags = tg;
-        instance.suggestions = buildAllSuggestions(instance.modCfg, fam, tg);
+        instance.apiValues = apiValues;
+        instance.suggestions = buildAllSuggestions(instance.modCfg, fam, tg, apiValues);
+        // Backfill labels on persisted filters whose value is an id (api/person)
+        // so pills don't render with "47" instead of "Living Room".
+        for (const f of instance.state.filters) {
+          if (f.label && typeof f.label === 'string' && f.label !== String(f.value)) continue;
+          const sug = instance.suggestions.find(s => s.dim === f.dim && String(s.value) === String(f.value));
+          if (sug) f.label = sug.label;
+        }
         // Re-render only if no input is currently focused (avoid disrupting typing)
         const input = container.querySelector('.gh-lens__input');
         if (!input || document.activeElement !== input) {
@@ -538,10 +609,32 @@
         : instance.suggestions;
 
       const filtered = fuzzyMatch(instance.state.query, matched);
+
+      // v202604.131 — text-dim "use this as a filter" entries.
+      // For every text-type dim in this module, if the user has typed
+      // anything, offer a synthetic suggestion to apply that text as
+      // the filter value for that dim.
+      const textDims = [];
+      const editingDim = instance.editingPillIndex != null
+        ? instance.state.filters[instance.editingPillIndex].dim
+        : null;
+      for (const [dim, dcfg] of Object.entries(instance.modCfg.dimensions)) {
+        if (dcfg.type !== 'text') continue;
+        if (editingDim && editingDim !== dim) continue;
+        if (instance.state.query) {
+          textDims.push({
+            dim, verb: dcfg.verb,
+            value: instance.state.query,
+            label: instance.state.query,
+            _isText: true,
+          });
+        }
+      }
+
       box.innerHTML = '';
       box.style.display = 'block';
 
-      if (!filtered.length) {
+      if (!filtered.length && !textDims.length) {
         box.appendChild(el('div', { class: 'gh-lens__sugg-empty' }, 'No matches'));
         if (instance.editingPillIndex != null) {
           box.appendChild(el('button', {
@@ -556,10 +649,10 @@
       box.appendChild(el('div', { class: 'gh-lens__sugg-head' },
         instance.state.query ? `Matches "${instance.state.query}"` : 'Suggestions'));
 
-      // Items
-      const limit = Math.min(filtered.length, 8);
-      for (let i = 0; i < limit; i++) {
-        const s = filtered[i];
+      // Items — preset suggestions first, then text-dim "use as" entries
+      const allItems = [...filtered.slice(0, 8), ...textDims];
+      for (let i = 0; i < allItems.length; i++) {
+        const s = allItems[i];
         const item = el('button', {
           class: 'gh-lens__sugg-item' + (i === instance.suggestionIndex ? ' active' : ''),
           onmousedown: (e) => {
@@ -569,7 +662,8 @@
           },
         }, [
           el('span', { class: 'gh-lens__sugg-verb' }, s.verb),
-          el('span', { class: 'gh-lens__sugg-label' }, s.label),
+          el('span', { class: 'gh-lens__sugg-label' },
+            s._isText ? `"${s.label}"` : s.label),
           el('span', { class: 'gh-lens__sugg-dim' }, s.dim),
         ]);
         box.appendChild(item);
