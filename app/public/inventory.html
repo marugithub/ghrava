@@ -791,7 +791,10 @@
       <button id="bizBusiness" onclick="setBizFilter('business')" style="padding:5px 10px;border-radius:var(--r-pill);font-size:11px;font-weight:500;border:none;cursor:pointer;background:transparent;color:var(--text2);font-family:var(--sans)">Business</button>
     </span>
     <!-- GH_VIEW toolbar -->
-    <div id="invViewToolbar" style="display:flex;align-items:center"></div>
+    <div id="invViewToolbar" style="display:none"></div>
+    <div id="invLensWrap" style="padding: 12px 16px 0">
+      <div id="invLens"></div>
+    </div>
   </div>
 
   <!-- Rooms tile grid — shown in Rooms mode -->
@@ -1369,6 +1372,9 @@
 <script src="/js/lt-messages.js"></script>
 <script src="/js/lt-shared-data.js"></script>
 <script src="/attachments.js"></script>
+<!-- v202604.126 — The Lens (replaces GH_VIEW filter drawer) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <script>
 AttachmentManager.injectStyles();
 window.addEventListener('att:uploaded', () => { loadStats(); renderBrowse(); });
@@ -1483,19 +1489,26 @@ async function initInvView() {
     catOptions = cats.map(c => ({ value: c.value||c.label, label: c.label }));
   } catch(e) {}
 
-  GH_VIEW.init('invViewToolbar', 'inv', state => {
-    aiView = state.view;
-    aiCols = state.cols;
-    window._invFilters = state.filters || {};
-    window._invSort    = state.sort    || '';
-    window._invSortDir = state.sortDir || 'asc';
-    allItemsPage = 0;
-    renderBrowse();
-  }, {
-    defaultView: 'grid',
-    defaultCols: window.innerWidth >= 768 ? 4 : 2,
-    defaultColsList: 1,
-    views: ['grid','list','gallery'],
+  // v202604.126 — The Lens replaces GH_VIEW filter drawer.
+  // The hidden #invViewToolbar div above is preserved as the GH_BULK
+  // mount target (selection bar). The lens delivers grid/list/gallery
+  // view toggle, person filter, and tag filter. Location/Category/Brand
+  // filters were dropped during conversion (would need dynamic-values
+  // dim support in gh-lens.js — flagged for a future drop).
+  function lensToInvFilters(lensFilters) {
+    const out = {};
+    for (const f of lensFilters) {
+      if (f.dim === 'person') out.family_member_id = f.value;
+      if (f.dim === 'tag')    out.tag = f.value;
+    }
+    return out;
+  }
+
+  GH_LENS.init({
+    container: 'invLens',
+    moduleId:  'inventory',
+    views:     ['grid','list','gallery'],
+    defaultView: aiView,
     sortFields: [
       { key: 'name',     label: 'Name' },
       { key: 'category', label: 'Category' },
@@ -1503,13 +1516,14 @@ async function initInvView() {
       { key: 'value',    label: 'Value' },
       { key: 'created',  label: 'Date Added' },
     ],
-    filterFields: [
-      { key: 'location_id', type: 'select', label: 'Location / Room', options: locOptions },
-      { key: 'category',    type: 'select', label: 'Category',        options: catOptions },
-      { key: 'brand',       type: 'text',   label: 'Brand',           placeholder: 'e.g. Sony, Apple…' },
-      { key: 'has_photo',   type: 'toggle', label: 'Has Photo',       options: [{label:'Any',value:''},{label:'Yes',value:'1'},{label:'No',value:'0'}] },
-      { key: 'tags',        type: 'tags',   label: 'Tags' },
-    ]
+    onChange: ({ filters, view, sort, sortDir }) => {
+      if (view) aiView = view;
+      window._invFilters = lensToInvFilters(filters);
+      window._invSort    = sort    || '';
+      window._invSortDir = sortDir || 'asc';
+      allItemsPage = 0;
+      renderBrowse();
+    },
   });
   window._invFilters = {};
 
@@ -1540,6 +1554,7 @@ function setModeFilter(mode) {
   _pill('modeRooms',    mode === 'rooms');
   $('bizToggleInline').style.display   = mode === 'items' ? 'flex' : 'none';
   $('invViewToolbar').style.display    = mode === 'items' ? 'flex' : 'none';
+  const _lwrap = $('invLensWrap'); if (_lwrap) _lwrap.style.display = mode === 'items' ? 'block' : 'none';
   const ctw = $('clothingToggleWrap'); if(ctw) ctw.style.display = mode === 'items' ? '' : 'none';
   $('roomTileGrid').style.display      = mode === 'rooms' ? 'block' : 'none';
   $('allItemsContent').style.display   = mode === 'items' ? 'block' : 'none';

@@ -247,6 +247,9 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.126 — The Lens (replaces GH_VIEW filter drawer) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <div id="nav-container"></div>
 
 <div id="app" style="padding-bottom:80px">
@@ -266,6 +269,12 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
 
   <!-- Hero banner + sub-tabs — shown after a kid is selected -->
   <div id="kidSectionHeader" style="display:none"></div>
+
+  <!-- v202604.126 Lens (replaces GH_VIEW). Kept-hidden GH_VIEW div for GH_BULK compat. -->
+  <div id="kidsViewToolbar" style="display:none"></div>
+  <div id="kidsLensWrap" style="padding: 12px 16px 0; display: none">
+    <div id="kidsLens"></div>
+  </div>
 
   <!-- Single scrollable detail view — no tabs -->
   <div id="kidDetailView" style="display:none;padding-bottom:100px">
@@ -470,6 +479,7 @@ async function openKidDetail(id){
 
     // Show detail area (no tabs — single scroll)
     $('kidsSearchWrap').style.display='';
+    const _kl = $('kidsLensWrap'); if (_kl) _kl.style.display = 'block';
     $('kidDetailView').style.display='block';
     $('mainFab').style.display='none';
 
@@ -752,17 +762,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   window._kidsFilters = {};
-  GH_VIEW.init('kidsViewToolbar', 'kids', state => {
-    window._kidsFilters = state.filters || {};
-    renderActivities();
-    renderNotes();
-  }, {
-    defaultView: 'list',
-    filterFields: [
-      { key: 'category', type: 'select', label: 'Category',
-        options: [{value:'',label:'All'},{value:'Sports',label:'Sports'},{value:'Music',label:'Music'},{value:'Arts',label:'Arts'},{value:'Academic',label:'Academic'},{value:'Social',label:'Social'},{value:'Other',label:'Other'}] },
-      { key: 'tags', type: 'tags', label: 'Tags' },
-    ]
+  // v202604.126 — The Lens replaces GH_VIEW. The existing renderers
+  // already read `window._kidsFilters.category` and `.tags` — adapter
+  // populates from lens dimensions (status holds category, tag → tags).
+  GH_LENS.init({
+    container: 'kidsLens',
+    moduleId:  'kids_activities',
+    viewToolbar: false,  // kids has its own kid-strip + sub-tab UX, no view toggle
+    onChange: ({ filters }) => {
+      const out = {};
+      for (const f of filters) {
+        if (f.dim === 'person') out.person   = f.value;
+        if (f.dim === 'status') out.category = f.value;  // status repurposed
+        if (f.dim === 'tag')    out.tags     = [f.value];
+      }
+      window._kidsFilters = out;
+      renderActivities();
+      renderNotes();
+    },
   });
 });
 </script>

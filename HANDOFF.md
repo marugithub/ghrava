@@ -1,142 +1,118 @@
-# Ghrava Handoff — Session 15 (Center modals + Today page, v202604.125)
+# Ghrava Handoff — Session 16 (Lens rollout pt. 2, v202604.126)
 
 **Last updated:** May 2026
-**Status:** Shipped. Center modals + new Today page + dashboard relocated.
+**Status:** Shipped. 4 more pages on the lens.
 
 ---
 
 ## What this session built
 
-### 1. Center-of-page modals (CSS only)
-`shared.css` rewrite — both drawer systems are now centered modals instead of right-anchored slide-ins. **All 25+ modules inherit automatically; no per-module HTML edits.**
+Continuing the lens rollout with no deviation — uniform look across modules.
 
-- `.gh-drawer` (used by 2 modules: inventory, settings)
-- `.drawer-overlay` + `.drawer` (used by 15 modules: subscriptions, books, perfume, insurance, documents, medical, todos, finance, career, kids, daily-log, calendar, property, wardrobe, resources)
+### Pages newly wired (4)
+- `inventory.html` — replaces GH_VIEW with GH_LENS. Grid/list/gallery view toggle preserved. Person + tag dimensions. **Lost:** location, category, brand, has_photo filters (would need dynamic-values dim support — see "extending the lens" below).
+- `career.html` (certifications tab) — replaces GH_VIEW. Status (Active/Expired/Expiring Soon/Pending) + time + tag. Grid/list view toggle. The existing `loadCerts()` already read `_careerFilters.{status,tags}` so no renderer changes.
+- `kids.html` — replaces GH_VIEW (which was actually broken — it pointed at a non-existent `kidsViewToolbar` div). Person + status (category as Sports/Music/Arts/...) + tag. View toggle disabled (kids has its own kid-strip + sub-tab UX). Lens shows only when a kid is selected.
+- `resources.html` — replaces GH_VIEW. Status (link_type as website/login/document/...) + tag. Grid/list view toggle. **Lost:** favorite toggle (would need a custom 'toggle' dim type).
 
-**Sizing rationale (per Al's direction):**
-- Width stays `min(540px, 92vw)` — same as before, so existing field/button layouts inside drawers don't get scaled up or wrapped weirdly
-- Height `min(92vh, 920px)` with `max-height: 92vh` — close to the viewport so multi-field forms (medical, finance, etc.) remain usable without hiding submit buttons below the fold
-- Top/bottom margin ~4vh, all-corners radius 14px
-- Mobile (≤640px): goes full-screen as before, no border, no radius — unchanged behavior
+### Lens config additions
+`lens-config.js` gained 3 new module entries:
+- `career_certs` (status: cert states, time: expiring, tag)
+- `kids_activities` (person, status: category, tag)
+- `resources` (status: link_type, tag)
 
-**Removed:** the v110 desktop tri-pane layout that shrunk `#app` width when a drawer opened. Center modals don't displace content, so that media-query block is gone. Backdrop dimming kept.
+Plus the existing `inventory` entry, unchanged.
 
-### 2. Today page (`/index.html`)
-Replaces the old dashboard at the home route. The old dashboard moves to `/dashboard.html` (linked as "Stats" in the sidebar Reports section).
+### What "status repurposed" means
+The lens has 4 fixed dimensions: person / status / time / tag. Some modules need single-select filters that aren't called "status" — category (kids), link_type (resources), cert state (career). Convention adopted this session: when a module needs a single-select dim that isn't a true status field, repurpose the `status` dimension with a custom verb ("of type", "in", etc) and the appropriate `field` and `values`. The adapter maps `f.dim === 'status'` to whatever flat-filter key the renderer wants (`category`, `link_type`, `status`).
 
-**Layout:**
-- Header: dynamic date + count summary ("3 things today, 5 this week")
-- **Now** section (red dot, due ≤ 0 days)
-- **Soon** section (amber dot, due 1–7 days)
-- Pipeline footer: "12 more items in the next month"
-- **Multi-column grid** on desktop via `repeat(auto-fill, minmax(320px, 1fr))` — auto-fits 1/2/3 columns by viewport width
-- Single column on mobile (≤640px)
-
-**Snooze:** click "Snooze" button → menu pops with 1d / 7d / 30d. Optimistic UI: row fades out, list refetches.
-
-**Empty states:** "All clear ✓" if absolutely nothing pending, "Nothing needs your attention" if Now+Soon are empty but pipeline has items.
-
-### 3. New endpoint + migration
-
-**Migration 116** — `today_snoozes` table:
-- `record_kind` ('subscription' / 'document' / 'insurance' / 'todo')
-- `record_id` (id in source table)
-- `snoozed_until` (ISO date)
-- `UNIQUE(record_kind, record_id)` — re-snoozing replaces, doesn't dup
-- No CASCADE FK (record_kind is dynamic, SQLite can't express that)
-
-**`GET /api/v1/today?lookahead=30`** — single round-trip aggregator:
-- Pulls open/active records from todos, subscriptions, insurance_policies, documents
-- Filters by date columns: `due_date`, `next_billing_date`, `coverage_end_date`, `expiry_date`
-- Excludes anything currently snoozed
-- Returns `{ now: [...], soon: [...], pipeline_count: N, generated_at, lookahead }`
-- Each item: `{ module, record_id, title, subtitle, due_date, action_label, href, severity }`
-
-**`POST /api/v1/today/snooze`** — body `{ record_kind, record_id, days }` where days ∈ {1, 7, 30}. Upserts via `ON CONFLICT(record_kind, record_id) DO UPDATE`.
-
-**`DELETE /api/v1/today/snooze/:kind/:id`** — un-snooze (not currently called from UI, but available).
-
-### 4. Nav update
-- `home` module renamed "Today" (was "Home"), still points to `/index.html`
-- New `stats` module → `/dashboard.html`, added to "Reports" sidebar group next to "Reports"
+This is deliberate scope discipline — adding a generic `select` dim type would require a non-trivial gh-lens.js rewrite. See backlog.
 
 ---
 
 ## Files in this drop
 
 ```
-app/db/migrations/116_today_snoozes.sql        (new)
-app/features/today/routes.js                   (new)
-app/server.js                                  (mounts /api/v1/today)
-app/public/index.html                          (REWRITTEN — Today page)
-app/public/dashboard.html                      (NEW — moved from old index)
-app/public/nav.js                              (Today + Stats nav links)
-app/public/shared.css                          (modals)
-app/version.txt                                → 202604.125
+app/public/js/lens-config.js   (3 new module entries)
+app/public/inventory.html      (lens wired)
+app/public/career.html         (lens wired)
+app/public/kids.html           (lens wired)
+app/public/resources.html      (lens wired)
+app/version.txt                → 202604.126
 HANDOFF.md
 ```
 
-9 files. Old behavior: zip-extracted by `ghrava_deploy.ps1` then robocopy-mirrored to `Z:\ghrava\` then `docker restart ghrava`. Migration 116 runs on container restart.
+7 files. No CSS, no migrations, no server-side. Pure HTML + lens config.
 
 ---
 
-## Sandbox checks (this session)
+## Lens rollout status (after this drop)
 
-- Node syntax: server.js, today/routes.js, nav.js — all OK
-- Inline scripts: index.html (3 blocks), dashboard.html (3 blocks) — all OK
-- SQL migration: clean, additive only, no CASCADE, no BEGIN/COMMIT (matches runner expectations)
+**13 of 25 modules on the lens** (52%):
+- subscriptions, books, insurance, documents, perfume, wardrobe (items tab), property, medical, todos — from previous sessions
+- inventory, career, kids, resources — this session
 
----
+**Modules still on old toolbars / no toolbar (12):**
+- wardrobe outfits + insights tabs (items tab is lens'd, but outfits has season+occasion multi-select that needs gh-lens.js extension; insights is just a view toggle)
+- finance — multi-tab, no GH_VIEW currently. Likely needs lens per tab.
+- daily-log — chronological log, no GH_VIEW currently. Lens may not fit this UX.
+- hsa — multi-tab, no GH_VIEW. Possibly fits.
+- notifications — inbox-style, no GH_VIEW. Probably skip.
+- calendar — date UI, doesn't fit.
+- search — global search UI, doesn't fit.
+- dashboard (now /stats) — aggregator, doesn't fit.
+- family-snapshot — settings page, doesn't fit.
+- a few smaller pages
 
-## Known scope gaps / things to watch on first deploy
-
-1. **First page load after migration** — `today_snoozes` table is empty, so the snoozeMap query returns nothing. Today page should populate immediately from the 4 source tables. If something looks off, check `docker logs ghrava --tail 50`.
-
-2. **Subscriptions column** — used `next_billing_date` (which is the actual schema column from migration 109b). The lens config in `lens-config.js` references a different name (`next_charge_at`) — unrelated, that was the lens issue from last session and doesn't break anything because nothing actually filters by lens time yet.
-
-3. **Insurance "policy_type"** — used as the title prefix ("Auto renews"). If your policies have empty policy_type, it'll show "Insurance renews". Not a bug, just a fallback.
-
-4. **Documents `is_active`** — filter uses `COALESCE(is_active,1) = 1`. If you have soft-deleted docs with `is_active=0`, they're excluded as expected.
-
-5. **Drawer field layouts** — the move from right-side full-height to center 92vh shouldn't change any field widths (kept 540px), but if any specific drawer has custom CSS that assumed `height: 100vh`, it might overflow or under-fill at 92vh. Worst-case is internal scrolling kicking in (good) or content centering oddly (visible but cosmetic).
-
-6. **Snooze undo** — there's no UI to un-snooze yet. The DELETE endpoint exists. If you snooze something by mistake, run:
-   ```sql
-   DELETE FROM today_snoozes WHERE record_kind='todo' AND record_id=42;
-   ```
-   Or wait for the snooze to expire. Add an undo affordance in a future drop.
+So the realistic remaining target list is: **wardrobe outfits/insights, finance tabs, hsa tabs**. Three multi-tab pages, all of which need either gh-lens.js extension (multi-select dims) or per-tab discipline.
 
 ---
 
-## Carrying forward
+## Extending the lens — backlog item
 
-### Still on the lens
-- **Time pill is decorative** on all 9 lens-wired pages — captured by adapter, not applied. Across-the-board pass needed.
-- **Todos lost priority/category filter dims** — add them back to lens-config.js? Or accept that priority is now group-only (visual)?
+To finish the rollout uniformly, gh-lens.js needs a generic `select` dimension type. Sketch:
 
-### Today page polish
-- Snooze undo button (toast: "Snoozed for 7 days · Undo")
-- Optimistic count update before the refetch lands
-- Per-module color accents on rows (currently just severity dot)
-- Header greeting variation by time of day ("Good morning, Al")
-- Today page polling — 30s? 60s? Or just on focus?
+```js
+// lens-config.js entry
+wardrobe_outfits: {
+  label: 'Outfits', plural: 'outfits',
+  dimensions: {
+    person:   { verb: 'for', field: 'family_member_id' },
+    season:   { type: 'select', verb: 'in', field: 'season',
+                values: ['Spring','Summer','Fall','Winter'] },
+    occasion: { type: 'select', verb: 'for', field: 'occasion',
+                values: ['Casual','School','Work','Formal','Evening'] },
+    tag:      { verb: 'tagged', field: 'tags' },
+  },
+}
+```
 
-### Dashboard / Stats
-- The relocated dashboard.html still works as-is. Worth a pass to remove anything that was duplicated from "needs attention" since Today page handles that better now.
+Where `gh-lens.js` recognizes `dcfg.type === 'select'` and treats it the same as status (custom values list) but allows multiple per module. About a 30-line patch in `buildAllSuggestions`, the rendering switch, and the state filter logic.
 
-### Open correction
-- ✓ Center modals — done this drop
-- Still TODO: any modal-specific niceties (Esc to close, focus-trap, body scroll-lock) — most modules already wire Esc; no global pattern needed yet.
+Once that lands, finishing the rollout to wardrobe outfits/insights, finance tabs, and hsa tabs becomes mechanical.
 
 ---
 
-## Backlog (priority order, unchanged)
+## What's NOT in this drop (intentional)
 
-1. **Per-device family filter** — first-time prompt "who is this device for?", localStorage scope.
-2. **Photo-first wardrobe entry** — drag/drop draft creation.
-3. **Amazon orders → inventory via Gmail** — regex parsing, no AI cost.
-4. **Calendar sync** — Google Calendar read-only.
-5. **Browser extension** — defer indefinitely.
+- Wardrobe outfits/insights tabs — needs the dim extension above
+- Finance, hsa, daily-log, calendar, notifications — either need extension or don't fit
+- The "time pill is decorative" gap — still inherited
+- The Today page snooze undo button — still TODO
+- Center-modal niceties (Esc to close, focus trap) — most modules already wire Esc
+
+---
+
+## Carrying forward (backlog, priority order)
+
+1. **Generic `select` dim type in gh-lens.js** — unblocks wardrobe outfits, finance, hsa
+2. **Across-the-board time-filter pass** — make the time pill actually filter on all 13 wired pages
+3. **Snooze undo on Today page** — toast with "Undo" button, calls DELETE /api/v1/today/snooze/...
+4. **Per-device family filter** — first-time prompt, localStorage scope
+5. **Photo-first wardrobe entry**
+6. **Amazon orders → inventory via Gmail**
+7. **Calendar sync** (read-only)
+8. **Browser extension** — defer indefinitely
 
 ### REJECTED
 - Email receipt tracking (duplicates bank data)
@@ -146,7 +122,7 @@ HANDOFF.md
 
 ## Working style for next chat
 
-- Discuss design BEFORE code, prototype FIRST (visualize widget)
+- Discuss design BEFORE code, prototype FIRST when needed
 - Always check existing infrastructure before building new
 - Verify DB schema before treating as field gap
 - Centralized/shared code preferred

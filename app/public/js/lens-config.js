@@ -177,6 +177,38 @@
       },
     },
 
+    career_certs: {
+      label: 'Certifications',
+      plural: 'certifications',
+      dimensions: {
+        status: { verb: 'that are', field: 'status',
+          values: ['Active', 'Expired', 'Expiring Soon', 'Pending'] },
+        time:   { verb: 'expiring', field: 'expiry_date' },
+        tag:    { verb: 'tagged', field: 'tags' },
+      },
+    },
+
+    kids_activities: {
+      label: 'Activities',
+      plural: 'activities',
+      dimensions: {
+        person: { verb: 'for', field: 'family_member_id' },
+        status: { verb: 'in', field: 'category',
+          values: ['Sports', 'Music', 'Arts', 'Academic', 'Social', 'Other'] },
+        tag:    { verb: 'tagged', field: 'tags' },
+      },
+    },
+
+    resources: {
+      label: 'Resources',
+      plural: 'resources',
+      dimensions: {
+        status: { verb: 'of type', field: 'link_type',
+          values: ['website', 'login', 'document', 'contact', 'other'] },
+        tag:    { verb: 'tagged', field: 'tags' },
+      },
+    },
+
   };
 
   // Time presets — shared across all modules. The `preset` hint on a
