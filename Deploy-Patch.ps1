@@ -1,95 +1,51 @@
-# Deploy-Patch.ps1 — Ghrava v202604.122
-# Cumulative cards-system iteration since v118 baseline.
+# Deploy-Patch.ps1 — Ghrava v202604.123
+# Iteration since v122 baseline.
 #
-# What's new since v118:
+# CONFIG NAMING CLEANUP
+#   - Renamed batch3 medical configs to medical_conditions_rich /
+#     medical_visits_rich to avoid registration clash with the existing
+#     compact-mode configs in gh-card-config-medical.js. Both coexist now,
+#     for different use cases (compact for medical.html dense lists, rich
+#     for future cross-module dashboards).
 #
-# RENDERER + INFRASTRUCTURE
-#   - Per-record render error catching: bad records show "tap to open"
-#     placeholder, the rest of the list keeps rendering
-#   - Defensive null guards on every config callback (crossModule,
-#     statusRowChips, linkedEntities, compactMeta, instructionIcons)
-#   - Photo fallback: img with onerror falls back to brand-color block
-#     when attachment 404s — every card always shows *something*
-#   - Container className/style reset before card mount so leftover
-#     legacy grid styles don't conflict with .gh-card-grid
+# SUBSCRIPTIONS — RENEWAL-DUE ALERT
+#   - Cards now fire a "Charges in N days" alert when next_charge_at is
+#     within 3 days. Lets users cancel before next billing.
+#   - "Charges today" / "Charges tomorrow" / "Charges in 3 days" with
+#     red urgency on day-0 and day-1.
+#   - Existing "price increased" alert still takes priority when both apply.
 #
-# KEYBOARD ACCESSIBILITY
-#   - tabindex="0", role="button", aria-label on clickable cards
-#   - Enter/Space activate the click handler
-#   - :focus-visible teal outline ring
-#
-# SAVED-VIEW BUG FIX
-#   - 5 pages were hardcoding initial view to grid/list, ignoring
-#     localStorage. After picking card last session, the page rendered
-#     legacy on next load until user clicked another button.
-#   - Fixed: subscriptions, perfume, insurance, wardrobe, property
-#     now read from localStorage at module-init time, matching what
-#     inventory/books/documents already did.
-#
-# MOUNT HELPER SMARTER
-#   - Lazy-fetches /settings/family on first card mount and caches as
-#     window.familyMembers — was finding helper returning null because
-#     no page actually populated that global. Avatars now appear.
-#   - Re-renders once when family data lands (no avatars-flicker for
-#     subsequent loads in same session).
-#
-# BACKEND CROSS-MODULE DATA
-#   - finance/accounts: linked_subs_count + balance_change_30d (v117)
-#   - medical/conditions: active_meds_count + related_visits_count via
-#     patient/family_member matching
-#   - perfume/: primary_photo_id + first_photo_id subqueries
-#   - documents/: attachment_count subquery
-#   - vehicle cards: surface last_service / upcoming_service from existing
-#     API objects (no schema change)
-#   - books cards: progress bar lights up using existing pages_total /
-#     pages_read columns (migration 049, no new migration needed)
-#   - wardrobe cards: cost_per_wear computed from purchase_price / times_worn,
-#     stale-item alert (180+ days) fires correctly with last_worn data
-#
-# CSS POLISH
-#   - Long titles clamped to 2 lines (-webkit-line-clamp)
-#   - Subtitle/meta single-line ellipsis
-#   - Card grid capped at minmax(280px, 360px) so wide screens don't
-#     stretch cards too thin
-#   - Error placeholder card has its own minimal styling
+# SUBSCRIPTIONS — BETTER BRAND INITIALS
+#   - linkedEntities now uses GH_CARD_SHARED.brandInitialsFor for cleaner
+#     fallbacks (NF/SP for Netflix/Spotify) instead of raw .slice(0,2).
 #
 # TESTS
-#   - 10 new resilience tests added to E2E suite (per-record errors,
-#     keyboard activation, accessibility attributes, photo fallback,
-#     className reset, null-tolerance)
-#   - Page-wiring tests now also verify the card button is in the toolbar
+#   - Added renewal-tomorrow alert test
+#   - Added localStorage persistence test (view choice survives reload)
+#   - Fixed flaky healthy-subscription test (was hardcoded date)
 #
-# DOCS
-#   - SCHEMA_CLEANUP_TODO.md: catalogs CASCADE rule violations across
-#     existing schema for future cleanup discussion
-#   - CARD_FIELD_GAPS.md updated to reflect what's now solved vs what
-#     remains schema-blocked
+# All sandbox checks green: 17/17 configs, 8/8 mount, 17/17 brands,
+# 10/10 resilience.
 
 $ErrorActionPreference = 'Stop'
 $NasPath   = 'Z:\ghrava'
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 $PatchFiles = @(
-    # Renderer + shared infra
     'app\public\js\gh-card.js',
     'app\public\js\gh-card-shared.js',
     'app\public\js\gh-card-brands.js',
     'app\public\js\gh-card-mount.js',
-    # Module configs (unchanged from v118 but bundled for completeness)
     'app\public\js\gh-card-configs-batch1.js',
     'app\public\js\gh-card-configs-batch2.js',
     'app\public\js\gh-card-configs-batch3.js',
-    # GH_VIEW now renders 3rd "card" button when views: includes 'card'
     'app\public\js\lt-core.js',
-    # CSS additions: title clamping, focus ring, error placeholder, grid cap
     'app\public\shared.css',
-    # Body-icon SVGs for medical conditions + visit cards
     'app\public\assets\icons\phosphor\duotone\heart-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\brain-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\stethoscope-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\calendar-duotone.svg',
     'app\public\assets\icons\phosphor\duotone\note-pencil-duotone.svg',
-    # Pages wired with 3-view toggle (saved-view bug fixed)
     'app\public\subscriptions.html',
     'app\public\books.html',
     'app\public\perfume.html',
@@ -97,30 +53,25 @@ $PatchFiles = @(
     'app\public\documents.html',
     'app\public\wardrobe.html',
     'app\public\property.html',
-    # Pages with v2 references cleaned up (toolbar deferred)
     'app\public\finance.html',
     'app\public\career.html',
-    # Backend
     'app\features\finance\routes.js',
     'app\features\medical\routes.js',
     'app\features\perfume\routes.js',
     'app\features\documents\routes.js',
     'app\features\property\routes.js',
     'app\server.js',
-    # Test infra
     'tests\ghrava-e2e.spec.js',
     'tests\run-tests.ps1',
-    # Specs
     'CARDS_FINAL.md',
     'TRANSACTION_LINKING_SPEC.md',
     'CARD_FIELD_GAPS.md',
     'SCHEMA_CLEANUP_TODO.md',
-    # Version
     'app\version.txt'
 )
 
 Write-Host ''
-Write-Host '  Ghrava Patch Deploy - v202604.122' -ForegroundColor Cyan
+Write-Host '  Ghrava Patch Deploy - v202604.123' -ForegroundColor Cyan
 Write-Host '  -----------------------------------------' -ForegroundColor DarkGray
 Write-Host "  Source : $ScriptDir" -ForegroundColor DarkGray
 Write-Host "  Target : $NasPath"   -ForegroundColor DarkGray
@@ -159,14 +110,9 @@ try {
     Write-Host "  docker restart failed: $_" -ForegroundColor Red
 }
 Write-Host ''
-Write-Host '  v122 deployed.' -ForegroundColor Green
+Write-Host '  v123 deployed.' -ForegroundColor Green
 Write-Host ''
-Write-Host '  Pages with 3-view toolbar (grid / list / card):' -ForegroundColor Cyan
-Write-Host '    /subscriptions.html  /books.html  /perfume.html'  -ForegroundColor White
-Write-Host '    /insurance.html  /documents.html  /wardrobe.html  /property.html' -ForegroundColor White
-Write-Host ''
-Write-Host '  Cards remember your last view choice per module via localStorage.' -ForegroundColor White
-Write-Host '  Card view now: keyboard accessible, photo-fallback resilient,' -ForegroundColor White
-Write-Host '  per-record error tolerant, family-data lazy-loaded.' -ForegroundColor White
+Write-Host '  New: subscriptions card fires renewal alert when' -ForegroundColor White
+Write-Host '       charge is within 3 days. Lets you cancel before billing.' -ForegroundColor White
 Write-Host ''
 Read-Host 'Press Enter to close'

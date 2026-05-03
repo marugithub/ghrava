@@ -75,7 +75,11 @@
   // ════════════════════════════════════════════════════════════════
   // MEDICAL — CONDITIONS
   // ════════════════════════════════════════════════════════════════
-  GH_CARD.register('medical_conditions', {
+  // NOTE: This is a "rich" full-mode card variant of medical conditions,
+  // intended for dashboard or cross-module use. The medical.html page uses
+  // a different compact-mode config in /js/gh-card-config-medical.js.
+  // Distinct module IDs to prevent registration clash.
+  GH_CARD.register('medical_conditions_rich', {
     mode: 'full',
 
     statusDot: (r) => {
@@ -166,7 +170,9 @@
   // ════════════════════════════════════════════════════════════════
   // MEDICAL — VISIT NOTES
   // ════════════════════════════════════════════════════════════════
-  GH_CARD.register('medical_visits', {
+  // Same rationale as medical_conditions_rich — distinct ID from the
+  // compact medical_notes config in gh-card-config-medical.js.
+  GH_CARD.register('medical_visits_rich', {
     mode: 'full',
 
     statusDot: (r) => {
@@ -353,5 +359,5 @@
     },
   });
 
-  console.log('[GH_CARD] batch3 configs registered: medical_conditions, medical_visits, daily_log_entries, calendar_events');
+  console.log('[GH_CARD] batch3 configs registered: medical_conditions_rich, medical_visits_rich, daily_log_entries, calendar_events');
 })();

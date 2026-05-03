@@ -273,6 +273,19 @@
           subTextMono: r.account_id ? `Acct# ${r.account_id}` : null,
         };
       }
+      // Renewal-due alert. Useful for users who want to cancel before the
+      // next charge hits — fires within 3 days of next_charge_at.
+      if (r.next_charge_at) {
+        const days = S.daysFromToday(r.next_charge_at);
+        if (days != null && days >= 0 && days <= 3) {
+          return {
+            text: days === 0 ? 'Charges today' : days === 1 ? 'Charges tomorrow' : `Charges in ${days} days`,
+            metaText: r.cost ? `${S.money(r.cost)} · ${r.cycle || 'monthly'}` : null,
+            actionLabel: 'Cancel before charge',
+            tone: days <= 1 ? 'bad' : 'warn',
+          };
+        }
+      }
       return null;
     },
 
@@ -283,12 +296,16 @@
         if (fm) ents.push(fm);
       }
       if (r.brand_color) {
-        ents.push(S.brandEntity(r.service_name, r.brand_color,
-          (r.service_name || '?').slice(0, 2).toUpperCase()));
+        const initials = S.brandInitialsFor
+          ? S.brandInitialsFor(r.service_name || r.brand_wordmark || '')
+          : (r.service_name || '?').slice(0, 2).toUpperCase();
+        ents.push(S.brandEntity(r.service_name || r.brand_wordmark || '', r.brand_color, initials));
       }
       if (r.paying_account_brand) {
-        ents.push(S.brandEntity(r.paying_account_brand, r.paying_account_color || '#0a4abf',
-          (r.paying_account_brand || '?').slice(0, 3).toUpperCase()));
+        const acctInitials = S.brandInitialsFor
+          ? S.brandInitialsFor(r.paying_account_brand)
+          : (r.paying_account_brand || '?').slice(0, 3).toUpperCase();
+        ents.push(S.brandEntity(r.paying_account_brand, r.paying_account_color || '#0a4abf', acctInitials));
       }
       return ents;
     },

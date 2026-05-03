@@ -805,7 +805,7 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
         // batch2
         'wardrobe', 'perfumes', 'properties', 'documents', 'insurance_policies', 'career_jobs',
         // batch3
-        'medical_conditions', 'medical_visits', 'daily_log_entries', 'calendar_events',
+        'medical_conditions_rich', 'medical_visits_rich', 'daily_log_entries', 'calendar_events',
       ];
       const results = {};
       for (const id of ids) {
@@ -872,13 +872,31 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
 
   test('subscriptions — healthy stable price renders no alert', async ({ page }) => {
     await loadCardSystem(page);
+    // Use a date 30+ days out so we don't trip the "renews soon" alert
+    const farFuture = new Date(); farFuture.setDate(farFuture.getDate() + 45);
     await renderAndCheck(page, 'subscriptions', {
       id: 2, service_name: 'Spotify', plan_name: 'Family · 6 accounts',
       brand_color: '#1DB954', brand_wordmark: 'Spotify',
-      next_charge_at: '2026-06-14',
+      next_charge_at: farFuture.toISOString().slice(0, 10),
       annual_cost: 203.88, last_3_charges_total: 50.97, active_since: '2021-03-01',
       price_increased_recently: false, owner_family_member_id: 1,
     }, { hasAlert: false });
+  });
+
+  test('subscriptions — renews tomorrow triggers cancel-now alert', async ({ page }) => {
+    await loadCardSystem(page);
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    const html = await page.evaluate((nextCharge) => {
+      const node = window.GH_CARD.render('subscriptions', {
+        id: 99, service_name: 'Disney+', plan_name: 'Standard',
+        brand_color: '#0a3d92', cost: 7.99, cycle: 'monthly',
+        next_charge_at: nextCharge,
+      });
+      return node ? node.outerHTML : null;
+    }, tomorrow.toISOString().slice(0, 10));
+    expect(html).not.toBeNull();
+    expect(/Charges tomorrow/.test(html), 'should display "Charges tomorrow"').toBe(true);
+    expect(/gh-card__alert/.test(html), 'should render alert zone').toBe(true);
   });
 
   test('finance_accounts — low balance triggers alert', async ({ page }) => {
@@ -1013,10 +1031,10 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
   });
 
   // ── Batch 3 ────────────────────────────────────────────────────
-  test('medical_conditions — checkup overdue triggers alert', async ({ page }) => {
+  test('medical_conditions_rich — checkup overdue triggers alert', async ({ page }) => {
     await loadCardSystem(page);
     const past = new Date(); past.setDate(past.getDate() - 20);
-    await renderAndCheck(page, 'medical_conditions', {
+    await renderAndCheck(page, 'medical_conditions_rich', {
       id: 1, condition_name: 'Hypertension', status: 'Active',
       severity: 'Mild',
       start_date: '2022-06-01',
@@ -1027,10 +1045,10 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     }, { hasAlert: true });
   });
 
-  test('medical_visits — follow-up needed triggers alert', async ({ page }) => {
+  test('medical_visits_rich — follow-up needed triggers alert', async ({ page }) => {
     await loadCardSystem(page);
     const soon = new Date(); soon.setDate(soon.getDate() + 7);
-    await renderAndCheck(page, 'medical_visits', {
+    await renderAndCheck(page, 'medical_visits_rich', {
       id: 1, physician_name: 'Dr. Patel', specialty: 'Cardiology',
       visit_type: 'Follow-up', visit_date: '2026-04-15',
       follow_up_needed: true,
@@ -1278,6 +1296,43 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     expect(result.lastCallbackView, 'callback fired with view=card').toBe('card');
     expect(result.cardActive, 'card button has active class').toBe(true);
     expect(result.gridActive, 'grid button no longer active').toBe(false);
+  });
+
+  test('GH_VIEW — view choice persists in localStorage and is read on next init', async ({ page }) => {
+    await page.goto(`${BASE}/index.html`, { waitUntil: 'load' });
+    await page.waitForFunction(() => window.GH_VIEW, { timeout: 4000 });
+    // Use a randomized prefix so tests are independent. Tear down at end.
+    const prefix = 'tpersist' + Math.random().toString(36).slice(2, 7);
+    const result = await page.evaluate((pfx) => {
+      const div = document.createElement('div');
+      div.id = 'viewToolbarPersist1';
+      document.body.appendChild(div);
+      // First init — pick card
+      window.GH_VIEW.init(div.id, pfx, () => {}, {
+        views: ['grid','list','card'], defaultView: 'grid',
+      });
+      div.querySelector(`#${pfx}-vcard`).click();
+      const savedView = localStorage.getItem(pfx + '_view');
+
+      // Tear down + simulate page reload by re-initing into a new container
+      div.remove();
+      const div2 = document.createElement('div');
+      div2.id = 'viewToolbarPersist2';
+      document.body.appendChild(div2);
+      window.GH_VIEW.init(div2.id, pfx, () => {}, {
+        views: ['grid','list','card'], defaultView: 'grid',
+      });
+      const btnAfterReload = div2.querySelector(`#${pfx}-vcard`);
+      const cardActiveAfter = btnAfterReload && btnAfterReload.classList.contains('active');
+
+      // Cleanup
+      localStorage.removeItem(pfx + '_view');
+      div2.remove();
+
+      return { savedView, cardActiveAfter };
+    }, prefix);
+    expect(result.savedView, 'card choice should persist to localStorage').toBe('card');
+    expect(result.cardActiveAfter, 'card button should be pre-selected after re-init').toBe(true);
   });
 
   // ─────────────────────────────────────────────────────────────
