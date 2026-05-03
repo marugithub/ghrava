@@ -244,6 +244,11 @@
       // Person is OPTIONAL on inventory (most items have no owner) so do
       // NOT auto-apply device scope here. Person dim removed entirely.
       dimensions: {
+        // v202604.134 — All Items / Rooms toggle moved into the lens.
+        // Adding "grouped by room" pill flips to room-tile mode; clearing
+        // the pill (or never adding it) = flat items mode (default).
+        view:        { type: 'select', verb: '', field: '_inv_view',
+          values: ['grouped by room'] },
         name:        { type: 'text', verb: 'named', field: 'name' },
         category:    { type: 'api', verb: 'in category', field: 'category',
           source: '/settings/dropdowns/inventory_category',

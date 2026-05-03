@@ -772,20 +772,15 @@
 
 <!-- Browse view -->
 <div id="browseView">
-  <!-- Toolbar — single row. Biz filter (Home/Business) moved into the lens
-       as a select dim so the lens recovers ~3 pills of width. On phone the
-       row wraps; lens drops below the mode toggle naturally. -->
+  <!-- Toolbar — single row. v202604.134: All Items/Rooms toggle moved
+       INTO the lens as a 'grouped by room' pill. Clothing icon kept
+       inline. Only the lens spans the full row width now. -->
   <div style="display:flex;gap:8px;padding:12px 16px 0;align-items:center;flex-wrap:wrap">
-    <!-- Mode: All Items / Rooms -->
-    <div style="display:flex;gap:2px;background:var(--bg3);border-radius:var(--r-pill);padding:2px;border:1px solid var(--border)">
-      <button id="modeAllItems" onclick="setModeFilter('items')" style="padding:5px 14px;border-radius:var(--r-pill);font-size:12px;font-weight:600;border:none;cursor:pointer;background:var(--accent);color:#fff;font-family:var(--sans)">All Items</button>
-      <button id="modeRooms"    onclick="setModeFilter('rooms')" style="padding:5px 14px;border-radius:var(--r-pill);font-size:12px;font-weight:500;border:none;cursor:pointer;background:transparent;color:var(--text2);font-family:var(--sans)">Rooms</button>
-    </div>
     <!-- Clothing toggle (kept inline; not folded into lens per design call) -->
     <span id="clothingToggleWrap">
       <button id="clothingToggleBtn" onclick="toggleClothing()" style="font-size:11px;padding:5px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer;font-family:var(--sans)" title="Clothing hidden">🧥</button>
     </span>
-    <!-- Lens — takes remaining row width -->
+    <!-- Lens — full row width minus the clothing icon -->
     <div id="invLensWrap" style="flex:1;min-width:280px">
       <div id="invLens"></div>
     </div>
@@ -1498,6 +1493,7 @@ async function initInvView() {
   function lensToInvFilters(lensFilters) {
     const out = {};
     bizFilter = 'all';  // reset; re-applied below if a pill is present
+    let wantRooms = false;
     for (const f of lensFilters) {
       if (f.dim === 'tag')      out.tags = [f.value];   // existing render uses tags array
       if (f.dim === 'name')     out.name = f.value;
@@ -1510,6 +1506,15 @@ async function initInvView() {
                   : f.value === 'home items'     ? 'home'
                   :                                 'all';
       }
+      if (f.dim === 'view' && f.value === 'grouped by room') {
+        wantRooms = true;
+      }
+    }
+    // v202604.134 — flip page mode based on the view dim. Done here in the
+    // adapter so any pill add/remove triggers the mode switch.
+    const desired = wantRooms ? 'rooms' : 'items';
+    if (typeof invMode !== 'undefined' && invMode !== desired) {
+      setModeFilter(desired);
     }
     return out;
   }
@@ -1560,11 +1565,12 @@ function setModeFilter(mode) {
     el.style.color = on ? '#fff' : 'var(--text2)';
     el.style.fontWeight = on ? '600' : '500';
   };
+  // v202604.134 — modeAllItems/modeRooms pills removed; null-safe still.
   _pill('modeAllItems', mode === 'items');
   _pill('modeRooms',    mode === 'rooms');
   const _bzt = $('bizToggleInline'); if (_bzt) _bzt.style.display = mode === 'items' ? 'flex' : 'none';
-  $('invViewToolbar').style.display    = mode === 'items' ? 'flex' : 'none';
-  const _lwrap = $('invLensWrap'); if (_lwrap) _lwrap.style.display = mode === 'items' ? 'block' : 'none';
+  const _ivt = $('invViewToolbar'); if (_ivt) _ivt.style.display = mode === 'items' ? 'flex' : 'none';
+  // Lens stays visible in both modes — the 'grouped by room' pill IS what flips them.
   const ctw = $('clothingToggleWrap'); if(ctw) ctw.style.display = mode === 'items' ? '' : 'none';
   $('roomTileGrid').style.display      = mode === 'rooms' ? 'block' : 'none';
   $('allItemsContent').style.display   = mode === 'items' ? 'block' : 'none';
