@@ -334,6 +334,15 @@ function renderDocs() {
   if (_docFilters.expiring && window.LENS_CONFIG?.timeMatch) {
     docs = docs.filter(d => window.LENS_CONFIG.timeMatch(d.expiry_date, _docFilters.expiring, 'future'));
   }
+  // v202604.133 — title + issuer text filters
+  if (_docFilters.title) {
+    const q = String(_docFilters.title).toLowerCase();
+    docs = docs.filter(d => (d.title||'').toLowerCase().includes(q));
+  }
+  if (_docFilters.issuer) {
+    const q = String(_docFilters.issuer).toLowerCase();
+    docs = docs.filter(d => (d.issuer||'').toLowerCase().includes(q));
+  }
 
   if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(docs.length);
 
@@ -584,9 +593,12 @@ document.addEventListener('DOMContentLoaded', () => {
   function lensToDocFilters(lensFilters) {
     const out = {};
     for (const f of lensFilters) {
-      if (f.dim === 'person') out.person   = f.value;
-      if (f.dim === 'time')   out.expiring = f.value;
-      if (f.dim === 'tag')    out.tag      = f.value;
+      if (f.dim === 'person')   out.person   = f.value;
+      if (f.dim === 'time')     out.expiring = f.value;
+      if (f.dim === 'tag')      out.tag      = f.value;
+      if (f.dim === 'title')    out.title    = f.value;
+      if (f.dim === 'category') out.category = f.value;
+      if (f.dim === 'issuer')   out.issuer   = f.value;
     }
     return out;
   }

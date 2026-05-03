@@ -845,6 +845,24 @@ async function renderNotes() {
         if (window._medFilters?.person != null) {
           rows = rows.filter(r => String(r.family_member_id) === String(window._medFilters.person));
         }
+        // v202604.133 — name (meds + cond), provider (notes), form (meds), time
+        if (window._medFilters?.name) {
+          const q = String(window._medFilters.name).toLowerCase();
+          rows = rows.filter(r => (r.name||'').toLowerCase().includes(q));
+        }
+        if (window._medFilters?.provider) {
+          const q = String(window._medFilters.provider).toLowerCase();
+          rows = rows.filter(r => (r.provider||'').toLowerCase().includes(q));
+        }
+        if (window._medFilters?.form) {
+          rows = rows.filter(r => (r.form||'').toLowerCase() === String(window._medFilters.form).toLowerCase());
+        }
+        if (window._medFilters?.time && window.LENS_CONFIG?.timeMatch) {
+          // Each subview uses a different date column — try all reasonable ones
+          rows = rows.filter(r => window.LENS_CONFIG.timeMatch(
+            r.start_date || r.visit_date || r.diagnosed_date,
+            window._medFilters.time, 'past'));
+        }
         if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
         if (!rows.length) {
           area.innerHTML = window.emptyState(...window.GH_EMPTY[emptyKey]);
@@ -1120,9 +1138,14 @@ async function _medBoot() {
       onChange: ({ filters }) => {
         const f = {};
         for (const flt of filters) {
-          if (flt.dim === 'person') f.person = flt.value;
-          if (flt.dim === 'status') f.status = flt.value;
-          if (flt.dim === 'tag')    f.tag    = flt.value;
+          if (flt.dim === 'person')   f.person   = flt.value;
+          if (flt.dim === 'status')   f.status   = flt.value;
+          if (flt.dim === 'tag')      f.tag      = flt.value;
+          // v202604.133 — text/select dims
+          if (flt.dim === 'name')     f.name     = flt.value;     // meds + conditions
+          if (flt.dim === 'provider') f.provider = flt.value;     // notes
+          if (flt.dim === 'form')     f.form     = flt.value;     // meds
+          if (flt.dim === 'time')     f.time     = flt.value;     // any
         }
         window._medFilters = f;
         renderCurrentView();

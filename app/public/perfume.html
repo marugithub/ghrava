@@ -404,6 +404,21 @@ async function load() {
     if (_perfLensFilters && _perfLensFilters.tag) {
       rows = rows.filter(r => (r.tags || []).includes(_perfLensFilters.tag));
     }
+    // v202604.133 — name + brand text filters, concentration + season select
+    if (_perfLensFilters && _perfLensFilters.name) {
+      const q = String(_perfLensFilters.name).toLowerCase();
+      rows = rows.filter(r => (r.name||'').toLowerCase().includes(q));
+    }
+    if (_perfLensFilters && _perfLensFilters.brand) {
+      const q = String(_perfLensFilters.brand).toLowerCase();
+      rows = rows.filter(r => (r.brand||'').toLowerCase().includes(q));
+    }
+    if (_perfLensFilters && _perfLensFilters.concentration) {
+      rows = rows.filter(r => (r.concentration||'').toLowerCase() === String(_perfLensFilters.concentration).toLowerCase());
+    }
+    if (_perfLensFilters && _perfLensFilters.season) {
+      rows = rows.filter(r => (r.season||'').toLowerCase() === String(_perfLensFilters.season).toLowerCase());
+    }
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
 
     // Card view: render via GH_CARD when user picks "card" in the toolbar.
@@ -482,9 +497,13 @@ document.getElementById('perfSearch').addEventListener('input', load);
 function lensToPerfFilters(lensFilters) {
   const out = {};
   for (const f of lensFilters) {
-    if (f.dim === 'status') out.status = f.value;
-    if (f.dim === 'person') out.owner  = f.value;
-    if (f.dim === 'tag')    out.tag    = f.value;
+    if (f.dim === 'status')        out.status        = f.value;
+    if (f.dim === 'person')        out.owner         = f.value;
+    if (f.dim === 'tag')           out.tag           = f.value;
+    if (f.dim === 'name')          out.name          = f.value;
+    if (f.dim === 'brand')         out.brand         = f.value;
+    if (f.dim === 'concentration') out.concentration = f.value;
+    if (f.dim === 'season')        out.season        = f.value;
   }
   return out;
 }

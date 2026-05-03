@@ -149,6 +149,18 @@ async function load() {
     if (_insFilters.renewing && window.LENS_CONFIG?.timeMatch) {
       rows = rows.filter(r => window.LENS_CONFIG.timeMatch(r.coverage_end_date, _insFilters.renewing, 'future'));
     }
+    // v202604.133 — text + select filters
+    if (_insFilters.provider) {
+      const q = String(_insFilters.provider).toLowerCase();
+      rows = rows.filter(r => (r.provider_name||'').toLowerCase().includes(q));
+    }
+    if (_insFilters.policy_number) {
+      const q = String(_insFilters.policy_number).toLowerCase();
+      rows = rows.filter(r => (r.policy_number||'').toLowerCase().includes(q));
+    }
+    if (_insFilters.policy_type) {
+      rows = rows.filter(r => (r.policy_type||'').toLowerCase() === String(_insFilters.policy_type).toLowerCase());
+    }
 
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
 
@@ -343,9 +355,12 @@ let _insView = localStorage.getItem('ins_view') || 'grid', _insCols = 2, _insFil
 function lensToInsFilters(lensFilters) {
   const out = {};
   for (const f of lensFilters) {
-    if (f.dim === 'status')   out.status   = f.value;
-    if (f.dim === 'time')     out.renewing = f.value;
-    if (f.dim === 'tag')      out.tag      = f.value;
+    if (f.dim === 'status')        out.status        = f.value;
+    if (f.dim === 'time')          out.renewing      = f.value;
+    if (f.dim === 'tag')           out.tag           = f.value;
+    if (f.dim === 'provider')      out.provider      = f.value;
+    if (f.dim === 'policy_number') out.policy_number = f.value;
+    if (f.dim === 'policy_type')   out.policy_type   = f.value;
   }
   return out;
 }

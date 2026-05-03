@@ -394,6 +394,14 @@
     <div style="padding: 0 0 0 0">
       <div id="itemLens"></div>
     </div>
+    <!-- v202604.130 — Photo-first drop zone. Drop or click to upload one
+         or more photos; opens the item drawer with the photos pre-loaded
+         into _pendingItemPhotos so the user fills the rest and saves. -->
+    <div id="wrdDropZone" class="wrd-dropzone" onclick="document.getElementById('wrdDropZoneInput').click()">
+      <input type="file" id="wrdDropZoneInput" accept="image/*" multiple style="display:none" onchange="onDropZoneFiles(this.files); this.value=''">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="wrd-dropzone__label">Drop a photo to add an item — or click to pick</span>
+    </div>
     <div id="itemViewToolbar" style="display:none"></div>
     <div id="itemGrid"></div>
   </div>
@@ -681,10 +689,14 @@ function initItemView() {
   function lensToItemFilters(lensFilters) {
     const out = {};
     for (const f of lensFilters) {
-      if (f.dim === 'status') out.status = f.value;
-      if (f.dim === 'person') out.owner  = f.value;
-      if (f.dim === 'time')   out.last_worn = f.value;
-      if (f.dim === 'tag')    out.tag    = f.value;
+      if (f.dim === 'status')   out.status    = f.value;
+      if (f.dim === 'person')   out.owner     = f.value;
+      if (f.dim === 'time')     out.last_worn = f.value;
+      if (f.dim === 'tag')      out.tag       = f.value;
+      if (f.dim === 'name')     out.name      = f.value;
+      if (f.dim === 'category') out.category  = f.value;
+      if (f.dim === 'brand')    out.brand     = f.value;
+      if (f.dim === 'color')    out.color     = f.value;
     }
     return out;
   }
@@ -755,6 +767,7 @@ function initOutfitView() {
         if (f.dim === 'season')   out.season   = f.value;
         if (f.dim === 'occasion') out.occasion = f.value;
         if (f.dim === 'tag')      out.tag      = f.value;
+        if (f.dim === 'name')     out.name     = f.value;
       }
       _outfitFilters = out;
       if (_currentTab === 'items')    loadItems();
@@ -1459,6 +1472,22 @@ async function loadItems() {
     if (_itemFilters.last_worn && window.LENS_CONFIG?.timeMatch) {
       _allItems = _allItems.filter(r => window.LENS_CONFIG.timeMatch(r.last_worn, _itemFilters.last_worn, 'past'));
     }
+    // v202604.133 — name/brand/color text + status select filters
+    if (_itemFilters.name) {
+      const q = String(_itemFilters.name).toLowerCase();
+      _allItems = _allItems.filter(r => (r.name||'').toLowerCase().includes(q));
+    }
+    if (_itemFilters.brand) {
+      const q = String(_itemFilters.brand).toLowerCase();
+      _allItems = _allItems.filter(r => (r.brand||'').toLowerCase().includes(q));
+    }
+    if (_itemFilters.color) {
+      const q = String(_itemFilters.color).toLowerCase();
+      _allItems = _allItems.filter(r => (r.color||'').toLowerCase().includes(q));
+    }
+    if (_itemFilters.status) {
+      _allItems = _allItems.filter(r => (r.wardrobe_status||'').toLowerCase() === String(_itemFilters.status).toLowerCase());
+    }
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(_allItems.length);
     const grid = document.getElementById('itemGrid');
 
@@ -1579,6 +1608,59 @@ function toggleStatusFields() {
   document.getElementById('donatedFields').style.display  = s==='donated'   ? '' : 'none';
   document.getElementById('discardedFields').style.display= s==='discarded' ? '' : 'none';
 }
+
+// v202604.130 — Photo-first entry. User drops or selects photos on the
+// items tab dropzone; opens the item drawer with those photos already
+// loaded as pending uploads so they save with the item record.
+async function onDropZoneFiles(fileList) {
+  const files = Array.from(fileList || []).filter(f => f && f.type.startsWith('image/'));
+  if (!files.length) return;
+  await openItemDrawer();   // opens fresh drawer (resets _pendingItemPhotos)
+  _pendingItemPhotos = files.slice();
+  renderItemPhotoPanel();
+  // Focus the name input so the user can start typing immediately
+  const n = document.getElementById('iName');
+  if (n) setTimeout(() => n.focus(), 250);
+}
+
+// Whole-tab drag highlight — dragging anywhere over the items tab
+// adds a class to the dropzone so it visually pops.
+(function setupDropZoneDrag() {
+  const setup = () => {
+    const dz = document.getElementById('wrdDropZone');
+    const tab = document.getElementById('tab-items');
+    if (!dz || !tab) return;
+    let counter = 0;
+    tab.addEventListener('dragenter', e => {
+      if (!e.dataTransfer || !Array.from(e.dataTransfer.types).includes('Files')) return;
+      e.preventDefault();
+      counter++;
+      dz.classList.add('wrd-dropzone--active');
+    });
+    tab.addEventListener('dragover', e => {
+      if (e.dataTransfer && Array.from(e.dataTransfer.types).includes('Files')) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+    tab.addEventListener('dragleave', e => {
+      counter = Math.max(0, counter - 1);
+      if (counter === 0) dz.classList.remove('wrd-dropzone--active');
+    });
+    tab.addEventListener('drop', e => {
+      if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+      e.preventDefault();
+      counter = 0;
+      dz.classList.remove('wrd-dropzone--active');
+      onDropZoneFiles(e.dataTransfer.files);
+    });
+  };
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setup);
+  } else {
+    setup();
+  }
+})();
 
 async function openItemDrawer(id) {
   _editingItemId = id||null;
@@ -1856,6 +1938,10 @@ async function loadOutfits() {
     let filtered = outfits;
     if (_outfitFilters.season)   filtered = filtered.filter(o => (o.season_tags||[]).includes(_outfitFilters.season));
     if (_outfitFilters.occasion) filtered = filtered.filter(o => (o.occasion_tags||[]).includes(_outfitFilters.occasion));
+    if (_outfitFilters.name) {
+      const q = String(_outfitFilters.name).toLowerCase();
+      filtered = filtered.filter(o => (o.name||'').toLowerCase().includes(q));
+    }
     if (!filtered.length) {
       el.className = '';
       el.innerHTML = `<div class="lb-empty">

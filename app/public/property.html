@@ -372,6 +372,11 @@ async function loadProps(){
     if (window._propFilters?.owner != null) {
       ps = ps.filter(p => String(p.family_member_id) === String(window._propFilters.owner));
     }
+    // v202604.133 — name text filter (lens primary axis for properties)
+    if (window._propFilters?.name) {
+      const q = String(window._propFilters.name).toLowerCase();
+      ps = ps.filter(p => (p.name||p.nickname||'').toLowerCase().includes(q));
+    }
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(ps.length);
     const tv=ps.reduce((s,p)=>s+(parseFloat(p.current_est_value)||0),0);
     const tm=ps.reduce((s,p)=>s+(parseFloat(p.mortgage_balance)||0),0);
@@ -484,6 +489,21 @@ async function loadVehs(){
     if (window._propFilters?.tag) vs = vs.filter(v => (v.tags||[]).includes(window._propFilters.tag));
     if (window._propFilters?.owner != null) {
       vs = vs.filter(v => String(v.owner_family_member_id || v.family_member_id) === String(window._propFilters.owner));
+    }
+    // v202604.133 — nickname + make_model + type + time filters
+    if (window._propFilters?.nickname) {
+      const q = String(window._propFilters.nickname).toLowerCase();
+      vs = vs.filter(v => (v.nickname||'').toLowerCase().includes(q));
+    }
+    if (window._propFilters?.make_model) {
+      const q = String(window._propFilters.make_model).toLowerCase();
+      vs = vs.filter(v => (v.make||'').toLowerCase().includes(q) || (v.model||'').toLowerCase().includes(q));
+    }
+    if (window._propFilters?.type) {
+      vs = vs.filter(v => (v.vehicle_type||'').toLowerCase() === String(window._propFilters.type).toLowerCase());
+    }
+    if (window._propFilters?.time && window.LENS_CONFIG?.timeMatch) {
+      vs = vs.filter(v => window.LENS_CONFIG.timeMatch(v.last_service_date, window._propFilters.time, 'past'));
     }
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(vs.length);
 
@@ -772,8 +792,14 @@ document.addEventListener('DOMContentLoaded',()=>{ AttachmentManager.injectStyle
         window._propView = view;
         const f = {};
         for (const flt of filters) {
-          if (flt.dim === 'person') f.owner = flt.value;
-          if (flt.dim === 'tag')    f.tag = flt.value;
+          if (flt.dim === 'person')     f.owner      = flt.value;
+          if (flt.dim === 'tag')        f.tag        = flt.value;
+          // v202604.133 — primary-name + type + time text/select dims
+          if (flt.dim === 'name')       f.name       = flt.value;       // properties
+          if (flt.dim === 'nickname')   f.nickname   = flt.value;       // vehicles
+          if (flt.dim === 'make_model') f.make_model = flt.value;       // vehicles
+          if (flt.dim === 'type')       f.type       = flt.value;       // both
+          if (flt.dim === 'time')       f.time       = flt.value;       // vehicles serviced
         }
         window._propFilters = f;
         _reloadPropTab();

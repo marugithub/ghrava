@@ -2216,9 +2216,10 @@ function initGcLens() {
     onChange: ({ filters }) => {
       const out = {};
       for (const f of filters) {
-        if (f.dim === 'status') out.status   = f.value;
-        if (f.dim === 'time')   out.expiring = f.value;
-        if (f.dim === 'tag')    out.tag      = f.value;
+        if (f.dim === 'status')   out.status   = f.value;
+        if (f.dim === 'time')     out.expiring = f.value;
+        if (f.dim === 'tag')      out.tag      = f.value;
+        if (f.dim === 'retailer') out.retailer = f.value;
       }
       _gcFilters = out;
       loadGiftCards();
@@ -2244,6 +2245,10 @@ async function loadGiftCards() {
     }
     if (_gcFilters.tag) {
       cards = cards.filter(c => (c.tags||[]).includes(_gcFilters.tag));
+    }
+    if (_gcFilters.retailer) {
+      const q = String(_gcFilters.retailer).toLowerCase();
+      cards = cards.filter(c => (c.retailer||'').toLowerCase().includes(q));
     }
     if (_gcFilters.expiring && window.LENS_CONFIG?.timeMatch) {
       cards = cards.filter(c => window.LENS_CONFIG.timeMatch(c.expiry_date, _gcFilters.expiring, 'future'));

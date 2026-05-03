@@ -1500,6 +1500,7 @@ async function initInvView() {
     bizFilter = 'all';  // reset; re-applied below if a pill is present
     for (const f of lensFilters) {
       if (f.dim === 'tag')      out.tags = [f.value];   // existing render uses tags array
+      if (f.dim === 'name')     out.name = f.value;
       if (f.dim === 'category') out.category = f.value;
       if (f.dim === 'location') out.location_id = f.value;
       if (f.dim === 'brand')    out.brand = String(f.value || '');
@@ -1990,6 +1991,10 @@ async function renderAllItemsFlat(el) {
 
     // Apply advanced filters
     const f = window._invFilters || {};
+    if (f.name) {
+      const q = String(f.name).toLowerCase();
+      items = items.filter(i => (i.name||'').toLowerCase().includes(q));
+    }
     if (f.location_id) items = items.filter(i => String(i.parent_id) === String(f.location_id) && i.parent_type === 'location');
     if (f.category)    items = items.filter(i => (i.category||'').toLowerCase() === f.category.toLowerCase());
     if (f.brand)       items = items.filter(i => (i.brand||'').toLowerCase().includes(f.brand.toLowerCase()));

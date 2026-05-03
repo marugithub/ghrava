@@ -547,6 +547,10 @@ function renderActivities(q=''){
     (a.name||'').toLowerCase().includes(_q)||(a.category||'').toLowerCase().includes(_q)||(a.location||'').toLowerCase().includes(_q));
   if(window._kidsFilters?.category) acts=acts.filter(a=>a.category===window._kidsFilters.category);
   if(window._kidsFilters?.tags?.length) acts=acts.filter(a=>window._kidsFilters.tags.every(t=>(a.tags||[]).includes(t)));
+  if(window._kidsFilters?.name) {
+    const q = String(window._kidsFilters.name).toLowerCase();
+    acts = acts.filter(a => (a.activity_name||'').toLowerCase().includes(q));
+  }
   const actsHeader = `<div class="kid-section-label" style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">Activities <button class="btn btn-ghost" style="font-size:11px;padding:2px 10px" onclick="openActivityDrawer()">+ Add</button></div>`;
   if(!acts.length&&!_q){$('kidActivitiesContent').innerHTML=actsHeader+'<div style="padding:20px 24px;text-align:center"><div style="font-size:28px;margin-bottom:6px">🏅</div><div style="color:var(--text3);font-size:13px">No activities yet</div></div>';return;}
   const active=acts.filter(a=>a.is_active),inactive=acts.filter(a=>!a.is_active);
@@ -772,9 +776,10 @@ document.addEventListener('DOMContentLoaded', () => {
     onChange: ({ filters }) => {
       const out = {};
       for (const f of filters) {
-        if (f.dim === 'person') out.person   = f.value;
-        if (f.dim === 'status') out.category = f.value;  // status repurposed
-        if (f.dim === 'tag')    out.tags     = [f.value];
+        if (f.dim === 'person')   out.person   = f.value;
+        if (f.dim === 'category') out.category = f.value;
+        if (f.dim === 'tag')      out.tags     = [f.value];
+        if (f.dim === 'name')     out.name     = f.value;
       }
       window._kidsFilters = out;
       renderActivities();

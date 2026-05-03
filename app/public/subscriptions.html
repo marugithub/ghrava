@@ -115,6 +115,17 @@ async function load() {
     if (_subFilters.tag) {
       rows = rows.filter(r => (r.tags||[]).includes(_subFilters.tag));
     }
+    // v202604.133 — apply name + billing_cycle + category text/select filters
+    if (_subFilters.name) {
+      const q = String(_subFilters.name).toLowerCase();
+      rows = rows.filter(r => (r.name||'').toLowerCase().includes(q));
+    }
+    if (_subFilters.billing_cycle) {
+      rows = rows.filter(r => (r.billing_cycle||'').toLowerCase() === String(_subFilters.billing_cycle).toLowerCase());
+    }
+    if (_subFilters.category) {
+      rows = rows.filter(r => String(r.category||'').toLowerCase() === String(_subFilters.category).toLowerCase());
+    }
 
     // Push the live count back to the lens so the sentence updates
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
@@ -301,10 +312,13 @@ let _subView = localStorage.getItem('sub_view') || 'grid', _subCols = 2, _subFil
 function lensToSubFilters(lensFilters) {
   const out = {};
   for (const f of lensFilters) {
-    if (f.dim === 'status')   out.status   = f.value;
-    if (f.dim === 'person')   out.owner    = f.value;
-    if (f.dim === 'time')     out.renewing = f.value;
-    if (f.dim === 'tag')      out.tag      = f.value;
+    if (f.dim === 'status')        out.status        = f.value;
+    if (f.dim === 'person')        out.owner         = f.value;
+    if (f.dim === 'time')          out.renewing      = f.value;
+    if (f.dim === 'tag')           out.tag           = f.value;
+    if (f.dim === 'name')          out.name          = f.value;
+    if (f.dim === 'billing_cycle') out.billing_cycle = f.value;
+    if (f.dim === 'category')      out.category      = f.value;
   }
   return out;
 }

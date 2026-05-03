@@ -504,6 +504,17 @@ function render() {
   if (_todoFilters.time && window.LENS_CONFIG?.timeMatch) {
     displayTodos = displayTodos.filter(t => window.LENS_CONFIG.timeMatch(t.due_date, _todoFilters.time, 'future'));
   }
+  // v202604.133 — title text + priority/category select filters
+  if (_todoFilters.title) {
+    const q = String(_todoFilters.title).toLowerCase();
+    displayTodos = displayTodos.filter(t => (t.title||'').toLowerCase().includes(q));
+  }
+  if (_todoFilters.priority) {
+    displayTodos = displayTodos.filter(t => (t.priority||'').toLowerCase() === String(_todoFilters.priority).toLowerCase());
+  }
+  if (_todoFilters.category) {
+    displayTodos = displayTodos.filter(t => String(t.category||'').toLowerCase() === String(_todoFilters.category).toLowerCase());
+  }
 
   if (!displayTodos.length) {
     if (filterMode === 'done') {
@@ -583,6 +594,17 @@ function render() {
     // v202604.127 — time pill applies on due_date (future preset).
     if (_todoFilters.time && window.LENS_CONFIG?.timeMatch) {
       displayTodos = displayTodos.filter(t => window.LENS_CONFIG.timeMatch(t.due_date, _todoFilters.time, 'future'));
+    }
+    // v202604.133 — title text + priority/category select filters
+    if (_todoFilters.title) {
+      const q = String(_todoFilters.title).toLowerCase();
+      displayTodos = displayTodos.filter(t => (t.title||'').toLowerCase().includes(q));
+    }
+    if (_todoFilters.priority) {
+      displayTodos = displayTodos.filter(t => (t.priority||'').toLowerCase() === String(_todoFilters.priority).toLowerCase());
+    }
+    if (_todoFilters.category) {
+      displayTodos = displayTodos.filter(t => String(t.category||'').toLowerCase() === String(_todoFilters.category).toLowerCase());
     }
 
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
@@ -902,10 +924,13 @@ let _todoView = 'list', _todoFilters = {};
 function lensToTodoFilters(lensFilters) {
   const out = {};
   for (const f of lensFilters) {
-    if (f.dim === 'person') out.person = f.value;
-    if (f.dim === 'status') out.status = f.value;
-    if (f.dim === 'time')   out.time   = f.value;
-    if (f.dim === 'tag')    out.tag    = f.value;
+    if (f.dim === 'person')   out.person   = f.value;
+    if (f.dim === 'status')   out.status   = f.value;
+    if (f.dim === 'time')     out.time     = f.value;
+    if (f.dim === 'tag')      out.tag      = f.value;
+    if (f.dim === 'title')    out.title    = f.value;
+    if (f.dim === 'priority') out.priority = f.value;
+    if (f.dim === 'category') out.category = f.value;
   }
   return out;
 }

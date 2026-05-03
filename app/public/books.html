@@ -293,6 +293,15 @@ async function loadBooks() {
     if (_bkFilters.format)         filtered = filtered.filter(b => b.format === _bkFilters.format);
     if (_bkFilters.genre)          filtered = filtered.filter(b => (b.genre||'').toLowerCase().includes(_bkFilters.genre.toLowerCase()));
     if (_bkFilters.owner != null)  filtered = filtered.filter(b => String(b.family_member_id) === String(_bkFilters.owner));
+    // v202604.133 — title + author text filters (lens text dims).
+    if (_bkFilters.title) {
+      const q = String(_bkFilters.title).toLowerCase();
+      filtered = filtered.filter(b => (b.title||'').toLowerCase().includes(q));
+    }
+    if (_bkFilters.author) {
+      const q = String(_bkFilters.author).toLowerCase();
+      filtered = filtered.filter(b => (b.author||'').toLowerCase().includes(q));
+    }
     // v202604.127 — lens time filter on date_started.
     if (_bkFilters.started && window.LENS_CONFIG?.timeMatch) {
       filtered = filtered.filter(b => window.LENS_CONFIG.timeMatch(b.date_started, _bkFilters.started, 'future'));
@@ -592,10 +601,15 @@ function triggerBookSuggest() {
 function lensToBkFilters(lensFilters) {
   const out = {};
   for (const f of lensFilters) {
-    if (f.dim === 'status') out.status = f.value;
-    if (f.dim === 'person') out.owner  = f.value;
+    if (f.dim === 'status') out.status  = f.value;
+    if (f.dim === 'person') out.owner   = f.value;
     if (f.dim === 'time')   out.started = f.value;
-    if (f.dim === 'tag')    out.tag    = f.value;
+    if (f.dim === 'tag')    out.tag     = f.value;
+    if (f.dim === 'title')  out.title   = f.value;
+    if (f.dim === 'author') out.author  = f.value;
+    if (f.dim === 'format') out.format  = f.value;
+    if (f.dim === 'rating') out.rating  = f.value;
+    if (f.dim === 'genre')  out.genre   = f.value;
   }
   return out;
 }

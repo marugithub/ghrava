@@ -546,6 +546,10 @@ function render() {
   if (_resFilters.tags?.length)  displayResources = displayResources.filter(r => _resFilters.tags.every(t => (r.tags||[]).includes(t)));
   if (_resFilters.favorite)      displayResources = displayResources.filter(r => r.is_favorite == 1);
   if (_resFilters.link_type)     displayResources = displayResources.filter(r => r.link_type === _resFilters.link_type);
+  if (_resFilters.title) {
+    const q = String(_resFilters.title).toLowerCase();
+    displayResources = displayResources.filter(r => (r.title||'').toLowerCase().includes(q));
+  }
 
   if (!displayResources.length) {
     el.innerHTML = `<div class="empty">
@@ -873,8 +877,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (view) _resView = view;
       const out = {};
       for (const f of filters) {
-        if (f.dim === 'status') out.link_type = f.value;
-        if (f.dim === 'tag')    out.tags      = [f.value];
+        if (f.dim === 'link_type') out.link_type = f.value;
+        if (f.dim === 'tag')       out.tags      = [f.value];
+        if (f.dim === 'title')     out.title     = f.value;
       }
       _resFilters = out;
       render();

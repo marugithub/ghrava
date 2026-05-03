@@ -516,6 +516,17 @@ async function loadCerts() {
       : rows;
     if (window._careerFilters?.status) _filtered_certifications = _filtered_certifications.filter(r => r.status === window._careerFilters.status);
     if (window._careerFilters?.tags?.length) _filtered_certifications = _filtered_certifications.filter(r => window._careerFilters.tags.every(t => (r.tags||[]).includes(t)));
+    if (window._careerFilters?.name) {
+      const q = String(window._careerFilters.name).toLowerCase();
+      _filtered_certifications = _filtered_certifications.filter(r => (r.name||'').toLowerCase().includes(q));
+    }
+    if (window._careerFilters?.issuing_body) {
+      const q = String(window._careerFilters.issuing_body).toLowerCase();
+      _filtered_certifications = _filtered_certifications.filter(r => (r.issuing_body||'').toLowerCase().includes(q));
+    }
+    if (window._careerFilters?.time && window.LENS_CONFIG?.timeMatch) {
+      _filtered_certifications = _filtered_certifications.filter(r => window.LENS_CONFIG.timeMatch(r.expiry_date, window._careerFilters.time, 'future'));
+    }
     if (!_filtered_certifications.length) { el.innerHTML = emptyState(...GH_EMPTY.certs); return; }
     // Render cards, then async-fill cycle detail rows
     setTimeout(() => loadCertCycleDetails(_filtered_certifications), 0);
@@ -1492,8 +1503,11 @@ document.addEventListener('DOMContentLoaded', () => {
 function lensToCareerFilters(lensFilters) {
   const out = {};
   for (const f of lensFilters) {
-    if (f.dim === 'status') out.status = f.value;
-    if (f.dim === 'tag')    out.tags   = [f.value];  // existing renderer expects array
+    if (f.dim === 'status')       out.status       = f.value;
+    if (f.dim === 'tag')          out.tags         = [f.value];  // existing renderer expects array
+    if (f.dim === 'name')         out.name         = f.value;
+    if (f.dim === 'issuing_body') out.issuing_body = f.value;
+    if (f.dim === 'time')         out.time         = f.value;
   }
   return out;
 }
