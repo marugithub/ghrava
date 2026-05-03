@@ -194,46 +194,17 @@ function Run-Schema {
         return
     }
 
-    $cmd = @"
-cd /app && python3 - <<'PY'
-import re, os, sys, sqlite3
-db_path = 'data/lifetracker.db'
-if not os.path.exists(db_path):
-    print('   FAIL: live DB not found at', db_path); sys.exit(1)
-db = sqlite3.connect(db_path)
-try:
-    applied = set(r[0] for r in db.execute('SELECT filename FROM _migrations').fetchall())
-except Exception as e:
-    print('   WARN: _migrations table missing:', e); applied = set()
-mig_dir = 'db/migrations'
-pending = sorted(f for f in os.listdir(mig_dir) if f.endswith('.sql') and f not in applied)
-if not pending:
-    print('   OK (no pending migrations, all applied)')
-    sys.exit(0)
-fail = 0
-for fname in pending:
-    with open(os.path.join(mig_dir, fname)) as f: sql = f.read()
-    stmts = [s.strip() for s in re.sub(r'--[^\n]*', '', sql).split(';')
-             if s.strip() and s.strip().upper() not in ('BEGIN','COMMIT','ROLLBACK')]
-    try:
-        db.execute('SAVEPOINT pdc')
-        for stmt in stmts: db.execute(stmt)
-        db.execute('ROLLBACK TO pdc'); db.execute('RELEASE pdc')
-        print(f'   OK   {fname}')
-    except Exception as e:
-        try: db.execute('ROLLBACK TO pdc')
-        except: pass
-        print(f'   FAIL {fname}: {e}'); fail += 1
-sys.exit(1 if fail else 0)
-PY
-"@
+    # v202604.134 — Calls the existing predeploy-check.sh that ships in
+    # the container. Avoids the PowerShell here-string + bash heredoc
+    # combination, which is fragile with LF line endings on Windows.
     try {
-        $output = docker exec $Container bash -lc $cmd 2>&1
+        $output = docker exec $Container bash -lc "cd /app && bash scripts/predeploy-check.sh 2>&1" 2>&1
         $output | ForEach-Object {
             $line = $_.ToString()
             if     ($line -match '^\s*OK')   { Pass $line.Trim() }
             elseif ($line -match '^\s*FAIL') { Fail $line.Trim() }
             elseif ($line -match '^\s*WARN') { Warn $line.Trim() }
+            elseif ($line -match '(?i)error|exception') { Fail $line.Trim() }
             else                              { Write-Out "  $line" }
         }
     } catch {

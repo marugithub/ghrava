@@ -180,8 +180,10 @@
        ════════════════════════════════════════════════════════ -->
   <div id="todosView">
 
-  <!-- Primary filter tabs — status modes -->
-  <div class="view-tabs" id="statsRow" style="--tab-color:#a78bfa">
+  <!-- Primary filter tabs — status modes
+       v202604.135: HIDDEN — duplicates lens status/priority/time/is_auto.
+       JS that updates these counts is preserved. Use the lens instead. -->
+  <div class="view-tabs legacy-hidden" id="statsRow" style="--tab-color:#a78bfa">
     <button class="view-tab active" data-filter="">All <span id="statTotal" class="tab-count"></span></button>
     <button class="view-tab" data-filter="urgent">Urgent <span id="statUrgent" class="tab-count" style="color:var(--red)"></span></button>
     <button class="view-tab" data-filter="overdue">Overdue <span id="statOverdue" class="tab-count" style="color:var(--amber)"></span></button>
@@ -189,8 +191,9 @@
     <button class="view-tab" data-filter="done">Done <span id="statDone" class="tab-count" style="color:#22c55e"></span></button>
   </div>
 
-  <!-- Category sub-filter — populated dynamically -->
-  <div class="view-tabs" id="filterStrip" style="overflow-x:auto;scrollbar-width:none;margin-top:0;background:transparent;border-bottom:1px solid var(--border)">
+  <!-- Category sub-filter — populated dynamically
+       v202604.135: HIDDEN — duplicates lens category dim. -->
+  <div class="view-tabs legacy-hidden" id="filterStrip" style="overflow-x:auto;scrollbar-width:none;margin-top:0;background:transparent;border-bottom:1px solid var(--border)">
     <button class="view-tab active" data-cat="" style="font-size:11px;padding:5px 10px">All</button>
   </div>
 

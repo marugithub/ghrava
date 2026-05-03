@@ -5,7 +5,7 @@
 
 :root {
   /* Surfaces */
-  --bg:        #F2F2F7;
+  --bg:        #FFFFFF;
   --bg2:       #FFFFFF;
   --bg3:       #F8F8F8;
   --bg4:       #F0F0F5;
@@ -2164,8 +2164,9 @@ body:has(.gh-drawer.open)::before {
 
 [data-theme="pure-light-teal"],
 [data-theme="pure-light-indigo"] {
-  /* Surfaces */
-  --bg:        #f0f4f8;
+  /* Surfaces — v202604.135: page bg now matches card bg (white) per UX call.
+     bg3+ stay tinted so toolbar chips/pills still have contrast. */
+  --bg:        #ffffff;
   --bg2:       #ffffff;
   --bg3:       #f0f4f8;
   --bg4:       #e4ecf4;
@@ -3287,7 +3288,8 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
  * filter pipelines that read .value don't break) but hidden visually.
  * To restore in any module, remove the .legacy-hidden class on its
  * <div class="search-wrap"> wrapper. */
-.search-wrap.legacy-hidden { display: none !important; }
+.search-wrap.legacy-hidden,
+.legacy-hidden { display: none !important; }
 
 
 /* ════════════════════════════════════════════════════════════════════
@@ -4566,4 +4568,49 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   background: var(--accent);
   color: white;
   font-size: 11px;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.130 — Wardrobe photo-first dropzone
+ *
+ * Compact bar above the items grid. Dragging any file anywhere over
+ * the items tab triggers the active state (border + tint). Click also
+ * opens the file picker. On drop, opens the item drawer pre-loaded
+ * with the photos as pending uploads.
+ * ─────────────────────────────────────────────────────────────────── */
+.wrd-dropzone {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  margin: 8px 16px 0;
+  border: 1.5px dashed var(--border2);
+  border-radius: 10px;
+  background: var(--bg2);
+  color: var(--text3);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s, transform .12s;
+}
+.wrd-dropzone:hover {
+  border-color: var(--accent);
+  color: var(--text2);
+  background: var(--bg3);
+}
+.wrd-dropzone--active {
+  border-color: var(--accent);
+  border-style: solid;
+  background: rgba(92,114,250,.08);
+  color: var(--accent);
+  transform: scale(1.005);
+}
+.wrd-dropzone__label {
+  flex: 1;
+}
+@media (max-width: 640px) {
+  .wrd-dropzone {
+    margin: 6px 12px 0;
+    padding: 9px 12px;
+    font-size: 12px;
+  }
 }

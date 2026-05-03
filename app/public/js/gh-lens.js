@@ -302,6 +302,20 @@
         focused: false,
       };
 
+      // v202604.135 — Track every active instance, keyed by container.
+      // The previous singleton (`this._instance`) broke on multi-lens pages
+      // (wardrobe has 3 — items, outfits, insights). Reset button, count
+      // updates, and applyFilter all targeted whichever lens was init'd
+      // LAST, so the others appeared dead. Now we keep the singleton for
+      // back-compat but route public API through the instance map when a
+      // container ID is given, and walk all instances when not.
+      if (!this._instances) this._instances = new Map();
+      const _existingInst = this._instances.get(opts.container);
+      if (_existingInst) {
+        // Re-init on the same container — replace, don't accumulate.
+        this._instances.delete(opts.container);
+      }
+      this._instances.set(opts.container, instance);
       this._instance = instance;
       this._render(instance);
 
@@ -368,25 +382,48 @@
       }
     },
 
-    setCount(n) {
-      if (!this._instance) return;
-      this._instance.state.totalCount = n;
-      const countEl = this._instance.container.querySelector('.gh-lens__count');
-      if (countEl) countEl.textContent = String(n);
+    setCount(n, containerId) {
+      // v202604.135 — without containerId, update every instance on page.
+      // On wardrobe (3 lenses) only the visible tab's count is seen, so
+      // this is a no-op for hidden ones. Cheap.
+      if (containerId) {
+        const inst = this._instances && this._instances.get(containerId);
+        if (!inst) return;
+        inst.state.totalCount = n;
+        const countEl = inst.container.querySelector('.gh-lens__count');
+        if (countEl) countEl.textContent = String(n);
+        return;
+      }
+      if (this._instances && this._instances.size) {
+        for (const inst of this._instances.values()) {
+          inst.state.totalCount = n;
+          const countEl = inst.container.querySelector('.gh-lens__count');
+          if (countEl) countEl.textContent = String(n);
+        }
+      } else if (this._instance) {
+        this._instance.state.totalCount = n;
+        const countEl = this._instance.container.querySelector('.gh-lens__count');
+        if (countEl) countEl.textContent = String(n);
+      }
     },
 
-    getState() {
-      if (!this._instance) return null;
+    getState(containerId) {
+      const inst = containerId
+        ? (this._instances && this._instances.get(containerId))
+        : this._instance;
+      if (!inst) return null;
       return {
-        filters: this._instance.state.filters.slice(),
-        view: this._instance.state.view,
-        sort: this._instance.state.sort,
+        filters: inst.state.filters.slice(),
+        view: inst.state.view,
+        sort: inst.state.sort,
       };
     },
 
-    applyFilter(dim, value, label, verb) {
-      if (!this._instance) return;
-      const inst = this._instance;
+    applyFilter(dim, value, label, verb, containerId) {
+      const inst = containerId
+        ? (this._instances && this._instances.get(containerId))
+        : this._instance;
+      if (!inst) return;
       // Replace existing filter on same dim, or add
       const existing = inst.state.filters.findIndex(f => f.dim === dim);
       const filter = { dim, value, label: label || value,
@@ -398,9 +435,26 @@
       this._fireChange(inst);
     },
 
-    clear() {
-      if (!this._instance) return;
-      const inst = this._instance;
+    // v202604.135 — Multi-instance API. All public methods accept an
+    // optional containerId. Without it, we walk every active instance
+    // (cheap; usually 1–3 on a page). The reset button binds via closure
+    // on a specific instance through _clearInstance.
+    clear(containerId) {
+      if (containerId) {
+        const inst = this._instances && this._instances.get(containerId);
+        if (inst) this._clearInstance(inst);
+        return;
+      }
+      // No id → clear all known instances. Inventory's goHome() relies on
+      // this no-arg behavior (clears whichever lens is on the page).
+      if (this._instances && this._instances.size) {
+        for (const inst of this._instances.values()) this._clearInstance(inst);
+      } else if (this._instance) {
+        this._clearInstance(this._instance);
+      }
+    },
+
+    _clearInstance(inst) {
       inst.state.filters = [];
       clearState();
       this._render(inst);
@@ -468,7 +522,9 @@
         sentenceRow.appendChild(el('button', {
           class: 'gh-lens__reset',
           title: 'Clear all filters',
-          onclick: () => this.clear(),
+          // v202604.135 — closure over THIS instance fixes wardrobe's
+          // multi-lens bug where reset hit whichever lens was init'd last.
+          onclick: () => this._clearInstance(instance),
         }, 'reset'));
       }
 

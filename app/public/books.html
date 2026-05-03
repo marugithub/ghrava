@@ -92,8 +92,9 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
     <div class="book-stat"><div class="book-stat-val" id="stRating">—</div><div class="book-stat-lbl">Avg ★</div></div>
   </div>
 
-  <!-- Shelf tabs -->
-  <div class="view-tabs" id="shelfTabs" style="--tab-color:#8b5cf6">
+  <!-- Shelf tabs
+       v202604.135: HIDDEN — duplicates lens status + format dims. -->
+  <div class="view-tabs legacy-hidden" id="shelfTabs" style="--tab-color:#8b5cf6">
     <button class="view-tab active" onclick="setShelf('Currently Reading',this)">Reading</button>
     <button class="view-tab" onclick="setShelf('Want to Read',this)">Want to Read</button>
     <button class="view-tab" onclick="setShelf('Read',this)">Read</button>
@@ -109,7 +110,7 @@ window.GH_PAGE = { module: 'books', title: 'Books' };
     <input class="form-input" id="bookSearch" placeholder="Search title or author…" oninput="loadBooks()" style="font-size:13px">
   </div>
   <!-- Genre sub-filter populated dynamically -->
-  <div style="display:flex;gap:6px;padding:4px 16px;overflow-x:auto;scrollbar-width:none" id="genreFilters"></div>
+  <div class="legacy-hidden" style="display:flex;gap:6px;padding:4px 16px;overflow-x:auto;scrollbar-width:none" id="genreFilters"></div>
 
   <!-- GH_VIEW toolbar -->
   <div style="padding: 12px 16px 0">

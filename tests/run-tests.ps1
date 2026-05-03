@@ -24,7 +24,7 @@
 
 param(
     [string]$GhUrl     = "http://192.168.4.62:3001",
-    [string]$ReportDir = "Z:\ghrava\test-results",
+    [string]$ReportDir = "Z:\ghrava\tests\test-results",
     [string]$AuthToken = ""
 )
 

@@ -776,9 +776,15 @@
        INTO the lens as a 'grouped by room' pill. Clothing icon kept
        inline. Only the lens spans the full row width now. -->
   <div style="display:flex;gap:8px;padding:12px 16px 0;align-items:center;flex-wrap:wrap">
-    <!-- Clothing toggle (kept inline; not folded into lens per design call) -->
-    <span id="clothingToggleWrap">
-      <button id="clothingToggleBtn" onclick="toggleClothing()" style="font-size:11px;padding:5px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer;font-family:var(--sans)" title="Clothing hidden">🧥</button>
+    <!-- Clothing toggle (kept inline; not folded into lens per design call)
+         v202604.135: styled to match lens height/border so they sit as
+         sibling cards in the toolbar with no jagged-edge mismatch. -->
+    <span id="clothingToggleWrap" style="margin-bottom:12px">
+      <button id="clothingToggleBtn" onclick="toggleClothing()"
+        style="font-size:18px;width:52px;height:52px;display:flex;align-items:center;justify-content:center;
+               border-radius:var(--r-lg, 12px);border:1px solid var(--border);background:var(--bg2);
+               color:var(--text3);cursor:pointer;font-family:var(--sans);transition:background .12s,color .12s"
+        title="Clothing hidden">🧥</button>
     </span>
     <!-- Lens — full row width minus the clothing icon -->
     <div id="invLensWrap" style="flex:1;min-width:280px">
