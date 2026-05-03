@@ -269,6 +269,7 @@
     const rightBtns = `
       <div class="gh-header-actions">
         ${cfg.rightExtra || ''}
+        <button class="gh-scope-pill" id="ghScopePill" onclick="window.GH_NAV && GH_NAV.openScopePicker()" title="Device scope" style="display:none"></button>
         <button class="gh-icon-btn" id="ghSearchBtn" aria-label="Search" onclick="window.GH_NAV && GH_NAV.toggleSearch()" title="Search (Ctrl+K)">
           <span style="width:18px;height:18px;display:flex;align-items:center;justify-content:center">${SVG.search || '<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\"><circle cx=\"11\" cy=\"11\" r=\"7\"/><line x1=\"16.5\" y1=\"16.5\" x2=\"21\" y2=\"21\"/></svg>'}</span>
         </button>
@@ -450,16 +451,140 @@
       if (window.GH_Search) window.GH_Search.open({ query: q });
     },
     toggleSection,
+
+    // ── Per-device family scope (v202604.128) ──────────────────
+    // First-time prompt asks "Who is this device for?". Choice is saved
+    // in localStorage and surfaced as a pill in the page header. Click
+    // the pill to change/clear. The scope is INFORMATIONAL for now —
+    // module renderers can read GH_NAV.getScope() to default-filter
+    // their lists; lens auto-applies a person pill when scope is set.
+    getScope() {
+      try {
+        const raw = localStorage.getItem('gh_device_family_scope');
+        if (!raw) return null;
+        const obj = JSON.parse(raw);
+        if (!obj || obj.id == null) return null;
+        return obj;  // { id, name }
+      } catch(e) { return null; }
+    },
+    setScope(member) {
+      try {
+        if (!member || member.id == null) {
+          localStorage.removeItem('gh_device_family_scope');
+        } else {
+          localStorage.setItem('gh_device_family_scope', JSON.stringify({
+            id: member.id,
+            name: member.display_name || member.first_name || `Person ${member.id}`,
+          }));
+        }
+      } catch(e) {}
+      this.refreshScopePill();
+      // Notify the lens so it can apply the scope as a person pill
+      window.dispatchEvent(new CustomEvent('gh-scope-changed', { detail: this.getScope() }));
+    },
+    refreshScopePill() {
+      const pill = document.getElementById('ghScopePill');
+      if (!pill) return;
+      const scope = this.getScope();
+      if (!scope) {
+        pill.style.display = 'none';
+        pill.textContent = '';
+        return;
+      }
+      pill.style.display = '';
+      pill.innerHTML = `<span class="gh-scope-pill__dot"></span><span>${scope.name}</span>`;
+    },
+    async openScopePicker() {
+      const members = await fetchFamilyForScope();
+      const current = this.getScope();
+      const overlay = document.createElement('div');
+      overlay.className = 'gh-scope-overlay';
+      overlay.innerHTML = `
+        <div class="gh-scope-modal">
+          <h3 class="gh-scope-modal__title">Who is this device for?</h3>
+          <p class="gh-scope-modal__sub">We'll default lists to this person across modules. You can change this anytime.</p>
+          <div class="gh-scope-modal__list">
+            <button class="gh-scope-modal__opt${!current ? ' active':''}" data-id="">
+              <span class="gh-scope-modal__avatar gh-scope-modal__avatar--all">All</span>
+              <span>Everyone (no filter)</span>
+            </button>
+            ${members.map(m => {
+              const name = m.display_name || m.first_name || `Person ${m.id}`;
+              const active = current && String(current.id) === String(m.id);
+              return `<button class="gh-scope-modal__opt${active?' active':''}" data-id="${m.id}" data-name="${name.replace(/"/g,'&quot;')}">
+                <span class="gh-scope-modal__avatar">${(name||'?').slice(0,1).toUpperCase()}</span>
+                <span>${name}</span>
+              </button>`;
+            }).join('')}
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      overlay.addEventListener('click', e => {
+        const opt = e.target.closest('.gh-scope-modal__opt');
+        if (opt) {
+          const id = opt.dataset.id;
+          if (id) {
+            this.setScope({ id: parseInt(id,10), display_name: opt.dataset.name });
+          } else {
+            this.setScope(null);
+          }
+          overlay.remove();
+          return;
+        }
+        if (e.target === overlay) overlay.remove();
+      });
+    },
   };
+
+  // Helper: fetch family list for the picker. Cached for the page life.
+  let _navFamilyCache = null;
+  async function fetchFamilyForScope() {
+    if (Array.isArray(_navFamilyCache)) return _navFamilyCache;
+    try {
+      const r = await fetch('/api/v1/settings/family');
+      const rows = await r.json();
+      _navFamilyCache = Array.isArray(rows) ? rows : [];
+    } catch(e) { _navFamilyCache = []; }
+    return _navFamilyCache;
+  }
+
+  // First-time prompt: if no scope set AND we have family members, ask.
+  // Also avoids prompting on login/help/offline pages.
+  function maybePromptFirstTime() {
+    try {
+      if (localStorage.getItem('gh_device_family_scope')) return;
+      if (localStorage.getItem('gh_device_family_scope_dismissed')) return;
+      const path = window.location.pathname;
+      if (/login|offline|help/.test(path)) return;
+    } catch(e) { return; }
+    // Defer slightly so the page renders first
+    setTimeout(async () => {
+      const members = await fetchFamilyForScope();
+      if (!members.length) return;  // nothing to scope to
+      window.GH_NAV.openScopePicker();
+      // Even if user dismisses without picking, don't ask again this session
+      try { localStorage.setItem('gh_device_family_scope_dismissed', '1'); } catch(e) {}
+    }, 1200);
+  }
 
   buildSidebar();
   // buildPageHeader needs #app to exist — defer if DOM not ready
   if (document.getElementById('app')) {
     buildPageHeader();
+    window.GH_NAV.refreshScopePill();
   } else {
-    document.addEventListener('DOMContentLoaded', buildPageHeader);
+    document.addEventListener('DOMContentLoaded', () => {
+      buildPageHeader();
+      window.GH_NAV.refreshScopePill();
+    });
   }
   buildNotifPanel();
+  // First-time scope prompt — defer until after DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', maybePromptFirstTime);
+  } else {
+    maybePromptFirstTime();
+  }
   // (Old nav search panel removed — toggleSearch() now opens GH_Search modal)
 
   // Keyboard shortcut: Ctrl/Cmd + K opens search

@@ -213,6 +213,20 @@
         return true;
       });
 
+      // v202604.128 — auto-apply per-device family scope as a person pill
+      // if the module has a person dim and no person filter is already set.
+      try {
+        const scope = window.GH_NAV?.getScope?.();
+        if (scope && modCfg.dimensions.person && !filters.some(f => f.dim === 'person')) {
+          filters.push({
+            dim:   'person',
+            verb:  modCfg.dimensions.person.verb,
+            value: scope.id,
+            label: scope.name,
+          });
+        }
+      } catch(e) {}
+
       const instance = {
         container,
         moduleId: opts.moduleId,

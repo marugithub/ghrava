@@ -222,6 +222,17 @@
       },
     },
 
+    gift_cards: {
+      label: 'Gift cards',
+      plural: 'gift cards',
+      dimensions: {
+        status: { verb: 'that are', field: 'status',
+          values: ['active', 'expired', 'redeemed'] },
+        time:   { verb: 'expiring', field: 'expiry_date' },
+        tag:    { verb: 'tagged', field: 'tags' },
+      },
+    },
+
   };
 
   // Time presets — shared across all modules. The `preset` hint on a

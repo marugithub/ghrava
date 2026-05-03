@@ -429,6 +429,11 @@
       <button class="btn btn-primary" style="padding:5px 14px;font-size:13px" onclick="openGcDrawer()">+ Add</button>
     </div>
 
+    <!-- v202604.128 Lens -->
+    <div style="padding: 8px 16px 0">
+      <div id="gcLens"></div>
+    </div>
+
     <!-- Expiry alerts -->
     <div id="gcExpiryAlerts" style="padding:6px 16px 0"></div>
 
@@ -872,6 +877,9 @@ window.GH_PAGE = {
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-refs.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v202604.128 — The Lens (gift cards tab only — see HANDOFF) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
 <!-- v202604.117 — card view available via GH_VIEW toolbar (3-view: list/grid/card) -->
 <script src="/js/gh-card.js"></script>
 <script src="/js/gh-card-shared.js"></script>
@@ -965,6 +973,7 @@ function switchFinTab(id, btn) {
     loadNetWorthDetail();
   } else if (id === 'giftcards') {
     fab.style.display = 'flex'; fab.textContent = '+'; fab.title = 'Add gift card';
+    initGcLens();
     loadGiftCards();
   } else {
     fab.style.display = 'none';
@@ -2193,18 +2202,62 @@ let editingGcId = null;
 let _gcAllCards = [];
 window._gcDetailId = null;
 
+// v202604.128 — gift cards lens state
+let _gcFilters = {};
+let _gcLensInitialized = false;
+function initGcLens() {
+  if (_gcLensInitialized) return;
+  _gcLensInitialized = true;
+  if (!window.GH_LENS || !document.getElementById('gcLens')) return;
+  GH_LENS.init({
+    container:    'gcLens',
+    moduleId:     'gift_cards',
+    viewToolbar:  false,
+    onChange: ({ filters }) => {
+      const out = {};
+      for (const f of filters) {
+        if (f.dim === 'status') out.status   = f.value;
+        if (f.dim === 'time')   out.expiring = f.value;
+        if (f.dim === 'tag')    out.tag      = f.value;
+      }
+      _gcFilters = out;
+      loadGiftCards();
+    },
+  });
+}
+
 async function loadGiftCards() {
   const el = $('gcList'); if (!el) return;
   el.innerHTML = spinnerHtml();
   try {
     _gcAllCards = await api('GET', '/finance/gift-cards');
-    const totalBal = _gcAllCards.reduce((s,c) => s + (parseFloat(c.current_balance)||0), 0);
-    const cntEl = $('gcCount'); if(cntEl) cntEl.textContent = _gcAllCards.length;
+    let cards = _gcAllCards;
+
+    // Apply lens-derived filters
+    if (_gcFilters.status) {
+      cards = cards.filter(c => {
+        if (_gcFilters.status === 'active')   return c.is_active === 1 && (!c.expiry_date || c.expiry_date >= new Date().toISOString().slice(0,10));
+        if (_gcFilters.status === 'expired')  return c.expiry_date && c.expiry_date < new Date().toISOString().slice(0,10);
+        if (_gcFilters.status === 'redeemed') return parseFloat(c.current_balance||0) === 0;
+        return true;
+      });
+    }
+    if (_gcFilters.tag) {
+      cards = cards.filter(c => (c.tags||[]).includes(_gcFilters.tag));
+    }
+    if (_gcFilters.expiring && window.LENS_CONFIG?.timeMatch) {
+      cards = cards.filter(c => window.LENS_CONFIG.timeMatch(c.expiry_date, _gcFilters.expiring, 'future'));
+    }
+
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(cards.length);
+
+    const totalBal = cards.reduce((s,c) => s + (parseFloat(c.current_balance)||0), 0);
+    const cntEl = $('gcCount'); if(cntEl) cntEl.textContent = cards.length;
     const totEl = $('gcTotalBalance');
     if (totEl) totEl.textContent = '$' + totalBal.toLocaleString('en-US',{minimumFractionDigits:2});
-    renderGcExpiryAlerts(_gcAllCards);
-    if (!_gcAllCards.length) { el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px">No gift cards — add your first one</div>'; return; }
-    el.innerHTML = _gcAllCards.map(c => gcRowHtml(c)).join('');
+    renderGcExpiryAlerts(_gcAllCards);  // alerts always reference full set, not filtered
+    if (!cards.length) { el.innerHTML = '<div style="text-align:center;color:var(--text3);padding:32px">No gift cards match the current filter</div>'; return; }
+    el.innerHTML = cards.map(c => gcRowHtml(c)).join('');
   } catch(e) { el.innerHTML = errorState(e.message, ''); }
 }
 

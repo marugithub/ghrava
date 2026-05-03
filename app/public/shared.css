@@ -4453,3 +4453,117 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
   .gh-lens__input { font-size: 14px; }
   .gh-lens__suggestions { left: 8px; right: 8px; }
 }
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.128 — Per-device family scope (pill + picker modal)
+ *
+ * The pill sits in the page header right-side actions. Click → modal
+ * lets user pick a family member to scope the device to. Choice is
+ * saved in localStorage. Lens reads this via GH_NAV.getScope().
+ * ─────────────────────────────────────────────────────────────────── */
+.gh-scope-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px 0 8px;
+  border-radius: 14px;
+  border: 1px solid var(--border2);
+  background: var(--bg3);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+  white-space: nowrap;
+}
+.gh-scope-pill:hover {
+  background: var(--bg4);
+  border-color: var(--accent);
+}
+.gh-scope-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.gh-scope-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadein .18s ease;
+}
+.gh-scope-modal {
+  background: var(--bg2);
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  width: min(420px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+  padding: 24px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.32);
+}
+.gh-scope-modal__title {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: var(--text);
+}
+.gh-scope-modal__sub {
+  font-size: 13px;
+  color: var(--text3);
+  margin: 0 0 16px;
+}
+.gh-scope-modal__list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.gh-scope-modal__opt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background .12s, border-color .12s;
+}
+.gh-scope-modal__opt:hover {
+  background: var(--bg3);
+}
+.gh-scope-modal__opt.active {
+  background: var(--bg3);
+  border-color: var(--accent);
+}
+.gh-scope-modal__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--bg4);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.gh-scope-modal__avatar--all {
+  background: var(--accent);
+  color: white;
+  font-size: 11px;
+}

@@ -1,101 +1,75 @@
-# Ghrava Handoff — Session 17 (Lens engine extension + gap closures, v202604.127)
+# Ghrava Handoff — Session 18 (Finance partial + per-device scope, v202604.128)
 
-**Status:** Shipped. Generic select dim, time-filter pass, snooze undo, wardrobe outfits/insights wired.
+**Status:** Shipped. Gift cards lens. Per-device family scope across all pages.
 
 ---
 
 ## What this session built
 
-Big drop. Three pieces of unfinished business closed plus one engine extension.
+### 1. Gift cards on the lens
+Wired finance.html `panel-giftcards` with `gift_cards` lens config (status: active/expired/redeemed, time: expiring, tag). Reads filter state via new `_gcFilters` global; loadGiftCards applies status/tag/time filters to the list. Lens initializes lazily when the gift cards tab is first opened (initGcLens).
 
-### 1. Generic `select` dim type (gh-lens.js + lens-config.js)
-The lens engine now supports custom single-select dimensions beyond the four built-ins (person/status/time/tag). Shape:
-```js
-season: { type: 'select', verb: 'in', field: 'season',
-          values: ['Spring','Summer','Fall','Winter'] }
-```
-- `buildAllSuggestions` recognizes `dcfg.type === 'select'` and emits one suggestion per value
-- Persisted-filter validation also handles select dims
-- Pill rendering, click-to-edit, suggestion popover all work unchanged
+**Other finance tabs deliberately not wired this drop.** The accounts code already had a documented design note (line 1706-1710) deferring view-toggle work for finance tabs because they're a multi-tab dashboard, not single-list pages — slapping a lens on top of native account-and-year selectors competes with existing UX. Each remaining tab (transactions, accounts, budgets, networth, holdings, hsa, import) needs UX placement work, not a swap. Flagged as a follow-up that needs design discussion.
 
-This unblocks any module that needs multiple single-select filters under custom names.
+### 2. Per-device family scope (cross-cutting feature)
+Brand-new feature in `nav.js` + `shared.css`. Three pieces:
+- **First-time prompt** — modal pops on first visit asking "Who is this device for?" with a list of family members + "Everyone (no filter)". Choice persists in `localStorage` as `gh_device_family_scope = { id, name }`. Skipped on login/help/offline pages, and once dismissed without picking, won't ask again that session.
+- **Scope pill in nav header** — small pill next to search/print/notif buttons showing current scope. Click → re-opens the picker. Hidden when no scope set.
+- **Lens auto-applies the scope** — when any lens initializes on a module that has a `person` dim, it auto-pushes a person pill matching the device scope (unless the user already has a person filter set in their persisted state). Net effect: walk into wardrobe/medical/todos/etc. and your scoped person's items are pre-filtered everywhere uniformly.
 
-### 2. Time-filter pass (across-the-board)
-Added `LENS_CONFIG.timeMatch(dateStr, presetLabel, presetHint)` — a shared helper that interprets time presets per the `cmp` fields already in lens-config. Adapters now apply the time pill on six pages:
-- todos → `due_date` (future)
-- subscriptions → `next_billing_date` (future)
-- insurance → `coverage_end_date` (future)
-- documents → `expiry_date` (future) — replaced the pre-existing manual numeric-days filter
-- books → `date_started` (future)
-- wardrobe items → `last_worn` (past)
+No DB changes. Pure UI feature, localStorage only. Rejecting/clearing the scope removes the pill and stops the auto-filter.
 
-The "time pill is decorative" gap from sessions 13–16 is closed.
+**Implementation note:** `GH_NAV.getScope()` is the public API — module renderers can read it directly if they want to scope server-side queries (none do yet; lens-only for now).
 
-### 3. Wardrobe outfits + insights tabs wired
-Both outfit and insights tabs now use the lens (formerly GH_VIEW). Outfits gets the new `wardrobe_outfits` config with **person + season + occasion + tag** — season and occasion are select dims. Insights is presentational so it just gets a grid/list view toggle. Filter state for outfits is preserved (`_outfitFilters.season/.occasion/.tag/.person`).
-
-### 4. Today page snooze undo
-Snoozing a row now shows a 5-second toast at the bottom of the page with an Undo button. Click Undo → `DELETE /api/v1/today/snooze/:kind/:id` → row reappears. Toast auto-dismisses after 5s.
-
-### 5. Bonus: gallery view button
-gh-lens.js now renders a 4th view-toggle button when `views: ['gallery']` is included. Inventory uses this. Was a missing icon since v124.
+### 3. Bonus on lens
+Added `gift_cards` config to lens-config.js (alongside the v127 wardrobe_outfits + v126 career_certs/kids_activities/resources entries).
 
 ---
 
 ## Files in this drop
 
 ```
-app/public/js/gh-lens.js              (select dim + gallery button)
-app/public/js/lens-config.js          (timeMatch helper + wardrobe_outfits)
-app/public/index.html                 (snooze undo toast)
-app/public/todos.html                 (time filter)
-app/public/subscriptions.html         (time filter)
-app/public/insurance.html             (time filter)
-app/public/documents.html             (time filter — manual replaced)
-app/public/books.html                 (time filter)
-app/public/wardrobe.html              (lens on outfits + insights, time filter on items)
-app/version.txt                       → 202604.127
+app/public/finance.html              (gift cards tab lens)
+app/public/nav.js                    (scope pill + picker + first-time prompt)
+app/public/shared.css                (scope pill + modal styles, appended)
+app/public/js/gh-lens.js             (auto-apply scope as person pill on init)
+app/public/js/lens-config.js         (gift_cards entry)
+app/version.txt                      → 202604.128
 HANDOFF.md
 ```
 
-11 files. No CSS, no migrations, no server-side.
+7 files. No migrations, no server changes.
 
 ---
 
 ## Lens rollout status (after this drop)
 
-**15 of 25 modules on the lens** (60%):
-Previously 13. This drop adds wardrobe outfits and wardrobe insights as separate "modules" (they share the wardrobe page but each tab has its own lens instance now). All 9 originally wired pages plus inventory, career, kids, resources, wardrobe (items + outfits + insights tabs).
+**16 of 25 modules** with a lens. New: gift_cards. Plus the 15 from v127.
 
-**Modules still on old toolbars / no toolbar:**
-- finance — multi-tab (HSA / Accounts / Transactions / Net Worth / Budgets / Gift Cards). No GH_VIEW currently. Each tab needs its own lens config + wiring. Not done — flagged as next big chunk.
-- daily-log — has its own custom pill+tag filter UI (NOT GH_VIEW). Lens would mean redesigning the existing UX, not a swap.
-- hsa — summary dashboard, not a list-of-records page. Doesn't fit the lens pattern. Skip.
-- notifications — inbox, not list-with-filters. Skip.
-- calendar — date UI. Doesn't fit. Skip.
-- search, dashboard (now /stats), family-snapshot — don't fit. Skip.
-
-Realistic remaining target = **finance (6 sub-tabs)**. After that, the lens rollout is "done" in the meaningful sense — the modules that don't use it are ones where it doesn't apply.
+**Effectively done.** The remaining unwired modules are:
+- Other finance tabs (transactions, accounts, budgets, networth, holdings, hsa) — multi-tab dashboard, needs UX redesign not lens swap. **Next major drop after design discussion.**
+- daily-log — has its own custom pill+tag filter UI; would mean redesign, not swap. Discuss first.
+- snapshot, hsa.html standalone, calendar, notifications, dashboard/stats, search, settings, and other system pages — don't fit the pattern by nature.
 
 ---
 
-## Sandbox checks
+## What to watch on first deploy
 
-- Node syntax: gh-lens.js, lens-config.js — OK
-- Inline scripts on all 7 changed HTML files — all OK
-- No GH_VIEW.init left on any wired page (only doc-comment refs)
+1. **First page load triggers the scope prompt** after ~1.2s if no scope is set. Pick yourself or "Everyone (no filter)". If you dismiss without picking it won't re-ask this session.
+2. **Once you pick yourself**, every list with a person dim (wardrobe, medical, todos, kids, books, perfume, property, subscriptions, documents, gift cards) auto-filters to your records. Click the scope pill in the header to switch or clear.
+3. **The auto-applied person pill counts toward the lens's persisted state** — it persists in sessionStorage just like manually-added pills. Clearing the scope from the pill picker removes it from the lens's state going forward but won't retroactively yank it from the current sentence (refresh to re-init).
+4. **Gift cards filter** — try `that are expired` or `expiring this month` from the lens; status logic is interpreted client-side (active = is_active=1 AND not past expiry; expired = past expiry; redeemed = balance=0). Backend API doesn't filter by these — all client-side.
 
 ---
 
 ## Carrying forward (backlog, priority order)
 
-1. **Finance tabs lens rollout** (6 tabs × adapter+config). Big drop.
-2. **Daily-log custom-UI → lens migration** (UX redesign, discuss first).
-3. **Per-device family filter** — first-time prompt, localStorage scope.
-4. **Photo-first wardrobe entry**.
-5. **Amazon orders → inventory via Gmail**.
-6. **Calendar sync** (read-only).
-7. **Browser extension** — defer indefinitely.
+1. **Finance tabs lens redesign** — UX placement work. Discuss before coding.
+2. **Daily-log custom-UI → lens migration** — UX redesign. Discuss before coding.
+3. **Photo-first wardrobe entry** — drag/drop draft creation.
+4. **Amazon orders → inventory via Gmail** — regex parsing, no AI cost.
+5. **Calendar sync** (read-only Google Calendar).
+6. **Browser extension** — defer indefinitely.
 
 ### REJECTED
 - Email receipt tracking (duplicates bank data)
