@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Stats — Ghrava</title>
+  <meta name="theme-color" content="#f0f4f8">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
+  if (localStorage.getItem('gh_nav_collapsed') !== '0') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+  <script>
+    // Shared header config — nav.js reads this before injecting the header
+    window.GH_PAGE = {
+      module:   'stats',
+      title:    'Stats',
+      // Dashboard gets a custom header via headerExtra (greeting), not the standard title bar
+      noHeader: true,
+    };
+  </script>
+  <style>
+    /* ── Dashboard-specific overrides ───────────────────────── */
+    .dash-header {
+      position: sticky; top: 0; z-index: 100;
+      background: var(--bg2);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+    .dash-header-row {
+      display: flex; align-items: center;
+      padding: 10px 16px; gap: 10px; min-height: 54px;
+    }
+    .dash-logo {
+      width: 32px; height: 32px; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .dash-logo svg { width: 100%; height: 100%; color: var(--accent); }
+    .dash-header-title {
+      font-size: 17px; font-weight: 800;
+      letter-spacing: -.02em; flex: 1; color: var(--text);
+    }
+    .dash-header-actions { display: flex; gap: 6px; }
+    /* Hide the custom dash-header on desktop — sidebar has logo there */
+    @media (min-width: 900px) {
+      .dash-header { display: none; }
+    }
+
+    /* Skeleton shimmer */
+    @keyframes shimmer {
+      0%   { background-position: -400px 0; }
+      100% { background-position:  400px 0; }
+    }
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg3) 25%, var(--bg4) 50%, var(--bg3) 75%);
+      background-size: 400px 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 6px;
+    }
+
+    /* Log entry widget body */
+    .log-entry-text {
+      font-size: 12px; color: var(--text2);
+      line-height: 1.5; margin-top: 4px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+
+
+    /* Placeholder tile tooltip */
+    .module-tile.placeholder:active::after {
+      content: 'Coming soon';
+      position: absolute; bottom: -28px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--bg4); border: 1px solid var(--border2);
+      border-radius: 6px; padding: 3px 8px;
+      font-size: 10px; color: var(--text2);
+      white-space: nowrap; z-index: 10;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ── Custom dashboard header (logo + notif + gear) ──────── -->
+  <header class="dash-header">
+    <div class="dash-header-row">
+      <button class="gh-hamburger" aria-label="Menu" onclick="window.GH_NAV && GH_NAV.toggleSidebar()" style="flex-shrink:0">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="dash-logo">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+          <path d="M50 10 L90 44 L90 90 L10 90 L10 44 Z" stroke="currentColor" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+          <path d="M10 44 L50 10 L90 44" stroke="currentColor" stroke-width="5.5" stroke-linejoin="round" fill="none"/>
+          <g transform="translate(50,61)">
+            <path d="M0,-19 C-9,-19 -21,-14 -22,-4 C-23,6 -15,15 -6,17 C-3,18 0,17 0,17 C3,18 6,17 6,17 C15,15 23,6 22,-4 C21,-14 9,-19 0,-19Z" stroke="currentColor" stroke-width="4" stroke-linecap="round" fill="none"/>
+            <line x1="0" y1="-19" x2="0" y2="17" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+            <path d="M-14,-8 C-18,-2 -16,7 -10,11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+            <path d="M14,-8 C18,-2 16,7 10,11" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" fill="none"/>
+          </g>
+        </svg>
+      </div>
+      <div class="dash-header-title">Ghrava</div>
+      <div class="dash-header-actions">
+        <button class="gh-icon-btn" onclick="window.GH_Search&&GH_Search.open()" aria-label="Search" title="Search (⌘K)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+        <button class="gh-icon-btn" id="notifBtn" aria-label="Notifications" onclick="GH_NAV && GH_NAV.toggleNotif()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/></svg>
+          <span class="gh-notif-badge" style="display:none">0</span>
+        </button>
+        <a href="/settings.html" class="gh-icon-btn" aria-label="Settings">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Greeting ────────────────────────────────────────────── -->
+  <div class="dash-greeting">
+    <div class="dash-greeting-date" id="greetDate">—</div>
+    <div class="dash-greeting-name" id="greetName">Loading…</div>
+  </div>
+
+  <!-- ── Focus Strip ───────────────────────────────────────────── -->
+  <div id="focusStrip" style="display:none;margin:0 16px 12px;background:var(--red-bg,#fef2f2);border:1px solid var(--red,#ef4444);border-radius:var(--r-lg);overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px 6px">
+      <span style="font-size:12px;font-weight:700;color:var(--red,#ef4444);text-transform:uppercase;letter-spacing:.05em">🎯 Needs Attention</span>
+      <button onclick="document.getElementById('focusStrip').style.display='none'" style="background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:0;line-height:1">✕</button>
+    </div>
+    <div id="focusStripList" style="padding:0 14px 10px;display:flex;flex-direction:column;gap:4px"></div>
+  </div>
+
+  <!-- ── Widgets ─────────────────────────────────────────────── -->
+  <div class="widget-grid" id="widgetGrid">
+    <!-- Skeletons while loading -->
+    <div class="widget" style="min-height:96px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+    <div class="widget" style="min-height:96px"><div class="skeleton" style="height:14px;width:60%;margin-bottom:10px"></div><div class="skeleton" style="height:28px;width:40%"></div></div>
+    <div class="widget widget-wide" style="min-height:80px"><div class="skeleton" style="height:14px;width:40%;margin-bottom:8px"></div><div class="skeleton" style="height:12px;width:80%"></div></div>
+  </div>
+
+  <!-- ── All modules ─────────────────────────────────────────── -->
+  <div class="module-section-title" onclick="toggleModuleGrid(this)">
+    All Modules
+    <span class="module-section-chevron" id="moduleGridChev">▾</span>
+  </div>
+  <div class="module-grid-wrap" id="moduleGridWrap">
+    <div class="module-grid" id="moduleGrid"></div>
+  </div>
+
+</div><!-- #app -->
+
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script src="/js/global-search.js"></script>
+<script src="/js/keyboard-shortcuts.js"></script>
+<script src="/js/quick-capture.js"></script>
+<script src="/js/offline-indicator.js"></script>
+<script>
+(function() {
+  // ── Date/greeting ───────────────────────────────────────────
+  const DAYS   = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  function greetTime() {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning';
+    if (h < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
+  function formatDate(d) {
+    return `${DAYS[d.getDay()]}, ${MONTHS[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
+  }
+
+  function fmt$(n) {
+    if (n >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+    if (n >= 1000)    return '$' + (n/1000).toFixed(1) + 'k';
+    return '$' + Math.round(n).toLocaleString();
+  }
+
+  const now = new Date();
+  document.getElementById('greetDate').textContent = formatDate(now);
+  document.getElementById('greetName').innerHTML = `${greetTime()}, <span>welcome</span>`;
+
+  // ── Module grid ─────────────────────────────────────────────
+  const MODULE_ORDER = [
+    'dailylog','todos','inventory','finance','medical','property',
+    'kids','documents','career','books','wardrobe','perfume',
+    'insurance','subscriptions','reports'
+  ];
+
+  function buildModuleGrid() {
+    const grid = document.getElementById('moduleGrid');
+    if (!grid) return;
+    if (!window.GH_NAV) {
+      // GH_NAV not ready yet — retry after a tick
+      setTimeout(buildModuleGrid, 50);
+      return;
+    }
+    const mods = GH_NAV.MODULES;
+    grid.innerHTML = MODULE_ORDER.map(key => {
+      const m = mods[key];
+      if (!m) return '';
+      const isPlaceholder = m.placeholder;
+      const href = isPlaceholder ? null : m.href;
+      const tag  = href ? 'a' : 'div';
+      const hrefAttr = href ? `href="${href}"` : '';
+      return `<${tag} ${hrefAttr} class="module-tile${isPlaceholder?' placeholder':''}"
+               ${isPlaceholder ? 'title="Coming soon"' : ''}
+               data-key="${key}">
+        <div class="module-tile-icon" style="background:${m.bg};color:${m.color}">
+          ${GH_NAV.SVG[m.svgKey] ? `<span style="width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:${m.color}">${GH_NAV.SVG[m.svgKey]}</span>` : ''}
+        </div>
+        <div class="module-tile-label">${m.label}</div>
+      </${tag}>`;
+    }).join('');
+    // Update wrap height now that grid is populated
+    const wrap = document.getElementById('moduleGridWrap');
+    if (wrap && !wrap.classList.contains('sec-collapsed')) {
+      wrap.style.maxHeight = wrap.scrollHeight + 'px';
+    }
+  }
+
+  // ── Load dashboard data ─────────────────────────────────────
+  async function loadDashboard() {
+    try {
+      const data = await window.api('GET', '/dashboard');
+
+      // Greeting with primary user name
+      const primaryUser = (data.family || []).find(f => f.is_primary_user) || data.family?.[0];
+      if (primaryUser) {
+        document.getElementById('greetName').innerHTML =
+          `${greetTime()}, <span>${primaryUser.display_name.split(' ')[0]}</span>`;
+      } else {
+        document.getElementById('greetName').innerHTML =
+          `${greetTime()}`;
+      }
+
+      // Family strip
+
+      // Widgets
+      buildWidgets(data);
+
+    } catch (e) {
+      console.error('Dashboard load error:', e);
+      document.getElementById('greetName').textContent = greetTime();
+      buildWidgets(null);
+    }
+  }
+
+  function buildWidgets(d) {
+    const grid = document.getElementById('widgetGrid');
+    if (!grid) return;
+
+    const inv   = d?.inventory          || {};
+    const hsa   = d?.hsa                || {};
+    const log   = d?.daily_log          || {};
+    const med   = d?.medical            || {};
+    const tod   = d?.todos              || {};
+    const gc    = d?.gift_cards         || {};
+    const nw    = d?.net_worth          || {};
+    const certs = d?.certifications     || {};
+    const books = d?.books              || {};
+    const prop  = d?.property           || {};
+    const kids  = d?.kids               || {};
+    const xdocs = d?.expiring_documents || [];
+    const bkp   = d?.backup             || {};
+
+    const nwVal   = nw.net_worth ?? null;
+    const nwFmt   = nwVal !== null ? fmt$(Math.abs(nwVal)) : '\u2014';
+    const nwColor = nwVal === null ? 'var(--text)' : nwVal >= 0 ? '#22c55e' : '#ef4444';
+    const nwSign  = nwVal !== null && nwVal < 0 ? '\u2212' : '';
+
+    // Google Calendar removed — todos sync to Google Tasks (future)
+
+    // ── compact stat card helper ─────────────────────────────
+    const w = (href, accent, emoji, label, val, sub, alert='') =>
+      `<a href="${href}" class="widget" style="--w-accent:${accent}">
+        <div class="wgt-row">
+          <div class="wgt-label">${emoji} ${label}</div>
+          <div class="wgt-val" style="color:${accent}">${val}</div>
+        </div>
+        <div class="wgt-sub">${sub}</div>
+        ${alert ? `<div class="wgt-alert">${alert}</div>` : ''}
+      </a>`;
+
+    const badge = (txt, type) =>
+      `<span class="status-badge ${type}" style="font-size:10px">${txt}</span>`;
+
+    const dash  = '\u2014';
+    const dot   = ' \u00b7 ';
+
+    // ── Stat cards ────────────────────────────────────────────
+    const todAlert  = tod.urgent_count > 0 ? badge(tod.urgent_count+' urgent','overdue') : tod.overdue_count > 0 ? badge(tod.overdue_count+' overdue','pending') : '';
+    const invAlert  = inv.expired > 0 ? badge(inv.expired+' expired','overdue') : inv.expiring_soon > 0 ? badge(inv.expiring_soon+' expiring','pending') : '';
+    const certAlert = certs.expired > 0 ? badge(certs.expired+' expired','overdue') : certs.expiring_soon > 0 ? badge(certs.expiring_soon+' renew soon','pending') : '';
+    const propAlert = prop.vehicle_alerts > 0 ? badge(prop.vehicle_alerts+' vehicle alert'+(prop.vehicle_alerts!==1?'s':''),'pending') : '';
+    const gcAlert   = gc.expiring_soon > 0 ? badge(gc.expiring_soon+' expiring','pending') : '';
+    const bkpColor  = bkp.overdue ? '#ef4444' : '#22c55e';
+    const docAlert  = xdocs.length > 0 ? badge(xdocs.length+' expiring','pending') : '';
+
+    const cards = [
+      w('/todos.html',    '#a78bfa', '✓', 'To Do',
+        d ? (tod.open_count??dash) : dash,
+        d ? (tod.due_today||0)+' today'+dot+(tod.overdue_count||0)+' overdue' : 'Loading…',
+        todAlert),
+
+      w('/inventory.html','#f59e0b', '📦', 'Inventory',
+        d ? (inv.items??dash) : dash,
+        d ? fmt$(inv.est_value||0)+' est'+dot+(inv.expiring_soon||0)+' expiring' : 'Loading…',
+        invAlert),
+
+      w('/finance.html',  '#22c55e', '💰', 'Net Worth',
+        d ? (nwSign+nwFmt) : dash,
+        d && nw.assets !== undefined ? fmt$(nw.assets||0)+' assets'+dot+fmt$(nw.liabilities||0)+' liab.' : 'No accounts yet',
+        ''),
+
+      w('/finance.html',  '#5c72fa', '❤️', 'HSA Pool',
+        d ? fmt$(hsa.unreimbursed_pool||0) : dash,
+        d ? 'Unreimbursed '+new Date().getFullYear()+(hsa.missing_receipts?' · '+hsa.missing_receipts+' no receipt':'') : 'Loading…',
+        hsa.missing_receipts > 0 ? badge(hsa.missing_receipts+' missing receipt','pending') : ''),
+
+      w('/medical.html',  '#14b8a6', '🏥', 'Medical',
+        d ? (med.medications??dash) : dash,
+        d ? (med.conditions||0)+' conditions'+dot+(med.physicians||0)+' doctors' : 'Loading…',
+        ''),
+
+      w('/property.html', '#ef4444', '🏠', 'Property',
+        d ? ((prop.properties||0)+'p / '+(prop.vehicles||0)+'v') : dash,
+        d ? fmt$(prop.total_est_value||0)+' est. value' : 'Loading…',
+        propAlert),
+
+      w('/career.html',   '#f97316', '🎖', 'Career',
+        d ? (certs.active_jobs??0) : dash,
+        d ? (certs.active_jobs||0)+' active job'+(certs.active_jobs!==1?'s':'')+dot+(certs.total||0)+' certs' : 'Loading…',
+        certAlert),
+
+      w('/books.html',    '#8b5cf6', '📚', 'Books',
+        d ? (books.reading??dash) : dash,
+        d ? 'reading now'+dot+(books.read_count||0)+' finished'+dot+(books.want_count||0)+' queued' : 'Loading…',
+        ''),
+
+      w('/kids.html',     '#ec4899', '👧', 'Kids',
+        d ? (kids.total??dash) : dash,
+        d ? (kids.activities||0)+' activit'+(kids.activities!==1?'ies':'y') : 'Loading…',
+        ''),
+
+      w('/documents.html','#6366f1', '📄', 'Documents',
+        d ? (d.doc_total??dash) : dash,
+        d ? (xdocs.length||0)+' expiring in 90d' : 'Loading…',
+        docAlert),
+
+      w('/finance.html',  '#f97316', '🎁', 'Gift Cards',
+        d && gc.total_balance !== undefined ? fmt$(gc.total_balance) : dash,
+        d ? (gc.count||0)+' card'+(gc.count!==1?'s':'') : 'Loading…',
+        gcAlert),
+
+      w('/settings.html', bkpColor,  '💾', 'Backup',
+        d ? (bkp.last_backup ? (bkp.days_since_backup===0?'Today':bkp.days_since_backup+'d ago') : 'Never') : dash,
+        d ? (bkp.last_backup_size ? (bkp.last_backup_size/1024).toFixed(0)+' KB' : 'No backup found') : 'Loading…',
+        bkp.overdue ? badge('Overdue','overdue') : ''),
+    ].join('');
+
+    // ── Wide widgets ──────────────────────────────────────────
+    const dailyLogWide = `
+      <a href="/daily-log.html" class="widget widget-wide" style="--w-accent:#5c72fa">
+        <div class="wgt-wide-inner">
+          <div class="wgt-wide-icon" style="background:rgba(92,114,250,.12);color:#5c72fa">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;align-items:baseline;justify-content:space-between;gap:8px">
+              <div class="wgt-label">📋 Daily Log</div>
+              <div style="font-size:10px;color:var(--text3);flex-shrink:0">${d && log.recent ? log.recent.log_date||'' : ''}</div>
+            </div>
+            ${d && log.recent
+              ? `<div class="log-entry-text" style="margin-top:3px">${escHtml(log.recent.entry_text||'')}</div>
+                 <div style="margin-top:4px;display:flex;gap:5px;flex-wrap:wrap">
+                   ${log.recent.follow_up_needed ? '<span class="status-badge pending" style="font-size:10px">Follow-up</span>' : ''}
+                   ${log.follow_ups_overdue > 0 ? `<span class="status-badge overdue" style="font-size:10px">${log.follow_ups_overdue} overdue</span>` : ''}
+                   ${d ? `<span style="font-size:10px;color:var(--text3)">${log.entry_count||0} entries this week</span>` : ''}
+                 </div>`
+              : `<div class="wgt-sub" style="margin-top:3px">${d ? 'No entries yet' : 'Loading…'}</div>`}
+          </div>
+        </div>
+      </a>`;
+
+    grid.innerHTML = cards + dailyLogWide
+      + `<div id="attentionWidget" class="widget widget-wide" style="--w-accent:#ef4444;display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div class="wgt-wide-icon" style="background:rgba(239,68,68,.12);color:#ef4444"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div>
+            <div class="wgt-label" style="margin-bottom:0">Needs Attention</div>
+            <span id="attentionCount" class="status-badge overdue" style="margin-left:auto;font-size:10px"></span>
+          </div>
+          <div id="attentionList"></div>
+        </div>
+        <div id="reviewWidget" class="widget widget-wide" style="--w-accent:#f59e0b;display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <div class="wgt-wide-icon" style="background:rgba(245,158,11,.12);color:#f59e0b"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
+            <div class="wgt-label" style="margin-bottom:0">Data Needs Review</div>
+            <span id="reviewCount" class="status-badge" style="margin-left:auto;font-size:10px;background:rgba(245,158,11,.15);color:#f59e0b"></span>
+          </div>
+          <div id="reviewList"></div>
+          <a href="reports.html" style="display:block;margin-top:6px;font-size:11px;color:var(--accent);text-decoration:none">View in Reports → Tools →</a>
+        </div>`;
+
+    loadAttention();
+    loadReviewCard();
+  }
+
+
+  async function loadAttention() {
+    try {
+      const r = await window.api('GET', '/dashboard/attention').then(r => ({ok: true, json: () => Promise.resolve(r)}));
+      if (!r.ok) return;
+      const data = await r.json();
+      const items = data.items || [];
+      if (!items.length) return;
+
+      const widget = document.getElementById('attentionWidget');
+      const list   = document.getElementById('attentionList');
+      const count  = document.getElementById('attentionCount');
+      if (!widget || !list || !count) return;
+
+      const sevColor = { critical:'var(--red)', overdue:'var(--red)', warning:'var(--amber)' };
+      const sevIcon  = { critical:'🚨', overdue:'⚠️', warning:'🔔' };
+      const modLabel = {
+        todos:'To Do', daily_log:'Daily Log', gift_cards:'Gift Cards',
+        hsa:'HSA', career:'Career', property:'Property',
+        insurance:'Insurance', subscriptions:'Subscription',
+        inventory:'Warranty', review:'Review',
+      };
+
+      count.textContent = items.length + ' item' + (items.length !== 1 ? 's' : '');
+
+      list.innerHTML = items.slice(0,8).map(item => `
+        <a href="${item.href||'#'}" style="display:flex;align-items:flex-start;gap:10px;padding:8px 0;
+          border-top:1px solid var(--border);text-decoration:none;transition:opacity .12s"
+          onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
+          <span style="font-size:14px;flex-shrink:0;margin-top:1px">${sevIcon[item.severity]||'⚠️'}</span>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:600;color:var(--text)">${escHtml(item.label)}</div>
+            <div style="font-size:12px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(item.detail||'')}</div>
+          </div>
+          <div style="text-align:right;flex-shrink:0">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:${sevColor[item.severity]||'var(--amber)'}">
+              ${modLabel[item.module]||item.module}
+            </div>
+            ${item.date ? `<div style="font-size:10px;color:var(--text3);font-family:var(--mono)">${item.date}</div>` : ''}
+          </div>
+        </a>`).join('');
+
+      widget.style.display = 'block';
+    } catch(e) {}
+  }
+
+  async function loadReviewCard() {
+    try {
+      const d = await window.api('GET', '/settings/review/summary');
+      if (!d.total) return;
+      const widget = document.getElementById('reviewWidget');
+      const list   = document.getElementById('reviewList');
+      const count  = document.getElementById('reviewCount');
+      if (!widget || !list || !count) return;
+      count.textContent = d.total + ' record' + (d.total !== 1 ? 's' : '');
+      list.innerHTML = d.modules.slice(0,5).map(m =>
+        `<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:13px;color:var(--text2)">${escHtml(m.label)}</span>
+          <span style="font-size:12px;color:var(--amber);font-weight:600">${m.count}</span>
+        </div>`
+      ).join('');
+      widget.style.display = 'block';
+    } catch(e) {}
+  }
+
+  function escHtml(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  // ── Module grid collapse ────────────────────────────────────
+  function isModuleGridCollapsed() {
+    return localStorage.getItem('gh_module_grid') !== '0';  // collapsed by default
+  }
+
+  function applyModuleGridState() {
+    const wrap = document.getElementById('moduleGridWrap');
+    const chev = document.getElementById('moduleGridChev');
+    const collapsed = isModuleGridCollapsed();
+    if (wrap) {
+      wrap.classList.toggle('sec-collapsed', collapsed);
+      wrap.style.maxHeight = collapsed ? '0' : (wrap.scrollHeight + 'px');
+    }
+    if (chev) chev.style.transform = collapsed ? 'rotate(-90deg)' : '';
+  }
+
+  window.toggleModuleGrid = function(headEl) {
+    const collapsed = !isModuleGridCollapsed();
+    localStorage.setItem('gh_module_grid', collapsed ? '0' : '1');
+    applyModuleGridState();
+  };
+
+  // ── Init ────────────────────────────────────────────────────
+  setTimeout(buildModuleGrid, 0);
+  setTimeout(applyModuleGridState, 0);
+  loadDashboard();
+  loadFocusStrip();
+
+})();
+
+async function loadFocusStrip() {
+  try {
+    const data = await window.api('GET', '/dashboard/focus');
+    if (!data.items?.length) return;
+    const strip = document.getElementById('focusStrip');
+    const list  = document.getElementById('focusStripList');
+    if (!strip || !list) return;
+    const colors = { critical: 'var(--red)', overdue: 'var(--amber)', warning: 'var(--amber)' };
+    list.innerHTML = data.items.slice(0,5).map(item => `
+      <a href="${item.href}" style="display:flex;align-items:center;gap:8px;padding:4px 0;text-decoration:none">
+        <span style="font-size:14px">${item.icon}</span>
+        <span style="font-size:13px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${item.label}</span>
+        <span style="font-size:10px;font-weight:600;color:${colors[item.severity]||'var(--text3)'};text-transform:uppercase">${item.severity}</span>
+      </a>`).join('');
+    strip.style.display = 'block';
+  } catch { /* silent */ }
+}
+</script>
+</body>
+</html>

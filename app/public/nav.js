@@ -56,7 +56,8 @@
 
   // ── Module registry ──────────────────────────────────────────
   const MODULES = {
-    home:      { href:'/index.html',      label:'Home',      color:'#5c72fa', bg:'rgba(92,114,250,.12)',   svgKey:'home' },
+    home:      { href:'/index.html',      label:'Today',     color:'#5c72fa', bg:'rgba(92,114,250,.12)',   svgKey:'home' },
+    stats:     { href:'/dashboard.html',  label:'Stats',     color:'#06b6d4', bg:'rgba(6,182,212,.12)',    svgKey:'reports' },
     dailylog:  { href:'/daily-log.html',  label:'Daily Log', color:'#0ea5e9', bg:'rgba(14,165,233,.12)',   svgKey:'dailylog' },
     inventory: { href:'/inventory.html',  label:'Inventory', color:'#f59e0b', bg:'rgba(245,158,11,.12)',   svgKey:'inventory' },
     medical:   { href:'/medical.html',    label:'Medical',   color:'#14b8a6', bg:'rgba(20,184,166,.12)',   svgKey:'medical' },
@@ -96,7 +97,7 @@
     { label: 'Household', keys: ['inventory', 'property', 'documents', 'wardrobe', 'perfume'] },
     { label: 'Family',    keys: ['medical', 'kids', 'insurance'] },
     { label: 'Personal',  keys: ['career', 'books'] },
-    { label: 'Reports',   keys: ['reports'] },
+    { label: 'Reports',   keys: ['reports', 'stats'] },
   ];
 
   const currentPath = window.location.pathname;

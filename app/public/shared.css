@@ -899,13 +899,13 @@ html, body {
   background: rgba(0,0,0,.55);
   z-index: 500;
   display: flex;
-  align-items: stretch;
-  justify-content: flex-end;
+  align-items: center;
+  justify-content: center;
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
   opacity: 0;
   pointer-events: none;
-  transition: opacity .22s ease;
+  transition: opacity .18s ease;
 }
 .drawer-overlay.open {
   opacity: 1;
@@ -913,28 +913,28 @@ html, body {
 }
 @keyframes fadein { from { opacity:0 } to { opacity:1 } }
 
-/* ── Drawer — right-anchored side panel ───────────────────────── */
-/* v202604.111 — block layout with internal scroll. Content flows  */
-/* top-down naturally. Loose pattern (todos, most modules) just     */
-/* drops children inside .drawer. Structured pattern's header /     */
-/* footer become sticky via position:sticky overrides below.        */
+/* ── Drawer — center modal (v202604.125, was right-anchored side panel) ─ */
+/* Width stays ~540px so existing field/button layouts are unchanged.    */
+/* Height stays close to viewport so multi-field forms remain usable.    */
 .drawer {
   background: var(--bg2);
-  border-left: 1px solid var(--border2);
-  border-radius: 0;
-  width: min(540px, 100vw);
-  height: 100vh;
-  max-height: 100vh;
+  border: 1px solid var(--border2);
+  border-radius: 14px;
+  width: min(540px, 92vw);
+  height: min(92vh, 920px);
+  max-height: 92vh;
   display: block;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 8px 20px 20px;
-  box-shadow: -16px 0 48px rgba(0,0,0,.28);
-  transform: translateX(100%);
-  transition: transform .28s cubic-bezier(.32,.72,0,1);
+  box-shadow: 0 24px 64px rgba(0,0,0,.32);
+  transform: scale(.96);
+  opacity: 0;
+  transition: transform .22s cubic-bezier(.32,.72,0,1), opacity .16s ease;
 }
 .drawer-overlay.open .drawer {
-  transform: translateX(0);
+  transform: scale(1);
+  opacity: 1;
 }
 
 /* Fixed header: handle + title — sticky to top of scrollable area  */
@@ -1088,6 +1088,10 @@ html, body {
 /* ── gh-drawer — right-anchored side panel ──────────────────── */
 /* Used by: inventory item detail drawer, settings sub-pages.    */
 /* `:has()`-based backdrop so no HTML changes needed.            */
+/* v202604.125 — Center modal (was right-anchored drawer).
+   Width stays ~540px so existing field layouts are unchanged; only the
+   anchor + transform changes. Height stays close to the viewport so
+   forms with many fields remain usable without scaling buttons up. */
 body:has(.gh-drawer.open)::before {
   content: "";
   position: fixed;
@@ -1100,26 +1104,26 @@ body:has(.gh-drawer.open)::before {
 }
 .gh-drawer {
   position: fixed;
-  top: 0;
-  right: 0;
-  width: min(540px, 100vw);
-  height: 100vh;
-  max-height: 100vh;
+  top: 50%;
+  left: 50%;
+  width: min(540px, 92vw);
+  height: min(92vh, 920px);
+  max-height: 92vh;
   z-index: 400;
   background: var(--bg2);
-  border-left: 1px solid var(--border2);
-  border-radius: 0;
+  border: 1px solid var(--border2);
+  border-radius: 14px;
   display: flex;
   flex-direction: column;
-  transform: translateX(100%);
+  transform: translate(-50%, -50%) scale(.96);
   opacity: 0;
   pointer-events: none;
-  transition: transform .28s cubic-bezier(.32,.72,0,1), opacity .18s ease;
-  box-shadow: -16px 0 48px rgba(0,0,0,.28);
+  transition: transform .22s cubic-bezier(.32,.72,0,1), opacity .16s ease;
+  box-shadow: 0 24px 64px rgba(0,0,0,.32);
   overflow: hidden;
 }
 .gh-drawer.open {
-  transform: translateX(0);
+  transform: translate(-50%, -50%) scale(1);
   opacity: 1;
   pointer-events: auto;
 }
@@ -3886,38 +3890,15 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
 }
 
 /* ───────────────────────────────────────────────────────────────────
- * v202604.110 — Desktop tri-pane layout (≥900px)
+ * v202604.125 — Desktop modal behavior (≥900px)
  *
- * When the drawer is open on desktop with a visible side-nav, treat the
- * drawer as a third column instead of a floating modal:
- *   ▸ Side-nav (220px or 58px collapsed)  │  Center pane  │  Drawer (540px)
- * The dimmed backdrop is dropped — center pane stays visible. The
- * #app width shrinks via `body:has(...)` so the cards re-flow into
- * fewer columns instead of being covered. Below 900px the drawer
- * reverts to a normal floating panel; ≤640px reverts to full-screen.
+ * The drawer is now a centered modal at all viewport sizes (was a
+ * right-anchored panel that shrunk the main content into a tri-pane
+ * layout pre-v125). The backdrop dims the page; #app keeps its full
+ * width and stays visible behind the modal. No layout shift.
  * ─────────────────────────────────────────────────────────────────── */
 @media (min-width: 900px) {
-  /* No dimmed backdrop — center pane remains fully visible */
-  .drawer-overlay {
-    background: transparent;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-  body:has(.gh-drawer.open)::before {
-    background: transparent;
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-  }
-
-  /* Shrink the main content area to make room for the right panel */
-  body:has(.drawer-overlay.open) #app,
-  body:has(.gh-drawer.open) #app {
-    width: calc(100% - 220px - 540px);
-  }
-  body.nav-collapsed:has(.drawer-overlay.open) #app,
-  body.nav-collapsed:has(.gh-drawer.open) #app {
-    width: calc(100% - 58px - 540px);
-  }
+  /* No special desktop overrides — center modal is the base behavior. */
 }
 
 /* ───────────────────────────────────────────────────────────────────
@@ -3945,7 +3926,8 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     max-width: 100vw;
     height: 100dvh;
     max-height: 100dvh;
-    border-left: none;
+    border: none;
+    border-radius: 0;
     box-shadow: none;
   }
   .drawer-handle { display: none; }
@@ -3992,7 +3974,8 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     max-width: 100vw;
     height: 100dvh;
     max-height: 100dvh;
-    border-left: none;
+    border: none;
+    border-radius: 0;
     box-shadow: none;
   }
   .gh-drawer-header {
