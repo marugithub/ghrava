@@ -772,29 +772,25 @@
 
 <!-- Browse view -->
 <div id="browseView">
-  <!-- Toolbar row -->
-  <div style="display:flex;gap:8px;padding:12px 16px 0;align-items:center">
+  <!-- Toolbar — single row. Biz filter (Home/Business) moved into the lens
+       as a select dim so the lens recovers ~3 pills of width. On phone the
+       row wraps; lens drops below the mode toggle naturally. -->
+  <div style="display:flex;gap:8px;padding:12px 16px 0;align-items:center;flex-wrap:wrap">
     <!-- Mode: All Items / Rooms -->
     <div style="display:flex;gap:2px;background:var(--bg3);border-radius:var(--r-pill);padding:2px;border:1px solid var(--border)">
       <button id="modeAllItems" onclick="setModeFilter('items')" style="padding:5px 14px;border-radius:var(--r-pill);font-size:12px;font-weight:600;border:none;cursor:pointer;background:var(--accent);color:#fff;font-family:var(--sans)">All Items</button>
       <button id="modeRooms"    onclick="setModeFilter('rooms')" style="padding:5px 14px;border-radius:var(--r-pill);font-size:12px;font-weight:500;border:none;cursor:pointer;background:transparent;color:var(--text2);font-family:var(--sans)">Rooms</button>
     </div>
-    <div style="flex:1"></div>
-    <!-- Clothing toggle -->
+    <!-- Clothing toggle (kept inline; not folded into lens per design call) -->
     <span id="clothingToggleWrap">
       <button id="clothingToggleBtn" onclick="toggleClothing()" style="font-size:11px;padding:5px 10px;border-radius:var(--r);border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer;font-family:var(--sans)" title="Clothing hidden">🧥</button>
     </span>
-    <!-- Biz filter -->
-    <span id="bizToggleInline" style="display:flex;gap:2px;background:var(--bg3);border-radius:var(--r-pill);padding:2px;border:1px solid var(--border)">
-      <button id="bizAll"      onclick="setBizFilter('all')"      style="padding:5px 10px;border-radius:var(--r-pill);font-size:11px;font-weight:600;border:none;cursor:pointer;background:var(--accent);color:#fff;font-family:var(--sans)">All</button>
-      <button id="bizHome"     onclick="setBizFilter('home')"     style="padding:5px 10px;border-radius:var(--r-pill);font-size:11px;font-weight:500;border:none;cursor:pointer;background:transparent;color:var(--text2);font-family:var(--sans)">Home</button>
-      <button id="bizBusiness" onclick="setBizFilter('business')" style="padding:5px 10px;border-radius:var(--r-pill);font-size:11px;font-weight:500;border:none;cursor:pointer;background:transparent;color:var(--text2);font-family:var(--sans)">Business</button>
-    </span>
-    <!-- GH_VIEW toolbar -->
-    <div id="invViewToolbar" style="display:none"></div>
-    <div id="invLensWrap" style="padding: 12px 16px 0">
+    <!-- Lens — takes remaining row width -->
+    <div id="invLensWrap" style="flex:1;min-width:280px">
       <div id="invLens"></div>
     </div>
+    <!-- GH_VIEW toolbar (HIDDEN — kept for GH_BULK target) -->
+    <div id="invViewToolbar" style="display:none"></div>
   </div>
 
   <!-- Rooms tile grid — shown in Rooms mode -->
@@ -1492,14 +1488,24 @@ async function initInvView() {
   // v202604.126 — The Lens replaces GH_VIEW filter drawer.
   // The hidden #invViewToolbar div above is preserved as the GH_BULK
   // mount target (selection bar). The lens delivers grid/list/gallery
-  // view toggle, person filter, and tag filter. Location/Category/Brand
-  // filters were dropped during conversion (would need dynamic-values
-  // dim support in gh-lens.js — flagged for a future drop).
+  // view toggle, person filter, tag filter, and the home/business
+  // filter (v202604.129 — formerly the bizToggleInline pills).
+  // Location/Category/Brand filters were dropped during conversion
+  // (would need dynamic-values dim support — flagged for a future drop).
   function lensToInvFilters(lensFilters) {
     const out = {};
+    bizFilter = 'all';  // reset; re-applied below if a pill is present
     for (const f of lensFilters) {
       if (f.dim === 'person') out.family_member_id = f.value;
       if (f.dim === 'tag')    out.tag = f.value;
+      if (f.dim === 'is_business') {
+        // Lens emits 'home items' or 'business items' — drive the existing
+        // global `bizFilter` so all the URL-builders (lines ~1711, ~1955,
+        // ~2136) continue to work without a per-callsite rewrite.
+        bizFilter = f.value === 'business items' ? 'business'
+                  : f.value === 'home items'     ? 'home'
+                  :                                 'all';
+      }
     }
     return out;
   }
@@ -1552,7 +1558,7 @@ function setModeFilter(mode) {
   };
   _pill('modeAllItems', mode === 'items');
   _pill('modeRooms',    mode === 'rooms');
-  $('bizToggleInline').style.display   = mode === 'items' ? 'flex' : 'none';
+  const _bzt = $('bizToggleInline'); if (_bzt) _bzt.style.display = mode === 'items' ? 'flex' : 'none';
   $('invViewToolbar').style.display    = mode === 'items' ? 'flex' : 'none';
   const _lwrap = $('invLensWrap'); if (_lwrap) _lwrap.style.display = mode === 'items' ? 'block' : 'none';
   const ctw = $('clothingToggleWrap'); if(ctw) ctw.style.display = mode === 'items' ? '' : 'none';
@@ -1838,6 +1844,8 @@ function goHome() {
   $('archiveToggle').classList.remove('active');
   $('archiveToggle').textContent='📦 Show Archived';
   setBizFilter('all');
+  // v202604.129 — also clear the lens since it owns the biz filter pill now
+  if (window.GH_LENS && typeof GH_LENS.clear === 'function') GH_LENS.clear();
   renderBrowse();
 }
 

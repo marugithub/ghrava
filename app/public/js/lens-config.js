@@ -172,8 +172,10 @@
       label: 'Items',
       plural: 'items',
       dimensions: {
-        person: { verb: 'owned by', field: 'family_member_id' },
-        tag:    { verb: 'tagged', field: 'tags' },
+        person:      { verb: 'owned by', field: 'family_member_id' },
+        is_business: { type: 'select', verb: 'that are', field: 'is_business',
+          values: ['home items', 'business items'] },
+        tag:         { verb: 'tagged', field: 'tags' },
       },
     },
 
