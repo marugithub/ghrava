@@ -682,7 +682,19 @@ $('noteSave').addEventListener('click',async()=>{
   $('noteSave').disabled=true;$('noteSave').textContent='Saving…';
   const payload={note_date:$('nfDate').value,category:$('nfCategory').value,title:$('nfTitle').value.trim()||null,body,tags:noteFormTags,family_member_ids:GH_FAMILY.getIds('noteFamilyWrap')};
   try{
-    await api(_editingNoteId?'PUT':'POST', _editingNoteId?`/${_currentKid.id}/notes/${_editingNoteId}`:`/${_currentKid.id}/notes`, payload);
+    const saved = await api(_editingNoteId?'PUT':'POST', _editingNoteId?`/${_currentKid.id}/notes/${_editingNoteId}`:`/${_currentKid.id}/notes`, payload);
+    // v202604.139 — if this save came from a daily-log promote, link
+    // the source entry to the new note id so the daily log can show
+    // a forward link.
+    if (window._seedDailyLogId && saved && saved.id && !_editingNoteId) {
+      try {
+        await window.api('PATCH', `/daily-log/${window._seedDailyLogId}`, {
+          promoted_to_type: 'kid_note',
+          promoted_to_id:   saved.id,
+        });
+      } catch {} // non-fatal — note still saved
+      window._seedDailyLogId = null;
+    }
     $('noteDrawer').classList.remove('open');toast('Saved','ok');
     _currentKid=await api('GET', `/${_currentKid.id}`);renderNotes();
   }catch{toast(ghErrorMsg(e),'err');}
@@ -755,8 +767,49 @@ async function loadKidsDropdowns(currentActCat, currentNoteCat) {
     await GH_SELECT.init('nfCategory', 'kids_note_category',     currentNoteCat ||'General',  { allowAdd: true });
   }
 }
+// ── Seed-from-daily-log (v202604.139) ──────────────────────────
+// When kids.html is opened with ?seed=N, fetch the daily log entry,
+// auto-pick the kid (if entry has a kid family member attached),
+// and open the Add Note drawer pre-filled with the entry content.
+// On save, PATCHes the daily log entry with promoted_to fields so
+// the daily log can show the forward link.
+async function maybeHandleSeed() {
+  const params = new URLSearchParams(window.location.search);
+  const seedId = params.get('seed');
+  if (!seedId) return;
+  let entry;
+  try {
+    entry = await window.api('GET', `/daily-log/${seedId}`);
+  } catch (e) {
+    if (window.LT?.toast) LT.toast('Could not load daily log entry to promote', 'err');
+    return;
+  }
+  // Find a kid in memory_members (entries from daily log carry family-member ids)
+  const memberIds = (entry.memory_members || []).map(m => m.family_member_id);
+  const kidMatch = _kids.find(k => memberIds.includes(k.family_member_id));
+  if (kidMatch) {
+    await openKidDetail(kidMatch.id);
+  } else if (_kids.length === 1) {
+    await openKidDetail(_kids[0].id);
+  } else {
+    if (window.LT?.toast) LT.toast('Pick a kid to add this note to', 'ok');
+    return;
+  }
+  // Pre-fill the note drawer with daily log content
+  await openNoteDrawer();
+  if ($('nfDate'))  $('nfDate').value  = entry.log_date || new Date().toISOString().slice(0,10);
+  if ($('nfTitle')) $('nfTitle').value = (entry.entry_text || '').slice(0, 60);
+  if ($('nfBody'))  $('nfBody').value  = entry.entry_text || '';
+  // Stash seed id on the save button so saveNote can PATCH it on success
+  window._seedDailyLogId = parseInt(seedId, 10);
+  // Clean URL so a refresh doesn't re-trigger the flow
+  if (window.history?.replaceState) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
-  loadKids();
+  loadKids().then(() => maybeHandleSeed());
   const searchEl = $('kidsSearch');
   if (searchEl) {
     searchEl.addEventListener('input', e => {

@@ -29,7 +29,8 @@ router.get('/', (req, res) => {
   try {
     const { search, category, follow_up, limit = 50, offset = 0 } = req.query;
 
-    let sql = `SELECT dl.*${_memTableExists ? `,
+    let sql = `SELECT dl.*,
+      (SELECT COUNT(*) FROM attachments WHERE entity_type='daily_log' AND entity_id=dl.id) AS attachment_count${_memTableExists ? `,
       CASE WHEN dl.is_memory=1 THEN (
         SELECT GROUP_CONCAT(fm.display_name, ', ')
         FROM memory_members mm
@@ -237,6 +238,17 @@ router.patch('/:id', (req, res) => {
     if ('follow_up_date' in req.body) {
       updates.push('follow_up_date = ?');
       params.push(req.body.follow_up_date || null);
+    }
+    // v202604.139 — Promotion link. Set when an entry is promoted into
+    // another module (kids note, medical visit, todo). Pass null/null
+    // to un-promote.
+    if ('promoted_to_type' in req.body) {
+      updates.push('promoted_to_type = ?');
+      params.push(req.body.promoted_to_type || null);
+    }
+    if ('promoted_to_id' in req.body) {
+      updates.push('promoted_to_id = ?');
+      params.push(req.body.promoted_to_id != null ? parseInt(req.body.promoted_to_id, 10) : null);
     }
     if (!updates.length) return res.status(400).json({ error: 'No fields to update' });
     updates.push('updated_at = CURRENT_TIMESTAMP');

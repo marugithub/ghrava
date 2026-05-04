@@ -218,6 +218,17 @@
     border-radius: 20px;
     flex-shrink: 0;
   }
+/* v202604.139 — promote-to menu item style */
+.promote-opt {
+  display: block;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--border);
+}
+.promote-opt:last-child { border-bottom: none; }
+.promote-opt:hover { background: var(--bg3); color: var(--accent); }
 </style>
 </head>
 <body class="module-dailylog">
@@ -353,6 +364,9 @@
     </div>
     <div class="detail-text" id="detailText"></div>
     <div id="detailMemory" style="display:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)"></div>
+    <!-- v202604.139 — attachments + promote slots -->
+    <div id="detailAttachments" style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)"></div>
+    <div id="detailPromote" style="margin-top:6px"></div>
     <div class="btn-row">
       <button class="btn btn-ghost" id="detailClose">Close</button>
       <button class="btn btn-ghost" id="detailEdit">Edit</button>
@@ -374,6 +388,7 @@
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
+<script src="/attachments.js"></script>
 <script>
 const API = '/api/v1/daily-log';
 const api = window.makeApi('/daily-log');
@@ -592,9 +607,89 @@ function openDetail(id) {
       memoryEl.style.display = 'none';
     }
   }
+
+  // ── Attachments (v202604.139) ────────────────────────────────
+  // Single button that opens the AttachmentManager. If the entry has
+  // attachments, show the count badge inline.
+  const attEl = document.getElementById('detailAttachments');
+  if (attEl) {
+    const cnt = e.attachment_count || 0;
+    const titlePreview = (e.entry_text || '').slice(0, 40);
+    attEl.innerHTML = `
+      <button type="button" class="btn btn-ghost"
+        style="font-size:12px;padding:4px 10px"
+        onclick="AttachmentManager.open('daily_log', ${e.id}, '${esc(titlePreview).replace(/'/g, "\\'")}')">
+        📎 Attachments${cnt ? ` <span style="opacity:.7">· ${cnt}</span>` : ''}
+      </button>`;
+  }
+
+  // ── Promotion link (v202604.139) ─────────────────────────────
+  // If this entry was already promoted, show a forward link to the
+  // target. Otherwise show the "Promote to…" menu trigger.
+  const promoteEl = document.getElementById('detailPromote');
+  if (promoteEl) {
+    if (e.promoted_to_type && e.promoted_to_id) {
+      promoteEl.innerHTML = `
+        <div style="font-size:12px;color:var(--text3);padding:6px 0">
+          → Promoted to:
+          <a href="${promotedTargetUrl(e.promoted_to_type, e.promoted_to_id)}"
+             style="color:var(--accent);text-decoration:none">${promotedTargetLabel(e.promoted_to_type)}</a>
+        </div>`;
+    } else {
+      promoteEl.innerHTML = `
+        <div style="position:relative;display:inline-block">
+          <button type="button" class="btn btn-ghost"
+            style="font-size:12px;padding:4px 10px"
+            onclick="togglePromoteMenu(${e.id})">↗ Promote to…</button>
+          <div id="promoteMenu" style="display:none;position:absolute;top:100%;left:0;margin-top:4px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,.08);z-index:30;min-width:180px">
+            <a href="/kids.html?seed=${e.id}" class="promote-opt">Kids note</a>
+            <a href="/medical.html?seed=${e.id}" class="promote-opt">Medical visit</a>
+            <a href="/todos.html?seed=${e.id}" class="promote-opt">To-do</a>
+          </div>
+        </div>`;
+    }
+  }
+
   $('detailEdit').onclick   = () => openEdit(e);
   $('detailDelete').onclick = () => startDelete(e.id);
   $('detailDrawer').classList.add('open');
+}
+
+// ── Promote helpers (v202604.139) ───────────────────────────────
+function togglePromoteMenu(id) {
+  const m = document.getElementById('promoteMenu');
+  if (!m) return;
+  m.style.display = m.style.display === 'none' ? 'block' : 'none';
+  // Close on outside click
+  if (m.style.display === 'block') {
+    setTimeout(() => {
+      const close = (ev) => {
+        if (!m.contains(ev.target)) {
+          m.style.display = 'none';
+          document.removeEventListener('mousedown', close);
+        }
+      };
+      document.addEventListener('mousedown', close);
+    }, 10);
+  }
+}
+
+function promotedTargetUrl(type, id) {
+  switch (type) {
+    case 'kid_note':     return `/kids.html?note=${id}`;
+    case 'med_visit':    return `/medical.html?visit=${id}`;
+    case 'todo':         return `/todos.html?todo=${id}`;
+    default:             return '#';
+  }
+}
+
+function promotedTargetLabel(type) {
+  switch (type) {
+    case 'kid_note':     return 'Kids note';
+    case 'med_visit':    return 'Medical visit';
+    case 'todo':         return 'To-do';
+    default:             return type;
+  }
 }
 
 async function markFollowupDone() {
@@ -712,6 +807,9 @@ function addDlTag(raw) {
 
 // followupBtn injected by nav.js — must wire after DOM ready
 document.addEventListener('DOMContentLoaded', () => {
+  // v202604.139 — AttachmentManager wiring for daily log entries
+  if (typeof AttachmentManager !== 'undefined') AttachmentManager.injectStyles();
+
   const fuBtn = $('followupBtn');
   if (fuBtn) fuBtn.addEventListener('click', () => {
     filterFollowup = !filterFollowup;

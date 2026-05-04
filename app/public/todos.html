@@ -981,6 +981,16 @@ $('formSave').addEventListener('click', async () => {
     const path   = editingId ? `/${editingId}` : '/';
     const r = await api(method, path, body);
     if (!r) throw new Error('Save failed');
+    // v202604.139 — link source daily-log entry on first create
+    if (window._seedDailyLogId && !editingId && r && r.id) {
+      try {
+        await window.api('PATCH', `/daily-log/${window._seedDailyLogId}`, {
+          promoted_to_type: 'todo',
+          promoted_to_id:   r.id,
+        });
+      } catch {} // non-fatal
+      window._seedDailyLogId = null;
+    }
     $('formDrawer').classList.remove('open');
     toast(editingId ? 'Updated' : 'To-do added');
     await load();
@@ -1107,7 +1117,38 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ── Init ─────────────────────────────────────────────────────
 loadCategoryPills();
-load();
+load().then(() => maybeHandleTodoSeed());
+
+// ── Seed-from-daily-log (v202604.139) ──────────────────────────
+// When todos.html opens with ?seed=N, fetch the daily log entry,
+// open the Add drawer pre-filled with the entry text. On save the
+// daily log is PATCHed with the promotion link.
+async function maybeHandleTodoSeed() {
+  const params = new URLSearchParams(window.location.search);
+  const seedId = params.get('seed');
+  if (!seedId) return;
+  let entry;
+  try {
+    entry = await window.api('GET', `/daily-log/${seedId}`);
+  } catch {
+    if (window.LT?.toast) LT.toast('Could not load daily log entry to promote', 'err');
+    return;
+  }
+  await openAdd();
+  // Pre-fill: daily log entry_text → todo title (truncated) + notes (full)
+  const text = entry.entry_text || '';
+  if ($('fTitle')) $('fTitle').value = text.slice(0, 80);
+  if ($('fNotes')) $('fNotes').value = text;
+  // Daily log carries family member ids in memory_members
+  const memberIds = (entry.memory_members || []).map(m => m.family_member_id);
+  if (memberIds.length && window.GH_FAMILY) {
+    GH_FAMILY.init('todoFamilyWrap', memberIds);
+  }
+  window._seedDailyLogId = parseInt(seedId, 10);
+  if (window.history?.replaceState) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
 
 // ── Tags (todos) ───────────────────────────────────────────────
 let todoFormTags = [];

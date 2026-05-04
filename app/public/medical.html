@@ -1067,7 +1067,19 @@ async function saveNote() {
   };
   try {
     if (editingId) { await api('PUT',`/medical/notes/${editingId}`,body); showToast('Updated'); }
-    else { await api('POST','/medical/notes',body); showToast('Saved'); }
+    else {
+      const saved = await api('POST','/medical/notes',body); showToast('Saved');
+      // v202604.139 — link source daily-log entry to this new visit
+      if (window._seedDailyLogId && saved && saved.id) {
+        try {
+          await window.api('PATCH', `/daily-log/${window._seedDailyLogId}`, {
+            promoted_to_type: 'med_visit',
+            promoted_to_id:   saved.id,
+          });
+        } catch {} // non-fatal
+        window._seedDailyLogId = null;
+      }
+    }
     closeNoteDrawer(); await renderNotes();
   } catch(e) { showToast(e.message,'err'); }
 }
@@ -1165,8 +1177,45 @@ async function _medBoot() {
     };
   }
   renderMedications();
+  // v202604.139 — handle ?seed=N from daily-log promote
+  setTimeout(() => maybeHandleMedicalSeed(), 100);
 }
 _medBoot();
+
+// ── Seed-from-daily-log (v202604.139) ──────────────────────────
+// When medical.html opens with ?seed=N, fetch the daily log entry,
+// switch to the Visits tab, open the visit drawer pre-filled.
+// On save, the daily log entry is PATCHed with the promotion link.
+async function maybeHandleMedicalSeed() {
+  const params = new URLSearchParams(window.location.search);
+  const seedId = params.get('seed');
+  if (!seedId) return;
+  let entry;
+  try {
+    entry = await window.api('GET', `/daily-log/${seedId}`);
+  } catch {
+    if (window.LT?.toast) LT.toast('Could not load daily log entry to promote', 'err');
+    return;
+  }
+  // Switch to the Visits view first
+  const visitsBtn = document.querySelector('[onclick*="\'notes\'"]');
+  if (visitsBtn) switchView('notes', visitsBtn);
+  // Open the note drawer
+  await openNoteDrawer();
+  // Pre-fill from the daily log entry
+  const memberIds = (entry.memory_members || []).map(m => m.family_member_id);
+  if (memberIds.length && window.GH_FAMILY) {
+    GH_FAMILY.init('nFamilyWrap', memberIds);
+  }
+  if ($id('nDate'))   $id('nDate').value   = entry.log_date || new Date().toISOString().slice(0,10);
+  if ($id('nNotes'))  $id('nNotes').value  = entry.entry_text || '';
+  // Stash seed id so saveNote can PATCH it on success
+  window._seedDailyLogId = parseInt(seedId, 10);
+  // Clean URL so refresh doesn't re-trigger
+  if (window.history?.replaceState) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
 
 // ── Tags (medical) ───────────────────────────────────────────────────
 let visitFormTags = [];
