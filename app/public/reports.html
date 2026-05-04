@@ -113,6 +113,7 @@ const REPORT_REGISTRY = [
   { id:'expiry',        category:'documents',  name:'Document Expiry Timeline',  icon:'📅', desc:'Upcoming document expirations',       endpoint:'/reports/expiry?months=24', render:renderExpiry },
   { id:'insurance',     category:'inventory',  name:'Home Insurance Report',     icon:'🏠', desc:'Inventory with values for claims',    endpoint:'/receipts/insurance-report', render:renderInsurance },
   { id:'hsa',           category:'finance',    name:'HSA Summary',               icon:'❤️', desc:'Contributions and expenses',          endpoint:'/hsa/summary',              render:renderHsa },
+  { id:'hsa-fsa-irs',   category:'finance',    name:'HSA / FSA IRS Reimbursement', icon:'🧾', desc:'Audit-ready expenses + reimbursements', endpoint:null,                  render:renderHsaFsaIrs },
   { id:'spending',      category:'finance',    name:'Spending by Category',      icon:'💰', desc:'Where your money goes',               endpoint:'/finance/reports/spending-by-category', render:renderSpending },
   { id:'networth',      category:'finance',    name:'Net Worth',                 icon:'📈', desc:'Assets, liabilities, and trend',      endpoint:'/finance/net-worth/current', render:renderNetWorth },
   { id:'portfolio',     category:'finance',    name:'Investment Portfolio',      icon:'📊', desc:'Holdings and performance',            endpoint:'/finance/portfolio/performance', render:renderPortfolio },
@@ -141,7 +142,7 @@ const TABS = {
   },
   money: {
     label: 'Money',
-    reports: ['networth', 'spending', 'hsa', 'portfolio', 'subscriptions'],
+    reports: ['networth', 'spending', 'hsa', 'hsa-fsa-irs', 'portfolio', 'subscriptions'],
   },
   maintenance: {
     label: 'Maintenance',
@@ -668,6 +669,108 @@ function renderHsa(el, d) {
     summaryRow('Missing Receipts', d.missing_receipts||0, 'var(--amber)') +
     summaryRow('YTD Expenses', fmt$(d.total_expenses_ytd||0))
   );
+}
+
+// v202604.140 — IRS-ready reimbursement report (HSA + LP-FSA).
+// Year picker; renders two pot sections, each with totals + line items
+// + reimbursement events. Designed to be print-friendly.
+async function renderHsaFsaIrs(el, _ignored) {
+  const year = el._year || new Date().getFullYear();
+  el.innerHTML = `
+    <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px">
+      <label style="font-size:12px;color:var(--text3)">Tax year:</label>
+      <select id="hsaIrsYear" style="padding:4px 8px;font-size:13px"></select>
+      <button class="btn btn-ghost" id="hsaIrsPrint" style="margin-left:auto">Print</button>
+    </div>
+    <div id="hsaIrsBody"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+  `;
+  const sel = document.getElementById('hsaIrsYear');
+  const thisYear = new Date().getFullYear();
+  for (let y = thisYear; y >= thisYear - 7; y--) {
+    sel.innerHTML += `<option value="${y}"${y===year?' selected':''}>${y}</option>`;
+  }
+  sel.onchange = () => { el._year = parseInt(sel.value); renderHsaFsaIrs(el); };
+  document.getElementById('hsaIrsPrint').onclick = () => window.print();
+
+  try {
+    const d = await window.api('GET', `/reports/hsa-fsa-irs?year=${year}`);
+    document.getElementById('hsaIrsBody').innerHTML =
+      potSection('HSA', d.hsa) +
+      potSection('LP-FSA', d.fsa);
+  } catch (e) {
+    document.getElementById('hsaIrsBody').innerHTML =
+      `<div style="color:var(--red);padding:14px">Failed to load: ${esc(e.message)}</div>`;
+  }
+}
+
+function potSection(label, d) {
+  if (!d) return '';
+  const t = d.totals || {};
+  const exp = (d.expenses || []).filter(e => e.parent_payment_id == null);
+  const otc = d.otc || [];
+  const reimb = d.reimbursements || [];
+
+  const expRows = exp.length ? exp.map(e => `
+    <tr>
+      <td>${esc(e.date||'')}</td>
+      <td>${esc(e.vendor_name || e.provider || '—')}</td>
+      <td>${esc(e.patient||'')}</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmt$(e.amount||0)}</td>
+      <td>${e.eligible === 1 ? '✓' : (e.eligible === 2 ? '✗' : '?')}</td>
+      <td>${e.reimbursed ? esc(e.reimbursement_date||'yes') : 'no'}</td>
+      <td>${e.eob_claim_id ? `EOB #${e.eob_claim_id}` : ''}</td>
+    </tr>
+  `).join('') : `<tr><td colspan="7" style="color:var(--text3);text-align:center;padding:14px">No expenses</td></tr>`;
+
+  const otcRows = otc.length ? otc.map(o => `
+    <tr>
+      <td>${esc(o.date||'')}</td>
+      <td>${esc(o.store||'OTC')}</td>
+      <td>—</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmt$(o.amount||0)}</td>
+      <td>${o.eligible === 1 ? '✓' : '?'}</td>
+      <td>${o.reimbursed ? esc(o.reimbursement_date||'yes') : 'no'}</td>
+      <td></td>
+    </tr>
+  `).join('') : '';
+
+  const reimbRows = reimb.length ? reimb.map(r => `
+    <div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px">
+      <strong>${esc(r.date||'')}</strong> — ${fmt$(r.amount||r.total_amount||0)}
+      ${r.method ? ` · ${esc(r.method)}` : ''}
+      ${(r.items||[]).length ? ` · covered ${r.items.length} item(s)` : ''}
+    </div>
+  `).join('') : `<div style="color:var(--text3);font-size:12px;padding:8px">No reimbursements this year</div>`;
+
+  return `
+    <div style="margin-bottom:24px">
+      <h3 style="margin:0 0 8px;font-size:14px">${label}</h3>
+      ${statsRow([
+        [fmt$(t.eligible_expenses||0),'Eligible expenses'],
+        [fmt$(t.eligible_otc||0),'Eligible OTC'],
+        [fmt$(t.mileage||0),`Mileage (${(t.mileage_miles||0).toFixed(0)}mi)`],
+        [fmt$(t.grand_eligible||0),'Grand eligible'],
+      ])}
+      <div style="overflow-x:auto;margin-top:10px">
+        <table style="width:100%;border-collapse:collapse;font-size:12px">
+          <thead>
+            <tr style="background:var(--bg3)">
+              <th style="text-align:left;padding:6px;font-weight:600">Date</th>
+              <th style="text-align:left;padding:6px;font-weight:600">Vendor / Provider</th>
+              <th style="text-align:left;padding:6px;font-weight:600">Person</th>
+              <th style="text-align:right;padding:6px;font-weight:600">Amount</th>
+              <th style="text-align:center;padding:6px;font-weight:600">Eligible</th>
+              <th style="text-align:left;padding:6px;font-weight:600">Reimbursed</th>
+              <th style="text-align:left;padding:6px;font-weight:600">EOB</th>
+            </tr>
+          </thead>
+          <tbody>${expRows}${otcRows}</tbody>
+        </table>
+      </div>
+      <div style="margin-top:12px"><strong style="font-size:12px">Reimbursement events</strong></div>
+      <div>${reimbRows}</div>
+    </div>
+  `;
 }
 
 function renderSpending(el, d) {

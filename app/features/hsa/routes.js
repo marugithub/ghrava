@@ -513,3 +513,536 @@ router.delete('/reimbursements/:id', (req, res) => {
 });
 
 module.exports = router;
+
+// ════════════════════════════════════════════════════════════════════
+// v202604.140 — INBOX + VAULT + LP-FSA ENDPOINTS
+// ════════════════════════════════════════════════════════════════════
+//
+// HISTORY: This module was previously a singleton "HSA expenses tracker"
+// with no concept of inbox queue, no LP-FSA, and no link to EOBs.
+// v140 adds all three. Old endpoints above remain working; new ones
+// go below to keep blast radius small.
+
+const dedupe = require('../../shared/dedupe');
+const lifecycle = require('../../shared/attach-lifecycle');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
+
+// Multer for in-app receipt uploads. Stores temporarily in os tmp,
+// then we hash + move to inbox using the same code path as the watcher.
+const inboxUpload = multer({
+  dest: '/tmp/ghrava-inbox',
+  limits: { fileSize: 20 * 1024 * 1024 },  // 20MB cap, per design
+});
+
+// ── VAULT ─────────────────────────────────────────────────────────
+//
+// GET /api/v1/hsa/vault?pot=hsa  (or pot=fsa)
+//
+// Returns the headline "reimbursement vault" numbers for the page-top tile:
+//   { total, count, oldest_date, all_eligible, none_reimbursed }
+router.get('/vault', (req, res) => {
+  try {
+    const pot = req.query.pot === 'fsa' ? 'fsa' : 'hsa';
+    const table = pot === 'fsa' ? 'fsa_payments' : 'hsa_payments';
+    const eligibleCol = pot === 'fsa' ? 'fsa_eligible' : 'hsa_eligible';
+    const amountCol   = pot === 'fsa' ? 'amount' : 'you_paid';
+
+    // For HSA, vault = unreimbursed eligible payments + unreimbursed eligible OTC
+    // For FSA, vault = unreimbursed eligible payments only (no separate OTC table)
+    const r = db.prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN ${eligibleCol}=1 AND reimbursed=0 THEN ${amountCol} ELSE 0 END), 0) AS total,
+        SUM(CASE WHEN ${eligibleCol}=1 AND reimbursed=0 THEN 1 ELSE 0 END) AS count,
+        MIN(CASE WHEN ${eligibleCol}=1 AND reimbursed=0 THEN date END) AS oldest_date,
+        SUM(CASE WHEN ${eligibleCol}=0 THEN 1 ELSE 0 END) AS needs_review_count
+      FROM ${table}
+      WHERE COALESCE(status, 'final') = 'final'
+    `).get();
+
+    let otcTotal = 0, otcCount = 0;
+    if (pot === 'hsa') {
+      const otc = db.prepare(`
+        SELECT
+          COALESCE(SUM(CASE WHEN hsa_eligible=1 AND reimbursed=0 THEN amount ELSE 0 END), 0) AS t,
+          SUM(CASE WHEN hsa_eligible=1 AND reimbursed=0 THEN 1 ELSE 0 END) AS c
+        FROM hsa_otc
+      `).get();
+      otcTotal = otc.t || 0;
+      otcCount = otc.c || 0;
+    }
+
+    // FSA-specific deadline info from active plan
+    let deadline = null, mustUseAmount = 0;
+    if (pot === 'fsa') {
+      const plan = db.prepare(`
+        SELECT deadline_date FROM fsa_plan_info
+        WHERE active=1 AND deadline_date IS NOT NULL
+        ORDER BY year DESC LIMIT 1
+      `).get();
+      if (plan) {
+        deadline = plan.deadline_date;
+        mustUseAmount = r.total + otcTotal;
+      }
+    }
+
+    res.json({
+      pot,
+      total: (r.total || 0) + otcTotal,
+      count: (r.count || 0) + otcCount,
+      oldest_date: r.oldest_date,
+      needs_review_count: r.needs_review_count || 0,
+      deadline,
+      must_use_amount: mustUseAmount,
+    });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── INBOX ─────────────────────────────────────────────────────────
+//
+// GET /api/v1/hsa/inbox
+//
+// Returns the list of draft records waiting for review (across HSA + FSA
+// + EOB orphans). Each item has just enough info for the banner count
+// and the review-modal stack.
+router.get('/inbox', (req, res) => {
+  try {
+    const items = [];
+
+    // HSA drafts
+    const hsaDrafts = db.prepare(`
+      SELECT p.id, p.date, p.amount, p.you_paid, p.patient, p.provider,
+             p.inbox_attachment_id, p.created_at,
+             a.file_name, a.file_path, a.mime_type, a.id AS attachment_id
+      FROM hsa_payments p
+      LEFT JOIN attachments a ON a.id = p.inbox_attachment_id
+      WHERE p.status = 'draft'
+      ORDER BY p.created_at DESC
+    `).all();
+    hsaDrafts.forEach(r => items.push({
+      kind: 'receipt',
+      pot: 'hsa',
+      record_id: r.id,
+      attachment_id: r.attachment_id,
+      file_name: r.file_name,
+      mime_type: r.mime_type,
+      created_at: r.created_at,
+      status_pill: 'needs_review',
+    }));
+
+    // FSA drafts
+    const fsaDrafts = db.prepare(`
+      SELECT p.id, p.date, p.amount, p.patient,
+             p.inbox_attachment_id, p.created_at,
+             a.file_name, a.file_path, a.mime_type, a.id AS attachment_id
+      FROM fsa_payments p
+      LEFT JOIN attachments a ON a.id = p.inbox_attachment_id
+      WHERE p.status = 'draft'
+      ORDER BY p.created_at DESC
+    `).all();
+    fsaDrafts.forEach(r => items.push({
+      kind: 'receipt',
+      pot: 'fsa',
+      record_id: r.id,
+      attachment_id: r.attachment_id,
+      file_name: r.file_name,
+      mime_type: r.mime_type,
+      created_at: r.created_at,
+      status_pill: 'needs_review',
+    }));
+
+    res.json({ items, count: items.length });
+  } catch (e) { serverError(res, e); }
+});
+
+// GET /api/v1/hsa/inbox/:id  — full detail for one draft (for the modal)
+router.get('/inbox/:pot/:id', (req, res) => {
+  try {
+    const pot = req.params.pot === 'fsa' ? 'fsa' : 'hsa';
+    const table = pot === 'fsa' ? 'fsa_payments' : 'hsa_payments';
+    const row = db.prepare(`
+      SELECT p.*, a.file_name, a.mime_type, a.id AS attachment_id
+      FROM ${table} p
+      LEFT JOIN attachments a ON a.id = p.inbox_attachment_id
+      WHERE p.id = ? AND p.status = 'draft'
+    `).get(req.params.id);
+    if (!row) return notFound(res, 'Draft not found');
+    res.json({ pot, ...row });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── PROMOTE DRAFT TO FINAL ────────────────────────────────────────
+//
+// POST /api/v1/hsa/inbox/:pot/:id/save
+// Body: { date, vendor_contact_id, amount, patient, hsa_eligible, notes,
+//         force_duplicate? }
+// Returns: { ok:true, id } OR { duplicate_of, warning } (409)
+router.post('/inbox/:pot/:id/save', (req, res) => {
+  try {
+    const pot = req.params.pot === 'fsa' ? 'fsa' : 'hsa';
+    const table = pot === 'fsa' ? 'fsa_payments' : 'hsa_payments';
+    const eligibleCol = pot === 'fsa' ? 'fsa_eligible' : 'hsa_eligible';
+    const draftId = req.params.id;
+    const d = req.body || {};
+
+    if (!d.date)        return badRequest(res, 'date required');
+    if (d.amount == null) return badRequest(res, 'amount required');
+
+    const draft = db.prepare(`SELECT id, status FROM ${table} WHERE id = ?`).get(draftId);
+    if (!draft) return notFound(res, 'Draft not found');
+    if (draft.status !== 'draft') return badRequest(res, 'Not a draft');
+
+    // Smart dedup unless force_duplicate is set
+    if (!d.force_duplicate) {
+      const dupId = dedupe.findReceiptDuplicate({
+        pot, date: d.date, vendor_contact_id: d.vendor_contact_id,
+        amount: d.amount, patient: d.patient,
+      });
+      if (dupId && dupId !== Number(draftId)) {
+        return res.status(409).json({
+          duplicate_of: dupId,
+          warning: dedupe.warningFor('receipt', dupId,
+            `From ${d.date}, $${Number(d.amount).toFixed(2)}.`),
+        });
+      }
+    }
+
+    // Promote: fill in fields, set status='final'
+    if (pot === 'hsa') {
+      db.prepare(`
+        UPDATE hsa_payments SET
+          date = ?, vendor_contact_id = ?, you_paid = ?, total_bill = ?,
+          patient = ?, provider = ?, hsa_eligible = ?, notes = ?,
+          status = 'final', updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `).run(
+        d.date, d.vendor_contact_id || null, d.amount, d.amount,
+        d.patient || 'Self', d.provider || null,
+        d.hsa_eligible ? 1 : 0, d.notes || null, draftId
+      );
+    } else {
+      db.prepare(`
+        UPDATE fsa_payments SET
+          date = ?, vendor_contact_id = ?, amount = ?,
+          patient = ?, fsa_eligible = ?, notes = ?,
+          status = 'final'
+        WHERE id = ?
+      `).run(
+        d.date, d.vendor_contact_id || null, d.amount,
+        d.patient || 'Self', d.fsa_eligible ? 1 : 0, d.notes || null, draftId
+      );
+    }
+
+    res.json({ ok: true, id: Number(draftId), pot });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── REJECT DRAFT ──────────────────────────────────────────────────
+//
+// POST /api/v1/hsa/inbox/:pot/:id/reject
+// Marks file as rejected ("not medical"), moves file to _rejected/,
+// deletes the draft row.
+router.post('/inbox/:pot/:id/reject', (req, res) => {
+  try {
+    const pot = req.params.pot === 'fsa' ? 'fsa' : 'hsa';
+    const table = pot === 'fsa' ? 'fsa_payments' : 'hsa_payments';
+    const draftId = req.params.id;
+
+    const draft = db.prepare(`
+      SELECT p.id, p.status, p.inbox_attachment_id, a.file_path
+      FROM ${table} p
+      LEFT JOIN attachments a ON a.id = p.inbox_attachment_id
+      WHERE p.id = ?
+    `).get(draftId);
+    if (!draft) return notFound(res, 'Draft not found');
+    if (draft.status !== 'draft') return badRequest(res, 'Not a draft');
+
+    const txn = db.transaction(() => {
+      // Move file to _rejected/ if it exists
+      if (draft.file_path && fs.existsSync(draft.file_path)) {
+        try { lifecycle.moveToRejected(draft.file_path); }
+        catch (e) { console.warn('[hsa/inbox/reject] file move failed:', e.message); }
+      }
+      // Delete attachment row
+      if (draft.inbox_attachment_id) {
+        db.prepare('DELETE FROM attachments WHERE id = ?').run(draft.inbox_attachment_id);
+      }
+      // Delete draft row
+      db.prepare(`DELETE FROM ${table} WHERE id = ?`).run(draftId);
+    });
+    txn();
+
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── IN-APP RECEIPT UPLOAD ─────────────────────────────────────────
+//
+// POST /api/v1/hsa/inbox/upload
+// Multipart form, field 'files' (multiple). Each file:
+//   1. Hashed
+//   2. Moved into module folder using hash-prefix naming
+//   3. Inserted into attachments table (entity_type='draft')
+//   4. Draft row created in hsa_payments (or fsa_payments) with status='draft'
+// Returns: { ok:true, drafts: [{ pot, record_id, attachment_id, file_name }] }
+router.post('/inbox/upload', inboxUpload.array('files', 20), (req, res) => {
+  try {
+    if (!req.files || !req.files.length) {
+      return badRequest(res, 'no files uploaded');
+    }
+    const pot = req.body.pot === 'fsa' ? 'fsa' : 'hsa';
+    const targetModule = 'hsa';  // both pots share the hsa folder for now
+    const targetTable  = pot === 'fsa' ? 'fsa_payments' : 'hsa_payments';
+    const drafts = [];
+
+    for (const f of req.files) {
+      const fullHash = lifecycle.hashFileSync(f.path);
+
+      // Hash dedup against existing attachments (look for hash prefix in path)
+      const dup = db.prepare(`
+        SELECT id FROM attachments WHERE file_path LIKE ? LIMIT 1
+      `).get(`%/${fullHash.slice(0,8)}_%`);
+      if (dup) {
+        // Clean up tmp file and skip
+        try { fs.unlinkSync(f.path); } catch {}
+        drafts.push({ duplicate_of_attachment: dup.id, file_name: f.originalname });
+        continue;
+      }
+
+      // Move into module folder
+      const newPath = lifecycle.moveToModule(f.path, targetModule, fullHash, f.originalname);
+
+      // Insert attachment placeholder
+      const attRes = db.prepare(`
+        INSERT INTO attachments (entity_type, entity_id, attachment_type, file_name, file_path, file_size, mime_type, label)
+        VALUES ('draft', NULL, 'upload', ?, ?, ?, ?, 'Inbox draft')
+      `).run(f.originalname, newPath, f.size, f.mimetype);
+      const attachmentId = attRes.lastInsertRowid;
+
+      // Insert draft row
+      let draftId;
+      if (pot === 'hsa') {
+        const r = db.prepare(`
+          INSERT INTO hsa_payments (date, you_paid, status, inbox_attachment_id, hsa_eligible, patient)
+          VALUES (date('now'), 0, 'draft', ?, 0, 'Self')
+        `).run(attachmentId);
+        draftId = r.lastInsertRowid;
+      } else {
+        const r = db.prepare(`
+          INSERT INTO fsa_payments (date, amount, status, inbox_attachment_id, fsa_eligible, patient)
+          VALUES (date('now'), 0, 'draft', ?, 0, 'Self')
+        `).run(attachmentId);
+        draftId = r.lastInsertRowid;
+      }
+
+      // Backfill attachment to point at draft
+      const entityType = pot === 'hsa' ? 'hsa_payment' : 'fsa_payment';
+      db.prepare(`
+        UPDATE attachments SET entity_type=?, entity_id=? WHERE id=?
+      `).run(entityType, draftId, attachmentId);
+
+      drafts.push({
+        pot, record_id: draftId, attachment_id: attachmentId,
+        file_name: f.originalname,
+      });
+    }
+
+    res.json({ ok: true, drafts });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── EOB → HSA AUTO-MATCH ──────────────────────────────────────────
+//
+// GET /api/v1/hsa/payments/:id/eob-candidates
+// Returns possible matching EOB claims (same patient, ±7 days, similar amount).
+// Used by the inbox modal to suggest links.
+router.get('/payments/:id/eob-candidates', (req, res) => {
+  try {
+    const p = db.prepare(`
+      SELECT id, date, you_paid, patient FROM hsa_payments WHERE id = ?
+    `).get(req.params.id);
+    if (!p) return notFound(res, 'Payment not found');
+
+    const cents = Math.round((p.you_paid || 0) * 100);
+    const candidates = db.prepare(`
+      SELECT DISTINCT c.id, c.patient, c.provider, s.service_date, c.your_share
+      FROM med_eob_claims c
+      JOIN med_eob_services s ON s.claim_id = c.id
+      WHERE c.patient = ?
+        AND ABS(julianday(s.service_date) - julianday(?)) <= 7
+        AND ABS(ROUND(c.your_share * 100) - ?) <= 100
+      ORDER BY ABS(julianday(s.service_date) - julianday(?))
+      LIMIT 5
+    `).all(p.patient, p.date, cents, p.date);
+
+    res.json({ payment: p, candidates });
+  } catch (e) { serverError(res, e); }
+});
+
+// POST /api/v1/hsa/payments/:id/link-eob   { eob_claim_id }
+router.post('/payments/:id/link-eob', (req, res) => {
+  try {
+    const eobClaimId = req.body.eob_claim_id;
+    if (!eobClaimId) return badRequest(res, 'eob_claim_id required');
+    const claim = db.prepare('SELECT id FROM med_eob_claims WHERE id = ?').get(eobClaimId);
+    if (!claim) return notFound(res, 'EOB claim not found');
+    db.prepare(`
+      UPDATE hsa_payments SET eob_claim_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).run(eobClaimId, req.params.id);
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── LP-FSA PAYMENTS (mirror of HSA payments, simpler) ─────────────
+
+router.get('/fsa/payments', (req, res) => {
+  try {
+    const year = req.query.year || currentYear();
+    let sql = `SELECT * FROM fsa_payments WHERE strftime('%Y', date) = ? AND COALESCE(status,'final') = 'final'`;
+    const p = [String(year)];
+    if (req.query.patient) { sql += ' AND patient = ?'; p.push(req.query.patient); }
+    sql += ' ORDER BY date DESC, id DESC';
+    res.json(db.prepare(sql).all(...p));
+  } catch (e) { serverError(res, e); }
+});
+
+router.post('/fsa/payments', (req, res) => {
+  try {
+    const d = req.body;
+    if (!d.date) return badRequest(res, 'date required');
+
+    if (!d.force_duplicate) {
+      const dupId = dedupe.findReceiptDuplicate({
+        pot: 'fsa', date: d.date, vendor_contact_id: d.vendor_contact_id,
+        amount: d.amount, patient: d.patient,
+      });
+      if (dupId) {
+        return res.status(409).json({
+          duplicate_of: dupId,
+          warning: dedupe.warningFor('receipt', dupId,
+            `From ${d.date}, $${Number(d.amount).toFixed(2)}.`),
+        });
+      }
+    }
+
+    const r = db.prepare(`
+      INSERT INTO fsa_payments
+        (date, vendor_contact_id, amount, patient, category,
+         fsa_eligible, reimbursed, notes, status)
+      VALUES (?,?,?,?,?,?,?,?, 'final')
+    `).run(
+      d.date, d.vendor_contact_id || null, d.amount || 0,
+      d.patient || 'Self', d.category || null,
+      d.fsa_eligible ? 1 : 0, d.reimbursed ? 1 : 0, d.notes || null
+    );
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { serverError(res, e); }
+});
+
+router.put('/fsa/payments/:id', (req, res) => {
+  try {
+    const d = req.body;
+    db.prepare(`
+      UPDATE fsa_payments SET
+        date=?, vendor_contact_id=?, amount=?, patient=?, category=?,
+        fsa_eligible=?, reimbursed=?, reimbursement_date=?, notes=?
+      WHERE id=?
+    `).run(
+      d.date, d.vendor_contact_id || null, d.amount,
+      d.patient, d.category, d.fsa_eligible ? 1 : 0,
+      d.reimbursed ? 1 : 0, d.reimbursement_date || null, d.notes || null,
+      req.params.id
+    );
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+router.delete('/fsa/payments/:id', (req, res) => {
+  try {
+    // Move attachment to _orphans/ if any
+    const row = db.prepare(`
+      SELECT p.inbox_attachment_id, a.file_path
+      FROM fsa_payments p LEFT JOIN attachments a ON a.id = p.inbox_attachment_id
+      WHERE p.id = ?
+    `).get(req.params.id);
+    if (row && row.file_path && fs.existsSync(row.file_path)) {
+      try { lifecycle.moveToOrphans(row.file_path); } catch {}
+    }
+    db.prepare('DELETE FROM fsa_payments WHERE id=?').run(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+router.get('/fsa/plan', (req, res) => {
+  try {
+    res.json(db.prepare('SELECT * FROM fsa_plan_info ORDER BY year DESC').all());
+  } catch (e) { serverError(res, e); }
+});
+
+router.post('/fsa/plan', (req, res) => {
+  try {
+    const d = req.body;
+    if (!d.year) return badRequest(res, 'year required');
+    const r = db.prepare(`
+      INSERT INTO fsa_plan_info
+        (year, plan_type, plan_name, custodian, annual_limit,
+         contributions, employer_contribution, deadline_date,
+         carryover_amount, active, notes)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(year, plan_type) DO UPDATE SET
+        plan_name=excluded.plan_name, custodian=excluded.custodian,
+        annual_limit=excluded.annual_limit,
+        contributions=excluded.contributions,
+        employer_contribution=excluded.employer_contribution,
+        deadline_date=excluded.deadline_date,
+        carryover_amount=excluded.carryover_amount,
+        active=excluded.active, notes=excluded.notes
+    `).run(
+      d.year, d.plan_type || 'limited_purpose', d.plan_name || null,
+      d.custodian || null, d.annual_limit || null,
+      d.contributions || 0, d.employer_contribution || 0,
+      d.deadline_date || null, d.carryover_amount || 0,
+      d.active === false ? 0 : 1, d.notes || null
+    );
+    res.json({ ok: true, id: r.lastInsertRowid });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── MILEAGE COMPANION ROW ─────────────────────────────────────────
+//
+// POST /api/v1/hsa/payments/:id/mileage   { miles }
+// Creates a companion row tied to the parent HSA payment, valued at
+// miles × IRS rate for the parent's date-year.
+router.post('/payments/:id/mileage', (req, res) => {
+  try {
+    const miles = Number(req.body.miles);
+    if (!miles || miles <= 0) return badRequest(res, 'miles must be > 0');
+
+    const parent = db.prepare(`
+      SELECT id, date, patient FROM hsa_payments WHERE id = ?
+    `).get(req.params.id);
+    if (!parent) return notFound(res, 'Parent payment not found');
+
+    const year = parseInt(String(parent.date).slice(0, 4), 10);
+    const rate = db.prepare(`
+      SELECT rate_cents FROM irs_mileage_rates
+      WHERE year = ? AND category = 'medical'
+        AND ? BETWEEN start_date AND COALESCE(end_date, '9999-12-31')
+      ORDER BY start_date DESC LIMIT 1
+    `).get(year, parent.date);
+    const cents = rate ? rate.rate_cents : 21;  // fallback to current rate
+    const amount = Math.round(miles * cents) / 100;
+
+    const r = db.prepare(`
+      INSERT INTO hsa_payments
+        (date, patient, you_paid, total_bill, hsa_eligible, mileage_miles,
+         parent_payment_id, category, status, notes)
+      VALUES (?, ?, ?, ?, 1, ?, ?, 'Mileage', 'final', ?)
+    `).run(
+      parent.date, parent.patient, amount, amount, miles,
+      parent.id, `Mileage companion: ${miles}mi × $${(cents/100).toFixed(2)}/mi`
+    );
+    res.json({ ok: true, id: r.lastInsertRowid, amount });
+  } catch (e) { serverError(res, e); }
+});

@@ -157,6 +157,15 @@ const upload = multer({
 // ── Ensure dirs on startup ────────────────────────────────────
 ensureAllDirs();
 
+// v202604.140 — Inbox/orphan/reject lifecycle dirs.
+// Wrapped in try so that volume-not-mounted at boot doesn't crash startup.
+try {
+  const { ensureLifecycleDirs } = require('../../shared/attach-lifecycle');
+  ensureLifecycleDirs();
+} catch (e) {
+  console.warn('[attachments] Could not create lifecycle dirs:', e.message);
+}
+
 // ══════════════════════════════════════════════════════════════
 // SERVE THUMBNAIL — public (browser <img> tags have no auth header)
 // GET /api/v1/attachments/thumb/:id

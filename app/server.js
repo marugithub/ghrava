@@ -122,6 +122,7 @@ app.use('/api/v1/data',          require('./features/data/routes'));
 app.use('/api/v1/trading',       require('./features/trading/routes'));
 app.use('/api/v1/reports/emergency', require('./features/reports/emergency'));
 app.use('/api/v1/reports/expiry',    require('./features/reports/expiry'));
+app.use('/api/v1/reports/hsa-fsa-irs', require('./features/reports/hsa-fsa-irs'));
 app.use('/api/v1/receipts',          require('./features/receipts/routes'));
 app.use('/api/v1/search',            require('./features/search/routes'));
 app.use('/api/v1/maintenance',       require('./features/maintenance/routes'));

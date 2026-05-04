@@ -138,6 +138,9 @@
   function toggleSection(label) {
     const open = !isSectionOpen(label);
     localStorage.setItem('gh_sec_' + label, open ? '1' : '0');
+    // v202604.140 — Remember last section the user opened, used on mobile
+    // to decide which single section to expand by default.
+    if (open) localStorage.setItem('gh_last_section', label);
     const sec = document.querySelector(`.side-nav-section[data-section="${label}"]`);
     if (!sec) return;
     sec.classList.toggle('sec-open', open);
@@ -188,12 +191,23 @@
         </a>
       </div>`;
 
+    // v202604.140 — Mobile (<900px): only ONE section open by default —
+    // the last one the user expanded, falling back to Daily on first
+    // visit. Active-section auto-open still applies (so navigating to
+    // /finance.html opens Finance and updates last-opened for next time).
+    // Desktop behavior unchanged.
+    const isMobile = window.innerWidth < 900;
+    const lastOpened = localStorage.getItem('gh_last_section') || 'Daily';
     const sections = SIDEBAR_SECTIONS.map(s => {
       // Auto-open the section that contains the active page
       const hasActive = s.keys.some(k => MODULES[k] && isActive(MODULES[k].href));
-      const open = hasActive || isSectionOpen(s.label);
+      const defaultOpen = isMobile ? (s.label === lastOpened) : isSectionOpen(s.label);
+      const open = hasActive || defaultOpen;
       // Persist auto-open so it stays open across pages
-      if (hasActive) localStorage.setItem('gh_sec_' + s.label, '1');
+      if (hasActive) {
+        localStorage.setItem('gh_sec_' + s.label, '1');
+        localStorage.setItem('gh_last_section', s.label);
+      }
       return `
       <div class="side-nav-section${open ? ' sec-open' : ''}" data-section="${s.label}">
         <div class="side-nav-section-label" onclick="GH_NAV.toggleSection('${s.label}')">

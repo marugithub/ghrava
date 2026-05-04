@@ -32,6 +32,40 @@
     .hsa-row-value{font-family:var(--mono);font-size:13px;color:var(--text)}
     .hsa-kicker{font-size:10px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 16px 2px}
     @media (max-width: 900px){.hsa-summary-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+    /* v202604.140 — Inbox banner, vault tile, FSA tab, review modal */
+    .gh-inbox-banner{display:flex;align-items:center;gap:10px;background:var(--bg2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:var(--r-lg);padding:10px 14px;margin:8px 16px 0;font-size:13px;color:var(--text)}
+    .gh-inbox-banner.empty{display:none}
+    .gh-inbox-banner button{margin-left:auto}
+    .gh-upload-row{display:flex;gap:8px;padding:8px 16px 0}
+    .gh-pot-tabs{display:flex;gap:4px;padding:10px 16px 0}
+    .gh-pot-tab{flex:1;padding:8px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-lg);font-size:13px;font-weight:600;color:var(--text2);cursor:pointer;text-align:center}
+    .gh-pot-tab.active{background:var(--blue-bg,rgba(79,140,255,.12));color:var(--blue);border-color:var(--blue)}
+    .gh-vault{background:linear-gradient(135deg,var(--bg2),var(--bg3,var(--bg2)));border:1px solid var(--border);border-radius:var(--r-lg);padding:18px 20px;margin:10px 16px 0}
+    .gh-vault-label{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+    .gh-vault-amount{font-size:32px;font-weight:800;color:var(--text);font-family:var(--mono)}
+    .gh-vault-sub{font-size:12px;color:var(--text3);margin-top:6px}
+    .gh-vault-warn{font-size:12px;color:var(--amber,#c89400);margin-top:4px}
+
+    /* Status pills */
+    .gh-pill{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;letter-spacing:.04em;text-transform:uppercase}
+    .gh-pill-yellow{background:rgba(255,200,40,.18);color:#a07000}
+    .gh-pill-green{background:rgba(40,180,80,.18);color:#1e7a3a}
+    .gh-pill-red{background:rgba(220,60,60,.18);color:#a02020}
+    .gh-pill-blue{background:rgba(79,140,255,.18);color:#3060c0}
+
+    /* Review modal */
+    .gh-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:9000}
+    .gh-modal-backdrop.open{display:flex}
+    .gh-modal{background:var(--bg);border:1px solid var(--border);border-radius:var(--r-lg);width:min(420px,calc(100vw - 24px));max-height:90vh;overflow:auto;padding:18px}
+    .gh-modal h3{margin:0 0 4px;font-size:15px}
+    .gh-modal-progress{font-size:11px;color:var(--text3);margin-bottom:10px}
+    .gh-modal img.preview, .gh-modal iframe.preview{width:100%;max-height:280px;object-fit:contain;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg2);margin-bottom:12px}
+    .gh-modal label{display:block;font-size:11px;color:var(--text3);margin:8px 0 3px;letter-spacing:.04em;text-transform:uppercase}
+    .gh-modal input,.gh-modal select,.gh-modal textarea{width:100%;padding:7px 9px;font-size:13px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--bg2);color:var(--text);box-sizing:border-box}
+    .gh-modal-actions{display:flex;gap:6px;margin-top:14px;flex-wrap:wrap}
+    .gh-modal-actions .btn{flex:1;min-width:90px}
+    .gh-modal-actions .btn-reject{flex-basis:100%;background:transparent;color:var(--red,#c44);border:1px solid var(--border);font-size:12px;padding:6px}
   </style>
 </head>
 <body class="module-finance">
@@ -42,6 +76,34 @@
 
 <div id="app">
   <div class="gh-page-header"></div>
+
+  <!-- v202604.140 — Inbox banner (hidden when count = 0) -->
+  <div id="ghInboxBanner" class="gh-inbox-banner empty">
+    <span id="ghInboxText">📥 Loading inbox…</span>
+    <button class="btn btn-primary" onclick="ghOpenInbox()">Open</button>
+  </div>
+
+  <!-- v202604.140 — In-app upload (multi-file) -->
+  <div class="gh-upload-row">
+    <button class="btn btn-primary" onclick="document.getElementById('ghUpload').click()">📤 Upload Receipt</button>
+    <button class="btn btn-ghost" onclick="ghLoadAll()">Refresh</button>
+    <input type="file" id="ghUpload" multiple accept="image/*,application/pdf"
+           style="display:none" onchange="ghHandleUpload(event)">
+  </div>
+
+  <!-- v202604.140 — Pot tabs (HSA / LP-FSA) -->
+  <div class="gh-pot-tabs">
+    <div class="gh-pot-tab active" data-pot="hsa" onclick="ghSwitchPot('hsa')">HSA</div>
+    <div class="gh-pot-tab"        data-pot="fsa" onclick="ghSwitchPot('fsa')">LP-FSA</div>
+  </div>
+
+  <!-- v202604.140 — Vault tile -->
+  <div class="gh-vault">
+    <div class="gh-vault-label">Reimbursement Vault</div>
+    <div class="gh-vault-amount" id="ghVaultAmount">—</div>
+    <div class="gh-vault-sub"  id="ghVaultSub">—</div>
+    <div class="gh-vault-warn" id="ghVaultWarn" style="display:none"></div>
+  </div>
 
   <div class="hsa-summary-grid">
     <div class="hsa-tile">
@@ -84,6 +146,37 @@
   <div class="hsa-kicker">Recent Eligible Payments</div>
   <div class="hsa-section" style="padding-bottom:90px">
     <div class="hsa-card" id="recentPayments"></div>
+  </div>
+</div>
+
+<!-- v202604.140 — Review modal (hidden until inbox is opened) -->
+<div class="gh-modal-backdrop" id="ghModalBackdrop" onclick="ghMaybeCloseModal(event)">
+  <div class="gh-modal" id="ghModal" onclick="event.stopPropagation()">
+    <h3 id="ghModalTitle">Review receipt</h3>
+    <div class="gh-modal-progress" id="ghModalProgress">— of —</div>
+    <div id="ghModalPreview"></div>
+    <label>Date</label>
+    <input type="date" id="ghMDate">
+    <label>Vendor</label>
+    <select id="ghMVendor"><option value="">— pick or add —</option></select>
+    <label>Amount</label>
+    <input type="number" step="0.01" id="ghMAmount" placeholder="0.00">
+    <label>Person</label>
+    <select id="ghMPerson"><option value="Self">Self</option></select>
+    <label>Eligible</label>
+    <select id="ghMEligible">
+      <option value="0">🟡 Needs review</option>
+      <option value="1">🟢 Yes — eligible</option>
+      <option value="2">🔴 No — not eligible</option>
+    </select>
+    <label>Notes</label>
+    <textarea id="ghMNotes" rows="2"></textarea>
+    <div class="gh-modal-actions">
+      <button class="btn btn-ghost" onclick="ghCloseModal()">Skip</button>
+      <button class="btn btn-primary" onclick="ghSaveDraft(false)">Save</button>
+      <button class="btn btn-primary" onclick="ghSaveDraft(true)">Save &amp; next</button>
+      <button class="btn btn-reject" onclick="ghRejectDraft()">Reject — not medical</button>
+    </div>
   </div>
 </div>
 
@@ -164,7 +257,259 @@ function renderRecentPayments(rows){
 
 function reloadPage(){ loadHsaDashboard(); }
 
-document.addEventListener('DOMContentLoaded', loadHsaDashboard);
+// ════════════════════════════════════════════════════════════════
+// v202604.140 — Inbox / vault / FSA tab / review modal
+// ════════════════════════════════════════════════════════════════
+
+let ghPot      = 'hsa';     // current tab
+let ghInboxQ   = [];        // queue of inbox items currently being reviewed
+let ghQIdx     = 0;         // index into ghInboxQ
+let ghVendors  = [];        // cached contacts list (vendor type)
+let ghPersons  = [];        // cached family members
+
+async function ghLoadAll() {
+  await Promise.all([ghLoadInbox(), ghLoadVault()]);
+  await loadHsaDashboard();
+}
+
+async function ghLoadInbox() {
+  try {
+    const resp = await window.api('GET', '/hsa/inbox');
+    const banner = document.getElementById('ghInboxBanner');
+    const text   = document.getElementById('ghInboxText');
+    if (!resp || !resp.count) {
+      banner.classList.add('empty');
+      return;
+    }
+    const hsaCount = resp.items.filter(i => i.pot === 'hsa').length;
+    const fsaCount = resp.items.filter(i => i.pot === 'fsa').length;
+    let msg = `📥 ${resp.count} item${resp.count===1?'':'s'} to review`;
+    if (hsaCount && fsaCount) msg += ` (${hsaCount} HSA · ${fsaCount} FSA)`;
+    text.textContent = msg;
+    banner.classList.remove('empty');
+  } catch (e) {
+    console.warn('inbox load failed:', e);
+  }
+}
+
+async function ghLoadVault() {
+  try {
+    const v = await window.api('GET', `/hsa/vault?pot=${ghPot}`);
+    document.getElementById('ghVaultAmount').textContent = fmtMoney(v.total || 0);
+    let sub = `${v.count || 0} receipt${v.count===1?'':'s'}`;
+    if (v.oldest_date) sub += ` · oldest from ${v.oldest_date}`;
+    if (v.needs_review_count) sub += ` · ${v.needs_review_count} needs review`;
+    document.getElementById('ghVaultSub').textContent = sub;
+    const warnEl = document.getElementById('ghVaultWarn');
+    if (v.deadline && v.must_use_amount > 0) {
+      warnEl.textContent = `⚠ ${fmtMoney(v.must_use_amount)} must be used by ${v.deadline}`;
+      warnEl.style.display = 'block';
+    } else {
+      warnEl.style.display = 'none';
+    }
+  } catch (e) {
+    document.getElementById('ghVaultAmount').textContent = '—';
+    document.getElementById('ghVaultSub').textContent = '(could not load vault)';
+  }
+}
+
+function ghSwitchPot(pot) {
+  ghPot = pot;
+  document.querySelectorAll('.gh-pot-tab').forEach(t => {
+    t.classList.toggle('active', t.dataset.pot === pot);
+  });
+  ghLoadVault();
+}
+
+async function ghHandleUpload(event) {
+  const files = event.target.files;
+  if (!files || !files.length) return;
+  const fd = new FormData();
+  fd.append('pot', ghPot);
+  for (const f of files) fd.append('files', f);
+  try {
+    const fetchResp = await fetch('/api/v1/hsa/inbox/upload', { method: 'POST', body: fd });
+    if (!fetchResp.ok) throw new Error(`upload failed: ${fetchResp.status}`);
+    const data = await fetchResp.json();
+    const created = (data.drafts || []).filter(d => d.record_id).length;
+    const dupes   = (data.drafts || []).filter(d => d.duplicate_of_attachment).length;
+    let msg = `Uploaded ${created} draft${created===1?'':'s'} to inbox`;
+    if (dupes) msg += ` (${dupes} duplicate${dupes===1?'':'s'} skipped)`;
+    if (window.GH_TOAST) GH_TOAST(msg);
+    else alert(msg);
+    event.target.value = '';
+    await ghLoadInbox();
+  } catch (e) {
+    alert('Upload failed: ' + e.message);
+  }
+}
+
+async function ghOpenInbox() {
+  try {
+    const resp = await window.api('GET', '/hsa/inbox');
+    if (!resp || !resp.count) {
+      alert('Inbox is empty.');
+      return;
+    }
+    ghInboxQ = resp.items;
+    ghQIdx = 0;
+    // Pre-load contacts + family
+    if (!ghVendors.length) {
+      try { ghVendors = await window.api('GET', '/settings/contacts') || []; } catch {}
+    }
+    if (!ghPersons.length) {
+      try { ghPersons = await window.api('GET', '/settings/family') || []; } catch {}
+    }
+    populateVendorDropdown();
+    populatePersonDropdown();
+    showCurrentDraft();
+  } catch (e) {
+    alert('Could not open inbox: ' + e.message);
+  }
+}
+
+function populateVendorDropdown() {
+  const sel = document.getElementById('ghMVendor');
+  // Build with vendor + medical as suggested types first, then everything else
+  const order = ['Vendor','Medical'];
+  const sorted = [...ghVendors].sort((a,b) => {
+    const ai = order.indexOf(a.contact_type); const bi = order.indexOf(b.contact_type);
+    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+        || (a.name || '').localeCompare(b.name || '');
+  });
+  sel.innerHTML = '<option value="">— pick or leave blank —</option>'
+    + sorted.map(c => `<option value="${c.id}">${esc(c.name)} · ${esc(c.contact_type||'')}</option>`).join('');
+}
+
+function populatePersonDropdown() {
+  const sel = document.getElementById('ghMPerson');
+  if (!ghPersons.length) {
+    sel.innerHTML = '<option value="Self">Self</option>';
+    return;
+  }
+  sel.innerHTML = ghPersons.map(p => `<option value="${esc(p.name)}">${esc(p.name)}</option>`).join('');
+}
+
+async function showCurrentDraft() {
+  const item = ghInboxQ[ghQIdx];
+  if (!item) {
+    ghCloseModal();
+    return;
+  }
+  document.getElementById('ghModalProgress').textContent = `${ghQIdx+1} of ${ghInboxQ.length}`;
+  document.getElementById('ghModalTitle').textContent =
+    item.pot === 'fsa' ? 'Review LP-FSA receipt' : 'Review HSA receipt';
+
+  // Preview (image or PDF embed via attachments file route)
+  const previewEl = document.getElementById('ghModalPreview');
+  if (item.attachment_id) {
+    const url = `/api/v1/attachments/file/${item.attachment_id}`;
+    if ((item.mime_type || '').startsWith('image/')) {
+      previewEl.innerHTML = `<img class="preview" src="${url}" alt="${esc(item.file_name||'')}">`;
+    } else if ((item.mime_type || '') === 'application/pdf') {
+      previewEl.innerHTML = `<iframe class="preview" src="${url}#view=FitH"></iframe>`;
+    } else {
+      previewEl.innerHTML = `<div style="font-size:12px;color:var(--text3);padding:8px">📎 ${esc(item.file_name||'file')}</div>`;
+    }
+  } else {
+    previewEl.innerHTML = '';
+  }
+
+  // Pull full record so we have any pre-filled fields
+  try {
+    const detail = await window.api('GET', `/hsa/inbox/${item.pot}/${item.record_id}`);
+    document.getElementById('ghMDate').value     = detail.date || new Date().toISOString().slice(0,10);
+    document.getElementById('ghMAmount').value   = (detail.you_paid || detail.amount || '') || '';
+    document.getElementById('ghMVendor').value   = detail.vendor_contact_id || '';
+    document.getElementById('ghMPerson').value   = detail.patient || 'Self';
+    document.getElementById('ghMEligible').value = String(detail.hsa_eligible ?? detail.fsa_eligible ?? 0);
+    document.getElementById('ghMNotes').value    = detail.notes || '';
+  } catch {
+    // Fallback to blanks
+    document.getElementById('ghMDate').value = new Date().toISOString().slice(0,10);
+    document.getElementById('ghMAmount').value = '';
+    document.getElementById('ghMVendor').value = '';
+    document.getElementById('ghMPerson').value = 'Self';
+    document.getElementById('ghMEligible').value = '0';
+    document.getElementById('ghMNotes').value = '';
+  }
+
+  document.getElementById('ghModalBackdrop').classList.add('open');
+}
+
+function ghCloseModal() {
+  document.getElementById('ghModalBackdrop').classList.remove('open');
+  ghLoadAll();
+}
+
+function ghMaybeCloseModal(e) {
+  if (e.target.id === 'ghModalBackdrop') ghCloseModal();
+}
+
+async function ghSaveDraft(advance, force) {
+  const item = ghInboxQ[ghQIdx];
+  if (!item) return;
+  const body = {
+    date:               document.getElementById('ghMDate').value,
+    amount:             parseFloat(document.getElementById('ghMAmount').value) || 0,
+    vendor_contact_id:  parseInt(document.getElementById('ghMVendor').value) || null,
+    patient:            document.getElementById('ghMPerson').value,
+    hsa_eligible:       parseInt(document.getElementById('ghMEligible').value) === 1 ? 1 : 0,
+    fsa_eligible:       parseInt(document.getElementById('ghMEligible').value) === 1 ? 1 : 0,
+    notes:              document.getElementById('ghMNotes').value || null,
+    force_duplicate:    force || false,
+  };
+  try {
+    const fetchResp = await fetch(`/api/v1/hsa/inbox/${item.pot}/${item.record_id}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (fetchResp.status === 409) {
+      const d = await fetchResp.json();
+      if (confirm(d.warning || 'Looks like a duplicate. Save anyway?')) {
+        return ghSaveDraft(advance, true);
+      }
+      return;  // user cancelled
+    }
+    if (!fetchResp.ok) throw new Error(`save failed: ${fetchResp.status}`);
+    if (advance) {
+      ghQIdx++;
+      if (ghQIdx >= ghInboxQ.length) {
+        ghCloseModal();
+      } else {
+        showCurrentDraft();
+      }
+    } else {
+      ghCloseModal();
+    }
+  } catch (e) {
+    alert('Save failed: ' + e.message);
+  }
+}
+
+async function ghRejectDraft() {
+  const item = ghInboxQ[ghQIdx];
+  if (!item) return;
+  if (!confirm('Reject this file as "not medical"? It moves to _rejected/ and the draft is deleted.')) return;
+  try {
+    const fetchResp = await fetch(`/api/v1/hsa/inbox/${item.pot}/${item.record_id}/reject`, {
+      method: 'POST',
+    });
+    if (!fetchResp.ok) throw new Error(`reject failed: ${fetchResp.status}`);
+    ghQIdx++;
+    if (ghQIdx >= ghInboxQ.length) ghCloseModal();
+    else showCurrentDraft();
+  } catch (e) {
+    alert('Reject failed: ' + e.message);
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  loadHsaDashboard();
+  ghLoadInbox();
+  ghLoadVault();
+});
 </script>
 </body>
 </html>

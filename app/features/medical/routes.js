@@ -505,6 +505,34 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
             try { flagRecord('med_eob_claims', claimId, reason, cat); } catch {}
           }
 
+          // v202604.140 — Auto-link this new EOB claim to any unmatched
+          // HSA payment that fits (same patient, ±7 days, similar amount).
+          // ONLY auto-link when there's exactly one candidate — otherwise
+          // flag for manual review via the inbox UI's "EOB candidates"
+          // endpoint. Multiple matches = ambiguity, never silent.
+          try {
+            const cents = Math.round((c.your_share || 0) * 100);
+            if (cents > 0 && c.send_date) {
+              const candidates = db.prepare(`
+                SELECT id FROM hsa_payments
+                WHERE eob_claim_id IS NULL
+                  AND patient = ?
+                  AND ABS(julianday(date) - julianday(?)) <= 7
+                  AND ABS(ROUND(you_paid * 100) - ?) <= 100
+                  AND COALESCE(status, 'final') = 'final'
+              `).all(patientRaw, c.send_date, cents);
+              if (candidates.length === 1) {
+                db.prepare(`
+                  UPDATE hsa_payments SET eob_claim_id = ?, updated_at = CURRENT_TIMESTAMP
+                  WHERE id = ?
+                `).run(claimId, candidates[0].id);
+              }
+            }
+          } catch (linkErr) {
+            // Auto-link is best-effort. Don't fail the import on link errors.
+            console.warn('[eob/import] auto-link failed:', linkErr.message);
+          }
+
           // Insert service lines
           for (const sv of (c.services || [])) {
             db.prepare(`
