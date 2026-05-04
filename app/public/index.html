@@ -211,6 +211,12 @@
       .today-header__count { font-size: 18px; }
     }
 
+    /* v202604.140 — Mobile hamburger spacing. Sits above the greeting on
+       phones; hidden on desktop by .gh-hamburger media query in shared.css. */
+    .today-hamburger {
+      margin-bottom: 12px;
+    }
+
     /* v202604.127 — Undo toast */
     .today-toast {
       position: fixed;
@@ -254,6 +260,19 @@
 <body>
 
 <div class="today-wrap">
+
+  <!-- v202604.140 — Mobile hamburger. Sidebar is the only nav on Android,
+       and this page sets noHeader:true so nav.js doesn't inject the
+       standard hamburger. Hidden on desktop (≥900px) by shared.css. -->
+  <button class="gh-hamburger today-hamburger" aria-label="Menu"
+          onclick="window.GH_NAV && GH_NAV.toggleSidebar()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+         stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
 
   <header class="today-header">
     <p class="today-header__date" id="todayDate">…</p>
