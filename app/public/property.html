@@ -64,10 +64,13 @@
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
       <span style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Properties</span>
     </div>
-    <div style="display:flex;gap:8px;padding:8px 16px 4px">
-      <div class="stat-chip card-static" style="flex:1;text-align:center"><div class="stat-chip-lbl">Est. Value</div><div id="pTotalVal" class="stat-chip-val" style="color:var(--green)">—</div></div>
-      <div class="stat-chip card-static" style="flex:1;text-align:center"><div class="stat-chip-lbl">Mortgage</div><div id="pTotalMort" class="stat-chip-val" style="color:var(--red)">—</div></div>
-      <div class="stat-chip card-static" style="flex:1;text-align:center"><div class="stat-chip-lbl">Equity</div><div id="pEquity" class="stat-chip-val">—</div></div>
+    <!-- v202604.137 — was full-width flex; on desktop the 3 tiles
+         stretched absurdly wide. Now grid auto-fits with min-200 /
+         max-340 per tile, so they stay readable. -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,340px));gap:8px;padding:8px 16px 4px">
+      <div class="stat-chip card-static" style="text-align:center"><div class="stat-chip-lbl">Est. Value</div><div id="pTotalVal" class="stat-chip-val" style="color:var(--green)">—</div></div>
+      <div class="stat-chip card-static" style="text-align:center"><div class="stat-chip-lbl">Mortgage</div><div id="pTotalMort" class="stat-chip-val" style="color:var(--red)">—</div></div>
+      <div class="stat-chip card-static" style="text-align:center"><div class="stat-chip-lbl">Equity</div><div id="pEquity" class="stat-chip-val">—</div></div>
     </div>
     <div id="propList" style="padding:4px 16px 0"><div class="spinner"><div class="spin"></div>Loading…</div></div>
   </div>

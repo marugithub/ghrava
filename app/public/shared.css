@@ -4614,3 +4614,171 @@ html.drawer-compact .drawer .form-textarea { min-height: 60px !important; }
     font-size: 12px;
   }
 }
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.136 — Inventory merged toolbar (clothing icon + lens)
+ *
+ * The clothing icon and the lens were sitting as two separate cards
+ * with a visible seam between them. .inv-merge wraps both in ONE
+ * border + bg, with a thin internal divider, so they read as a
+ * single unified toolbar element.
+ * ─────────────────────────────────────────────────────────────────── */
+.inv-merge {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 280px;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg, 12px);
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.inv-merge__icon {
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: none;
+  background: transparent;
+  color: var(--text3);
+  cursor: pointer;
+  font-family: var(--sans);
+  border-right: 1px solid var(--border);
+  transition: background .12s, color .12s;
+}
+.inv-merge__icon:hover {
+  background: var(--bg3);
+  color: var(--text);
+}
+.inv-merge__lens {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.inv-merge__lens > #invLens {
+  width: 100%;
+}
+/* Kill the lens's own border/bg/margin/radius inside the merged frame.
+ * The outer .inv-merge supplies all of those. */
+.inv-merge .gh-lens {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+  width: 100%;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.137 — Stitched toolbar
+ *
+ * Wraps multiple toolbar rows (tabs / sub-tabs / lens) in a single
+ * card with hairline internal dividers, so they read as one unified
+ * navigation element instead of three separate floating cards with
+ * gaps between them. Generalization of the v136 .inv-merge pattern.
+ *
+ * Usage:
+ *   <div class="gh-stitched">
+ *     <div class="gh-stitched__row">  …tab row…  </div>
+ *     <div class="gh-stitched__row">  …sub-tab row…  </div>
+ *     <div class="gh-stitched__row">  …lens…  </div>
+ *   </div>
+ *
+ * Lens placed inside loses its own border/bg/margin/radius.
+ * Tabs (.view-tabs) lose their bottom-border + radius.
+ * ─────────────────────────────────────────────────────────────────── */
+.gh-stitched {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg, 12px);
+  margin: 12px 16px 12px;
+  overflow: hidden;
+}
+.gh-stitched__row {
+  display: block;
+}
+.gh-stitched__row + .gh-stitched__row {
+  border-top: 1px solid var(--border);
+}
+
+/* Strip lens chrome inside stitched */
+.gh-stitched .gh-lens {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  margin: 0;
+}
+
+/* Strip view-tabs chrome inside stitched */
+.gh-stitched .view-tabs {
+  background: transparent;
+  border-bottom: none;
+  border-radius: 0;
+  margin: 0;
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * v202604.137 — Multi-column stat tile grid
+ *
+ * Replaces the common pattern of full-width stat cards (which look
+ * absurdly wide on desktop) with a responsive auto-fit grid that
+ * collapses to fewer columns on narrow widths.
+ *
+ * Usage:
+ *   <div class="gh-tile-grid">
+ *     <div class="gh-tile">…</div>
+ *     <div class="gh-tile">…</div>
+ *   </div>
+ *
+ * - At ≥680px: 3-4 columns
+ * - At 480–680px: 2 columns
+ * - <480px: 1 column
+ * ─────────────────────────────────────────────────────────────────── */
+.gh-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.gh-tile {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg, 12px);
+  padding: 12px 14px;
+  min-width: 0;
+}
+.gh-tile__lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text3);
+}
+.gh-tile__val {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  margin-top: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.gh-tile__sub {
+  font-size: 11px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+.gh-tile__bar {
+  height: 4px;
+  background: var(--bg3);
+  border-radius: 2px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.gh-tile__bar-fill {
+  height: 100%;
+  background: var(--accent, #3b82f6);
+  border-radius: 2px;
+  transition: width .25s ease;
+}

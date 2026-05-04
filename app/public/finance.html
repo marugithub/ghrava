@@ -18,10 +18,14 @@
   }
 </script>
   <style>
-/* ── HSA summary cards ───────────────────────────────────────── */
+/* ── HSA summary cards ─────────────────────────────────────────
+ * v202604.137: was `grid-template-columns: 1fr 1fr` — 2 columns
+ * always, looked absurdly wide on desktop with only 4 tiles. Now
+ * auto-fits 1-4 columns based on width. Min 200px per tile.
+ */
 .hsa-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 8px;
   padding: 12px 16px 4px;
 }
@@ -207,16 +211,22 @@
 
   <!-- header injected by nav.js -->
 
-  <!-- ── Top-level Finance tabs ────────────────────────────── -->
-  <div class="view-tabs" style="--tab-color:#22c55e" style="--tab-color:#22c55e" id="finTabs">
-    <button class="view-tab active" onclick="switchFinTab('hsa',this)">HSA</button>
-    <button class="view-tab" onclick="switchFinTab('accounts',this)">Accounts</button>
-    <button class="view-tab" onclick="switchFinTab('transactions',this)">Transactions</button>
-    <button class="view-tab" onclick="switchFinTab('networth',this)">Net Worth</button>
-    <button class="view-tab" onclick="switchFinTab('budgets',this)">Budgets</button>
-    <button class="view-tab" onclick="switchFinTab('giftcards',this)">Gift Cards</button>
-    <button class="view-tab" onclick="switchFinTab('import',this)">Import</button>
-    <button class="view-tab" onclick="switchFinTab('holdings',this)">Holdings</button>
+  <!-- ── Top-level Finance tabs ──────────────────────────────
+       v202604.137: wrapped in .gh-stitched so the toolbar reads
+       as one card instead of a floating tab strip with a gap. -->
+  <div class="gh-stitched">
+    <div class="gh-stitched__row">
+      <div class="view-tabs" style="--tab-color:#22c55e" id="finTabs">
+        <button class="view-tab active" onclick="switchFinTab('hsa',this)">HSA</button>
+        <button class="view-tab" onclick="switchFinTab('accounts',this)">Accounts</button>
+        <button class="view-tab" onclick="switchFinTab('transactions',this)">Transactions</button>
+        <button class="view-tab" onclick="switchFinTab('networth',this)">Net Worth</button>
+        <button class="view-tab" onclick="switchFinTab('budgets',this)">Budgets</button>
+        <button class="view-tab" onclick="switchFinTab('giftcards',this)">Gift Cards</button>
+        <button class="view-tab" onclick="switchFinTab('import',this)">Import</button>
+        <button class="view-tab" onclick="switchFinTab('holdings',this)">Holdings</button>
+      </div>
+    </div>
   </div>
 
   <!-- ══════════════════════════════════════════════════════
@@ -2793,6 +2803,7 @@ async function deleteGc() {
       </div>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" onclick="$('gcDrawer').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="gcSave" style="flex:1" onclick="saveGc()">Save</button>
       <button class="btn btn-ghost" id="gcDeleteBtn" style="color:var(--red);display:none" onclick="deleteGc()">Delete</button>
     </div>
