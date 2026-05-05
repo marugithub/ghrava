@@ -1,219 +1,193 @@
 <!DOCTYPE html>
 <!--
-  ════════════════════════════════════════════════════════════════════
-  GHRAVA — DRAFTS / TEMPLATES INDEX
-  ════════════════════════════════════════════════════════════════════
+  GHRAVA — DRAFTS INDEX
 
-  WHAT THIS IS
-    Landing page for all in-progress design work. Each draft is a
-    self-contained spec page that future sessions read first before
-    proposing or building anything.
+  Landing for in-progress design work. Each draft is close-to-final
+  spec — read once, build from it.
 
-  WHERE IT LIVES
-    URL:  /_drafts.html
-    File: app/public/_drafts.html
-    Not in main nav. Hidden from users; reachable by URL.
-    A small "📐 Drafts" link sits in the sidebar footer — hideable
-    by removing one element when we want to ship.
+  URL:  /_drafts.html
+  File: app/public/_drafts.html
+  Hidden from main nav. Sidebar 📐 link removable via one element.
 
-  HOW DATA WORKS
-    No live data. Each draft page renders dummy data inline so the
-    page always works and shows the INTENDED design with realistic
-    fake content. When a draft is approved, dummy data gets swapped
-    for real API calls during the build.
+  Plain readable style. No fancy UI.
 
-  RULES
-    1. No deploys without explicit user approval.
-    2. Comments on each page mirror visible content — verbatim quotes
-       with chat URLs, dates of agreement, what's locked vs open.
-    3. Status pills: DRAFT / IN-DISCUSSION / LOCKED / BUILDING /
-       SHIPPED / DEFERRED. Sort order on this page reflects priority.
-
-  USER CORRECTIONS LOGGED
-    - "no more handoff. that page should be in system" (chat 15)
-    - "no deploy without explicit ask" (chat 15)
-    - "ensure the actual page has comments that can be leveraged
-       later. if you were to read it you know the verbatim
-       requirements, agreements and other key details briefly so we
-       are not spending tokens on writing and reading and then
-       recreating it. make it close to final than complete scratch."
-    - "no more trusting you to do anything"
-
-  ════════════════════════════════════════════════════════════════════
+  Rules logged from user:
+    - "no more handoff. that page should be in system"
+    - "no deploy without explicit ask"
+    - "make it close to final than complete scratch"
+    - "format the pages to nothing fancy but easily readable"
 -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Ghrava — Drafts</title>
-<style>
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
-    background: #f3f4f6;
-    margin: 0;
-    padding: 32px 16px;
-    color: #1a1a1a;
-  }
-  .page { max-width: 1100px; margin: 0 auto; }
-  .page-head { margin-bottom: 24px; }
-  .page-head h1 { margin: 0 0 4px; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
-  .page-head p  { margin: 0; color: #64748b; font-size: 14px; line-height: 1.5; }
-  .page-head .meta { font-size: 12px; color: #94a3b8; margin-top: 6px; }
-
-  .filter-bar {
-    display: flex; gap: 6px; margin: 16px 0 20px; flex-wrap: wrap;
-  }
-  .filter-bar button {
-    padding: 5px 12px; border-radius: 999px;
-    background: #fff; border: 0.5px solid #e5e7eb;
-    font-size: 12px; font-weight: 500; color: #475569; cursor: pointer;
-  }
-  .filter-bar button.active { background: #14b8a6; color: white; border-color: #14b8a6; }
-
-  .draft-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 14px;
-  }
-  .draft-card {
-    background: #fff; border: 0.5px solid #e5e7eb; border-radius: 14px;
-    padding: 18px; text-decoration: none; color: inherit;
-    display: flex; flex-direction: column; gap: 8px;
-    transition: transform 120ms ease, box-shadow 120ms ease;
-  }
-  .draft-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,0.06); }
-
-  .draft-head { display: flex; align-items: flex-start; gap: 8px; }
-  .draft-num  { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; color: #94a3b8; }
-  .draft-title { font-size: 15px; font-weight: 600; flex: 1; }
-  .pill {
-    font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
-    padding: 2px 8px; border-radius: 999px; font-weight: 600;
-    flex-shrink: 0;
-  }
-  .pill-locked    { background: rgba(20,184,166,.10);  color: #0d9488; }
-  .pill-building  { background: rgba(99,102,241,.10);  color: #4f46e5; }
-  .pill-discuss   { background: rgba(217,119,6,.10);   color: #b45309; }
-  .pill-draft     { background: rgba(148,163,184,.18); color: #475569; }
-  .pill-shipped   { background: rgba(34,197,94,.12);   color: #15803d; }
-  .pill-deferred  { background: rgba(220,38,38,.10);   color: #991b1b; }
-
-  .draft-desc { font-size: 13px; color: #475569; line-height: 1.5; }
-  .draft-foot {
-    display: flex; justify-content: space-between; align-items: center;
-    margin-top: 6px; font-size: 11px; color: #94a3b8;
-  }
-
-  .section-head {
-    margin: 28px 0 12px; font-size: 12px; font-weight: 600;
-    text-transform: uppercase; letter-spacing: .08em; color: #94a3b8;
-  }
-</style>
+<link rel="stylesheet" href="/_drafts/_drafts.css">
 </head>
 <body>
 
-<div class="page">
+<h1>Drafts</h1>
 
-  <div class="page-head">
-    <h1>Drafts</h1>
-    <p>In-progress design pages. Each one is close-to-final spec — verbatim requirements, locked decisions, open questions, dummy-data wireframes. Read the page, build from it.</p>
-    <div class="meta">URL hidden from main nav. Sidebar link can be removed with one element change.</div>
-  </div>
+<p class="meta">
+  In-progress design pages. Each is close-to-final spec — verbatim requirements,
+  locked decisions, open questions, dummy-data wireframes. Read the page,
+  build from it.
+</p>
 
-  <div class="filter-bar" id="filterBar">
-    <button class="active" data-status="all">All</button>
-    <button data-status="locked">Locked</button>
-    <button data-status="building">Building</button>
-    <button data-status="discuss">In discussion</button>
-    <button data-status="draft">Draft</button>
-    <button data-status="deferred">Deferred</button>
-  </div>
+<p class="meta">
+  See also: <a href="/_drafts/status.html">backlog &amp; status board</a>
+  (% done, real bugs, security audit, risks, working rules).
+</p>
 
-  <div class="section-head">High priority</div>
-  <div class="draft-grid">
+<hr>
 
-    <a class="draft-card" href="/_templates.html" data-status="locked">
-      <div class="draft-head">
-        <span class="draft-num">#0</span>
-        <span class="draft-title">Card Templates</span>
-        <span class="pill pill-locked">Locked</span>
-      </div>
-      <div class="draft-desc">Reference page for every card pattern. Medication card v5 locked. Inventory, todo, subscription, certification cards drafted.</div>
-      <div class="draft-foot"><span>5 cards · numbered #1–#5</span><span>open →</span></div>
-    </a>
+<div class="section-label">High priority</div>
+<ul class="draft-list">
 
-    <a class="draft-card" href="/_drafts/center-modals.html" data-status="discuss">
-      <div class="draft-head">
-        <span class="draft-num">#1</span>
-        <span class="draft-title">Center modals sweep</span>
-        <span class="pill pill-discuss">In discussion</span>
-      </div>
-      <div class="draft-desc">Replace all <code>.gh-drawer</code> right-side slide-ins with <code>.gh-modal</code> centered modals across 25 modules. <strong>User asked 3×, deferred 3×.</strong></div>
-      <div class="draft-foot"><span>CSS-only · no schema change</span><span>open →</span></div>
-    </a>
+  <li>
+    <span class="num">#0</span>
+    <span class="title"><a href="/_templates.html">Card Templates</a></span>
+    <span class="status">locked</span>
+    <span class="desc">Reference for every card pattern. Medication v5 locked. Inventory, todo, subscription, certification cards drafted.</span>
+  </li>
 
-    <a class="draft-card" href="/_drafts/reports-split.html" data-status="discuss">
-      <div class="draft-head">
-        <span class="draft-num">#2</span>
-        <span class="draft-title">Reports page split from Dashboard</span>
-        <span class="pill pill-discuss">In discussion</span>
-      </div>
-      <div class="draft-desc">Dashboard = today/now. Reports = analysis. "Everything About a Family Member" lives in Reports, not Kids.</div>
-      <div class="draft-foot"><span>No new tables · uses REPORT_REGISTRY</span><span>open →</span></div>
-    </a>
+  <li>
+    <span class="num">#1</span>
+    <span class="title"><a href="/_drafts/center-modals.html">Center modals sweep</a></span>
+    <span class="status">in discussion</span>
+    <span class="desc">Replace all <code>.gh-drawer</code> right-side slide-ins with centered modals across 25 modules. User asked 3×, deferred 3×.</span>
+  </li>
 
-    <a class="draft-card" href="/_drafts/notifications.html" data-status="discuss">
-      <div class="draft-head">
-        <span class="draft-num">#3</span>
-        <span class="draft-title">Notifications design</span>
-        <span class="pill pill-discuss">In discussion</span>
-      </div>
-      <div class="draft-desc">Bell icon already in nav header. Open: SMTP config, failure behavior, cron location, quiet hours.</div>
-      <div class="draft-foot"><span>Existing notifications table · audit needed</span><span>open →</span></div>
-    </a>
+  <li>
+    <span class="num">#2</span>
+    <span class="title"><a href="/_drafts/reports-split.html">Reports page split from Dashboard</a></span>
+    <span class="status">in discussion</span>
+    <span class="desc">Dashboard = today/now. Reports = analysis. "Everything About a Family Member" lives in Reports.</span>
+  </li>
 
-  </div>
+  <li>
+    <span class="num">#3</span>
+    <span class="title"><a href="/_drafts/notifications.html">Notifications design</a></span>
+    <span class="status">in discussion</span>
+    <span class="desc">Bell icon already in nav header. Open: SMTP, failure behavior, cron, quiet hours.</span>
+  </li>
 
-  <div class="section-head">Module-level</div>
-  <div class="draft-grid">
+</ul>
 
-    <a class="draft-card" href="/_drafts/finance-dashboard.html" data-status="deferred">
-      <div class="draft-head">
-        <span class="draft-num">#4</span>
-        <span class="draft-title">Finance dashboard landing</span>
-        <span class="pill pill-deferred">Deferred</span>
-      </div>
-      <div class="draft-desc">Card-grid landing instead of dropping into HSA tab. Pulls $ summaries from medical/home/etc. <strong>User: deferred until other work stabilizes.</strong></div>
-      <div class="draft-foot"><span>Reads from existing tables</span><span>open →</span></div>
-    </a>
+<div class="section-label">Module-level</div>
+<ul class="draft-list">
 
-    <a class="draft-card" href="/kids.html" data-status="discuss">
-      <div class="draft-head">
-        <span class="draft-num">#5</span>
-        <span class="draft-title">Kids attendance scratchpad</span>
-        <span class="pill pill-discuss">In discussion</span>
-      </div>
-      <div class="draft-desc">Lives inside <code>kids.html</code> per kid. Grade-driven rule switch (≥9 = HS rules). Different rules for Risha (elementary) vs Arnav (HS).</div>
-      <div class="draft-foot"><span>In kids.html scroll · per kid</span><span>open →</span></div>
-    </a>
+  <li>
+    <span class="num">#4</span>
+    <span class="title"><a href="/_drafts/finance-dashboard.html">Finance dashboard landing</a></span>
+    <span class="status">deferred</span>
+    <span class="desc">Card-grid landing. User: deferred until other work stabilizes.</span>
+  </li>
 
-  </div>
+  <li>
+    <span class="num">#5</span>
+    <span class="title"><a href="/kids.html">Kids attendance scratchpad</a></span>
+    <span class="status">in discussion</span>
+    <span class="desc">Lives inside <code>kids.html</code> per kid. Grade-driven rule switch (≥9 = HS rules).</span>
+  </li>
 
-</div>
+</ul>
 
-<script>
-  // Simple filter — toggle status visibility
-  const bar = document.getElementById('filterBar');
-  bar.addEventListener('click', (e) => {
-    const btn = e.target.closest('button');
-    if (!btn) return;
-    bar.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    const want = btn.dataset.status;
-    document.querySelectorAll('.draft-card').forEach(c => {
-      c.style.display = (want === 'all' || c.dataset.status === want) ? '' : 'none';
-    });
-  });
-</script>
+<div class="section-label">Skeleton (placeholders for future fill-in)</div>
+<ul class="draft-list">
+
+  <li>
+    <span class="num">#5</span>
+    <span class="title"><a href="/_drafts/mobile-ux.html">Mobile UX</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Phone-first capture flow. Full-screen modals on small screens.</span>
+  </li>
+
+  <li>
+    <span class="num">#6</span>
+    <span class="title"><a href="/_drafts/family-filter.html">Per-device family filter</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">First-time prompt "who is this?". localStorage scope. Indicator near nav avatar.</span>
+  </li>
+
+  <li>
+    <span class="num">#7</span>
+    <span class="title"><a href="/_drafts/documents-redesign.html">Documents module</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">High-volume potential. Scoping conversation needed.</span>
+  </li>
+
+  <li>
+    <span class="num">#8</span>
+    <span class="title"><a href="/_drafts/wardrobe-photos.html">Photo-first wardrobe</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Drag/drop creates draft, fill details later.</span>
+  </li>
+
+  <li>
+    <span class="num">#9</span>
+    <span class="title"><a href="/_drafts/tag-fixes.html">Tag display fixes</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Remove <code>#</code>, wider input, color-coded pills matching Settings.</span>
+  </li>
+
+  <li>
+    <span class="num">#10</span>
+    <span class="title"><a href="/_drafts/data-quality.html">Data quality checker</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Different from Orphan Check. Records with missing important fields.</span>
+  </li>
+
+  <li>
+    <span class="num">#11</span>
+    <span class="title"><a href="/_drafts/card-orphans.html">Card config triage</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">7 orphan card configs. Wire / delete / redesign each.</span>
+  </li>
+
+  <li>
+    <span class="num">#12</span>
+    <span class="title"><a href="/_drafts/today-page.html">Today / index page</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Now/Soon/30-day pipeline. Endpoint <code>/api/v1/today</code>. Locked design from chat 12.</span>
+  </li>
+
+  <li>
+    <span class="num">#13</span>
+    <span class="title"><a href="/_drafts/global-search.html">Global search</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">One search bar, all entity types.</span>
+  </li>
+
+  <li>
+    <span class="num">#14</span>
+    <span class="title"><a href="/_drafts/tailscale.html">Tailscale debug</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Partially working. Blocks snap-photo-at-store flow.</span>
+  </li>
+
+  <li>
+    <span class="num">#15</span>
+    <span class="title"><a href="/_drafts/gcal-sync.html">Google Calendar sync</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Code present, untested.</span>
+  </li>
+
+  <li>
+    <span class="num">#16</span>
+    <span class="title"><a href="/_drafts/email-to-inbox.html">Email-to-inbox ingestion</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">Forward CVS receipt → HSA inbox. Regex parsing, no AI.</span>
+  </li>
+
+  <li>
+    <span class="num">#17</span>
+    <span class="title"><a href="/_drafts/summary-tile-card.html">Card #6 — Summary Tile</a></span>
+    <span class="status">skeleton</span>
+    <span class="desc">For finance landing + dashboard widgets. Different from 4-zone card.</span>
+  </li>
+
+</ul>
 
 </body>
 </html>

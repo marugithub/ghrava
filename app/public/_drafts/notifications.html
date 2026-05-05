@@ -8,105 +8,81 @@
   PRIORITY:  Medium — flagged design-first since chat 4
 
   WHAT THIS IS
-    App-internal alerts surfaced via bell icon (already injected in
-    nav header) with badge count. Triggered by autoTodos. Future:
-    email/SMS push. This draft answers SMTP/cron/failure-mode
-    decisions BEFORE any implementation.
+    App-internal alerts surfaced via bell icon (already injected
+    in nav header). Triggered by autoTodos. Future: email/SMS push.
+    This draft answers SMTP/cron/failure-mode decisions before any
+    implementation.
 
   WHERE IT LIVES (when shipped)
-    - app/public/notifications.html       — page exists, needs build-out
-    - app/public/nav.js                   — bell icon already there
-    - app/features/notifications/routes.js — partial, needs audit
-    - app/db/migrations/                   — notifications table exists
-    - app/jobs/                            — new dir for cron worker
+    - app/public/notifications.html          — page exists, build out
+    - app/public/nav.js                      — bell icon already there
+    - app/features/notifications/routes.js   — partial, needs audit
+    - app/db/migrations/                      — notifications table exists
+    - app/jobs/                               — new dir for cron worker
 
   STATED REQUIREMENTS (verbatim)
-    Chat 4 (https://claude.ai/chat/76ab457d-6604-46b2-8fcf-6fcd234e5ec8):
+    Chat 4  https://claude.ai/chat/76ab457d-6604-46b2-8fcf-6fcd234e5ec8
       Logged: "On Notifications: Design conversation before that
       session, not this one. Questions to answer offline:
         SMTP config (self-hosted vs relay)
         failure behavior (silent vs logged)
         cron inside container vs NAS scheduler"
 
-    Chat 15 handoff:
+    Chat 15 handoff
       "Notifications design — design-first before implementation"
 
   AGREEMENTS — LOCKED
     ✅ Bell icon stays in nav header (already wired).
     ✅ Page exists at /notifications.html.
-    ✅ Notifications fed by existing autoTodos triggers:
-        inventory expiring, HSA unreimbursed pool, follow-up
-        log entries, missing receipts, cert renewals, etc.
-    ✅ App-internal first. Email/SMS later phase.
-    ✅ One row per notification — no grouping/digest at create-time.
-       Group on read at the page level if needed.
+    ✅ Notifications fed by existing autoTodos triggers.
+    ✅ App-internal first. Email/SMS later.
+    ✅ One row per notification — group on read, not on create.
+    ✅ Manual mark-read (auto-read loses urgency context).
 
   AGREEMENTS — OPEN
-    ❓ SMTP — self-hosted (Postfix on QNAP) vs relay (Mailgun /
-       AWS SES / Sendgrid)?
-       LEAN: Mailgun-style relay. Self-hosted SMTP from a home IP
-       hits spam filters; not worth the hassle.
-       BLOCKER: needs user account decision.
-
+    ❓ SMTP — self-hosted Postfix vs relay (Mailgun/SES/Sendgrid)?
+       Lean: relay. Home IPs hit spam filters.
     ❓ Failure behavior — silent vs logged?
-       LEAN: logged. Notifications failing should show in a system
-       health card (Reports → Data Quality could host this).
-       Silent failures are debugging hell.
-
-    ❓ Cron — node-cron inside container vs QNAP scheduler hitting
-       API endpoint?
-       LEAN: node-cron inside container. Self-contained. QNAP
-       scheduler adds external dependency to back up.
-       TRADE-OFF: container restart kills in-flight cron tick;
-       acceptable for this app.
-
-    ❓ Quiet hours — should notifications respect 10pm-7am?
-       LEAN: yes. Add quiet_hours_start/end to settings.
-       Notifications still get created (so they show on the bell
-       when you wake up), but no email/SMS push during quiet hours.
-
-    ❓ Read state — auto-read on bell-click vs manual mark-read?
-       LEAN: manual. Auto-read loses urgency context.
+       Lean: logged. Surface in Reports → Data Quality.
+    ❓ Cron — node-cron in container vs QNAP scheduler?
+       Lean: node-cron in container. Self-contained.
+    ❓ Quiet hours — respect 10pm–7am?
+       Lean: yes. Notifications still created; only push suppressed.
 
   DATA SOURCES
     Existing tables to audit:
-      - notifications (audit needed — schema unknown to this draft)
+      - notifications (schema unknown to this draft, audit needed)
       - app_config (for SMTP creds, quiet hours)
     Triggers come from autoTodos.js (already exists).
 
   INTEGRATION POINTS
-    - Bell icon in nav header → reads /api/v1/notifications/count
+    - Bell icon → /api/v1/notifications/count
     - Click bell → /notifications.html
-    - autoTodos triggers create rows; one row per trigger event
-    - Email send goes through a new shared/email-sender.js
-    - Cron worker checks for pending email-pushes every minute
-    - Settings page gains a Notifications section: SMTP creds,
-      quiet hours, on/off toggles per trigger type
+    - autoTodos triggers create rows
+    - Email send via new shared/email-sender.js
+    - Cron worker checks pending email-pushes every minute
+    - Settings: SMTP creds, quiet hours, on/off per trigger type
 
   CARDS USED
     Notifications page uses todo-card compact mode (single row,
     tap-circle = mark-read action) from CARD_TEMPLATES #3.
-    NOT the 4-zone medication card.
 
   BUILD SEQUENCE
-    1. AUDIT existing notifications table + routes. Document.
+    1. Audit existing notifications table + routes.
     2. Decide open questions above (user input needed).
     3. Add settings UI for notification config.
     4. Wire bell-icon count endpoint.
     5. Build notifications.html page (list + filters + mark-read).
-    6. Implement node-cron worker for email push (if email
-       enabled).
-    7. Build shared/email-sender.js with chosen SMTP/relay.
-    8. Test with one trigger end-to-end (HSA missing receipt is
-       simplest).
+    6. Implement node-cron worker (if email enabled).
+    7. Build shared/email-sender.js.
+    8. Test with one trigger end-to-end (HSA missing receipt is simplest).
 
-  BACKEND CHANGES
-    Migration anticipated:
-      ALTER TABLE notifications ADD COLUMN delivery_status TEXT
-      ALTER TABLE notifications ADD COLUMN pushed_at DATETIME
-      ALTER TABLE notifications ADD COLUMN read_at DATETIME
+  BACKEND CHANGES (anticipated)
+    ALTER TABLE notifications ADD COLUMN delivery_status TEXT
+    ALTER TABLE notifications ADD COLUMN pushed_at DATETIME
+    ALTER TABLE notifications ADD COLUMN read_at DATETIME
 
-    New tables possibly:
+    New table possibly:
       notification_settings (per trigger type on/off, channels)
 
     New endpoints:
@@ -116,10 +92,10 @@
       POST /api/v1/notifications/test         test email (settings)
 
   OUT OF SCOPE
-    - Push notifications (mobile/web push API) — defer
-    - SMS — defer
-    - Slack/Discord webhooks — defer
-    - Per-family-member routing — defer (single household for now)
+    - Push notifications (web/mobile push API)
+    - SMS
+    - Slack / Discord webhooks
+    - Per-family-member routing
   ════════════════════════════════════════════════════════════════════
 -->
 <html lang="en">
@@ -127,153 +103,124 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Draft #3 — Notifications</title>
-<style>
-  body { font-family: -apple-system, sans-serif; background: #f3f4f6; margin: 0; padding: 24px 16px; color: #1a1a1a; }
-  .page { max-width: 1100px; margin: 0 auto; }
-  h1 { margin: 0 0 4px; font-size: 24px; font-weight: 600; }
-  h2 { margin: 24px 0 10px; font-size: 16px; font-weight: 600; }
-  h3 { margin: 14px 0 6px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
-  p, li { font-size: 13px; line-height: 1.6; color: #475569; }
-  code { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
-  .top { background: #fff; border: 0.5px solid #e5e7eb; border-radius: 14px; padding: 18px 22px; margin-bottom: 16px; }
-  .pill { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; padding: 3px 9px; border-radius: 999px; font-weight: 600; }
-  .p-discuss { background: rgba(217,119,6,.10); color: #b45309; }
-  .p-locked { background: rgba(20,184,166,.10); color: #0d9488; }
-  .breadcrumb a { color: #64748b; text-decoration: none; font-size: 12px; }
-  .panel { background: #fff; border: 0.5px solid #e5e7eb; border-radius: 14px; padding: 16px 20px; margin-bottom: 14px; }
-  .req-block { background: #fefce8; border-left: 3px solid #eab308; padding: 10px 14px; margin: 8px 0; border-radius: 4px; }
-  .req-block .src { font-size: 11px; color: #854d0e; font-family: 'SF Mono', monospace; }
-  .req-block .quote { font-size: 13px; color: #422006; font-style: italic; margin-top: 4px; }
-  .open-q { background: #fef2f2; border-left: 3px solid #ef4444; padding: 10px 14px; margin: 8px 0; border-radius: 4px; }
-  .open-q strong { color: #991b1b; }
-  .lean { font-size: 12px; color: #15803d; margin-top: 4px; font-weight: 500; }
-
-  /* Notification row mockup */
-  .nrow {
-    display: flex; align-items: flex-start; gap: 12px;
-    padding: 12px 14px; background: #fff;
-    border: 0.5px solid #e5e7eb; border-radius: 12px;
-    margin-bottom: 8px;
-  }
-  .nrow .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
-  .nrow .body { flex: 1; min-width: 0; }
-  .nrow .ttl { font-size: 13px; font-weight: 500; }
-  .nrow .meta { font-size: 11px; color: #94a3b8; margin-top: 3px; }
-  .nrow .act { font-size: 11px; color: #14b8a6; }
-</style>
+<link rel="stylesheet" href="/_drafts/_drafts.css">
 </head>
 <body>
-<div class="page">
 
 <div class="breadcrumb"><a href="/_drafts.html">← Drafts index</a></div>
 
-<div class="top">
-  <h1>Draft #3 — Notifications design</h1>
-  <p style="margin: 6px 0 0;">
-    <span class="pill p-discuss">In discussion</span>
-    <span class="pill p-locked" style="margin-left: 4px;">Bell icon locked</span>
-    <span style="font-size: 12px; color: #94a3b8; margin-left: 8px;">Created 2026-05-04 · 4 open questions need user input</span>
-  </p>
-  <p style="margin-top: 10px;">
-    App-internal alerts via bell icon. Triggered by autoTodos.
-    User flagged design-first since chat 4. Four decisions block
-    implementation: SMTP, failure mode, cron host, quiet hours.
-  </p>
-</div>
+<h1>#3 — Notifications design</h1>
 
-<h2>Wireframe — notifications.html (compact-mode card list)</h2>
-<div class="panel">
-  <div class="nrow">
-    <div class="dot" style="background: #ef4444;"></div>
-    <div class="body">
-      <div class="ttl">3 HSA receipts missing for 2026</div>
-      <div class="meta">Triggered by HSA module · 2 hours ago</div>
-    </div>
-    <div class="act">View →</div>
+<p class="status-line">
+  <span class="label">Status:</span> in discussion ·
+  <span class="label">Locked:</span> Bell icon ·
+  <span class="label">Created:</span> 2026-05-04 ·
+  <span class="label">Blocked by:</span> 4 open questions
+</p>
+
+<p>
+  App-internal alerts via bell icon. Triggered by autoTodos. User flagged
+  design-first since chat 4. Four decisions block implementation: SMTP,
+  failure mode, cron host, quiet hours.
+</p>
+
+<h2>Wireframe — notifications page</h2>
+
+<div class="wire">
+  <div style="border-bottom: 1px solid #ddd; padding: 8px 0; display: flex; gap: 12px;">
+    <span style="color: #c44; font-weight: 600;">●</span>
+    <span style="flex: 1;">3 HSA receipts missing for 2026
+      <div style="font-size: 12px; color: #888;">HSA module · 2 hours ago</div>
+    </span>
+    <a href="#">View →</a>
   </div>
-  <div class="nrow">
-    <div class="dot" style="background: #f59e0b;"></div>
-    <div class="body">
-      <div class="ttl">Lipitor refill due in 3 days</div>
-      <div class="meta">Medical · this morning · pushed to email</div>
-    </div>
-    <div class="act">View →</div>
+  <div style="border-bottom: 1px solid #ddd; padding: 8px 0; display: flex; gap: 12px;">
+    <span style="color: #c80; font-weight: 600;">●</span>
+    <span style="flex: 1;">Lipitor refill due in 3 days
+      <div style="font-size: 12px; color: #888;">Medical · this morning · pushed to email</div>
+    </span>
+    <a href="#">View →</a>
   </div>
-  <div class="nrow" style="opacity: .55;">
-    <div class="dot" style="background: #94a3b8;"></div>
-    <div class="body">
-      <div class="ttl">Car insurance renewed Apr 28</div>
-      <div class="meta">Insurance · yesterday · read</div>
-    </div>
+  <div style="padding: 8px 0; display: flex; gap: 12px; opacity: 0.6;">
+    <span style="color: #888;">○</span>
+    <span style="flex: 1;">Car insurance renewed Apr 28
+      <div style="font-size: 12px; color: #888;">Insurance · yesterday · read</div>
+    </span>
   </div>
 </div>
 
 <h2>Stated requirements (verbatim)</h2>
-<div class="panel">
-  <div class="req-block">
-    <div class="src">Chat 4 · 2026-03-25</div>
-    <div class="quote">"On Notifications: Design conversation before that session, not this one. Questions to answer offline: SMTP config (self-hosted vs relay), failure behavior (silent vs logged), cron inside container vs NAS scheduler."</div>
-  </div>
-  <div class="req-block">
-    <div class="src">Chat 15 handoff</div>
-    <div class="quote">"Notifications design — design-first before implementation"</div>
-  </div>
+
+<div class="quote">
+  <div class="src">Chat 4 · 2026-03-25</div>
+  <div class="text">"On Notifications: Design conversation before that session, not this one. Questions to answer offline: SMTP config (self-hosted vs relay), failure behavior (silent vs logged), cron inside container vs NAS scheduler."</div>
+</div>
+
+<div class="quote">
+  <div class="src">Chat 15 handoff</div>
+  <div class="text">"Notifications design — design-first before implementation"</div>
 </div>
 
 <h2>Open questions (need user input)</h2>
-<div class="panel">
-  <div class="open-q">
-    <strong>1. SMTP — self-hosted Postfix vs relay?</strong>
-    <div class="lean">Lean: Mailgun-style relay. Home IPs hit spam filters.</div>
-  </div>
-  <div class="open-q">
-    <strong>2. Failure behavior — silent vs logged?</strong>
-    <div class="lean">Lean: logged. Surface in Reports → Data Quality.</div>
-  </div>
-  <div class="open-q">
-    <strong>3. Cron — node-cron in container vs QNAP scheduler?</strong>
-    <div class="lean">Lean: node-cron in container. Self-contained.</div>
-  </div>
-  <div class="open-q">
-    <strong>4. Quiet hours — respect 10pm–7am?</strong>
-    <div class="lean">Lean: yes. Notifications still created; only push delivery suppressed.</div>
-  </div>
+
+<div class="open">
+  <div class="label">1. SMTP — self-hosted Postfix vs relay?</div>
+  <div class="lean">Lean: Mailgun-style relay. Home IPs hit spam filters.</div>
+</div>
+
+<div class="open">
+  <div class="label">2. Failure behavior — silent vs logged?</div>
+  <div class="lean">Lean: logged. Surface in Reports → Data Quality.</div>
+</div>
+
+<div class="open">
+  <div class="label">3. Cron — node-cron in container vs QNAP scheduler?</div>
+  <div class="lean">Lean: node-cron in container. Self-contained.</div>
+</div>
+
+<div class="open">
+  <div class="label">4. Quiet hours — respect 10pm–7am?</div>
+  <div class="lean">Lean: yes. Notifications still created; only push delivery suppressed.</div>
 </div>
 
 <h2>Locked agreements</h2>
-<div class="panel">
-  <ul>
-    <li>Bell icon stays in nav header (already wired).</li>
-    <li>Page exists at /notifications.html.</li>
-    <li>Notifications fed by existing autoTodos triggers.</li>
-    <li>App-internal first. Email/SMS later.</li>
-    <li>One row per notification — group on read, not on create.</li>
-    <li>Manual mark-read (auto-read loses context).</li>
-  </ul>
-</div>
+
+<ul class="locked-list">
+  <li>Bell icon stays in nav header (already wired).</li>
+  <li>Page exists at /notifications.html.</li>
+  <li>Notifications fed by existing autoTodos triggers.</li>
+  <li>App-internal first. Email/SMS later.</li>
+  <li>One row per notification — group on read, not on create.</li>
+  <li>Manual mark-read (auto-read loses context).</li>
+</ul>
 
 <h2>Backend changes (anticipated)</h2>
-<div class="panel">
-  <p>Migration:</p>
-  <ul>
-    <li><code>ALTER TABLE notifications ADD COLUMN delivery_status TEXT</code></li>
-    <li><code>ALTER TABLE notifications ADD COLUMN pushed_at DATETIME</code></li>
-    <li><code>ALTER TABLE notifications ADD COLUMN read_at DATETIME</code></li>
-  </ul>
-  <p>New table possibly: <code>notification_settings</code> (per-trigger on/off, channels).</p>
-  <p>New endpoints: <code>GET /api/v1/notifications</code>, <code>/count</code>, <code>POST /:id/read</code>, <code>POST /test</code>.</p>
-</div>
+
+<p>Migration:</p>
+<ul>
+  <li><code>ALTER TABLE notifications ADD COLUMN delivery_status TEXT</code></li>
+  <li><code>ALTER TABLE notifications ADD COLUMN pushed_at DATETIME</code></li>
+  <li><code>ALTER TABLE notifications ADD COLUMN read_at DATETIME</code></li>
+</ul>
+
+<p>New table possibly: <code>notification_settings</code> (per-trigger on/off, channels).</p>
+
+<p>New endpoints:</p>
+<ul>
+  <li><code>GET /api/v1/notifications</code></li>
+  <li><code>GET /api/v1/notifications/count</code></li>
+  <li><code>POST /api/v1/notifications/:id/read</code></li>
+  <li><code>POST /api/v1/notifications/test</code></li>
+</ul>
 
 <h2>Out of scope</h2>
-<div class="panel">
-  <ul style="margin: 0;">
-    <li>Push notifications (web/mobile push API)</li>
-    <li>SMS</li>
-    <li>Slack / Discord webhooks</li>
-    <li>Per-family-member routing</li>
-  </ul>
-</div>
 
-</div>
+<ul>
+  <li>Push notifications (web/mobile push API)</li>
+  <li>SMS</li>
+  <li>Slack / Discord webhooks</li>
+  <li>Per-family-member routing</li>
+</ul>
+
 </body>
 </html>

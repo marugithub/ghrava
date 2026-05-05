@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  GHRAVA — STATUS BOARD
+  ════════════════════════════════════════════════════════════════════
+  Backlog, risks, issues, rough % of work done.
+
+  This is the second handoff page (first is /_drafts.html).
+  Plain-readable. No fancy UI. Read once, know where you stand.
+
+  RULE: every claim in the % done table needs a source pointer
+  (file path, draft #, or chat URL). No vague status.
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghrava — Status</title>
+<link rel="stylesheet" href="/_drafts/_drafts.css">
+</head>
+<body>
+
+<div class="breadcrumb"><a href="/_drafts.html">← Drafts index</a></div>
+
+<h1>Status board</h1>
+
+<p class="meta">
+  Where each piece of the app stands. Every row points to a file,
+  a draft, or a chat URL. No vague "in progress" — concrete %
+  with what's left.
+</p>
+
+<hr>
+
+<h2>Rough % done by area</h2>
+
+<table>
+  <thead>
+    <tr><th>Area</th><th>%</th><th>What's left</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Core data + APIs</td>
+      <td>~85%</td>
+      <td>Most modules functional. v140 added HSA inbox/vault/EOB/IRS report. See <code>app/features/*</code>.</td>
+    </tr>
+    <tr>
+      <td>Card system rollout</td>
+      <td>~20%</td>
+      <td>4 designs in <a href="/_templates.html">_templates.html</a>, 0 modules using shared component yet.</td>
+    </tr>
+    <tr>
+      <td>Display layer modernization</td>
+      <td>~25%</td>
+      <td>Lens on 8 of ~25 pages. 4-zone cards on 0 pages.</td>
+    </tr>
+    <tr>
+      <td>Center modals (<a href="/_drafts/center-modals.html">draft #1</a>)</td>
+      <td>0%</td>
+      <td>Option B locked. Awaiting user go.</td>
+    </tr>
+    <tr>
+      <td>Notifications wiring (<a href="/_drafts/notifications.html">draft #3</a>)</td>
+      <td>~10%</td>
+      <td>Table + bell icon exist. No UI build, no triggers wired to delivery. 4 open decisions.</td>
+    </tr>
+    <tr>
+      <td>Reports module split (<a href="/_drafts/reports-split.html">draft #2</a>)</td>
+      <td>~30%</td>
+      <td>Page exists, registry exists. Family-snapshot endpoint doesn't.</td>
+    </tr>
+    <tr>
+      <td>v140 HSA inbox</td>
+      <td>~85%</td>
+      <td>Data layer done. Display orphaned (lives in /hsa.html, not reachable from nav). EOB folder-drop incomplete.</td>
+    </tr>
+    <tr>
+      <td>Security audit fixes</td>
+      <td>0%</td>
+      <td>9 findings logged below, none fixed.</td>
+    </tr>
+    <tr>
+      <td>Tests / Playwright reliability</td>
+      <td>~60%</td>
+      <td>47/47 last green run. ~11 stale selectors lurking.</td>
+    </tr>
+    <tr>
+      <td>Mobile UX</td>
+      <td>~30%</td>
+      <td>Hamburger + sidebar collapse shipped. Phone-first capture, full-screen modals, drag-drop wardrobe — all open.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Backlog — drafts to add as skeleton pages</h2>
+
+<p class="meta">Each becomes a draft page with HTML comment block + 1-line body. Filled in over time.</p>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Title</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>#5</td><td>Mobile UX</td><td>Phone-first capture flow, full-screen modals on small screens.</td></tr>
+    <tr><td>#6</td><td>Per-device family filter</td><td>First-time prompt "who is this?", localStorage, scope indicator near nav avatar. Partially started v128.</td></tr>
+    <tr><td>#7</td><td>Documents module redesign</td><td>High-volume potential. Scoping conversation needed.</td></tr>
+    <tr><td>#8</td><td>Photo-first wardrobe</td><td>Drag/drop creates draft, fill details later.</td></tr>
+    <tr><td>#9</td><td>Tag display fixes</td><td>Remove <code>#</code>, wider input, color-coded pills matching Settings.</td></tr>
+    <tr><td>#10</td><td>Data quality / completeness checker</td><td>Different from Orphan Check (structural). Records with missing important fields.</td></tr>
+    <tr><td>#11</td><td>Card config triage</td><td>7 orphan configs: career_jobs, finance_accounts, daily_log_entries, calendar_events, hsa_accounts, maintenance, trade_positions. Wire / delete / redesign each.</td></tr>
+    <tr><td>#12</td><td>Today / index page (Now / Soon)</td><td>Currently shows widgets. Locked design: Now (red, due today/overdue) + Soon (amber, next 7d) + 30-day footer pipeline.</td></tr>
+    <tr><td>#13</td><td>Global search across modules</td><td>One search bar, hits all entity types.</td></tr>
+    <tr><td>#14</td><td>Tailscale debug</td><td>Partially working, blocks "snap-photo-at-store-upload-now" flow.</td></tr>
+    <tr><td>#15</td><td>Google Calendar sync testing</td><td>Code present, untested.</td></tr>
+    <tr><td>#16</td><td>Email-to-inbox ingestion</td><td>Forward CVS receipt → HSA inbox.</td></tr>
+    <tr><td>#17</td><td>Card #6 — Summary Tile</td><td>For finance landing + dashboard widgets. Big number / label / sparkline / arrow.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Real bugs — diagnose before fixing</h2>
+
+<p class="meta">Rule: get <code>docker logs ghrava --tail 50</code> first. Never guess.</p>
+
+<ul>
+  <li><strong>Todos page</strong> renders neither <code>.todo-item</code> nor <code>.empty-state</code>. v128 family filter may be hiding everything.</li>
+  <li><strong>Reports</strong> <code>.rep-row</code> not found. Registry may be empty in renderer.</li>
+  <li><strong>11 stale Playwright selectors</strong> from v088 module overhauls.</li>
+  <li><strong>Reports panels open as center modals</strong> (sub-panel CSS leak from settings.html).</li>
+  <li><strong>Multi-kid bug</strong> — kids list pulls from <code>kids</code> table; <code>family_members</code> not auto-syncing despite handoff claim.</li>
+  <li><strong>v140 HSA orphan</strong> — built into <code>/hsa.html</code> but page not in nav. Receipt entry currently unreachable.</li>
+</ul>
+
+<hr>
+
+<h2>Security &amp; code audit — logged, not fixed</h2>
+
+<ul>
+  <li><code>window.esc</code> doesn't escape <code>"</code> or <code>'</code>.</li>
+  <li><code>attach</code> route should allowlist <code>entityType</code>.</li>
+  <li><code>/file/:id</code> and <code>/thumb/:id</code> missing path-allowlist (helper <code>isUnderAttachmentsRoot</code> exists in <code>attach-lifecycle.js</code>).</li>
+  <li><code>/api/v1/app/test-results</code> unauthenticated.</li>
+  <li>CORS wide open.</li>
+  <li><code>fmtMoney</code> redefined in 3 pages — should be in lt-core.</li>
+  <li><code>formatDate</code> redefined in 2 pages despite existing in lt-core.</li>
+  <li><code>global-search.js</code> has its own <code>esc()</code> instead of <code>window.esc</code>.</li>
+  <li><code>migrate.js</code> parser splits on <code>;</code> before stripping <code>--</code> comments. Bit me writing migration 118.</li>
+</ul>
+
+<hr>
+
+<h2>v140 loose ends (~15% remaining)</h2>
+
+<ul>
+  <li>EOB folder-drop persistence — <code>importEob</code> counts but doesn't save.</li>
+  <li>LP-FSA plan info Settings UI — only API exists.</li>
+  <li>Mileage UI on medical visit form — backend ready, frontend doesn't expose <code>round_trip_miles</code>.</li>
+  <li>Medical "Receipts" tab to host v140 inbox/vault — design discussion deferred.</li>
+  <li>Documents/insurance/subscriptions don't use <code>attach-lifecycle</code> yet.</li>
+</ul>
+
+<hr>
+
+<h2>Risks — what could go wrong</h2>
+
+<ul>
+  <li><strong>Migration runner parser bug</strong> — semicolons inside SQL comments break parsing. Worked around in 118; needs proper fix in <code>migrate.js</code>.</li>
+  <li><strong>Card system rollout</strong> — once we start applying the 4-zone card to real modules, regressions are likely. Recommend one module at a time, smoke-test each.</li>
+  <li><strong>Center modals sweep</strong> — touches every page implicitly. Any module overriding <code>.gh-drawer</code> CSS locally will behave differently. Need audit before ship.</li>
+  <li><strong>v140 display layer</strong> — currently shipping data without UI. If a power user opens API directly, they'll see empty tables. Low risk but worth noting.</li>
+  <li><strong>Notifications</strong> — node-cron inside container loses in-flight ticks on restart. Acceptable trade-off but worth noting.</li>
+</ul>
+
+<hr>
+
+<h2>Working rules — do not violate</h2>
+
+<ul class="locked-list">
+  <li>No deploys without explicit user approval.</li>
+  <li>Read the active page top-to-bottom before designing any feature for an existing module.</li>
+  <li>Every module discussion → in-system draft page (HTML comment block + visible content).</li>
+  <li>No more handoff docs.</li>
+  <li>Verbatim quotes in comments. Future-Claude reads the page once and builds.</li>
+  <li>Plain readable formatting. No gradients, shadows, color-pill backgrounds.</li>
+  <li>Number cards in templates page (#1.1, #1.2) for easy reference.</li>
+</ul>
+
+</body>
+</html>
