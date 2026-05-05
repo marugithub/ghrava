@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #2 — REPORTS PAGE SPLIT FROM DASHBOARD
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    IN-DISCUSSION (clear separation locked, polling open)
+  CREATED:   2026-05-04
+  PRIORITY:  High — decision was made (chats 5, 4) but design TBD
+
+  WHAT THIS IS
+    Defines the boundary between Dashboard (today/now/urgency) and
+    Reports (analysis/completeness/history). Reports already exists
+    at /reports.html with a REPORT_REGISTRY. This draft is about
+    moving the right things into it from Dashboard.
+
+  WHERE IT LIVES (when shipped)
+    - app/public/index.html      — dashboard, KEEP today-only
+    - app/public/reports.html    — reports, ADD analysis widgets
+    - features/reports/routes.js — endpoints exist, may need new
+
+  STATED REQUIREMENTS (verbatim)
+    Chat 5 (https://claude.ai/chat/071bad83-2a2d-4c11-b03e-7c960d265c60):
+      User: "I dont want to lose focus on other modules first but
+             also not bury our discussion in chat or documentation"
+      Claude: "Dashboard is well-built. Don't change its purpose.
+              Reports is a genuinely separate thing — analysis and
+              completeness, not urgency."
+      User: "works?"  Approved.
+
+    Chat 4 (https://claude.ai/chat/76ab457d-6604-46b2-8fcf-6fcd234e5ec8):
+      Logged: "Everything About Risha — Reports page not Kids page
+               — decision made"
+
+    Chat 15:
+      Listed in handoff backlog: "Reports page split from Dashboard
+      — design-first. Reports gets its own page with new-tab + 30-
+      second polling for live record fixing. Everything About a
+      Family Member report goes here, not in Kids."
+
+  AGREEMENTS — LOCKED
+    ✅ Dashboard = today/now/urgency. No analysis widgets.
+    ✅ Reports = cross-module analysis, completeness, history.
+    ✅ "Everything About a Family Member" lives in Reports.
+    ✅ Reports keeps existing card-grid registry pattern (not tabs).
+
+  AGREEMENTS — OPEN
+    ❓ New-tab + 30s polling for "live record fixing" — what this
+       means: open a report in a new tab, leave it for 30s polls
+       so as records get fixed in other tabs, the report updates.
+       USE CASE TBD with user — probably for the data-completeness
+       fixing flow.
+    ❓ Which dashboard widgets demote to Reports links?
+       PROPOSAL:
+         STAY (today/urgency):
+           - Inventory expiring alerts
+           - Todos due today / overdue
+           - HSA missing receipts count
+           - Career certs expiring
+           - Calendar upcoming
+           - Daily log latest
+         MOVE to Reports (analysis):
+           - Net worth snapshot       → Reports/Net Worth
+           - Inventory total value    → Reports/Inventory Breakdown
+           - Medication count         → Reports/Family Medical
+           - Property estimated value → Reports/Property Summary
+       Dashboard keeps a small "View full report →" link on each
+       module's widget.
+
+  DATA SOURCES
+    Existing endpoints in features/reports/* :
+      - emergency.js, expiry.js, hsa-fsa-irs.js (added v140)
+    New endpoints needed (one per Reports card):
+      - /api/v1/reports/family-snapshot/:id  (Everything About a Family Member)
+      - /api/v1/reports/data-quality         (completeness scorecard)
+      - /api/v1/reports/inventory-breakdown
+      - /api/v1/reports/networth-history
+    Existing tables — no schema changes anticipated.
+
+  INTEGRATION POINTS
+    - Dashboard demotes 4 widgets, each becomes a thin link.
+    - Reports page registry adds 4 new card configs.
+    - REPORT_REGISTRY in reports.html = single source of truth.
+    - Any widget Claude adds to dashboard going forward must answer:
+        "is this today/urgency or analysis?"
+        Analysis → goes in Reports.
+
+  CARDS USED
+    Reports page uses simple 2-zone card pattern (icon + title +
+    desc + open-arrow). NOT the 4-zone medication card. Different
+    object — these are report-launchers, not records.
+
+  BUILD SEQUENCE
+    1. Audit dashboard widgets, classify each as today vs analysis.
+    2. For each analysis widget: keep summary on dashboard, demote
+       full content to Reports.
+    3. Add new Reports card configs for the moved widgets.
+    4. Build "Everything About a Family Member" — biggest item.
+    5. Decide and implement 30s-polling pattern (separate sub-task).
+    6. Package, ship.
+
+  BACKEND CHANGES
+    - 4 new GET endpoints (read-only, no schema change)
+    - family-snapshot returns nested struct: medical / kids /
+      todos / inventory / docs filtered by family_member_id
+    - data-quality scans needs_review table + null counts on
+      important fields per module
+
+  OUT OF SCOPE
+    - Notifications — separate draft (#3)
+    - Cron-driven scheduled reports — separate decision
+    - Email-the-report — defer
+    - PDF export — defer (XLSX existing, sufficient)
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft #2 — Reports / Dashboard split</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #f3f4f6; margin: 0; padding: 24px 16px; color: #1a1a1a; }
+  .page { max-width: 1100px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; font-size: 24px; font-weight: 600; }
+  h2 { margin: 24px 0 10px; font-size: 16px; font-weight: 600; }
+  h3 { margin: 14px 0 6px; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+  p, li { font-size: 13px; line-height: 1.6; color: #475569; }
+  code { font-family: 'SF Mono', Menlo, monospace; font-size: 12px; background: #f1f5f9; padding: 1px 5px; border-radius: 4px; }
+  .top { background: #fff; border: 0.5px solid #e5e7eb; border-radius: 14px; padding: 18px 22px; margin-bottom: 16px; }
+  .pill { display: inline-block; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; padding: 3px 9px; border-radius: 999px; font-weight: 600; }
+  .p-discuss { background: rgba(217,119,6,.10); color: #b45309; }
+  .p-locked { background: rgba(20,184,166,.10); color: #0d9488; }
+  .breadcrumb a { color: #64748b; text-decoration: none; font-size: 12px; }
+  .panel { background: #fff; border: 0.5px solid #e5e7eb; border-radius: 14px; padding: 16px 20px; margin-bottom: 14px; }
+  .req-block { background: #fefce8; border-left: 3px solid #eab308; padding: 10px 14px; margin: 8px 0; border-radius: 4px; }
+  .req-block .src { font-size: 11px; color: #854d0e; font-family: 'SF Mono', monospace; }
+  .req-block .quote { font-size: 13px; color: #422006; font-style: italic; margin-top: 4px; }
+  .open-q { background: #fef2f2; border-left: 3px solid #ef4444; padding: 10px 14px; margin: 8px 0; border-radius: 4px; }
+  .open-q strong { color: #991b1b; }
+
+  .split-table { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .split-col h4 { margin: 0 0 8px; font-size: 13px; font-weight: 600; }
+  .split-col.dash { background: rgba(20,184,166,.06); border-radius: 10px; padding: 14px; }
+  .split-col.rep  { background: rgba(99,102,241,.06); border-radius: 10px; padding: 14px; }
+  .split-col ul { margin: 0; padding-left: 18px; font-size: 12px; }
+  .split-col li { margin: 4px 0; color: #475569; }
+
+  .demo-card-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 8px; }
+  @media (max-width: 700px) { .demo-card-grid { grid-template-columns: 1fr; } .split-table { grid-template-columns: 1fr; } }
+  .demo-rcard { background: #fff; border: 0.5px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+  .demo-rcard .icon { font-size: 18px; margin-bottom: 4px; }
+  .demo-rcard .ttl  { font-size: 12px; font-weight: 600; }
+  .demo-rcard .sub  { font-size: 11px; color: #94a3b8; margin-top: 2px; }
+</style>
+</head>
+<body>
+<div class="page">
+
+<div class="breadcrumb"><a href="/_drafts.html">← Drafts index</a></div>
+
+<div class="top">
+  <h1>Draft #2 — Reports page split from Dashboard</h1>
+  <p style="margin: 6px 0 0;">
+    <span class="pill p-discuss">In discussion</span>
+    <span class="pill p-locked" style="margin-left: 4px;">Boundary locked</span>
+    <span style="font-size: 12px; color: #94a3b8; margin-left: 8px;">Created 2026-05-04 · No schema · 4 new endpoints</span>
+  </p>
+  <p style="margin-top: 10px;">
+    Dashboard = today/now/urgency. Reports = cross-module analysis & history.
+    "Everything About a Family Member" lives in Reports, not Kids.
+    This draft assigns each existing dashboard widget to one side or the other.
+  </p>
+</div>
+
+<h2>The boundary</h2>
+<div class="split-table">
+  <div class="split-col dash">
+    <h4>Dashboard — today/now/urgency</h4>
+    <ul>
+      <li>Inventory expiring alerts</li>
+      <li>Todos due today / overdue</li>
+      <li>HSA missing receipts count</li>
+      <li>Career certs expiring soon</li>
+      <li>Calendar upcoming events</li>
+      <li>Daily log latest entry</li>
+      <li>Subscriptions renewing this week</li>
+      <li>Bell-icon notifications badge</li>
+    </ul>
+  </div>
+  <div class="split-col rep">
+    <h4>Reports — analysis/completeness/history</h4>
+    <ul>
+      <li>Net worth snapshot &amp; history</li>
+      <li>Inventory breakdown by room/category</li>
+      <li>Medical history &amp; medication summary</li>
+      <li>Property estimated value &amp; trend</li>
+      <li>HSA / FSA IRS reimbursement (added v140)</li>
+      <li>Document expiry timeline</li>
+      <li>Data quality / completeness scorecard</li>
+      <li><strong>Everything About a Family Member</strong></li>
+    </ul>
+  </div>
+</div>
+
+<h2>Reports card grid (wireframe — uses existing pattern)</h2>
+<div class="panel">
+  <p>Reports keeps the existing 2-zone card-grid pattern. Each card = one report. Click → opens that report. NOT the 4-zone medication card.</p>
+  <div class="demo-card-grid">
+    <div class="demo-rcard"><div class="icon">👤</div><div class="ttl">Family Snapshot</div><div class="sub">Everything about one person</div></div>
+    <div class="demo-rcard"><div class="icon">💰</div><div class="ttl">Net Worth</div><div class="sub">Accounts + holdings + property</div></div>
+    <div class="demo-rcard"><div class="icon">🧾</div><div class="ttl">HSA / FSA IRS</div><div class="sub">Audit-ready expense list</div></div>
+    <div class="demo-rcard"><div class="icon">📊</div><div class="ttl">Data Quality</div><div class="sub">Records missing fields</div></div>
+    <div class="demo-rcard"><div class="icon">📅</div><div class="ttl">Document Expiry</div><div class="sub">Upcoming expirations</div></div>
+    <div class="demo-rcard"><div class="icon">📦</div><div class="ttl">Inventory Breakdown</div><div class="sub">By room, by category</div></div>
+  </div>
+</div>
+
+<h2>Stated requirements (verbatim)</h2>
+<div class="panel">
+  <div class="req-block">
+    <div class="src">Chat 5 · 2026-03-24</div>
+    <div class="quote">Claude: "Dashboard is well-built. Don't change its purpose. Reports is a genuinely separate thing — analysis and completeness, not urgency."</div>
+    <div class="quote">User: "works?" → Approved.</div>
+  </div>
+  <div class="req-block">
+    <div class="src">Chat 4 · 2026-03-25</div>
+    <div class="quote">"Everything About Risha — Reports page not Kids page — decision made"</div>
+  </div>
+  <div class="req-block">
+    <div class="src">Chat 15 handoff</div>
+    <div class="quote">"Reports page split from Dashboard — design-first. Reports gets its own page with new-tab + 30-second polling for live record fixing. Everything About a Family Member report goes here, not in Kids."</div>
+  </div>
+</div>
+
+<h2>Open questions</h2>
+<div class="panel">
+  <div class="open-q">
+    <strong>30-second polling for "live record fixing"</strong>
+    <p style="margin: 4px 0 0;">User mentioned new-tab + 30s polling so reports refresh while you fix records in other tabs. Use case still TBD — probably the data-completeness fix flow.</p>
+  </div>
+  <div class="open-q">
+    <strong>Which widgets stay vs move (boundary above is proposed)</strong>
+    <p style="margin: 4px 0 0;">Net worth — does a small "Net worth: $X" snapshot stay on dashboard with a "View report →" link, or fully move?</p>
+  </div>
+</div>
+
+<h2>Build sequence</h2>
+<div class="panel">
+  <ol style="margin: 0; padding-left: 20px;">
+    <li>Audit existing index.html widgets. Classify each.</li>
+    <li>Demote analysis widgets — keep small snapshot on dashboard, move detail to Reports.</li>
+    <li>Add 4 new Reports card configs to <code>REPORT_REGISTRY</code>.</li>
+    <li>Build "Everything About a Family Member" backend endpoint <code>/api/v1/reports/family-snapshot/:id</code>.</li>
+    <li>Build report renderer using existing reports.html pattern.</li>
+    <li>(Separately) decide and implement 30s-polling pattern.</li>
+  </ol>
+</div>
+
+<h2>Backend changes</h2>
+<div class="panel">
+  <p>Four new GET endpoints (read-only, no schema):</p>
+  <ul>
+    <li><code>/api/v1/reports/family-snapshot/:id</code> — nested family-member view</li>
+    <li><code>/api/v1/reports/data-quality</code> — completeness scorecard</li>
+    <li><code>/api/v1/reports/inventory-breakdown</code> — by room, by category</li>
+    <li><code>/api/v1/reports/networth-history</code> — point-in-time net worth series</li>
+  </ul>
+</div>
+
+<h2>Out of scope</h2>
+<div class="panel">
+  <ul style="margin: 0;">
+    <li>Notifications — separate draft #3</li>
+    <li>Cron-driven scheduled reports — separate decision</li>
+    <li>Email-the-report</li>
+    <li>PDF export (XLSX exists, sufficient)</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>
