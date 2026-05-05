@@ -62,7 +62,7 @@
     <span class="num">#2</span>
     <span class="title"><a href="/_drafts/reports-split.html">Reports page split from Dashboard</a></span>
     <span class="status">in discussion</span>
-    <span class="desc">Dashboard = today/now. Reports = analysis. "Everything About a Family Member" lives in Reports.</span>
+    <span class="desc">Dashboard = today/now. Reports = analysis. "Everything About a Family Member" lives in Reports. Includes printable + live report patterns.</span>
   </li>
 
   <li>
@@ -70,6 +70,20 @@
     <span class="title"><a href="/_drafts/notifications.html">Notifications design</a></span>
     <span class="status">in discussion</span>
     <span class="desc">Bell icon already in nav header. Open: SMTP, failure behavior, cron, quiet hours.</span>
+  </li>
+
+  <li>
+    <span class="num">#18</span>
+    <span class="title"><a href="/_drafts/env-secrets.html">.env.secrets migration</a></span>
+    <span class="status">in discussion</span>
+    <span class="desc">Move secrets out of <code>app_config</code> (sits in DB backup) into a Docker-mounted file. User asked 3×.</span>
+  </li>
+
+  <li>
+    <span class="num">#21</span>
+    <span class="title"><a href="/_drafts/hsa-page-resolution.html">HSA page resolution</a></span>
+    <span class="status">decision needed</span>
+    <span class="desc">v140 work shipped to <code>/hsa.html</code> which has no nav entry. Path A (wire to nav) vs Path B (merge into Medical).</span>
   </li>
 
 </ul>
@@ -89,6 +103,27 @@
     <span class="title"><a href="/kids.html">Kids attendance scratchpad</a></span>
     <span class="status">in discussion</span>
     <span class="desc">Lives inside <code>kids.html</code> per kid. Grade-driven rule switch (≥9 = HS rules).</span>
+  </li>
+
+  <li>
+    <span class="num">#10</span>
+    <span class="title"><a href="/_drafts/data-quality.html">Data quality / completeness checker</a></span>
+    <span class="status">spec ready</span>
+    <span class="desc">Different from Orphan Check. Surfaces records with missing important fields. Feeds Reports module.</span>
+  </li>
+
+  <li>
+    <span class="num">#19</span>
+    <span class="title"><a href="/_drafts/vehicles.html">Vehicles module</a></span>
+    <span class="status">spec ready</span>
+    <span class="desc">Per-vehicle profile + extensible maintenance log + insurance + registration + documents. Mockup approved chat 1.</span>
+  </li>
+
+  <li>
+    <span class="num">#20</span>
+    <span class="title"><a href="/_drafts/insurance-pattern.html">Insurance / historical-tracking pattern</a></span>
+    <span class="status">spec ready</span>
+    <span class="desc">Generic policy-chain pattern. Reusable across insurance, utility rates, mortgage, HOA, property tax.</span>
   </li>
 
 </ul>
@@ -133,9 +168,9 @@
 
   <li>
     <span class="num">#10</span>
-    <span class="title"><a href="/_drafts/data-quality.html">Data quality checker</a></span>
-    <span class="status">skeleton</span>
-    <span class="desc">Different from Orphan Check. Records with missing important fields.</span>
+    <span class="title">Data quality checker</span>
+    <span class="status">promoted to module-level</span>
+    <span class="desc">See above.</span>
   </li>
 
   <li>

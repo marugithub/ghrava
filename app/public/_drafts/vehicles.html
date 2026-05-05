@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #19 — VEHICLES MODULE
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    SPEC READY (mockup approved chat 1, never built)
+  CREATED:   2026-05-05
+  PRIORITY:  Medium — full spec ready, no surprises
+
+  Sources:
+    Chat 1 https://claude.ai/chat/5951994e-d558-49a2-9562-0f416ef7b405
+      Mockup approved: Vehicle Information / Maintenance / Insurance /
+      Registration / Documents sections
+      User clarification: "Maintenance can be more than oil change and
+      tire rotation… add date, name of auto shop (which will pull data
+      from contacts screen), amount paid, details. I leave it upto you
+      to ensure that that is logged correctly and categorized."
+
+  WHAT IT DOES (one line)
+    Per-vehicle profiles with extensible maintenance log, insurance,
+    registration, attached documents. Surfaces overdue/due-soon items.
+
+  ENTITIES (data layer)
+    vehicles                     — make, model, year, VIN, plate, color, purchase
+    vehicle_service              — extensible log: type, date, mileage, shop
+                                    (FK to contacts), amount, details, next_due_date,
+                                    next_due_mileage
+    vehicle_service_types        — seed with common types; user can add
+    vehicle_insurance            — provider (FK contacts), policy#, type,
+                                    premium, renewal — uses pattern from #20
+                                    (insurance/historical-tracking)
+    vehicle_registration         — state, expires
+    attachments (entity_type='vehicle')
+
+  ACTIONS (verb · owner · sequence)
+    1. Migration: vehicles, vehicle_service, vehicle_service_types,
+       vehicle_insurance (or reuse #20 generic), vehicle_registration
+                                                                → Claude
+    2. Seed vehicle_service_types: oil_change, tire_rotation,
+       brakes, inspection, alignment, battery, transmission,
+       coolant, spark_plugs, air_filter, wipers                 → Claude
+    3. CRUD routes per WIRING.md                                 → Claude
+    4. List page → vehicles.html (card per vehicle, due-soon dot)→ Claude
+    5. Detail drawer with 5 sections (per chat 1 mockup)        → Claude
+    6. Add maintenance log entry: type dropdown (with + add new),
+       date, mileage, shop (contacts picker), amount, details,
+       next-due fields                                           → Claude
+    7. Dashboard widget: vehicle items due soon                  → Claude
+    8. Reports entry: vehicle service history per vehicle        → Claude
+
+  LOCKED
+    ✓ Vehicles is a top-level nav item, not buried in Settings
+    ✓ Maintenance type list is editable (seed + add new pattern)
+    ✓ Shop name = contacts FK (contact_type='vendor' or 'auto_shop')
+    ✓ Insurance reuses pattern from draft #20 — do not duplicate
+    ✓ Registration expiry alert window: 60 days
+    ✓ Maintenance due alert: 500 mi or 30 days, whichever first
+    ✓ Documents use shared attachments (entity_type='vehicle')
+
+  OPEN
+    ❓ Add NHTSA recall lookup by VIN (free API)? Defer to v2.
+    ❓ Mileage tracking — manual or odometer photo OCR? Manual v1.
+
+  USES CARDS
+    Vehicle list = card per vehicle (TBD design — likely #2 inventory
+    pattern with vehicle photo as hero).
+    Maintenance log entries = compact card pattern (#3 todo style).
+
+  OUT OF SCOPE V1
+    - Multi-driver tracking (mileage by driver)
+    - Fuel log
+    - Trip log
+    - NHTSA recall integration (v2)
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft #19 — Vehicles</title>
+<link rel="stylesheet" href="/_drafts/_drafts.css">
+</head>
+<body>
+
+<div class="breadcrumb"><a href="/_drafts.html">← Drafts index</a></div>
+
+<h1>#19 — Vehicles module</h1>
+
+<p class="status-line">
+  <span class="label">Status:</span> spec ready ·
+  <span class="label">Priority:</span> medium ·
+  <span class="label">Sources:</span>
+  <a href="https://claude.ai/chat/5951994e-d558-49a2-9562-0f416ef7b405">chat 1 mockup</a>
+</p>
+
+<p>
+  Per-vehicle profiles with extensible maintenance log, insurance, registration,
+  attached documents. Mockup approved chat 1. Maintenance type list must be
+  user-extensible (clarification from chat 1).
+</p>
+
+<h2>Entities</h2>
+
+<ul>
+  <li><code>vehicles</code> — make, model, year, VIN, plate, color, purchase date/price</li>
+  <li><code>vehicle_service</code> — type, date, mileage, shop (FK contacts), amount, details, next_due_date, next_due_mileage</li>
+  <li><code>vehicle_service_types</code> — seeded list, user can add new</li>
+  <li><code>vehicle_registration</code> — state, expires</li>
+  <li>Insurance — reuses pattern from <a href="/_drafts/insurance-pattern.html">#20 insurance / historical tracking</a></li>
+  <li>Attachments use existing system, <code>entity_type='vehicle'</code></li>
+</ul>
+
+<h2>Actions</h2>
+
+<ol>
+  <li><strong>Migration</strong> for the 4 new tables (insurance shared with #20). <em>(Claude)</em></li>
+  <li><strong>Seed</strong> service types: oil_change, tire_rotation, brakes, inspection, alignment, battery, transmission, coolant, spark_plugs, air_filter, wipers. <em>(Claude)</em></li>
+  <li><strong>Build</strong> CRUD routes per WIRING.md. <em>(Claude)</em></li>
+  <li><strong>Build</strong> <code>vehicles.html</code> list (card per vehicle with due-soon indicator). <em>(Claude)</em></li>
+  <li><strong>Build</strong> detail drawer with 5 sections per chat 1 mockup. <em>(Claude)</em></li>
+  <li><strong>Build</strong> maintenance entry form: type dropdown with "+ add new", date, mileage, shop (contacts picker), amount, details, next-due fields. <em>(Claude)</em></li>
+  <li><strong>Wire</strong> dashboard widget: vehicle items due soon. <em>(Claude)</em></li>
+  <li><strong>Add</strong> Reports entry: vehicle service history per vehicle. <em>(Claude)</em></li>
+</ol>
+
+<h2>Locked agreements</h2>
+
+<ul class="locked-list">
+  <li>Vehicles is a top-level nav item, not buried in Settings.</li>
+  <li>Maintenance type list is editable (seed + add new pattern).</li>
+  <li>Shop name = contacts FK (<code>contact_type='vendor'</code> or new <code>'auto_shop'</code>).</li>
+  <li>Insurance reuses pattern from draft #20 — do not duplicate.</li>
+  <li>Registration expiry alert window: 60 days.</li>
+  <li>Maintenance due alert: 500 mi or 30 days, whichever first.</li>
+  <li>Documents use shared attachments (<code>entity_type='vehicle'</code>).</li>
+</ul>
+
+<h2>Open questions</h2>
+
+<div class="open">
+  <div class="label">Add NHTSA recall lookup by VIN (free API)?</div>
+  <div class="lean">Defer to v2.</div>
+</div>
+
+<div class="open">
+  <div class="label">Mileage tracking — manual or odometer photo OCR?</div>
+  <div class="lean">Manual v1.</div>
+</div>
+
+<h2>Cards used</h2>
+
+<p>
+  Vehicle list = card per vehicle (TBD design — likely <a href="/_templates.html#inventory">#2 inventory pattern</a>
+  with vehicle photo as hero). Maintenance log entries = compact card pattern
+  (<a href="/_templates.html#todo">#3 todo style</a>).
+</p>
+
+<h2>Out of scope v1</h2>
+
+<ul>
+  <li>Multi-driver tracking (mileage by driver)</li>
+  <li>Fuel log</li>
+  <li>Trip log</li>
+  <li>NHTSA recall integration (v2)</li>
+</ul>
+
+</body>
+</html>

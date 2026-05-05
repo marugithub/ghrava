@@ -207,5 +207,41 @@
   <li>PDF export (XLSX exists, sufficient)</li>
 </ul>
 
+<hr>
+
+<h2>Two types of reports — pattern from chat 5</h2>
+
+<p>
+  Source: <a href="https://claude.ai/chat/071bad83-2a2d-4c11-b03e-7c960d265c60">chat 5</a>.
+  Reports are working tools, not pretty views. Two shapes; both belong here.
+</p>
+
+<h3>Live / interactive reports</h3>
+
+<ul>
+  <li><strong>View mode</strong> — click a record, opens in new tab, breadcrumb back to report.</li>
+  <li><strong>Data entry mode</strong> — report surfaces incomplete records, you fill the missing field inline or open the record and return.</li>
+  <li>Page polls every 30 seconds so the report updates as you fix things in other tabs.</li>
+  <li>Data Quality (<a href="/_drafts/data-quality.html">#10</a>) feeds into this — its job is producing the "needs entry" list.</li>
+</ul>
+
+<h3>Printable / exportable reports</h3>
+
+<ul>
+  <li>Static snapshot for record-keeping or physical use.</li>
+  <li>Print-friendly HTML or PDF.</li>
+  <li>Output must include enough identifying info (names, dates, ref numbers) that a printout can be searched back to the live record in the app.</li>
+  <li>Optional: QR code on each row deep-links back to that record.</li>
+</ul>
+
+<h3>Locked from chat 5</h3>
+
+<ul class="locked-list">
+  <li>Reports cards link to records. Fix actions open the record in a new tab.</li>
+  <li>Reports page polls every 30 seconds to update counts after fixes.</li>
+  <li>Centralized Reports page with module filters, NOT per-module reports pages.</li>
+  <li>Printable templates fixed per module v1; field-picker deferred.</li>
+</ul>
+
 </body>
 </html>

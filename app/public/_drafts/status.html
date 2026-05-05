@@ -189,5 +189,101 @@
   <li>Number cards in templates page (#1.1, #1.2) for easy reference.</li>
 </ul>
 
+<hr>
+
+<h2>Free-text fields that should be FK references (chat 7 audit)</h2>
+
+<p class="meta">Each is a data-quality risk. When fixing a module, convert the field.</p>
+
+<table>
+  <thead><tr><th>Module</th><th>Field</th><th>Should reference</th></tr></thead>
+  <tbody>
+    <tr><td>EOB / Medical</td><td>patient</td><td>family_members</td></tr>
+    <tr><td>Property</td><td>lender, insurance</td><td>contacts</td></tr>
+    <tr><td>Books</td><td>publisher, year, language, pages</td><td>structured columns (data dropped during ISBN scan)</td></tr>
+    <tr><td>Inventory</td><td>UPC size</td><td>structured column (currently in notes)</td></tr>
+    <tr><td>Career</td><td>company, institution</td><td>contacts</td></tr>
+    <tr><td>Property</td><td>vehicle_service.shop</td><td>contacts</td></tr>
+    <tr><td>Kids</td><td>teacher_name</td><td>contacts (when kids attendance lands)</td></tr>
+    <tr><td>Documents</td><td>family_member (TEXT)</td><td>family_members (junction table partly built)</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Audit log coverage gap (chat 7)</h2>
+
+<p>
+  Only <code>inventory</code> writes to <code>item_events</code>. No other module
+  has any audit trail for edits or deletes. When something changes mysteriously
+  in finance/medical/etc., theres no record of who did what when. Consider:
+  one shared <code>module_events</code> table or per-module mirror of inventory pattern.
+</p>
+
+<hr>
+
+<h2>Holdings UI gap (chat 7)</h2>
+
+<p>
+  Backend captures 7 columns the UI doesnt show. Quick fix: surface in detail
+  view, no schema change needed. File: <code>finance/holdings</code> tab.
+</p>
+
+<hr>
+
+<h2>Free-API integrations to consider (chat 8)</h2>
+
+<p class="meta">Tracking only. Wire when needed; not building speculatively.</p>
+
+<table>
+  <thead><tr><th>API</th><th>Use case</th><th>Free tier</th></tr></thead>
+  <tbody>
+    <tr><td>OpenWeatherMap</td><td>Weather</td><td>1000 calls/day</td></tr>
+    <tr><td>NHTSA</td><td>Vehicle recalls / safety by VIN</td><td>Unlimited</td></tr>
+    <tr><td>USPS / Smarty</td><td>Address validation</td><td>Free tier</td></tr>
+    <tr><td>IRS e-file calendar</td><td>Tax deadline reminders</td><td>Public</td></tr>
+    <tr><td>Zillow / Rentcast</td><td>Property value estimates</td><td>Limited free</td></tr>
+    <tr><td>Barcode Lookup, UPC Item DB</td><td>Inventory barcode → product</td><td>Free tier</td></tr>
+    <tr><td>Nutritionix</td><td>Food / nutrition for pantry</td><td>Free tier</td></tr>
+    <tr><td>Exchangerate-API</td><td>Currency for travel</td><td>Free tier</td></tr>
+    <tr><td>AviationStack</td><td>Flight tracking for travel</td><td>Free tier</td></tr>
+    <tr><td>Gemini Flash</td><td>AI suggestions (clothing, perfume)</td><td>Generous free tier</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Smaller items to land when touching adjacent code</h2>
+
+<ul>
+  <li>Tags filter UI in Daily Log + Property — tags exist, no filter UI.</li>
+  <li>Custom fields system — definitions exist, values never written. Decide kill or wire.</li>
+  <li>Property maintenance UI — backend done (migration 035), UI not built.</li>
+  <li>Medical patient filter — persistent Arnav/Risha/Self/All tab at top of Medical.</li>
+  <li>Books cover thumbnails — verify rendering after ISBN scan.</li>
+  <li>GH_VIEW grid/list rollout to Books, Documents, Resources.</li>
+  <li>Step-up auth — designed, not built.</li>
+  <li>Session timeout config in Settings — backlog.</li>
+  <li>CouchDB/PouchDB offline sync — REJECTED (chat 8). Use service worker if needed.</li>
+  <li>Service worker for offline mode — chat 8 recommendation, not built.</li>
+</ul>
+
+<hr>
+
+<h2>Modules deferred for later (not draft pages yet)</h2>
+
+<table>
+  <thead><tr><th>Module</th><th>Source</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Pets</td><td>chat 8</td><td>Vet records, vaccinations, meds, microchip, insurance.</td></tr>
+    <tr><td>Travel</td><td>chat 8</td><td>Passport, TSA precheck, loyalty programs, trip history.</td></tr>
+    <tr><td>Gift tracker</td><td>chat 8</td><td>Who gave what, birthdays, what you gave them, budget.</td></tr>
+    <tr><td>Recipes / Meal planning</td><td>chat 8</td><td>Ties to pantry inventory, shopping lists.</td></tr>
+    <tr><td>Education</td><td>chat 8</td><td>School records, transcripts, certs, student loans. Distinct from career certs.</td></tr>
+    <tr><td>Emergency</td><td>chat 8</td><td>Emergency contacts, evacuation plan, utility shutoffs, generator info.</td></tr>
+    <tr><td>Trading dashboard redesign</td><td>chat 8</td><td>Deferred, no design.</td></tr>
+  </tbody>
+</table>
+
 </body>
 </html>
