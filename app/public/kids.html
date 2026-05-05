@@ -281,6 +281,10 @@ window.GH_PAGE = { module: 'kids', title: 'Kids' };
     <div id="kidProfileContent"></div>
     <div id="kidActivitiesContent"></div>
     <div id="kidNotesContent"></div>
+    <!-- v202604.140 Attendance scratchpad — design-in-progress.
+         Lives in-system per project rule "no more handoff docs".
+         Sample data, not wired to any backend yet. -->
+    <div id="kidAttendanceContent"></div>
   </div>
 
   <button class="fab" id="mainFab" onclick="openKidDrawer()" title="Add a child profile" style="display:flex;align-items:center;gap:4px;padding:0 18px;font-size:16px;border-radius:28px;width:auto">+ Add Child</button>
@@ -539,6 +543,7 @@ function renderProfile(){
   // No tabs — render activities and notes below profile on same scroll
   renderActivities();
   renderNotes();
+  renderAttendanceScratch();
 }
 
 function renderActivities(q=''){
@@ -578,6 +583,213 @@ function renderNotes(q=''){
     return `<div class="note-row" data-nid="${n.id}"><div class="note-header"><span class="note-title">${esc(n.title||n.body.slice(0,40))}</span><span class="note-date">${n.note_date||''}</span></div><div style="display:flex;align-items:center;gap:6px;margin-top:4px"><span class="note-cat-badge" style="border:1px solid ${color};color:${color}">${n.category}</span>${n.title?`<span class="note-body" style="margin-top:0">${esc(n.body.slice(0,80))}</span>`:''}</div></div>`;
   }).join('')+'</div>';
   $('kidNotesContent').querySelectorAll('[data-nid]').forEach(el=>el.addEventListener('click',()=>openNoteDrawer(parseInt(el.dataset.nid))));
+}
+
+// ════════════════════════════════════════════════════════════════════
+// v202604.140 — ATTENDANCE SCRATCHPAD (in-system, not a doc)
+// ────────────────────────────────────────────────────────────────────
+// Lives here per project rule: "no more handoff. that page should be
+// in system." Shows the rules in plain English, sample event table,
+// sample cards. Not wired to any backend yet — this is design-thinking
+// surface, like _templates.html.
+//
+// Grade-driven rule switch:
+//   grade 9+ (typical Alabama HS) → high-school rules apply
+//   grade < 9                     → middle/elementary rules apply
+// So if Risha's grade changes to 9, OMHS-style rules kick in
+// automatically without any toggle.
+// ════════════════════════════════════════════════════════════════════
+
+function renderAttendanceScratch() {
+  const k = _currentKid;
+  if (!k) { $('kidAttendanceContent').innerHTML = ''; return; }
+
+  const grade = parseInt(k.grade) || 0;
+  const isHS = grade >= 9;
+  const schoolStage = isHS ? 'High School' : (grade >= 6 ? 'Middle School' : 'Elementary');
+
+  // Plain-English rules — different for HS vs not
+  const sharedRules = [
+    { label: 'Excuse window',     value: '3 school days', detail: 'Note must be sent within 3 school days of return.' },
+    { label: 'Truancy notice',    value: '5 unexcused',   detail: 'School notifies family at 5 unexcused absences.' },
+    { label: 'Court referral',    value: '7 unexcused',   detail: 'At 7 unexcused, district refers to court.' },
+    { label: 'Parent-note cap',   value: '10 per year',   detail: 'After 10 parent-excused days, doctor note required.' },
+  ];
+  const elementaryRules = [
+    { label: 'Retention review',  value: '~18 absences',  detail: 'Principal reviews record for retention.' },
+    { label: 'Per-class credit',  value: 'N/A',           detail: 'Elementary does not track per-period absences.' },
+    { label: 'Bus delay coding',  value: 'TE (tardy)',    detail: 'No full-present override for bus delays.' },
+  ];
+  const hsRules = [
+    { label: '168-day rule',          value: 'max 12 absences',  detail: 'Must attend 168 of 180 days for full credit.' },
+    { label: 'Per-class credit loss', value: '~7 per period',    detail: '7+ absences from one class triggers committee review.' },
+    { label: 'Tardy → absence',       value: '5 = 1',            detail: '5 unexcused tardies in same class count as 1 absence.' },
+    { label: 'Bus delay coding',      value: 'OM_PRESENT',       detail: 'OMHS marks bus-delay early pickups as fully present (informal).' },
+  ];
+
+  const rulesNow = sharedRules.concat(isHS ? hsRules : elementaryRules);
+
+  // Sample threshold meters — use these numbers as the "as of today"
+  const meters = isHS ? [
+    { name: 'Days until truancy notice',     current: 0, max: 5,  status: 'green' },
+    { name: 'Days until doctor note needed', current: 2, max: 10, status: 'green' },
+    { name: '168-day rule',                  current: 9, max: 12, status: 'yellow' },
+    { name: 'Period 7 (AP Stats)',           current: 5, max: 7,  status: 'yellow' },
+  ] : [
+    { name: 'Days until truancy notice',     current: 0, max: 5,  status: 'green' },
+    { name: 'Days until doctor note needed', current: 4, max: 10, status: 'green' },
+    { name: 'Retention review',              current: 4, max: 18, status: 'green' },
+  ];
+
+  // Sample events — random data, illustrative
+  const sampleEvents = [
+    { date: '2026-09-04', type: 'Full day',       requested: 'PE', applied: 'PE', school_reason: 'Sick — fever', resolved: true,  bus: false },
+    { date: '2026-10-12', type: 'Early checkout', requested: 'TE', applied: 'TE', school_reason: 'Doctor appt',  resolved: true,  bus: false },
+    { date: '2026-11-03', type: 'Early checkout', requested: isHS ? 'OM_PRESENT' : 'TE', applied: 'TE', school_reason: 'Bus 23-17 delay', resolved: !isHS,  bus: true },
+    { date: '2027-01-15', type: 'Full day',       requested: 'PE', applied: 'UA', school_reason: 'Stomach bug',  resolved: false, bus: false, note: 'School coded UA — note may have been late, will appeal' },
+  ];
+
+  const codeMap = {
+    PE: 'Parent Excused',
+    DR: 'Doctor Excused',
+    AA: 'Admin Approved',
+    FT: 'Field Trip',
+    SA: 'School Activity',
+    TE: 'Tardy Excused',
+    TU: 'Tardy Unexcused',
+    UA: 'Unexcused Absence',
+    UE: 'Unexcused',
+    OM_PRESENT: 'Bus-delay Present (informal)',
+  };
+  const codeLabel = (c) => `<span title="${esc(codeMap[c]||c)}" style="font-family:'SF Mono',monospace;font-size:11px;font-weight:600">${c}</span>`;
+
+  // Threshold meter card
+  const meter = (m) => {
+    const pct = Math.min(100, Math.round((m.current / m.max) * 100));
+    const colors = { green: '#22c55e', yellow: '#f59e0b', red: '#ef4444' };
+    const c = colors[m.status];
+    return `
+      <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:14px;padding:12px 14px;flex:1;min-width:180px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">
+          <span style="font-size:12px;color:#475569;font-weight:500">${esc(m.name)}</span>
+          <span style="font-size:11px;color:#94a3b8">${m.current} / ${m.max}</span>
+        </div>
+        <div style="height:6px;background:#f1f5f9;border-radius:3px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:${c};transition:width 200ms"></div>
+        </div>
+      </div>`;
+  };
+
+  // Event row (sample table)
+  const eventRow = (e) => `
+    <tr style="border-bottom:1px solid #f1f5f9">
+      <td style="padding:8px 10px;font-size:13px;color:#475569;white-space:nowrap">${e.date}</td>
+      <td style="padding:8px 10px;font-size:13px;color:#475569">${e.type}</td>
+      <td style="padding:8px 10px;text-align:center">${codeLabel(e.requested)}</td>
+      <td style="padding:8px 10px;text-align:center">${codeLabel(e.applied)}</td>
+      <td style="padding:8px 10px;font-size:12px;color:#64748b;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.school_reason)}</td>
+      <td style="padding:8px 10px;text-align:center">${e.bus ? '🚌' : ''}</td>
+      <td style="padding:8px 10px;text-align:center">${e.resolved
+        ? '<span style="color:#22c55e">✓</span>'
+        : '<span style="color:#ef4444;font-weight:600" title="School coded differently than requested">⚠</span>'}</td>
+    </tr>`;
+
+  // Sample compact event card (matches todo card pattern from _templates.html)
+  const eventCard = (e) => {
+    const dotColor = e.resolved ? '#34c759' : '#ef4444';
+    const issue = !e.resolved ? `<div style="font-size:11px;color:#b91c1c;margin-top:3px">⚠ ${esc(e.note || 'Coded differently than requested')}</div>` : '';
+    return `
+      <div class="chip-tap" style="display:flex;align-items:flex-start;gap:14px;padding:14px 16px;background:#fff;border:0.5px solid #e5e7eb;${!e.resolved?'border-left:3px solid #ef4444;':''}border-radius:14px;cursor:pointer">
+        <div style="width:10px;height:10px;border-radius:50%;background:${dotColor};margin-top:6px;flex-shrink:0"></div>
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap">
+            <span style="font-size:14px;font-weight:600;color:#1a1a1a">${e.date}</span>
+            <span style="font-size:12px;color:#64748b">${e.type}</span>
+            ${e.bus ? '<span style="font-size:11px;padding:1px 7px;border-radius:999px;background:rgba(2,132,199,.10);color:#0284c7">🚌 Bus delay</span>' : ''}
+          </div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:4px">
+            Requested ${codeLabel(e.requested)} · Applied ${codeLabel(e.applied)}
+          </div>
+          <div style="font-size:13px;color:#475569;margin-top:4px">${esc(e.school_reason)}</div>
+          ${issue}
+        </div>
+      </div>`;
+  };
+
+  $('kidAttendanceContent').innerHTML = `
+    <style>
+      .att-scratch h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+      .att-scratch h4 { margin: 16px 0 8px; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: #94a3b8; }
+      .att-scratch table { width: 100%; border-collapse: collapse; }
+      .att-scratch th { text-align: left; padding: 8px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; font-weight: 600; border-bottom: 1px solid #e5e7eb; }
+      .att-rule-row { display: flex; gap: 12px; padding: 6px 0; font-size: 13px; }
+      .att-rule-row strong { flex: 0 0 180px; color: #1a1a1a; font-weight: 600; }
+      .att-rule-row .v { flex: 0 0 130px; color: #14b8a6; font-weight: 500; }
+      .att-rule-row .d { flex: 1; color: #64748b; font-size: 12px; }
+    </style>
+    <div class="att-scratch" style="margin: 24px 16px 0; padding: 20px; background: #f8fafc; border: 0.5px solid #e5e7eb; border-radius: 16px;">
+
+      <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:14px">
+        <h3 style="margin:0">Attendance — scratchpad</h3>
+        <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:rgba(217,119,6,0.10);color:#b45309;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Draft · not wired</span>
+        <span style="font-size:12px;color:#64748b;margin-left:auto">
+          ${esc(k.display_name)} · grade ${grade || '—'} · <strong style="color:#1a1a1a">${schoolStage}</strong>
+        </span>
+      </div>
+
+      <div style="font-size:12px;color:#64748b;margin-bottom:16px">
+        Rules below auto-switch when grade changes. ${grade < 9 ? 'When grade reaches <strong>9</strong>, high-school rules (168-day, per-class) take over.' : 'High-school rules active. Drop below grade 9 to switch back.'}
+      </div>
+
+      <h4>Rules in effect today</h4>
+      ${rulesNow.map(r => `
+        <div class="att-rule-row">
+          <strong>${esc(r.label)}</strong>
+          <span class="v">${esc(r.value)}</span>
+          <span class="d">${esc(r.detail)}</span>
+        </div>`).join('')}
+
+      <h4>Threshold meters (sample data)</h4>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        ${meters.map(meter).join('')}
+      </div>
+
+      <h4>Sample events — table view</h4>
+      <div style="background:#fff;border:0.5px solid #e5e7eb;border-radius:14px;overflow:hidden">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th><th>Type</th><th style="text-align:center">Requested</th><th style="text-align:center">Applied</th><th>Reason</th><th style="text-align:center">Bus</th><th style="text-align:center">OK</th>
+            </tr>
+          </thead>
+          <tbody>${sampleEvents.map(eventRow).join('')}</tbody>
+        </table>
+      </div>
+
+      <h4>Sample events — card view</h4>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${sampleEvents.map(eventCard).join('')}
+      </div>
+
+      <h4>Codes (English on hover & in exports)</h4>
+      <div style="display:flex;flex-wrap:wrap;gap:6px">
+        ${Object.entries(codeMap).map(([c,l]) => `
+          <span style="font-size:11px;padding:3px 9px;border-radius:999px;background:#fff;border:0.5px solid #e5e7eb;color:#475569" title="${esc(l)}">
+            <strong style="font-family:'SF Mono',monospace">${c}</strong> · ${esc(l)}
+          </span>`).join('')}
+      </div>
+
+      <h4>Open questions / TODO</h4>
+      <ul style="font-size:13px;color:#475569;line-height:1.7;margin:0;padding-left:20px">
+        <li>Confirm OMHS per-class credit-loss threshold (placeholder: 7).</li>
+        <li>Confirm OMHS attendance email address.</li>
+        <li>Seed SCBOE 2026–2027 calendar dates when published.</li>
+        <li>OM_PRESENT informal code — never include in any export shared with school.</li>
+        <li>Auto-detect bus delays from Gmail (defer to later phase).</li>
+        <li>Multi-kid bug: kids list pulls from <code>kids</code> table; family_members not auto-syncing. Logged separately.</li>
+      </ul>
+    </div>
+  `;
 }
 
 async function openKidDrawer(kid){
