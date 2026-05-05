@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghrava — Card Templates</title>
+<style>
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    background: #f3f4f6;
+    margin: 0;
+    padding: 32px 16px;
+    color: #1a1a1a;
+  }
+  .page {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .page-head {
+    margin-bottom: 24px;
+  }
+  .page-head h1 {
+    margin: 0 0 4px;
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .page-head p {
+    margin: 0;
+    color: #64748b;
+    font-size: 14px;
+  }
+  .section {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 24px;
+    border: 0.5px solid #e5e7eb;
+  }
+  .section-head {
+    margin-bottom: 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .section-head h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+  }
+  .section-head .lock {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(20,184,166,0.10);
+    color: #0d9488;
+    font-weight: 600;
+  }
+  .section-head .draft {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(217,119,6,0.10);
+    color: #b45309;
+    font-weight: 600;
+  }
+  .section-head .desc {
+    font-size: 13px;
+    color: #64748b;
+  }
+  .card-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+  .card-row > div {
+    flex: 0 0 auto;
+  }
+  .nav {
+    position: sticky;
+    top: 0;
+    background: #f3f4f6;
+    padding: 12px 0;
+    margin-bottom: 16px;
+    z-index: 10;
+    border-bottom: 0.5px solid #e5e7eb;
+  }
+  .nav a {
+    display: inline-block;
+    padding: 6px 12px;
+    margin-right: 6px;
+    border-radius: 8px;
+    color: #475569;
+    text-decoration: none;
+    font-size: 13px;
+    font-weight: 500;
+    background: #ffffff;
+    border: 0.5px solid #e5e7eb;
+  }
+  .nav a:hover { background: #14b8a6; color: white; border-color: #14b8a6; }
+  .ph-icon { display: inline-flex; align-items: center; justify-content: center; }
+  .ph-icon img { display: block; width: 100%; height: 100%; }
+  .chip-tap { transition: background 120ms ease, transform 120ms ease; cursor: pointer; }
+  .chip-tap:hover { transform: translateY(-1px); }
+  .ent-circle { transition: transform 120ms ease, box-shadow 120ms ease; cursor: pointer; }
+  .ent-circle:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <div class="page-head">
+    <h1>Ghrava — Card Templates</h1>
+    <p>Reference page for every card pattern. Random data. <strong>LOCKED</strong> = approved across sessions, do not invent. <strong>DRAFT</strong> = pending review.</p>
+  </div>
+
+  <div class="nav">
+    <a href="#medication">Medication</a>
+    <a href="#inventory">Inventory</a>
+    <a href="#todo">Todo</a>
+    <a href="#subscription">Subscription</a>
+    <a href="#certification">Certification</a>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       MEDICATION CARD — v3-base + v4/v5 additions (LOCKED)
+       Source: ghrava_lipitor_card_v3_final.html (visual style)
+            +  ghrava_medical_card_v5.html       (multi-cond, cross-mod, attach)
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="medication">
+    <div class="section-head">
+      <h2>Medication</h2>
+      <span class="lock">Locked v5 · v3 visual</span>
+      <span class="desc">v3 warmth + v4/v5 additions: multi-condition chips, cross-module strip, tags row, attachment badge.</span>
+    </div>
+
+    <div class="card-row">
+
+      <!-- ============== Lipitor (refill due, primary card) ============== -->
+      <div style="max-width: 520px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);">
+
+        <!-- ZONE 1: status + multi-condition chips + class + pin/menu -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0; flex-wrap: wrap;">
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,0.16); flex-shrink: 0;" title="Needs refill"></div>
+
+          <!-- Multi-condition chips with +N overflow (v5 addition) -->
+          <div class="chip-tap" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(220,38,38,0.08);" title="Treats: high cholesterol — tap to view condition">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #dc2626;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32Z"/></svg>
+            </div>
+            <span style="font-size: 11px; font-weight: 500; color: #991b1b;">Cholesterol</span>
+          </div>
+
+          <div class="chip-tap" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(220,38,38,0.08);" title="Treats: hypertension">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #dc2626;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32Z"/></svg>
+            </div>
+            <span style="font-size: 11px; font-weight: 500; color: #991b1b;">Hypertension</span>
+          </div>
+
+          <span class="chip-tap" style="font-size: 11px; padding: 4px 8px; border-radius: 999px; border: 1px dashed #cbd5e1; color: #64748b;" title="1 more condition">+1</span>
+
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">Statin</span>
+
+          <div style="flex: 1;"></div>
+
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="Pin to top">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg>
+            </div>
+          </div>
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="More actions">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE 2: pill (132px) | name+dose+generic+schedule -->
+        <div style="display: flex; gap: 18px; padding: 14px 18px 8px; align-items: center;">
+          <div style="flex: 0 0 140px;">
+            <svg width="140" height="84" viewBox="0 0 140 84">
+              <defs>
+                <linearGradient id="lipBody" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#ffffff"/>
+                  <stop offset="50%" stop-color="#f9fafb"/>
+                  <stop offset="100%" stop-color="#e2e8f0"/>
+                </linearGradient>
+              </defs>
+              <ellipse cx="70" cy="76" rx="46" ry="3" fill="rgba(0,0,0,0.10)"/>
+              <g transform="rotate(-8 70 42)">
+                <ellipse cx="70" cy="42" rx="52" ry="19" fill="url(#lipBody)" stroke="rgba(0,0,0,0.12)" stroke-width="0.7"/>
+                <ellipse cx="56" cy="34" rx="24" ry="3.5" fill="rgba(255,255,255,0.7)"/>
+                <text x="70" y="47" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="11.5" font-weight="600" fill="#475569" letter-spacing="0.5">PD 155</text>
+              </g>
+            </svg>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <div style="font-size: 20px; font-weight: 600; color: #1a1a1a; line-height: 1.1; letter-spacing: -0.01em;">Lipitor</div>
+              <div style="font-size: 14px; color: #64748b; font-weight: 500;">10mg</div>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">atorvastatin · oral</div>
+            <div style="font-size: 13px; color: #475569; margin-top: 8px;">Daily, with dinner</div>
+          </div>
+        </div>
+
+        <!-- ZONE 3: instruction icons (44×44 tap targets, 24px icons — v3 sizing) -->
+        <div style="display: flex; gap: 8px; padding: 4px 18px 12px;">
+          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(99,102,241,0.10); display: flex; align-items: center; justify-content: center;" title="Take in evening">
+            <div class="ph-icon" style="width: 24px; height: 24px; color: #4f46e5;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23Z"/></svg>
+            </div>
+          </div>
+          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(217,119,6,0.10); display: flex; align-items: center; justify-content: center;" title="Take with food">
+            <div class="ph-icon" style="width: 24px; height: 24px; color: #d97706;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M104,80V224a8,8,0,0,1-16,0V161.45L52.79,228.36a8,8,0,0,1-14.14-7.49L75.85,151.6A40.07,40.07,0,0,1,48,113.45V80a8,8,0,0,1,16,0v33.45a24,24,0,0,0,16,22.62V80a8,8,0,0,1,16,0v56.07a24,24,0,0,0,16-22.62V80a8,8,0,0,1,16,0v33.45A40.07,40.07,0,0,1,100.15,151.6L137.21,220a8,8,0,0,1-14.14,7.49L88,161.45V224"/></svg>
+            </div>
+          </div>
+          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(220,38,38,0.10); display: flex; align-items: center; justify-content: center;" title="Avoid grapefruit — interaction warning">
+            <div class="ph-icon" style="width: 24px; height: 24px; color: #dc2626;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAGS row (v5 addition) -->
+        <div style="display: flex; gap: 6px; padding: 0 18px 10px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#travel-essential</span>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#shared-with-spouse</span>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">+1</span>
+        </div>
+
+        <!-- CROSS-MODULE STRIP (v5 addition) - dashed top border, derived data -->
+        <div style="display: flex; gap: 18px; padding: 10px 18px; border-top: 1px dashed #e5e7eb; flex-wrap: wrap;">
+          <span class="chip-tap" style="font-size: 11px;" title="$47.50 spent on this med YTD — tap to open HSA filtered to this">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">HSA YTD</span>
+            <strong style="color: #475569; font-size: 12px; font-weight: 600;">$47.50</strong>
+          </span>
+          <span class="chip-tap" style="font-size: 11px;" title="Mentioned 2 times in daily log">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Log mentions</span>
+            <strong style="color: #475569; font-size: 12px; font-weight: 600;">2</strong>
+          </span>
+          <span class="chip-tap" style="font-size: 11px;" title="Last refilled May 2 — tap for refill history">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Last filled</span>
+            <strong style="color: #475569; font-size: 12px; font-weight: 600;">May 2</strong>
+          </span>
+        </div>
+
+        <!-- ZONE 4: refill alert + last refill meta (v3 style) -->
+        <div style="margin: 4px 18px 14px; padding: 14px; border-radius: 12px; border: 0.5px solid rgba(245,158,11,0.30); background: rgba(254,243,199,0.30);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+            <div style="font-size: 13px; color: #1a1a1a; font-weight: 600;">Refill in 3 days</div>
+            <div style="font-size: 11px; color: #94a3b8; font-weight: 500;">12 of 30 left</div>
+            <div style="flex: 1;"></div>
+            <button style="padding: 8px 14px; border-radius: 9px; background: #f59e0b; border: none; color: white; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(245,158,11,0.4);">Order refill</button>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <span style="color: #94a3b8;">Last refilled 6 days ago · CVS · $12.40</span>
+            <span class="chip-tap" style="font-family: 'SF Mono', Menlo, monospace; color: #475569;" title="Tap to copy Rx number">Rx# 4827193</span>
+          </div>
+        </div>
+
+        <!-- ZONE 5: linked entities + attachments + timeline (v5 row) -->
+        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9;">
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #f472b6, #db2777); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Sarah · patient">SR</div>
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #34d399, #047857); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Dr. Patel · prescriber">DP</div>
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 9px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; letter-spacing: 0.04em;" title="CVS Pharmacy">CVS</div>
+
+          <div style="flex: 1;"></div>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;" title="3 attachments">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+            </div>
+            3
+          </span>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;" title="Open treatment timeline">
+            Timeline
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+            </div>
+          </span>
+        </div>
+
+      </div>
+
+
+      <!-- ============== Olmesartan (active, no Zone 4 alert) ============== -->
+      <div style="max-width: 520px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);">
+
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0;">
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 4px rgba(52,199,89,0.16);" title="Active"></div>
+          <div class="chip-tap" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(220,38,38,0.08);">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #dc2626;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32Z"/></svg>
+            </div>
+            <span style="font-size: 11px; font-weight: 500; color: #991b1b;">Hypertension</span>
+          </div>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">ARB</span>
+          <div style="flex: 1;"></div>
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;"><svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg></div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 18px; padding: 14px 18px 8px; align-items: center;">
+          <div style="flex: 0 0 140px;">
+            <svg width="140" height="84" viewBox="0 0 140 84">
+              <defs>
+                <linearGradient id="olmBody" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stop-color="#fed7aa"/><stop offset="50%" stop-color="#fed7aa"/>
+                  <stop offset="50%" stop-color="#fda4af"/><stop offset="100%" stop-color="#fda4af"/>
+                </linearGradient>
+              </defs>
+              <ellipse cx="70" cy="76" rx="46" ry="3" fill="rgba(0,0,0,0.10)"/>
+              <g transform="rotate(-4 70 42)">
+                <rect x="22" y="32" width="96" height="22" rx="11" fill="url(#olmBody)" stroke="rgba(0,0,0,0.12)" stroke-width="0.7"/>
+                <line x1="70" y1="32" x2="70" y2="54" stroke="rgba(0,0,0,0.15)" stroke-width="0.6"/>
+                <text x="92" y="47" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#7c2d12">M19</text>
+              </g>
+            </svg>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: baseline; gap: 8px;">
+              <div style="font-size: 20px; font-weight: 600; color: #1a1a1a;">Olmesartan</div>
+              <div style="font-size: 14px; color: #64748b; font-weight: 500;">20mg</div>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">Benicar · Lupin generic</div>
+            <div style="font-size: 13px; color: #475569; margin-top: 8px;">Daily, morning</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; padding: 4px 18px 12px;">
+          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(217,119,6,0.10); display: flex; align-items: center; justify-content: center;" title="Take in morning">
+            <div class="ph-icon" style="width: 24px; height: 24px; color: #d97706;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="40"/><line x1="128" y1="32" x2="128" y2="48" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="128" y1="208" x2="128" y2="224" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="60" y1="60" x2="72" y2="72" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="184" y1="184" x2="196" y2="196" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="32" y1="128" x2="48" y2="128" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="208" y1="128" x2="224" y2="128" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="60" y1="196" x2="72" y2="184" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="184" y1="72" x2="196" y2="60" stroke="currentColor" stroke-width="16" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; padding: 0 18px 10px; align-items: center;">
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#daily</span>
+        </div>
+
+        <div style="display: flex; gap: 18px; padding: 10px 18px; border-top: 1px dashed #e5e7eb;">
+          <span class="chip-tap" style="font-size: 11px;">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">HSA YTD</span>
+            <strong style="color: #475569; font-size: 12px; font-weight: 600;">$28.10</strong>
+          </span>
+          <span class="chip-tap" style="font-size: 11px;">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Last filled</span>
+            <strong style="color: #475569; font-size: 12px; font-weight: 600;">Apr 12</strong>
+          </span>
+        </div>
+
+        <!-- No alert zone — med is healthy -->
+
+        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9;">
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #f472b6, #db2777); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Sarah · patient">SR</div>
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #93c5fd, #1d4ed8); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Dr. Goyal · cardiologist">JG</div>
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 9px; background: linear-gradient(135deg, #ef4444, #b91c1c); color: white; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center;" title="CVS Pharmacy">CVS</div>
+
+          <div style="flex: 1;"></div>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+            </div>
+            1
+          </span>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;">
+            Timeline
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+            </div>
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════
+       INVENTORY CARD — DRAFT (recreated from chat 13/14 spec)
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="inventory">
+    <div class="section-head">
+      <h2>Inventory</h2>
+      <span class="draft">Draft · recreated from chat 13/14</span>
+      <span class="desc">Photo hero, condition badge, location breadcrumb, vendor circle, History drill. Same 4-zone grammar as medication.</span>
+    </div>
+
+    <div class="card-row">
+
+      <!-- DEWALT drill (working, has warranty) -->
+      <div style="max-width: 520px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);">
+
+        <!-- ZONE 1: status + category chip + condition tag + pin/menu -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0;">
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 4px rgba(52,199,89,0.16);" title="Working"></div>
+          <div class="chip-tap" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(2,132,199,0.10);" title="Garage › Workbench › Drawer 3">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #0284c7;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M218.83,103.77l-80-75.48a16,16,0,0,0-21.66,0l-80,75.48A16,16,0,0,0,32,115.55V208a16,16,0,0,0,16,16H96a16,16,0,0,0,16-16V160h32v48a16,16,0,0,0,16,16h48a16,16,0,0,0,16-16V115.55A16,16,0,0,0,218.83,103.77Z"/></svg>
+            </div>
+            <span style="font-size: 11px; font-weight: 500; color: #075985;">Garage</span>
+          </div>
+          <span style="font-size: 11px; color: #16a34a; font-weight: 600;">WORKING</span>
+          <div style="flex: 1;"></div>
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="Pin">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg>
+            </div>
+          </div>
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="More">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE 2: photo hero | brand+model+location -->
+        <div style="display: flex; gap: 18px; padding: 14px 18px 8px; align-items: center;">
+          <!-- Procedural drill silhouette (photo would replace this in production) -->
+          <div style="flex: 0 0 140px; height: 96px; background: linear-gradient(135deg, #fbbf24, #f59e0b); border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 -2px 6px rgba(0,0,0,0.12);">
+            <svg width="80" height="60" viewBox="0 0 80 60" fill="none">
+              <rect x="20" y="22" width="38" height="20" rx="4" fill="#1f2937" opacity="0.85"/>
+              <rect x="56" y="26" width="14" height="12" rx="2" fill="#fef3c7"/>
+              <rect x="22" y="38" width="14" height="14" fill="#1f2937" opacity="0.9"/>
+              <line x1="68" y1="32" x2="76" y2="32" stroke="#1f2937" stroke-width="3"/>
+              <circle cx="76" cy="32" r="3" fill="#94a3b8"/>
+            </svg>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
+              <div style="font-size: 20px; font-weight: 600; color: #1a1a1a; line-height: 1.1; letter-spacing: -0.01em;">DEWALT</div>
+              <div style="font-size: 13px; color: #64748b; font-weight: 500;">DWE1622K · 1/2" Drill</div>
+            </div>
+            <div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">Power tool · 10 amp · Corded</div>
+            <div style="font-size: 12px; color: #475569; margin-top: 8px; display: flex; align-items: center; gap: 4px;">
+              <div class="ph-icon" style="width: 12px; height: 12px; color: #94a3b8;">
+                <svg viewBox="0 0 256 256" fill="currentColor"><path d="M128,16a88.1,88.1,0,0,0-88,88c0,75.3,80,132.17,83.41,134.55a8,8,0,0,0,9.18,0C136,236.17,216,179.3,216,104A88.1,88.1,0,0,0,128,16Zm0,56a32,32,0,1,1-32,32A32,32,0,0,1,128,72Z"/></svg>
+              </div>
+              <strong style="font-weight: 600;">Garage</strong> <span style="color: #cbd5e1;">›</span> <strong style="font-weight: 600;">Workbench</strong> <span style="color: #cbd5e1;">›</span> <strong style="font-weight: 600;">Drawer 3</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAGS row -->
+        <div style="display: flex; gap: 6px; padding: 0 18px 10px; align-items: center;">
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#power-tools</span>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#corded</span>
+        </div>
+
+        <!-- CROSS-MODULE strip — Paid, Bought, Warranty -->
+        <div style="display: flex; gap: 18px; padding: 10px 18px; border-top: 1px dashed #e5e7eb; flex-wrap: wrap;">
+          <span class="chip-tap" style="font-size: 11px;" title="Total paid">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Paid</span>
+            <strong style="color: #475569; font-size: 12px; font-weight: 600;">$129</strong>
+          </span>
+          <span class="chip-tap" style="font-size: 11px;" title="Purchase date">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Bought</span>
+            <strong style="color: #475569; font-size: 12px; font-weight: 600;">Mar 2022</strong>
+          </span>
+          <span class="chip-tap" style="font-size: 11px;" title="Warranty status — 8 months left">
+            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Warranty</span>
+            <strong style="color: #d97706; font-size: 12px; font-weight: 600;">8mo left</strong>
+          </span>
+        </div>
+
+        <!-- No Zone 3 — item is healthy, no alert -->
+
+        <!-- ZONE 5: linked entities (owner, vendor) + attachments + History -->
+        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9;">
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #a78bfa, #6d28d9); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Al · owner">AL</div>
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 9px; background: #f97316; color: white; font-size: 10px; font-weight: 700; display: flex; align-items: center; justify-content: center; letter-spacing: 0.04em;" title="Home Depot · vendor">HD</div>
+
+          <div style="flex: 1;"></div>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;" title="2 attachments — receipt, manual">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+            </div>
+            2
+          </span>
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;" title="Service & purchase history">
+            History
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+            </div>
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════
+       TODO CARD — DRAFT — single-row "compact" mode of 4-zone pattern
+       Source: chat 13 — "4-zone collapses to 1 row"
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="todo">
+    <div class="section-head">
+      <h2>Todo</h2>
+      <span class="draft">Draft · compact mode</span>
+      <span class="desc">All 4 zones collapse to one row. Tap-circle on left = primary action. Same color/meta vocabulary.</span>
+    </div>
+
+    <div style="display: flex; flex-direction: column; gap: 10px; max-width: 640px;">
+
+      <!-- Open todo, due soon -->
+      <div class="chip-tap" style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+        <!-- Tap-circle, becomes the complete action -->
+        <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid #cbd5e1; flex-shrink: 0; cursor: pointer;" title="Mark complete"></div>
+
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #1a1a1a; line-height: 1.3;">Renew driver's license</div>
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 3px; display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-flex; align-items: center; gap: 3px; color: #d97706; font-weight: 500;">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #f59e0b;"></span>
+              Due in 4 days
+            </span>
+            <span style="color: #cbd5e1;">·</span>
+            <span>High</span>
+            <span style="color: #cbd5e1;">·</span>
+            <span>Personal</span>
+          </div>
+        </div>
+
+        <!-- Linked entity (assignee) -->
+        <div class="ent-circle" style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #a78bfa, #6d28d9); color: white; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0;" title="Al">AL</div>
+
+        <div class="chip-tap" style="width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;" title="More">
+          <div class="ph-icon" style="width: 16px; height: 16px; color: #94a3b8;">
+            <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Overdue todo -->
+      <div class="chip-tap" style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #ffffff; border: 0.5px solid #fecaca; border-left: 3px solid #ef4444; border-radius: 14px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+        <div style="width: 24px; height: 24px; border-radius: 50%; border: 2px solid #ef4444; flex-shrink: 0; cursor: pointer;" title="Mark complete"></div>
+
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #1a1a1a; line-height: 1.3;">Pay car insurance</div>
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 3px; display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-flex; align-items: center; gap: 3px; color: #b91c1c; font-weight: 600;">
+              <span style="width: 6px; height: 6px; border-radius: 50%; background: #ef4444;"></span>
+              Overdue 2 days
+            </span>
+            <span style="color: #cbd5e1;">·</span>
+            <span>Urgent</span>
+            <span style="color: #cbd5e1;">·</span>
+            <span>Finance</span>
+          </div>
+        </div>
+
+        <div class="ent-circle" style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #a78bfa, #6d28d9); color: white; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Al">AL</div>
+
+        <div class="chip-tap" style="width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;">
+          <div class="ph-icon" style="width: 16px; height: 16px; color: #94a3b8;">
+            <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed todo -->
+      <div class="chip-tap" style="display: flex; align-items: center; gap: 14px; padding: 14px 18px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 14px; opacity: 0.55;">
+        <div style="width: 24px; height: 24px; border-radius: 50%; background: #34c759; flex-shrink: 0; display: flex; align-items: center; justify-content: center;" title="Completed">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        </div>
+
+        <div style="flex: 1; min-width: 0;">
+          <div style="font-size: 15px; font-weight: 500; color: #1a1a1a; line-height: 1.3; text-decoration: line-through;">Schedule oil change</div>
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 3px; display: flex; align-items: center; gap: 8px;">
+            <span>Done Apr 28</span>
+            <span style="color: #cbd5e1;">·</span>
+            <span>Vehicle</span>
+          </div>
+        </div>
+
+        <div class="ent-circle" style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #a78bfa, #6d28d9); color: white; font-size: 10px; font-weight: 600; display: flex; align-items: center; justify-content: center;">AL</div>
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════
+       SUBSCRIPTION CARD — DRAFT (from earlier session, not yet locked)
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="subscription">
+    <div class="section-head">
+      <h2>Subscription</h2>
+      <span class="draft">Draft</span>
+      <span class="desc">From earlier session. Pending review against the medication card pattern.</span>
+    </div>
+
+    <div class="card-row" id="sub-mount"></div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════
+       CERTIFICATION CARD — DRAFT
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="certification">
+    <div class="section-head">
+      <h2>Certification</h2>
+      <span class="draft">Draft</span>
+      <span class="desc">From earlier session. Pending review.</span>
+    </div>
+
+    <div class="card-row" id="cert-mount"></div>
+  </div>
+
+</div>
+
+<script>
+// Inline-load the subscription and certification card files via fetch fallback.
+// Since this is a static page, we paste their HTML inline below.
+</script>
+
+<!-- ── Subscription card content ── -->
+<div style="display:none" id="sub-src"><style>
+  .sub {
+    --gh-status-good: #34c759;
+    --gh-status-warn: #f59e0b;
+    --gh-status-bad: #ef4444;
+    --gh-brand: #14b8a6;
+    --gh-brand-hover: #0d9488;
+    --gh-text-primary: #1a1a1a;
+    --gh-text-secondary: #475569;
+    --gh-text-tertiary: #94a3b8;
+    --gh-card-bg: #ffffff;
+    --gh-card-border: #e5e7eb;
+    --gh-card-divider: #f1f5f9;
+    --gh-tint-blue:   rgba(2,132,199,0.10);    --gh-tint-blue-fg:   #0284c7;
+    --gh-tint-green:  rgba(22,163,74,0.10);    --gh-tint-green-fg:  #16a34a;
+    --gh-tint-amber:  rgba(217,119,6,0.10);    --gh-tint-amber-fg:  #d97706;
+    --gh-tint-purple: rgba(99,102,241,0.10);   --gh-tint-purple-fg: #4f46e5;
+    --gh-tint-pink:   rgba(236,72,153,0.10);   --gh-tint-pink-fg:   #db2777;
+    --gh-radius-card: 18px;
+    --gh-radius-pill: 999px;
+    --gh-radius-button: 9px;
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    color: var(--gh-text-primary);
+    padding: 24px;
+    background: #f8fafc;
+    border-radius: 12px;
+  }
+  .sub-card {
+    background: var(--gh-card-bg);
+    border: 1px solid var(--gh-card-border);
+    border-radius: var(--gh-radius-card);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    max-width: 640px;
+    margin: 0 auto 24px;
+    overflow: hidden;
+  }
+
+  .z1 { display: flex; align-items: center; gap: 8px; padding: 14px 18px 0; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .dot--good { background: var(--gh-status-good); box-shadow: 0 0 0 4px rgba(52,199,89,0.16); }
+  .dot--warn { background: var(--gh-status-warn); box-shadow: 0 0 0 4px rgba(245,158,11,0.16); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 22px; padding: 0 9px; border-radius: var(--gh-radius-pill);
+    font-size: 11px; font-weight: 500;
+  }
+  .chip--purple { background: var(--gh-tint-purple); color: var(--gh-tint-purple-fg); }
+  .chip--blue   { background: var(--gh-tint-blue);   color: var(--gh-tint-blue-fg); }
+  .chip--pink   { background: var(--gh-tint-pink);   color: var(--gh-tint-pink-fg); }
+  .chip svg { width: 12px; height: 12px; }
+  .tag { font-size: 11px; color: var(--gh-text-tertiary); font-weight: 500; }
+  .spacer { flex: 1; }
+  .iconbtn {
+    width: 32px; height: 32px; border-radius: 9px;
+    border: none; background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--gh-text-tertiary); cursor: pointer;
+  }
+  .iconbtn:hover { background: var(--gh-card-divider); }
+
+  .z2 { display: flex; gap: 16px; padding: 14px 18px 0; }
+  .hero {
+    flex: 0 0 132px; height: 110px;
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--gh-card-border);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  /* Service logo hero — brand color block */
+  .hero--netflix { background: #E50914; }
+  .hero--netflix .wm { font-size: 24px; font-weight: 800; color: #fff; letter-spacing: -0.04em; }
+  .hero--spotify { background: #1DB954; }
+  .hero--spotify .wm { font-size: 24px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+  .hero__plan {
+    font-size: 9px; color: rgba(255,255,255,0.85);
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-top: 4px; font-weight: 500;
+  }
+
+  .id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .id__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .id__brand { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
+  .id__suffix { font-size: 14px; font-weight: 500; color: var(--gh-text-secondary); }
+  .iico {
+    width: 36px; height: 36px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+  .iico svg { width: 20px; height: 20px; }
+  .iico--amber { background: var(--gh-tint-amber); color: var(--gh-tint-amber-fg); }
+  .iico--green { background: var(--gh-tint-green); color: var(--gh-tint-green-fg); }
+  .id__sub { font-size: 12px; color: var(--gh-text-tertiary); }
+  .id__cycle {
+    font-size: 14px; color: var(--gh-text-secondary); margin-top: 4px;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .id__cycle svg { width: 14px; height: 14px; color: var(--gh-tint-blue-fg); }
+  .id__cycle strong { color: var(--gh-text-primary); font-weight: 500; }
+
+  /* Charge cadence — last 3 charges as tiny dots */
+  .cadence {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .cadence__label {
+    font-size: 11px; font-weight: 500; color: var(--gh-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.04em; flex-shrink: 0;
+  }
+  .cadence__dots {
+    display: flex; gap: 3px; align-items: end; height: 12px;
+  }
+  .cadence__bar {
+    width: 4px; background: var(--gh-status-good); border-radius: 2px;
+  }
+  .cadence__bar--up { background: var(--gh-status-warn); }
+  .cadence__count {
+    font-size: 12px; font-weight: 600; color: var(--gh-text-primary);
+  }
+  .cadence__count em {
+    font-style: normal; font-weight: 500; color: var(--gh-text-tertiary);
+  }
+
+  .crossmod {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    padding: 12px 18px 0; margin: 14px 0 0;
+    font-size: 11px; color: var(--gh-text-tertiary);
+    border-top: 1px dashed var(--gh-card-border);
+  }
+  .crossmod strong { color: var(--gh-text-secondary); font-weight: 600; font-size: 12px; }
+  .crossmod .label { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; }
+  .crossmod .ast { color: var(--gh-status-bad); font-weight: 700; }
+
+  .z3 {
+    margin: 14px 18px 0;
+    background: rgba(254,243,199,0.30);
+    border: 1px solid rgba(245,158,11,0.30);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  .z3__top { display: flex; align-items: center; gap: 12px; }
+  .z3__msg { flex: 1; min-width: 0; }
+  .z3__bold { font-size: 14px; font-weight: 600; color: var(--gh-text-primary); }
+  .z3__supply {
+    font-size: 11px; color: var(--gh-text-tertiary); margin-top: 2px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+  }
+  .z3__btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 36px; padding: 0 14px;
+    background: var(--gh-brand); color: white;
+    border: none; border-radius: var(--gh-radius-button);
+    font-size: 13px; font-weight: 600; cursor: pointer; flex-shrink: 0;
+  }
+  .z3__btn:hover { background: var(--gh-brand-hover); }
+  .z3__bot {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 8px;
+    font-size: 11px; color: var(--gh-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+  }
+  .z3__id {
+    font-family: 'SF Mono', Menlo, monospace;
+    color: var(--gh-text-secondary);
+    text-transform: none; letter-spacing: 0; cursor: pointer;
+  }
+
+  .z4 {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; margin-top: 14px;
+    border-top: 1px solid var(--gh-card-divider);
+  }
+  .ents { display: flex; align-items: center; gap: 8px; }
+  .ent {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--gh-card-border);
+    cursor: pointer; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 11px; font-weight: 600; flex-shrink: 0;
+  }
+  .ent--photo-al { background: linear-gradient(135deg, #60a5fa, #2563eb); }
+  .ent--photo-al::before {
+    content: ''; width: 100%; height: 100%;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><circle cx="18" cy="14" r="6" fill="white" opacity="0.85"/><path d="M6 32 Q18 22 30 32 Z" fill="white" opacity="0.85"/></svg>');
+  }
+  .ent--brand { border-radius: 9px; font-size: 9px; }
+  .att { display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; color: var(--gh-text-tertiary); font-weight: 500; margin-right: 8px; }
+  .att svg { width: 13px; height: 13px; }
+  .drill {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--gh-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .drill svg { width: 14px; height: 14px; }
+
+  .heading {
+    max-width: 640px; margin: 0 auto 8px;
+    font-size: 11px; color: var(--gh-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500;
+  }
+</style>
+
+<div class="sub">
+
+  <div class="heading">State 1 · Healthy active subscription, no Zone 3</div>
+  <div class="sub-card">
+    <div class="z1">
+      <span class="dot dot--good" title="Active, payments on schedule"></span>
+      <span class="chip chip--purple"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>Entertainment</span>
+      <span class="chip chip--pink"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M236,80a28,28,0,0,0-46.7-20.79L160,32.78a8,8,0,0,0-9.62-1.5L88,68.85V80a8,8,0,0,1-16,0V64a8,8,0,0,1,8-8V40A12,12,0,0,1,92,28h28a4,4,0,0,1,0,8H92a4,4,0,0,0-4,4V52H156a8,8,0,0,1,5.94,2.65L184,73.79a4,4,0,1,0,5.66-5.65A28,28,0,0,0,236,80Z"/></svg>Family · 4</span>
+      <span class="tag">Streaming</span>
+      <span class="spacer"></span>
+      <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg></button>
+      <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg></button>
+    </div>
+
+    <div class="z2">
+      <div class="hero hero--spotify" title="Spotify brand block">
+        <div class="wm">Spotify</div>
+        <div class="hero__plan">FAMILY</div>
+      </div>
+      <div class="id">
+        <div class="id__row">
+          <span class="id__brand">Spotify</span>
+          <span class="id__suffix">Family · 6 accounts</span>
+          <span class="spacer"></span>
+          <span class="iico iico--green" title="Last 3 charges all $16.99 — no price drift"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg></span>
+        </div>
+        <div class="id__sub">Music streaming · Monthly</div>
+        <div class="id__cycle">
+          <svg viewBox="0 0 256 256" fill="currentColor"><path d="M128,40a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,40Z"/></svg>
+          <strong>Renews Jun 14</strong> · 13 days
+        </div>
+        <div class="cadence" title="Last 3 charges">
+          <span class="cadence__label">Cadence</span>
+          <div class="cadence__dots">
+            <div class="cadence__bar" style="height:8px;"></div>
+            <div class="cadence__bar" style="height:8px;"></div>
+            <div class="cadence__bar" style="height:8px;"></div>
+          </div>
+          <span class="cadence__count">$16.99 <em>× 3 mo</em></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="crossmod">
+      <span><span class="label">Annual</span> <strong>$203.88</strong></span>
+      <span><span class="label">Last 3</span> <strong>$50.97</strong></span>
+      <span><span class="label">Active since</span> <strong>Mar 2021</strong></span>
+    </div>
+
+    <div class="z4">
+      <div class="ents">
+        <div class="ent ent--photo-al" title="Al (account holder)"></div>
+        <div class="ent ent--brand" style="background:#1DB954;" title="Spotify (service)">SP</div>
+        <div class="ent ent--brand" style="background:#0a4abf;font-size:8px;" title="Chase Sapphire (paying card)">CHA</div>
+      </div>
+      <div style="display:flex; align-items:center;">
+        <span class="att"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>1</span>
+        <span class="drill">Charges<svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="heading">State 2 · Price increase detected — Zone 3 alert + asterisk on annual cost</div>
+  <div class="sub-card">
+    <div class="z1">
+      <span class="dot dot--warn"></span>
+      <span class="chip chip--purple"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>Entertainment</span>
+      <span class="chip chip--pink"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M236,80a28,28,0,0,0-46.7-20.79L160,32.78a8,8,0,0,0-9.62-1.5L88,68.85V80a8,8,0,0,1-16,0V64a8,8,0,0,1,8-8V40A12,12,0,0,1,92,28h28a4,4,0,0,1,0,8H92a4,4,0,0,0-4,4V52H156a8,8,0,0,1,5.94,2.65L184,73.79a4,4,0,1,0,5.66-5.65A28,28,0,0,0,236,80Z"/></svg>Family · 4</span>
+      <span class="tag">Streaming</span>
+      <span class="spacer"></span>
+      <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg></button>
+      <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg></button>
+    </div>
+
+    <div class="z2">
+      <div class="hero hero--netflix">
+        <div class="wm">NETFLIX</div>
+        <div class="hero__plan">PREMIUM</div>
+      </div>
+      <div class="id">
+        <div class="id__row">
+          <span class="id__brand">Netflix</span>
+          <span class="id__suffix">Premium · 4K · 4 screens</span>
+          <span class="spacer"></span>
+          <span class="iico iico--amber" title="Last charge increased $2"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg></span>
+        </div>
+        <div class="id__sub">Video streaming · Monthly</div>
+        <div class="id__cycle">
+          <svg viewBox="0 0 256 256" fill="currentColor"><path d="M128,40a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,40Z"/></svg>
+          <strong>Renews Jun 22</strong> · 21 days
+        </div>
+        <div class="cadence">
+          <span class="cadence__label">Cadence</span>
+          <div class="cadence__dots">
+            <div class="cadence__bar" style="height:6px;"></div>
+            <div class="cadence__bar" style="height:6px;"></div>
+            <div class="cadence__bar cadence__bar--up" style="height:9px;"></div>
+          </div>
+          <span class="cadence__count">$22.99 <em>↑ from $20.99</em></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="crossmod">
+      <span><span class="label">Annual</span> <strong>$263.88<span class="ast" title="Includes 3 months at old price + 9 months at new price — total may be approximate">*</span></strong></span>
+      <span><span class="label">Last 3</span> <strong>$66.97</strong></span>
+      <span><span class="label">Active since</span> <strong>Sep 2019</strong></span>
+    </div>
+
+    <div class="z3">
+      <div class="z3__top">
+        <div class="z3__msg">
+          <div class="z3__bold">Price increased $2/mo on May 14</div>
+          <div class="z3__supply">$20.99 → $22.99 · +$24/year going forward</div>
+        </div>
+        <button class="z3__btn">
+          Review plan
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+        </button>
+      </div>
+      <div class="z3__bot">
+        <span>Tracked from imported Chase Sapphire transactions</span>
+        <span class="z3__id" title="Tap to copy">Acct# NF-882-44</span>
+      </div>
+    </div>
+
+    <div class="z4">
+      <div class="ents">
+        <div class="ent ent--photo-al"></div>
+        <div class="ent ent--brand" style="background:#E50914;">NF</div>
+        <div class="ent ent--brand" style="background:#0a4abf;font-size:8px;">CHA</div>
+      </div>
+      <div style="display:flex; align-items:center;">
+        <span class="att"><svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>0</span>
+        <span class="drill">Charges<svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg></span>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<!-- ── Certification card content ── -->
+<div style="display:none" id="cert-src"><style>
+  .cert {
+    --gh-status-good: #34c759;
+    --gh-status-warn: #f59e0b;
+    --gh-status-bad: #ef4444;
+    --gh-brand: #14b8a6;
+    --gh-brand-hover: #0d9488;
+    --gh-text-primary: #1a1a1a;
+    --gh-text-secondary: #475569;
+    --gh-text-tertiary: #94a3b8;
+    --gh-card-bg: #ffffff;
+    --gh-card-border: #e5e7eb;
+    --gh-card-divider: #f1f5f9;
+    --gh-tint-blue:   rgba(2,132,199,0.10);    --gh-tint-blue-fg:   #0284c7;
+    --gh-tint-green:  rgba(22,163,74,0.10);    --gh-tint-green-fg:  #16a34a;
+    --gh-tint-amber:  rgba(217,119,6,0.10);    --gh-tint-amber-fg:  #d97706;
+    --gh-tint-purple: rgba(99,102,241,0.10);   --gh-tint-purple-fg: #4f46e5;
+    --gh-radius-card: 18px;
+    --gh-radius-pill: 999px;
+    --gh-radius-button: 9px;
+
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
+    color: var(--gh-text-primary);
+    padding: 24px;
+    background: #f8fafc;
+    border-radius: 12px;
+  }
+  .cert-card {
+    background: var(--gh-card-bg);
+    border: 1px solid var(--gh-card-border);
+    border-radius: var(--gh-radius-card);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    max-width: 640px;
+    margin: 0 auto 24px;
+    overflow: hidden;
+  }
+
+  .z1 {
+    display: flex; align-items: center; gap: 8px;
+    padding: 14px 18px 0;
+  }
+  .dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot--warn { background: var(--gh-status-warn); box-shadow: 0 0 0 4px rgba(245,158,11,0.16); }
+  .dot--good { background: var(--gh-status-good); box-shadow: 0 0 0 4px rgba(52,199,89,0.16); }
+  .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    height: 22px; padding: 0 9px; border-radius: var(--gh-radius-pill);
+    font-size: 11px; font-weight: 500;
+  }
+  .chip--purple { background: var(--gh-tint-purple); color: var(--gh-tint-purple-fg); }
+  .chip--blue { background: var(--gh-tint-blue); color: var(--gh-tint-blue-fg); }
+  .chip svg { width: 12px; height: 12px; }
+  .tag { font-size: 11px; color: var(--gh-text-tertiary); font-weight: 500; }
+  .spacer { flex: 1; }
+  .iconbtn {
+    width: 32px; height: 32px; border-radius: 9px;
+    border: none; background: transparent;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--gh-text-tertiary); cursor: pointer;
+  }
+  .iconbtn:hover { background: var(--gh-card-divider); }
+
+  .z2 { display: flex; gap: 16px; padding: 14px 18px 0; }
+  .hero {
+    flex: 0 0 132px; height: 110px;
+    border-radius: 12px; overflow: hidden;
+    border: 1px solid var(--gh-card-border);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+  }
+  /* CompTIA red brand block — represents "Certification logo" */
+  .hero--comptia {
+    background: #C8102E;
+    color: white;
+  }
+  .hero__brand-name {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+    text-transform: uppercase; opacity: 0.95;
+  }
+  .hero__cert-mark {
+    font-size: 26px; font-weight: 700; letter-spacing: -0.02em;
+    line-height: 1; margin-top: 4px;
+  }
+  .hero__certified {
+    font-size: 8px; font-weight: 500; letter-spacing: 0.18em;
+    margin-top: 4px; opacity: 0.85;
+  }
+
+  .id { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .id__row { display: flex; align-items: center; gap: 8px; }
+  .id__brand { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
+  .id__suffix { font-size: 14px; font-weight: 500; color: var(--gh-text-secondary); }
+  .iico {
+    width: 36px; height: 36px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+  .iico svg { width: 20px; height: 20px; }
+  .iico--amber { background: var(--gh-tint-amber); color: var(--gh-tint-amber-fg); }
+  .id__sub { font-size: 12px; color: var(--gh-text-tertiary); }
+  .id__held { font-size: 14px; color: var(--gh-text-secondary); margin-top: 4px; }
+
+  /* CEU progress bar */
+  .ceu {
+    margin-top: 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .ceu__label {
+    font-size: 11px; font-weight: 500; color: var(--gh-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.04em;
+    flex-shrink: 0;
+  }
+  .ceu__bar {
+    flex: 1; height: 6px; background: var(--gh-card-divider);
+    border-radius: 3px; overflow: hidden; position: relative;
+  }
+  .ceu__fill {
+    height: 100%; background: var(--gh-status-good); border-radius: 3px;
+  }
+  .ceu__count {
+    font-size: 12px; font-weight: 600; color: var(--gh-text-primary);
+    flex-shrink: 0;
+  }
+  .ceu__count em {
+    font-style: normal; font-weight: 500; color: var(--gh-text-tertiary);
+  }
+
+  .crossmod {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    padding: 12px 18px 0;
+    margin: 14px 0 0;
+    font-size: 11px; color: var(--gh-text-tertiary);
+    border-top: 1px dashed var(--gh-card-border);
+  }
+  .crossmod strong { color: var(--gh-text-secondary); font-weight: 600; font-size: 12px; }
+  .crossmod .label { text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; }
+
+  .z3 {
+    margin: 14px 18px 0;
+    background: rgba(254,243,199,0.30);
+    border: 1px solid rgba(245,158,11,0.30);
+    border-radius: 12px; padding: 12px 14px;
+  }
+  .z3__top { display: flex; align-items: center; gap: 12px; }
+  .z3__msg { flex: 1; min-width: 0; }
+  .z3__bold { font-size: 14px; font-weight: 600; color: var(--gh-text-primary); }
+  .z3__supply {
+    font-size: 11px; color: var(--gh-text-tertiary); margin-top: 2px;
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+  }
+  .z3__btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    height: 36px; padding: 0 14px;
+    background: var(--gh-brand); color: white;
+    border: none; border-radius: var(--gh-radius-button);
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    flex-shrink: 0;
+  }
+  .z3__btn:hover { background: var(--gh-brand-hover); }
+  .z3__bot {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 8px;
+    font-size: 11px; color: var(--gh-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.04em; font-weight: 500;
+  }
+  .z3__id {
+    font-family: 'SF Mono', Menlo, monospace;
+    color: var(--gh-text-secondary);
+    text-transform: none; letter-spacing: 0; cursor: pointer;
+  }
+
+  .z4 {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    margin-top: 14px;
+    border-top: 1px solid var(--gh-card-divider);
+  }
+  .ents { display: flex; align-items: center; gap: 8px; }
+  .ent {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--gh-card-border);
+    cursor: pointer; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    color: white; font-size: 11px; font-weight: 600; flex-shrink: 0;
+  }
+  .ent--photo-al { background: linear-gradient(135deg, #60a5fa, #2563eb); }
+  .ent--photo-al::before {
+    content: ''; width: 100%; height: 100%;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><circle cx="18" cy="14" r="6" fill="white" opacity="0.85"/><path d="M6 32 Q18 22 30 32 Z" fill="white" opacity="0.85"/></svg>');
+  }
+  .ent--issuer { background: #C8102E; border-radius: 9px; font-size: 9px; }
+  .att {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 11px; color: var(--gh-text-tertiary); font-weight: 500; margin-right: 8px;
+  }
+  .att svg { width: 13px; height: 13px; }
+  .drill {
+    display: inline-flex; align-items: center; gap: 4px;
+    color: var(--gh-text-secondary); font-size: 13px; font-weight: 500; cursor: pointer;
+  }
+  .drill svg { width: 14px; height: 14px; }
+
+  .heading {
+    max-width: 640px; margin: 0 auto 8px;
+    font-size: 11px; color: var(--gh-text-tertiary);
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500;
+  }
+</style>
+
+<div class="cert">
+
+  <div class="heading">State 1 · Active certification, renewal due in 3 months</div>
+  <div class="cert-card">
+
+    <div class="z1">
+      <span class="dot dot--warn" title="Renewal due"></span>
+      <span class="chip chip--purple" title="IT Security domain">
+        <svg viewBox="0 0 256 256" fill="currentColor"><path d="M208,40H48A16,16,0,0,0,32,56v58.78c0,89.61,75.82,119.34,91,124.39a15.53,15.53,0,0,0,10,0c15.2-5.05,91-34.78,91-124.39V56A16,16,0,0,0,208,40Z"/></svg>
+        IT Security
+      </span>
+      <span class="chip chip--blue" title="Required by employer">
+        <svg viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+        Employer-required
+      </span>
+      <span class="tag">Foundational</span>
+      <span class="spacer"></span>
+      <button class="iconbtn" title="Pin"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg></button>
+      <button class="iconbtn" title="More"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg></button>
+    </div>
+
+    <div class="z2">
+      <div class="hero hero--comptia" title="CompTIA brand logo">
+        <div class="hero__brand-name">CompTIA</div>
+        <div class="hero__cert-mark">SY+</div>
+        <div class="hero__certified">CERTIFIED</div>
+      </div>
+      <div class="id">
+        <div class="id__row">
+          <span class="id__brand">Security+</span>
+          <span class="id__suffix">SY0-701</span>
+          <span class="spacer"></span>
+          <span class="iico iico--amber" title="Renewal in 3 months">
+            <svg viewBox="0 0 256 256" fill="currentColor"><path d="M128,40a96,96,0,1,0,96,96A96.11,96.11,0,0,0,128,40Zm0,176a80,80,0,1,1,80-80A80.09,80.09,0,0,1,128,216Zm45.66-93.66L128,76.69V40a8,8,0,0,1,16,0V70.34l37.66,37.66a8,8,0,0,1-11.32,11.31Z"/></svg>
+          </span>
+        </div>
+        <div class="id__sub">CompTIA · Cybersecurity foundational</div>
+        <div class="id__held">Held since Aug 2023 · Expires Aug 12, 2026</div>
+
+        <!-- CEU progress bar — unique to certifications -->
+        <div class="ceu" title="Continuing Education Units progress">
+          <span class="ceu__label">CEU</span>
+          <div class="ceu__bar"><div class="ceu__fill" style="width:76%;"></div></div>
+          <span class="ceu__count">38 <em>/ 50</em></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="crossmod">
+      <span><span class="label">Renewal fee</span> <strong>$369</strong></span>
+      <span><span class="label">CEU left</span> <strong>12</strong></span>
+      <span><span class="label">Open todos</span> <strong>1</strong></span>
+    </div>
+
+    <div class="z3">
+      <div class="z3__top">
+        <div class="z3__msg">
+          <div class="z3__bold">Renewal in 102 days · 12 CEU still needed</div>
+          <div class="z3__supply">3-year cycle · Submit via CompTIA portal</div>
+        </div>
+        <button class="z3__btn">
+          Plan renewal
+          <svg width="14" height="14" viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+        </button>
+      </div>
+      <div class="z3__bot">
+        <span>Last activity 18d ago · Free Coursera CEU · 4 CEU</span>
+        <span class="z3__id" title="Tap to copy">Cert# COMP001022193485</span>
+      </div>
+    </div>
+
+    <div class="z4">
+      <div class="ents">
+        <div class="ent ent--photo-al" title="Al (holder)"></div>
+        <div class="ent ent--issuer" title="CompTIA (issuer)">CT</div>
+      </div>
+      <div style="display:flex; align-items:center;">
+        <span class="att" title="2 attachments — original cert PDF, latest CEU report">
+          <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+          2
+        </span>
+        <span class="drill">
+          History
+          <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="heading">State 2 · Active, plenty of runway, no Zone 3</div>
+  <div class="cert-card">
+
+    <div class="z1">
+      <span class="dot dot--good"></span>
+      <span class="chip chip--blue">
+        <svg viewBox="0 0 256 256" fill="currentColor"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>
+        Employer-required
+      </span>
+      <span class="tag">Project management</span>
+      <span class="spacer"></span>
+      <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg></button>
+      <button class="iconbtn"><svg width="18" height="18" viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg></button>
+    </div>
+
+    <div class="z2">
+      <div class="hero" style="background:#0a4abf;color:white;">
+        <div class="hero__brand-name">PMI</div>
+        <div class="hero__cert-mark">PMP</div>
+        <div class="hero__certified">CERTIFIED</div>
+      </div>
+      <div class="id">
+        <div class="id__row">
+          <span class="id__brand">PMP</span>
+          <span class="id__suffix">Project Mgmt Professional</span>
+          <span class="spacer"></span>
+        </div>
+        <div class="id__sub">Project Management Institute</div>
+        <div class="id__held">Held since Mar 2024 · Expires Mar 14, 2027</div>
+        <div class="ceu">
+          <span class="ceu__label">PDU</span>
+          <div class="ceu__bar"><div class="ceu__fill" style="width:32%;background:var(--gh-status-good);"></div></div>
+          <span class="ceu__count">19 <em>/ 60</em></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="crossmod">
+      <span><span class="label">Renewal fee</span> <strong>$150</strong></span>
+      <span><span class="label">PDU left</span> <strong>41</strong></span>
+      <span><span class="label">Open todos</span> <strong>0</strong></span>
+    </div>
+
+    <!-- No Zone 3 — plenty of time -->
+
+    <div class="z4">
+      <div class="ents">
+        <div class="ent ent--photo-al"></div>
+        <div class="ent" style="background:#0a4abf;border-radius:9px;font-size:9px;">PMI</div>
+      </div>
+      <div style="display:flex; align-items:center;">
+        <span class="att">
+          <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+          1
+        </span>
+        <span class="drill">
+          History
+          <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+        </span>
+      </div>
+    </div>
+  </div>
+
+</div></div>
+
+<script>
+  // Move the inlined source HTML into the visible mount points
+  document.getElementById('sub-mount').innerHTML  = document.getElementById('sub-src').innerHTML;
+  document.getElementById('cert-mount').innerHTML = document.getElementById('cert-src').innerHTML;
+</script>
+
+</body>
+</html>
