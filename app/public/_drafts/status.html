@@ -56,15 +56,15 @@
   <tbody>
     <tr>
       <td>1A — Medications schema + API</td>
-      <td><strong>shipped this drop</strong></td>
+      <td><strong>shipped + fixed</strong></td>
       <td>v202604.141</td>
-      <td>Migration 119: 7 new med columns + 3 new tables (multi-condition junction, polymorphic HSA payment links, fill history). New API endpoints for fills + condition junction + HSA links. <strong>No UI changes.</strong> Existing medical page keeps rendering as before.</td>
+      <td>Migration 119: 7 new med columns + 3 new tables (multi-condition junction, polymorphic HSA payment links, fill history). New API endpoints for fills + condition junction + HSA links. Hotfix in 1B replaces <code>p.amount</code> → <code>p.you_paid</code> in two places.</td>
     </tr>
     <tr>
       <td>1B — Medications UI rebuild</td>
-      <td>next</td>
-      <td>—</td>
-      <td>Replace simple medication card on <code>medical.html</code> with Card #1 v5 layout. Center modal for detail. Cross-module strip live (HSA YTD, log mentions, last filled). Refill action → fills table. "Link receipt" button → HSA picker. Pill imagery: user upload OR Phosphor icon by form, status-tinted.</td>
+      <td><strong>shipped this drop</strong></td>
+      <td>v202604.142</td>
+      <td>Card #1 v5 layout for the medications list (status dot · multi-condition chips · drug class · pill icon hero by form · 3 instruction icons · cross-module strip with HSA YTD / last filled / refills · refill alert when due · linked entity circles · link-receipt button). Detail opens as a center modal with Edit / Record refill / Link receipt actions. Lens moved <strong>above</strong> the tabs (page-level filter, applies cross-tab). Edit drawer extended with form / generic / brand / drug class / take-with-food / time-of-day / interaction warning fields. 8 new Phosphor icons added.</td>
     </tr>
     <tr>
       <td>2 — Conditions</td>
@@ -105,6 +105,19 @@
   <li>Pill imagery: user-uploaded photo via attach-lifecycle wins → falls back to Phosphor icon by <code>form</code> field, status-tinted. Procedural pill render dropped.</li>
   <li>HSA receipt linking is bidirectional — link from med card and from HSA receipt. Plain language, no jargon.</li>
   <li><code>family_member_id</code> backfilled from <code>patient</code> text on case-insensitive match. <code>patient</code> column kept alive (no destructive deletes per project rules).</li>
+</ul>
+
+<h3>Slice 1B verification checklist (after deploy)</h3>
+
+<ul>
+  <li>Open <code>http://192.168.4.62:3001/medical.html</code> — Lens search bar now sits <strong>above</strong> the Meds/Conditions/Visits tabs.</li>
+  <li>Add a medication via the <code>+ Add Record</code> FAB. New fields appear in the drawer: form, generic name, brand name, drug class, take with food, time of day, interaction warning.</li>
+  <li>Saved med renders as Card #1 v5: status dot, condition chips (if linked), drug class, pill icon hero by form, dose, generic-name subtitle, schedule, instruction icons, cross-module strip showing $0 HSA YTD / last filled / refills, linked entity circles, "Link receipt" button.</li>
+  <li>Click anywhere on the card body → center modal opens with the same card view + Edit / Record refill / Link receipt / Close.</li>
+  <li>"Record refill" → small modal with date / days supply / cost / pharmacy / notes. Saves a row in <code>med_medication_fills</code>. Card re-renders with new <code>last_filled</code> and <code>refills_remaining - 1</code>.</li>
+  <li>"Link receipt" → modal listing HSA receipts for current year. Click one to link. After linking, that med's HSA YTD updates on the next render.</li>
+  <li>Existing meds without slice-1 fields render fine (form falls back to pill icon, no instruction chips, etc).</li>
+  <li>Conditions and Visits tabs unchanged — still use the GH_CARD generic render.</li>
 </ul>
 
 <h3>Slice 1A verification checklist (after deploy)</h3>

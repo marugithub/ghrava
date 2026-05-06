@@ -72,20 +72,145 @@
 /* ── Follow-up badge ───────────────────────────────────────── */
 .followup-badge {
   background: var(--amber-bg);
-  border: 1px solid rgba(245,158,11,.3);
-  color: var(--amber);
-  font-size: 10px;
-  font-family: var(--mono);
-  padding: 1px 6px;
-  border-radius: 4px;
+/* ════════════════════════════════════════════════════════════
+   SLICE 1B — Card #1 v5 medication card + center modal styles
+   ══════════════════════════════════════════════════════════ */
+.med-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: 16px;
+  padding: 4px 16px 100px;
 }
-</style>
+@media(max-width:600px){
+  .med-grid { grid-template-columns: 1fr; padding: 4px 12px 100px; gap: 12px; }
+}
+
+.med-card {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(0,0,0,.06);
+}
+.med-card:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,.05), 0 16px 40px rgba(0,0,0,.08); }
+.med-card.refill-due { border-color: rgba(245,158,11,.35); }
+.med-card.refill-overdue { border-color: rgba(220,38,38,.35); }
+
+.med-z1 { display:flex; align-items:center; gap:8px; padding:14px 18px 0; flex-wrap:wrap; }
+.med-z2 { display:flex; gap:18px; padding:12px 18px 8px; align-items:center; }
+.med-z3 { display:flex; gap:8px; padding:4px 18px 12px; }
+.med-tags-row { display:flex; gap:6px; padding:0 18px 10px; align-items:center; flex-wrap:wrap; font-size:11px; color:var(--text3); }
+.med-strip { display:flex; gap:18px; padding:10px 18px; border-top:1px dashed var(--border); flex-wrap:wrap; font-size:11px; }
+.med-strip > span { white-space:nowrap; }
+.med-strip .lbl { text-transform:uppercase; letter-spacing:0.04em; font-size:10px; color:var(--text3); margin-right:4px; }
+.med-strip strong { color:var(--text2); font-size:12px; font-weight:600; }
+.med-alert { margin:4px 18px 14px; padding:14px; border-radius:12px; }
+.med-alert.amber { background:rgba(254,243,199,.30); border:0.5px solid rgba(245,158,11,.30); }
+.med-alert.red   { background:rgba(254,226,226,.30); border:0.5px solid rgba(220,38,38,.30); }
+.med-alert .row1 { display:flex; align-items:center; gap:12px; margin-bottom:8px; flex-wrap:wrap; }
+.med-alert .msg { font-size:13px; font-weight:600; color:var(--text); }
+.med-alert .meta { font-size:11px; color:var(--text3); font-weight:500; }
+.med-alert .row2 { display:flex; justify-content:space-between; align-items:center; font-size:11px; gap:8px; flex-wrap:wrap; }
+.med-z4 { display:flex; gap:10px; padding:14px 18px 16px; align-items:center; border-top:0.5px solid var(--border); flex-wrap:wrap; }
+
+.med-status-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.med-status-dot.green { background:#34c759; box-shadow:0 0 0 4px rgba(52,199,89,.16); }
+.med-status-dot.amber { background:#f59e0b; box-shadow:0 0 0 4px rgba(245,158,11,.16); }
+.med-status-dot.red   { background:#dc2626; box-shadow:0 0 0 4px rgba(220,38,38,.16); }
+.med-status-dot.gray  { background:#94a3b8; box-shadow:0 0 0 4px rgba(148,163,184,.16); }
+
+.med-cond-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 10px 4px 7px; border-radius:999px;
+  background:rgba(220,38,38,.08); color:#991b1b;
+  font-size:11px; font-weight:500;
+}
+.med-cond-chip img { width:14px; height:14px; opacity:.85; }
+.med-class { font-size:11px; color:var(--text3); font-weight:500; }
+.med-icon-btn {
+  width:32px; height:32px; border-radius:8px;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; cursor:pointer; color:var(--text3);
+  -webkit-tap-highlight-color: transparent;
+}
+.med-icon-btn:hover { background:var(--bg3); }
+.med-icon-btn img { width:18px; height:18px; opacity:.7; }
+
+.med-pill-hero {
+  flex:0 0 92px; height:64px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:12px;
+}
+.med-pill-hero img { width:48px; height:48px; }
+.med-pill-hero.active   { background:rgba(20,184,166,.10); color:#0d9488; }
+.med-pill-hero.refill   { background:rgba(245,158,11,.10); color:#b45309; }
+.med-pill-hero.overdue  { background:rgba(220,38,38,.10); color:#991b1b; }
+.med-pill-hero.discont  { background:rgba(148,163,184,.10); color:#64748b; }
+
+.med-name-line { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+.med-name { font-size:18px; font-weight:600; color:var(--text); line-height:1.1; letter-spacing:-0.01em; }
+.med-dose { font-size:13px; color:var(--text2); font-weight:500; }
+.med-sub  { font-size:12px; color:var(--text3); margin-top:2px; }
+.med-schedule { font-size:13px; color:var(--text2); margin-top:6px; }
+
+.med-instr-chip {
+  width:40px; height:40px; border-radius:11px;
+  display:flex; align-items:center; justify-content:center;
+}
+.med-instr-chip img { width:22px; height:22px; }
+.med-instr-chip.evening { background:rgba(99,102,241,.10); color:#4f46e5; }
+.med-instr-chip.food    { background:rgba(217,119,6,.10);  color:#d97706; }
+.med-instr-chip.warn    { background:rgba(220,38,38,.10);  color:#dc2626; }
+
+.med-ent-circle {
+  width:36px; height:36px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:12px; font-weight:600; flex-shrink:0;
+}
+.med-ent-circle.brand { border-radius:9px; font-size:10px; font-weight:700; letter-spacing:0.04em; }
+.med-link-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:11px; color:var(--text3); font-weight:500;
+  padding:4px 8px; border-radius:6px; background:transparent; border:none; cursor:pointer;
+}
+.med-link-chip:hover { background:var(--bg3); color:var(--text2); }
+.med-link-chip img { width:14px; height:14px; opacity:.7; }
+
+/* ── Center modal (slice 1B pattern; full sweep deferred) ──── */
+.gh-cmodal-overlay {
+  position:fixed; inset:0; background:rgba(0,0,0,.55);
+  display:none; align-items:center; justify-content:center;
+  z-index:560; padding:20px;
+}
+.gh-cmodal-overlay.open { display:flex; }
+.gh-cmodal {
+  width:min(560px, 100%); max-height:90vh; overflow-y:auto;
+  background:var(--bg2); border-radius:18px; border:1px solid var(--border);
+  box-shadow:0 20px 60px rgba(0,0,0,.30);
+  display:flex; flex-direction:column;
+}
+.gh-cmodal-actions {
+  display:flex; gap:8px; padding:12px 16px; border-top:0.5px solid var(--border);
+  background:var(--bg2); flex-wrap:wrap;
+}
+.gh-cmodal-actions .btn { flex:1; min-width:90px; }
+@media(max-width:480px){
+  .gh-cmodal-overlay { padding:0; align-items:flex-end; }
+  .gh-cmodal { border-radius:18px 18px 0 0; max-height:95vh; }
+}
 </head>
 <body>
 <div id="app">
 
   <!-- ── Page header ──────────────────────────────────────── -->
   <!-- header injected by nav.js -->
+
+  <!-- ── Lens (page-level filter, sits above tabs) ─────────── -->
+  <div style="padding: 12px 16px 0">
+    <div id="medLens"></div>
+  </div>
 
   <!-- ── View tabs ────────────────────────────────────────── -->
   <div class="view-tabs" style="--tab-color:#14b8a6;display:flex;align-items:center" style="--tab-color:#14b8a6">
@@ -113,9 +238,6 @@
     <input class="search-input" id="medSearch" type="search" placeholder="Search medications, conditions, notes…" autocomplete="off">
   </div>
   <div id="medViewToolbar" style="display:none"></div>
-  <div style="padding: 12px 16px 0">
-    <div id="medLens"></div>
-  </div>
 
   <!-- ── Main list ────────────────────────────────────────── -->
   <div class="content" style="padding-top:12px">
@@ -149,6 +271,11 @@
     #medInfoOverlay > div{border-radius:16px;border-bottom:1px solid var(--border)}
   }
 </style>
+
+<!-- ── Slice 1B: medication detail / refill / link-receipt center modal ── -->
+<div class="gh-cmodal-overlay" id="medDetailOverlay" onclick="if(event.target===this)closeMedDetail()">
+  <div class="gh-cmodal" id="medDetailBody"></div>
+</div>
 
 <!-- ── Add/Edit Medication Drawer ───────────────────────────── -->
 <div class="drawer-overlay" id="medDrawer">
@@ -228,6 +355,63 @@
         <option value="V">Schedule V</option>
       </select>
     </div>
+
+    <!-- Slice 1B: form + generic + drug class -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Form <span style="font-size:10px;font-weight:400;color:var(--text3)">drives icon</span></label>
+        <select class="form-select" id="mForm">
+          <option value="">— none —</option>
+          <option value="tablet">tablet</option>
+          <option value="capsule">capsule</option>
+          <option value="liquid">liquid</option>
+          <option value="injection">injection</option>
+          <option value="inhaler">inhaler</option>
+          <option value="drops">drops</option>
+          <option value="cream">cream</option>
+          <option value="patch">patch</option>
+          <option value="suppository">suppository</option>
+          <option value="other">other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Generic name <span style="font-size:10px;font-weight:400;color:var(--text3)">e.g. atorvastatin</span></label>
+        <input class="form-input" type="text" id="mGeneric" placeholder="">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Brand name <span style="font-size:10px;font-weight:400;color:var(--text3)">e.g. Lipitor</span></label>
+        <input class="form-input" type="text" id="mBrand" placeholder="">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Drug class <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
+        <input class="form-input" type="text" id="mClass" placeholder="e.g. Statin">
+      </div>
+    </div>
+
+    <!-- Slice 1B: instruction signals (drive the 3 instruction icons on the card) -->
+    <div class="form-row">
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:24px">
+        <input type="checkbox" id="mTakeWithFood" style="width:18px;height:18px;cursor:pointer">
+        <label for="mTakeWithFood" style="font-size:13px;cursor:pointer;margin:0">Take with food</label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time of day</label>
+        <select class="form-select" id="mTimeOfDay">
+          <option value="">— any —</option>
+          <option value="morning">morning</option>
+          <option value="evening">evening</option>
+          <option value="with_meals">with meals</option>
+          <option value="as_needed">as needed</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Interaction warning <span style="font-size:10px;font-weight:400;color:var(--text3)">e.g. "Avoid grapefruit"</span></label>
+      <input class="form-input" type="text" id="mInteraction" placeholder="">
+    </div>
+
     <div class="form-group">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="mNotes" rows="2"></textarea>
@@ -605,17 +789,18 @@ async function renderHW() {
   }
 }
 
-function statusDotClass(status) {
-  const m = {
-    'Active': 'status-active',
-    'Discontinued': 'status-discontinued', 'Resolved': 'status-resolved',
-    'As Needed': 'status-asneeded', 'Monitoring': 'status-monitoring',
-    'Chronic': 'status-chronic', 'Completed': 'status-completed',
-  };
-  return m[status] || 'status-active';
-}
-
-// ── Medications ─────────────────────────────────────────────────
+// ── Medications (Card #1 v5 — slice 1B) ────────────────────────
+//
+// Card anatomy, top to bottom:
+//   Z1: status dot + multi-condition chips + drug class + menu
+//   Z2: pill icon hero (or attachment image) + name/dose/generic + 3 instruction icons
+//   Tags row
+//   Cross-module strip: HSA YTD · log mentions · last filled
+//   Z3 (conditional): refill alert with Order button (only when something needs doing)
+//   Z4: linked entities (patient/doctor/pharmacy circles) + link receipt + attachments
+//
+// Click anywhere on the card body → openMedDetail (read-only center modal w/ actions)
+// Click stop-propagated buttons → individual flows (delete, refill, link receipt)
 async function renderMedications() {
   const area = $id('listArea');
   area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
@@ -628,53 +813,405 @@ async function renderMedications() {
     if (_medSearch) rows = rows.filter(r =>
       ['name','patient','dosage','frequency','purpose','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch))
     );
-    if (window._medFilters?.status) rows = rows.filter(r => r.status === window._medFilters.status);
-    if (window._medFilters?.tags?.length) rows = rows.filter(r => window._medFilters.tags.every(t => (r.tags||[]).includes(t)));
+    // Lens filter dimensions — must mirror what makeCardRender does
+    const f = window._medFilters || {};
+    if (f.status) rows = rows.filter(r => r.status === f.status);
+    if (Array.isArray(f.tags) && f.tags.length) rows = rows.filter(r => f.tags.every(t => (r.tags||[]).includes(t)));
+    if (f.tag) rows = rows.filter(r => (r.tags||[]).includes(f.tag));
+    if (f.person != null) rows = rows.filter(r => String(r.family_member_id) === String(f.person));
+    if (f.name) {
+      const q = String(f.name).toLowerCase();
+      rows = rows.filter(r => (r.name||'').toLowerCase().includes(q));
+    }
+    if (f.form) {
+      rows = rows.filter(r => (r.form||'').toLowerCase() === String(f.form).toLowerCase());
+    }
+    if (f.time && window.LENS_CONFIG?.timeMatch) {
+      rows = rows.filter(r => window.LENS_CONFIG.timeMatch(r.start_date, f.time, 'past'));
+    }
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
     if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.medications); return; }
 
-    // Group by patient
+    // Cache last-rendered rows so the detail modal can re-find a med by id
+    window._medRowsCache = rows;
+
+    // Group by patient — kept as section labels
     const byPatient = {};
     rows.forEach(r => { (byPatient[r.patient] = byPatient[r.patient]||[]).push(r); });
 
     area.innerHTML = Object.entries(byPatient).map(([patient, meds]) => {
-      // Look up the member by display_name to get id (for GH_AVATAR + photo).
       const member = (familyMembers || []).find(m => m.display_name === patient);
       const avatar = (member && window.GH_AVATAR) ? GH_AVATAR.render(member, 'sm') : '';
       return `
-      <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
-      ${meds.map(r => `
-        <div class="gh-card gh-s-gray card" onclick="editMedication(${r.id})">
-          <div class="card-right">
-            <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
-                    onclick="event.stopPropagation();deleteMed(${r.id})">✕</button>
-          </div>
-          <div class="card-title">
-            <span class="status-dot ${statusDotClass(r.status)}"></span>
-            ${esc(r.name)}
-            <span class="badge badge-grey">${r.status}</span>
-            ${r.refills_remaining===0?'<span style="color:var(--red);font-size:11px;font-weight:700" title="No refills remaining">⚠ No refills</span>':r.refills_remaining===1?'<span style="color:var(--amber);font-size:11px" title="1 refill left">⚠ 1 refill</span>':''}
-          </div>
-          ${r.dosage||r.frequency ? `<div class="card-meta">
-            ${r.dosage ? `<span>${esc(r.dosage)}</span>` : ''}
-            ${r.frequency ? `<span>· ${esc(r.frequency)}</span>` : ''}
-          </div>` : ''}
-          <div class="card-meta">
-            ${r.physician ? `<span>Dr. ${esc(r.physician)}</span>` : ''}
-            ${r.start_date ? `<span>Started ${formatDate(r.start_date)}</span>` : ''}
-            ${r.purpose ? `<span style="color:var(--text2)">${esc(r.purpose)}</span>` : ''}
-          </div>
-          ${r.tags&&r.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${r.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
-          ${r.attachment_count?AttachmentManager.staticBadge('med_medication',r.id,r.attachment_count):''}
-        </div>
-      `).join('')}
-    `;
+        <div class="section-label" style="display:flex;align-items:center;gap:8px;padding:0 16px">${avatar}<span>${esc(patient)}</span></div>
+        <div class="med-grid">${meds.map(r => renderMedCard(r)).join('')}</div>
+      `;
     }).join('');
+
     // Non-blocking interaction check — fires after render
     checkInteractionsForAll(rows);
   } catch (e) {
     area.innerHTML = errorState(e.message, '');
   }
 }
+
+// Compute the refill state for status-dot color + pill hero tint
+function medRefillState(r) {
+  if (r.status === 'Discontinued' || r.status === 'Completed') return 'discont';
+  // 0 refills + has rx_number = waiting on a doctor; treat as red
+  if (r.refills_remaining === 0 && r.rx_number) return 'overdue';
+  if (r.next_refill_date) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const next = new Date(r.next_refill_date);
+    if (!isNaN(next.getTime())) {
+      const days = Math.round((next - today) / 86400000);
+      if (days < 0) return 'overdue';
+      if (days <= 7) return 'refill';
+    }
+  }
+  if (r.refills_remaining === 1) return 'refill';
+  return 'active';
+}
+function medStateDot(state) {
+  return state === 'overdue' ? 'red'
+       : state === 'refill'  ? 'amber'
+       : state === 'discont' ? 'gray'
+       :                       'green';
+}
+
+// Single source of truth for hero name + subtitle (locked decision):
+//   Hero = whatever was prescribed (`name` field)
+//   Subtitle = relationship to the OTHER name + form
+function medHeroLines(r) {
+  const hero = r.name || '';
+  const dose = r.dosage || '';
+  const form = r.form || '';
+  let sub = '';
+  if (r.brand_name && r.generic_name) {
+    if (hero.toLowerCase() === r.brand_name.toLowerCase())   sub = `${r.generic_name}${form?' · '+form:''}`;
+    else if (hero.toLowerCase() === r.generic_name.toLowerCase()) sub = `generic version of ${r.brand_name}${form?' · '+form:''}`;
+    else sub = form;
+  } else if (r.brand_name && hero.toLowerCase() !== r.brand_name.toLowerCase()) {
+    sub = `generic version of ${r.brand_name}${form?' · '+form:''}`;
+  } else if (r.generic_name && hero.toLowerCase() !== r.generic_name.toLowerCase()) {
+    sub = `${r.generic_name}${form?' · '+form:''}`;
+  } else {
+    sub = form;
+  }
+  return { hero, dose, sub };
+}
+
+// Pick Phosphor icon by form. Single source of truth.
+function medFormIcon(form) {
+  const f = (form||'').toLowerCase();
+  if (f.includes('inject') || f.includes('syringe')) return '/assets/icons/phosphor/duotone/syringe-duotone.svg';
+  if (f.includes('liquid')  || f.includes('drop'))   return '/assets/icons/phosphor/duotone/eyedropper-duotone.svg';
+  if (f.includes('inhal'))                            return '/assets/icons/phosphor/duotone/eyedropper-duotone.svg';
+  return '/assets/icons/phosphor/duotone/pill-duotone.svg';
+}
+
+// Avatar for an entity (family member, doctor, pharmacy contact)
+// brand=true gives a brand-color square instead of a gradient circle
+function medAvatar(label, opts = {}) {
+  const t = (label||'?').slice(0, opts.brand ? 3 : 2).toUpperCase();
+  // Gradient seeded by label hash for a stable color per entity
+  let h = 0; for (const c of (label||'')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const grads = [
+    ['#f472b6','#db2777'], ['#34d399','#047857'], ['#a78bfa','#7c3aed'],
+    ['#fb923c','#c2410c'], ['#60a5fa','#1d4ed8'], ['#5eead4','#0d9488'],
+  ];
+  const g = grads[h % grads.length];
+  const cls = opts.brand ? 'med-ent-circle brand' : 'med-ent-circle';
+  return `<div class="${cls}" style="background:linear-gradient(135deg,${g[0]},${g[1]})" title="${esc(opts.title||label||'')}">${esc(t)}</div>`;
+}
+
+function renderMedCard(r) {
+  const state = medRefillState(r);
+  const dot = medStateDot(state);
+  const heroTint = state === 'overdue' ? 'overdue' : state === 'refill' ? 'refill' : state === 'discont' ? 'discont' : 'active';
+  const { hero, dose, sub } = medHeroLines(r);
+
+  // Pill imagery: attachment image first → icon fallback
+  // (For now, the card always shows the icon; an uploaded photo can later
+  // override via a `pill_image_url` field on the record. Slice 1B ships
+  // the icon path — photo override is a small future addition.)
+  const pillImg = `<img src="${medFormIcon(r.form)}" alt="" />`;
+
+  // Multi-condition chips (from junction enrichment) with +N overflow
+  const conds = Array.isArray(r.conditions) ? r.conditions
+              : (r.condition_name_text ? [{ id: r.condition_id, condition_name: r.condition_name_text }] : []);
+  const condChips = conds.slice(0, 2).map(c => `
+    <span class="med-cond-chip" title="Treats: ${esc(c.condition_name)}">
+      <img src="/assets/icons/phosphor/duotone/heart-duotone.svg" alt="">${esc(c.condition_name)}
+    </span>
+  `).join('');
+  const condOverflow = conds.length > 2
+    ? `<span class="med-cond-chip" style="background:transparent;border:1px dashed var(--border);color:var(--text3)">+${conds.length-2}</span>`
+    : '';
+
+  // Instruction icons (max 3): evening / with food / interaction warning
+  const instr = [];
+  if (r.time_of_day === 'evening') instr.push(`<div class="med-instr-chip evening" title="Take in evening"><img src="/assets/icons/phosphor/duotone/moon-duotone.svg" alt=""></div>`);
+  if (r.take_with_food) instr.push(`<div class="med-instr-chip food" title="Take with food"><img src="/assets/icons/phosphor/duotone/fork-knife-duotone.svg" alt=""></div>`);
+  if (r.interaction_warning) instr.push(`<div class="med-instr-chip warn" title="${esc(r.interaction_warning)}"><img src="/assets/icons/phosphor/duotone/warning-duotone.svg" alt=""></div>`);
+
+  // Cross-module strip
+  const hsaYtd = (r.hsa_ytd != null) ? `$${Number(r.hsa_ytd).toFixed(2)}` : '$0.00';
+  const lastFilled = r.last_filled ? formatDate(r.last_filled) : '—';
+
+  // Refill alert (Z3) — only when something needs doing
+  let alertBlock = '';
+  if (state === 'overdue' || state === 'refill') {
+    const daysText = (() => {
+      if (!r.next_refill_date) return state === 'overdue' ? 'Refill overdue' : 'Refill needed soon';
+      const today = new Date(); today.setHours(0,0,0,0);
+      const next = new Date(r.next_refill_date);
+      const days = Math.round((next - today) / 86400000);
+      if (days < 0) return `Refill ${Math.abs(days)} day${Math.abs(days)===1?'':'s'} overdue`;
+      if (days === 0) return `Refill today`;
+      return `Refill in ${days} day${days===1?'':'s'}`;
+    })();
+    const supplyMeta = r.refills_remaining != null
+      ? `${r.refills_remaining} refill${r.refills_remaining===1?'':'s'} left`
+      : '';
+    alertBlock = `
+      <div class="med-alert ${state==='overdue'?'red':'amber'}">
+        <div class="row1">
+          <span class="msg">${esc(daysText)}</span>
+          ${supplyMeta ? `<span class="meta">${esc(supplyMeta)}</span>` : ''}
+          <div style="flex:1"></div>
+          <button class="btn btn-primary" style="padding:6px 12px;font-size:12px"
+                  onclick="event.stopPropagation();openRefillModal(${r.id})">Record refill</button>
+        </div>
+        <div class="row2">
+          <span style="color:var(--text3)">
+            ${r.last_filled ? `Last filled ${formatDate(r.last_filled)}` : ''}
+            ${r.pharmacy_name ? ` · ${esc(r.pharmacy_name)}` : ''}
+            ${r.last_fill_cost != null ? ` · $${Number(r.last_fill_cost).toFixed(2)}` : ''}
+          </span>
+          ${r.rx_number ? `<span style="font-family:var(--mono);color:var(--text2)" title="Rx number">Rx# ${esc(r.rx_number)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Z4: linked entities — patient, doctor (from contact FK), pharmacy
+  const ents = [];
+  const memberName = r.family_member_name || r.patient;
+  if (memberName) ents.push(medAvatar(memberName, { title: memberName + ' · patient' }));
+  if (r.physician || r.physician_contact_id) {
+    const docLabel = r.physician ? `D${r.physician.split(/\s+/).slice(-1)[0][0]||'?'}` : 'DR';
+    ents.push(medAvatar(docLabel, { title: (r.physician||'Doctor') + ' · prescriber' }));
+  }
+  if (r.pharmacy_name) ents.push(medAvatar(r.pharmacy_name, { brand: true, title: r.pharmacy_name + ' · pharmacy' }));
+
+  const tagRow = (r.tags && r.tags.length)
+    ? `<div class="med-tags-row">${r.tags.slice(0,4).map(t=>`<span style="color:var(--text3)">#${esc(t)}</span>`).join('')}${r.tags.length>4?`<span style="color:var(--text3)">+${r.tags.length-4}</span>`:''}</div>`
+    : '';
+
+  return `
+    <div class="med-card ${state==='refill'?'refill-due':state==='overdue'?'refill-overdue':''}" onclick="openMedDetail(${r.id})">
+
+      <div class="med-z1">
+        <div class="med-status-dot ${dot}" title="${esc(r.status)}"></div>
+        ${condChips}${condOverflow}
+        ${r.drug_class ? `<span class="med-class">${esc(r.drug_class)}</span>` : ''}
+        <div style="flex:1"></div>
+        <button class="med-icon-btn" title="Delete"
+                onclick="event.stopPropagation();deleteMed(${r.id})">
+          <img src="/assets/icons/phosphor/duotone/trash-duotone.svg" alt="">
+        </button>
+      </div>
+
+      <div class="med-z2">
+        <div class="med-pill-hero ${heroTint}">${pillImg}</div>
+        <div style="flex:1; min-width:0;">
+          <div class="med-name-line">
+            <span class="med-name">${esc(hero)}</span>
+            ${dose ? `<span class="med-dose">${esc(dose)}</span>` : ''}
+          </div>
+          ${sub ? `<div class="med-sub">${esc(sub)}</div>` : ''}
+          ${r.frequency ? `<div class="med-schedule">${esc(r.frequency)}</div>` : ''}
+        </div>
+      </div>
+
+      ${instr.length ? `<div class="med-z3">${instr.join('')}</div>` : ''}
+      ${tagRow}
+
+      <div class="med-strip">
+        <span title="HSA spent on this med, current year — tap to filter HSA to this">
+          <span class="lbl">HSA YTD</span><strong>${hsaYtd}</strong>
+        </span>
+        <span title="Last refill date">
+          <span class="lbl">Last filled</span><strong>${esc(lastFilled)}</strong>
+        </span>
+        <span title="Refills remaining">
+          <span class="lbl">Refills</span><strong>${r.refills_remaining != null ? r.refills_remaining : '—'}</strong>
+        </span>
+      </div>
+
+      ${alertBlock}
+
+      <div class="med-z4">
+        ${ents.join('')}
+        <div style="flex:1"></div>
+        <button class="med-link-chip" title="Link an HSA receipt to this medication"
+                onclick="event.stopPropagation();openLinkReceiptModal(${r.id},'${esc(hero).replace(/'/g,"\\'")}')">
+          <img src="/assets/icons/phosphor/duotone/link-duotone.svg" alt="">Link receipt
+        </button>
+        ${r.attachment_count ? `<span class="med-link-chip" title="${r.attachment_count} attachment${r.attachment_count===1?'':'s'}">
+          <img src="/assets/icons/phosphor/duotone/paperclip-duotone.svg" alt="">${r.attachment_count}
+        </span>` : ''}
+      </div>
+
+    </div>
+  `;
+}
+
+// ── Detail center modal (slice 1B) ─────────────────────────────
+// Read-only summary of the same Card #1 v5 layout, larger, with
+// action buttons. Click "Edit" to open the existing edit drawer.
+function openMedDetail(id) {
+  const r = (window._medRowsCache || []).find(x => x.id === id);
+  if (!r) { showToast('Medication not found','err'); return; }
+  const card = renderMedCard(r);
+  const html = `
+    <div style="padding:8px 8px 0">${card.replace('onclick="openMedDetail('+id+')"','')}</div>
+    <div class="gh-cmodal-actions">
+      <button class="btn" onclick="closeMedDetail();editMedication(${id})">Edit details</button>
+      <button class="btn" onclick="closeMedDetail();openRefillModal(${id})">Record refill</button>
+      <button class="btn" onclick="closeMedDetail();openLinkReceiptModal(${id},'${esc(r.name).replace(/'/g,"\\'")}')">Link receipt</button>
+      <button class="btn btn-ghost" onclick="closeMedDetail()">Close</button>
+    </div>
+  `;
+  $id('medDetailBody').innerHTML = html;
+  $id('medDetailOverlay').classList.add('open');
+}
+function closeMedDetail() { $id('medDetailOverlay').classList.remove('open'); }
+
+// ── Record-refill mini modal (slice 1B) ────────────────────────
+// Logs a row in med_medication_fills via POST /medications/:id/fills.
+// Server-side bumps next_refill_date and decrements refills_remaining.
+async function openRefillModal(medId) {
+  const r = (window._medRowsCache || []).find(x => x.id === medId);
+  if (!r) { showToast('Medication not found','err'); return; }
+  const today = new Date().toISOString().slice(0,10);
+  const html = `
+    <div style="padding:18px 18px 8px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:4px">Record refill — ${esc(r.name)}</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Logs a refill so "Last filled" updates and "Refills left" goes down by one.</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date filled <span class="req">*</span></label>
+          <input class="form-input" type="date" id="rfDate" value="${today}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Days supply</label>
+          <input class="form-input" type="number" id="rfDays" min="1" placeholder="30">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Cost paid</label>
+          <input class="form-input" type="number" step="0.01" id="rfCost" placeholder="12.40">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Pharmacy</label>
+          <select class="form-select" id="rfPharmacy"></select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Notes <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
+        <input class="form-input" type="text" id="rfNotes" placeholder="e.g. used GoodRx coupon">
+      </div>
+    </div>
+    <div class="gh-cmodal-actions">
+      <button class="btn btn-primary" onclick="saveRefill(${medId})">Save refill</button>
+      <button class="btn btn-ghost" onclick="closeRefillModal()">Cancel</button>
+    </div>
+  `;
+  $id('medDetailBody').innerHTML = html;
+  $id('medDetailOverlay').classList.add('open');
+  await GH_REFS.populateContact('rfPharmacy', r.pharmacy_contact_id || null, { type: 'General', placeholder: '— none —' });
+}
+function closeRefillModal() { $id('medDetailOverlay').classList.remove('open'); }
+async function saveRefill(medId) {
+  const fill_date = $id('rfDate').value;
+  if (!fill_date) { showToast('Date required','err'); return; }
+  const body = {
+    fill_date,
+    days_supply: $id('rfDays').value || null,
+    cost: $id('rfCost').value || null,
+    pharmacy_contact_id: $id('rfPharmacy').value ? parseInt($id('rfPharmacy').value) : null,
+    notes: $id('rfNotes').value.trim() || null,
+  };
+  try {
+    await api('POST', `/medical/medications/${medId}/fills`, body);
+    showToast('Refill recorded');
+    closeRefillModal();
+    await renderMedications();
+  } catch(e) { showToast(e.message, 'err'); }
+}
+
+// ── Link receipt mini modal (slice 1B) ─────────────────────────
+// Lists recent HSA payments; user picks one to link to this medication.
+// POST /api/v1/hsa/payments/:paymentId/links { entity_type:'medication', entity_id:medId }
+async function openLinkReceiptModal(medId, medName) {
+  const html = `
+    <div style="padding:18px 18px 8px">
+      <div style="font-size:18px;font-weight:600;margin-bottom:4px">Link a receipt to ${esc(medName)}</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:14px">Pick an HSA receipt that paid for this medication. After linking, the receipt's amount counts toward this med's HSA YTD.</div>
+      <div id="lrList" style="max-height:50vh;overflow-y:auto;border:0.5px solid var(--border);border-radius:10px"></div>
+    </div>
+    <div class="gh-cmodal-actions">
+      <button class="btn btn-ghost" onclick="closeLinkReceiptModal()">Close</button>
+    </div>
+  `;
+  $id('medDetailBody').innerHTML = html;
+  $id('medDetailOverlay').classList.add('open');
+
+  const list = $id('lrList');
+  list.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px">Loading receipts…</div>';
+  try {
+    const year = new Date().getFullYear();
+    const payments = await api('GET', `/hsa/payments?year=${year}`);
+    if (!payments.length) { list.innerHTML = '<div style="padding:14px;color:var(--text3);font-size:13px">No HSA receipts this year. Add one in HSA first.</div>'; return; }
+    list.innerHTML = payments.slice(0, 50).map(p => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:0.5px solid var(--border);cursor:pointer"
+           onclick="confirmLinkReceipt(${p.id}, ${medId})">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500">${esc(p.provider || p.category || 'Receipt')}</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(p.date||'')} ${p.patient ? '· ' + esc(p.patient) : ''}</div>
+        </div>
+        <div style="font-size:14px;font-weight:600;color:var(--text2)">$${Number(p.you_paid||0).toFixed(2)}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    list.innerHTML = `<div style="padding:14px;color:var(--red);font-size:13px">${esc(e.message)}</div>`;
+  }
+}
+function closeLinkReceiptModal() { $id('medDetailOverlay').classList.remove('open'); }
+async function confirmLinkReceipt(paymentId, medId) {
+  try {
+    await api('POST', `/hsa/payments/${paymentId}/links`, { entity_type: 'medication', entity_id: medId });
+    showToast('Receipt linked');
+    closeLinkReceiptModal();
+    await renderMedications();
+  } catch(e) { showToast(e.message, 'err'); }
+}
+
+function statusDotClass(status) {
+  const m = {
+    'Active': 'status-active',
+    'Discontinued': 'status-discontinued', 'Resolved': 'status-resolved',
+    'As Needed': 'status-asneeded', 'Monitoring': 'status-monitoring',
+    'Chronic': 'status-chronic', 'Completed': 'status-completed',
+  };
+  return m[status] || 'status-active';
+}
+
+// ── Legacy renderMedications removed in v202604.142 — replaced by Card #1 v5 above ──
 
 // Drug interaction check — runs after medications render
 // Shows a small orange/red badge; clicking opens a detail sheet
@@ -885,11 +1422,15 @@ async function renderNotes() {
     };
   }
 
-  window.renderMedications = makeCardRender(
-    'medical_medications', '/medical/medications',
-    ['name','patient','dosage','frequency','purpose','notes'],
-    'status', 'medications'
-  );
+  // Slice 1B (v202604.142): renderMedications is owned by Card #1 v5 above
+  // (defined via `async function renderMedications()`). Don't override it
+  // here. Conditions and notes still use the generic GH_CARD render.
+  //
+  // window.renderMedications = makeCardRender(
+  //   'medical_medications', '/medical/medications',
+  //   ['name','patient','dosage','frequency','purpose','notes'],
+  //   'status', 'medications'
+  // );
   window.renderConditions = makeCardRender(
     'medical_conditions', '/medical/conditions',
     ['condition','patient','notes'],
@@ -928,6 +1469,14 @@ async function openMedDrawer(r) {
   $id('mRefills').value = r?.refills_remaining ?? '';
   $id('mNextRefill').value = r?.next_refill_date || '';
   $id('mSchedule').value = r?.controlled_schedule || '';
+  // Slice 1B: new fields
+  $id('mForm').value = r?.form || '';
+  $id('mGeneric').value = r?.generic_name || '';
+  $id('mBrand').value = r?.brand_name || '';
+  $id('mClass').value = r?.drug_class || '';
+  $id('mTakeWithFood').checked = !!r?.take_with_food;
+  $id('mTimeOfDay').value = r?.time_of_day || '';
+  $id('mInteraction').value = r?.interaction_warning || '';
   // Populate condition dropdown with active conditions for this patient
   await loadConditionsForPatient($id('mCondition'), r?.condition_id);
   $id('mNotes').value = r?.notes || '';
@@ -960,6 +1509,14 @@ async function saveMedication() {
     refills_remaining: $id('mRefills').value !== '' ? parseInt($id('mRefills').value) : null,
     next_refill_date: $id('mNextRefill').value||null,
     controlled_schedule: $id('mSchedule').value||null,
+    // Slice 1B: new fields
+    form: $id('mForm').value || null,
+    generic_name: $id('mGeneric').value.trim() || null,
+    brand_name: $id('mBrand').value.trim() || null,
+    drug_class: $id('mClass').value.trim() || null,
+    take_with_food: $id('mTakeWithFood').checked ? 1 : 0,
+    time_of_day: $id('mTimeOfDay').value || null,
+    interaction_warning: $id('mInteraction').value.trim() || null,
     purpose: $id('mPurpose').value.trim()||null, notes: $id('mNotes').value.trim()||null,
     tags: medFormTags,
   };
