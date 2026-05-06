@@ -383,7 +383,7 @@ router.get('/links/by-entity', (req, res) => {
       return badRequest(res, `entity_type must be one of: ${Array.from(ALLOWED_LINK_TYPES).join(', ')}`);
     }
     const rows = db.prepare(`
-      SELECT p.id, p.date, p.amount, p.you_paid, p.provider, p.category, p.notes,
+      SELECT p.id, p.date, p.you_paid AS amount, p.you_paid, p.provider, p.category, p.notes,
              l.id AS link_id, l.created_at AS linked_at
       FROM hsa_payment_links l
       JOIN hsa_payments p ON p.id = l.hsa_payment_id

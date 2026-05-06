@@ -71,7 +71,7 @@ router.get('/medications', (req, res) => {
         WHERE medication_id = ? ORDER BY fill_date DESC LIMIT 1
       `) : null;
       const ytdStmt = hasLinks ? db.prepare(`
-        SELECT COALESCE(SUM(p.amount), 0) AS total FROM hsa_payment_links l
+        SELECT COALESCE(SUM(p.you_paid), 0) AS total FROM hsa_payment_links l
         JOIN hsa_payments p ON p.id = l.hsa_payment_id
         WHERE l.entity_type = 'medication' AND l.entity_id = ?
           AND substr(p.date, 1, 4) = strftime('%Y', 'now')
