@@ -33,6 +33,95 @@
 
 <hr>
 
+<h2>Active vertical slice</h2>
+
+<p class="meta">
+  Approach locked 2026-05-06: <strong>module at a time, vertical slice, ship before moving on.</strong>
+  Reason: 22 drafts, 1 wired card. Design-first wasn't shipping.
+  Reports stay deferred until at least one module surface is wired
+  with real cross-module data.
+</p>
+
+<p class="meta">
+  <strong>Module 1: Medical.</strong> Card #1 (Medication) is locked.
+  Tile #17.1 designed. Condition card #6 drafted. Most "home system"
+  interconnection (HSA YTD on a med card, multi-condition chips, family
+  member avatar) lives here.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Slice</th><th>Status</th><th>Drop</th><th>What's in it</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1A — Medications schema + API</td>
+      <td><strong>shipped this drop</strong></td>
+      <td>v202604.141</td>
+      <td>Migration 119: 7 new med columns + 3 new tables (multi-condition junction, polymorphic HSA payment links, fill history). New API endpoints for fills + condition junction + HSA links. <strong>No UI changes.</strong> Existing medical page keeps rendering as before.</td>
+    </tr>
+    <tr>
+      <td>1B — Medications UI rebuild</td>
+      <td>next</td>
+      <td>—</td>
+      <td>Replace simple medication card on <code>medical.html</code> with Card #1 v5 layout. Center modal for detail. Cross-module strip live (HSA YTD, log mentions, last filled). Refill action → fills table. "Link receipt" button → HSA picker. Pill imagery: user upload OR Phosphor icon by form, status-tinted.</td>
+    </tr>
+    <tr>
+      <td>2 — Conditions</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Card #6 to real data on a Conditions tab. Multi-condition junction makes "meds for this condition" trivial.</td>
+    </tr>
+    <tr>
+      <td>3 — Visits + Tile #17.1</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Visits list + year-at-a-glance tile.</td>
+    </tr>
+    <tr>
+      <td>4 — Labs / vitals</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Sparkline trends on the family profile profile card.</td>
+    </tr>
+    <tr>
+      <td>5 — HSA fold-in</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Resolves the <code>/hsa.html</code> orphan. HSA becomes a tab inside Medical. Receipt linker UI lives here.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Slice 1 — locked design decisions (this chat)</h3>
+
+<ul class="locked-list">
+  <li>Multi-condition: junction table <code>med_medication_conditions</code> (singular <code>condition_id</code> column kept, not dropped — additive only).</li>
+  <li>HSA ↔ entity link: polymorphic <code>hsa_payment_links</code> (entity_type + entity_id, allowlist enforced server-side).</li>
+  <li>Fill history: new <code>med_medication_fills</code> table.</li>
+  <li>New <code>med_medications</code> columns: <code>brand_name</code>, <code>generic_name</code>, <code>form</code>, <code>drug_class</code>, <code>take_with_food</code>, <code>time_of_day</code>, <code>interaction_warning</code>.</li>
+  <li>Hero on the card = whatever was prescribed. Subtitle shows the OTHER name ("generic version of Lipitor" if generic was prescribed).</li>
+  <li>Drug class column added but hidden from display when empty. Auto-lookup via RxClass API deferred to a later slice.</li>
+  <li>Pill imagery: user-uploaded photo via attach-lifecycle wins → falls back to Phosphor icon by <code>form</code> field, status-tinted. Procedural pill render dropped.</li>
+  <li>HSA receipt linking is bidirectional — link from med card and from HSA receipt. Plain language, no jargon.</li>
+  <li><code>family_member_id</code> backfilled from <code>patient</code> text on case-insensitive match. <code>patient</code> column kept alive (no destructive deletes per project rules).</li>
+</ul>
+
+<h3>Slice 1A verification checklist (after deploy)</h3>
+
+<ul>
+  <li>New migration 119 logged in <code>_migrations</code> table. <code>docker logs ghrava | grep "apply 119"</code> should appear once.</li>
+  <li><code>PRAGMA table_info(med_medications)</code> shows the 7 new columns.</li>
+  <li>Tables exist: <code>med_medication_conditions</code>, <code>hsa_payment_links</code>, <code>med_medication_fills</code>.</li>
+  <li>Existing <code>medical.html</code> page renders identically — no visual regressions.</li>
+  <li><code>GET /api/v1/medical/medications</code> still returns the same shape as before, plus three new fields per row: <code>conditions</code>, <code>last_filled</code>, <code>hsa_ytd</code>.</li>
+  <li><code>GET /api/v1/medical/medications/:id/fills</code> returns <code>[]</code> for any med (no fills recorded yet).</li>
+  <li><code>POST /api/v1/hsa/payments/:id/links</code> with body <code>{entity_type:"medication", entity_id:X}</code> creates a link.</li>
+  <li><code>GET /api/v1/hsa/links/by-entity?entity_type=medication&amp;entity_id=X</code> returns the linked payment(s).</li>
+</ul>
+
+<hr>
+
 <h2>Rough % done by area</h2>
 
 <table>

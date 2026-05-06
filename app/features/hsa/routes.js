@@ -324,6 +324,77 @@ router.get('/payments/export/csv', (req, res) => {
 });
 
 // ══════════════════════════════════════════════════════════════
+// SLICE 1 — HSA PAYMENT LINKS (polymorphic)
+// One payment can link to many entities. Same shape as
+// record_family_members. Used for: receipt → medication, visit,
+// condition, etc. Allowlisted entity_types only.
+// ══════════════════════════════════════════════════════════════
+
+const ALLOWED_LINK_TYPES = new Set(['medication', 'visit', 'condition', 'eob_claim']);
+
+// GET /api/v1/hsa/payments/:id/links
+router.get('/payments/:id/links', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT id, hsa_payment_id, entity_type, entity_id, created_at
+      FROM hsa_payment_links
+      WHERE hsa_payment_id = ?
+      ORDER BY entity_type, entity_id
+    `).all(req.params.id);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+// POST /api/v1/hsa/payments/:id/links
+// Body: { entity_type, entity_id }
+router.post('/payments/:id/links', (req, res) => {
+  try {
+    const { entity_type, entity_id } = req.body || {};
+    if (!entity_type || !entity_id) return badRequest(res, 'entity_type and entity_id required');
+    if (!ALLOWED_LINK_TYPES.has(entity_type)) {
+      return badRequest(res, `entity_type must be one of: ${Array.from(ALLOWED_LINK_TYPES).join(', ')}`);
+    }
+    const info = db.prepare(`
+      INSERT OR IGNORE INTO hsa_payment_links (hsa_payment_id, entity_type, entity_id)
+      VALUES (?, ?, ?)
+    `).run(req.params.id, entity_type, entity_id);
+    res.status(201).json({ ok: true, id: info.lastInsertRowid });
+  } catch (e) { serverError(res, e); }
+});
+
+// DELETE /api/v1/hsa/payments/:id/links/:linkId
+router.delete('/payments/:id/links/:linkId', (req, res) => {
+  try {
+    db.prepare(`
+      DELETE FROM hsa_payment_links WHERE id = ? AND hsa_payment_id = ?
+    `).run(req.params.linkId, req.params.id);
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// GET /api/v1/hsa/links/by-entity?entity_type=medication&entity_id=42
+// Returns the payments linked to a given entity. Used by the medication
+// card to show its receipts list, and by other modules wanting reverse lookup.
+router.get('/links/by-entity', (req, res) => {
+  try {
+    const { entity_type, entity_id } = req.query;
+    if (!entity_type || !entity_id) return badRequest(res, 'entity_type and entity_id required');
+    if (!ALLOWED_LINK_TYPES.has(entity_type)) {
+      return badRequest(res, `entity_type must be one of: ${Array.from(ALLOWED_LINK_TYPES).join(', ')}`);
+    }
+    const rows = db.prepare(`
+      SELECT p.id, p.date, p.amount, p.you_paid, p.provider, p.category, p.notes,
+             l.id AS link_id, l.created_at AS linked_at
+      FROM hsa_payment_links l
+      JOIN hsa_payments p ON p.id = l.hsa_payment_id
+      WHERE l.entity_type = ? AND l.entity_id = ?
+      ORDER BY p.date DESC
+    `).all(entity_type, entity_id);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
 // OTC PURCHASES
 // ══════════════════════════════════════════════════════════════
 

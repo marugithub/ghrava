@@ -49,7 +49,46 @@ router.get('/medications', (req, res) => {
     if (req.query.family_member_id && hasFamilyMed) { sql += ' AND m.family_member_id=?'; p.push(req.query.family_member_id); }
     if (req.query.status)           { sql += ' AND m.status=?'; p.push(req.query.status); }
     sql += hasFamilyMed ? ' ORDER BY fm.display_name, m.status, m.name COLLATE NOCASE' : ' ORDER BY m.patient, m.status, m.name COLLATE NOCASE';
-    res.json(db.prepare(sql).all(...p).map(m => withTagNames(m, 'medical_medication')));
+    const rows = db.prepare(sql).all(...p).map(m => withTagNames(m, 'medical_medication'));
+
+    // Slice 1 enrichment — additive only, behind table-existence guards so this
+    // route still works on a DB that hasn't run migration 119 yet.
+    const tableExists = (name) =>
+      !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
+    const hasJunction = tableExists('med_medication_conditions');
+    const hasFills    = tableExists('med_medication_fills');
+    const hasLinks    = tableExists('hsa_payment_links');
+
+    if (hasJunction || hasFills || hasLinks) {
+      const condStmt = hasJunction ? db.prepare(`
+        SELECT c.id, c.condition_name FROM med_medication_conditions mc
+        JOIN med_conditions c ON c.id = mc.condition_id
+        WHERE mc.medication_id = ?
+        ORDER BY c.condition_name COLLATE NOCASE
+      `) : null;
+      const fillStmt = hasFills ? db.prepare(`
+        SELECT fill_date, days_supply, cost FROM med_medication_fills
+        WHERE medication_id = ? ORDER BY fill_date DESC LIMIT 1
+      `) : null;
+      const ytdStmt = hasLinks ? db.prepare(`
+        SELECT COALESCE(SUM(p.amount), 0) AS total FROM hsa_payment_links l
+        JOIN hsa_payments p ON p.id = l.hsa_payment_id
+        WHERE l.entity_type = 'medication' AND l.entity_id = ?
+          AND substr(p.date, 1, 4) = strftime('%Y', 'now')
+      `) : null;
+
+      for (const m of rows) {
+        if (condStmt) m.conditions = condStmt.all(m.id);
+        if (fillStmt) {
+          const f = fillStmt.get(m.id);
+          m.last_filled = f ? f.fill_date : null;
+          m.last_fill_cost = f ? f.cost : null;
+        }
+        if (ytdStmt) m.hsa_ytd = ytdStmt.get(m.id).total;
+      }
+    }
+
+    res.json(rows);
   } catch (e) { serverError(res, e); }
 });
 
@@ -57,40 +96,115 @@ router.post('/medications', requireAuth, (req, res) => {
   try {
     const d = req.body;
     if (!d.name) return badRequest(res, 'name required');
-    const info = db.prepare(`
-      INSERT INTO med_medications (patient, name, dosage, frequency, physician, physician_contact_id, start_date, end_date, status, purpose, notes,
-         family_member_id, pharmacy_contact_id, condition_id,
-         rx_number, refills_remaining, next_refill_date, controlled_schedule)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,
-         ?,?,?,?,?,?,?)
-    `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
-           d.physician||null, d.physician_contact_id||null,
-           d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
-           d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
-           d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
-           d.next_refill_date||null, d.controlled_schedule||null);
-    if (d.tags) saveTagsByName(info.lastInsertRowid, 'medical_medication', d.tags);
-    res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_medications WHERE id=?').get(info.lastInsertRowid), 'medical_medication'));
+
+    // Slice 1: new columns are optional. Defensively check existence so
+    // this route works on a DB that hasn't run migration 119 yet.
+    const cols = db.prepare("PRAGMA table_info(med_medications)").all().map(r => r.name);
+    const hasSliceCols = cols.includes('brand_name');
+
+    let info;
+    if (hasSliceCols) {
+      info = db.prepare(`
+        INSERT INTO med_medications (patient, name, dosage, frequency, physician, physician_contact_id, start_date, end_date, status, purpose, notes,
+           family_member_id, pharmacy_contact_id, condition_id,
+           rx_number, refills_remaining, next_refill_date, controlled_schedule,
+           brand_name, generic_name, form, drug_class,
+           take_with_food, time_of_day, interaction_warning)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,
+           ?,?,?,?,?,?,?,
+           ?,?,?,?,
+           ?,?,?)
+      `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
+             d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
+             d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
+             d.next_refill_date||null, d.controlled_schedule||null,
+             d.brand_name||null, d.generic_name||null, d.form||null, d.drug_class||null,
+             d.take_with_food?1:0, d.time_of_day||null, d.interaction_warning||null);
+    } else {
+      info = db.prepare(`
+        INSERT INTO med_medications (patient, name, dosage, frequency, physician, physician_contact_id, start_date, end_date, status, purpose, notes,
+           family_member_id, pharmacy_contact_id, condition_id,
+           rx_number, refills_remaining, next_refill_date, controlled_schedule)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,
+           ?,?,?,?,?,?,?)
+      `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
+             d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
+             d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
+             d.next_refill_date||null, d.controlled_schedule||null);
+    }
+
+    // Slice 1: also populate the junction if condition_id was given,
+    // and accept an optional condition_ids array for multi-condition.
+    const newId = info.lastInsertRowid;
+    const junctionExists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_medication_conditions'").get();
+    if (junctionExists) {
+      const linkStmt = db.prepare('INSERT OR IGNORE INTO med_medication_conditions (medication_id, condition_id) VALUES (?, ?)');
+      if (d.condition_id) linkStmt.run(newId, d.condition_id);
+      if (Array.isArray(d.condition_ids)) {
+        for (const cid of d.condition_ids) if (cid) linkStmt.run(newId, cid);
+      }
+    }
+
+    if (d.tags) saveTagsByName(newId, 'medical_medication', d.tags);
+    res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_medications WHERE id=?').get(newId), 'medical_medication'));
   } catch (e) { serverError(res, e); }
 });
 
 router.put('/medications/:id', requireAuth, (req, res) => {
   try {
     const d = req.body;
-    db.prepare(`
-      UPDATE med_medications SET patient=?, name=?, dosage=?, frequency=?, physician=?,
-        physician_contact_id=?, start_date=?, end_date=?, status=?, purpose=?, notes=?,
-        family_member_id=?, pharmacy_contact_id=?, condition_id=?,
-        rx_number=?, refills_remaining=?, next_refill_date=?, controlled_schedule=?,
-        updated_at=CURRENT_TIMESTAMP
-      WHERE id=?
-    `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
-           d.physician||null, d.physician_contact_id||null,
-           d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
-           d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
-           d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
-           d.next_refill_date||null, d.controlled_schedule||null,
-           req.params.id);
+    const cols = db.prepare("PRAGMA table_info(med_medications)").all().map(r => r.name);
+    const hasSliceCols = cols.includes('brand_name');
+
+    if (hasSliceCols) {
+      db.prepare(`
+        UPDATE med_medications SET patient=?, name=?, dosage=?, frequency=?, physician=?,
+          physician_contact_id=?, start_date=?, end_date=?, status=?, purpose=?, notes=?,
+          family_member_id=?, pharmacy_contact_id=?, condition_id=?,
+          rx_number=?, refills_remaining=?, next_refill_date=?, controlled_schedule=?,
+          brand_name=?, generic_name=?, form=?, drug_class=?,
+          take_with_food=?, time_of_day=?, interaction_warning=?,
+          updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+      `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
+             d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
+             d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
+             d.next_refill_date||null, d.controlled_schedule||null,
+             d.brand_name||null, d.generic_name||null, d.form||null, d.drug_class||null,
+             d.take_with_food?1:0, d.time_of_day||null, d.interaction_warning||null,
+             req.params.id);
+    } else {
+      db.prepare(`
+        UPDATE med_medications SET patient=?, name=?, dosage=?, frequency=?, physician=?,
+          physician_contact_id=?, start_date=?, end_date=?, status=?, purpose=?, notes=?,
+          family_member_id=?, pharmacy_contact_id=?, condition_id=?,
+          rx_number=?, refills_remaining=?, next_refill_date=?, controlled_schedule=?,
+          updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+      `).run(d.patient||'Self', d.name, d.dosage||null, d.frequency||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.start_date||null, d.end_date||null, d.status||'Active', d.purpose||null, d.notes||null,
+             d.family_member_id||null, d.pharmacy_contact_id||null, d.condition_id||null,
+             d.rx_number||null, d.refills_remaining!=null?parseInt(d.refills_remaining):null,
+             d.next_refill_date||null, d.controlled_schedule||null,
+             req.params.id);
+    }
+
+    // Slice 1: accept condition_ids array for full replacement of junction rows.
+    // If condition_ids is not provided, junction is left alone (additive only).
+    const junctionExists = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_medication_conditions'").get();
+    if (junctionExists && Array.isArray(d.condition_ids)) {
+      db.prepare('DELETE FROM med_medication_conditions WHERE medication_id=?').run(req.params.id);
+      const linkStmt = db.prepare('INSERT OR IGNORE INTO med_medication_conditions (medication_id, condition_id) VALUES (?, ?)');
+      for (const cid of d.condition_ids) if (cid) linkStmt.run(req.params.id, cid);
+    }
+
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'medical_medication', d.tags);
     clearReview('med_medications', req.params.id);
     res.json(withTagNames(db.prepare('SELECT * FROM med_medications WHERE id=?').get(req.params.id), 'medical_medication'));
@@ -113,6 +227,128 @@ router.get('/medications/export/csv', (req, res) => {
     res.setHeader('Content-Type', 'text/csv');
     res.setHeader('Content-Disposition', 'attachment; filename="medications.csv"');
     res.send([h.join(','), ...lines].join('\n'));
+  } catch (e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// SLICE 1 — MEDICATION CONDITIONS JUNCTION
+// (multi-condition per medication via med_medication_conditions)
+// ══════════════════════════════════════════════════════════════
+
+// GET /api/v1/medical/medications/:id/conditions
+router.get('/medications/:id/conditions', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT c.id, c.condition_name, c.status, mc.created_at AS linked_at
+      FROM med_medication_conditions mc
+      JOIN med_conditions c ON c.id = mc.condition_id
+      WHERE mc.medication_id = ?
+      ORDER BY c.condition_name COLLATE NOCASE
+    `).all(req.params.id);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+// POST /api/v1/medical/medications/:id/conditions
+// Body: { condition_id }
+router.post('/medications/:id/conditions', requireAuth, (req, res) => {
+  try {
+    const { condition_id } = req.body || {};
+    if (!condition_id) return badRequest(res, 'condition_id required');
+    db.prepare(`
+      INSERT OR IGNORE INTO med_medication_conditions (medication_id, condition_id)
+      VALUES (?, ?)
+    `).run(req.params.id, condition_id);
+    res.status(201).json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// DELETE /api/v1/medical/medications/:id/conditions/:condId
+router.delete('/medications/:id/conditions/:condId', requireAuth, (req, res) => {
+  try {
+    db.prepare(`
+      DELETE FROM med_medication_conditions
+      WHERE medication_id = ? AND condition_id = ?
+    `).run(req.params.id, req.params.condId);
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// SLICE 1 — MEDICATION FILL HISTORY
+// (each refill is a row; last_filled = MAX(fill_date) per medication)
+// ══════════════════════════════════════════════════════════════
+
+// GET /api/v1/medical/medications/:id/fills
+router.get('/medications/:id/fills', (req, res) => {
+  try {
+    const rows = db.prepare(`
+      SELECT f.*, c.name AS pharmacy_name
+      FROM med_medication_fills f
+      LEFT JOIN contacts c ON c.id = f.pharmacy_contact_id
+      WHERE f.medication_id = ?
+      ORDER BY f.fill_date DESC, f.id DESC
+    `).all(req.params.id);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+// POST /api/v1/medical/medications/:id/fills
+// Body: { fill_date, days_supply?, pharmacy_contact_id?, cost?, hsa_payment_id?, notes? }
+// Side effects:
+//   - bumps med_medications.next_refill_date if days_supply provided
+//   - decrements refills_remaining if currently > 0
+router.post('/medications/:id/fills', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    if (!d.fill_date) return badRequest(res, 'fill_date required');
+    const info = db.prepare(`
+      INSERT INTO med_medication_fills
+        (medication_id, fill_date, days_supply, pharmacy_contact_id, cost, hsa_payment_id, notes)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      req.params.id,
+      d.fill_date,
+      d.days_supply != null ? parseInt(d.days_supply) : null,
+      d.pharmacy_contact_id || null,
+      d.cost != null ? parseFloat(d.cost) : null,
+      d.hsa_payment_id || null,
+      d.notes || null
+    );
+
+    // Side effect: update next_refill_date and refills_remaining on the med
+    const med = db.prepare('SELECT refills_remaining FROM med_medications WHERE id=?').get(req.params.id);
+    if (med) {
+      let nextDate = null;
+      if (d.days_supply) {
+        const fd = new Date(d.fill_date);
+        if (!isNaN(fd.getTime())) {
+          fd.setDate(fd.getDate() + parseInt(d.days_supply));
+          nextDate = fd.toISOString().slice(0, 10);
+        }
+      }
+      const newRefills = (med.refills_remaining != null && med.refills_remaining > 0)
+        ? med.refills_remaining - 1
+        : med.refills_remaining;
+      db.prepare(`
+        UPDATE med_medications
+           SET next_refill_date = COALESCE(?, next_refill_date),
+               refills_remaining = ?,
+               updated_at = CURRENT_TIMESTAMP
+         WHERE id = ?
+      `).run(nextDate, newRefills, req.params.id);
+    }
+
+    res.status(201).json(db.prepare('SELECT * FROM med_medication_fills WHERE id=?').get(info.lastInsertRowid));
+  } catch (e) { serverError(res, e); }
+});
+
+// DELETE /api/v1/medical/medications/:id/fills/:fillId
+router.delete('/medications/:id/fills/:fillId', requireAuth, (req, res) => {
+  try {
+    db.prepare('DELETE FROM med_medication_fills WHERE id=? AND medication_id=?')
+      .run(req.params.fillId, req.params.id);
+    res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
 
