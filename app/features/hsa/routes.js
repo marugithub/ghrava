@@ -682,8 +682,11 @@ router.get('/inbox', (req, res) => {
     const items = [];
 
     // HSA drafts
+    // v202604.143 fix: hsa_payments has `you_paid`, not `amount` (only
+    // hsa_otc and fsa_payments use `amount`). Dropped p.amount from the
+    // SELECT — the response shape below never reads it anyway.
     const hsaDrafts = db.prepare(`
-      SELECT p.id, p.date, p.amount, p.you_paid, p.patient, p.provider,
+      SELECT p.id, p.date, p.you_paid, p.patient, p.provider,
              p.inbox_attachment_id, p.created_at,
              a.file_name, a.file_path, a.mime_type, a.id AS attachment_id
       FROM hsa_payments p

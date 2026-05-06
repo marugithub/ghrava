@@ -387,17 +387,34 @@ router.get('/notes/export/csv', (req, res) => {
 // GET /api/v1/medical/conditions?patient=Self&status=Active
 router.get('/conditions', (req, res) => {
   try {
-    // v202604.119: surface counts that the medical_conditions card config
-    // reads. We can't link meds to a specific condition (no FK on
-    // med_medications.condition_id) — but we CAN count active meds for the
-    // same patient or family_member_id, which is the useful data anyway:
-    // "this patient has N active meds, M open todos, V visits on file."
+    // Slice 2 (v202604.143) — Card #6 enrichment.
+    //
+    // The card needs:
+    //   - active_meds_count from junction (preferred) or patient-match fallback
+    //   - related_visits_count from medical_notes
+    //   - hsa_ytd from polymorphic hsa_payment_links (entity_type='condition')
+    //   - latest tracked-metric value if a labs/vitals table exists
+    //
+    // All enrichment is wrapped in table-existence guards so the route still
+    // runs on a DB without slice 1 / slice 2 schema additions.
+    const condCols = db.prepare("PRAGMA table_info(med_conditions)").all().map(r => r.name);
+    const hasFamilyCond  = condCols.includes('family_member_id');
+    const hasBodySystem  = condCols.includes('body_system');
+    const hasGoal        = condCols.includes('goal');
+    const hasMetric      = condCols.includes('tracked_metric');
+    const hasState       = condCols.includes('condition_state');
+    const tableExists = (name) =>
+      !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
+    const hasJunction = tableExists('med_medication_conditions');
+    const hasLinks    = tableExists('hsa_payment_links');
+    const hasLabs     = tableExists('medical_labs') || tableExists('med_labs') || tableExists('vitals');
+    // Pick whichever labs table exists — we only read from one, derived view
+    const labsTable = tableExists('medical_labs') ? 'medical_labs'
+                    : tableExists('med_labs')     ? 'med_labs'
+                    : tableExists('vitals')       ? 'vitals'
+                    : null;
+
     let sql = `SELECT c.*, fm.display_name AS family_member_name,
-        (SELECT COUNT(*) FROM med_medications m
-           WHERE m.status='Active' AND
-                 ((c.family_member_id IS NOT NULL AND m.family_member_id = c.family_member_id)
-                  OR m.patient = c.patient)
-        ) AS active_meds_count,
         (SELECT COUNT(*) FROM med_visit_notes v
            WHERE (c.family_member_id IS NOT NULL AND v.family_member_id = c.family_member_id)
               OR v.patient = c.patient
@@ -409,7 +426,70 @@ router.get('/conditions', (req, res) => {
     if (req.query.patient) { sql += ' AND patient=?'; p.push(req.query.patient); }
     if (req.query.status)  { sql += ' AND status=?';  p.push(req.query.status); }
     sql += ' ORDER BY patient, status, condition_name COLLATE NOCASE';
-    res.json(db.prepare(sql).all(...p));
+    const rows = db.prepare(sql).all(...p);
+
+    // Per-row enrichment
+    const medCountByJunction = hasJunction ? db.prepare(`
+      SELECT COUNT(DISTINCT mc.medication_id) AS cnt
+      FROM med_medication_conditions mc
+      JOIN med_medications m ON m.id = mc.medication_id
+      WHERE mc.condition_id = ? AND m.status='Active'
+    `) : null;
+    const medCountByPatient = db.prepare(`
+      SELECT COUNT(*) AS cnt FROM med_medications m
+      WHERE m.status='Active' AND
+            ((? IS NOT NULL AND m.family_member_id = ?) OR m.patient = ?)
+    `);
+    const medsByJunction = hasJunction ? db.prepare(`
+      SELECT m.id, m.name, m.dosage FROM med_medication_conditions mc
+      JOIN med_medications m ON m.id = mc.medication_id
+      WHERE mc.condition_id = ? AND m.status='Active'
+      ORDER BY m.name COLLATE NOCASE LIMIT 5
+    `) : null;
+    const ytdStmt = hasLinks ? db.prepare(`
+      SELECT COALESCE(SUM(p.you_paid), 0) AS total FROM hsa_payment_links l
+      JOIN hsa_payments p ON p.id = l.hsa_payment_id
+      WHERE l.entity_type = 'condition' AND l.entity_id = ?
+        AND substr(p.date, 1, 4) = strftime('%Y', 'now')
+    `) : null;
+    const latestMetricStmt = (labsTable && hasMetric) ? db.prepare(`
+      SELECT value, recorded_at FROM ${labsTable}
+      WHERE metric = ?
+        AND ((? IS NOT NULL AND family_member_id = ?) OR patient = ?)
+      ORDER BY recorded_at DESC LIMIT 1
+    `) : null;
+    const metricSeriesStmt = (labsTable && hasMetric) ? db.prepare(`
+      SELECT value, recorded_at FROM ${labsTable}
+      WHERE metric = ?
+        AND ((? IS NOT NULL AND family_member_id = ?) OR patient = ?)
+      ORDER BY recorded_at DESC LIMIT 12
+    `) : null;
+
+    for (const c of rows) {
+      // active medication count
+      let medCount = 0;
+      if (medCountByJunction) {
+        medCount = medCountByJunction.get(c.id)?.cnt || 0;
+      }
+      if (medCount === 0) {
+        medCount = medCountByPatient.get(c.family_member_id, c.family_member_id, c.patient)?.cnt || 0;
+      }
+      c.active_meds_count = medCount;
+      // top-N med chips from junction (used by the "On" column on Card #6)
+      c.medications = medsByJunction ? medsByJunction.all(c.id) : [];
+      // HSA spent on this condition this year
+      c.hsa_ytd = ytdStmt ? (ytdStmt.get(c.id)?.total || 0) : 0;
+      // Latest reading + small series for sparkline
+      if (latestMetricStmt && c.tracked_metric) {
+        const latest = latestMetricStmt.get(c.tracked_metric, c.family_member_id, c.family_member_id, c.patient);
+        if (latest) c.latest_metric = { value: latest.value, recorded_at: latest.recorded_at };
+        if (metricSeriesStmt) {
+          const series = metricSeriesStmt.all(c.tracked_metric, c.family_member_id, c.family_member_id, c.patient);
+          c.metric_series = series.reverse(); // chronological for the sparkline
+        }
+      }
+    }
+    res.json(rows);
   } catch (e) { serverError(res, e); }
 });
 
@@ -417,31 +497,68 @@ router.post('/conditions', requireAuth, (req, res) => {
   try {
     const d = req.body;
     if (!d.condition_name) return badRequest(res, 'condition_name required');
-    const info = db.prepare(`
-      INSERT INTO med_conditions
-        (patient, condition_name, start_date, end_date, physician, physician_contact_id,
-         treatment_notes, status, notes, family_member_id)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
-    `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
-           d.physician||null, d.physician_contact_id||null,
-           d.treatment_notes||null, d.status||'Active', d.notes||null,
-           d.family_member_id||null);
-    res.status(201).json({ id: info.lastInsertRowid });
+    const condCols = db.prepare("PRAGMA table_info(med_conditions)").all().map(r => r.name);
+    const hasSlice2 = condCols.includes('body_system');
+
+    if (hasSlice2) {
+      const info = db.prepare(`
+        INSERT INTO med_conditions
+          (patient, condition_name, start_date, end_date, physician, physician_contact_id,
+           treatment_notes, status, notes, family_member_id,
+           body_system, goal, tracked_metric, condition_state)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.treatment_notes||null, d.status||'Active', d.notes||null,
+             d.family_member_id||null,
+             d.body_system||null, d.goal||null, d.tracked_metric||null, d.condition_state||null);
+      res.status(201).json({ id: info.lastInsertRowid });
+    } else {
+      const info = db.prepare(`
+        INSERT INTO med_conditions
+          (patient, condition_name, start_date, end_date, physician, physician_contact_id,
+           treatment_notes, status, notes, family_member_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?)
+      `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.treatment_notes||null, d.status||'Active', d.notes||null,
+             d.family_member_id||null);
+      res.status(201).json({ id: info.lastInsertRowid });
+    }
   } catch (e) { serverError(res, e); }
 });
 
 router.put('/conditions/:id', requireAuth, (req, res) => {
   try {
     const d = req.body;
-    db.prepare(`
-      UPDATE med_conditions SET patient=?, condition_name=?, start_date=?, end_date=?,
-        physician=?, physician_contact_id=?, treatment_notes=?, status=?, notes=?,
-        family_member_id=?, updated_at=CURRENT_TIMESTAMP
-      WHERE id=?
-    `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
-           d.physician||null, d.physician_contact_id||null,
-           d.treatment_notes||null, d.status||'Active', d.notes||null,
-           d.family_member_id||null, req.params.id);
+    const condCols = db.prepare("PRAGMA table_info(med_conditions)").all().map(r => r.name);
+    const hasSlice2 = condCols.includes('body_system');
+
+    if (hasSlice2) {
+      db.prepare(`
+        UPDATE med_conditions SET patient=?, condition_name=?, start_date=?, end_date=?,
+          physician=?, physician_contact_id=?, treatment_notes=?, status=?, notes=?,
+          family_member_id=?,
+          body_system=?, goal=?, tracked_metric=?, condition_state=?,
+          updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+      `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.treatment_notes||null, d.status||'Active', d.notes||null,
+             d.family_member_id||null,
+             d.body_system||null, d.goal||null, d.tracked_metric||null, d.condition_state||null,
+             req.params.id);
+    } else {
+      db.prepare(`
+        UPDATE med_conditions SET patient=?, condition_name=?, start_date=?, end_date=?,
+          physician=?, physician_contact_id=?, treatment_notes=?, status=?, notes=?,
+          family_member_id=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+      `).run(d.patient||'Self', d.condition_name, d.start_date||null, d.end_date||null,
+             d.physician||null, d.physician_contact_id||null,
+             d.treatment_notes||null, d.status||'Active', d.notes||null,
+             d.family_member_id||null, req.params.id);
+    }
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });

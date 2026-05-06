@@ -36,6 +36,45 @@ const files = fs.readdirSync(migrationsDir)
 let applied = 0;
 let skipped = 0;
 
+// SQL comment stripper that respects single-quoted string literals.
+// Removes "-- ..." line comments and "/* ... */" block comments from the
+// input, but does NOT touch '--' or '/*' that appear inside a string.
+// SQL uses single quotes for strings; '' is the escape for a literal
+// apostrophe inside a string. We treat that as "stay inside string".
+function stripSqlComments(sql) {
+  let out = '';
+  let i = 0;
+  const n = sql.length;
+  let inString = false;
+  while (i < n) {
+    const c = sql[i];
+    const c2 = sql[i+1];
+    if (inString) {
+      out += c;
+      if (c === "'") {
+        if (c2 === "'") { out += c2; i += 2; continue; } // escaped apostrophe
+        inString = false;
+      }
+      i++; continue;
+    }
+    // Not inside a string
+    if (c === "'") { inString = true; out += c; i++; continue; }
+    if (c === '-' && c2 === '-') {
+      // skip to end of line (preserve the newline so line numbers stay sane-ish)
+      while (i < n && sql[i] !== '\n') i++;
+      continue;
+    }
+    if (c === '/' && c2 === '*') {
+      i += 2;
+      while (i < n && !(sql[i] === '*' && sql[i+1] === '/')) i++;
+      i += 2; // consume */
+      continue;
+    }
+    out += c; i++;
+  }
+  return out;
+}
+
 for (const file of files) {
   const already = db.prepare('SELECT 1 FROM _migrations WHERE filename = ?').get(file);
   if (already) { skipped++; continue; }
@@ -47,9 +86,16 @@ for (const file of files) {
       migration(db);
     } else {
       const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-      const statements = sql
+      // STRIP COMMENTS FIRST, then split on ';' (v202604.142+ fix).
+      // Old behavior split on ';' first, which broke when a '--' comment
+      // contained a ';' — the chunk after the ';' kept the orphaned comment
+      // text (e.g. "we just record..."), which then parsed as bad SQL.
+      // We strip line comments only when NOT inside a string literal so
+      // strings containing '--' (none today, but safety) survive intact.
+      const stripped = stripSqlComments(sql);
+      const statements = stripped
         .split(';')
-        .map(s => s.replace(/--[^\n]*/g, '').trim())
+        .map(s => s.trim())
         .filter(s => s.length > 0)
         .filter(s => !['BEGIN','COMMIT','ROLLBACK'].includes(s.toUpperCase()));
       const runMigration = db.transaction(() => {

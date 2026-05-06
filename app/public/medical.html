@@ -200,6 +200,87 @@
   .gh-cmodal-overlay { padding:0; align-items:flex-end; }
   .gh-cmodal { border-radius:18px 18px 0 0; max-height:95vh; }
 }
+
+/* ════════════════════════════════════════════════════════════
+   SLICE 2 — Card #6 condition card
+   ══════════════════════════════════════════════════════════ */
+.cond-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: 16px;
+  padding: 4px 16px 100px;
+}
+@media(max-width:600px){
+  .cond-grid { grid-template-columns: 1fr; padding: 4px 12px 100px; gap: 12px; }
+}
+
+.cond-card {
+  background: var(--bg2);
+  border: 0.5px solid var(--border);
+  border-radius: 18px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .12s, box-shadow .12s, border-color .12s;
+  box-shadow: 0 1px 2px rgba(0,0,0,.04), 0 12px 32px rgba(0,0,0,.06);
+}
+.cond-card:hover { transform: translateY(-1px); box-shadow: 0 2px 4px rgba(0,0,0,.05), 0 16px 40px rgba(0,0,0,.08); }
+.cond-card.alert { border-color: rgba(245,158,11,.35); }
+.cond-card.bad   { border-color: rgba(220,38,38,.35); }
+
+.cond-z1 { display:flex; align-items:center; gap:8px; padding:14px 18px 0; flex-wrap:wrap; }
+.cond-z2 { display:flex; gap:16px; padding:12px 18px 4px; }
+.cond-z2 .name-col { flex:1; min-width:0; }
+.cond-z2 .on-col { display:flex; flex-direction:column; gap:8px; align-items:flex-end; flex-shrink:0; max-width:55%; }
+.cond-name { font-size:22px; font-weight:600; color:var(--text); line-height:1.1; letter-spacing:-0.015em; }
+.cond-sub  { font-size:13px; color:var(--text2); margin-top:6px; }
+.cond-on-label { font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size:18px; font-weight:500; color:var(--text2); letter-spacing:-0.005em; line-height:1; }
+.cond-on-chips { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+.cond-on-chip {
+  font-size:11px; padding:3px 8px; border-radius:999px;
+  background:var(--bg3); color:var(--text2); font-weight:500;
+  white-space:nowrap; max-width:140px; overflow:hidden; text-overflow:ellipsis;
+}
+
+.cond-tags-row { display:flex; gap:6px; padding:10px 18px 10px; align-items:center; flex-wrap:wrap; font-size:11px; color:var(--text3); }
+
+.cond-cross { padding:12px 18px 14px; border-top:1px dashed var(--border); }
+.cond-metric-row { display:flex; align-items:baseline; gap:10px; cursor:pointer; }
+.cond-metric-label { font-size:11px; color:var(--text3); text-transform:uppercase; letter-spacing:0.06em; font-weight:600; }
+.cond-metric-value { font-size:22px; font-weight:600; color:var(--text); letter-spacing:-0.01em; line-height:1; }
+.cond-metric-state { font-size:11px; font-weight:500; }
+.cond-metric-state.good { color:#15803d; }
+.cond-metric-state.warn { color:#b45309; }
+.cond-metric-state.bad  { color:#991b1b; }
+.cond-spark { display:block; flex-shrink:0; }
+.cond-counts-row { display:flex; gap:24px; margin-top:12px; }
+.cond-counts-row .lbl { font-family:var(--mono); font-size:9.5px; font-weight:600; letter-spacing:0.16em; text-transform:uppercase; color:var(--text3); margin-bottom:2px; }
+.cond-counts-row .val { font-size:14px; font-weight:600; color:var(--text); letter-spacing:-0.01em; }
+
+.cond-z5 { display:flex; gap:12px; padding:14px 18px 16px; align-items:center; border-top:0.5px solid var(--border); flex-wrap:wrap; }
+
+.sys-chip {
+  display:inline-flex; align-items:center; gap:5px;
+  padding:4px 10px 4px 7px; border-radius:999px;
+  font-size:11px; font-weight:500;
+}
+.sys-chip img { width:14px; height:14px; }
+/* Each system gets its own brand color. Background is the color at 8% alpha; text at full saturation. */
+.sys-cardio  { background:rgba(220,38,38,.08); color:#991b1b; }
+.sys-cardio img { color:#dc2626; }
+.sys-endo    { background:rgba(217,119,6,.08); color:#92400e; }
+.sys-endo img { color:#d97706; }
+.sys-neuro   { background:rgba(124,58,237,.08); color:#5b21b6; }
+.sys-neuro img { color:#7c3aed; }
+.sys-resp    { background:rgba(14,165,233,.08); color:#075985; }
+.sys-resp img { color:#0ea5e9; }
+.sys-musc    { background:rgba(82,82,91,.08); color:#3f3f46; }
+.sys-musc img { color:#52525b; }
+.sys-immune  { background:rgba(20,184,166,.08); color:#115e59; }
+.sys-immune img { color:#14b8a6; }
+.sys-mental  { background:rgba(236,72,153,.08); color:#9d174d; }
+.sys-mental img { color:#db2777; }
+.sys-other   { background:var(--bg3); color:var(--text3); }
+.sys-other img { color:var(--text3); }
 </style>
 </head>
 <body>
@@ -471,6 +552,44 @@
       <label class="form-label">Treatment Notes</label>
       <textarea class="form-textarea" id="cTreatment" rows="3" placeholder="Treatment plan, medications, outcomes…"></textarea>
     </div>
+
+    <!-- Slice 2 (.143): Card #6 fields — body system, goal, tracked metric, clinical state -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Body system <span style="font-size:10px;font-weight:400;color:var(--text3)">drives the chip color/icon</span></label>
+        <select class="form-select" id="cBodySystem">
+          <option value="">— none —</option>
+          <option value="Cardiovascular">Cardiovascular</option>
+          <option value="Endocrine">Endocrine</option>
+          <option value="Neurological">Neurological</option>
+          <option value="Respiratory">Respiratory</option>
+          <option value="Musculoskeletal">Musculoskeletal</option>
+          <option value="Immune">Immune</option>
+          <option value="Mental">Mental</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Clinical state</label>
+        <select class="form-select" id="cConditionState">
+          <option value="">— none —</option>
+          <option value="in_target">in target</option>
+          <option value="follow_up_due">follow-up due</option>
+          <option value="out_of_range">out of range</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Goal <span style="font-size:10px;font-weight:400;color:var(--text3)">e.g. "BP &lt;130/80"</span></label>
+        <input class="form-input" type="text" id="cGoal" placeholder="">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tracked metric <span style="font-size:10px;font-weight:400;color:var(--text3)">e.g. BP, LDL, A1C</span></label>
+        <input class="form-input" type="text" id="cTrackedMetric" placeholder="">
+      </div>
+    </div>
+
     <div class="form-group">
       <label class="form-label">Notes</label>
       <textarea class="form-textarea" id="cNotes" rows="2"></textarea>
@@ -1273,6 +1392,18 @@ function closeMedInfoModal() {
 }
 
 // ── Conditions ─────────────────────────────────────────────────
+// ── Conditions (Card #6 — slice 2) ─────────────────────────────
+//
+// Card anatomy (locked 2026-05-05 spec):
+//   Z1: status dot (clinical state) + system chip + spacer + menu
+//   Z2: condition name + "Patient · goal" subtitle (left)  |  "On" med chips (right)
+//   Tags row
+//   Cross-module strip:
+//       hero metric (BP / LDL / A1C) + sparkline + "in target / follow-up due"
+//       counts row: Visits YTD · HSA YTD
+//   Z5: linked entity circles + paperclip + Timeline →
+//
+// Click anywhere on the card body → openCondDetail (read-only center modal w/ actions)
 async function renderConditions() {
   const area = $id('listArea');
   area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
@@ -1280,33 +1411,223 @@ async function renderConditions() {
     let url = '/medical/conditions';
     if (currentPatient) url += `?patient=${encodeURIComponent(currentPatient)}`;
     let rows = await api('GET', url);
-    if (_medSearch) rows = rows.filter(r =>['condition','patient','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch)));
+    if (_medSearch) rows = rows.filter(r =>
+      ['condition_name','patient','notes','body_system','goal','tracked_metric'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch))
+    );
+    // Lens dimensions (mirrors what the meds tab does)
+    const f = window._medFilters || {};
+    if (f.status) rows = rows.filter(r => r.status === f.status);
+    if (f.tag) rows = rows.filter(r => (r.tags||[]).includes(f.tag));
+    if (f.person != null) rows = rows.filter(r => String(r.family_member_id) === String(f.person));
+    if (f.name) {
+      const q = String(f.name).toLowerCase();
+      rows = rows.filter(r => (r.condition_name||'').toLowerCase().includes(q));
+    }
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
     if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.conditions); return; }
 
-    area.innerHTML = rows.map(r => `
-      <div class="gh-card gh-s-gray card" onclick="editCondition(${r.id})">
-        <div class="card-right">
-          <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
-                  onclick="event.stopPropagation();deleteCond(${r.id})">✕</button>
-        </div>
-        <div class="card-title">
-          <span class="status-dot ${statusDotClass(r.status)}"></span>
-          ${esc(r.condition_name)}
-          <span class="badge badge-grey">${r.status}</span>
-          <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
-        </div>
-        <div class="card-meta">
-          ${r.physician ? `<span>${esc(r.physician)}</span>` : ''}
-          ${r.start_date ? `<span>Since ${formatDate(r.start_date)}</span>` : ''}
-          ${r.end_date ? `<span>→ ${formatDate(r.end_date)}</span>` : ''}
-        </div>
-        ${r.treatment_notes ? `<div class="med-card-sub">${esc(r.treatment_notes)}</div>` : ''}
-        ${r.attachment_count?AttachmentManager.staticBadge('med_condition',r.id,r.attachment_count):''}
-      </div>
-    `).join('');
+    window._condRowsCache = rows;
+    area.innerHTML = `<div class="cond-grid">${rows.map(r => renderCondCard(r)).join('')}</div>`;
   } catch (e) {
     area.innerHTML = errorState(e.message, '');
   }
+}
+
+// Map free-text body_system to a CSS class + Phosphor icon
+function condSystemMeta(label) {
+  const t = (label||'').toLowerCase();
+  if (t.includes('cardio') || t.includes('heart') || t.includes('blood pressure'))
+    return { cls:'sys-cardio',  icon:'heart-duotone' };
+  if (t.includes('endo') || t.includes('thyroid') || t.includes('diabet') || t.includes('hormone'))
+    return { cls:'sys-endo',    icon:'drop-duotone' };
+  if (t.includes('neuro') || t.includes('brain') || t.includes('migraine') || t.includes('seizure'))
+    return { cls:'sys-neuro',   icon:'brain-duotone' };
+  if (t.includes('resp') || t.includes('asthma') || t.includes('lung') || t.includes('breath'))
+    return { cls:'sys-resp',    icon:'wave-sine-duotone' };
+  if (t.includes('musc') || t.includes('joint') || t.includes('arth') || t.includes('back') || t.includes('bone'))
+    return { cls:'sys-musc',    icon:'bone-duotone' };
+  if (t.includes('immune') || t.includes('allerg') || t.includes('autoimm'))
+    return { cls:'sys-immune',  icon:'shield-check-duotone' };
+  if (t.includes('mental') || t.includes('anxiety') || t.includes('depress') || t.includes('mood'))
+    return { cls:'sys-mental',  icon:'hand-heart-duotone' };
+  return { cls:'sys-other',     icon:'first-aid-duotone' };
+}
+
+// Status-dot color by clinical state
+function condStateDotClass(state) {
+  if (state === 'in_target')      return 'green';
+  if (state === 'follow_up_due')  return 'amber';
+  if (state === 'out_of_range')   return 'red';
+  return 'gray';
+}
+function condStateLabel(state) {
+  if (state === 'in_target')      return '✓ in target';
+  if (state === 'follow_up_due')  return '⏳ follow-up due';
+  if (state === 'out_of_range')   return '⚠ out of range';
+  return '';
+}
+
+// Tiny SVG sparkline from a series of {value, recorded_at}.
+// Values can be numeric or BP-style "128/82" — we plot the systolic for BP.
+function condSparkline(series, state) {
+  if (!Array.isArray(series) || series.length < 2) return '';
+  const nums = series.map(p => {
+    const v = String(p.value || '');
+    const n = parseFloat(v.split('/')[0]);
+    return isNaN(n) ? null : n;
+  }).filter(n => n != null);
+  if (nums.length < 2) return '';
+  const min = Math.min(...nums), max = Math.max(...nums);
+  const W = 100, H = 26, pad = 4;
+  const xStep = (W - pad*2) / (nums.length - 1);
+  const yScale = (n) => max === min ? H/2 : H - pad - (n - min) / (max - min) * (H - pad*2);
+  const points = nums.map((n, i) => `${(pad + i*xStep).toFixed(1)},${yScale(n).toFixed(1)}`).join(' ');
+  const lastX = (pad + (nums.length-1) * xStep).toFixed(1);
+  const lastY = yScale(nums[nums.length-1]).toFixed(1);
+  const stroke = state === 'out_of_range' ? '#dc2626' : state === 'follow_up_due' ? '#f59e0b' : '#34c759';
+  return `<svg class="cond-spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+    <polyline points="${points}" fill="none" stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="${lastX}" cy="${lastY}" r="2.5" fill="${stroke}"/>
+  </svg>`;
+}
+
+function renderCondCard(r) {
+  const dot = condStateDotClass(r.condition_state);
+  const stateLbl = condStateLabel(r.condition_state);
+  const sysMeta = r.body_system ? condSystemMeta(r.body_system) : null;
+  const cardCls = r.condition_state === 'out_of_range' ? 'bad'
+                : r.condition_state === 'follow_up_due' ? 'alert'
+                : '';
+
+  const sysChip = sysMeta ? `
+    <span class="sys-chip ${sysMeta.cls}" title="${esc(r.body_system)} system">
+      <img src="/assets/icons/phosphor/duotone/${sysMeta.icon}.svg" alt="">${esc(r.body_system)}
+    </span>` : '';
+
+  // Subtitle: Patient · Goal
+  const sub = [r.family_member_name || r.patient, r.goal].filter(Boolean).join(' · ');
+
+  // "On" med chips column
+  const onChips = (r.medications && r.medications.length)
+    ? `<span class="cond-on-label">On</span>
+       <div class="cond-on-chips">
+         ${r.medications.slice(0,3).map(m => `<span class="cond-on-chip" title="${esc(m.name)} ${esc(m.dosage||'')}">${esc(m.name)}${m.dosage?' '+esc(m.dosage):''}</span>`).join('')}
+         ${r.medications.length > 3 ? `<span class="cond-on-chip" style="background:transparent;border:1px dashed var(--border)">+${r.medications.length-3}</span>` : ''}
+       </div>`
+    : (r.active_meds_count > 0
+        ? `<span class="cond-on-label">On</span>
+           <div class="cond-on-chips"><span class="cond-on-chip" style="font-style:italic">${r.active_meds_count} med${r.active_meds_count===1?'':'s'}</span></div>`
+        : '');
+
+  // Cross-module: hero metric + sparkline + counts
+  const metric = r.latest_metric;
+  const sparkline = condSparkline(r.metric_series, r.condition_state);
+  const stateClass = r.condition_state === 'in_target' ? 'good'
+                   : r.condition_state === 'follow_up_due' ? 'warn'
+                   : r.condition_state === 'out_of_range' ? 'bad'
+                   : '';
+  const heroRow = (r.tracked_metric && metric) ? `
+    <div class="cond-metric-row" title="${esc(r.tracked_metric)} trend — most recent ${esc(metric.recorded_at||'')}">
+      <span class="cond-metric-label">${esc(r.tracked_metric)}</span>
+      <span class="cond-metric-value">${esc(String(metric.value))}</span>
+      ${sparkline}
+      ${stateLbl ? `<span class="cond-metric-state ${stateClass}">${stateLbl}</span>` : ''}
+    </div>
+  ` : (r.tracked_metric ? `
+    <div class="cond-metric-row" style="cursor:default">
+      <span class="cond-metric-label">${esc(r.tracked_metric)}</span>
+      <span style="font-size:13px;color:var(--text3);font-style:italic">no readings yet</span>
+      ${stateLbl ? `<span class="cond-metric-state ${stateClass}">${stateLbl}</span>` : ''}
+    </div>
+  ` : '');
+
+  const countsRow = `
+    <div class="cond-counts-row">
+      <div>
+        <div class="lbl">Visits YTD</div>
+        <div class="val">${r.related_visits_count || 0}</div>
+      </div>
+      <div>
+        <div class="lbl">HSA YTD</div>
+        <div class="val">$${Number(r.hsa_ytd || 0).toFixed(2)}</div>
+      </div>
+      ${(!r.tracked_metric && r.active_meds_count > 0) ? `
+      <div>
+        <div class="lbl">On meds</div>
+        <div class="val">${r.active_meds_count}</div>
+      </div>` : ''}
+    </div>
+  `;
+
+  // Z5: entity circles + attachments + timeline
+  const ents = [];
+  const memberName = r.family_member_name || r.patient;
+  if (memberName) ents.push(medAvatar(memberName, { title: memberName + ' · patient' }));
+  if (r.physician || r.physician_contact_id) {
+    const docLabel = r.physician ? `D${r.physician.split(/\s+/).slice(-1)[0][0]||'?'}` : 'DR';
+    ents.push(medAvatar(docLabel, { title: (r.physician||'Doctor') }));
+  }
+
+  const tagRow = (r.tags && r.tags.length)
+    ? `<div class="cond-tags-row">${r.tags.slice(0,4).map(t=>`<span style="color:var(--text3)">#${esc(t)}</span>`).join('')}${r.tags.length>4?`<span style="color:var(--text3)">+${r.tags.length-4}</span>`:''}</div>`
+    : '';
+
+  return `
+    <div class="cond-card ${cardCls}" onclick="openCondDetail(${r.id})">
+      <div class="cond-z1">
+        <div class="med-status-dot ${dot}" title="${esc(r.condition_state || r.status || '')}"></div>
+        ${sysChip}
+        <div style="flex:1"></div>
+        <button class="med-icon-btn" title="Delete" onclick="event.stopPropagation();deleteCond(${r.id})">
+          <img src="/assets/icons/phosphor/duotone/trash-duotone.svg" alt="">
+        </button>
+      </div>
+
+      <div class="cond-z2">
+        <div class="name-col">
+          <div class="cond-name">${esc(r.condition_name)}</div>
+          ${sub ? `<div class="cond-sub">${esc(sub)}</div>` : ''}
+        </div>
+        ${onChips ? `<div class="on-col">${onChips}</div>` : ''}
+      </div>
+
+      ${tagRow}
+
+      ${(heroRow || (r.related_visits_count!=null) || (r.hsa_ytd!=null)) ? `
+      <div class="cond-cross">
+        ${heroRow}
+        ${countsRow}
+      </div>` : ''}
+
+      <div class="cond-z5">
+        ${ents.join('')}
+        <div style="flex:1"></div>
+        ${r.attachment_count ? `<span class="med-link-chip" title="${r.attachment_count} attachment${r.attachment_count===1?'':'s'}">
+          <img src="/assets/icons/phosphor/duotone/paperclip-duotone.svg" alt="">${r.attachment_count}
+        </span>` : ''}
+        <span class="med-link-chip" style="cursor:default" title="Open timeline">
+          Timeline
+          <img src="/assets/icons/phosphor/duotone/arrow-up-right-duotone.svg" alt="">
+        </span>
+      </div>
+    </div>
+  `;
+}
+
+// Center modal for condition detail (mirrors med pattern)
+function openCondDetail(id) {
+  const r = (window._condRowsCache || []).find(x => x.id === id);
+  if (!r) { showToast('Condition not found','err'); return; }
+  const card = renderCondCard(r);
+  const html = `
+    <div style="padding:8px 8px 0">${card.replace('onclick="openCondDetail('+id+')"','')}</div>
+    <div class="gh-cmodal-actions">
+      <button class="btn" onclick="closeMedDetail();editCondition(${id})">Edit details</button>
+      <button class="btn btn-ghost" onclick="closeMedDetail()">Close</button>
+    </div>
+  `;
+  $id('medDetailBody').innerHTML = html;
+  $id('medDetailOverlay').classList.add('open');
 }
 
 // ── Visit Notes ────────────────────────────────────────────────
@@ -1423,20 +1744,20 @@ async function renderNotes() {
     };
   }
 
-  // Slice 1B (v202604.142): renderMedications is owned by Card #1 v5 above
-  // (defined via `async function renderMedications()`). Don't override it
-  // here. Conditions and notes still use the generic GH_CARD render.
+  // Slice 1B (.142) + Slice 2 (.143): renderMedications + renderConditions
+  // are owned by the custom Card #1 v5 / Card #6 renders above. Don't
+  // override them with the generic GH_CARD pipeline. Notes still use it.
   //
   // window.renderMedications = makeCardRender(
   //   'medical_medications', '/medical/medications',
   //   ['name','patient','dosage','frequency','purpose','notes'],
   //   'status', 'medications'
   // );
-  window.renderConditions = makeCardRender(
-    'medical_conditions', '/medical/conditions',
-    ['condition','patient','notes'],
-    null, 'conditions'
-  );
+  // window.renderConditions = makeCardRender(
+  //   'medical_conditions', '/medical/conditions',
+  //   ['condition','patient','notes'],
+  //   null, 'conditions'
+  // );
   window.renderNotes = makeCardRender(
     'medical_notes', '/medical/notes',
     ['patient','questions','doctors_response','notes'],
@@ -1547,6 +1868,11 @@ async function openCondDrawer(r) {
   $id('cEnd').value = r?.end_date || '';
   $id('cTreatment').value = r?.treatment_notes || '';
   $id('cNotes').value = r?.notes || '';
+  // Slice 2: Card #6 fields
+  $id('cBodySystem').value = r?.body_system || '';
+  $id('cConditionState').value = r?.condition_state || '';
+  $id('cGoal').value = r?.goal || '';
+  $id('cTrackedMetric').value = r?.tracked_metric || '';
   $id('condDrawer').classList.add('open');
 }
 function closeCondDrawer() { $id('condDrawer').classList.remove('open'); }
@@ -1568,6 +1894,11 @@ async function saveCondition() {
     end_date: $id('cEnd').value||null,
     physician_contact_id: $id('cPhysician').value ? parseInt($id('cPhysician').value) : null,
     treatment_notes: $id('cTreatment').value.trim()||null, notes: $id('cNotes').value.trim()||null,
+    // Slice 2: Card #6 fields
+    body_system: $id('cBodySystem').value || null,
+    condition_state: $id('cConditionState').value || null,
+    goal: $id('cGoal').value.trim() || null,
+    tracked_metric: $id('cTrackedMetric').value.trim() || null,
   };
   try {
     if (editingId) { await api('PUT',`/medical/conditions/${editingId}`,body); showToast('Updated'); }

@@ -57,20 +57,32 @@
     <tr>
       <td>1A — Medications schema + API</td>
       <td><strong>shipped + fixed</strong></td>
-      <td>v202604.141</td>
-      <td>Migration 119: 7 new med columns + 3 new tables (multi-condition junction, polymorphic HSA payment links, fill history). New API endpoints for fills + condition junction + HSA links. Hotfix in 1B replaces <code>p.amount</code> → <code>p.you_paid</code> in two places.</td>
+      <td>v202604.141 / .143</td>
+      <td>Migration 119: 7 new med columns + 3 new tables (multi-condition junction, polymorphic HSA payment links, fill history). Hotfix in 1B replaced <code>p.amount</code> → <code>p.you_paid</code>. Same fix in HSA <code>/inbox</code> shipped in .143.</td>
     </tr>
     <tr>
       <td>1B — Medications UI rebuild</td>
-      <td><strong>shipped this drop</strong></td>
+      <td><strong>shipped + fixed</strong></td>
       <td>v202604.142</td>
-      <td>Card #1 v5 layout for the medications list (status dot · multi-condition chips · drug class · pill icon hero by form · 3 instruction icons · cross-module strip with HSA YTD / last filled / refills · refill alert when due · linked entity circles · link-receipt button). Detail opens as a center modal with Edit / Record refill / Link receipt actions. Lens moved <strong>above</strong> the tabs (page-level filter, applies cross-tab). Edit drawer extended with form / generic / brand / drug class / take-with-food / time-of-day / interaction warning fields. 8 new Phosphor icons added.</td>
+      <td>Card #1 v5 layout, Lens above tabs, center modal pattern, refill action, link-receipt picker. Ate a <code>&lt;/style&gt;</code> close tag in the first build — fixed in re-package same version.</td>
     </tr>
     <tr>
-      <td>2 — Conditions</td>
+      <td>2 — Conditions Card #6</td>
+      <td><strong>shipped this drop</strong></td>
+      <td>v202604.143</td>
+      <td>Migration 120 adds 4 columns to <code>med_conditions</code>: body_system, goal, tracked_metric, condition_state. Routes enriched with active-meds count from junction, hsa_ytd from payment_links, latest tracked-metric reading + small series for sparkline. New Card #6 render: status dot reflecting clinical state · system chip with brand color/icon · "On" med chips column · cross-module strip with metric+sparkline+visits/HSA YTD · linked entity circles. Click card → center modal (re-uses meds modal infra).</td>
+    </tr>
+    <tr>
+      <td>2.5 — Migration runner fix</td>
+      <td><strong>shipped this drop</strong></td>
+      <td>v202604.143</td>
+      <td>The <code>migrate.js</code> SQL splitter used to split on <code>;</code> first, then strip <code>--</code> comments. That broke when a comment contained <code>;</code> (e.g. "unchanged; we just record"). Migration 117 had been silently failing on every restart since it shipped. Now strips comments first (state-machine that respects string literals). On next deploy, 117 finally applies — daily-log promote feature gets its <code>promoted_to_type</code> + <code>promoted_to_id</code> columns and starts working.</td>
+    </tr>
+    <tr>
+      <td>3 — Visits + Tile #17.1</td>
       <td>queued</td>
       <td>—</td>
-      <td>Card #6 to real data on a Conditions tab. Multi-condition junction makes "meds for this condition" trivial.</td>
+      <td>Visits tab → Card with timeline link to seeded daily-log entry. Tile #17.1 = compact medical summary tile.</td>
     </tr>
     <tr>
       <td>3 — Visits + Tile #17.1</td>
