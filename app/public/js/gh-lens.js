@@ -79,7 +79,10 @@
     if (Array.isArray(_tagCache)) return Promise.resolve(_tagCache);
     if (_tagFetchPromise) return _tagFetchPromise;
     if (!window.api) return Promise.resolve([]);
-    _tagFetchPromise = window.api('GET', '/tags')
+    // v202604.144 fix: was '/tags' (404 — no such endpoint). The tags route
+    // is mounted under settings: /api/v1/settings/tags. Same response shape
+    // (array of {id,name,...}) so no other changes needed.
+    _tagFetchPromise = window.api('GET', '/settings/tags')
       .then(rows => { _tagCache = Array.isArray(rows) ? rows : []; return _tagCache; })
       .catch(() => { _tagCache = []; return []; });
     return _tagFetchPromise;

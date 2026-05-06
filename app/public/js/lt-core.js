@@ -1781,8 +1781,22 @@ window.GH_FAMILY = (function() {
     const showLabel = options.showLabel !== false; // default true
     const members = await _loadMembers();
     const selected = new Map(); // id → display_name
+    // v202604.144 — accept both shapes for `existing`:
+    //   [{id: 1, display_name: 'Sarah'}, ...]   ← canonical (most pages)
+    //   [1, 2, 3]                               ← bare IDs (medical, finance HSA expenses)
+    // The bare-ID form was silently dropping pre-fills on edit because the
+    // forEach below only matched objects with `.id`. We now accept either,
+    // looking up the display_name from the loaded members list when given
+    // a bare ID.
     (existing || []).forEach(m => {
-      if (m && m.id) selected.set(m.id, m.display_name || m.name || '');
+      if (typeof m === 'number' || typeof m === 'string') {
+        const id = +m;
+        if (!id) return;
+        const found = members.find(x => x.id === id);
+        selected.set(id, found ? (found.display_name || '') : '');
+      } else if (m && m.id) {
+        selected.set(m.id, m.display_name || m.name || '');
+      }
     });
 
     // Ensure GH_AVATAR cache is hydrated so pill avatars match elsewhere
@@ -1834,18 +1848,25 @@ window.GH_FAMILY = (function() {
       const dropdown = document.getElementById(containerId + '-dropdown');
       if (!input) return;
 
-      input.addEventListener('input', () => {
-        const q = input.value.trim().toLowerCase();
+      // v202604.144 — show full list on focus/click. The old behavior only
+      // opened the dropdown after the user typed at least one character,
+      // which meant first-time users saw an empty input and didn't realize
+      // a list existed. Now: focus → see all unselected members.
+      function _renderDropdown(query = '') {
+        const q = (query || '').trim().toLowerCase();
         const opts = members.filter(m => !selected.has(m.id) &&
-          (m.display_name || '').toLowerCase().includes(q));
-        if (!opts.length || !q) { dropdown.classList.remove('open'); return; }
+          (!q || (m.display_name || '').toLowerCase().includes(q)));
+        if (!opts.length) { dropdown.classList.remove('open'); return; }
         dropdown.innerHTML = opts.map(m => `
           <div class="gh-fam-opt" data-id="${m.id}" data-name="${esc(m.display_name)}">
             ${_avatar(m.id, m.display_name, 'sm')}
             ${esc(m.display_name)}${m.relationship ? `<span style="font-size:11px;color:var(--text3);margin-left:4px">${esc(m.relationship)}</span>` : ''}
           </div>`).join('');
         dropdown.classList.add('open');
-      });
+      }
+
+      input.addEventListener('input', () => _renderDropdown(input.value));
+      input.addEventListener('focus',  () => _renderDropdown(input.value));
 
       dropdown.addEventListener('click', e => {
         const opt = e.target.closest('.gh-fam-opt');
@@ -1862,9 +1883,14 @@ window.GH_FAMILY = (function() {
         if (!container.contains(e.target)) dropdown.classList.remove('open');
       }, { once: false });
 
-      // Focus field when clicking wrapper
+      // Focus field when clicking wrapper (also forces dropdown open
+      // even if the input was already focused — covers the case where
+      // the user clicks the field, types nothing, clicks elsewhere to
+      // dismiss, then clicks back).
       document.getElementById(containerId + '-field')?.addEventListener('click', () => {
-        document.getElementById(containerId + '-input')?.focus();
+        const inp = document.getElementById(containerId + '-input');
+        inp?.focus();
+        _renderDropdown(inp?.value || '');
       });
     }
 

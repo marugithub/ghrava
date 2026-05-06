@@ -97,6 +97,49 @@
   --gh-text-tertiary:  #94a3b8;
   --gh-text-quiet:     #cbd5e1;
 
+  /* ──────────────────────────────────────────────────────────────
+     Form / Drawer tokens (v202604.144)
+     Added to support the Tier-2 customizer architecture later. Default
+     values are the "Option E" specs from the UI engineer review:
+       - sans labels at 12px weight 600 (mono only for IDs/codes)
+       - 8px×12px field padding (was 10×12)
+       - tighter inter-field spacing (10px, was 14)
+       - higher-contrast field borders (--border2, was --border)
+     A future Settings → Appearance UI will override these via
+     [data-density], [data-type-scale], [data-label-style] selectors.
+     ──────────────────────────────────────────────────────────── */
+
+  /* Type scale */
+  --fs-label:        12px;
+  --fs-label-hint:   11px;
+  --fs-input:        14px;
+  --fs-drawer-title: 17px;
+
+  /* Label style */
+  --label-family:    var(--sans);
+  --label-weight:    600;
+  --label-color:     var(--text2);
+  --label-transform: none;
+  --label-spacing:   normal;
+  --label-mb:        4px;
+
+  /* Field box */
+  --field-pad-y:     8px;
+  --field-pad-x:     12px;
+  --field-bg:        var(--bg3);
+  --field-border:    var(--border2);
+  --field-radius:    var(--r);
+
+  /* Spacing */
+  --form-group-mb:   10px;
+  --form-row-gap:    10px;
+
+  /* Drawer */
+  --drawer-handle-display: none;   /* was a drag-affordance; obsolete on center modals */
+  --drawer-pad-x:    20px;
+  --drawer-pad-top:  14px;
+  --drawer-pad-bot:  20px;
+
   /* Surface */
   --gh-card-bg:        #ffffff;
   --gh-card-border:    #e5e7eb;
@@ -467,34 +510,47 @@ html, body {
 .search-input::placeholder { color: var(--text3); }
 
 /* ── Forms ──────────────────────────────────────────────────── */
-.form-group { margin-bottom: 14px; }
+.form-group { margin-bottom: var(--form-group-mb); }
 
 .form-label {
   display: block;
-  font-family: var(--mono);
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text3);
-  margin-bottom: 6px;
+  font-family: var(--label-family);
+  font-size: var(--fs-label);
+  font-weight: var(--label-weight);
+  letter-spacing: var(--label-spacing);
+  text-transform: var(--label-transform);
+  color: var(--label-color);
+  margin-bottom: var(--label-mb);
 }
 
 .form-label .req { color: var(--accent); margin-left: 2px; }
+
+/* Inline hint inside the label (e.g. "optional", "drives icon") — toned
+   down so it stops competing with the label itself. Future: move these
+   to a separate .form-hint line below the field across the codebase. */
+.form-label > span {
+  font-size: var(--fs-label-hint) !important;
+  font-weight: 400 !important;
+  color: var(--text3) !important;
+  text-transform: none !important;
+  letter-spacing: normal !important;
+  margin-left: 6px;
+  font-style: italic;
+}
 
 .form-input,
 .form-select,
 .form-textarea {
   width: 100%;
-  background: var(--bg3);
-  border: 1px solid var(--border);
-  border-radius: var(--r);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--field-radius);
   color: var(--text);
   font-family: var(--sans);
-  font-size: 14px;
-  padding: 10px 12px;
+  font-size: var(--fs-input);
+  padding: var(--field-pad-y) var(--field-pad-x);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
   -webkit-appearance: none;
 }
 
@@ -516,21 +572,29 @@ html, body {
 .form-select option { background: var(--bg3); }
 
 .form-textarea {
-  min-height: 100px;
+  min-height: 80px;     /* was 100 — same density rationale */
   resize: vertical;
-  line-height: 1.6;
+  line-height: 1.55;
 }
 
 .form-row {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: var(--form-row-gap);
 }
 
 .form-hint {
-  font-size: 12px;
+  font-size: var(--fs-label-hint);
   color: var(--text3);
   margin-top: 4px;
+  font-style: italic;
+}
+
+/* Mono-only utility — preserves the design-system signature for the
+   things that benefit from monospace (Rx numbers, IDs, codes, units). */
+.gh-mono, .mono-text {
+  font-family: var(--mono);
+  font-feature-settings: "tnum";
 }
 
 /* ── Toggle ─────────────────────────────────────────────────── */
@@ -612,10 +676,17 @@ html, body {
 .btn-row {
   display: flex;
   gap: 8px;
-  margin-top: 16px;
+  margin-top: 20px;                 /* was 16 — clearer separation from last field */
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
 }
 
 .btn-row .btn { flex: 1; }
+
+/* When the drawer scrolls, give the buttons room from the bottom edge so
+   they aren't flush against the modal border. The drawer's own bottom
+   padding takes care of most of this; this is a safety pad. */
+.drawer .btn-row { margin-bottom: 4px; }
 
 /* ── FAB ────────────────────────────────────────────────────── */
 .fab {
@@ -1070,6 +1141,7 @@ html, body {
 }
 
 .drawer-handle {
+  display: var(--drawer-handle-display);   /* hidden by default per .144 review */
   width: 36px;
   height: 4px;
   background: var(--border2);
@@ -1078,11 +1150,11 @@ html, body {
 }
 
 .drawer-title {
-  font-size: 17px;
+  font-size: var(--fs-drawer-title);
   font-weight: 700;
   letter-spacing: -.02em;
   color: var(--text);
-  padding: 4px 0 14px;
+  padding: 4px 0 12px;          /* was 14 — tighter */
 }
 
 /* ── gh-drawer — right-anchored side panel ──────────────────── */
