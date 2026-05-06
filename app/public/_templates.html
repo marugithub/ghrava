@@ -126,6 +126,8 @@
     <a href="#todo">#3 Todo</a>
     <a href="#subscription">#4 Subscription</a>
     <a href="#certification">#5 Certification</a>
+    <a href="#condition">#6 Condition</a>
+    <a href="#summary-tile">#17 Summary Tile</a>
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════
@@ -260,7 +262,7 @@
             <div style="font-size: 13px; color: #1a1a1a; font-weight: 600;">Refill in 3 days</div>
             <div style="font-size: 11px; color: #94a3b8; font-weight: 500;">12 of 30 left</div>
             <div style="flex: 1;"></div>
-            <button style="padding: 8px 14px; border-radius: 9px; background: #f59e0b; border: none; color: white; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(245,158,11,0.4);">Order refill</button>
+            <button style="padding: 8px 14px; border-radius: 9px; background: #f59e0b; border: none; color: white; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(245,158,11,0.4);">Order Refill</button>
           </div>
           <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
             <span style="color: #94a3b8;">Last refilled 6 days ago · CVS · $12.40</span>
@@ -629,6 +631,469 @@
     </div>
 
     <div class="card-row" id="cert-mount"></div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════
+       #6 CONDITION — chronic diagnosis card
+
+       FIELDS (locked 2026-05-05):
+         CAPTURED + shown on card:
+           - name (Hypertension)
+           - patient (FK family_members)
+           - system chip (Cardiovascular)  → zone 1
+           - status dot                     → zone 1 (chronic doesn't toggle;
+                                              dot reflects "in target" /
+                                              "follow-up due" / "out of range")
+           - goal (free text, e.g. "Target: BP <130/80")
+           - tracked_metric (free text: "BP", "LDL", "A1C", etc.)
+           - on: med chips (derived from medications.condition_id FK)
+         CAPTURED in DB, NOT shown on card:
+           - diagnosed_date
+         REJECTED (do not capture):
+           - icd_10
+           - severity
+           - status (chronic vs acute)
+           - onset, symptoms, triggers, family history, notes
+
+       AFFORDANCES used (per locked vocabulary):
+         - status dot
+         - sparkline (in cross-module strip; tappable → trend report)
+         - cross-module strip (visits / sparkline / hsa)
+         - meter / segmented bar — NOT used here (no diminishing supply or
+                                    multi-state collection)
+
+       SPARKLINE DATA SOURCE: Labs/Vitals records filtered by
+         tracked_metric + patient. Derived, not stored on Condition.
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="condition">
+    <div class="section-head">
+      <h2>#6 Condition</h2>
+      <span class="draft">Draft · v1</span>
+      <span class="desc">Chronic diagnosis. Same 5-zone grammar as medication. Sparkline of tracked metric is tappable → trend report.</span>
+    </div>
+
+    <div class="card-row">
+
+      <!-- #6.1 Hypertension — in target -->
+      <div style="font-size:11px;color:#666;font-family:'SF Mono',Menlo,monospace;margin-bottom:6px;width:100%">#6.1 Hypertension — in target, no alert</div>
+      <div style="max-width: 520px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);">
+
+        <!-- ZONE 1: status + system chip + pin/menu -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0;">
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 4px rgba(52,199,89,0.16);" title="In target"></div>
+
+          <div class="chip-tap" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(220,38,38,0.08);" title="Cardiovascular system">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #dc2626;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32Z"/></svg>
+            </div>
+            <span style="font-size: 11px; font-weight: 500; color: #991b1b;">Cardiovascular</span>
+          </div>
+
+          <div style="flex: 1;"></div>
+
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="Pin">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg>
+            </div>
+          </div>
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="More">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE 2: title (left col) + ON column (right, label uses gh-mono treatment per design system) -->
+        <div style="display: flex; gap: 16px; padding: 12px 18px 4px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 22px; font-weight: 600; color: #1a1a1a; line-height: 1.1; letter-spacing: -0.015em;">Hypertension</div>
+            <div style="font-size: 13px; color: #475569; margin-top: 6px;">Sarah · Target BP &lt;130/80</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0;">
+            <span style="font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 18px; font-weight: 500; color: #475569; letter-spacing: -0.005em; line-height: 1;">On</span>
+            <div style="display: flex; gap: 6px; flex-wrap: nowrap; justify-content: flex-end;">
+              <span class="chip-tap" style="font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 500; white-space: nowrap;" title="Lipitor 10mg">Lipitor 10mg</span>
+              <span class="chip-tap" style="font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 500; white-space: nowrap;" title="Olmesartan 20mg">Olmesartan 20mg</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAGS row -->
+        <div style="display: flex; gap: 6px; padding: 10px 18px 10px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#chronic</span>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#monitoring</span>
+        </div>
+
+        <!-- CROSS-MODULE — Option B hierarchy: metric is hero, visits/HSA footnote -->
+        <div style="padding: 12px 18px 14px; border-top: 1px dashed #e5e7eb;">
+          <div class="chip-tap" style="display: flex; align-items: baseline; gap: 10px; cursor: pointer;" title="BP trend — tap to open trend report">
+            <span style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">BP</span>
+            <span style="font-size: 22px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.01em; line-height: 1;">128/82</span>
+            <svg width="100" height="26" viewBox="0 0 100 26" style="display: block; flex-shrink: 0;">
+              <polyline points="2,16 16,12 30,18 44,9 58,14 72,11 92,8" fill="none" stroke="#34c759" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="92" cy="8" r="2.5" fill="#34c759"/>
+            </svg>
+            <span style="font-size: 11px; color: #15803d; font-weight: 500;">✓ in target</span>
+          </div>
+          <div style="display: flex; gap: 24px; margin-top: 12px;">
+            <div>
+              <div style="font-family: 'DM Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #94a3b8; margin-bottom: 2px;">Visits YTD</div>
+              <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.01em;">3</div>
+            </div>
+            <div>
+              <div style="font-family: 'DM Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #94a3b8; margin-bottom: 2px;">HSA YTD</div>
+              <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.01em;">$320</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- No Zone 4 alert — in target, no action needed -->
+
+        <!-- ZONE 5: linked entities + paperclip + drill -->
+        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9;">
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #f472b6, #db2777); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Sarah · patient">SR</div>
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #93c5fd, #1d4ed8); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Dr. Goyal · cardiologist">JG</div>
+
+          <div style="flex: 1;"></div>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;" title="2 attached source files">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+            </div>
+            2
+          </span>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;" title="Open condition timeline">
+            Timeline
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+            </div>
+          </span>
+        </div>
+
+      </div>
+
+
+      <!-- #6.2 High Cholesterol — out of range, lipid panel due -->
+      <div style="font-size:11px;color:#666;font-family:'SF Mono',Menlo,monospace;margin:18px 0 6px;width:100%">#6.2 High Cholesterol — out of range, follow-up due</div>
+      <div style="max-width: 520px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);">
+
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0;">
+          <div style="width: 10px; height: 10px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,0.16);" title="Follow-up due"></div>
+
+          <div class="chip-tap" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(220,38,38,0.08);">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #dc2626;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32Z"/></svg>
+            </div>
+            <span style="font-size: 11px; font-weight: 500; color: #991b1b;">Cardiovascular</span>
+          </div>
+
+          <div style="flex: 1;"></div>
+
+          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE 2: title (left) + ON column (right, gh-mono tracked) -->
+        <div style="display: flex; gap: 16px; padding: 12px 18px 4px;">
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 22px; font-weight: 600; color: #1a1a1a; line-height: 1.1; letter-spacing: -0.015em;">High Cholesterol</div>
+            <div style="font-size: 13px; color: #475569; margin-top: 6px;">Sarah · Target LDL &lt;100</div>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0;">
+            <span style="font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 18px; font-weight: 500; color: #475569; letter-spacing: -0.005em; line-height: 1;">On</span>
+            <div style="display: flex; gap: 6px; justify-content: flex-end;">
+              <span class="chip-tap" style="font-size: 11px; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #475569; font-weight: 500; white-space: nowrap;">Lipitor 10mg</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; padding: 10px 18px 10px; align-items: center; flex-wrap: wrap;">
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#chronic</span>
+          <span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#follow-up</span>
+        </div>
+
+        <!-- CROSS-MODULE — Option B: metric hero, visits/HSA footnote, trending up out of target -->
+        <div style="padding: 12px 18px 14px; border-top: 1px dashed #e5e7eb;">
+          <div class="chip-tap" style="display: flex; align-items: baseline; gap: 10px; cursor: pointer;" title="LDL trend — tap to open trend report">
+            <span style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">LDL</span>
+            <span style="font-size: 22px; font-weight: 600; color: #d97706; letter-spacing: -0.01em; line-height: 1;">142</span>
+            <svg width="100" height="26" viewBox="0 0 100 26" style="display: block; flex-shrink: 0;">
+              <polyline points="2,20 16,18 30,19 44,15 58,14 72,11 92,6" fill="none" stroke="#d97706" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <circle cx="92" cy="6" r="2.5" fill="#d97706"/>
+            </svg>
+            <span style="font-size: 11px; color: #b45309; font-weight: 500;">↑ above target</span>
+          </div>
+          <div style="display: flex; gap: 24px; margin-top: 12px;">
+            <div>
+              <div style="font-family: 'DM Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #94a3b8; margin-bottom: 2px;">Visits YTD</div>
+              <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.01em;">2</div>
+            </div>
+            <div>
+              <div style="font-family: 'DM Mono', monospace; font-size: 9.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #94a3b8; margin-bottom: 2px;">HSA YTD</div>
+              <div style="font-size: 14px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.01em;">$185</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE 4: follow-up alert -->
+        <div style="margin: 4px 18px 14px; padding: 14px; border-radius: 12px; border: 0.5px solid rgba(245,158,11,0.30); background: rgba(254,243,199,0.30);">
+          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px;">
+            <div style="font-size: 13px; color: #1a1a1a; font-weight: 600;">Lipid panel due</div>
+            <div style="font-size: 11px; color: #94a3b8; font-weight: 500;">last drawn 5 mo ago</div>
+            <div style="flex: 1;"></div>
+            <button style="padding: 8px 14px; border-radius: 9px; background: #f59e0b; border: none; color: white; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px rgba(245,158,11,0.4);">Schedule</button>
+          </div>
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px;">
+            <span style="color: #94a3b8;">Recommended every 6 months on statin therapy</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9;">
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #f472b6, #db2777); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Sarah · patient">SR</div>
+          <div class="ent-circle" style="width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #34d399, #047857); color: white; font-size: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Dr. Patel · primary">DP</div>
+
+          <div style="flex: 1;"></div>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+            </div>
+            4
+          </span>
+
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;">
+            Timeline
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+            </div>
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+
+  <!-- ════════════════════════════════════════════════════════════════
+       #17 SUMMARY TILE — foundational pattern for module landing pages
+       Tile = rollup of MANY records into a summary on landing.
+       Card = detail of ONE record (drilldown content).
+       Drill paths: Tile → Data (default) | Cards | Report.
+                    Card → Data | Report.
+                    Cards never drill to other cards (sideways links only).
+
+       Two Medical examples baked in to test the pattern against real
+       content: Visits/EOBs tile + Reimbursement vault tile.
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="summary-tile">
+    <div class="section-head">
+      <h2>#17 Summary Tile</h2>
+      <span class="draft">Draft · pilot on Medical</span>
+      <span class="desc">
+        Foundational pattern for every module landing. Many-records → one tile.
+        Three drill targets via header switcher: data (default), cards, report.
+      </span>
+    </div>
+
+    <div style="font-size:11px;color:#666;font-family:'SF Mono',Menlo,monospace;margin:8px 0 14px">
+      Two real Medical tiles below. Same pattern; different content.
+    </div>
+
+    <div class="card-row" style="gap: 16px;">
+
+      <!-- ============== #17.1 Visits / EOBs tile ============== -->
+      <div style="font-size:11px;color:#666;font-family:'SF Mono',Menlo,monospace;margin-bottom:6px;width:100%">#17.1 Visits &amp; EOBs — alert state (2 missing receipts)</div>
+      <div style="max-width: 380px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);">
+
+        <!-- ZONE 1: status dot + menu (label moved to hero zone for serif treatment) -->
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,0.16); flex-shrink: 0;" title="Needs attention"></div>
+          <div style="flex: 1; min-width: 0; font-family: 'DM Mono', monospace; font-size: 10px; color: #94a3b8; letter-spacing: 0.06em; text-transform: uppercase;">
+            YTD 2026
+          </div>
+          <div class="chip-tap" style="width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;" title="More">
+            <div class="ph-icon" style="width: 16px; height: 16px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- ZONE 2: hero — year-at-a-glance pattern from design library (P07)
+             Big serif number, eyebrow label + status pill on the right,
+             12-month status grid below. Each cell colored by month state. -->
+        <div style="padding: 14px 18px 0;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px;">
+            <div>
+              <div style="font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; line-height: 1.2;">Visits &amp;<br>EOBs</div>
+              <div style="font-family: 'Newsreader', Georgia, serif; font-style: italic; font-size: 56px; font-weight: 500; color: #1a1a1a; letter-spacing: -0.02em; line-height: 1;">12</div>
+            </div>
+            <div style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px; background: rgba(185,28,28,0.10); color: #b91c1c; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; flex-shrink: 0; margin-top: 4px;">
+              <span style="width: 5px; height: 5px; border-radius: 50%; background: currentColor;"></span>
+              2 missing
+            </div>
+          </div>
+
+          <!-- Year-at-a-glance month grid: J F M A M J J A S O N D
+               Color codes: success=reconciled, warn=pending, danger=missing,
+               empty=no visits that month, current=darker outline -->
+          <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-top: 8px;">
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #f1f5f9;" title="Jan — no visits"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #f1f5f9;" title="Feb — no visits"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #15803d;" title="Mar — reconciled"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #15803d;" title="Apr — reconciled"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #b45309;" title="May — pending"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #15803d;" title="Jun — reconciled"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #b91c1c;" title="Jul — missing"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #15803d;" title="Aug — reconciled"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #b45309;" title="Sep — pending"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #15803d;" title="Oct — reconciled"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #15803d;" title="Nov — reconciled"></div>
+            <div style="aspect-ratio: 1; border-radius: 3px; background: #b91c1c; outline: 1.5px solid #1a1a1a; outline-offset: 1px;" title="Dec — missing (current)"></div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(12, 1fr); gap: 3px; margin-top: 4px; font-family: 'DM Mono', monospace; font-size: 9px; color: #94a3b8; letter-spacing: 0.04em; text-align: center;">
+            <span>J</span><span>F</span><span>M</span><span>A</span><span>M</span><span>J</span><span>J</span><span>A</span><span>S</span><span>O</span><span>N</span><span>D</span>
+          </div>
+        </div>
+
+        <!-- ZONE 4: people + providers as avatar rows.
+             ────────────────────────────────────────────────────────────────
+             AVATAR RULES (universal, all surfaces — tiles AND cards):
+             ────────────────────────────────────────────────────────────────
+             1. NEVER OVERLAP. Avatars are spaced apart with a small gap.
+                Same vocabulary as medication card zone 5. Whether the entities
+                are a group (household) or parallel links (patient + doctor +
+                pharmacy on a med card), the rendering is identical.
+             2. ONE CIRCLE PER ENTITY up to a cap of 6.
+             3. AT 7+ ENTITIES: show first 6 + "+N" overflow chip
+                (no overlap; chip uses neutral gray, monospace).
+             4. CIRCLE CONTENT:
+                - Default: first letter of display_name in Newsreader serif italic.
+                - Optional override: contacts.short_name (e.g. "CVS") rendered
+                  in DM Mono 700 to disambiguate or honor known abbreviations.
+             5. CIRCLE COLOR: gradient seeded by entity ID — stable per record.
+             6. CLICK TARGET: every circle links to the source record.
+                - family_member circle → /family/<id>
+                - contact circle → /contacts/<id>
+             7. DATA SOURCE per row label:
+                - "People" = SELECT * FROM family_members WHERE active=1
+                  ORDER BY display_order. Static for the household.
+                - "Providers" = SELECT DISTINCT provider_contact_id
+                  FROM <relevant table> WHERE <tile scope>.
+                  Dynamic per tile context.
+             ────────────────────────────────────────────────────────────────
+             Below: People = 4 (all shown). Providers = 4 (all shown).
+             For overflow, see the "Overflow rule preview" demo below the tile. -->
+
+        <!-- All entities on a single row, same as medication card zone 5.
+             Family + providers + vendors. Hover = full name. No glyphs. -->
+        <div style="display: flex; align-items: center; gap: 6px; padding: 16px 18px 8px; flex-wrap: wrap;">
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #fb7185, #be123c); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Mira">M</div>
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #60a5fa, #1d4ed8); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Aman">A</div>
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #34d399, #047857); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Sarah">S</div>
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #fbbf24, #b45309); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Risha">R</div>
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #93c5fd, #1d4ed8); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Dr. Patel">DP</div>
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #c4b5fd, #6d28d9); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Dr. Goyal">DG</div>
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #6ee7b7, #047857); color: white; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center;" title="Dr. Smith">DS</div>
+          <div class="chip-tap" style="width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, #fca5a5, #b91c1c); color: white; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; display: flex; align-items: center; justify-content: center;" title="CVS Pharmacy">CVS</div>
+        </div>
+
+        <!-- ZONE 5: foot — mirrors medication card zone 5. No button switcher.
+             Whole tile is the click target; default opens Data view. -->
+        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9;">
+          <div style="flex: 1;"></div>
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;" title="attached source files">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+            </div>
+            3
+          </span>
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;" title="Open data view">
+            Open
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+            </div>
+          </span>
+        </div>
+      </div>
+
+
+      <!-- ============== #17.2 Reimbursement vault tile ============== -->
+      <div style="font-size:11px;color:#666;font-family:'SF Mono',Menlo,monospace;margin:18px 0 6px;width:100%">#17.2 Reimbursement vault — healthy state, large $</div>
+      <div style="max-width: 380px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06);">
+
+        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0;">
+          <div style="width: 8px; height: 8px; border-radius: 50%; background: #34c759; box-shadow: 0 0 0 4px rgba(52,199,89,0.16); flex-shrink: 0;" title="Active, healthy"></div>
+          <div style="flex: 1; min-width: 0;">
+            <div style="font-size: 11px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;">Reimbursement vault</div>
+            <div style="font-size: 13px; color: #475569; margin-top: 2px;">Unreimbursed expenses</div>
+          </div>
+          <div class="chip-tap" style="width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center;" title="More">
+            <div class="ph-icon" style="width: 16px; height: 16px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div style="padding: 8px 18px 0;">
+          <div style="display: flex; align-items: baseline; gap: 6px;">
+            <span style="font-size: 36px; font-weight: 600; color: #1a1a1a; letter-spacing: -0.02em; line-height: 1;">$4,820</span>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; padding: 10px 18px 0; flex-wrap: wrap;">
+          <div style="font-size: 11px; color: #475569; padding: 3px 9px; border-radius: 999px; background: #f1f5f9;">14 receipts</div>
+          <div style="font-size: 11px; color: #475569; padding: 3px 9px; border-radius: 999px; background: #f1f5f9;">HSA pot · 11</div>
+          <div style="font-size: 11px; color: #475569; padding: 3px 9px; border-radius: 999px; background: #f1f5f9;">LP-FSA · 3</div>
+        </div>
+
+        <div style="padding: 10px 18px; font-size: 12px; color: #94a3b8;">
+          Oldest from Jan 2024 · LP-FSA deadline 47 days
+        </div>
+
+        <!-- ZONE 5: foot — mirrors medication card zone 5. No button switcher.
+             Whole tile is the click target; default opens Data view. -->
+        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9;">
+          <div style="flex: 1;"></div>
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;" title="attached source files">
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>
+            </div>
+            3
+          </span>
+          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;" title="Open data view">
+            Open
+            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">
+              <svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>
+            </div>
+          </span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Annotations / spec -->
+    <div style="margin-top: 22px; padding: 16px 20px; background: #f8fafc; border-radius: 12px; border: 0.5px solid #e5e7eb; font-size: 13px; color: #475569; line-height: 1.6;">
+      <div style="font-size: 11px; font-weight: 600; color: #1a1a1a; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px;">Tile anatomy — 5 zones</div>
+      <ol style="margin: 0; padding-left: 18px;">
+        <li><strong>Status row</strong> — small dot (green active / amber attention / red blocking) + uppercase label + scope line + menu</li>
+        <li><strong>Hero number</strong> — single big number that answers "how many" or "how much"</li>
+        <li><strong>Breakdown chips</strong> — 2-4 sub-counts showing the composition; red chip if any flag attention</li>
+        <li><strong>Scope line</strong> — small text giving context (across X people, oldest from, deadline in)</li>
+        <li><strong>Drill switcher</strong> — Data | Cards | Report. Default highlighted = Data. User can switch on click.</li>
+      </ol>
+      <div style="margin-top: 10px; font-size: 12px; color: #64748b;">
+        <strong style="color: #1a1a1a;">Lens behavior:</strong> when lens narrows (e.g. "Risha"), every tile recomputes for that scope. Numbers, chips, scope line all update.
+        <br><strong style="color: #1a1a1a;">Mobile:</strong> tiles stack into a horizontal scroll carousel. Swipe to see more. Same content, same drill behavior.
+        <br><strong style="color: #1a1a1a;">Card vs tile rule:</strong> tile = many records summarized; card = one record detailed. Cards never live on a landing page; they live on the cards-drilldown of a tile.
+      </div>
+    </div>
+
   </div>
 
 </div>
