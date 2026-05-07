@@ -500,10 +500,12 @@ body.v2 {
    ──────────────────────────────────────────── */
 .medv5-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(440px, 640px));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 580px));
+  gap: 14px;
   padding: 4px 18px 100px;
-  justify-content: start;
+  justify-content: center;
+  max-width: 1320px;
+  margin: 0 auto;
 }
 
 .medv5-card {
@@ -511,7 +513,7 @@ body.v2 {
   border: 1px solid var(--border);
   border-radius: var(--r-xl);
   box-shadow: var(--shadow-card);
-  padding: calc(22px * var(--density)) calc(26px * var(--density)) calc(18px * var(--density));
+  padding: calc(18px * var(--density)) calc(22px * var(--density)) calc(16px * var(--density));
   color: var(--text);
   font-family: var(--font-sans);
   cursor: pointer;
@@ -542,47 +544,51 @@ body.v2 {
 .medv5-eyebrow.is-overdue  .dot { background: var(--bad);  box-shadow: 0 0 0 4px var(--bad-bg); }
 .medv5-eyebrow.is-discont  .dot { background: var(--text-3); box-shadow: 0 0 0 4px rgba(138,125,98,0.18); }
 
-/* Zone B — name row + instruction icons */
+/* Zone B — name row + instruction icons.
+   v202604.146: name + dose stack vertically inside name-block, so long
+   names ("Lisinopril — delete later") don't compete with dose for
+   horizontal space. Instruction icons sit alone on the right. */
 .medv5-name-row {
   display: flex;
-  align-items: center;
-  gap: 14px;
-  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
 }
 .medv5-name-block {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
   flex: 1;
   min-width: 0;
 }
 .medv5-name {
   font-family: var(--font-serif);
-  font-size: var(--fs-display);
+  font-size: 38px;
   font-weight: 400;
   font-style: italic;
   letter-spacing: -0.02em;
   color: var(--text);
-  line-height: 1;
+  line-height: 1.05;
 }
 .medv5-dose {
   font-family: var(--font-serif);
-  font-size: var(--fs-title);
+  font-size: 16px;
   font-weight: 400;
   font-style: italic;
-  color: var(--text-2);
+  color: var(--text-3);
+  margin-top: 4px;
 }
-.medv5-instr-row { display: flex; gap: 8px; flex-shrink: 0; }
+.medv5-instr-row {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  padding-top: 6px;
+}
 .medv5-iico {
-  width: 34px; height: 34px;
-  border-radius: var(--r-lg);
+  width: 32px; height: 32px;
+  border-radius: var(--r);
   display: flex; align-items: center; justify-content: center;
   background: transparent; border: none; padding: 0;
   cursor: pointer;
 }
 .medv5-iico svg {
-  width: 18px; height: 18px;
+  width: 17px; height: 17px;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
@@ -692,24 +698,42 @@ body.v2 {
 .medv5-divider {
   border: none;
   border-top: 1px dashed var(--border-2);
-  margin: 18px 0 14px;
+  margin: 14px 0 12px;
 }
 
-/* Zone C — cross-module strip */
+/* Zone C — cross-module strip
+   v202604.146: Two semantic groups separated by a vertical divider.
+     [Last filled] [Doses left]  │  [Last cost] [HSA YTD]
+   On narrow widths the vertical divider hides and the cells reflow
+   into two rows of two. */
 .medv5-strip {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 16px;
+  grid-template-columns: 1fr 1fr 1px 1fr 1fr;
+  gap: 14px;
+  align-items: center;
+}
+.medv5-strip-divider {
+  width: 1px;
+  height: 38px;
+  background: var(--border-2);
+  opacity: 0.5;
+}
+@media (max-width: 520px) {
+  .medv5-strip {
+    grid-template-columns: 1fr 1fr;
+  }
+  .medv5-strip-divider { display: none; }
 }
 .medv5-strip-item {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   align-items: flex-start;
+  min-width: 0;
 }
 .medv5-strip-icon {
-  width: 28px; height: 28px;
+  width: 26px; height: 26px;
   flex-shrink: 0;
-  border-radius: var(--r);
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -717,7 +741,7 @@ body.v2 {
   color: var(--accent);
 }
 .medv5-strip-icon svg {
-  width: 16px; height: 16px;
+  width: 14px; height: 14px;
   stroke: currentColor;
   stroke-width: 2;
   stroke-linecap: round;
@@ -727,6 +751,7 @@ body.v2 {
 .medv5-strip-icon--green  { background: var(--good-bg);   color: var(--good); }
 .medv5-strip-icon--purple { background: var(--purple-bg); color: var(--purple); }
 .medv5-strip-icon--amber  { background: var(--warn-bg);   color: var(--warn); }
+.medv5-strip-icon--red    { background: var(--bad-bg);    color: var(--bad); }
 .medv5-strip-meta {
   display: flex;
   flex-direction: column;
@@ -742,21 +767,127 @@ body.v2 {
 }
 .medv5-strip-value {
   font-family: var(--font-serif);
-  font-size: 17px;
+  font-size: 16px;
   font-weight: 400;
   font-style: italic;
   color: var(--text);
   letter-spacing: -0.01em;
   margin-top: 1px;
 }
+.medv5-strip-value-of {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-style: normal;
+  color: var(--text-3);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin-left: 4px;
+}
+.medv5-refills-tag {
+  display: inline-block;
+  margin-top: 3px;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  background: rgba(0,0,0,0.03);
+  border-radius: 999px;
+  padding: 1px 7px;
+  border: 1px solid var(--border-2);
+}
+.medv5-refills-tag.is-low { color: var(--bad); border-color: var(--bad-bd, var(--bad)); }
+
+/* ── DOSES-LEFT METER variants by form ──
+   v202604.146 — segmented bar (tablet/capsule/patch),
+   smooth gauge (liquid), counter ring (inhaler), tube (cream).
+   Filled segments use the deep-tomato accent for high contrast on
+   the cream surface. */
+.medv5-meter {
+  display: flex;
+  gap: 1.5px;
+  height: 8px;
+  margin-top: 4px;
+  width: 90px;
+  max-width: 100%;
+}
+.medv5-meter span {
+  flex: 1;
+  border-radius: 1px;
+  background: var(--bg-card-2);
+}
+.medv5-meter span.on { background: var(--accent); }
+.medv5-meter.is-critical span.on { background: var(--bad); }
+
+/* Smooth gauge (liquid) */
+.medv5-gauge {
+  position: relative;
+  height: 8px;
+  width: 90px;
+  background: var(--bg-card-2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.medv5-gauge-fill {
+  position: absolute;
+  inset: 0;
+  right: auto;
+  background: var(--accent);
+  border-radius: 4px;
+}
+.medv5-gauge.is-critical .medv5-gauge-fill { background: var(--bad); }
+
+/* Tube silhouette (cream/ointment) */
+.medv5-tube {
+  position: relative;
+  height: 10px;
+  width: 90px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+}
+.medv5-tube-body {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-card-2);
+  border-radius: 4px 1px 1px 4px;
+  overflow: hidden;
+}
+.medv5-tube-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 4px 0 0 4px;
+}
+.medv5-tube-cap {
+  width: 4px;
+  height: 8px;
+  background: var(--text-3);
+  border-radius: 0 1.5px 1.5px 0;
+  margin-left: 1px;
+}
+
+/* Inhaler / counter ring — small inline ring next to the value */
+.medv5-ring {
+  display: inline-block;
+  vertical-align: middle;
+  width: 16px; height: 16px;
+  margin-right: 4px;
+  margin-top: -1px;
+}
+.medv5-ring svg { transform: rotate(-90deg); }
+.medv5-ring .track { fill: none; stroke: var(--bg-card-2); stroke-width: 4; }
+.medv5-ring .fill  { fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.medv5-ring.is-critical .fill { stroke: var(--bad); }
+
 
 /* Zone E — entities */
 .medv5-entities {
   display: flex;
   align-items: center;
-  gap: 14px;
-  margin-top: 18px;
-  padding-top: 14px;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
   border-top: 1px solid var(--border);
   flex-wrap: wrap;
 }
@@ -764,12 +895,12 @@ body.v2 {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   position: relative;
   cursor: pointer;
 }
 .medv5-ent-tile {
-  width: 44px; height: 44px;
+  width: 40px; height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -777,7 +908,7 @@ body.v2 {
   flex-shrink: 0;
 }
 .medv5-ent-circle {
-  width: 44px; height: 44px;
+  width: 40px; height: 40px;
   border-radius: 50%;
   border: 1px solid rgba(255,255,255,0.4);
   display: flex;
@@ -785,13 +916,13 @@ body.v2 {
   justify-content: center;
   color: white;
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.02em;
   overflow: hidden;
 }
 .medv5-ent-circle svg {
-  width: 22px; height: 22px;
+  width: 20px; height: 20px;
   stroke: white;
   stroke-width: 2;
   stroke-linecap: round;
@@ -801,8 +932,8 @@ body.v2 {
 }
 .medv5-ent-badge {
   position: absolute;
-  right: -4px; bottom: -4px;
-  width: 20px; height: 20px;
+  right: -3px; bottom: -3px;
+  width: 18px; height: 18px;
   border-radius: 50%;
   background: var(--bg-card);
   border: 1.5px solid var(--border);
@@ -812,7 +943,7 @@ body.v2 {
   color: var(--good);
 }
 .medv5-ent-badge svg {
-  width: 11px; height: 11px;
+  width: 10px; height: 10px;
   stroke: currentColor;
   stroke-width: 2.2;
   stroke-linecap: round;
@@ -820,8 +951,8 @@ body.v2 {
   fill: none;
 }
 .medv5-ent-pharmacy {
-  width: 44px; height: 44px;
-  border-radius: var(--r-lg);
+  width: 40px; height: 40px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -829,16 +960,16 @@ body.v2 {
   font-weight: 800;
   letter-spacing: 0.04em;
   color: white;
+  font-size: 12px;
 }
-.medv5-ent-pharmacy.is-cvs { background: #cc0000; font-size: 13px; }
-.medv5-ent-pharmacy.is-walgreens { background: #e2231a; font-size: 18px; font-style: italic; font-weight: 900; }
-.medv5-ent-pharmacy.is-walmart { background: #0071ce; font-size: 13px; }
+.medv5-ent-pharmacy.is-cvs { background: #cc0000; }
+.medv5-ent-pharmacy.is-walgreens { background: #e2231a; font-size: 17px; font-style: italic; font-weight: 900; }
+.medv5-ent-pharmacy.is-walmart { background: #0071ce; }
 .medv5-ent-pharmacy.is-generic {
   background: var(--bg-card);
   color: var(--text-2);
   border: 1px dashed var(--border-2);
   font-family: var(--font-mono);
-  font-size: 13px;
   font-weight: 600;
 }
 .medv5-ent-label {
@@ -1793,14 +1924,100 @@ function renderMedCard(r) {
   if (r.interaction_warning)         instr.push(`<button class="medv5-iico medv5-iico--warn"    title="${esc(r.interaction_warning)}" onclick="event.stopPropagation();void 0">${_LU.warn}</button>`);
   instr.push(`<button class="medv5-iico medv5-iico--more" title="More actions" onclick="event.stopPropagation();editMedication(${r.id})">${_LU.dots}</button>`);
 
-  // Cross-module strip — values: HSA YTD, Last filled, Refills left, Last cost.
-  // Each cell hides its row only if the WHOLE strip would be empty; individual
-  // missing values render as "—" so the layout doesn't reflow per row.
+  // Cross-module strip — values: HSA YTD, Last filled, Doses left, Last cost.
+  // Doses-left meter visualizes pills/mL/etc remaining. Individual missing
+  // values render as "—" so the layout doesn't reflow per row.
   const fmtMoney = v => (v == null) ? '—' : `$${Number(v).toFixed(2)}`;
   const hsaYtd     = fmtMoney(r.hsa_ytd);
   const lastFilled = r.last_filled ? formatDate(r.last_filled) : '—';
-  const refillsLeft= (r.refills_remaining != null) ? String(r.refills_remaining) : '—';
   const lastCost   = fmtMoney(r.last_fill_cost);
+  // refills_remaining = AUTHORIZED refills left (separate from doses on hand)
+  const refillsLeft = r.refills_remaining;
+
+  // ── Doses-left math ──────────────────────────────────────────
+  // last_fill_quantity (from migration 123) = how many units this fill
+  // had originally. doses_per_day = how many units consumed per day
+  // (medication-level, derived from schedule). days since fill_date
+  // tells us depletion. If qty is missing we render "—".
+  // Bar variant picked by r.form: tablet|capsule|patch → segmented,
+  // liquid|suspension → smooth gauge, inhaler|spray → ring,
+  // cream|ointment|gel → tube. Falls back to segmented.
+  function _dosesLeft() {
+    const q = r.last_fill_quantity;
+    if (q == null || !r.last_filled) return null;
+    const dpd = (r.doses_per_day != null && r.doses_per_day > 0)
+              ? Number(r.doses_per_day) : 1;
+    const today = new Date(); today.setHours(0,0,0,0);
+    const filled = new Date(r.last_filled);
+    const daysSince = Math.max(0, Math.round((today - filled) / 86400000));
+    const remaining = Math.max(0, Number(q) - daysSince * dpd);
+    return {
+      remaining: Math.round(remaining * 10) / 10,
+      total: Number(q),
+      pct: q > 0 ? remaining / Number(q) : 0,
+      unit: r.qty_unit || 'ct',
+      form: (r.form || 'tablet').toLowerCase()
+    };
+  }
+  const dl = _dosesLeft();
+
+  // Critical threshold: bar turns red when remaining ≤ days-needed-to-reorder
+  // (default 7 days × doses_per_day). Same threshold drives the Refill pill.
+  const _isCritical = (dl) => {
+    if (!dl) return false;
+    const dpd = (r.doses_per_day != null && r.doses_per_day > 0) ? Number(r.doses_per_day) : 1;
+    return dl.remaining <= 7 * dpd;
+  };
+
+  function _dosesMeter() {
+    if (!dl) return '';
+    const crit = _isCritical(dl) ? 'is-critical' : '';
+    const form = dl.form;
+
+    if (/liquid|suspens|solution|syrup/.test(form)) {
+      const pct = Math.round(Math.max(0, Math.min(1, dl.pct)) * 100);
+      return `<div class="medv5-gauge ${crit}"><div class="medv5-gauge-fill" style="width:${pct}%"></div></div>`;
+    }
+    if (/cream|ointment|gel|lotion/.test(form)) {
+      const pct = Math.round(Math.max(0, Math.min(1, dl.pct)) * 100);
+      return `<div class="medv5-tube"><div class="medv5-tube-body"><div class="medv5-tube-fill ${crit?'is-critical':''}" style="width:${pct}%;background:${_isCritical(dl)?'var(--bad)':'var(--accent)'}"></div></div><div class="medv5-tube-cap"></div></div>`;
+    }
+    // Default: segmented bar (tablet/capsule/patch/inhaler).
+    // Density rule: 1 tick per unit up to 40, group into 5 chunks above.
+    const total = Math.max(1, Math.round(dl.total));
+    const remaining = Math.max(0, Math.round(dl.remaining));
+    const buckets = total <= 40 ? total : 30;
+    const onCount = Math.round((remaining / total) * buckets);
+    const cells = Array.from({length: buckets}, (_, i) =>
+      i < onCount ? '<span class="on"></span>' : '<span></span>'
+    ).join('');
+    return `<div class="medv5-meter ${crit}">${cells}</div>`;
+  }
+
+  // Doses-left readout text: "12 of 30 tabs", "180 of 240 mL", etc.
+  function _dosesReadout() {
+    if (!dl) return '<span class="medv5-strip-value">—</span>';
+    const unitLabel = (() => {
+      const u = (dl.unit || 'ct').toLowerCase();
+      const map = { ct: 'tabs', count: 'tabs', tab: 'tabs', tabs: 'tabs',
+                    cap: 'caps', caps: 'caps',
+                    ml: 'mL', l: 'L',
+                    mg: 'mg', g: 'g',
+                    oz: 'oz', floz: 'fl oz',
+                    puff: 'puffs', puffs: 'puffs', spray: 'sprays' };
+      return map[u] || u;
+    })();
+    return `<span class="medv5-strip-value">${dl.remaining}<span class="medv5-strip-value-of">of ${dl.total} ${unitLabel}</span></span>`;
+  }
+
+  // Refills tag — small pill underneath the meter, separate from doses count.
+  // Distinguishes "12 pills on hand" from "2 authorized refills left."
+  let refillsTag = '';
+  if (refillsLeft != null) {
+    const lowCls = refillsLeft <= 1 ? 'is-low' : '';
+    const txt = `${refillsLeft} refill${refillsLeft === 1 ? '' : 's'} left`;
+    refillsTag = `<span class="medv5-refills-tag ${lowCls}">${txt}</span>`;
+  }
 
   // Entity row — patient · prescriber · pharmacy.
   // Patient: silhouette glyph by default (photo when GH_AVATAR has one).
@@ -1887,13 +2104,7 @@ function renderMedCard(r) {
       <hr class="medv5-divider"/>
 
       <div class="medv5-strip">
-        <div class="medv5-strip-item" title="HSA spending YTD on this medication">
-          <div class="medv5-strip-icon medv5-strip-icon--green">${_LU.wallet}</div>
-          <div class="medv5-strip-meta">
-            <span class="medv5-strip-label">HSA YTD</span>
-            <span class="medv5-strip-value">${hsaYtd}</span>
-          </div>
-        </div>
+
         <div class="medv5-strip-item" title="Most recent fill">
           <div class="medv5-strip-icon medv5-strip-icon--purple">${_LU.cal}</div>
           <div class="medv5-strip-meta">
@@ -1901,20 +2112,35 @@ function renderMedCard(r) {
             <span class="medv5-strip-value">${esc(lastFilled)}</span>
           </div>
         </div>
-        <div class="medv5-strip-item" title="Refills remaining on current Rx">
+
+        <div class="medv5-strip-item" title="Doses on hand · authorized refills below">
           <div class="medv5-strip-icon medv5-strip-icon--amber">${_LU.pill}</div>
           <div class="medv5-strip-meta">
-            <span class="medv5-strip-label">Refills left</span>
-            <span class="medv5-strip-value">${esc(refillsLeft)}</span>
+            <span class="medv5-strip-label">Doses left</span>
+            ${_dosesMeter()}
+            ${_dosesReadout()}
+            ${refillsTag}
           </div>
         </div>
-        <div class="medv5-strip-item" title="Cost of most recent fill">
-          <div class="medv5-strip-icon">${_LU.receipt}</div>
+
+        <span class="medv5-strip-divider"></span>
+
+        <div class="medv5-strip-item" title="Cost of most recent fill (out-of-pocket)">
+          <div class="medv5-strip-icon medv5-strip-icon--red">${_LU.receipt}</div>
           <div class="medv5-strip-meta">
             <span class="medv5-strip-label">Last cost</span>
             <span class="medv5-strip-value">${lastCost}</span>
           </div>
         </div>
+
+        <div class="medv5-strip-item" title="HSA spent on this medication YTD">
+          <div class="medv5-strip-icon medv5-strip-icon--green">${_LU.wallet}</div>
+          <div class="medv5-strip-meta">
+            <span class="medv5-strip-label">HSA YTD</span>
+            <span class="medv5-strip-value">${hsaYtd}</span>
+          </div>
+        </div>
+
       </div>
 
       ${ents.length ? `<div class="medv5-entities">

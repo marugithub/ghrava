@@ -66,10 +66,21 @@ router.get('/medications', (req, res) => {
         WHERE mc.medication_id = ?
         ORDER BY c.condition_name COLLATE NOCASE
       `) : null;
-      const fillStmt = hasFills ? db.prepare(`
-        SELECT fill_date, days_supply, cost FROM med_medication_fills
-        WHERE medication_id = ? ORDER BY fill_date DESC LIMIT 1
-      `) : null;
+      // v202604.146 — also pull quantity (migration 123) when present.
+      // Older DBs without the column still get fill_date / days_supply / cost.
+      let fillStmt = null;
+      let hasQty = false;
+      if (hasFills) {
+        const fillCols = db.prepare("PRAGMA table_info(med_medication_fills)").all().map(r => r.name);
+        hasQty = fillCols.includes('quantity');
+        const sel = hasQty
+          ? 'fill_date, days_supply, cost, quantity'
+          : 'fill_date, days_supply, cost';
+        fillStmt = db.prepare(`
+          SELECT ${sel} FROM med_medication_fills
+          WHERE medication_id = ? ORDER BY fill_date DESC LIMIT 1
+        `);
+      }
       const ytdStmt = hasLinks ? db.prepare(`
         SELECT COALESCE(SUM(p.you_paid), 0) AS total FROM hsa_payment_links l
         JOIN hsa_payments p ON p.id = l.hsa_payment_id
@@ -83,6 +94,8 @@ router.get('/medications', (req, res) => {
           const f = fillStmt.get(m.id);
           m.last_filled = f ? f.fill_date : null;
           m.last_fill_cost = f ? f.cost : null;
+          m.last_fill_days_supply = f ? f.days_supply : null;
+          if (hasQty) m.last_fill_quantity = f ? f.quantity : null;
         }
         if (ytdStmt) m.hsa_ytd = ytdStmt.get(m.id).total;
       }
