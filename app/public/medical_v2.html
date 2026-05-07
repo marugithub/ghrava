@@ -1148,7 +1148,7 @@ async function renderMedications() {
       const avatar = (member && window.GH_AVATAR) ? GH_AVATAR.render(member, 'sm') : '';
       return `
         <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
-        <div class="gh-card-grid">${meds.map(r => renderMedCard(r)).join('')}</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,520px));gap:14px;padding:4px 18px 100px;justify-content:start">${meds.map(r => renderMedCard(r)).join('')}</div>
       `;
     }).join('');
 

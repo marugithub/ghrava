@@ -4,49 +4,6 @@
  */
 (function() {
 
-  // ── Auto-load Tailwind CDN + GH_ICONS on every page ────────
-  if (!document.querySelector('script[data-gh-tailwind]') && !window.tailwind) {
-    const t = document.createElement('script');
-    t.src = 'https://cdn.tailwindcss.com';
-    t.dataset.ghTailwind = '1';
-    document.head.appendChild(t);
-    const cfg = document.createElement('script');
-    cfg.dataset.ghTailwind = 'config';
-    cfg.textContent = `
-      (function waitForTW(){
-        if (!window.tailwind || !window.tailwind.config) {
-          return setTimeout(waitForTW, 30);
-        }
-        window.tailwind.config = {
-          darkMode: 'class',
-          theme: { extend: {
-            colors: {
-              page:'var(--gh-bg-page)', card:'var(--gh-card-bg)',
-              line:'var(--gh-card-border)', 'line-2':'var(--gh-card-border-strong)',
-              'tx-1':'var(--gh-text-1)', 'tx-2':'var(--gh-text-2)',
-              'tx-3':'var(--gh-text-3)', 'tx-mute':'var(--gh-text-mute)',
-              accent:'var(--gh-accent)', 'accent-h':'var(--gh-accent-hover)',
-              'accent-soft':'var(--gh-accent-soft)',
-              good:'var(--gh-good)', warn:'var(--gh-warn)', bad:'var(--gh-bad)'
-            },
-            borderRadius: { card: 'var(--gh-card-radius)' },
-            boxShadow: { card: 'var(--gh-card-shadow)', 'card-h': 'var(--gh-card-shadow-hi)' },
-            maxWidth: { card: 'var(--gh-card-max-w)' }
-          }}
-        };
-      })();
-    `;
-    document.head.appendChild(cfg);
-  }
-  if (!document.querySelector('script[data-gh-icons]') && !window.GH_ICONS) {
-    const g = document.createElement('script');
-    g.src = '/js/gh-icons.js';
-    g.dataset.ghIcons = '1';
-    g.async = false;
-    document.head.appendChild(g);
-  }
-
-
   // Ensure the unified search modal script is loaded on every page that
   // includes nav.js. Pages used to need to <script src="...global-search.js">
   // individually; centralizing it here means the nav search button and Cmd+K
