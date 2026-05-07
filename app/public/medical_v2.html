@@ -10,6 +10,10 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Medical — Ghrava</title>
 <link rel="stylesheet" href="/shared.css">
+<!-- v202604.145 — Vellum card type ladder (Fraunces serif + DM Mono labels + Inter sans) -->
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap">
 <script src="/theme.js"></script>
 <script>
   // Apply nav-collapsed before first paint to prevent sidebar flash
@@ -423,6 +427,473 @@ body.v2 .gh-family-label, body.v2 [class*="gh-family"] [class*="-label"]:first-c
 }
 .gh-cmodal-actions .btn { flex:1; min-width:90px; }
 
+/* ════════════════════════════════════════════════════════════════
+   v202604.145 — VELLUM THEME TOKENS + MEDICATION CARD (V1)
+   ────────────────────────────────────────────────────────────────
+   These are the new plain-name theme tokens. Settings → Appearance
+   will edit these (corner roundness, accent, font scale, density).
+   The card uses --bg / --text / --accent / --r-xl directly so when
+   the values change everywhere flexes together. Existing v2 chrome
+   (tabs, drawer, FAB) still uses --v2-* tokens above; that chrome
+   migrates to plain names in a follow-up drop.
+
+   Type ladder:  --fs-eyebrow / --fs-meta / --fs-body / --fs-title /
+                  --fs-display  → bind every text node, no freestyle px
+   ════════════════════════════════════════════════════════════════ */
+body.v2 {
+  /* Surfaces (Vellum) */
+  --bg:           #f5f7f9;
+  --bg-card:      #fbf6e9;
+  --bg-card-2:    #f4ecd8;
+  --border:       #d8cba8;
+  --border-2:     #c5b58c;
+  --divider:      #ede5cb;
+
+  /* Text ramp */
+  --text:         #2a241a;
+  --text-2:       #5e5440;
+  --text-3:       #8a7d62;
+  --text-4:       #b3a684;
+
+  /* Accent (settings will edit) */
+  --accent:       #c0392b;
+  --accent-h:    #a8311f;
+  --accent-bg:    rgba(192,57,43,0.08);
+  --accent-bd:    rgba(192,57,43,0.25);
+
+  /* Status semantic */
+  --good:         #527a3f;
+  --good-bg:      rgba(82,122,63,0.10);
+  --warn:         #b07b16;
+  --warn-bg:      rgba(176,123,22,0.10);
+  --warn-bd:      rgba(176,123,22,0.30);
+  --bad:          #a8311f;
+  --bad-bg:       rgba(168,49,31,0.08);
+  --purple:       #6c5083;
+  --purple-bg:    rgba(108,80,131,0.10);
+
+  /* Typography ladder — bind text nodes to a tier, never to px */
+  --font-sans:    'Inter', -apple-system, system-ui, sans-serif;
+  --font-serif:   'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-mono:    'DM Mono', 'SF Mono', Menlo, monospace;
+  --fs-eyebrow:   10px;
+  --fs-micro:     11px;
+  --fs-meta:      12px;
+  --fs-body:      14px;
+  --fs-title:     20px;
+  --fs-display:   42px;
+
+  /* Geometry — settings will edit roundness */
+  --r-sm:  4px;
+  --r:     8px;
+  --r-lg:  12px;
+  --r-xl:  18px;
+
+  --shadow-card: 0 1px 0 rgba(0,0,0,0.04), 0 8px 24px -12px rgba(76,52,12,0.18);
+  --density: 1.0;
+}
+
+/* ─────────  MEDICATION CARD (V1)  ─────────
+   Locked layout. Zones A / B / C / D / E. All values flow through
+   the tokens above. Variants for state: refill / overdue / discont
+   recolor the eyebrow dot + status pill only.
+   ──────────────────────────────────────────── */
+.medv5-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 640px));
+  gap: 16px;
+  padding: 4px 18px 100px;
+  justify-content: start;
+}
+
+.medv5-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-card);
+  padding: calc(22px * var(--density)) calc(26px * var(--density)) calc(18px * var(--density));
+  color: var(--text);
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: box-shadow 160ms ease, transform 160ms ease;
+}
+.medv5-card:hover { box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 14px 32px -10px rgba(76,52,12,0.24); }
+
+/* Eyebrow */
+.medv5-eyebrow {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.medv5-eyebrow .dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--good);
+  box-shadow: 0 0 0 4px var(--good-bg);
+  flex-shrink: 0;
+}
+.medv5-eyebrow.is-refill   .dot { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-bg); }
+.medv5-eyebrow.is-overdue  .dot { background: var(--bad);  box-shadow: 0 0 0 4px var(--bad-bg); }
+.medv5-eyebrow.is-discont  .dot { background: var(--text-3); box-shadow: 0 0 0 4px rgba(138,125,98,0.18); }
+
+/* Zone B — name row + instruction icons */
+.medv5-name-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.medv5-name-block {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
+}
+.medv5-name {
+  font-family: var(--font-serif);
+  font-size: var(--fs-display);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -0.02em;
+  color: var(--text);
+  line-height: 1;
+}
+.medv5-dose {
+  font-family: var(--font-serif);
+  font-size: var(--fs-title);
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text-2);
+}
+.medv5-instr-row { display: flex; gap: 8px; flex-shrink: 0; }
+.medv5-iico {
+  width: 34px; height: 34px;
+  border-radius: var(--r-lg);
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; padding: 0;
+  cursor: pointer;
+}
+.medv5-iico svg {
+  width: 18px; height: 18px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.medv5-iico--evening { background: var(--purple-bg); color: var(--purple); }
+.medv5-iico--morning { background: var(--warn-bg);   color: var(--warn); }
+.medv5-iico--food    { background: var(--warn-bg);   color: var(--warn); }
+.medv5-iico--warn    { background: var(--bad-bg);    color: var(--bad); }
+.medv5-iico--more    { background: transparent;      color: var(--text-3); border: 1px solid var(--border-2); }
+.medv5-iico--more svg { fill: currentColor; stroke: none; }
+
+/* Generic-of subline (only renders when r.generic_of is set) */
+.medv5-generic-of {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--fs-body);
+  color: var(--text-3);
+  margin-top: 2px;
+}
+.medv5-generic-of strong {
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+/* Form / schedule sub-line */
+.medv5-sub {
+  font-size: var(--fs-meta);
+  color: var(--text-2);
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.medv5-sub .sep { color: var(--border-2); }
+
+/* Zone A — conditions row + status pill */
+.medv5-cond-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+.medv5-cond {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px 5px 8px;
+  border-radius: 999px;
+  background: var(--bad-bg);
+  color: var(--bad);
+  font-size: var(--fs-meta);
+  font-weight: 500;
+}
+.medv5-cond svg {
+  width: 13px; height: 13px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.medv5-cond--lipid { background: var(--bad-bg); color: var(--bad); }
+.medv5-cond--endo  { background: var(--purple-bg); color: var(--purple); }
+.medv5-cond--more  {
+  border: 1px dashed var(--border-2);
+  color: var(--text-3);
+  padding: 5px 9px;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  letter-spacing: 0.06em;
+}
+.medv5-cond-spacer { flex: 1; }
+.medv5-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px 5px 10px;
+  border: 1px solid var(--warn);
+  color: var(--warn);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  background: transparent;
+}
+.medv5-status-pill::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--warn);
+}
+.medv5-status-pill.is-overdue {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+.medv5-status-pill.is-overdue::before { background: var(--bad); }
+
+/* Divider before strip */
+.medv5-divider {
+  border: none;
+  border-top: 1px dashed var(--border-2);
+  margin: 18px 0 14px;
+}
+
+/* Zone C — cross-module strip */
+.medv5-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 16px;
+}
+.medv5-strip-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.medv5-strip-icon {
+  width: 28px; height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--r);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+.medv5-strip-icon svg {
+  width: 16px; height: 16px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.medv5-strip-icon--green  { background: var(--good-bg);   color: var(--good); }
+.medv5-strip-icon--purple { background: var(--purple-bg); color: var(--purple); }
+.medv5-strip-icon--amber  { background: var(--warn-bg);   color: var(--warn); }
+.medv5-strip-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.medv5-strip-label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  line-height: 1.2;
+}
+.medv5-strip-value {
+  font-family: var(--font-serif);
+  font-size: 17px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--text);
+  letter-spacing: -0.01em;
+  margin-top: 1px;
+}
+
+/* Zone E — entities */
+.medv5-entities {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.medv5-ent {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  position: relative;
+  cursor: pointer;
+}
+.medv5-ent-tile {
+  width: 44px; height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  flex-shrink: 0;
+}
+.medv5-ent-circle {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  overflow: hidden;
+}
+.medv5-ent-circle svg {
+  width: 22px; height: 22px;
+  stroke: white;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+  opacity: 0.95;
+}
+.medv5-ent-badge {
+  position: absolute;
+  right: -4px; bottom: -4px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--good);
+}
+.medv5-ent-badge svg {
+  width: 11px; height: 11px;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.medv5-ent-pharmacy {
+  width: 44px; height: 44px;
+  border-radius: var(--r-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-sans);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: white;
+}
+.medv5-ent-pharmacy.is-cvs { background: #cc0000; font-size: 13px; }
+.medv5-ent-pharmacy.is-walgreens { background: #e2231a; font-size: 18px; font-style: italic; font-weight: 900; }
+.medv5-ent-pharmacy.is-walmart { background: #0071ce; font-size: 13px; }
+.medv5-ent-pharmacy.is-generic {
+  background: var(--bg-card);
+  color: var(--text-2);
+  border: 1px dashed var(--border-2);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.medv5-ent-label {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: var(--fs-micro);
+  color: var(--text-2);
+  white-space: nowrap;
+  max-width: 70px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.medv5-ent-spacer { flex: 1; }
+.medv5-ent-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  align-self: center;
+}
+.medv5-attach {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+}
+.medv5-attach svg {
+  width: 14px; height: 14px;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+.medv5-drill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--text);
+  cursor: pointer;
+}
+.medv5-drill svg {
+  width: 13px; height: 13px;
+  stroke: var(--text-3);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}
+
 </style>
 </head>
 <body class="v2">
@@ -565,6 +1036,11 @@ body.v2 .gh-family-label, body.v2 [class*="gh-family"] [class*="-label"]:first-c
           <label class="form-label">Brand name <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">e.g. Lipitor</span></label>
           <input class="form-input" type="text" id="mBrand" placeholder="">
         </div>
+      </div>
+      <!-- v202604.145 — Generic of (drives "Generic of {brand}" subline on card) -->
+      <div class="form-group">
+        <label class="form-label">Generic of <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">brand-name equivalent if generic is prescribed — e.g. Lipitor</span></label>
+        <input class="form-input" type="text" id="mGenericOf" placeholder="leave blank if the bottle shows the brand name">
       </div>
     </div>
 
@@ -1148,7 +1624,7 @@ async function renderMedications() {
       const avatar = (member && window.GH_AVATAR) ? GH_AVATAR.render(member, 'sm') : '';
       return `
         <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(440px,520px));gap:14px;padding:4px 18px 100px;justify-content:start">${meds.map(r => renderMedCard(r)).join('')}</div>
+        <div class="medv5-grid">${meds.map(r => renderMedCard(r)).join('')}</div>
       `;
     }).join('');
 
@@ -1180,250 +1656,277 @@ function medRefillState(r) {
   return 'active';
 }
 
-// SVG pill heroes — verbatim from draft #1.1 (Lipitor) + #1.2 (Olmesartan).
-// Pick variant by row id hash so each med has a stable visual identity.
-function medHeroSvg(r) {
-  const heroSeed = (r.id || 0) % 2;
-  if (heroSeed === 0) {
-    // #1.1 Lipitor — round white pill with imprint
-    return `
-      <svg width="140" height="84" viewBox="0 0 140 84">
-        <defs>
-          <linearGradient id="lipBody_${r.id}" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="#ffffff"/>
-            <stop offset="50%" stop-color="#f9fafb"/>
-            <stop offset="100%" stop-color="#e2e8f0"/>
-          </linearGradient>
-        </defs>
-        <ellipse cx="70" cy="76" rx="46" ry="3" fill="rgba(0,0,0,0.10)"/>
-        <g transform="rotate(-8 70 42)">
-          <ellipse cx="70" cy="42" rx="52" ry="19" fill="url(#lipBody_${r.id})" stroke="rgba(0,0,0,0.12)" stroke-width="0.7"/>
-          <ellipse cx="56" cy="34" rx="24" ry="3.5" fill="rgba(255,255,255,0.7)"/>
-          <text x="70" y="47" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="11.5" font-weight="600" fill="#475569" letter-spacing="0.5">${esc((r.name||'').slice(0,4).toUpperCase())}</text>
-        </g>
-      </svg>`;
-  }
-  // #1.2 Olmesartan — two-tone capsule
-  return `
-    <svg width="140" height="84" viewBox="0 0 140 84">
-      <defs>
-        <linearGradient id="olmBody_${r.id}" x1="0%" y1="0%" x2="100%" y2="0%">
-          <stop offset="0%" stop-color="#fed7aa"/><stop offset="50%" stop-color="#fed7aa"/>
-          <stop offset="50%" stop-color="#fda4af"/><stop offset="100%" stop-color="#fda4af"/>
-        </linearGradient>
-      </defs>
-      <ellipse cx="70" cy="76" rx="46" ry="3" fill="rgba(0,0,0,0.10)"/>
-      <g transform="rotate(-4 70 42)">
-        <rect x="22" y="32" width="96" height="22" rx="11" fill="url(#olmBody_${r.id})" stroke="rgba(0,0,0,0.12)" stroke-width="0.7"/>
-        <line x1="70" y1="32" x2="70" y2="54" stroke="rgba(0,0,0,0.15)" stroke-width="0.6"/>
-        <text x="92" y="47" text-anchor="middle" font-family="-apple-system, sans-serif" font-size="10" font-weight="600" fill="#7c2d12">${esc((r.name||'').slice(0,3).toUpperCase())}</text>
-      </g>
-    </svg>`;
-}
+// ════════════════════════════════════════════════════════════════
+// v202604.145 — V1 VELLUM CARD RENDERERS
+// ────────────────────────────────────────────────────────────────
+// Replaces the older draft #1.1/#1.2 inline-styled spaghetti with a
+// scoped class-based card. Hero name = whatever's on the bottle
+// (r.name). When r.generic_of is set (generic prescribed), a small
+// "Generic of {brand}" line shows underneath. Drug class is no
+// longer rendered. All visuals flow through plain-name tokens
+// (--bg, --text, --accent, --r-xl, --fs-*) defined in the body.v2
+// block above.
+// ────────────────────────────────────────────────────────────────
 
-// Subtitle: "atorvastatin · oral" pattern from #1.1
-function medSubtitle(r) {
-  const parts = [];
-  if (r.generic_name && r.name && r.name.toLowerCase() !== r.generic_name.toLowerCase()) parts.push(r.generic_name);
-  if (r.brand_name && r.name && r.name.toLowerCase() !== r.brand_name.toLowerCase() && !parts.includes(r.brand_name)) parts.push(r.brand_name);
-  if (r.form) parts.push(r.form);
-  return parts.join(' · ');
-}
-
-// Phosphor SVGs — pulled from the draft verbatim
-const _PH = {
-  heart:'<svg viewBox="0 0 256 256" fill="currentColor"><path d="M178,32c-20.65,0-38.73,8.88-50,23.89C116.73,40.88,98.65,32,78,32A62.07,62.07,0,0,0,16,94c0,70,103.79,126.66,108.21,129a8,8,0,0,0,7.58,0C136.21,220.66,240,164,240,94A62.07,62.07,0,0,0,178,32Z"/></svg>',
-  pin:'<svg viewBox="0 0 256 256" fill="currentColor"><path d="M236,103.34a15.89,15.89,0,0,0-4.69-11.31L164,24.68A16,16,0,0,0,141.32,24.7L116.69,49.31a8,8,0,0,0,0,11.32L120.36,64.3,72.39,108.69A8,8,0,0,0,69.66,114.3l-39,39a8,8,0,0,0,0,11.32l44,44a8,8,0,0,0,11.31,0l39-39a8,8,0,0,0,5.61-2.74L172,116.91l3.66,3.67a8,8,0,0,0,11.32,0L211.27,96A15.92,15.92,0,0,0,236,103.34Z"/></svg>',
-  dots3:'<svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="16"/><circle cx="64" cy="128" r="16"/><circle cx="192" cy="128" r="16"/></svg>',
-  moon:'<svg viewBox="0 0 256 256" fill="currentColor"><path d="M233.54,142.23a8,8,0,0,0-8-2,88.08,88.08,0,0,1-109.8-109.8,8,8,0,0,0-10-10,104.84,104.84,0,0,0-52.91,37A104,104,0,0,0,136,224a103.09,103.09,0,0,0,62.52-20.88,104.84,104.84,0,0,0,37-52.91A8,8,0,0,0,233.54,142.23Z"/></svg>',
-  sun:'<svg viewBox="0 0 256 256" fill="currentColor"><circle cx="128" cy="128" r="40"/><line x1="128" y1="32" x2="128" y2="48" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="128" y1="208" x2="128" y2="224" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="60" y1="60" x2="72" y2="72" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="184" y1="184" x2="196" y2="196" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="32" y1="128" x2="48" y2="128" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="208" y1="128" x2="224" y2="128" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="60" y1="196" x2="72" y2="184" stroke="currentColor" stroke-width="16" stroke-linecap="round"/><line x1="184" y1="72" x2="196" y2="60" stroke="currentColor" stroke-width="16" stroke-linecap="round"/></svg>',
-  fork:'<svg viewBox="0 0 256 256" fill="currentColor"><path d="M104,80V224a8,8,0,0,1-16,0V161.45L52.79,228.36a8,8,0,0,1-14.14-7.49L75.85,151.6A40.07,40.07,0,0,1,48,113.45V80a8,8,0,0,1,16,0v33.45a24,24,0,0,0,16,22.62V80a8,8,0,0,1,16,0v56.07a24,24,0,0,0,16-22.62V80a8,8,0,0,1,16,0v33.45A40.07,40.07,0,0,1,100.15,151.6L137.21,220a8,8,0,0,1-14.14,7.49L88,161.45V224"/></svg>',
-  warn:'<svg viewBox="0 0 256 256" fill="currentColor"><path d="M236.8,188.09,149.35,36.22a24.76,24.76,0,0,0-42.7,0L19.2,188.09a23.51,23.51,0,0,0,0,23.72A24.35,24.35,0,0,0,40.55,224h174.9a24.35,24.35,0,0,0,21.33-12.19A23.51,23.51,0,0,0,236.8,188.09ZM120,104a8,8,0,0,1,16,0v40a8,8,0,0,1-16,0Zm8,88a12,12,0,1,1,12-12A12,12,0,0,1,128,192Z"/></svg>',
-  clip:'<svg viewBox="0 0 256 256" fill="currentColor"><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,38.41a40,40,0,0,1,56.61,56.55L105,193.66a24,24,0,0,1-33.94-33.94l83-83a8,8,0,0,1,11.31,11.32l-83,83a8,8,0,0,0,11.32,11.31L192.93,83.66a24,24,0,1,0-33.94-33.94L59.71,148.06a40,40,0,1,0,56.55,56.55L198.34,122.34A8,8,0,0,1,209.66,122.34Z"/></svg>',
-  caretR:'<svg viewBox="0 0 256 256" fill="currentColor"><path d="M181.66,133.66l-80,80a8,8,0,0,1-11.32-11.32L164.69,128,90.34,53.66a8,8,0,0,1,11.32-11.32l80,80A8,8,0,0,1,181.66,133.66Z"/></svg>',
+// Lucide-style line icons. Stroke 2, round caps. Paths only — the
+// outer <svg> wrapper comes from the consuming markup.
+const _LU = {
+  moon:    '<svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>',
+  sun:     '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m4.93 19.07 1.41-1.41"/><path d="m17.66 6.34 1.41-1.41"/></svg>',
+  fork:    '<svg viewBox="0 0 24 24"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>',
+  warn:    '<svg viewBox="0 0 24 24"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>',
+  dots:    '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
+  heart:   '<svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>',
+  drop:    '<svg viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>',
+  pulse:   '<svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.5.5 0 0 1-.96 0L9.24 2.18a.5.5 0 0 0-.96 0l-2.35 8.36A2 2 0 0 1 4 12H2"/></svg>',
+  wallet:  '<svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>',
+  cal:     '<svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="m9 16 2 2 4-4"/></svg>',
+  pill:    '<svg viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>',
+  receipt: '<svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg>',
+  user:    '<svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  steth:   '<svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg>',
+  clip:    '<svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+  caretR:  '<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>',
 };
 
-// Entity circles — verbatim gradients from draft Z5
-function medEntCircle(label, kind) {
-  const t = (label||'?').slice(0, kind === 'pharmacy' ? 3 : 2).toUpperCase();
-  if (kind === 'pharmacy') {
-    // Brand square with red gradient (CVS in draft)
-    return `<div class="ent-circle" style="width:36px;height:36px;border-radius:9px;background:linear-gradient(135deg,#ef4444,#b91c1c);color:white;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;letter-spacing:0.04em" title="${esc(label)}">${esc(t)}</div>`;
-  }
-  // Round circle, gradient by name hash
-  let h = 0; for (const c of (label||'')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  const grads = [
-    ['#f472b6','#db2777'], ['#34d399','#047857'], ['#a78bfa','#7c3aed'],
-    ['#93c5fd','#1d4ed8'], ['#fb923c','#c2410c'], ['#5eead4','#0d9488']
-  ];
-  const g = grads[h % grads.length];
-  return `<div class="ent-circle" style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,${g[0]},${g[1]});color:white;font-size:12px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0" title="${esc(label)}">${esc(t)}</div>`;
+// Map a free-text condition name to one of three semantic icons.
+// Cardiovascular → heart, lipid → drop, endocrine/metabolic → pulse.
+// Default is heart (most common medical entity in this app).
+function _condGlyph(name) {
+  const n = (name || '').toLowerCase();
+  if (/cholesterol|lipid|triglycerid/.test(n))            return { icon: _LU.drop,  cls: 'medv5-cond--lipid' };
+  if (/diabet|insulin|sugar|thyroid|hormone|metabol/.test(n)) return { icon: _LU.pulse, cls: 'medv5-cond--endo' };
+  return { icon: _LU.heart, cls: '' };
 }
 
-// ── renderMedCard — verbatim draft markup, data-bound ──
-// #1.1 layout when refill due/overdue (with Z4 alert block)
-// #1.2 layout when active (no Z4 alert)
+// Map a pharmacy/contact name to a brand-mark variant. Falls back to
+// a generic "Rx" tile when the name doesn't match a known chain.
+function _pharmacyMark(name) {
+  const n = (name || '').toLowerCase();
+  if (/cvs/.test(n))         return { cls: 'is-cvs',       label: 'CVS' };
+  if (/walgreen/.test(n))    return { cls: 'is-walgreens', label: 'W' };
+  if (/walmart/.test(n))     return { cls: 'is-walmart',   label: 'WMT' };
+  return { cls: 'is-generic', label: 'Rx' };
+}
+
+// Per-name gradient picker for circle avatars (patient, doctor).
+function _gradFor(name) {
+  let h = 0; for (const c of (name || '')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const grads = [
+    ['#c084fc', '#db2777'],  // pink
+    ['#93c5fd', '#1d4ed8'],  // blue
+    ['#34d399', '#047857'],  // green
+    ['#fb923c', '#c2410c'],  // orange
+    ['#5eead4', '#0d9488'],  // teal
+    ['#a78bfa', '#7c3aed'],  // purple
+  ];
+  return grads[h % grads.length];
+}
+
+// ── renderMedCard — V1 Vellum layout ───────────────────────────
+//
+// Zones (see /_drafts.html spec card for IDs):
+//   A  Eyebrow + status dot
+//   B  Hero name + dose · instruction icons · "Generic of …" sub
+//   A' Conditions chips + status pill (visually merged with A)
+//   C  Cross-module strip (HSA · Last filled · Refills · Last cost)
+//   E  Entity row (patient · prescriber · pharmacy) + attach + Timeline
+//
+// Zone D (refill alert block) is omitted in V1 — its content moved
+// into the status pill on the right of the conditions row.
+//
+// Click-throughs deferred to a follow-up drop:
+//   - E1 Sarah → family member detail
+//   - E2 Dr. Patel → contact quick-view modal
+//   - E3 CVS → contact quick-view modal (or pharmacy URL)
+//   - Status pill → opens refill modal (wired now)
+//   - Order refill / pharmacy site → wired when contact URL surfaces
 function renderMedCard(r) {
   const state = medRefillState(r);
-  const isAlert = (state === 'overdue' || state === 'refill');
-  const sub = medSubtitle(r);
+  const eyebrowCls = state === 'overdue' ? 'is-overdue'
+                  : state === 'refill'  ? 'is-refill'
+                  : state === 'discont' ? 'is-discont'
+                  : '';
+  const eyebrowText = (() => {
+    const who = r.family_member_name || r.patient || '';
+    const verb = state === 'overdue' ? 'Refill overdue'
+              :  state === 'refill'  ? 'Refill due'
+              :  state === 'discont' ? 'Discontinued'
+              :                        'Active';
+    return [who, verb].filter(Boolean).join(' · ');
+  })();
 
-  // Status dot — colors per draft
-  const dotStyle = state === 'overdue' ? 'background:#dc2626;box-shadow:0 0 0 4px rgba(220,38,38,0.16)'
-                  : state === 'refill'  ? 'background:#f59e0b;box-shadow:0 0 0 4px rgba(245,158,11,0.16)'
-                  : state === 'discont' ? 'background:#94a3b8;box-shadow:0 0 0 4px rgba(148,163,184,0.16)'
-                  :                       'background:#34c759;box-shadow:0 0 0 4px rgba(52,199,89,0.16)';
-
-  // Z1: condition chips (multi, +N overflow) — exact draft markup
+  // Conditions — first 2 with semantic icon glyphs + overflow chip.
   const conds = Array.isArray(r.conditions) ? r.conditions
               : (r.condition_name_text ? [{ id: r.condition_id, condition_name: r.condition_name_text }] : []);
-  const condChips = conds.slice(0, 2).map(c => `
-          <div class="chip-tap" style="display: flex; align-items: center; gap: 5px; padding: 4px 10px 4px 7px; border-radius: 999px; background: rgba(220,38,38,0.08);" title="Treats: ${esc(c.condition_name)}">
-            <div class="ph-icon" style="width: 14px; height: 14px; color: #dc2626;">${_PH.heart}</div>
-            <span style="font-size: 11px; font-weight: 500; color: #991b1b;">${esc(c.condition_name)}</span>
-          </div>`).join('');
-  const condOverflow = conds.length > 2
-    ? `<span class="chip-tap" style="font-size: 11px; padding: 4px 8px; border-radius: 999px; border: 1px dashed #cbd5e1; color: #64748b;" title="${conds.length-2} more">+${conds.length-2}</span>`
+  const condChips = conds.slice(0, 3).map(c => {
+    const g = _condGlyph(c.condition_name);
+    return `<span class="medv5-cond ${g.cls}" title="${esc(c.condition_name)}">${g.icon}${esc(c.condition_name)}</span>`;
+  }).join('');
+  const condOverflow = conds.length > 3
+    ? `<span class="medv5-cond medv5-cond--more" title="${conds.length-3} more">+${conds.length-3}</span>`
     : '';
 
-  // Z3: instruction icons
-  const instr = [];
-  if (r.time_of_day === 'morning') instr.push(`
-          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(217,119,6,0.10); display: flex; align-items: center; justify-content: center;" title="Take in morning">
-            <div class="ph-icon" style="width: 24px; height: 24px; color: #d97706;">${_PH.sun}</div>
-          </div>`);
-  if (r.time_of_day === 'evening') instr.push(`
-          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(99,102,241,0.10); display: flex; align-items: center; justify-content: center;" title="Take in evening">
-            <div class="ph-icon" style="width: 24px; height: 24px; color: #4f46e5;">${_PH.moon}</div>
-          </div>`);
-  if (r.take_with_food) instr.push(`
-          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(217,119,6,0.10); display: flex; align-items: center; justify-content: center;" title="Take with food">
-            <div class="ph-icon" style="width: 24px; height: 24px; color: #d97706;">${_PH.fork}</div>
-          </div>`);
-  if (r.interaction_warning) instr.push(`
-          <div class="chip-tap" style="width: 44px; height: 44px; border-radius: 12px; background: rgba(220,38,38,0.10); display: flex; align-items: center; justify-content: center;" title="${esc(r.interaction_warning)}">
-            <div class="ph-icon" style="width: 24px; height: 24px; color: #dc2626;">${_PH.warn}</div>
-          </div>`);
-
-  const tagRow = (r.tags && r.tags.length)
-    ? `
-        <div style="display: flex; gap: 6px; padding: 0 18px 10px; align-items: center; flex-wrap: wrap;">
-          ${r.tags.slice(0,3).map(t=>`<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">#${esc(t)}</span>`).join('')}
-          ${r.tags.length>3?`<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">+${r.tags.length-3}</span>`:''}
-        </div>`
-    : '';
-
-  // Cross-module strip
-  const hsaYtd = (r.hsa_ytd != null) ? `$${Number(r.hsa_ytd).toFixed(2)}` : '$0.00';
-  const lastFilled = r.last_filled ? formatDate(r.last_filled) : '—';
-  const logMentions = r.log_mentions != null ? r.log_mentions : 0;
-
-  // Z4 alert (only when refill due/overdue) — draft #1.1 markup verbatim
-  let alertBlock = '';
-  if (isAlert) {
-    const isOverdue = state === 'overdue';
-    const daysText = (() => {
-      if (!r.next_refill_date) return isOverdue ? 'Refill overdue' : 'Refill needed soon';
+  // Status pill — only shows for refill/overdue states (active/discont stay quiet).
+  let statusPill = '';
+  if (state === 'overdue' || state === 'refill') {
+    const isOver = state === 'overdue';
+    const txt = (() => {
+      if (!r.next_refill_date) return isOver ? 'Refill overdue' : 'Refill needed';
       const today = new Date(); today.setHours(0,0,0,0);
       const next = new Date(r.next_refill_date);
       const days = Math.round((next - today) / 86400000);
-      if (days < 0) return `Refill ${Math.abs(days)} day${Math.abs(days)===1?'':'s'} overdue`;
+      if (days < 0)  return `${Math.abs(days)}d overdue`;
       if (days === 0) return 'Refill today';
-      return `Refill in ${days} day${days===1?'':'s'}`;
+      return `Refill in ${days}d`;
     })();
-    const supplyMeta = r.refills_remaining != null ? `${r.refills_remaining} refill${r.refills_remaining===1?'':'s'} left` : '';
-    const alertBg = isOverdue ? 'rgba(254,226,226,0.40)' : 'rgba(254,243,199,0.30)';
-    const alertBorder = isOverdue ? 'rgba(220,38,38,0.30)' : 'rgba(245,158,11,0.30)';
-    const btnBg = isOverdue ? '#dc2626' : '#f59e0b';
-    const btnShadow = isOverdue ? 'rgba(220,38,38,0.4)' : 'rgba(245,158,11,0.4)';
-    alertBlock = `
-        <div style="margin: 4px 18px 14px; padding: 14px; border-radius: 12px; border: 0.5px solid ${alertBorder}; background: ${alertBg};">
-          <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap;">
-            <div style="font-size: 13px; color: #1a1a1a; font-weight: 600;">${esc(daysText)}</div>
-            ${supplyMeta ? `<div style="font-size: 11px; color: #94a3b8; font-weight: 500;">${esc(supplyMeta)}</div>` : ''}
-            <div style="flex: 1;"></div>
-            <button style="padding: 8px 14px; border-radius: 9px; background: ${btnBg}; border: none; color: white; font-size: 12px; font-weight: 600; cursor: pointer; box-shadow: 0 1px 3px ${btnShadow};"
-                    onclick="event.stopPropagation();openRefillModal(${r.id})">Order Refill</button>
-          </div>
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; flex-wrap: wrap; gap: 6px;">
-            <span style="color: #94a3b8;">
-              ${r.last_filled ? `Last refilled ${formatDate(r.last_filled)}` : 'No fill history'}
-              ${r.pharmacy_name ? ` · ${esc(r.pharmacy_name)}` : ''}
-              ${r.last_fill_cost != null ? ` · $${Number(r.last_fill_cost).toFixed(2)}` : ''}
-            </span>
-            ${r.rx_number ? `<span class="chip-tap" style="font-family: 'SF Mono', Menlo, monospace; color: #475569;" title="Tap to copy Rx">Rx# ${esc(r.rx_number)}</span>` : ''}
-          </div>
-        </div>`;
+    statusPill = `<button class="medv5-status-pill ${isOver?'is-overdue':''}"
+                          onclick="event.stopPropagation();openRefillModal(${r.id})"
+                          title="Record refill">${esc(txt)}</button>`;
   }
 
-  // Z5 entities
+  // Instruction icons — show only the ones that apply (max 4 incl. ⋯).
+  const instr = [];
+  if (r.time_of_day === 'morning')   instr.push(`<button class="medv5-iico medv5-iico--morning" title="Take in morning" onclick="event.stopPropagation();void 0">${_LU.sun}</button>`);
+  if (r.time_of_day === 'evening')   instr.push(`<button class="medv5-iico medv5-iico--evening" title="Take in evening" onclick="event.stopPropagation();void 0">${_LU.moon}</button>`);
+  if (r.take_with_food)              instr.push(`<button class="medv5-iico medv5-iico--food"    title="Take with food" onclick="event.stopPropagation();void 0">${_LU.fork}</button>`);
+  if (r.interaction_warning)         instr.push(`<button class="medv5-iico medv5-iico--warn"    title="${esc(r.interaction_warning)}" onclick="event.stopPropagation();void 0">${_LU.warn}</button>`);
+  instr.push(`<button class="medv5-iico medv5-iico--more" title="More actions" onclick="event.stopPropagation();editMedication(${r.id})">${_LU.dots}</button>`);
+
+  // Cross-module strip — values: HSA YTD, Last filled, Refills left, Last cost.
+  // Each cell hides its row only if the WHOLE strip would be empty; individual
+  // missing values render as "—" so the layout doesn't reflow per row.
+  const fmtMoney = v => (v == null) ? '—' : `$${Number(v).toFixed(2)}`;
+  const hsaYtd     = fmtMoney(r.hsa_ytd);
+  const lastFilled = r.last_filled ? formatDate(r.last_filled) : '—';
+  const refillsLeft= (r.refills_remaining != null) ? String(r.refills_remaining) : '—';
+  const lastCost   = fmtMoney(r.last_fill_cost);
+
+  // Entity row — patient · prescriber · pharmacy.
+  // Patient: silhouette glyph by default (photo when GH_AVATAR has one).
+  // Doctor:  initials in gradient circle + stethoscope corner badge.
+  // Pharmacy: brand mark when name matches a known chain, else generic Rx.
+  const memberName = r.family_member_name || r.patient || '';
+  const docName    = r.physician || (r.physician_contact_id ? 'Doctor' : '');
+  const pharmName  = r.pharmacy_name || '';
+
   const ents = [];
-  const memberName = r.family_member_name || r.patient;
-  if (memberName) ents.push(medEntCircle(memberName, 'patient'));
-  if (r.physician || r.physician_contact_id) ents.push(medEntCircle(r.physician || 'Doctor', 'doctor'));
-  if (r.pharmacy_name) ents.push(medEntCircle(r.pharmacy_name, 'pharmacy'));
+  if (memberName) {
+    const g = _gradFor(memberName);
+    ents.push(`
+      <div class="medv5-ent" title="${esc(memberName)}">
+        <div class="medv5-ent-tile">
+          <div class="medv5-ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${_LU.user}</div>
+        </div>
+        <span class="medv5-ent-label">${esc(memberName.split(/\s+/)[0])}</span>
+      </div>`);
+  }
+  if (docName) {
+    const g = _gradFor(docName);
+    const ini = docName.split(/\s+/).map(s=>s[0]||'').join('').slice(0,2).toUpperCase() || 'DR';
+    ents.push(`
+      <div class="medv5-ent" title="${esc(docName)} · prescriber">
+        <div class="medv5-ent-tile">
+          <div class="medv5-ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${esc(ini)}</div>
+          <div class="medv5-ent-badge" title="Prescriber">${_LU.steth}</div>
+        </div>
+        <span class="medv5-ent-label">${esc(docName)}</span>
+      </div>`);
+  }
+  if (pharmName) {
+    const m = _pharmacyMark(pharmName);
+    ents.push(`
+      <div class="medv5-ent" title="${esc(pharmName)} · pharmacy">
+        <div class="medv5-ent-tile">
+          <div class="medv5-ent-pharmacy ${m.cls}">${esc(m.label)}</div>
+        </div>
+        <span class="medv5-ent-label">${esc(pharmName)}</span>
+      </div>`);
+  }
 
-  // ── Compose: exact draft #1.1 / #1.2 markup ──
+  // Form line — "Oral tablet · Daily, with dinner".
+  const formText = (r.form ? r.form[0].toUpperCase() + r.form.slice(1) + ' tablet' : '').replace(/tablet tablet/i, 'tablet');
+  const subBits = [];
+  if (formText && r.form !== 'tablet') subBits.push(esc(formText));
+  else if (r.form === 'tablet') subBits.push('Oral tablet');
+  if (r.frequency) subBits.push(esc(r.frequency));
+  const subLine = subBits.length
+    ? `<div class="medv5-sub">${subBits.map((b,i)=>i?`<span class="sep">·</span><span>${b}</span>`:`<span>${b}</span>`).join('')}</div>`
+    : '';
+
+  // "Generic of {brand}" line — only when the prescribed name differs
+  // from the brand and r.generic_of is populated.
+  const genericOfLine = r.generic_of
+    ? `<div class="medv5-generic-of">Generic of <strong>${esc(r.generic_of)}</strong></div>`
+    : '';
+
   return `
-      <div style="max-width: 520px; background: #ffffff; border: 0.5px solid #e5e7eb; border-radius: 18px; overflow: hidden; box-shadow: 0 1px 2px rgba(0,0,0,0.04), 0 12px 32px rgba(0,0,0,0.06); cursor: pointer;" onclick="openMedDetail(${r.id})">
+    <div class="medv5-card" onclick="openMedDetail(${r.id})">
 
-        <div style="display: flex; align-items: center; gap: 8px; padding: 14px 18px 0; flex-wrap: wrap;">
-          <div style="width: 10px; height: 10px; border-radius: 50%; ${dotStyle}; flex-shrink: 0;" title="${esc(r.status||'')}"></div>${condChips}${condOverflow}
-          ${r.drug_class ? `<span style="font-size: 11px; color: #94a3b8; font-weight: 500;">${esc(r.drug_class)}</span>` : ''}
-          <div style="flex: 1;"></div>
-          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="Pin to top" onclick="event.stopPropagation();void 0">
-            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">${_PH.pin}</div>
+      <div class="medv5-eyebrow ${eyebrowCls}">
+        <span class="dot"></span>${esc(eyebrowText)}
+      </div>
+
+      <div class="medv5-name-row">
+        <div class="medv5-name-block">
+          <span class="medv5-name">${esc(r.name || '')}</span>
+          ${r.dosage ? `<span class="medv5-dose">${esc(r.dosage)}</span>` : ''}
+        </div>
+        <div class="medv5-instr-row">${instr.join('')}</div>
+      </div>
+
+      ${genericOfLine}
+      ${subLine}
+
+      <div class="medv5-cond-row">
+        ${condChips}${condOverflow}
+        <span class="medv5-cond-spacer"></span>
+        ${statusPill}
+      </div>
+
+      <hr class="medv5-divider"/>
+
+      <div class="medv5-strip">
+        <div class="medv5-strip-item" title="HSA spending YTD on this medication">
+          <div class="medv5-strip-icon medv5-strip-icon--green">${_LU.wallet}</div>
+          <div class="medv5-strip-meta">
+            <span class="medv5-strip-label">HSA YTD</span>
+            <span class="medv5-strip-value">${hsaYtd}</span>
           </div>
-          <div class="chip-tap" style="width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center;" title="More actions" onclick="event.stopPropagation();editMedication(${r.id})">
-            <div class="ph-icon" style="width: 18px; height: 18px; color: #94a3b8;">${_PH.dots3}</div>
+        </div>
+        <div class="medv5-strip-item" title="Most recent fill">
+          <div class="medv5-strip-icon medv5-strip-icon--purple">${_LU.cal}</div>
+          <div class="medv5-strip-meta">
+            <span class="medv5-strip-label">Last filled</span>
+            <span class="medv5-strip-value">${esc(lastFilled)}</span>
           </div>
         </div>
-
-        <div style="display: flex; gap: 18px; padding: 14px 18px 8px; align-items: center;">
-          <div style="flex: 0 0 140px;">${medHeroSvg(r)}</div>
-          <div style="flex: 1; min-width: 0;">
-            <div style="display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;">
-              <div style="font-size: 20px; font-weight: 600; color: #1a1a1a; line-height: 1.1; letter-spacing: -0.01em;">${esc(r.name||'')}</div>
-              ${r.dosage ? `<div style="font-size: 14px; color: #64748b; font-weight: 500;">${esc(r.dosage)}</div>` : ''}
-            </div>
-            ${sub ? `<div style="font-size: 12px; color: #94a3b8; margin-top: 2px;">${esc(sub)}</div>` : ''}
-            ${r.frequency ? `<div style="font-size: 13px; color: #475569; margin-top: 8px;">${esc(r.frequency)}</div>` : ''}
+        <div class="medv5-strip-item" title="Refills remaining on current Rx">
+          <div class="medv5-strip-icon medv5-strip-icon--amber">${_LU.pill}</div>
+          <div class="medv5-strip-meta">
+            <span class="medv5-strip-label">Refills left</span>
+            <span class="medv5-strip-value">${esc(refillsLeft)}</span>
           </div>
         </div>
-
-        ${instr.length ? `<div style="display: flex; gap: 8px; padding: 4px 18px 12px;">${instr.join('')}</div>` : ''}
-        ${tagRow}
-
-        <div style="display: flex; gap: 18px; padding: 10px 18px; border-top: 1px dashed #e5e7eb; flex-wrap: wrap;">
-          <span class="chip-tap" style="font-size: 11px;" title="HSA spending YTD">
-            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">HSA YTD</span>
-            <strong style="color: #475569; font-size: 12px; font-weight: 600;">${hsaYtd}</strong>
-          </span>
-          <span class="chip-tap" style="font-size: 11px;" title="Mentions in daily log">
-            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Log mentions</span>
-            <strong style="color: #475569; font-size: 12px; font-weight: 600;">${logMentions}</strong>
-          </span>
-          <span class="chip-tap" style="font-size: 11px;" title="Last refill date">
-            <span style="text-transform: uppercase; letter-spacing: 0.04em; font-size: 10px; color: #94a3b8; margin-right: 4px;">Last filled</span>
-            <strong style="color: #475569; font-size: 12px; font-weight: 600;">${esc(lastFilled)}</strong>
-          </span>
+        <div class="medv5-strip-item" title="Cost of most recent fill">
+          <div class="medv5-strip-icon">${_LU.receipt}</div>
+          <div class="medv5-strip-meta">
+            <span class="medv5-strip-label">Last cost</span>
+            <span class="medv5-strip-value">${lastCost}</span>
+          </div>
         </div>
-${alertBlock}
-        <div style="display: flex; gap: 12px; padding: 14px 18px 16px; align-items: center; border-top: 0.5px solid #f1f5f9; flex-wrap: wrap;">
-          ${ents.join('')}
-          <div style="flex: 1;"></div>
-          ${r.attachment_count ? `
-          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #94a3b8; font-weight: 500;" title="${r.attachment_count} attachment${r.attachment_count===1?'':'s'}">
-            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">${_PH.clip}</div>
-            ${r.attachment_count}
-          </span>` : ''}
-          <span class="chip-tap" style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: #475569; font-weight: 500;" onclick="event.stopPropagation();openMedDetail(${r.id})">
-            Timeline
-            <div class="ph-icon" style="width: 14px; height: 14px; color: #94a3b8;">${_PH.caretR}</div>
-          </span>
-        </div>
+      </div>
 
-      </div>`;
+      ${ents.length ? `<div class="medv5-entities">
+        ${ents.join('')}
+        <span class="medv5-ent-spacer"></span>
+        <div class="medv5-ent-right">
+          ${r.attachment_count ? `<span class="medv5-attach" title="${r.attachment_count} attachment${r.attachment_count===1?'':'s'}">${_LU.clip}${r.attachment_count}</span>` : ''}
+          <span class="medv5-drill" onclick="event.stopPropagation();openMedDetail(${r.id})">Timeline${_LU.caretR}</span>
+        </div>
+      </div>` : ''}
+
+    </div>`;
 }
 
 // Center modal — minimal version for v2 preview
@@ -1700,6 +2203,7 @@ async function openMedDrawer(r) {
   if ($id('mGeneric'))     $id('mGeneric').value     = r?.generic_name || '';
   if ($id('mBrand'))       $id('mBrand').value       = r?.brand_name || '';
   if ($id('mClass'))       $id('mClass').value       = r?.drug_class || '';
+  if ($id('mGenericOf'))   $id('mGenericOf').value   = r?.generic_of || '';
   if ($id('mTimeOfDay'))   $id('mTimeOfDay').value   = r?.time_of_day || '';
   if ($id('mInteraction')) $id('mInteraction').value = r?.interaction_warning || '';
   if ($id('mTakeWithFood')) $id('mTakeWithFood').checked = !!r?.take_with_food;
@@ -1755,6 +2259,7 @@ async function saveMedication() {
     generic_name:        $id('mGeneric')?.value.trim() || null,
     brand_name:          $id('mBrand')?.value.trim() || null,
     drug_class:          $id('mClass')?.value.trim() || null,
+    generic_of:          $id('mGenericOf')?.value.trim() || null,
     time_of_day:         $id('mTimeOfDay')?.value || null,
     take_with_food:      $id('mTakeWithFood')?.checked ? 1 : 0,
     interaction_warning: $id('mInteraction')?.value.trim() || null,

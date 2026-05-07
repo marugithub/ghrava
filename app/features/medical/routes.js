@@ -150,6 +150,15 @@ router.post('/medications', requireAuth, (req, res) => {
     }
 
     if (d.tags) saveTagsByName(newId, 'medical_medication', d.tags);
+
+    // v202604.145 — additive: persist generic_of when migration 122 has run.
+    // Done as a separate UPDATE so the main INSERT statement above is
+    // unchanged and continues to work on a DB without the column.
+    if (cols.includes('generic_of') && d.generic_of !== undefined) {
+      db.prepare('UPDATE med_medications SET generic_of=? WHERE id=?')
+        .run(d.generic_of || null, newId);
+    }
+
     res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_medications WHERE id=?').get(newId), 'medical_medication'));
   } catch (e) { serverError(res, e); }
 });
@@ -206,6 +215,14 @@ router.put('/medications/:id', requireAuth, (req, res) => {
     }
 
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'medical_medication', d.tags);
+
+    // v202604.145 — additive: persist generic_of when migration 122 has run.
+    // Separate UPDATE keeps the main statement above unchanged.
+    if (cols.includes('generic_of') && d.generic_of !== undefined) {
+      db.prepare('UPDATE med_medications SET generic_of=? WHERE id=?')
+        .run(d.generic_of || null, req.params.id);
+    }
+
     clearReview('med_medications', req.params.id);
     res.json(withTagNames(db.prepare('SELECT * FROM med_medications WHERE id=?').get(req.params.id), 'medical_medication'));
   } catch (e) { serverError(res, e); }
