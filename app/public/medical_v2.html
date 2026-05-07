@@ -1,565 +1,609 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <link rel="apple-touch-icon" href="/icon-192.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0a0a0a">
-<link rel="icon" type="image/x-icon" href="/favicon.ico">
-<link rel="apple-touch-icon" href="/icon-192.png">
-<title>Medical (v2) — Ghrava</title>
-
+<meta name="theme-color" content="#f0f4f8">
+<meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+<title>Medical — Ghrava</title>
 <link rel="stylesheet" href="/shared.css">
 <script src="/theme.js"></script>
 <script>
+  // Apply nav-collapsed before first paint to prevent sidebar flash
   if (localStorage.getItem('gh_nav_collapsed') !== '0') {
     document.documentElement.classList.add('nav-collapsed-init');
   }
 </script>
-
-<script src="https://cdn.tailwindcss.com"></script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script>
-tailwind.config = {
-  darkMode: "class",
-  theme: { extend: {
-    colors: {
-      "ink":      "#0a0a0a",
-      "ink-1":    "#131313",
-      "ink-2":    "#1a1a1a",
-      "ink-3":    "#222",
-      "ink-4":    "#2a2a2a",
-      "line":     "#3c4947",
-      "line-2":   "#222",
-      "tx":       "#e5e2e1",
-      "tx-2":     "#bbcac6",
-      "tx-3":     "#7d8a87",
-      "ac":       "#14b8a6",
-      "ac-soft":  "rgba(20,184,166,0.10)",
-      "ac-hover": "#0d9488",
-    },
-    fontFamily: { sans: ['Inter','system-ui','sans-serif'] },
-  }}
-}
-</script>
-
 <style>
-/* ─────────────────────────────────────────────────────────────────
-   v2 NUCLEAR OVERRIDES — beats shared.css by specificity + !important.
-   This is a v2 prototype, not a clean refactor. Once approved,
-   migrate to scoped Tailwind components without the !important crutch.
-   ───────────────────────────────────────────────────────────────── */
-html.dark body.v2,
-html body.v2 {
-  background: #0a0a0a !important; color: #e5e2e1 !important;
-  font-family: 'Inter', system-ui, sans-serif !important;
-}
-body.v2 #app, body.v2 .content { background: transparent !important; }
+/* ── View tabs ─────────────────────────────────────────────── */
 
-/* Nav.js sidebar — force dark */
-body.v2 .side-nav, body.v2 #sideNav, body.v2 [class*="side-nav"] {
-  background: #0e0e0e !important;
-  border-right: 0.5px solid #222 !important;
-  color: #bbcac6 !important;
+/* ── Medical card ──────────────────────────────────────────── */
+/* med cards use shared .card system */
+
+/* ── Patient pills ─────────────────────────────────────────── */
+.patient-strip {
+  display: flex;
+  gap: 8px;
+  padding: 10px 20px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-body.v2 .side-nav *, body.v2 #sideNav * { color: inherit !important; }
-body.v2 .side-nav a, body.v2 #sideNav a,
-body.v2 .side-nav .nav-link, body.v2 #sideNav .nav-link {
-  color: #bbcac6 !important;
+.patient-strip::-webkit-scrollbar { display: none; }
+.patient-pill {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text3);
+  cursor: pointer;
+  transition: all .15s;
+  -webkit-tap-highlight-color: transparent;
 }
-body.v2 .side-nav a:hover, body.v2 #sideNav a:hover {
-  background: #1a1a1a !important; color: #e5e2e1 !important;
-}
-body.v2 .side-nav a.active, body.v2 #sideNav a.active {
-  background: rgba(20,184,166,0.10) !important; color: #14b8a6 !important;
-}
-body.v2 .side-nav-section, body.v2 #sideNav .section-label,
-body.v2 [class*="section-header"], body.v2 [class*="nav-section"] {
-  color: #5a6a68 !important; background: transparent !important;
-  font-size: 10px !important; letter-spacing: 0.06em !important;
+.patient-pill .gh-avatar { width: 22px !important; height: 22px !important; font-size: 9px !important; }
+.patient-pill-name { line-height: 22px; }
+.patient-pill.active {
+  background: var(--accent-bg);
+  border-color: var(--accent-bd);
+  color: var(--accent);
 }
 
-/* Page header strip from nav.js */
-body.v2 .gh-page-header, body.v2 #pageHeader, body.v2 [class*="page-header"] {
-  background: #0a0a0a !important;
-  border-bottom: 0.5px solid #222 !important;
-  color: #e5e2e1 !important;
+/* ── Status dot ────────────────────────────────────────────── */
+.status-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
 }
-body.v2 .gh-page-header *, body.v2 #pageHeader * { color: inherit !important; }
-body.v2 .gh-page-header svg, body.v2 #pageHeader svg { color: #7d8a87 !important; }
+.status-active { background: var(--green); }
+.status-discontinued, .status-resolved { background: var(--text3); }
+.status-asneeded, .status-monitoring { background: var(--amber); }
+.status-chronic { background: var(--red); }
+.status-completed { background: var(--accent); }
 
-/* Hide legacy view-tabs strip — replaced by Tailwind tabs below */
+/* ── Follow-up badge ───────────────────────────────────────── */
+.followup-badge {
+  background: var(--amber-bg);
+  border: 1px solid rgba(245,158,11,.3);
+  color: var(--amber);
+  font-size: 10px;
+  font-family: var(--mono);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   v2 SHELL — Tailwind utilities + segmented tabs + refined FAB
+   Light mode, accent teal. Cards below get separate v5 styles.
+   ════════════════════════════════════════════════════════════ */
+
+/* Hide legacy view-tabs strip */
 body.v2 .view-tabs { display: none !important; }
-body.v2 .patient-strip { display: none !important; }
-body.v2 .search-wrap { display: none !important; }
 
-/* Hide legacy FAB if present (ours is brand new) */
-body.v2 .fab:not(.v2-fab), body.v2 .fab-pill { display: none !important; }
+/* New segmented tabs */
+.v2-tabs {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 4px;
+  display: inline-flex;
+  gap: 2px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+.v2-tab {
+  padding: 7px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: 0;
+  transition: all .15s;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.v2-tab:hover { color: #1a2332; background: #f1f5f9; }
+.v2-tab.active {
+  background: rgba(20,184,166,0.10);
+  color: #0d9488;
+}
+.v2-tab .v2-tab-count {
+  font-size: 10px;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+.v2-tab.active .v2-tab-count { opacity: 0.9; }
 
-/* ─── Lens widget — dark override ─── */
+/* Lens override: same width as tabs row, refined */
 body.v2 .gh-lens {
-  background: #131313 !important;
-  border: 0.5px solid #3c4947 !important;
-  border-radius: 8px !important;
-  box-shadow: none !important;
-  padding: 8px 12px !important;
-}
-body.v2 .gh-lens__title, body.v2 .gh-lens [class*="title"] {
-  color: #e5e2e1 !important; font-size: 13px !important; font-weight: 600 !important;
-}
-body.v2 .gh-lens__count {
-  color: #7d8a87 !important; font-size: 12px !important;
-  background: transparent !important;
-}
-body.v2 .gh-lens__input, body.v2 .gh-lens input {
-  background: transparent !important; color: #e5e2e1 !important;
-  font-size: 12px !important; font-style: italic !important;
-}
-body.v2 .gh-lens__input::placeholder, body.v2 .gh-lens input::placeholder {
-  color: #5a6a68 !important; font-style: italic !important;
-}
-body.v2 .gh-lens__pill, body.v2 .gh-lens [class*="pill"] {
-  background: rgba(20,184,166,0.12) !important;
-  color: #5eead4 !important;
-  border: 0.5px solid rgba(20,184,166,0.30) !important;
-  font-size: 11px !important;
-}
-body.v2 .gh-lens__suggestions {
-  background: #1a1a1a !important; border: 0.5px solid #3c4947 !important;
-  color: #e5e2e1 !important;
-}
-body.v2 .gh-lens__suggestions [class*="item"] { color: #bbcac6 !important; }
-body.v2 .gh-lens__suggestions [class*="item"]:hover { background: #2a2a2a !important; }
-
-/* ─── Form fields ─── */
-body.v2 .form-group { margin-bottom: 12px !important; }
-body.v2 .form-row { display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
-body.v2 .form-label {
-  display: block !important; font-size: 11px !important; font-weight: 500 !important;
-  color: #bbcac6 !important; margin-bottom: 4px !important;
-  font-family: inherit !important; letter-spacing: 0 !important; text-transform: none !important;
-}
-body.v2 .form-label .req { color: #14b8a6 !important; margin-left: 2px !important; }
-body.v2 .form-label > span:not(.req) {
-  font-size: 10px !important; font-weight: 400 !important;
-  color: #7d8a87 !important; margin-left: 6px !important;
-  text-transform: none !important; letter-spacing: 0 !important;
-}
-body.v2 .form-input, body.v2 .form-select, body.v2 .form-textarea {
-  width: 100% !important; background: #131313 !important;
-  border: 0.5px solid #3c4947 !important; border-radius: 6px !important;
-  color: #e5e2e1 !important; font-family: inherit !important;
-  font-size: 13px !important; padding: 7px 10px !important; outline: none !important;
-}
-body.v2 .form-input:focus, body.v2 .form-select:focus, body.v2 .form-textarea:focus {
-  border-color: #14b8a6 !important; background: #1a1a1a !important;
-}
-body.v2 .form-input::placeholder, body.v2 .form-textarea::placeholder { color: #7d8a87 !important; }
-body.v2 .form-select {
-  background: #131313 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237d8a87' stroke-width='1.5' fill='none'/%3E%3C/svg%3E") no-repeat right 10px center !important;
-  padding-right: 28px !important; cursor: pointer !important;
-}
-body.v2 .form-textarea { min-height: 60px !important; resize: vertical !important; line-height: 1.5 !important; }
-
-/* ─── Buttons ─── */
-body.v2 .btn {
-  font-size: 13px !important; font-weight: 500 !important;
-  padding: 8px 14px !important; border-radius: 6px !important;
-  border: 0.5px solid transparent !important; font-family: inherit !important;
-  line-height: 1.2 !important; letter-spacing: 0 !important; cursor: pointer !important;
-}
-body.v2 .btn-primary { background: #14b8a6 !important; color: #fff !important; }
-body.v2 .btn-primary:hover { background: #0d9488 !important; }
-body.v2 .btn-ghost {
-  background: transparent !important; color: #bbcac6 !important;
-  border-color: #3c4947 !important;
-}
-body.v2 .btn-ghost:hover { background: #1a1a1a !important; color: #e5e2e1 !important; }
-body.v2 .btn-danger { background: #dc2626 !important; color: #fff !important; }
-
-/* ─── Drawer (legacy class containers reused) → center modal ─── */
-body.v2 .drawer-overlay {
-  position: fixed !important; inset: 0 !important;
-  background: rgba(0,0,0,0.7) !important;
-  display: none !important; align-items: center !important; justify-content: center !important;
-  padding: 20px !important; z-index: 560 !important;
-}
-body.v2 .drawer-overlay.open { display: flex !important; }
-body.v2 .drawer {
-  background: #131313 !important; border: 0.5px solid #3c4947 !important;
-  border-radius: 10px !important; box-shadow: 0 20px 60px rgba(0,0,0,0.6) !important;
-  width: min(520px,100%) !important; max-height: 85vh !important;
-  overflow-y: auto !important; padding: 18px 20px !important;
-  position: relative !important; bottom: auto !important; left: auto !important;
-  right: auto !important; transform: none !important;
-}
-body.v2 .drawer-handle { display: none !important; }
-body.v2 .drawer-title {
-  font-size: 16px !important; font-weight: 600 !important; color: #e5e2e1 !important;
-  margin: 0 0 14px !important; padding: 0 !important;
-}
-body.v2 .btn-row {
-  display: flex !important; gap: 8px !important; margin-top: 16px !important;
-  padding-top: 12px !important; border-top: 0.5px solid #3c4947 !important;
-}
-body.v2 .btn-row .btn { flex: 1 !important; padding: 10px 14px !important; }
-
-/* ─── Tags input ─── */
-body.v2 .tags-input-wrap {
-  background: #131313 !important; border: 0.5px solid #3c4947 !important;
-  border-radius: 6px !important; padding: 6px 8px !important;
-  display: flex !important; flex-wrap: wrap !important; gap: 4px !important;
-}
-body.v2 .tags-input-wrap input {
-  background: transparent !important; color: #e5e2e1 !important;
-  border: none !important; outline: none !important; font-size: 13px !important;
-  flex: 1 !important; min-width: 100px !important;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
 
-/* ─── Toggle (visit follow-up) ─── */
-body.v2 .toggle-row {
-  display: flex !important; align-items: center !important;
-  justify-content: space-between !important; padding: 8px 0 !important;
+/* Refined FAB — pill, smaller */
+body.v2 .fab, body.v2 .fab-pill { display: none !important; }
+.v2-fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  height: 40px;
+  padding: 0 18px;
+  background: #14b8a6;
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(20,184,166,0.30);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  z-index: 40;
+  transition: all .15s;
 }
-body.v2 .toggle-label { font-size: 13px !important; color: #e5e2e1 !important; }
-body.v2 .toggle-track { background: #2a2a2a !important; border-color: #3c4947 !important; }
+.v2-fab:hover { background: #0d9488; box-shadow: 0 6px 16px rgba(20,184,166,0.40); }
+.v2-fab .v2-fab-plus { font-size: 16px; line-height: 1; font-weight: 400; }
 
-/* ─── Generic legacy card classes used by GH_CARD render ─── */
-body.v2 .gh-card, body.v2 .card {
-  background: #131313 !important; border: 0.5px solid #3c4947 !important;
-  border-radius: 10px !important; padding: 14px 16px !important;
-  color: #e5e2e1 !important; box-shadow: none !important;
-  margin: 0 0 10px !important;
+/* Page title strip */
+.v2-page-head { padding: 16px 20px 12px; }
+.v2-page-head h1 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1a2332;
+  letter-spacing: -0.02em;
+  margin: 0;
 }
-body.v2 .gh-card:hover, body.v2 .card:hover {
-  border-color: #5a6a68 !important; transform: none !important;
+.v2-page-head p {
+  font-size: 12px;
+  color: #94a3b8;
+  margin: 2px 0 0;
 }
-body.v2 .gh-card .card-title, body.v2 .card .card-title {
-  font-size: 14px !important; font-weight: 600 !important; color: #e5e2e1 !important;
-  display: flex !important; align-items: center !important; gap: 8px !important;
-}
-body.v2 .gh-card .card-meta, body.v2 .card .card-meta {
-  font-size: 11px !important; color: #7d8a87 !important;
-}
-body.v2 .badge { background: #2a2a2a !important; color: #bbcac6 !important; font-size: 9.5px !important; }
-body.v2 .badge-blue { background: rgba(20,184,166,0.10) !important; color: #5eead4 !important; }
 
-/* ─── Card #1 v5 (medications) ─── */
-body.v2 .med-grid {
-  padding: 0 20px 100px !important; gap: 12px !important;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)) !important;
-}
-body.v2 .med-card {
-  background: #131313 !important; border: 0.5px solid #3c4947 !important;
-  border-radius: 10px !important; box-shadow: none !important;
-}
-body.v2 .med-card:hover { border-color: #5a6a68 !important; transform: none !important; box-shadow: none !important; }
-body.v2 .med-card.refill-due { border-color: rgba(245,158,11,0.45) !important; }
-body.v2 .med-card.refill-overdue { border-color: rgba(220,38,38,0.45) !important; }
-body.v2 .med-z1 { padding: 12px 14px 0 !important; gap: 6px !important; }
-body.v2 .med-z2 { padding: 10px 14px 6px !important; gap: 14px !important; }
-body.v2 .med-z3 { padding: 2px 14px 10px !important; gap: 6px !important; }
-body.v2 .med-tags-row { padding: 0 14px 8px !important; font-size: 10px !important; }
-body.v2 .med-strip {
-  padding: 8px 14px !important; border-top: 1px dashed #2a2a2a !important;
-  font-size: 10px !important; gap: 14px !important;
-}
-body.v2 .med-strip .lbl { font-size: 9px !important; color: #7d8a87 !important; }
-body.v2 .med-strip strong { font-size: 11px !important; color: #e5e2e1 !important; }
-body.v2 .med-alert { margin: 4px 14px 12px !important; padding: 10px 12px !important; border-radius: 8px !important; }
-body.v2 .med-alert.amber { background: rgba(245,158,11,0.08) !important; border: 0.5px solid rgba(245,158,11,0.30) !important; }
-body.v2 .med-alert.red   { background: rgba(220,38,38,0.08) !important; border: 0.5px solid rgba(220,38,38,0.30) !important; }
-body.v2 .med-alert .msg { font-size: 12px !important; color: #e5e2e1 !important; }
-body.v2 .med-alert .meta { font-size: 10px !important; color: #7d8a87 !important; }
-body.v2 .med-z4 { padding: 10px 14px 12px !important; gap: 8px !important; border-top: 0.5px solid #2a2a2a !important; }
-body.v2 .med-pill-hero { flex: 0 0 76px !important; height: 54px !important; border-radius: 8px !important; }
-body.v2 .med-pill-hero img { width: 38px !important; height: 38px !important; }
-body.v2 .med-pill-hero.active   { background: rgba(20,184,166,0.10) !important; }
-body.v2 .med-pill-hero.refill   { background: rgba(245,158,11,0.10) !important; }
-body.v2 .med-pill-hero.overdue  { background: rgba(220,38,38,0.10) !important; }
-body.v2 .med-pill-hero.discont  { background: rgba(125,138,135,0.10) !important; }
-body.v2 .med-name { font-size: 16px !important; font-weight: 600 !important; color: #e5e2e1 !important; }
-body.v2 .med-dose { font-size: 12px !important; color: #bbcac6 !important; }
-body.v2 .med-sub { font-size: 11px !important; color: #7d8a87 !important; }
-body.v2 .med-schedule { font-size: 12px !important; color: #bbcac6 !important; }
-body.v2 .med-cond-chip {
-  font-size: 10px !important; padding: 2px 8px 2px 6px !important;
-  background: rgba(220,38,38,0.10) !important; color: #fda4af !important;
-}
-body.v2 .med-class { font-size: 10px !important; color: #7d8a87 !important; }
-body.v2 .med-status-dot.green { background: #34c759 !important; box-shadow: 0 0 0 3px rgba(52,199,89,0.18) !important; }
-body.v2 .med-status-dot.amber { background: #f59e0b !important; box-shadow: 0 0 0 3px rgba(245,158,11,0.18) !important; }
-body.v2 .med-status-dot.red   { background: #dc2626 !important; box-shadow: 0 0 0 3px rgba(220,38,38,0.18) !important; }
-body.v2 .med-status-dot.gray  { background: #7d8a87 !important; box-shadow: 0 0 0 3px rgba(125,138,135,0.18) !important; }
-body.v2 .med-icon-btn { width: 26px !important; height: 26px !important; color: #7d8a87 !important; }
-body.v2 .med-icon-btn:hover { background: #1a1a1a !important; color: #e5e2e1 !important; }
-body.v2 .med-icon-btn img { width: 16px !important; height: 16px !important; opacity: 0.6 !important; }
-body.v2 .med-instr-chip { width: 32px !important; height: 32px !important; border-radius: 8px !important; }
-body.v2 .med-instr-chip img { width: 18px !important; height: 18px !important; }
-body.v2 .med-ent-circle { width: 28px !important; height: 28px !important; font-size: 10px !important; }
-body.v2 .med-link-chip { font-size: 10px !important; padding: 3px 6px !important; color: #7d8a87 !important; }
-body.v2 .med-link-chip:hover { background: #1a1a1a !important; color: #bbcac6 !important; }
-body.v2 .med-link-chip img { width: 12px !important; height: 12px !important; }
-
-/* ─── Card #6 (conditions) ─── */
-body.v2 .cond-grid {
-  padding: 0 20px 100px !important; gap: 12px !important;
-  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)) !important;
-}
-body.v2 .cond-card {
-  background: #131313 !important; border: 0.5px solid #3c4947 !important;
-  border-radius: 10px !important; box-shadow: none !important;
-}
-body.v2 .cond-card:hover { border-color: #5a6a68 !important; transform: none !important; }
-body.v2 .cond-card.alert { border-color: rgba(245,158,11,0.45) !important; }
-body.v2 .cond-card.bad   { border-color: rgba(220,38,38,0.45) !important; }
-body.v2 .cond-z1 { padding: 12px 14px 0 !important; }
-body.v2 .cond-z2 { padding: 10px 14px 4px !important; gap: 14px !important; }
-body.v2 .cond-name { font-size: 18px !important; font-weight: 600 !important; color: #e5e2e1 !important; }
-body.v2 .cond-sub { font-size: 12px !important; color: #7d8a87 !important; }
-body.v2 .cond-on-label { font-size: 14px !important; color: #7d8a87 !important; font-style: normal !important; font-family: inherit !important; }
-body.v2 .cond-on-chip { font-size: 10px !important; padding: 2px 8px !important; background: #1a1a1a !important; color: #bbcac6 !important; }
-body.v2 .cond-tags-row { padding: 8px 14px !important; font-size: 10px !important; }
-body.v2 .cond-cross { padding: 10px 14px 12px !important; border-top: 1px dashed #2a2a2a !important; }
-body.v2 .cond-metric-label { font-size: 9px !important; color: #7d8a87 !important; }
-body.v2 .cond-metric-value { font-size: 18px !important; color: #e5e2e1 !important; }
-body.v2 .cond-counts-row { gap: 18px !important; margin-top: 10px !important; }
-body.v2 .cond-counts-row .lbl { font-size: 9px !important; color: #7d8a87 !important; }
-body.v2 .cond-counts-row .val { font-size: 13px !important; color: #e5e2e1 !important; }
-body.v2 .cond-z5 { padding: 10px 14px 12px !important; gap: 8px !important; border-top: 0.5px solid #2a2a2a !important; }
-body.v2 .sys-cardio  { background: rgba(220,38,38,0.10) !important; color: #fda4af !important; }
-body.v2 .sys-endo    { background: rgba(217,119,6,0.10) !important; color: #fcd34d !important; }
-body.v2 .sys-neuro   { background: rgba(124,58,237,0.10) !important; color: #c4b5fd !important; }
-body.v2 .sys-resp    { background: rgba(14,165,233,0.10) !important; color: #7dd3fc !important; }
-body.v2 .sys-musc    { background: rgba(125,138,135,0.10) !important; color: #cbd5e1 !important; }
-body.v2 .sys-immune  { background: rgba(20,184,166,0.10) !important; color: #5eead4 !important; }
-body.v2 .sys-mental  { background: rgba(236,72,153,0.10) !important; color: #f9a8d4 !important; }
-
+/* Section label between patient groups */
 body.v2 .section-label {
-  padding: 14px 20px 6px !important;
-  font-size: 11px !important; font-weight: 600 !important; color: #7d8a87 !important;
-  letter-spacing: 0.06em !important; text-transform: uppercase !important;
+  padding: 18px 20px 6px !important;
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
+
+/* ════════════════════════════════════════════════════════════
+   SLICE 1B — Card #1 v5 medication card + center modal styles
+   Light mode versions
+   ══════════════════════════════════════════════════════════ */
+.med-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  gap: 14px;
+  padding: 4px 20px 100px;
+}
+@media(max-width:600px){
+  .med-grid { grid-template-columns: 1fr; padding: 4px 12px 100px; gap: 12px; }
+}
+
+.med-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all .15s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 8px 20px rgba(0,0,0,0.04);
+}
+.med-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 12px 28px rgba(0,0,0,0.06);
+}
+.med-card.refill-due { border-color: rgba(245,158,11,0.45); }
+.med-card.refill-overdue { border-color: rgba(220,38,38,0.45); }
+
+.med-z1 { display:flex; align-items:center; gap:6px; padding:12px 16px 0; flex-wrap:wrap; }
+.med-z2 { display:flex; gap:14px; padding:10px 16px 6px; align-items:center; }
+.med-z3 { display:flex; gap:6px; padding:2px 16px 10px; }
+.med-tags-row { display:flex; gap:6px; padding:0 16px 8px; align-items:center; flex-wrap:wrap; font-size:11px; color:#94a3b8; }
+.med-strip { display:flex; gap:18px; padding:10px 16px; border-top:1px dashed #e2e8f0; flex-wrap:wrap; font-size:11px; }
+.med-strip > span { white-space:nowrap; }
+.med-strip .lbl { text-transform:uppercase; letter-spacing:0.04em; font-size:9.5px; color:#94a3b8; margin-right:4px; font-weight:600; }
+.med-strip strong { color:#1a2332; font-size:12px; font-weight:600; }
+.med-alert { margin:4px 16px 12px; padding:12px; border-radius:10px; }
+.med-alert.amber { background:rgba(254,243,199,0.5); border:1px solid rgba(245,158,11,0.30); }
+.med-alert.red   { background:rgba(254,226,226,0.5); border:1px solid rgba(220,38,38,0.30); }
+.med-alert .row1 { display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
+.med-alert .msg { font-size:12px; font-weight:600; color:#1a2332; }
+.med-alert .meta { font-size:11px; color:#94a3b8; font-weight:500; }
+.med-alert .row2 { display:flex; justify-content:space-between; align-items:center; font-size:11px; gap:8px; flex-wrap:wrap; }
+.med-z4 { display:flex; gap:8px; padding:12px 16px 14px; align-items:center; border-top:1px solid #e2e8f0; flex-wrap:wrap; }
+
+.med-status-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+.med-status-dot.green { background:#34c759; box-shadow:0 0 0 3px rgba(52,199,89,0.18); }
+.med-status-dot.amber { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.18); }
+.med-status-dot.red   { background:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,0.18); }
+.med-status-dot.gray  { background:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,0.18); }
+
+.med-cond-chip {
+  display:inline-flex; align-items:center; gap:4px;
+  padding:3px 9px 3px 6px; border-radius:999px;
+  background:rgba(220,38,38,0.08); color:#991b1b;
+  font-size:11px; font-weight:500;
+}
+.med-cond-chip img { width:13px; height:13px; opacity:.85; }
+.med-class { font-size:11px; color:#94a3b8; font-weight:500; }
+.med-icon-btn {
+  width:30px; height:30px; border-radius:7px;
+  display:flex; align-items:center; justify-content:center;
+  background:transparent; border:none; cursor:pointer; color:#94a3b8;
+}
+.med-icon-btn:hover { background:#f1f5f9; color:#475569; }
+.med-icon-btn img { width:16px; height:16px; opacity:.6; }
+
+.med-pill-hero {
+  flex:0 0 84px; height:60px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:11px;
+}
+.med-pill-hero img { width:42px; height:42px; }
+.med-pill-hero.active   { background:rgba(20,184,166,0.10); }
+.med-pill-hero.refill   { background:rgba(245,158,11,0.10); }
+.med-pill-hero.overdue  { background:rgba(220,38,38,0.10); }
+.med-pill-hero.discont  { background:rgba(148,163,184,0.10); }
+
+.med-name-line { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+.med-name { font-size:17px; font-weight:600; color:#1a2332; line-height:1.1; letter-spacing:-0.01em; }
+.med-dose { font-size:13px; color:#475569; font-weight:500; }
+.med-sub  { font-size:12px; color:#94a3b8; margin-top:2px; }
+.med-schedule { font-size:12px; color:#475569; margin-top:5px; }
+
+.med-instr-chip {
+  width:36px; height:36px; border-radius:9px;
+  display:flex; align-items:center; justify-content:center;
+}
+.med-instr-chip img { width:20px; height:20px; }
+.med-instr-chip.evening { background:rgba(99,102,241,0.10); }
+.med-instr-chip.food    { background:rgba(217,119,6,0.10); }
+.med-instr-chip.warn    { background:rgba(220,38,38,0.10); }
+
+.med-ent-circle {
+  width:30px; height:30px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  color:#fff; font-size:11px; font-weight:600; flex-shrink:0;
+}
+.med-ent-circle.brand { border-radius:7px; font-size:9px; font-weight:700; letter-spacing:0.04em; }
+.med-link-chip {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:11px; color:#94a3b8; font-weight:500;
+  padding:4px 7px; border-radius:6px; background:transparent; border:none; cursor:pointer;
+}
+.med-link-chip:hover { background:#f1f5f9; color:#475569; }
+.med-link-chip img { width:13px; height:13px; opacity:.7; }
 
 /* Center modal */
-body.v2 .gh-cmodal-overlay { background: rgba(0,0,0,0.7) !important; padding: 20px !important; }
-body.v2 .gh-cmodal { background: #131313 !important; border: 0.5px solid #3c4947 !important; border-radius: 10px !important; }
-body.v2 .gh-cmodal-actions { background: #131313 !important; border-top: 0.5px solid #3c4947 !important; padding: 10px 14px !important; }
-
-/* Empty state */
-body.v2 .empty-state {
-  padding: 60px 20px !important; text-align: center !important; color: #7d8a87 !important;
-  background: transparent !important;
+.gh-cmodal-overlay {
+  position:fixed; inset:0; background:rgba(15,23,42,0.45);
+  display:none; align-items:center; justify-content:center;
+  z-index:560; padding:20px;
 }
-body.v2 .empty-state h3, body.v2 .empty-state p { color: #7d8a87 !important; }
-
-/* Toast / confirm */
-body.v2 .toast { background: #131313 !important; color: #e5e2e1 !important; border: 0.5px solid #3c4947 !important; }
-body.v2 .confirm-overlay { background: rgba(0,0,0,0.7) !important; }
-body.v2 .confirm-box { background: #131313 !important; border: 0.5px solid #3c4947 !important; color: #e5e2e1 !important; }
-
-/* EOB/H&W/Summary panels (these render via GH_CARD into listArea) */
-body.v2 [class*="upload"], body.v2 [class*="dropzone"] {
-  background: #131313 !important; border: 1px dashed #3c4947 !important;
-  color: #7d8a87 !important;
+.gh-cmodal-overlay.open { display:flex; }
+.gh-cmodal {
+  width:min(560px,100%); max-height:90vh; overflow-y:auto;
+  background:#fff; border-radius:16px; border:1px solid #e2e8f0;
+  box-shadow:0 20px 60px rgba(15,23,42,0.20);
+  display:flex; flex-direction:column;
 }
+.gh-cmodal-actions {
+  display:flex; gap:8px; padding:12px 16px; border-top:1px solid #e2e8f0;
+  background:#fff; flex-wrap:wrap;
+}
+.gh-cmodal-actions .btn { flex:1; min-width:90px; }
 
-/* Ensure print and other UI bits stay readable */
-body.v2 svg { color: inherit; }
 </style>
 </head>
-
 <body class="v2">
 <div id="app">
 
-  <!-- nav.js injects header / sidebar; v2 overrides above style them -->
+  <!-- ── Page header (nav.js) ──────────────────────────────── -->
 
-  <!-- ─── v2 page top — pure Tailwind, no legacy classes ─── -->
-  <div class="px-5 pt-4 pb-3">
-    <div class="flex items-end justify-between mb-4">
+  <!-- ── v2 page top: title + Lens + tabs ──────────────────── -->
+  <div class="v2-page-head">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px">
       <div>
-        <h1 class="text-2xl font-semibold text-tx tracking-tight">Medical</h1>
-        <p class="text-xs text-tx-3 mt-1">Family health — meds, conditions, visits, EOBs</p>
+        <h1>Medical</h1>
+        <p>Family health — meds, conditions, visits, EOBs</p>
       </div>
-      <span class="text-[10px] uppercase tracking-wider text-tx-3 font-medium">v2 preview</span>
+      <span style="font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:#94a3b8;font-weight:600;white-space:nowrap">v2 preview</span>
     </div>
-
-    <!-- Segmented control tabs -->
-    <div class="bg-ink-2 p-0.5 rounded-md inline-flex gap-0.5 mb-3">
-      <button class="view-tab active px-3.5 py-1.5 text-xs font-medium rounded-[5px] transition-all"
-              data-active-bg="rgba(20,184,166,0.10)" data-active-color="#14b8a6"
-              style="background:rgba(20,184,166,0.12);color:#14b8a6"
-              onclick="switchView('medications',this)">Meds</button>
-      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded-[5px] text-tx-2 hover:text-tx hover:bg-ink-3 transition-all"
-              onclick="switchView('conditions',this)">Conditions</button>
-      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded-[5px] text-tx-2 hover:text-tx hover:bg-ink-3 transition-all"
-              onclick="switchView('notes',this)">Visits</button>
-      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded-[5px] text-tx-2 hover:text-tx hover:bg-ink-3 transition-all"
-              onclick="switchView('hw',this)">H&amp;W</button>
-      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded-[5px] text-tx-2 hover:text-tx hover:bg-ink-3 transition-all"
-              onclick="switchView('eob',this)">EOB</button>
-      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded-[5px] text-tx-2 hover:text-tx hover:bg-ink-3 transition-all"
-              onclick="switchView('summary',this)">Summary</button>
-    </div>
-
-    <!-- Lens slot — overrides above style its internals -->
-    <div id="medLens" class="mb-1"></div>
   </div>
 
-  <!-- Hidden legacy stubs JS still references -->
-  <div class="patient-strip" id="patientStrip" style="display:none">
+  <!-- Lens ABOVE tabs -->
+  <div style="padding:0 20px 10px"><div id="medLens"></div></div>
+
+  <!-- Segmented tabs (replaces old .view-tabs) -->
+  <div style="padding:0 20px 12px">
+    <div class="v2-tabs">
+      <button class="v2-tab active view-tab" onclick="switchView('medications',this)">Meds</button>
+      <button class="v2-tab view-tab" onclick="switchView('conditions',this)">Conditions</button>
+      <button class="v2-tab view-tab" onclick="switchView('notes',this)">Visits</button>
+      <button class="v2-tab view-tab" onclick="switchView('hw',this)">H&amp;W</button>
+      <button class="v2-tab view-tab" onclick="switchView('eob',this)">EOB</button>
+      <button class="v2-tab view-tab" onclick="switchView('summary',this)">Summary</button>
+    </div>
+  </div>
+
+  <!-- Hidden legacy markup JS still references -->
+  <div class="view-tabs" style="display:none">
+    <!-- legacy .view-tab elements above carry the data hooks for switchView() -->
+  </div>
+  <div class="patient-strip legacy-hidden" id="patientStrip" style="display:none">
     <button class="patient-pill active" data-patient="" onclick="setPatient(this,'')"><span class="patient-pill-name">All</span></button>
   </div>
-  <div class="search-wrap" style="display:none"><input id="medSearch" type="search"></div>
+  <div class="search-wrap legacy-hidden" style="display:none">
+    <input class="search-input" id="medSearch" type="search">
+  </div>
   <div id="medViewToolbar" style="display:none"></div>
 
-  <div class="content pt-2"><div id="listArea"></div></div>
+  <!-- ── Main list ────────────────────────────────────────── -->
+  <div class="content" style="padding-top:4px"><div id="listArea"></div></div>
 
-  <div id="summaryPanel" style="display:none" class="px-5 pb-24">
+  <!-- ── Summary panel ────────────────────────────────────── -->
+  <div id="summaryPanel" style="display:none;padding:8px 20px 100px">
     <div id="summaryContent"><div class="spinner"><div class="spin"></div>Loading…</div></div>
   </div>
 
 </div>
 
-<!-- ─── v2 FAB — pure Tailwind, no legacy class ─── -->
-<button onclick="openAddDrawer()" title="Add record"
-        class="v2-fab fixed bottom-6 right-6 h-11 px-4 bg-ac hover:bg-ac-hover text-white rounded-full text-sm font-medium shadow-lg shadow-ac/25 inline-flex items-center gap-1.5 transition-colors z-40"
-        style="background:#14b8a6">
-  <span class="text-base leading-none">+</span>
+<!-- ── Refined v2 FAB ─────────────────────────────────────── -->
+<button class="v2-fab" onclick="openAddDrawer()" title="Add record">
+  <span class="v2-fab-plus">+</span>
   <span>Add Record</span>
 </button>
 
-<!-- Modals (legacy class containers, dark via overrides) -->
-<div id="medInfoOverlay" onclick="if(event.target===this)closeMedInfoModal()"
-     class="fixed inset-0 bg-black/70 hidden items-center justify-center p-5" style="z-index:550">
-  <div id="medInfoBody" class="bg-ink-1 border border-line rounded-lg p-4 max-w-lg w-full max-h-[85vh] overflow-y-auto"></div>
-</div>
-
+<!-- Center modal for slice 1B detail / refill / link receipt -->
 <div class="gh-cmodal-overlay" id="medDetailOverlay" onclick="if(event.target===this)closeMedDetail()">
   <div class="gh-cmodal" id="medDetailBody"></div>
 </div>
 
-<!-- Medication drawer -->
+<!-- ── Generic info modal ─────────────────────────────────── -->
+<div id="medInfoOverlay" onclick="if(event.target===this)closeMedInfoModal()"
+     style="position:fixed;inset:0;background:rgba(15,23,42,0.45);display:none;
+            align-items:flex-end;justify-content:center;z-index:550">
+  <div id="medInfoBody"
+       style="width:min(440px,100%);max-height:80vh;overflow-y:auto;
+              background:#fff;border-radius:16px 16px 0 0;padding:16px;
+              border:1px solid #e2e8f0;border-bottom:none"></div>
+</div>
+<style>
+  @media(min-width:600px){
+    #medInfoOverlay{align-items:center}
+    #medInfoOverlay > div{border-radius:16px;border-bottom:1px solid #e2e8f0}
+  }
+</style>
+
+<!-- ── Add/Edit Medication Drawer ───────────────────────────── -->
 <div class="drawer-overlay" id="medDrawer">
   <div class="drawer">
     <div class="drawer-handle" onclick="closeMedDrawer()"></div>
     <div class="drawer-title" id="medDrawerTitle">Add Medication</div>
+
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Patient <span class="req">*</span></label><div id="mFamilyWrap"></div></div>
-      <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="mStatus"></select></div>
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <div id="mFamilyWrap"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="mStatus"></select>
+      </div>
     </div>
+
     <div class="form-group">
       <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
-        Medication name <span class="req">*</span>
-        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:3px 8px" onclick="lookupDrug()">Lookup</button>
+        Medication Name <span class="req">*</span>
+        <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;font-weight:600" onclick="lookupDrug()" title="Look up drug info via OpenFDA">🔍 Lookup</button>
       </label>
       <input class="form-input" type="text" id="mName" placeholder="e.g. Lisinopril 10mg">
-      <div id="drugFeedback" style="font-size:11px;color:#7d8a87;margin-top:4px;display:none"></div>
+      <div id="drugFeedback" style="font-size:11px;color:var(--text3);margin-top:4px;display:none"></div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Dosage</label><input class="form-input" type="text" id="mDosage"></div>
-      <div class="form-group"><label class="form-label">Frequency</label><input class="form-input" type="text" id="mFreq"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Prescribing physician</label><select class="form-select" id="mPhysician"><option value="">— none —</option></select></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Start date</label><input class="form-input" type="date" id="mStart"></div>
-      <div class="form-group"><label class="form-label">End date</label><input class="form-input" type="date" id="mEnd"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Purpose / indication</label><input class="form-input" type="text" id="mPurpose"></div>
-    <div class="form-group"><label class="form-label">Treats condition <span>optional</span></label><select class="form-select" id="mCondition"><option value="">— none —</option></select></div>
-    <div class="form-group"><label class="form-label">Pharmacy</label><select class="form-select" id="mPharmacy"></select></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Rx #</label><input class="form-input" id="mRxNum"></div>
-      <div class="form-group"><label class="form-label">Refills left</label><input class="form-input" type="number" id="mRefills" min="0"></div>
-      <div class="form-group"><label class="form-label">Next refill</label><input class="form-input" type="date" id="mNextRefill"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Controlled schedule <span>optional</span></label>
-      <select class="form-select" id="mSchedule"><option value="">— none —</option><option value="II">Schedule II</option><option value="III">Schedule III</option><option value="IV">Schedule IV</option><option value="V">Schedule V</option></select>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Form <span>drives icon</span></label><select class="form-select" id="mForm"><option value="">— none —</option><option value="tablet">tablet</option><option value="capsule">capsule</option><option value="liquid">liquid</option><option value="injection">injection</option><option value="inhaler">inhaler</option><option value="drops">drops</option><option value="cream">cream</option><option value="patch">patch</option><option value="suppository">suppository</option><option value="other">other</option></select></div>
-      <div class="form-group"><label class="form-label">Generic name <span>e.g. atorvastatin</span></label><input class="form-input" id="mGeneric"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Brand name <span>e.g. Lipitor</span></label><input class="form-input" id="mBrand"></div>
-      <div class="form-group"><label class="form-label">Drug class <span>optional</span></label><input class="form-input" id="mClass"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:24px">
-        <input type="checkbox" id="mTakeWithFood" style="width:16px;height:16px;accent-color:#14b8a6;cursor:pointer">
-        <label for="mTakeWithFood" style="font-size:12px;cursor:pointer;margin:0;color:#bbcac6">Take with food</label>
+      <div class="form-group">
+        <label class="form-label">Dosage</label>
+        <input class="form-input" type="text" id="mDosage" placeholder="e.g. 10mg">
       </div>
-      <div class="form-group"><label class="form-label">Time of day</label><select class="form-select" id="mTimeOfDay"><option value="">— any —</option><option value="morning">morning</option><option value="evening">evening</option><option value="with_meals">with meals</option><option value="as_needed">as needed</option></select></div>
+      <div class="form-group">
+        <label class="form-label">Frequency</label>
+        <input class="form-input" type="text" id="mFreq" placeholder="e.g. Once daily">
+      </div>
     </div>
-    <div class="form-group"><label class="form-label">Interaction warning <span>e.g. "Avoid grapefruit"</span></label><input class="form-input" id="mInteraction"></div>
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="mNotes" rows="2"></textarea></div>
-    <div class="form-group"><label class="form-label">Tags</label><div class="tags-input-wrap" id="medTagsWrap" onclick="document.getElementById('medTagInput').focus()"><input id="medTagInput" class="tags-input" placeholder="Add tag…"></div></div>
-    <div class="btn-row">
+    <div class="form-group">
+      <label class="form-label">Prescribing Physician</label>
+      <select class="form-select" id="mPhysician">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Start Date</label>
+        <input class="form-input" type="date" id="mStart">
+      </div>
+      <div class="form-group">
+        <label class="form-label">End Date</label>
+        <input class="form-input" type="date" id="mEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Purpose / Indication</label>
+      <input class="form-input" type="text" id="mPurpose" placeholder="Why prescribed">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Treats Condition <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
+      <select class="form-select" id="mCondition"><option value="">— none —</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Pharmacy</label>
+      <select class="form-select" id="mPharmacy"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Rx #</label><input class="form-input" id="mRxNum" placeholder="Rx number"></div>
+      <div class="form-group"><label class="form-label">Refills Left</label><input class="form-input" type="number" id="mRefills" min="0" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Next Refill</label><input class="form-input" type="date" id="mNextRefill"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Controlled Schedule <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
+      <select class="form-select" id="mSchedule">
+        <option value="">— none —</option>
+        <option value="II">Schedule II</option>
+        <option value="III">Schedule III</option>
+        <option value="IV">Schedule IV</option>
+        <option value="V">Schedule V</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="mNotes" rows="2"></textarea>
+    </div>
+        <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="medTagsWrap" onclick="document.getElementById('medTagInput').focus()">
+        <input id="medTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+<div class="btn-row">
       <button class="btn btn-ghost" onclick="closeMedDrawer()">Cancel</button>
       <button class="btn btn-primary" onclick="saveMedication()">Save</button>
     </div>
+    <div style="height:4px"></div>
   </div>
 </div>
 
-<!-- Condition drawer -->
+<!-- ── Add/Edit Condition Drawer ──────────────────────────────── -->
 <div class="drawer-overlay" id="condDrawer">
   <div class="drawer">
     <div class="drawer-handle" onclick="closeCondDrawer()"></div>
     <div class="drawer-title" id="condDrawerTitle">Add Condition</div>
+
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Patient <span class="req">*</span></label><div id="cFamilyWrap"></div></div>
-      <div class="form-group"><label class="form-label">Status</label><select class="form-select" id="cStatus"></select></div>
-    </div>
-    <div class="form-group"><label class="form-label">Condition name <span class="req">*</span></label><input class="form-input" id="cName" placeholder="e.g. Hypertension"></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Start date</label><input class="form-input" type="date" id="cStart"></div>
-      <div class="form-group"><label class="form-label">End date</label><input class="form-input" type="date" id="cEnd"></div>
-    </div>
-    <div class="form-group"><label class="form-label">Physician</label><select class="form-select" id="cPhysician"><option value="">— none —</option></select></div>
-    <div class="form-group"><label class="form-label">Treatment notes</label><textarea class="form-textarea" id="cTreatment" rows="3"></textarea></div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Body system <span>drives chip</span></label>
-        <select class="form-select" id="cBodySystem"><option value="">— none —</option><option>Cardiovascular</option><option>Endocrine</option><option>Neurological</option><option>Respiratory</option><option>Musculoskeletal</option><option>Immune</option><option>Mental</option><option>Other</option></select>
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <div id="cFamilyWrap"></div>
       </div>
-      <div class="form-group"><label class="form-label">Clinical state</label>
-        <select class="form-select" id="cConditionState"><option value="">— none —</option><option value="in_target">in target</option><option value="follow_up_due">follow-up due</option><option value="out_of_range">out of range</option></select>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="cStatus"></select>
       </div>
     </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Goal <span>e.g. "BP &lt;130/80"</span></label><input class="form-input" id="cGoal"></div>
-      <div class="form-group"><label class="form-label">Tracked metric <span>e.g. BP, LDL, A1C</span></label><input class="form-input" id="cTrackedMetric"></div>
+    <div class="form-group">
+      <label class="form-label">Condition Name <span class="req">*</span></label>
+      <input class="form-input" type="text" id="cName" placeholder="e.g. Hypertension">
     </div>
-    <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="cNotes" rows="2"></textarea></div>
-    <div class="form-group"><label class="form-label">Tags</label><div class="tags-input-wrap" id="condTagsWrap" onclick="document.getElementById('condTagInput').focus()"><input id="condTagInput" class="tags-input" placeholder="Add tag…"></div></div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Onset Date</label>
+        <input class="form-input" type="date" id="cStart">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Resolved Date</label>
+        <input class="form-input" type="date" id="cEnd">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Physician</label>
+      <select class="form-select" id="cPhysician">
+        <option value="">— none —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Treatment Notes</label>
+      <textarea class="form-textarea" id="cTreatment" rows="3" placeholder="Treatment plan, medications, outcomes…"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="cNotes" rows="2"></textarea>
+    </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeCondDrawer()">Cancel</button>
       <button class="btn btn-primary" onclick="saveCondition()">Save</button>
     </div>
+    <div style="height:4px"></div>
   </div>
 </div>
 
-<!-- Visit drawer -->
+<!-- ── Add/Edit Visit Note Drawer ─────────────────────────────── -->
 <div class="drawer-overlay" id="noteDrawer">
   <div class="drawer">
     <div class="drawer-handle" onclick="closeNoteDrawer()"></div>
     <div class="drawer-title" id="noteDrawerTitle">Add Visit Note</div>
+
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Patient <span class="req">*</span></label><div id="nFamilyWrap"></div></div>
-      <div class="form-group"><label class="form-label">Visit date <span class="req">*</span></label><input class="form-input" type="date" id="nDate"></div>
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <div id="nFamilyWrap"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Visit Date <span class="req">*</span></label>
+        <input class="form-input" type="date" id="nDate">
+      </div>
     </div>
-    <div class="form-group"><label class="form-label">Physician</label><select class="form-select" id="nPhysician"><option value="">— none —</option></select></div>
-    <div class="form-group"><label class="form-label">Questions / concerns</label><textarea class="form-textarea" id="nQuestions" rows="3"></textarea></div>
-    <div class="form-group"><label class="form-label">Doctor's response</label><textarea class="form-textarea" id="nResponse" rows="3"></textarea></div>
-    <div class="toggle-row"><span class="toggle-label">Follow-up needed</span><label class="toggle"><input type="checkbox" id="nFollowUp" onchange="toggleFollowDate()"><span class="toggle-track"></span></label></div>
-    <div class="form-group" id="followDateGroup" style="display:none;margin-top:10px"><label class="form-label">Follow-up date</label><input class="form-input" type="date" id="nFollowDate"></div>
-    <div class="form-group" style="margin-top:10px"><label class="form-label">Notes</label><textarea class="form-textarea" id="nNotes" rows="2"></textarea></div>
-    <div class="form-group"><label class="form-label">Tags</label><div class="tags-input-wrap" id="visitTagsWrap" onclick="document.getElementById('visitTagInput').focus()"><input id="visitTagInput" class="tags-input" placeholder="Add tag…"></div></div>
-    <div class="btn-row">
+    <div class="form-group">
+      <label class="form-label">Physician</label>
+      <select class="form-select" id="nPhysician">
+        <option value="">— Select or leave blank —</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Questions / Concerns Brought</label>
+      <textarea class="form-textarea" id="nQuestions" rows="3" placeholder="What did you want to discuss?"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Doctor's Response / Assessment</label>
+      <textarea class="form-textarea" id="nResponse" rows="3" placeholder="What did the doctor say?"></textarea>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Follow-up Needed</span>
+      <label class="toggle"><input type="checkbox" id="nFollowUp" onchange="toggleFollowDate()"><span class="toggle-track"></span></label>
+    </div>
+    <div class="form-group" id="followDateGroup" style="display:none;margin-top:10px">
+      <label class="form-label">Follow-up Date</label>
+      <input class="form-input" type="date" id="nFollowDate">
+    </div>
+    <div class="form-group" style="margin-top:10px">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="nNotes" rows="2"></textarea>
+    </div>
+        <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="visitTagsWrap" onclick="document.getElementById('visitTagInput').focus()">
+        <input id="visitTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+<div class="btn-row">
       <button class="btn btn-ghost" onclick="closeNoteDrawer()">Cancel</button>
       <button class="btn btn-primary" onclick="saveNote()">Save</button>
     </div>
+    <div style="height:4px"></div>
   </div>
 </div>
 
+
+</div>
+
+<!-- ── Confirm ──────────────────────────────────────────────── -->
 <div class="confirm-overlay" id="confirmDlg">
   <div class="confirm-box">
     <h3 id="confirmTitle">Delete?</h3>
@@ -570,8 +614,8 @@ body.v2 svg { color: inherit; }
     </div>
   </div>
 </div>
-<div class="toast" id="toast"></div>
 
+<div class="toast" id="toast"></div>
 <script>
   window.GH_PAGE = { module: 'medical', title: 'Medical' };
 </script>
@@ -817,7 +861,7 @@ function statusDotClass(status) {
   return m[status] || 'status-active';
 }
 
-// ── Medications ─────────────────────────────────────────────────
+// ── Medications (Card #1 v5 — slice 1B) ────────────────────────
 async function renderMedications() {
   const area = $id('listArea');
   area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
@@ -830,53 +874,239 @@ async function renderMedications() {
     if (_medSearch) rows = rows.filter(r =>
       ['name','patient','dosage','frequency','purpose','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch))
     );
-    if (window._medFilters?.status) rows = rows.filter(r => r.status === window._medFilters.status);
-    if (window._medFilters?.tags?.length) rows = rows.filter(r => window._medFilters.tags.every(t => (r.tags||[]).includes(t)));
+    const f = window._medFilters || {};
+    if (f.status) rows = rows.filter(r => r.status === f.status);
+    if (Array.isArray(f.tags) && f.tags.length) rows = rows.filter(r => f.tags.every(t => (r.tags||[]).includes(t)));
+    if (f.tag) rows = rows.filter(r => (r.tags||[]).includes(f.tag));
+    if (f.person != null) rows = rows.filter(r => String(r.family_member_id) === String(f.person));
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
     if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.medications); return; }
 
-    // Group by patient
+    window._medRowsCache = rows;
+
     const byPatient = {};
     rows.forEach(r => { (byPatient[r.patient] = byPatient[r.patient]||[]).push(r); });
 
     area.innerHTML = Object.entries(byPatient).map(([patient, meds]) => {
-      // Look up the member by display_name to get id (for GH_AVATAR + photo).
       const member = (familyMembers || []).find(m => m.display_name === patient);
       const avatar = (member && window.GH_AVATAR) ? GH_AVATAR.render(member, 'sm') : '';
       return `
-      <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
-      ${meds.map(r => `
-        <div class="gh-card gh-s-gray card" onclick="editMedication(${r.id})">
-          <div class="card-right">
-            <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
-                    onclick="event.stopPropagation();deleteMed(${r.id})">✕</button>
-          </div>
-          <div class="card-title">
-            <span class="status-dot ${statusDotClass(r.status)}"></span>
-            ${esc(r.name)}
-            <span class="badge badge-grey">${r.status}</span>
-            ${r.refills_remaining===0?'<span style="color:var(--red);font-size:11px;font-weight:700" title="No refills remaining">⚠ No refills</span>':r.refills_remaining===1?'<span style="color:var(--amber);font-size:11px" title="1 refill left">⚠ 1 refill</span>':''}
-          </div>
-          ${r.dosage||r.frequency ? `<div class="card-meta">
-            ${r.dosage ? `<span>${esc(r.dosage)}</span>` : ''}
-            ${r.frequency ? `<span>· ${esc(r.frequency)}</span>` : ''}
-          </div>` : ''}
-          <div class="card-meta">
-            ${r.physician ? `<span>Dr. ${esc(r.physician)}</span>` : ''}
-            ${r.start_date ? `<span>Started ${formatDate(r.start_date)}</span>` : ''}
-            ${r.purpose ? `<span style="color:var(--text2)">${esc(r.purpose)}</span>` : ''}
-          </div>
-          ${r.tags&&r.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${r.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
-          ${r.attachment_count?AttachmentManager.staticBadge('med_medication',r.id,r.attachment_count):''}
-        </div>
-      `).join('')}
-    `;
+        <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
+        <div class="med-grid">${meds.map(r => renderMedCard(r)).join('')}</div>
+      `;
     }).join('');
-    // Non-blocking interaction check — fires after render
+
     checkInteractionsForAll(rows);
   } catch (e) {
     area.innerHTML = errorState(e.message, '');
   }
 }
+
+function medRefillState(r) {
+  if (r.status === 'Discontinued' || r.status === 'Completed') return 'discont';
+  if (r.refills_remaining === 0 && r.rx_number) return 'overdue';
+  if (r.next_refill_date) {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const next = new Date(r.next_refill_date);
+    if (!isNaN(next.getTime())) {
+      const days = Math.round((next - today) / 86400000);
+      if (days < 0) return 'overdue';
+      if (days <= 7) return 'refill';
+    }
+  }
+  if (r.refills_remaining === 1) return 'refill';
+  return 'active';
+}
+function medStateDot(state) {
+  return state === 'overdue' ? 'red' : state === 'refill' ? 'amber' : state === 'discont' ? 'gray' : 'green';
+}
+
+function medHeroLines(r) {
+  const hero = r.name || ''; const dose = r.dosage || ''; const form = r.form || '';
+  let sub = '';
+  if (r.brand_name && r.generic_name) {
+    if (hero.toLowerCase() === r.brand_name.toLowerCase())   sub = `${r.generic_name}${form?' · '+form:''}`;
+    else if (hero.toLowerCase() === r.generic_name.toLowerCase()) sub = `generic version of ${r.brand_name}${form?' · '+form:''}`;
+    else sub = form;
+  } else if (r.brand_name && hero.toLowerCase() !== r.brand_name.toLowerCase()) {
+    sub = `generic version of ${r.brand_name}${form?' · '+form:''}`;
+  } else if (r.generic_name && hero.toLowerCase() !== r.generic_name.toLowerCase()) {
+    sub = `${r.generic_name}${form?' · '+form:''}`;
+  } else { sub = form; }
+  return { hero, dose, sub };
+}
+
+function medFormIcon(form) {
+  const f = (form||'').toLowerCase();
+  if (f.includes('inject') || f.includes('syringe')) return '/assets/icons/phosphor/duotone/syringe-duotone.svg';
+  if (f.includes('liquid')  || f.includes('drop'))   return '/assets/icons/phosphor/duotone/eyedropper-duotone.svg';
+  if (f.includes('inhal'))                            return '/assets/icons/phosphor/duotone/eyedropper-duotone.svg';
+  return '/assets/icons/phosphor/duotone/pill-duotone.svg';
+}
+
+function medAvatar(label, opts = {}) {
+  const t = (label||'?').slice(0, opts.brand ? 3 : 2).toUpperCase();
+  let h = 0; for (const c of (label||'')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const grads = [
+    ['#f472b6','#db2777'], ['#34d399','#047857'], ['#a78bfa','#7c3aed'],
+    ['#fb923c','#c2410c'], ['#60a5fa','#1d4ed8'], ['#5eead4','#0d9488'],
+  ];
+  const g = grads[h % grads.length];
+  const cls = opts.brand ? 'med-ent-circle brand' : 'med-ent-circle';
+  return `<div class="${cls}" style="background:linear-gradient(135deg,${g[0]},${g[1]})" title="${esc(opts.title||label||'')}">${esc(t)}</div>`;
+}
+
+function renderMedCard(r) {
+  const state = medRefillState(r);
+  const dot = medStateDot(state);
+  const heroTint = state === 'overdue' ? 'overdue' : state === 'refill' ? 'refill' : state === 'discont' ? 'discont' : 'active';
+  const { hero, dose, sub } = medHeroLines(r);
+  const pillImg = `<img src="${medFormIcon(r.form)}" alt="" />`;
+
+  const conds = Array.isArray(r.conditions) ? r.conditions
+              : (r.condition_name_text ? [{ id: r.condition_id, condition_name: r.condition_name_text }] : []);
+  const condChips = conds.slice(0, 2).map(c => `
+    <span class="med-cond-chip" title="Treats: ${esc(c.condition_name)}">
+      <img src="/assets/icons/phosphor/duotone/heart-duotone.svg" alt="">${esc(c.condition_name)}
+    </span>
+  `).join('');
+  const condOverflow = conds.length > 2
+    ? `<span class="med-cond-chip" style="background:transparent;border:1px dashed #cbd5e1;color:#94a3b8">+${conds.length-2}</span>`
+    : '';
+
+  const instr = [];
+  if (r.time_of_day === 'evening') instr.push(`<div class="med-instr-chip evening" title="Take in evening"><img src="/assets/icons/phosphor/duotone/moon-duotone.svg" alt=""></div>`);
+  if (r.take_with_food) instr.push(`<div class="med-instr-chip food" title="Take with food"><img src="/assets/icons/phosphor/duotone/fork-knife-duotone.svg" alt=""></div>`);
+  if (r.interaction_warning) instr.push(`<div class="med-instr-chip warn" title="${esc(r.interaction_warning)}"><img src="/assets/icons/phosphor/duotone/warning-duotone.svg" alt=""></div>`);
+
+  const hsaYtd = (r.hsa_ytd != null) ? `$${Number(r.hsa_ytd).toFixed(2)}` : '$0.00';
+  const lastFilled = r.last_filled ? formatDate(r.last_filled) : '—';
+
+  let alertBlock = '';
+  if (state === 'overdue' || state === 'refill') {
+    const daysText = (() => {
+      if (!r.next_refill_date) return state === 'overdue' ? 'Refill overdue' : 'Refill needed soon';
+      const today = new Date(); today.setHours(0,0,0,0);
+      const next = new Date(r.next_refill_date);
+      const days = Math.round((next - today) / 86400000);
+      if (days < 0) return `Refill ${Math.abs(days)} day${Math.abs(days)===1?'':'s'} overdue`;
+      if (days === 0) return `Refill today`;
+      return `Refill in ${days} day${days===1?'':'s'}`;
+    })();
+    const supplyMeta = r.refills_remaining != null
+      ? `${r.refills_remaining} refill${r.refills_remaining===1?'':'s'} left` : '';
+    alertBlock = `
+      <div class="med-alert ${state==='overdue'?'red':'amber'}">
+        <div class="row1">
+          <span class="msg">${esc(daysText)}</span>
+          ${supplyMeta ? `<span class="meta">${esc(supplyMeta)}</span>` : ''}
+          <div style="flex:1"></div>
+          <button class="btn btn-primary" style="padding:6px 12px;font-size:12px"
+                  onclick="event.stopPropagation();openRefillModal(${r.id})">Record refill</button>
+        </div>
+        <div class="row2">
+          <span style="color:#94a3b8">
+            ${r.last_filled ? `Last filled ${formatDate(r.last_filled)}` : ''}
+            ${r.pharmacy_name ? ` · ${esc(r.pharmacy_name)}` : ''}
+            ${r.last_fill_cost != null ? ` · $${Number(r.last_fill_cost).toFixed(2)}` : ''}
+          </span>
+          ${r.rx_number ? `<span style="font-family:var(--mono);color:#475569" title="Rx number">Rx# ${esc(r.rx_number)}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  const ents = [];
+  const memberName = r.family_member_name || r.patient;
+  if (memberName) ents.push(medAvatar(memberName, { title: memberName + ' · patient' }));
+  if (r.physician || r.physician_contact_id) {
+    const docLabel = r.physician ? `D${r.physician.split(/\s+/).slice(-1)[0][0]||'?'}` : 'DR';
+    ents.push(medAvatar(docLabel, { title: (r.physician||'Doctor') + ' · prescriber' }));
+  }
+  if (r.pharmacy_name) ents.push(medAvatar(r.pharmacy_name, { brand: true, title: r.pharmacy_name + ' · pharmacy' }));
+
+  const tagRow = (r.tags && r.tags.length)
+    ? `<div class="med-tags-row">${r.tags.slice(0,4).map(t=>`<span style="color:#94a3b8">#${esc(t)}</span>`).join('')}${r.tags.length>4?`<span style="color:#94a3b8">+${r.tags.length-4}</span>`:''}</div>`
+    : '';
+
+  return `
+    <div class="med-card ${state==='refill'?'refill-due':state==='overdue'?'refill-overdue':''}" onclick="openMedDetail(${r.id})">
+
+      <div class="med-z1">
+        <div class="med-status-dot ${dot}" title="${esc(r.status)}"></div>
+        ${condChips}${condOverflow}
+        ${r.drug_class ? `<span class="med-class">${esc(r.drug_class)}</span>` : ''}
+        <div style="flex:1"></div>
+        <button class="med-icon-btn" title="Delete"
+                onclick="event.stopPropagation();deleteMed(${r.id})">
+          <img src="/assets/icons/phosphor/duotone/trash-duotone.svg" alt="">
+        </button>
+      </div>
+
+      <div class="med-z2">
+        <div class="med-pill-hero ${heroTint}">${pillImg}</div>
+        <div style="flex:1; min-width:0;">
+          <div class="med-name-line">
+            <span class="med-name">${esc(hero)}</span>
+            ${dose ? `<span class="med-dose">${esc(dose)}</span>` : ''}
+          </div>
+          ${sub ? `<div class="med-sub">${esc(sub)}</div>` : ''}
+          ${r.frequency ? `<div class="med-schedule">${esc(r.frequency)}</div>` : ''}
+        </div>
+      </div>
+
+      ${instr.length ? `<div class="med-z3">${instr.join('')}</div>` : ''}
+      ${tagRow}
+
+      <div class="med-strip">
+        <span title="HSA YTD">
+          <span class="lbl">HSA YTD</span><strong>${hsaYtd}</strong>
+        </span>
+        <span title="Last refill date">
+          <span class="lbl">Last filled</span><strong>${esc(lastFilled)}</strong>
+        </span>
+        <span title="Refills remaining">
+          <span class="lbl">Refills</span><strong>${r.refills_remaining != null ? r.refills_remaining : '—'}</strong>
+        </span>
+      </div>
+
+      ${alertBlock}
+
+      <div class="med-z4">
+        ${ents.join('')}
+        <div style="flex:1"></div>
+        <button class="med-link-chip" title="Link an HSA receipt"
+                onclick="event.stopPropagation();openLinkReceiptModal(${r.id},'${esc(hero).replace(/'/g,"\\'")}')">
+          <img src="/assets/icons/phosphor/duotone/link-duotone.svg" alt="">Link receipt
+        </button>
+        ${r.attachment_count ? `<span class="med-link-chip" title="${r.attachment_count} attachment${r.attachment_count===1?'':'s'}">
+          <img src="/assets/icons/phosphor/duotone/paperclip-duotone.svg" alt="">${r.attachment_count}
+        </span>` : ''}
+      </div>
+
+    </div>
+  `;
+}
+
+// Center modal — minimal version for v2 preview
+function openMedDetail(id) {
+  const r = (window._medRowsCache || []).find(x => x.id === id);
+  if (!r) { showToast && showToast('Medication not found','err'); return; }
+  const card = renderMedCard(r);
+  const html = `
+    <div style="padding:8px 8px 0">${card.replace('onclick="openMedDetail('+id+')"','')}</div>
+    <div class="gh-cmodal-actions">
+      <button class="btn" onclick="closeMedDetail();editMedication(${id})">Edit details</button>
+      <button class="btn btn-ghost" onclick="closeMedDetail()">Close</button>
+    </div>
+  `;
+  $id('medDetailBody').innerHTML = html;
+  $id('medDetailOverlay').classList.add('open');
+}
+function closeMedDetail() { $id('medDetailOverlay').classList.remove('open'); }
+// Stubs so card buttons don't error when v2 runs without slice 1B routes
+window.openRefillModal = window.openRefillModal || function(id){ editMedication(id); };
+window.openLinkReceiptModal = window.openLinkReceiptModal || function(){ /* noop */ };
 
 // Drug interaction check — runs after medications render
 // Shows a small orange/red badge; clicking opens a detail sheet
@@ -1087,11 +1317,8 @@ async function renderNotes() {
     };
   }
 
-  window.renderMedications = makeCardRender(
-    'medical_medications', '/medical/medications',
-    ['name','patient','dosage','frequency','purpose','notes'],
-    'status', 'medications'
-  );
+  // v2: Card #1 v5 renderMedications above wins; don't override.
+  // window.renderMedications = makeCardRender(...);
   window.renderConditions = makeCardRender(
     'medical_conditions', '/medical/conditions',
     ['condition','patient','notes'],
@@ -1814,4 +2041,5 @@ async function loadConditionsForPatient(selectEl, selectedId) {
   } catch { /* non-fatal */ }
 }
 </script>
-</body></html>
+</body>
+</html>
