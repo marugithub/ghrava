@@ -1,0 +1,1932 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0a0a0a">
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<title>Medical (v2) — Ghrava</title>
+
+<!-- Existing Ghrava base — needed for nav.js / theme tokens / shared utilities -->
+<link rel="stylesheet" href="/shared.css">
+<script src="/theme.js"></script>
+<script>
+  if (localStorage.getItem('gh_nav_collapsed') !== '0') {
+    document.documentElement.classList.add('nav-collapsed-init');
+  }
+</script>
+
+<!-- Tailwind CDN (v2 prototype only — switch to CLI build before prod) -->
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+tailwind.config = {
+  darkMode: "class",
+  theme: { extend: {
+    colors: {
+      "surface":         "#0e0e0e",
+      "surface-low":     "#131313",
+      "surface-high":    "#1a1a1a",
+      "surface-higher":  "#222",
+      "surface-highest": "#2a2a2a",
+      "outline":         "#3c4947",
+      "outline-soft":    "#222",
+      "tx":              "#e5e2e1",
+      "tx-soft":         "#bbcac6",
+      "tx-mute":         "#7d8a87",
+      "accent":          "#14b8a6",
+      "accent-soft":     "rgba(20,184,166,0.10)",
+      "accent-strong":   "#0d9488",
+      "danger":          "#dc2626",
+      "danger-soft":     "rgba(220,38,38,0.10)",
+      "amber":           "#f59e0b",
+      "amber-soft":      "rgba(245,158,11,0.10)",
+      "good":            "#34c759",
+      "good-soft":       "rgba(52,199,89,0.10)",
+    },
+    fontFamily: { sans: ['Inter','system-ui','-apple-system','sans-serif'] },
+    fontSize: {
+      "label":       ["11px",{lineHeight:"1.3",letterSpacing:"0.04em",fontWeight:"500"}],
+      "body":        ["13px",{lineHeight:"1.5",fontWeight:"400"}],
+      "body-lg":     ["14px",{lineHeight:"1.5",fontWeight:"400"}],
+      "h-card":      ["18px",{lineHeight:"1.2",letterSpacing:"-0.015em",fontWeight:"600"}],
+      "h-page":      ["24px",{lineHeight:"1.2",letterSpacing:"-0.02em",fontWeight:"600"}],
+      "metric":      ["22px",{lineHeight:"1",letterSpacing:"-0.01em",fontWeight:"600"}],
+    },
+    spacing: { "0.5":"2px", "1.5":"6px", "2.5":"10px", "3.5":"14px" },
+  }}
+}
+</script>
+
+<style>
+/* v2 page — overrides the JS-rendered card / form / drawer classes
+   so the legacy render functions still work but produce v2-aesthetic output. */
+body.v2 { background: #0a0a0a; color: #e5e2e1; font-family: 'Inter','system-ui',sans-serif; }
+
+/* Hide the legacy view-tabs / patient strip / search-wrap that we replace with v2 markup */
+body.v2 .view-tabs.legacy-hidden,
+body.v2 .patient-strip,
+body.v2 .search-wrap.legacy-hidden { display: none !important; }
+
+/* ───────── Buttons (smaller, reference-scale) ───────── */
+body.v2 .btn {
+  font-size: 13px; font-weight: 500; padding: 8px 14px;
+  border-radius: 6px; border: 0.5px solid transparent;
+  font-family: inherit; line-height: 1.2; letter-spacing: 0;
+  transition: opacity .15s, background .15s;
+}
+body.v2 .btn-primary { background: #14b8a6; color: #fff; }
+body.v2 .btn-primary:hover { background: #0d9488; }
+body.v2 .btn-ghost { background: transparent; color: #bbcac6; border-color: #3c4947; }
+body.v2 .btn-ghost:hover { background: #1a1a1a; color: #e5e2e1; }
+body.v2 .btn-danger { background: #dc2626; color: #fff; }
+
+/* ───────── Form fields (tight reference scale) ───────── */
+body.v2 .form-group { margin-bottom: 12px; }
+body.v2 .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+body.v2 .form-label {
+  display: block; font-size: 11px; font-weight: 500;
+  color: #bbcac6; margin-bottom: 4px;
+  font-family: inherit; letter-spacing: 0; text-transform: none;
+}
+body.v2 .form-label .req { color: #14b8a6; margin-left: 2px; }
+body.v2 .form-label > span:not(.req) {
+  font-size: 10px !important; font-weight: 400 !important;
+  color: #7d8a87 !important; margin-left: 6px;
+  text-transform: none !important; letter-spacing: 0 !important;
+}
+body.v2 .form-input, body.v2 .form-select, body.v2 .form-textarea {
+  width: 100%; background: #131313; border: 0.5px solid #3c4947;
+  border-radius: 6px; color: #e5e2e1; font-family: inherit;
+  font-size: 13px; padding: 7px 10px; outline: none;
+  transition: border-color .15s, background .15s;
+}
+body.v2 .form-input:focus, body.v2 .form-select:focus, body.v2 .form-textarea:focus {
+  border-color: #14b8a6; background: #1a1a1a;
+}
+body.v2 .form-input::placeholder, body.v2 .form-textarea::placeholder { color: #7d8a87; }
+body.v2 .form-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%237d8a87' stroke-width='1.5' fill='none'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 28px; cursor: pointer;
+}
+body.v2 .form-textarea { min-height: 60px; resize: vertical; line-height: 1.5; }
+
+/* ───────── btn-row (form footer) ───────── */
+body.v2 .btn-row {
+  display: flex; gap: 8px; margin-top: 16px; padding-top: 12px;
+  border-top: 0.5px solid #3c4947;
+}
+body.v2 .btn-row .btn { flex: 1; padding: 10px 14px; }
+
+/* ───────── Drawers → center modals ───────── */
+body.v2 .drawer-overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+  display: none; align-items: center; justify-content: center;
+  padding: 20px; z-index: 560;
+}
+body.v2 .drawer-overlay.open { display: flex; }
+body.v2 .drawer {
+  background: #131313; border: 0.5px solid #3c4947;
+  border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  width: min(520px,100%); max-height: 85vh; overflow-y: auto;
+  padding: 18px 20px;
+  /* Reset legacy positioning */
+  position: relative; bottom: auto; left: auto; right: auto; transform: none;
+}
+body.v2 .drawer-handle { display: none; }
+body.v2 .drawer-title {
+  font-size: 16px; font-weight: 600; color: #e5e2e1; letter-spacing: -0.01em;
+  margin: 0 0 14px; padding: 0;
+}
+@media(max-width:520px){
+  body.v2 .drawer-overlay { padding: 0; align-items: flex-end; }
+  body.v2 .drawer { border-radius: 14px 14px 0 0; max-height: 92vh; }
+}
+
+/* ───────── FAB (smaller) ───────── */
+body.v2 .fab, body.v2 .fab-pill {
+  position: fixed; bottom: 24px; right: 24px;
+  background: #14b8a6; color: #fff; border: none;
+  border-radius: 999px; padding: 0 18px; height: 44px;
+  font-size: 13px; font-weight: 500; cursor: pointer;
+  box-shadow: 0 6px 20px rgba(20,184,166,0.35);
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: inherit;
+}
+body.v2 .fab:hover, body.v2 .fab-pill:hover { background: #0d9488; }
+body.v2 .fab > span, body.v2 .fab-pill > span { font-weight: 500; font-size: 13px; }
+
+/* ───────── Generic .gh-card / .card legacy → tight dark ───────── */
+body.v2 .gh-card, body.v2 .card {
+  background: #131313 !important; border: 0.5px solid #3c4947 !important;
+  border-radius: 10px !important; padding: 14px 16px !important;
+  color: #e5e2e1 !important; box-shadow: none !important;
+}
+body.v2 .gh-card:hover, body.v2 .card:hover {
+  border-color: #14b8a6 !important; transform: none !important;
+}
+body.v2 .gh-card .card-title, body.v2 .card .card-title {
+  font-size: 14px; font-weight: 600; color: #e5e2e1;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+}
+body.v2 .gh-card .card-meta, body.v2 .card .card-meta {
+  font-size: 11px; color: #7d8a87;
+  display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px;
+}
+body.v2 .gh-card .card-meta span, body.v2 .card .card-meta span { font-size: 11px; }
+body.v2 .badge {
+  font-size: 9.5px; padding: 2px 7px; border-radius: 999px;
+  background: #2a2a2a; color: #bbcac6; font-weight: 500;
+  letter-spacing: 0; text-transform: none;
+}
+body.v2 .badge-grey { background: #2a2a2a; color: #bbcac6; }
+body.v2 .badge-blue { background: rgba(20,184,166,0.10); color: #14b8a6; }
+
+/* ───────── Card #1 v5 (medications) — v2 aesthetic ───────── */
+body.v2 .med-grid { padding: 0 20px 100px; gap: 12px; grid-template-columns: repeat(auto-fill,minmax(420px,1fr)); }
+body.v2 .med-card {
+  background: #131313; border: 0.5px solid #3c4947;
+  border-radius: 10px; box-shadow: none; transition: border-color .15s;
+}
+body.v2 .med-card:hover { border-color: #5a6a68; transform: none; box-shadow: none; }
+body.v2 .med-card.refill-due { border-color: rgba(245,158,11,0.45); }
+body.v2 .med-card.refill-overdue { border-color: rgba(220,38,38,0.45); }
+body.v2 .med-z1 { padding: 12px 14px 0; gap: 6px; }
+body.v2 .med-z2 { padding: 10px 14px 6px; gap: 14px; }
+body.v2 .med-z3 { padding: 2px 14px 10px; gap: 6px; }
+body.v2 .med-tags-row { padding: 0 14px 8px; font-size: 10px; }
+body.v2 .med-strip {
+  padding: 8px 14px; border-top: 1px dashed #2a2a2a;
+  font-size: 10px; gap: 14px;
+}
+body.v2 .med-strip .lbl { font-size: 9px; color: #7d8a87; letter-spacing: 0.06em; }
+body.v2 .med-strip strong { font-size: 11px; color: #e5e2e1; }
+body.v2 .med-alert { margin: 4px 14px 12px; padding: 10px 12px; border-radius: 8px; }
+body.v2 .med-alert.amber { background: rgba(245,158,11,0.08); border: 0.5px solid rgba(245,158,11,0.30); }
+body.v2 .med-alert.red   { background: rgba(220,38,38,0.08); border: 0.5px solid rgba(220,38,38,0.30); }
+body.v2 .med-alert .msg { font-size: 12px; color: #e5e2e1; font-weight: 500; }
+body.v2 .med-alert .meta { font-size: 10px; color: #7d8a87; }
+body.v2 .med-z4 { padding: 10px 14px 12px; gap: 8px; border-top: 0.5px solid #2a2a2a; }
+body.v2 .med-status-dot.green { background: #34c759; box-shadow: 0 0 0 3px rgba(52,199,89,0.18); }
+body.v2 .med-status-dot.amber { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.18); }
+body.v2 .med-status-dot.red   { background: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.18); }
+body.v2 .med-status-dot.gray  { background: #7d8a87; box-shadow: 0 0 0 3px rgba(125,138,135,0.18); }
+body.v2 .med-cond-chip {
+  font-size: 10px; padding: 2px 8px 2px 6px;
+  background: rgba(220,38,38,0.10); color: #fda4af;
+}
+body.v2 .med-class { font-size: 10px; color: #7d8a87; }
+body.v2 .med-icon-btn { width: 26px; height: 26px; }
+body.v2 .med-icon-btn img { width: 16px; height: 16px; opacity: 0.6; }
+body.v2 .med-pill-hero { flex: 0 0 76px; height: 54px; border-radius: 8px; }
+body.v2 .med-pill-hero img { width: 38px; height: 38px; }
+body.v2 .med-pill-hero.active   { background: rgba(20,184,166,0.10); }
+body.v2 .med-pill-hero.refill   { background: rgba(245,158,11,0.10); }
+body.v2 .med-pill-hero.overdue  { background: rgba(220,38,38,0.10); }
+body.v2 .med-pill-hero.discont  { background: rgba(125,138,135,0.10); }
+body.v2 .med-name { font-size: 16px; font-weight: 600; color: #e5e2e1; }
+body.v2 .med-dose { font-size: 12px; color: #bbcac6; }
+body.v2 .med-sub { font-size: 11px; color: #7d8a87; margin-top: 1px; }
+body.v2 .med-schedule { font-size: 12px; color: #bbcac6; margin-top: 4px; }
+body.v2 .med-instr-chip { width: 32px; height: 32px; border-radius: 8px; }
+body.v2 .med-instr-chip img { width: 18px; height: 18px; }
+body.v2 .med-ent-circle { width: 28px; height: 28px; font-size: 10px; }
+body.v2 .med-ent-circle.brand { font-size: 9px; }
+body.v2 .med-link-chip {
+  font-size: 10px; padding: 3px 6px; color: #7d8a87;
+}
+body.v2 .med-link-chip:hover { background: #1a1a1a; color: #bbcac6; }
+body.v2 .med-link-chip img { width: 12px; height: 12px; }
+
+/* ───────── Card #6 (conditions) — v2 aesthetic ───────── */
+body.v2 .cond-grid { padding: 0 20px 100px; gap: 12px; grid-template-columns: repeat(auto-fill,minmax(420px,1fr)); }
+body.v2 .cond-card {
+  background: #131313; border: 0.5px solid #3c4947;
+  border-radius: 10px; box-shadow: none; transition: border-color .15s;
+}
+body.v2 .cond-card:hover { border-color: #5a6a68; transform: none; box-shadow: none; }
+body.v2 .cond-card.alert { border-color: rgba(245,158,11,0.45); }
+body.v2 .cond-card.bad   { border-color: rgba(220,38,38,0.45); }
+body.v2 .cond-z1 { padding: 12px 14px 0; gap: 6px; }
+body.v2 .cond-z2 { padding: 10px 14px 4px; gap: 14px; }
+body.v2 .cond-name { font-size: 18px; font-weight: 600; color: #e5e2e1; letter-spacing: -0.015em; }
+body.v2 .cond-sub { font-size: 12px; color: #7d8a87; margin-top: 4px; }
+body.v2 .cond-on-label { font-size: 14px; color: #7d8a87; font-style: normal; font-family: inherit; font-weight: 500; }
+body.v2 .cond-on-chip {
+  font-size: 10px; padding: 2px 8px;
+  background: #1a1a1a; color: #bbcac6; max-width: 110px;
+}
+body.v2 .cond-tags-row { padding: 8px 14px; font-size: 10px; }
+body.v2 .cond-cross { padding: 10px 14px 12px; border-top: 1px dashed #2a2a2a; }
+body.v2 .cond-metric-label { font-size: 9px; color: #7d8a87; letter-spacing: 0.06em; }
+body.v2 .cond-metric-value { font-size: 18px; color: #e5e2e1; }
+body.v2 .cond-metric-state.good { color: #34c759; }
+body.v2 .cond-metric-state.warn { color: #f59e0b; }
+body.v2 .cond-metric-state.bad  { color: #dc2626; }
+body.v2 .cond-counts-row { gap: 18px; margin-top: 10px; }
+body.v2 .cond-counts-row .lbl { font-size: 9px; color: #7d8a87; letter-spacing: 0.10em; }
+body.v2 .cond-counts-row .val { font-size: 13px; color: #e5e2e1; }
+body.v2 .cond-z5 { padding: 10px 14px 12px; gap: 8px; border-top: 0.5px solid #2a2a2a; }
+body.v2 .sys-cardio  { background: rgba(220,38,38,0.10); color: #fda4af; }
+body.v2 .sys-endo    { background: rgba(217,119,6,0.10); color: #fcd34d; }
+body.v2 .sys-neuro   { background: rgba(124,58,237,0.10); color: #c4b5fd; }
+body.v2 .sys-resp    { background: rgba(14,165,233,0.10); color: #7dd3fc; }
+body.v2 .sys-musc    { background: rgba(125,138,135,0.10); color: #cbd5e1; }
+body.v2 .sys-immune  { background: rgba(20,184,166,0.10); color: #5eead4; }
+body.v2 .sys-mental  { background: rgba(236,72,153,0.10); color: #f9a8d4; }
+body.v2 .sys-other   { background: #1a1a1a; color: #7d8a87; }
+
+/* ───────── Section labels (between patient groups) ───────── */
+body.v2 .section-label {
+  padding: 14px 20px 6px !important;
+  font-size: 11px; font-weight: 600; color: #7d8a87;
+  letter-spacing: 0.06em; text-transform: uppercase;
+}
+
+/* ───────── Center modal (slice 1B) — v2 aesthetic ───────── */
+body.v2 .gh-cmodal-overlay { background: rgba(0,0,0,0.7); padding: 20px; }
+body.v2 .gh-cmodal {
+  background: #131313; border: 0.5px solid #3c4947;
+  border-radius: 10px; max-width: 520px;
+}
+body.v2 .gh-cmodal-actions {
+  background: #131313; border-top: 0.5px solid #3c4947;
+  padding: 10px 14px;
+}
+
+/* ───────── Empty state ───────── */
+body.v2 .empty-state {
+  padding: 60px 20px; text-align: center; color: #7d8a87;
+}
+body.v2 .empty-state img, body.v2 .empty-state svg { opacity: 0.4; }
+
+/* Toast */
+body.v2 .toast {
+  background: #131313 !important; color: #e5e2e1 !important;
+  border: 0.5px solid #3c4947 !important;
+}
+
+/* Confirm dialog */
+body.v2 .confirm-overlay { background: rgba(0,0,0,0.7); }
+body.v2 .confirm-box {
+  background: #131313; border: 0.5px solid #3c4947;
+  color: #e5e2e1;
+}
+
+/* Hide nav.js sidebar bg fighting our dark theme */
+body.v2 .side-nav, body.v2 #sideNav { background: #0e0e0e !important; border-right-color: #222 !important; }
+body.v2 .gh-page-header { background: #0a0a0a !important; border-color: #222 !important; }
+</style>
+</head>
+
+<body class="v2 bg-surface text-tx font-sans antialiased">
+<div id="app">
+
+  <!-- nav.js injects header / sidebar here -->
+
+  <!-- ───────── v2 page top: title + segmented tabs ───────── -->
+  <div class="px-5 pt-4 pb-2">
+    <div class="flex items-center justify-between mb-3">
+      <h1 class="text-h-page text-tx">Medical</h1>
+      <div class="text-label text-tx-mute">v2 preview</div>
+    </div>
+
+    <!-- Segmented control tabs — reference design -->
+    <div class="bg-surface-high p-0.5 rounded-md inline-flex gap-0.5 mb-3" role="tablist">
+      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded text-tx transition-all bg-accent-soft" style="color:#14b8a6"
+              onclick="switchView('medications',this)">Meds</button>
+      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded text-tx-soft hover:text-tx transition-all"
+              onclick="switchView('conditions',this)">Conditions</button>
+      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded text-tx-soft hover:text-tx transition-all"
+              onclick="switchView('notes',this)">Visits</button>
+      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded text-tx-soft hover:text-tx transition-all"
+              onclick="switchView('hw',this)">H&amp;W</button>
+      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded text-tx-soft hover:text-tx transition-all"
+              onclick="switchView('eob',this)">EOB</button>
+      <button class="view-tab px-3.5 py-1.5 text-xs font-medium rounded text-tx-soft hover:text-tx transition-all"
+              onclick="switchView('summary',this)">Summary</button>
+    </div>
+
+    <!-- Lens slot (kept hooked up) -->
+    <div id="medLens" class="mb-1"></div>
+  </div>
+
+  <!-- Hidden legacy elements — JS still references these -->
+  <div class="patient-strip legacy-hidden" id="patientStrip">
+    <button class="patient-pill active" data-patient="" onclick="setPatient(this,'')"><span class="patient-pill-name">All</span></button>
+  </div>
+  <div class="search-wrap legacy-hidden">
+    <input id="medSearch" type="search">
+  </div>
+  <div id="medViewToolbar" style="display:none"></div>
+
+  <!-- ───────── Main list ───────── -->
+  <div class="content pt-2">
+    <div id="listArea"></div>
+  </div>
+
+  <!-- ───────── Summary panel ───────── -->
+  <div id="summaryPanel" style="display:none" class="px-5 pb-24">
+    <div id="summaryContent">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ───────── FAB ───────── -->
+<button class="fab fab-pill" onclick="openAddDrawer()" title="Add record">
+  <span>+ Add Record</span>
+</button>
+
+<!-- ───────── Info modal ───────── -->
+<div id="medInfoOverlay" onclick="if(event.target===this)closeMedInfoModal()"
+     class="fixed inset-0 bg-black/70 hidden items-center justify-center p-5" style="z-index:550">
+  <div id="medInfoBody" class="bg-surface-low border border-outline rounded-lg p-4 max-w-lg w-full max-h-[85vh] overflow-y-auto"></div>
+</div>
+
+<!-- ───────── Detail center modal (slice 1B re-uses) ───────── -->
+<div class="gh-cmodal-overlay" id="medDetailOverlay" onclick="if(event.target===this)closeMedDetail()">
+  <div class="gh-cmodal" id="medDetailBody"></div>
+</div>
+
+<!-- ───────── Medication drawer ───────── -->
+<div class="drawer-overlay" id="medDrawer">
+  <div class="drawer">
+    <div class="drawer-handle" onclick="closeMedDrawer()"></div>
+    <div class="drawer-title" id="medDrawerTitle">Add Medication</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <div id="mFamilyWrap"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="mStatus"></select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+        Medication name <span class="req">*</span>
+        <button type="button" class="btn btn-ghost" style="font-size:10px;padding:3px 8px;font-weight:500" onclick="lookupDrug()" title="Look up drug info via OpenFDA">Lookup</button>
+      </label>
+      <input class="form-input" type="text" id="mName" placeholder="e.g. Lisinopril 10mg">
+      <div id="drugFeedback" style="font-size:11px;color:#7d8a87;margin-top:4px;display:none"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Dosage</label>
+        <input class="form-input" type="text" id="mDosage" placeholder="e.g. 10mg">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Frequency</label>
+        <input class="form-input" type="text" id="mFreq" placeholder="e.g. Once daily">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Prescribing physician</label>
+      <select class="form-select" id="mPhysician"><option value="">— none —</option></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start date</label><input class="form-input" type="date" id="mStart"></div>
+      <div class="form-group"><label class="form-label">End date</label><input class="form-input" type="date" id="mEnd"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Purpose / indication</label>
+      <input class="form-input" type="text" id="mPurpose" placeholder="Why prescribed">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Treats condition <span>optional</span></label>
+      <select class="form-select" id="mCondition"><option value="">— none —</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Pharmacy</label>
+      <select class="form-select" id="mPharmacy"></select>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Rx #</label><input class="form-input" id="mRxNum" placeholder="Rx number"></div>
+      <div class="form-group"><label class="form-label">Refills left</label><input class="form-input" type="number" id="mRefills" min="0" placeholder="0"></div>
+      <div class="form-group"><label class="form-label">Next refill</label><input class="form-input" type="date" id="mNextRefill"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Controlled schedule <span>optional</span></label>
+      <select class="form-select" id="mSchedule">
+        <option value="">— none —</option>
+        <option value="II">Schedule II</option>
+        <option value="III">Schedule III</option>
+        <option value="IV">Schedule IV</option>
+        <option value="V">Schedule V</option>
+      </select>
+    </div>
+
+    <!-- Slice 1B fields -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Form <span>drives icon</span></label>
+        <select class="form-select" id="mForm">
+          <option value="">— none —</option>
+          <option value="tablet">tablet</option>
+          <option value="capsule">capsule</option>
+          <option value="liquid">liquid</option>
+          <option value="injection">injection</option>
+          <option value="inhaler">inhaler</option>
+          <option value="drops">drops</option>
+          <option value="cream">cream</option>
+          <option value="patch">patch</option>
+          <option value="suppository">suppository</option>
+          <option value="other">other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Generic name <span>e.g. atorvastatin</span></label>
+        <input class="form-input" type="text" id="mGeneric" placeholder="">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Brand name <span>e.g. Lipitor</span></label>
+        <input class="form-input" type="text" id="mBrand" placeholder="">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Drug class <span>optional</span></label>
+        <input class="form-input" type="text" id="mClass" placeholder="e.g. Statin">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group" style="display:flex;align-items:center;gap:10px;padding-top:24px">
+        <input type="checkbox" id="mTakeWithFood" style="width:16px;height:16px;cursor:pointer;accent-color:#14b8a6">
+        <label for="mTakeWithFood" style="font-size:12px;cursor:pointer;margin:0;color:#bbcac6">Take with food</label>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Time of day</label>
+        <select class="form-select" id="mTimeOfDay">
+          <option value="">— any —</option>
+          <option value="morning">morning</option>
+          <option value="evening">evening</option>
+          <option value="with_meals">with meals</option>
+          <option value="as_needed">as needed</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Interaction warning <span>e.g. "Avoid grapefruit"</span></label>
+      <input class="form-input" type="text" id="mInteraction" placeholder="">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="mNotes" rows="2"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="medTagsWrap" onclick="document.getElementById('medTagInput').focus()">
+        <input id="medTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeMedDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveMedication()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── Condition drawer ───────── -->
+<div class="drawer-overlay" id="condDrawer">
+  <div class="drawer">
+    <div class="drawer-handle" onclick="closeCondDrawer()"></div>
+    <div class="drawer-title" id="condDrawerTitle">Add Condition</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <div id="cFamilyWrap"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select class="form-select" id="cStatus"></select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Condition name <span class="req">*</span></label>
+      <input class="form-input" type="text" id="cName" placeholder="e.g. Hypertension">
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Start date</label><input class="form-input" type="date" id="cStart"></div>
+      <div class="form-group"><label class="form-label">End date</label><input class="form-input" type="date" id="cEnd"></div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Physician</label>
+      <select class="form-select" id="cPhysician"><option value="">— none —</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Treatment notes</label>
+      <textarea class="form-textarea" id="cTreatment" rows="3" placeholder="Treatment plan, medications, outcomes…"></textarea>
+    </div>
+
+    <!-- Slice 2 — Card #6 fields -->
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Body system <span>drives chip color/icon</span></label>
+        <select class="form-select" id="cBodySystem">
+          <option value="">— none —</option>
+          <option value="Cardiovascular">Cardiovascular</option>
+          <option value="Endocrine">Endocrine</option>
+          <option value="Neurological">Neurological</option>
+          <option value="Respiratory">Respiratory</option>
+          <option value="Musculoskeletal">Musculoskeletal</option>
+          <option value="Immune">Immune</option>
+          <option value="Mental">Mental</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Clinical state</label>
+        <select class="form-select" id="cConditionState">
+          <option value="">— none —</option>
+          <option value="in_target">in target</option>
+          <option value="follow_up_due">follow-up due</option>
+          <option value="out_of_range">out of range</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Goal <span>e.g. "BP &lt;130/80"</span></label>
+        <input class="form-input" type="text" id="cGoal" placeholder="">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tracked metric <span>e.g. BP, LDL, A1C</span></label>
+        <input class="form-input" type="text" id="cTrackedMetric" placeholder="">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="cNotes" rows="2"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="condTagsWrap" onclick="document.getElementById('condTagInput').focus()">
+        <input id="condTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeCondDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCondition()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ───────── Visit note drawer ───────── -->
+<div class="drawer-overlay" id="noteDrawer">
+  <div class="drawer">
+    <div class="drawer-handle" onclick="closeNoteDrawer()"></div>
+    <div class="drawer-title" id="noteDrawerTitle">Add Visit Note</div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Patient <span class="req">*</span></label>
+        <div id="nFamilyWrap"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Visit date <span class="req">*</span></label>
+        <input class="form-input" type="date" id="nDate">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Physician</label>
+      <select class="form-select" id="nPhysician"><option value="">— Select or leave blank —</option></select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Questions / concerns brought</label>
+      <textarea class="form-textarea" id="nQuestions" rows="3" placeholder="What did you want to discuss?"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Doctor's response / assessment</label>
+      <textarea class="form-textarea" id="nResponse" rows="3" placeholder="What did the doctor say?"></textarea>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">Follow-up needed</span>
+      <label class="toggle"><input type="checkbox" id="nFollowUp" onchange="toggleFollowDate()"><span class="toggle-track"></span></label>
+    </div>
+    <div class="form-group" id="followDateGroup" style="display:none;margin-top:10px">
+      <label class="form-label">Follow-up date</label>
+      <input class="form-input" type="date" id="nFollowDate">
+    </div>
+    <div class="form-group" style="margin-top:10px">
+      <label class="form-label">Notes</label>
+      <textarea class="form-textarea" id="nNotes" rows="2"></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags</label>
+      <div class="tags-input-wrap" id="visitTagsWrap" onclick="document.getElementById('visitTagInput').focus()">
+        <input id="visitTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeNoteDrawer()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm + toast -->
+<div class="confirm-overlay" id="confirmDlg">
+  <div class="confirm-box">
+    <h3 id="confirmTitle">Delete?</h3>
+    <p id="confirmMsg">This cannot be undone.</p>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="cancelConfirm()">Cancel</button>
+      <button class="btn btn-danger" onclick="doConfirm()">Delete</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+  window.GH_PAGE = { module: 'medical', title: 'Medical' };
+</script>
+<script src="/attachments.js"></script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/lt-messages.js"></script>
+<script src="/js/lt-shared-data.js"></script>
+<script src="/js/lt-refs.js"></script>
+<script src="/js/gh-card.js"></script>
+<script src="/js/gh-card-config-medical.js"></script>
+<!-- v202604.124 — The Lens (replaces GH_VIEW filter drawer + ?cards=v2 flag) -->
+<script src="/js/lens-config.js"></script>
+<script src="/js/gh-lens.js"></script>
+<script>
+// ── Auth ──────────────────────────────────────────────────────
+// Auth token from lt-core.js (LT.authToken)
+Object.defineProperty(window, 'authToken', { get: () => LT.authToken, set: v => { LT.authToken = v; } });
+let familyMembers = [];
+let medicalContacts = [];
+
+const api = window.makeApi('');
+
+async function loadSharedData() {
+  const silentGet = window.silentGet; // use shared lt-core version
+  familyMembers   = await silentGet('/settings/family');
+  medicalContacts = await silentGet('/settings/contacts?type=Medical');
+}
+
+function populateFamilySelect(selectEl, currentVal) {
+  selectEl.innerHTML = '';
+  const members = familyMembers.length ? familyMembers : [{ display_name: 'Self' }];
+  members.forEach(m => {
+    const opt = document.createElement('option');
+    opt.value = m.display_name;
+    opt.textContent = m.display_name;
+    if (m.display_name === (currentVal || 'Self')) opt.selected = true;
+    selectEl.appendChild(opt);
+  });
+}
+
+function populatePhysicianDatalist(datalistEl) {
+  if (!datalistEl) return;
+  datalistEl.innerHTML = '';
+  medicalContacts.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.name;
+    datalistEl.appendChild(opt);
+  });
+}
+
+function $id(id) { return document.getElementById(id); }
+function showToast(msg, type='ok') {
+  const t = $id('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.className = 'toast', 2400);
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function formatDate(d) {
+  if (!d) return '';
+  const [y,m,day] = d.split('-');
+  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return `${mo[parseInt(m)-1]} ${parseInt(day)}, ${y}`;
+}
+
+// ── State ──────────────────────────────────────────────────────
+let currentView = 'medications';
+let _medSearch = '';
+let currentPatient = '';
+let editingId = null;
+let confirmCb = null;
+
+// ── View switching ─────────────────────────────────────────────
+function switchView(view, btn) {
+  currentView = view;
+  document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const strip = $id('patientStrip');
+  strip.style.display = (view === 'summary' || view === 'eob') ? 'none' : 'flex';
+  AttachmentManager.injectStyles();
+renderCurrentView();
+}
+
+function setPatient(btn, val) {
+  currentPatient = val;
+  document.querySelectorAll('.patient-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderCurrentView();
+}
+
+async function renderCurrentView() {
+  const listArea = $id('listArea');
+  const summaryPanel = document.getElementById('summaryPanel');
+  if (currentView === 'summary') {
+    listArea.style.display = 'none';
+    summaryPanel.style.display = 'block';
+    await renderSummary();
+  } else {
+    listArea.style.display = '';
+    summaryPanel.style.display = 'none';
+    if (currentView === 'medications')  await renderMedications();
+    else if (currentView === 'conditions') await renderConditions();
+    else if (currentView === 'notes')   await renderNotes();
+    else if (currentView === 'hw')      await renderHW();
+    else if (currentView === 'eob')     await renderEob();
+  }
+}
+
+async function renderSummary() {
+  const el = document.getElementById('summaryContent'); if (!el) return;
+  try {
+    const data = await api('GET', '/medical/summary');
+    if (!data.length) { el.innerHTML = '<div style="color:var(--text3);padding:20px;text-align:center">No family members found</div>'; return; }
+    el.innerHTML = data.map(item => {
+      const m = item.member;
+      const activeConds  = item.conditions.filter(c => c.status === 'Active');
+      const activeMeds   = item.medications.filter(x => x.status === 'Active');
+      const inactiveConds = item.conditions.filter(c => c.status !== 'Active');
+      const inactiveMeds  = item.medications.filter(x => x.status !== 'Active');
+      return `<div class="gh-card gh-s-blue" style="margin-bottom:16px">
+        <div style="padding:14px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
+          <div style="width:38px;height:38px;border-radius:50%;background:var(--accent-dim);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">
+            ${m.relationship === 'Child' ? '👦' : m.is_primary_user ? '🧑' : '👤'}
+          </div>
+          <div style="flex:1">
+            <div style="font-size:15px;font-weight:700;color:var(--text)">${esc(m.display_name)}</div>
+            <div style="font-size:12px;color:var(--text3)">${esc(m.relationship||'')}</div>
+          </div>
+          <div style="display:flex;gap:10px;text-align:center">
+            <div><div style="font-size:18px;font-weight:800;color:var(--text)">${activeConds.length}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase">Conditions</div></div>
+            <div><div style="font-size:18px;font-weight:800;color:var(--text)">${activeMeds.length}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono);text-transform:uppercase">Meds</div></div>
+          </div>
+        </div>
+
+        ${activeConds.length ? `<div style="padding:10px 16px 4px">
+          <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Active Conditions</div>
+          ${activeConds.map(c => `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;color:var(--text)">${esc(c.condition_name)}</span>
+            ${c.physician?`<span style="font-size:11px;color:var(--text3)">${esc(c.physician)}</span>`:''}
+          </div>`).join('')}
+        </div>` : ''}
+
+        ${activeMeds.length ? `<div style="padding:10px 16px 4px">
+          <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Active Medications</div>
+          ${activeMeds.map(med => `<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)">
+            <div>
+              <span style="font-size:13px;color:var(--text);font-weight:600">${esc(med.name)}</span>
+              ${med.dosage?`<span style="font-size:12px;color:var(--text3)"> · ${esc(med.dosage)}</span>`:''}
+            </div>
+            ${med.frequency?`<span style="font-size:11px;color:var(--text3)">${esc(med.frequency)}</span>`:''}
+          </div>`).join('')}
+        </div>` : ''}
+
+        ${item.recent_visits.length ? `<div style="padding:10px 16px 12px">
+          <div style="font-size:10px;font-family:var(--mono);text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Recent Visits</div>
+          ${item.recent_visits.map(v => `<div style="padding:4px 0;border-bottom:1px solid var(--border)">
+            <div style="font-size:13px;color:var(--text)">${esc(v.reason||'Visit')}</div>
+            <div style="font-size:11px;color:var(--text3)">${v.visit_date||''}</div>
+          </div>`).join('')}
+        </div>` : ''}
+
+        ${!activeConds.length && !activeMeds.length && !item.recent_visits.length ? `<div style="padding:16px;text-align:center;color:var(--text3);font-size:13px">No active records</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch(e) { el.innerHTML = errorState(e.message, ''); }
+}
+
+async function renderHW() {
+  const area = $id('listArea');
+  area.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Loading…</div>';
+  try {
+    const params = currentPatient && currentPatient !== 'All'
+      ? `?family_member_id=${encodeURIComponent(currentPatient)}` : '';
+    const items = await api('GET', `/inventory/hw${params}`);
+
+    if (!items.length) {
+      area.innerHTML = `<div style="text-align:center;padding:60px 20px">
+        <div style="font-size:40px;margin-bottom:12px">💊</div>
+        <h3 style="color:var(--text2)">No Health &amp; Wellness items</h3>
+        <p style="color:var(--text3);font-size:14px">Add items in Inventory using the Health &amp; Wellness category</p>
+      </div>`;
+      return;
+    }
+
+    // Group by subcategory
+    const groups = {};
+    items.forEach(i => {
+      const g = i.hw_subcategory || 'Other';
+      if (!groups[g]) groups[g] = [];
+      groups[g].push(i);
+    });
+
+    const subcatOrder = ['Prescription','OTC','First Aid','Personal Care','Vitamins & Supplements','Medical Equipment','Other'];
+    let html = '';
+    subcatOrder.forEach(subcat => {
+      if (!groups[subcat]) return;
+      html += `<div style="padding:12px 16px 4px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3)">${subcat}</div>`;
+      groups[subcat].forEach(item => {
+        const expBadge = item.expiration_date ? (() => {
+          const days = Math.ceil((new Date(item.expiration_date) - new Date()) / 86400000);
+          if (days < 0) return '<span style="background:#fee2e2;color:#ef4444;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:6px">Expired</span>';
+          if (days <= 30) return `<span style="background:#fef3c7;color:#d97706;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:6px">Exp soon</span>`;
+          return '';
+        })() : '';
+
+        html += `<div style="padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer" onclick="window.location='/inventory.html?open=${item.item_ref}'">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start">
+            <div>
+              <div style="font-weight:600;font-size:15px">${item.name}${expBadge}</div>
+              <div style="font-size:13px;color:var(--text3);margin-top:2px">
+                ${item.family_member_name ? `For ${item.family_member_name} · ` : ''}
+                ${item.dosage_strength || ''}
+                ${item.rx_number ? ` · Rx ${item.rx_number}` : ''}
+              </div>
+              ${item.pharmacy_name ? `<div style="font-size:12px;color:var(--text3)">${item.pharmacy_name}</div>` : ''}
+            </div>
+            <div style="font-size:11px;color:var(--text3);text-align:right">
+              Qty ${item.quantity || 1}
+              ${item.expiration_date ? `<br>${item.expiration_date}` : ''}
+            </div>
+          </div>
+        </div>`;
+      });
+    });
+
+    area.innerHTML = `<div style="padding-bottom:80px">${html}</div>`;
+  } catch(e) {
+    area.innerHTML = errorState(e.message, '');
+  }
+}
+
+function statusDotClass(status) {
+  const m = {
+    'Active': 'status-active',
+    'Discontinued': 'status-discontinued', 'Resolved': 'status-resolved',
+    'As Needed': 'status-asneeded', 'Monitoring': 'status-monitoring',
+    'Chronic': 'status-chronic', 'Completed': 'status-completed',
+  };
+  return m[status] || 'status-active';
+}
+
+// ── Medications ─────────────────────────────────────────────────
+async function renderMedications() {
+  const area = $id('listArea');
+  area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  try {
+    let url = '/medical/medications';
+    const ps = [];
+    if (currentPatient) ps.push(`patient=${encodeURIComponent(currentPatient)}`);
+    if (ps.length) url += '?' + ps.join('&');
+    let rows = await api('GET', url);
+    if (_medSearch) rows = rows.filter(r =>
+      ['name','patient','dosage','frequency','purpose','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch))
+    );
+    if (window._medFilters?.status) rows = rows.filter(r => r.status === window._medFilters.status);
+    if (window._medFilters?.tags?.length) rows = rows.filter(r => window._medFilters.tags.every(t => (r.tags||[]).includes(t)));
+    if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.medications); return; }
+
+    // Group by patient
+    const byPatient = {};
+    rows.forEach(r => { (byPatient[r.patient] = byPatient[r.patient]||[]).push(r); });
+
+    area.innerHTML = Object.entries(byPatient).map(([patient, meds]) => {
+      // Look up the member by display_name to get id (for GH_AVATAR + photo).
+      const member = (familyMembers || []).find(m => m.display_name === patient);
+      const avatar = (member && window.GH_AVATAR) ? GH_AVATAR.render(member, 'sm') : '';
+      return `
+      <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
+      ${meds.map(r => `
+        <div class="gh-card gh-s-gray card" onclick="editMedication(${r.id})">
+          <div class="card-right">
+            <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
+                    onclick="event.stopPropagation();deleteMed(${r.id})">✕</button>
+          </div>
+          <div class="card-title">
+            <span class="status-dot ${statusDotClass(r.status)}"></span>
+            ${esc(r.name)}
+            <span class="badge badge-grey">${r.status}</span>
+            ${r.refills_remaining===0?'<span style="color:var(--red);font-size:11px;font-weight:700" title="No refills remaining">⚠ No refills</span>':r.refills_remaining===1?'<span style="color:var(--amber);font-size:11px" title="1 refill left">⚠ 1 refill</span>':''}
+          </div>
+          ${r.dosage||r.frequency ? `<div class="card-meta">
+            ${r.dosage ? `<span>${esc(r.dosage)}</span>` : ''}
+            ${r.frequency ? `<span>· ${esc(r.frequency)}</span>` : ''}
+          </div>` : ''}
+          <div class="card-meta">
+            ${r.physician ? `<span>Dr. ${esc(r.physician)}</span>` : ''}
+            ${r.start_date ? `<span>Started ${formatDate(r.start_date)}</span>` : ''}
+            ${r.purpose ? `<span style="color:var(--text2)">${esc(r.purpose)}</span>` : ''}
+          </div>
+          ${r.tags&&r.tags.length?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:4px">${r.tags.map(t=>{const s=window.GH_TAGS?GH_TAGS.chipStyle(t):'';return`<span class="tag-chip" style="font-size:10px;padding:1px 6px${s?';'+s:''}">${esc(t)}</span>`;}).join('')}</div>`:''}
+          ${r.attachment_count?AttachmentManager.staticBadge('med_medication',r.id,r.attachment_count):''}
+        </div>
+      `).join('')}
+    `;
+    }).join('');
+    // Non-blocking interaction check — fires after render
+    checkInteractionsForAll(rows);
+  } catch (e) {
+    area.innerHTML = errorState(e.message, '');
+  }
+}
+
+// Drug interaction check — runs after medications render
+// Shows a small orange/red badge; clicking opens a detail sheet
+async function checkInteractionsForAll(meds) {
+  // Group active meds by family_member_id
+  const byMember = {};
+  meds.filter(m => m.status === 'Active' && m.family_member_id).forEach(m => {
+    (byMember[m.family_member_id] = byMember[m.family_member_id] || []).push(m);
+  });
+  for (const [memberId, memberMeds] of Object.entries(byMember)) {
+    if (memberMeds.length < 2) continue;
+    try {
+      const result = await window.api('GET', `/medical/interactions/${memberId}`);
+      if (!result.count) continue;
+      // Find the section header for this member and append badge
+      const headers = document.querySelectorAll('.section-label');
+      headers.forEach(h => {
+        const memberName = memberMeds[0].family_member_name || memberMeds[0].patient;
+        if (h.textContent.trim() === memberName) {
+          const color = result.high_count > 0 ? 'var(--red)' : 'var(--amber)';
+          const existing = h.querySelector('.interaction-badge');
+          if (existing) existing.remove();
+          const badge = document.createElement('span');
+          badge.className = 'interaction-badge';
+          badge.style.cssText = `margin-left:8px;font-size:11px;font-weight:600;color:${color};cursor:pointer`;
+          badge.textContent = result.high_count > 0 ? `⚠ ${result.count} interaction${result.count>1?'s':''}` : `ⓘ ${result.count} interaction${result.count>1?'s':''}`;
+          badge.title = 'Click to view drug interactions';
+          badge.onclick = (e) => { e.stopPropagation(); showInteractionDetail(result, memberName); };
+          h.appendChild(badge);
+        }
+      });
+    } catch { /* non-fatal */ }
+  }
+}
+
+function showInteractionDetail(result, memberName) {
+  const rows = result.interactions.map(i => {
+    const color = i.severity?.toLowerCase()==='high' ? 'var(--red)' : 'var(--amber)';
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="font-weight:600;font-size:13px;color:${color}">${esc(i.drug1||'')} + ${esc(i.drug2||'')}</div>
+      <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(i.severity||'')} severity</div>
+      <div style="font-size:12px;color:var(--text2);margin-top:4px">${esc(i.description||'')}</div>
+    </div>`;
+  }).join('');
+  const body = document.getElementById('medInfoBody');
+  body.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
+      <div style="font-size:16px;font-weight:700">Drug Interactions — ${esc(memberName)}</div>
+      <button onclick="closeMedInfoModal()" style="background:none;border:none;color:var(--text2);font-size:22px;line-height:1;cursor:pointer;padding:0 0 0 12px">&times;</button>
+    </div>
+    ${rows}
+    <div style="font-size:10px;color:var(--text3);margin-top:12px">Source: NLM RxNav API. Always consult your pharmacist or physician.</div>`;
+  document.getElementById('medInfoOverlay').style.display = 'flex';
+}
+
+function closeMedInfoModal() {
+  document.getElementById('medInfoOverlay').style.display = 'none';
+}
+
+// ── Conditions ─────────────────────────────────────────────────
+async function renderConditions() {
+  const area = $id('listArea');
+  area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  try {
+    let url = '/medical/conditions';
+    if (currentPatient) url += `?patient=${encodeURIComponent(currentPatient)}`;
+    let rows = await api('GET', url);
+    if (_medSearch) rows = rows.filter(r =>['condition','patient','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch)));
+    if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.conditions); return; }
+
+    area.innerHTML = rows.map(r => `
+      <div class="gh-card gh-s-gray card" onclick="editCondition(${r.id})">
+        <div class="card-right">
+          <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
+                  onclick="event.stopPropagation();deleteCond(${r.id})">✕</button>
+        </div>
+        <div class="card-title">
+          <span class="status-dot ${statusDotClass(r.status)}"></span>
+          ${esc(r.condition_name)}
+          <span class="badge badge-grey">${r.status}</span>
+          <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
+        </div>
+        <div class="card-meta">
+          ${r.physician ? `<span>${esc(r.physician)}</span>` : ''}
+          ${r.start_date ? `<span>Since ${formatDate(r.start_date)}</span>` : ''}
+          ${r.end_date ? `<span>→ ${formatDate(r.end_date)}</span>` : ''}
+        </div>
+        ${r.treatment_notes ? `<div class="med-card-sub">${esc(r.treatment_notes)}</div>` : ''}
+        ${r.attachment_count?AttachmentManager.staticBadge('med_condition',r.id,r.attachment_count):''}
+      </div>
+    `).join('');
+  } catch (e) {
+    area.innerHTML = errorState(e.message, '');
+  }
+}
+
+// ── Visit Notes ────────────────────────────────────────────────
+async function renderNotes() {
+  const area = $id('listArea');
+  area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  try {
+    let url = '/medical/notes';
+    if (currentPatient) url += `?patient=${encodeURIComponent(currentPatient)}`;
+    let rows = await api('GET', url);
+    if (_medSearch) rows = rows.filter(r =>['patient','questions','doctors_response','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch)));
+    if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.visits); return;
+    }
+
+    area.innerHTML = rows.map(r => `
+      <div class="gh-card gh-s-gray card" onclick="editNote(${r.id})">
+        <div class="card-right">
+          <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
+                  onclick="event.stopPropagation();deleteNote(${r.id})">✕</button>
+        </div>
+        <div class="card-title">
+          ${r.physician_name ? esc(r.physician_name) : 'Visit Note'}
+          ${r.follow_up_needed ? `<span class="followup-badge">Follow-up needed</span>` : ''}
+          <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
+        </div>
+        <div class="card-meta">
+          <span>${formatDate(r.visit_date)}</span>
+          ${r.specialty ? `<span>${esc(r.specialty)}</span>` : ''}
+          ${r.follow_up_date ? `<span style="color:var(--amber)">→ ${formatDate(r.follow_up_date)}</span>` : ''}
+        </div>
+        ${r.questions ? `<div class="med-card-sub" style="margin-top:6px">
+          <span style="color:var(--text3);font-size:11px">Q: </span>${esc(r.questions).substring(0,120)}${r.questions.length>120?'…':''}
+        </div>` : ''}
+        ${r.doctors_response ? `<div class="med-card-sub">
+          <span style="color:var(--text3);font-size:11px">A: </span>${esc(r.doctors_response).substring(0,120)}${r.doctors_response.length>120?'…':''}
+        </div>` : ''}
+        ${r.attachment_count?AttachmentManager.staticBadge('med_visit',r.id,r.attachment_count):''}
+      </div>
+    `).join('');
+  } catch (e) {
+    area.innerHTML = errorState(e.message, '');
+  }
+}
+
+// ── Card view (formerly behind ?cards=v2 — now always on, v202604.124) ─
+// Overrides the three legacy render fns to use the shared GH_CARD pipeline.
+// The Lens (gh-lens.js) sits above the list area and drives filters.
+(function() {
+  if (!window.GH_CARD) {
+    console.warn('[medical] GH_CARD not loaded; falling back to legacy renderers');
+    return;
+  }
+
+  // Helper to swap a render: fetch, filter, then GH_CARD.renderGrouped into #listArea.
+  function makeCardRender(moduleId, urlPath, searchKeys, statusFilterKey, emptyKey) {
+    return async function() {
+      const area = document.getElementById('listArea');
+      area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+      try {
+        let u = urlPath;
+        if (window.currentPatient) {
+          u += (u.includes('?') ? '&' : '?') + 'patient=' + encodeURIComponent(window.currentPatient);
+        }
+        let rows = await window.api('GET', u);
+        const term = (window._medSearch || '').toLowerCase();
+        if (term) rows = rows.filter(r => searchKeys.some(k => (r[k]||'').toLowerCase().includes(term)));
+        if (statusFilterKey && window._medFilters?.status) {
+          rows = rows.filter(r => r.status === window._medFilters.status);
+        }
+        if (window._medFilters?.tags?.length) {
+          rows = rows.filter(r => window._medFilters.tags.every(t => (r.tags||[]).includes(t)));
+        }
+        if (window._medFilters?.tag) {
+          rows = rows.filter(r => (r.tags||[]).includes(window._medFilters.tag));
+        }
+        if (window._medFilters?.person != null) {
+          rows = rows.filter(r => String(r.family_member_id) === String(window._medFilters.person));
+        }
+        // v202604.133 — name (meds + cond), provider (notes), form (meds), time
+        if (window._medFilters?.name) {
+          const q = String(window._medFilters.name).toLowerCase();
+          rows = rows.filter(r => (r.name||'').toLowerCase().includes(q));
+        }
+        if (window._medFilters?.provider) {
+          const q = String(window._medFilters.provider).toLowerCase();
+          rows = rows.filter(r => (r.provider||'').toLowerCase().includes(q));
+        }
+        if (window._medFilters?.form) {
+          rows = rows.filter(r => (r.form||'').toLowerCase() === String(window._medFilters.form).toLowerCase());
+        }
+        if (window._medFilters?.time && window.LENS_CONFIG?.timeMatch) {
+          // Each subview uses a different date column — try all reasonable ones
+          rows = rows.filter(r => window.LENS_CONFIG.timeMatch(
+            r.start_date || r.visit_date || r.diagnosed_date,
+            window._medFilters.time, 'past'));
+        }
+        if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(rows.length);
+        if (!rows.length) {
+          area.innerHTML = window.emptyState(...window.GH_EMPTY[emptyKey]);
+          return;
+        }
+        area.innerHTML = '';
+        area.style.padding = '16px';
+        const grouped = window.GH_CARD.renderGrouped(moduleId, rows, { layout: 'grid' });
+        area.appendChild(grouped);
+
+        // Run interaction check for medications (preserve legacy behavior)
+        if (moduleId === 'medical_medications' && window.checkInteractionsForAll) {
+          window.checkInteractionsForAll(rows);
+        }
+      } catch (e) {
+        area.innerHTML = window.errorState(e.message, '');
+      }
+    };
+  }
+
+  window.renderMedications = makeCardRender(
+    'medical_medications', '/medical/medications',
+    ['name','patient','dosage','frequency','purpose','notes'],
+    'status', 'medications'
+  );
+  window.renderConditions = makeCardRender(
+    'medical_conditions', '/medical/conditions',
+    ['condition','patient','notes'],
+    null, 'conditions'
+  );
+  window.renderNotes = makeCardRender(
+    'medical_notes', '/medical/notes',
+    ['patient','questions','doctors_response','notes'],
+    null, 'visits'
+  );
+})();
+
+// ── FAB routing ────────────────────────────────────────────────
+function openAddDrawer() {
+  editingId = null;
+  if (currentView === 'medications')  openMedDrawer();
+  else if (currentView === 'conditions') openCondDrawer();
+  else if (currentView === 'notes')   openNoteDrawer();
+}
+
+// ── Medication CRUD ────────────────────────────────────────────
+async function openMedDrawer(r) {
+  editingId = r?.id || null;
+  $id('medDrawerTitle').textContent = editingId ? 'Edit Medication' : 'Add Medication';
+  GH_FAMILY.init('mFamilyWrap', r?.family_member_id ? [r.family_member_id] : (currentPatient ? [] : []));
+  GH_REFS.populateContact('mPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
+  await GH_REFS.populateContact('mPharmacy', r?.pharmacy_contact_id || null, { type: 'General', placeholder: '— none —' });
+  await GH_SELECT.init('mStatus', 'med_medication_status', r?.status||'Active', { placeholder: '— status —', allowAdd: true });
+  $id('mName').value = r?.name || '';
+  $id('mDosage').value = r?.dosage || '';
+  $id('mFreq').value = r?.frequency || '';
+  $id('mStart').value = r?.start_date || '';
+  $id('mEnd').value = r?.end_date || '';
+  $id('mPurpose').value = r?.purpose || '';
+  $id('mRxNum').value = r?.rx_number || '';
+  $id('mRefills').value = r?.refills_remaining ?? '';
+  $id('mNextRefill').value = r?.next_refill_date || '';
+  $id('mSchedule').value = r?.controlled_schedule || '';
+  // Populate condition dropdown with active conditions for this patient
+  await loadConditionsForPatient($id('mCondition'), r?.condition_id);
+  $id('mNotes').value = r?.notes || '';
+  initMedTags(r?.tags||[]);
+  $id('medDrawer').classList.add('open');
+  setTimeout(triggerMedSuggest, 100);
+}
+function closeMedDrawer() { $id('medDrawer').classList.remove('open'); }
+
+async function editMedication(id) {
+  try {
+    const rows = await api('GET', '/medical/medications');
+    const r = rows.find(x => x.id === id);
+    if (r) openMedDrawer(r);
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function saveMedication() {
+  if (!$id('mName').value.trim()) { showToast('Name required','err'); return; }
+  const body = {
+    family_member_id: GH_FAMILY.getIds('mFamilyWrap')[0] || null,
+    patient: GH_FAMILY.getIds('mFamilyWrap').length ? null : (currentPatient || 'Self'),
+    status: $id('mStatus').value,
+    name: $id('mName').value.trim(), dosage: $id('mDosage').value.trim()||null,
+    frequency: $id('mFreq').value.trim()||null,
+    physician_contact_id: $id('mPhysician').value ? parseInt($id('mPhysician').value) : null,
+    pharmacy_contact_id: $id('mPharmacy').value ? parseInt($id('mPharmacy').value) : null,
+    condition_id: $id('mCondition').value ? parseInt($id('mCondition').value) : null,
+    start_date: $id('mStart').value||null, end_date: $id('mEnd').value||null,
+    rx_number: $id('mRxNum').value.trim()||null,
+    refills_remaining: $id('mRefills').value !== '' ? parseInt($id('mRefills').value) : null,
+    next_refill_date: $id('mNextRefill').value||null,
+    controlled_schedule: $id('mSchedule').value||null,
+    purpose: $id('mPurpose').value.trim()||null, notes: $id('mNotes').value.trim()||null,
+    tags: medFormTags,
+  };
+  try {
+    if (editingId) { await api('PUT',`/medical/medications/${editingId}`,body); showToast('Updated'); }
+    else { await api('POST','/medical/medications',body); showToast('Saved'); }
+    closeMedDrawer(); await renderMedications();
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function deleteMed(id) {
+  confirmCb = async () => {
+    await api('DELETE',`/medical/medications/${id}`);
+    showToast('Deleted'); await renderMedications();
+  };
+  showConfirm('Delete medication?');
+}
+
+// ── Condition CRUD ──────────────────────────────────────────────
+async function openCondDrawer(r) {
+  editingId = r?.id || null;
+  $id('condDrawerTitle').textContent = editingId ? 'Edit Condition' : 'Add Condition';
+  GH_FAMILY.init('cFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
+  GH_REFS.populateContact('cPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
+  await GH_SELECT.init('cStatus', 'med_condition_status', r?.status||'Active', { placeholder: '— status —', allowAdd: true });
+  $id('cName').value = r?.condition_name || '';
+  $id('cStart').value = r?.start_date || '';
+  $id('cEnd').value = r?.end_date || '';
+  $id('cTreatment').value = r?.treatment_notes || '';
+  $id('cNotes').value = r?.notes || '';
+  $id('condDrawer').classList.add('open');
+}
+function closeCondDrawer() { $id('condDrawer').classList.remove('open'); }
+
+async function editCondition(id) {
+  try {
+    const rows = await api('GET', '/medical/conditions');
+    const r = rows.find(x => x.id === id);
+    if (r) openCondDrawer(r);
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function saveCondition() {
+  if (!$id('cName').value.trim()) { showToast('Condition name required','err'); return; }
+  const body = {
+    family_member_id: GH_FAMILY.getIds('cFamilyWrap')[0] || null,
+    patient: GH_FAMILY.getIds('cFamilyWrap').length ? null : (currentPatient || 'Self'),
+    status: $id('cStatus').value,
+    condition_name: $id('cName').value.trim(), start_date: $id('cStart').value||null,
+    end_date: $id('cEnd').value||null,
+    physician_contact_id: $id('cPhysician').value ? parseInt($id('cPhysician').value) : null,
+    treatment_notes: $id('cTreatment').value.trim()||null, notes: $id('cNotes').value.trim()||null,
+  };
+  try {
+    if (editingId) { await api('PUT',`/medical/conditions/${editingId}`,body); showToast('Updated'); }
+    else { await api('POST','/medical/conditions',body); showToast('Saved'); }
+    closeCondDrawer(); await renderConditions();
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function deleteCond(id) {
+  confirmCb = async () => { await api('DELETE',`/medical/conditions/${id}`); showToast('Deleted'); await renderConditions(); };
+  showConfirm('Delete condition?');
+}
+
+// ── Visit Notes CRUD ────────────────────────────────────────────
+function toggleFollowDate() {
+  $id('followDateGroup').style.display = $id('nFollowUp').checked ? 'block' : 'none';
+}
+
+async function openNoteDrawer(r) {
+  editingId = r?.id || null;
+  $id('noteDrawerTitle').textContent = editingId ? 'Edit Visit Note' : 'Add Visit Note';
+  GH_FAMILY.init('nFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
+  await GH_REFS.populateContact('nPhysician', r?.contact_id || null, { type: 'Medical', placeholder: '— Select or leave blank —' });
+  $id('nDate').value = r?.visit_date || new Date().toISOString().split('T')[0];
+  $id('nQuestions').value = r?.questions || '';
+  $id('nResponse').value = r?.doctors_response || '';
+  $id('nFollowUp').checked = !!r?.follow_up_needed;
+  $id('nFollowDate').value = r?.follow_up_date || '';
+  $id('followDateGroup').style.display = r?.follow_up_needed ? 'block' : 'none';
+  $id('nNotes').value = r?.notes || '';
+  initVisitTags(r?.tags||[]);
+  $id('noteDrawer').classList.add('open');
+}
+function closeNoteDrawer() { $id('noteDrawer').classList.remove('open'); }
+
+async function editNote(id) {
+  try {
+    const rows = await api('GET', '/medical/notes');
+    const r = rows.find(x => x.id === id);
+    if (r) await openNoteDrawer(r);
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function saveNote() {
+  if (!$id('nDate').value) { showToast('Visit date required','err'); return; }
+  const body = {
+    family_member_id: GH_FAMILY.getIds('nFamilyWrap')[0] || null,
+    patient: GH_FAMILY.getIds('nFamilyWrap').length ? null : (currentPatient || 'Self'),
+    visit_date: $id('nDate').value,
+    contact_id: $id('nPhysician').value ? parseInt($id('nPhysician').value) : null,
+    questions: $id('nQuestions').value.trim()||null,
+    doctors_response: $id('nResponse').value.trim()||null,
+    follow_up_needed: $id('nFollowUp').checked,
+    follow_up_date: $id('nFollowDate').value||null,
+    notes: $id('nNotes').value.trim()||null,
+    tags: visitFormTags,
+  };
+  try {
+    if (editingId) { await api('PUT',`/medical/notes/${editingId}`,body); showToast('Updated'); }
+    else {
+      const saved = await api('POST','/medical/notes',body); showToast('Saved');
+      // v202604.139 — link source daily-log entry to this new visit
+      if (window._seedDailyLogId && saved && saved.id) {
+        try {
+          await window.api('PATCH', `/daily-log/${window._seedDailyLogId}`, {
+            promoted_to_type: 'med_visit',
+            promoted_to_id:   saved.id,
+          });
+        } catch {} // non-fatal
+        window._seedDailyLogId = null;
+      }
+    }
+    closeNoteDrawer(); await renderNotes();
+  } catch(e) { showToast(e.message,'err'); }
+}
+async function deleteNote(id) {
+  confirmCb = async () => { await api('DELETE',`/medical/notes/${id}`); showToast('Deleted'); await renderNotes(); };
+  showConfirm('Delete visit note?');
+}
+
+// ── Physician CRUD ──────────────────────────────────────────────
+// ── Confirm ─────────────────────────────────────────────────────
+function showConfirm(title, msg='This cannot be undone.') {
+  $id('confirmTitle').textContent = title;
+  $id('confirmMsg').textContent = msg;
+  $id('confirmDlg').classList.add('open');
+}
+function cancelConfirm() { $id('confirmDlg').classList.remove('open'); confirmCb=null; }
+function doConfirm() {
+  $id('confirmDlg').classList.remove('open');
+  if (confirmCb) { confirmCb(); confirmCb=null; }
+}
+
+// ── Close drawers on overlay click ─────────────────────────────
+['medDrawer','condDrawer','noteDrawer'].forEach(id => {
+  const el = $id(id);
+  if (el) el.addEventListener('click', e => {
+    if (e.target === el) el.classList.remove('open');
+  });
+});
+
+// ── Boot ───────────────────────────────────────────────────────
+async function _medBoot() {
+  if (LT.authToken) await loadSharedData();
+  // Populate patient filter strip from family members
+  const strip = document.getElementById('patientStrip');
+  if (strip && familyMembers.length) {
+    // Hydrate the global avatar cache so initials are unique + photos load
+    if (window.GH_AVATAR) { try { await GH_AVATAR.preload(); } catch(_) {} }
+    familyMembers.forEach(m => {
+      const btn = document.createElement('button');
+      btn.className = 'patient-pill';
+      btn.dataset.patient = m.display_name;
+      // Avatar (sm) + name. innerHTML so the GH_AVATAR span renders.
+      const avatar = window.GH_AVATAR ? GH_AVATAR.render(m, 'sm') : '';
+      btn.innerHTML = `${avatar}<span class="patient-pill-name">${m.display_name}</span>`;
+      btn.onclick = function() { setPatient(this, m.display_name); };
+      strip.appendChild(btn);
+    });
+  }
+  // Wire search bar
+  const searchEl = document.getElementById('medSearch');
+  if (searchEl) {
+    searchEl.addEventListener('input', e => {
+      _medSearch = e.target.value.trim().toLowerCase();
+      renderCurrentView();
+    });
+  }
+  // The Lens — re-inits per active subview (medications / conditions / visits)
+  // because each has a different module config (verbs, statuses).
+  window._medFilters = {};
+  function initMedLens(view) {
+    const moduleId = view === 'conditions' ? 'medical_conditions'
+                   : view === 'notes'      ? 'medical_notes'
+                   :                         'medical_medications';
+    GH_LENS.init({
+      container: 'medLens',
+      moduleId,
+      // Medical doesn't have a card view distinct from the default — so no
+      // viewToolbar (only the sentence). The card render IS the legacy view.
+      viewToolbar: false,
+      onChange: ({ filters }) => {
+        const f = {};
+        for (const flt of filters) {
+          if (flt.dim === 'person')   f.person   = flt.value;
+          if (flt.dim === 'status')   f.status   = flt.value;
+          if (flt.dim === 'tag')      f.tag      = flt.value;
+          // v202604.133 — text/select dims
+          if (flt.dim === 'name')     f.name     = flt.value;     // meds + conditions
+          if (flt.dim === 'provider') f.provider = flt.value;     // notes
+          if (flt.dim === 'form')     f.form     = flt.value;     // meds
+          if (flt.dim === 'time')     f.time     = flt.value;     // any
+        }
+        window._medFilters = f;
+        renderCurrentView();
+      },
+    });
+  }
+  // Initial — the medical page's renderCurrentView decides which subview is up
+  initMedLens(window._medActiveView || 'medications');
+  // Hook into setMedView if defined to re-init lens on subview change
+  const _origSetMedView = window.setMedView;
+  if (typeof _origSetMedView === 'function') {
+    window.setMedView = function(v, btn) {
+      _origSetMedView(v, btn);
+      initMedLens(v);
+    };
+  }
+  renderMedications();
+  // v202604.139 — handle ?seed=N from daily-log promote
+  setTimeout(() => maybeHandleMedicalSeed(), 100);
+}
+_medBoot();
+
+// ── Seed-from-daily-log (v202604.139) ──────────────────────────
+// When medical.html opens with ?seed=N, fetch the daily log entry,
+// switch to the Visits tab, open the visit drawer pre-filled.
+// On save, the daily log entry is PATCHed with the promotion link.
+async function maybeHandleMedicalSeed() {
+  const params = new URLSearchParams(window.location.search);
+  const seedId = params.get('seed');
+  if (!seedId) return;
+  let entry;
+  try {
+    entry = await window.api('GET', `/daily-log/${seedId}`);
+  } catch {
+    if (window.LT?.toast) LT.toast('Could not load daily log entry to promote', 'err');
+    return;
+  }
+  // Switch to the Visits view first
+  const visitsBtn = document.querySelector('[onclick*="\'notes\'"]');
+  if (visitsBtn) switchView('notes', visitsBtn);
+  // Open the note drawer
+  await openNoteDrawer();
+  // Pre-fill from the daily log entry
+  const memberIds = (entry.memory_members || []).map(m => m.family_member_id);
+  if (memberIds.length && window.GH_FAMILY) {
+    GH_FAMILY.init('nFamilyWrap', memberIds);
+  }
+  if ($id('nDate'))   $id('nDate').value   = entry.log_date || new Date().toISOString().slice(0,10);
+  if ($id('nNotes'))  $id('nNotes').value  = entry.entry_text || '';
+  // Stash seed id so saveNote can PATCH it on success
+  window._seedDailyLogId = parseInt(seedId, 10);
+  // Clean URL so refresh doesn't re-trigger
+  if (window.history?.replaceState) {
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+}
+
+// ── Tags (medical) ───────────────────────────────────────────────────
+let visitFormTags = [];
+function renderVisitTags() {
+  const wrap = $id('visitTagsWrap'), input = $id('visitTagInput'); if (!wrap||!input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  visitFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{visitFormTags=visitFormTags.filter(x=>x!==t);renderVisitTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addVisitTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!visitFormTags.includes(t)).forEach(t=>visitFormTags.push(t));
+  renderVisitTags(); const inp=$id('visitTagInput'); if(inp)inp.value='';
+}
+function initVisitTags(existing){
+  visitFormTags=(existing||[]).slice(); renderVisitTags();
+  const inp=$id('visitTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addVisitTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&visitFormTags.length){visitFormTags.pop();renderVisitTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addVisitTag(inp.value);};
+  GH_TAGS.init({inputId:'visitTagInput',wrapId:'visitTagsWrap',module:'medical',getFormTags:()=>visitFormTags,addTag:t=>addVisitTag(t),allowCreate:true});
+}
+
+// ── Tags (medical) ───────────────────────────────────────────────────
+let medFormTags = [];
+function renderMedTags() {
+  const wrap = $id('medTagsWrap'), input = $id('medTagInput'); if (!wrap||!input) return;
+  wrap.querySelectorAll('.tag-chip').forEach(c=>c.remove());
+  medFormTags.forEach(t=>{
+    const chip=document.createElement('span'); chip.className='tag-chip';
+    const cs=window.GH_TAGS?GH_TAGS.chipStyle(t):''; if(cs)chip.style.cssText=cs;
+    chip.innerHTML=esc(t)+'<span class="tag-chip-remove">&times;</span>';
+    chip.querySelector('.tag-chip-remove').addEventListener('click',()=>{medFormTags=medFormTags.filter(x=>x!==t);renderMedTags();});
+    wrap.insertBefore(chip,input);
+  });
+}
+function addMedTag(raw){
+  raw.split(',').map(t=>t.trim().toLowerCase()).filter(t=>t&&!medFormTags.includes(t)).forEach(t=>medFormTags.push(t));
+  renderMedTags(); const inp=$id('medTagInput'); if(inp)inp.value='';
+}
+function initMedTags(existing){
+  medFormTags=(existing||[]).slice(); renderMedTags();
+  const inp=$id('medTagInput'); if(!inp)return; inp.value='';
+  inp.onkeydown=e=>{if(e.key==='Enter'||e.key===','){e.preventDefault();if(inp.value.trim())addMedTag(inp.value);}else if(e.key==='Backspace'&&!inp.value&&medFormTags.length){medFormTags.pop();renderMedTags();}};
+  inp.onblur=()=>{if(inp.value.trim())addMedTag(inp.value);};
+  GH_TAGS.init({inputId:'medTagInput',wrapId:'medTagsWrap',module:'medical',getFormTags:()=>medFormTags,addTag:t=>addMedTag(t),allowCreate:true});
+function triggerMedSuggest() {
+  const cat  = document.getElementById('mStatus')?.value || '';
+  const name = document.getElementById('mName')?.value || '';
+  GH_TAGS.suggest('medTagsWrap', ()=>medFormTags, t=>addMedTag(t), { category: cat, name });
+}
+function triggerVisitSuggest() {
+  const cat  = document.getElementById('vType')?.value || '';
+  const name = document.getElementById('vPatient')?.value || '';
+  GH_TAGS.suggest('visitTagsWrap', ()=>visitFormTags, t=>addVisitTag(t), { category: cat, name });
+}
+
+}
+</script>
+
+<!-- ══ EOB IMPORT ══════════════════════════════════════════════ -->
+<script>
+const _eobApi = window.makeApi('');  // medical uses '' prefix
+
+// ── EOB state ─────────────────────────────────────────────────
+let _eobPreview = [];     // parsed statements from server
+let _eobFile    = null;   // selected File object
+
+// ── Render EOB panel ──────────────────────────────────────────
+async function renderEob() {
+  const el = $id('listArea');
+  el.innerHTML = `
+    <div style="padding:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div>
+          <div style="font-size:15px;font-weight:700;color:var(--text)">EOB Import</div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">MHBP · local parse · no data leaves NAS</div>
+        </div>
+      </div>
+
+      <!-- Upload zone -->
+      <div style="background:var(--bg2);border:1.5px dashed var(--border2);border-radius:10px;padding:20px 16px;text-align:center;cursor:pointer;margin-bottom:14px"
+           id="eobDropZone" onclick="document.getElementById('eobFileInput').click()"
+           ondragover="event.preventDefault();this.style.borderColor='var(--accent)'"
+           ondragleave="this.style.borderColor=''"
+           ondrop="event.preventDefault();this.style.borderColor='';_eobOnDrop(event)">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="margin-bottom:8px"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+        <div style="font-size:13px;font-weight:600;color:var(--text)">Browse or drag an EOB PDF</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Single statement or combined multi-month PDF</div>
+        <input type="file" id="eobFileInput" accept=".pdf" style="display:none" onchange="_eobOnFileSelect(this)">
+      </div>
+      <div id="eobFileName" style="font-size:12px;color:var(--text3);text-align:center;margin-bottom:10px"></div>
+
+      <!-- Preview table -->
+      <div id="eobPreview"></div>
+
+      <!-- Action buttons -->
+      <div id="eobActions" style="display:none;margin-top:12px">
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="_eobClear()">Cancel</button>
+          <button class="btn btn-primary" id="eobImportBtn" style="flex:1" onclick="_eobImport()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Import Selected
+          </button>
+        </div>
+      </div>
+
+      <!-- History -->
+      <div id="eobHistory" style="margin-top:20px"></div>
+    </div>`;
+
+  await _eobLoadHistory();
+}
+
+function _eobOnDrop(e) {
+  const f = e.dataTransfer?.files?.[0];
+  if (f) _eobSetFile(f);
+}
+function _eobOnFileSelect(input) {
+  if (input.files?.[0]) _eobSetFile(input.files[0]);
+}
+function _eobSetFile(f) {
+  _eobFile = f;
+  const el = $id('eobFileName');
+  if (el) el.textContent = '📄 ' + f.name;
+  _eobPreviewFile();
+}
+
+async function _eobPreviewFile() {
+  const prev = $id('eobPreview');
+  if (!prev || !_eobFile) return;
+  prev.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:8px 0">⏳ Parsing PDF…</div>';
+
+  try {
+    const fd = new FormData();
+    fd.append('file', _eobFile);
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const r = await fetch('/api/v1/medical/eob/preview', { method:'POST', headers:h, body:fd });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Parse failed');
+    _eobPreview = d.statements;
+    _renderEobPreviewTable(d.statements);
+    const act = $id('eobActions');
+    if (act) act.style.display = 'block';
+  } catch(e) {
+    prev.innerHTML = `<div style="color:var(--red);font-size:13px;padding:8px 0">⚠ ${esc(e.message)}</div>`;
+  }
+}
+
+function _renderEobPreviewTable(stmts) {
+  const el = $id('eobPreview'); if (!el) return;
+  if (!stmts?.length) { el.innerHTML = '<div style="color:var(--text3);font-size:13px">No statements detected</div>'; return; }
+
+  el.innerHTML = `
+    <div style="font-size:12px;color:var(--text3);margin-bottom:6px">${stmts.length} statement${stmts.length!==1?'s':''} detected — uncheck any you don't want to import:</div>
+    <div style="overflow-x:auto">
+    <table style="width:100%;border-collapse:collapse;font-size:12px">
+      <thead><tr style="border-bottom:1.5px solid var(--border)">
+        <th style="padding:6px 8px;text-align:left;color:var(--text3);width:28px"></th>
+        <th style="padding:6px 8px;text-align:left;color:var(--text3)">Date</th>
+        <th style="padding:6px 8px;text-align:left;color:var(--text3)">Patients</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--text3)">Claims</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--text3)">Plan Paid</th>
+        <th style="padding:6px 8px;text-align:right;color:var(--text3)">Your Share</th>
+        <th style="padding:6px 8px;text-align:center;color:var(--text3)">Status</th>
+      </tr></thead>
+      <tbody>
+        ${stmts.map((s,i) => `
+          <tr style="border-bottom:1px solid var(--border);${s.already_imported?'opacity:.5':''}">
+            <td style="padding:6px 8px">
+              <input type="checkbox" id="eobChk${i}" ${s.already_imported?'':'checked'} ${s.already_imported?'disabled':''}>
+            </td>
+            <td style="padding:6px 8px;font-family:var(--mono);white-space:nowrap">${s.statement_date||'—'}</td>
+            <td style="padding:6px 8px">${esc(s.patients||'—')}</td>
+            <td style="padding:6px 8px;text-align:right">${s.claims_count||0}</td>
+            <td style="padding:6px 8px;text-align:right;color:var(--green)">$${(s.plan_paid||0).toFixed(2)}</td>
+            <td style="padding:6px 8px;text-align:right;color:${(s.your_share||0)>0?'var(--red)':'var(--text3)'}">$${(s.your_share||0).toFixed(2)}</td>
+            <td style="padding:6px 8px;text-align:center">
+              ${s.already_imported
+                ? '<span style="color:var(--text3);font-size:11px">Already imported</span>'
+                : '<span style="color:var(--green);font-size:11px">New</span>'}
+            </td>
+          </tr>`).join('')}
+      </tbody>
+    </table></div>`;
+}
+
+async function _eobImport() {
+  if (!_eobFile) return;
+  const stmts = _eobPreview || [];
+  // Collect selected dates
+  const selected = stmts
+    .filter((s, i) => !s.already_imported && document.getElementById('eobChk'+i)?.checked)
+    .map(s => s.statement_date);
+  if (!selected.length) { if (window.toast) toast('Nothing selected', 'err'); return; }
+
+  const btn = $id('eobImportBtn');
+  btn.textContent = 'Importing…'; btn.disabled = true;
+  try {
+    const fd = new FormData();
+    fd.append('file', _eobFile);
+    fd.append('selected_dates', JSON.stringify(selected));
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const r = await fetch('/api/v1/medical/eob/import', { method:'POST', headers:h, body:fd });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || 'Import failed');
+    if (window.toast) toast(`✓ ${d.imported} EOB statement${d.imported!==1?'s':''} imported`);
+    _eobClear();
+    await _eobLoadHistory();
+    // Show name-match prompt if any flags were raised (S3/A10)
+    if (d.name_flags && d.name_flags.length) {
+      _showNameFlagPrompt(d.name_flags);
+    }
+  } catch(e) {
+    if (window.toast) toast(e.message || 'Import failed', 'err');
+  } finally {
+    if (btn) { btn.textContent = 'Import Selected'; btn.disabled = false; }
+  }
+}
+
+function _showNameFlagPrompt(flags) {
+  const rows = flags.map(f => {
+    const icon = f.confidence === 'none' ? '🔴' :
+                 f.confidence === 'ambiguous' ? '🟡' : '🟠';
+    const detail = f.confidence === 'none'
+      ? `No family member found for <strong>${esc(f.raw)}</strong>`
+      : f.confidence === 'ambiguous'
+        ? `<strong>${esc(f.raw)}</strong> — could be: ${f.candidates.map(esc).join(', ')}`
+        : `<strong>${esc(f.raw)}</strong> → auto-matched to <strong>${esc(f.matched)}</strong>`;
+    return `<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:13px">${icon} ${detail}</div>`;
+  }).join('');
+
+  GH_MODAL.open({
+    title: '⚠ Patient Names Need Review',
+    wide: false,
+    body: `<div style="margin-bottom:10px;font-size:13px;color:var(--text2)">
+      ${flags.length} patient name${flags.length!==1?'s':''} could not be exactly matched to a family member.
+      Records have been flagged in Data Quality review.
+    </div>${rows}`,
+    saveLabel: 'Go to Review',
+    cancelLabel: 'Dismiss',
+    onSave: () => {
+      GH_MODAL.close();
+      window.open('/reports.html#quality', '_blank');
+    }
+  });
+}
+
+function _eobClear() {
+  _eobFile = null; _eobPreview = [];
+  const fi = $id('eobFileInput'); if (fi) fi.value = '';
+  const fn = $id('eobFileName'); if (fn) fn.textContent = '';
+  const prev = $id('eobPreview'); if (prev) prev.innerHTML = '';
+  const act = $id('eobActions'); if (act) act.style.display = 'none';
+}
+
+async function _eobLoadHistory() {
+  const el = $id('eobHistory'); if (!el) return;
+  try {
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const stmts = await window.api('GET', '/medical/eob');
+    if (!stmts.length) {
+      el.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px">No EOBs imported yet</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Imported Statements</div>
+      ${stmts.map(s => `
+        <div class="gh-card gh-s-gray card" style="padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+            <div style="flex:1;cursor:pointer;min-width:0" onclick="_eobShowDetail(${s.id})">
+              <div style="font-weight:600;font-size:13px">${s.statement_date} · ${esc(s.group_name||'MHBP')}</div>
+              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(s.patients||'')} · ${s.claims_count||0} claim${s.claims_count!==1?'s':''}</div>
+            </div>
+            <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+              <div style="font-size:13px;font-weight:600;color:var(--green)">Plan: $${(s.plan_paid_total||0).toFixed(2)}</div>
+              <div style="font-size:11px;color:${(s.your_share_total||0)>0?'var(--red)':'var(--text3)'}">You: $${(s.your_share_total||0).toFixed(2)}</div>
+              <button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--red);border-color:var(--red);margin-top:2px"
+                onclick="event.stopPropagation();_eobDelete(${s.id},'${esc(s.statement_date)}')">Delete</button>
+            </div>
+          </div>
+        </div>`).join('')}`;
+  } catch(e) {
+    el.innerHTML = '<div style="color:var(--red);font-size:12px">Could not load history</div>';
+  }
+}
+
+async function _eobDelete(id, dateLabel) {
+  if (!await LT.confirm(`Delete EOB statement from ${dateLabel}? This removes all claims, services and balance rows.`)) return;
+  try {
+    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+    const d = await window.api('DELETE', `/medical/eob/${id}`);
+    if (!d.ok) throw new Error(d.error || 'Delete failed');
+    toast('EOB statement deleted');
+    await _eobLoadHistory();
+  } catch(e) { toast(e.message || 'Delete failed', 'err'); }
+}
+
+async function _eobShowDetail(id) {
+  const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
+  const s = await window.api('GET', `/medical/eob/${id}`);
+  if (!s || s.error) return;
+
+  // Build detail modal using LT.confirm style — simple alert-style for now
+  let html = `<b>${s.statement_date} — ${esc(s.group_name||'MHBP')}</b><br>`;
+  html += `<small style="color:var(--text3)">${esc(s.plan_name||'')} · ${esc(s.member_id||'')}</small><br><br>`;
+
+  for (const c of (s.claims||[])) {
+    html += `<b>${esc(c.patient)}</b> — ${esc(c.provider||'')}<br>`;
+    html += `Plan paid: <b>$${(c.plan_paid||0).toFixed(2)}</b> &nbsp; Your share: <span style="color:var(--red)">$${(c.your_share||0).toFixed(2)}</span>`;
+    if (c.fund_paid) html += ` &nbsp; Fund: $${c.fund_paid.toFixed(2)}`;
+    html += '<br>';
+    for (const sv of (c.services||[])) {
+      html += `&nbsp;&nbsp;<small style="color:var(--text3)">${esc(sv.service_code||'')} ${esc(sv.service_description||'')} on ${sv.service_date||''} — $${(sv.amount_billed||0).toFixed(2)} billed</small><br>`;
+    }
+    html += '<br>';
+  }
+
+  if (s.deductible_annual) {
+    html += `<small>Deductible: $${(s.deductible_used||0).toFixed(2)} of $${s.deductible_annual.toFixed(2)} used</small><br>`;
+  }
+  if (s.healthfund_remaining != null) {
+    html += `<small>HealthFund remaining: $${(s.healthfund_remaining||0).toFixed(2)}</small><br>`;
+  }
+
+  alert(html.replace(/<[^>]+>/g, ''));
+}
+
+// ── OpenFDA Drug Lookup ──────────────────────────────────────
+async function lookupDrug() {
+  const name = document.getElementById('mName').value.trim();
+  if (!name) { if (window.toast) toast('Enter a drug name first', 'err'); return; }
+  try { const cfg = await window.api('GET', '/settings/config'); if (cfg.api_openfda_enabled === '0') { toast('FDA lookup is disabled in Settings → Free APIs', 'err'); return; } } catch {}
+  const fb = document.getElementById('drugFeedback');
+  fb.textContent = '⏳ Looking up…'; fb.style.display = 'block'; fb.style.color = 'var(--text3)';
+  try {
+    // Search by brand name first, then generic
+    const clean = name.replace(/\s+\d+.*$/, '').trim(); // strip dosage for search
+    const url = `https://api.fda.gov/drug/label.json?search=openfda.brand_name:"${encodeURIComponent(clean)}"+openfda.generic_name:"${encodeURIComponent(clean)}"&limit=1`;
+    const r = await fetch(url, { mode: 'cors' });
+    const d = await r.json();
+    if (d.error || !d.results?.length) {
+      // Try generic name only
+      const r2 = await fetch(
+        `https://api.fda.gov/drug/label.json?search=openfda.generic_name:"${encodeURIComponent(clean)}"&limit=1`,
+        { mode: 'cors' }
+      );
+      const d2 = await r2.json();
+      if (d2.error || !d2.results?.length) {
+        fb.style.color = 'var(--amber)';
+        fb.textContent = '⚠ Not found in FDA database — check spelling';
+        return;
+      }
+      processResult(d2.results[0], fb);
+    } else {
+      processResult(d.results[0], fb);
+    }
+  } catch(e) {
+    fb.style.color = 'var(--red)';
+    fb.textContent = '⚠ Lookup failed — check connection';
+  }
+}
+
+function processResult(result, fb) {
+  const ofd = result.openfda || {};
+  const generic  = (ofd.generic_name || [])[0] || '';
+  const brand    = (ofd.brand_name || [])[0] || '';
+  const mfr      = (ofd.manufacturer_name || [])[0] || '';
+  const route    = (ofd.route || [])[0] || '';
+  const purpose  = (result.purpose || [])[0] || '';
+  // Auto-fill dosage field if empty and dosage info found
+  const dosage_info = (result.dosage_and_administration || [])[0] || '';
+  const parts = [
+    generic && generic.toLowerCase() !== brand.toLowerCase() ? `Generic: ${generic}` : '',
+    route ? `Route: ${route}` : '',
+    mfr ? `Mfr: ${mfr}` : '',
+  ].filter(Boolean).join(' · ');
+  fb.style.color = 'var(--green)';
+  fb.textContent = parts || '✓ Found in FDA database';
+  if (window.toast) toast('Drug info found ✓');
+}
+
+
+// Populate condition dropdown for medication form
+async function loadConditionsForPatient(selectEl, selectedId) {
+  try {
+    const conds = await api('GET', '/medical/conditions');
+    const active = conds.filter(c => c.status === 'Active' || c.status === 'Chronic');
+    selectEl.innerHTML = '<option value="">— none —</option>' +
+      active.map(c => `<option value="${c.id}"${c.id === selectedId?' selected':''}>${esc(c.condition_name)}</option>`).join('');
+  } catch { /* non-fatal */ }
+}
+</script>
+</body></html>
