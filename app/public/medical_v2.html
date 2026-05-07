@@ -83,26 +83,50 @@
 /* ════════════════════════════════════════════════════════════
    v2 SHELL — Tailwind utilities + segmented tabs + refined FAB
    Light mode, accent teal. Cards below get separate v5 styles.
+   
+   Theming tokens (later driven by Settings → Appearance):
+     --v2-bg-page        page background tint
+     --v2-bg-card        card background
+     --v2-card-border    card border color
+     --v2-card-shadow    card drop shadow
+     --v2-tint-page      tab/lens chrome bg (slightly darker than page)
    ════════════════════════════════════════════════════════════ */
+body.v2 {
+  --v2-bg-page:     #f5f7f9;
+  --v2-bg-card:     #ffffff;
+  --v2-card-border: #e2e8f0;
+  --v2-card-border-hover: #cbd5e1;
+  --v2-card-shadow: 0 1px 2px rgba(15,23,42,0.04), 0 8px 20px rgba(15,23,42,0.05);
+  --v2-card-shadow-hover: 0 2px 4px rgba(15,23,42,0.05), 0 12px 28px rgba(15,23,42,0.07);
+  --v2-tint-page:   #eef1f5;
+  --v2-text:        #1a2332;
+  --v2-text2:       #475569;
+  --v2-text3:       #94a3b8;
+  --v2-accent:      #14b8a6;
+  --v2-accent-soft: rgba(20,184,166,0.10);
+  --v2-accent-hover:#0d9488;
+
+  background: var(--v2-bg-page) !important;
+}
 
 /* Hide legacy view-tabs strip */
 body.v2 .view-tabs { display: none !important; }
 
 /* New segmented tabs */
 .v2-tabs {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--v2-bg-card);
+  border: 1px solid var(--v2-card-border);
   border-radius: 12px;
   padding: 4px;
   display: inline-flex;
   gap: 2px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  box-shadow: var(--v2-card-shadow);
 }
 .v2-tab {
   padding: 7px 14px;
   font-size: 12px;
   font-weight: 500;
-  color: #475569;
+  color: var(--v2-text2);
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -114,25 +138,44 @@ body.v2 .view-tabs { display: none !important; }
   align-items: center;
   gap: 6px;
 }
-.v2-tab:hover { color: #1a2332; background: #f1f5f9; }
+.v2-tab:hover { color: var(--v2-text); background: var(--v2-tint-page); }
 .v2-tab.active {
-  background: rgba(20,184,166,0.10);
-  color: #0d9488;
+  background: var(--v2-accent-soft);
+  color: var(--v2-accent-hover);
 }
-.v2-tab .v2-tab-count {
-  font-size: 10px;
-  opacity: 0.6;
-  font-variant-numeric: tabular-nums;
-}
-.v2-tab.active .v2-tab-count { opacity: 0.9; }
 
-/* Lens override: same width as tabs row, refined */
+/* Lens chrome */
 body.v2 .gh-lens {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--v2-bg-card);
+  border: 1px solid var(--v2-card-border);
   border-radius: 12px;
   padding: 10px 14px;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  box-shadow: var(--v2-card-shadow);
+}
+
+/* Drawer Save/Cancel buttons — tighter than shared.css default */
+body.v2 .drawer .btn,
+body.v2 .gh-cmodal .btn,
+body.v2 .confirm-box .btn {
+  min-height: 34px !important;
+  padding: 7px 14px !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  border-radius: 7px !important;
+}
+body.v2 .drawer .btn-row,
+body.v2 .gh-cmodal .btn-row,
+body.v2 .confirm-box .btn-row {
+  margin-top: 14px !important;
+  padding-top: 12px !important;
+}
+body.v2 .drawer .btn-primary,
+body.v2 .gh-cmodal .btn-primary {
+  box-shadow: 0 2px 8px rgba(20,184,166,0.20) !important;
+}
+body.v2 .drawer .btn-ghost,
+body.v2 .gh-cmodal .btn-ghost {
+  border-width: 1px !important;
 }
 
 /* Refined FAB — pill, smaller */
@@ -143,7 +186,7 @@ body.v2 .fab, body.v2 .fab-pill { display: none !important; }
   right: 24px;
   height: 40px;
   padding: 0 18px;
-  background: #14b8a6;
+  background: var(--v2-accent);
   color: #fff;
   border: none;
   border-radius: 999px;
@@ -158,7 +201,7 @@ body.v2 .fab, body.v2 .fab-pill { display: none !important; }
   z-index: 40;
   transition: all .15s;
 }
-.v2-fab:hover { background: #0d9488; box-shadow: 0 6px 16px rgba(20,184,166,0.40); }
+.v2-fab:hover { background: var(--v2-accent-hover); box-shadow: 0 6px 16px rgba(20,184,166,0.40); }
 .v2-fab .v2-fab-plus { font-size: 16px; line-height: 1; font-weight: 400; }
 
 /* Page title strip */
@@ -166,13 +209,13 @@ body.v2 .fab, body.v2 .fab-pill { display: none !important; }
 .v2-page-head h1 {
   font-size: 22px;
   font-weight: 600;
-  color: #1a2332;
+  color: var(--v2-text);
   letter-spacing: -0.02em;
   margin: 0;
 }
 .v2-page-head p {
   font-size: 12px;
-  color: #94a3b8;
+  color: var(--v2-text3);
   margin: 2px 0 0;
 }
 
@@ -181,10 +224,164 @@ body.v2 .section-label {
   padding: 18px 20px 6px !important;
   font-size: 11px;
   font-weight: 600;
-  color: #475569;
+  color: var(--v2-text2);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+
+/* ── form-row baseline alignment fix (Patient + Status now align) ── */
+body.v2 .form-row { align-items: flex-start; }
+
+/* Hide GH_FAMILY duplicate "FAMILY MEMBERS" sub-label since the form-label
+   already says "Patient" — was causing a height mismatch in form-row */
+body.v2 .gh-family-label, body.v2 [class*="gh-family"] [class*="-label"]:first-child {
+  display: none !important;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Drawer sectioning (slice 1C)
+   ──────────────────────────────────────────────────────────── */
+.v2-drawer-section {
+  margin: 8px 0 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--v2-card-border);
+}
+.v2-drawer-section:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+.v2-drawer-section-title {
+  display: block;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--v2-accent-hover);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+
+/* ════════════════════════════════════════════════════════════
+   Schedule panel — day strip + time strip + reveals
+   ──────────────────────────────────────────────────────────── */
+.sched-panel {
+  background: var(--v2-tint-page);
+  border: 1px solid var(--v2-card-border);
+  border-radius: 10px;
+  padding: 12px;
+  margin: 4px 0 10px;
+}
+.sched-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.sched-row:last-child { margin-bottom: 0; }
+.sched-row-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--v2-text3);
+  width: 60px;
+  flex-shrink: 0;
+}
+.sched-pill-row { display: flex; gap: 4px; flex: 1; flex-wrap: wrap; }
+.sched-pill {
+  flex: 1;
+  min-width: 32px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 7px 4px;
+  border-radius: 7px;
+  border: 1px solid var(--v2-card-border);
+  background: var(--v2-bg-card);
+  color: var(--v2-text2);
+  cursor: pointer;
+  transition: all .12s;
+  user-select: none;
+  font-family: inherit;
+}
+.sched-pill:hover { border-color: var(--v2-card-border-hover); color: var(--v2-text); }
+.sched-pill.active {
+  background: var(--v2-accent);
+  color: #fff;
+  border-color: var(--v2-accent);
+  box-shadow: 0 1px 3px rgba(20,184,166,0.30);
+}
+.sched-pill.tod { padding: 7px 10px; }
+.sched-toggle-row {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: var(--v2-text2);
+}
+.sched-mini-toggle {
+  font-size: 11px;
+  color: var(--v2-text3);
+  background: transparent;
+  border: 1px dashed var(--v2-card-border);
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.sched-mini-toggle:hover { color: var(--v2-text2); border-color: var(--v2-card-border-hover); }
+.sched-reveal { margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--v2-card-border); }
+.sched-reveal[hidden] { display: none; }
+
+/* Inline checkbox-toggle for "Take with food" — bigger and clearer */
+.sched-food-toggle {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--v2-text);
+  cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--v2-card-border);
+  background: var(--v2-bg-card);
+  transition: all .15s;
+}
+.sched-food-toggle input { accent-color: var(--v2-accent); width: 16px; height: 16px; cursor: pointer; }
+.sched-food-toggle.on { border-color: var(--v2-accent); background: var(--v2-accent-soft); color: var(--v2-accent-hover); }
+
+/* Refills stepper */
+.refill-stepper {
+  display: inline-flex; align-items: stretch;
+  border: 1px solid var(--v2-card-border);
+  border-radius: 7px;
+  background: var(--v2-bg-card);
+  overflow: hidden;
+  width: 100%;
+}
+.refill-stepper button {
+  width: 32px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--v2-text2);
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.refill-stepper button:hover { background: var(--v2-tint-page); color: var(--v2-text); }
+.refill-stepper input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--v2-text);
+  outline: none;
+  font-variant-numeric: tabular-nums;
+  font-family: inherit;
+  padding: 7px 4px;
+}
+.refill-stepper input::-webkit-outer-spin-button,
+.refill-stepper input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.refill-stepper input[type=number] { -moz-appearance: textfield; }
+
 
 /* ════════════════════════════════════════════════════════════
    SLICE 1B — Card #1 v5 medication card + center modal styles
@@ -201,17 +398,17 @@ body.v2 .section-label {
 }
 
 .med-card {
-  background: #fff;
-  border: 1px solid #e2e8f0;
+  background: var(--v2-bg-card, #fff);
+  border: 1px solid var(--v2-card-border, #e2e8f0);
   border-radius: 14px;
   overflow: hidden;
   cursor: pointer;
   transition: all .15s;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.03), 0 8px 20px rgba(0,0,0,0.04);
+  box-shadow: var(--v2-card-shadow, 0 1px 2px rgba(0,0,0,0.03), 0 8px 20px rgba(0,0,0,0.04));
 }
 .med-card:hover {
-  border-color: #cbd5e1;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.04), 0 12px 28px rgba(0,0,0,0.06);
+  border-color: var(--v2-card-border-hover, #cbd5e1);
+  box-shadow: var(--v2-card-shadow-hover, 0 2px 4px rgba(0,0,0,0.05), 0 12px 28px rgba(0,0,0,0.07));
 }
 .med-card.refill-due { border-color: rgba(245,158,11,0.45); }
 .med-card.refill-overdue { border-color: rgba(220,38,38,0.45); }
@@ -402,89 +599,236 @@ body.v2 .section-label {
     <div class="drawer-handle" onclick="closeMedDrawer()"></div>
     <div class="drawer-title" id="medDrawerTitle">Add Medication</div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Patient <span class="req">*</span></label>
-        <div id="mFamilyWrap"></div>
+    <!-- ── Identity ──────────────────────────────────────────── -->
+    <div class="v2-drawer-section">
+      <span class="v2-drawer-section-title">Identity</span>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Patient <span class="req">*</span></label>
+          <div id="mFamilyWrap"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="mStatus"></select>
+        </div>
       </div>
+
       <div class="form-group">
-        <label class="form-label">Status</label>
-        <select class="form-select" id="mStatus"></select>
+        <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
+          Medication name <span class="req">*</span>
+          <button type="button" class="btn btn-ghost" style="font-size:11px;padding:4px 10px;min-height:0;font-weight:500" onclick="lookupDrug()" title="Look up drug info">Lookup</button>
+        </label>
+        <input class="form-input" type="text" id="mName" placeholder="e.g. Lisinopril 10mg">
+        <div id="drugFeedback" style="font-size:11px;color:var(--v2-text3);margin-top:4px;display:none"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Form <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">drives icon</span></label>
+          <select class="form-select" id="mForm">
+            <option value="">— none —</option>
+            <option value="tablet">tablet</option>
+            <option value="capsule">capsule</option>
+            <option value="liquid">liquid</option>
+            <option value="injection">injection</option>
+            <option value="inhaler">inhaler</option>
+            <option value="drops">drops</option>
+            <option value="cream">cream</option>
+            <option value="patch">patch</option>
+            <option value="suppository">suppository</option>
+            <option value="other">other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Drug class <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">optional</span></label>
+          <input class="form-input" type="text" id="mClass" placeholder="e.g. Statin">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Generic name <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">e.g. atorvastatin</span></label>
+          <input class="form-input" type="text" id="mGeneric" placeholder="">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Brand name <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">e.g. Lipitor</span></label>
+          <input class="form-input" type="text" id="mBrand" placeholder="">
+        </div>
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label" style="display:flex;align-items:center;justify-content:space-between">
-        Medication Name <span class="req">*</span>
-        <button type="button" class="btn btn-ghost" style="font-size:11px;padding:3px 8px;font-weight:600" onclick="lookupDrug()" title="Look up drug info via OpenFDA">🔍 Lookup</button>
-      </label>
-      <input class="form-input" type="text" id="mName" placeholder="e.g. Lisinopril 10mg">
-      <div id="drugFeedback" style="font-size:11px;color:var(--text3);margin-top:4px;display:none"></div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Dosage</label>
-        <input class="form-input" type="text" id="mDosage" placeholder="e.g. 10mg">
-      </div>
-      <div class="form-group">
-        <label class="form-label">Frequency</label>
-        <input class="form-input" type="text" id="mFreq" placeholder="e.g. Once daily">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Prescribing Physician</label>
-      <select class="form-select" id="mPhysician">
-        <option value="">— none —</option>
-      </select>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Start Date</label>
-        <input class="form-input" type="date" id="mStart">
-      </div>
-      <div class="form-group">
-        <label class="form-label">End Date</label>
-        <input class="form-input" type="date" id="mEnd">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Purpose / Indication</label>
-      <input class="form-input" type="text" id="mPurpose" placeholder="Why prescribed">
-    </div>
-    <div class="form-group">
-      <label class="form-label">Treats Condition <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
-      <select class="form-select" id="mCondition"><option value="">— none —</option></select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Pharmacy</label>
-      <select class="form-select" id="mPharmacy"></select>
-    </div>
-    <div class="form-row">
-      <div class="form-group"><label class="form-label">Rx #</label><input class="form-input" id="mRxNum" placeholder="Rx number"></div>
-      <div class="form-group"><label class="form-label">Refills Left</label><input class="form-input" type="number" id="mRefills" min="0" placeholder="0"></div>
-      <div class="form-group"><label class="form-label">Next Refill</label><input class="form-input" type="date" id="mNextRefill"></div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Controlled Schedule <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label>
-      <select class="form-select" id="mSchedule">
-        <option value="">— none —</option>
-        <option value="II">Schedule II</option>
-        <option value="III">Schedule III</option>
-        <option value="IV">Schedule IV</option>
-        <option value="V">Schedule V</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Notes</label>
-      <textarea class="form-textarea" id="mNotes" rows="2"></textarea>
-    </div>
+    <!-- ── Schedule ──────────────────────────────────────────── -->
+    <div class="v2-drawer-section">
+      <span class="v2-drawer-section-title">Schedule</span>
+
+      <div class="form-row">
         <div class="form-group">
-      <label class="form-label">Tags</label>
-      <div class="tags-input-wrap" id="medTagsWrap" onclick="document.getElementById('medTagInput').focus()">
-        <input id="medTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+          <label class="form-label">Dosage</label>
+          <input class="form-input" type="text" id="mDosage" placeholder="e.g. 10mg">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Frequency <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">free text</span></label>
+          <input class="form-input" type="text" id="mFreq" placeholder="e.g. Once daily">
+        </div>
+      </div>
+
+      <!-- Schedule panel: day strip + time strip + reveals -->
+      <label class="form-label">When to take</label>
+      <div class="sched-panel">
+
+        <div class="sched-row">
+          <span class="sched-row-label">Days</span>
+          <div class="sched-pill-row" id="schedDays">
+            <button type="button" class="sched-pill" data-day="S">S</button>
+            <button type="button" class="sched-pill" data-day="M">M</button>
+            <button type="button" class="sched-pill" data-day="T">T</button>
+            <button type="button" class="sched-pill" data-day="W">W</button>
+            <button type="button" class="sched-pill" data-day="R">T</button>
+            <button type="button" class="sched-pill" data-day="F">F</button>
+            <button type="button" class="sched-pill" data-day="A">S</button>
+          </div>
+        </div>
+
+        <div class="sched-row">
+          <span class="sched-row-label">Time</span>
+          <div class="sched-pill-row" id="schedTimes">
+            <button type="button" class="sched-pill tod" data-tod="AM">AM</button>
+            <button type="button" class="sched-pill tod" data-tod="NOON">Noon</button>
+            <button type="button" class="sched-pill tod" data-tod="PM">PM</button>
+            <button type="button" class="sched-pill tod" data-tod="NIGHT">Night</button>
+          </div>
+        </div>
+
+        <div class="sched-row">
+          <span class="sched-row-label">With food</span>
+          <label class="sched-food-toggle" id="schedFoodToggle">
+            <input type="checkbox" id="mTakeWithFood">
+            <span id="schedFoodLabel">Take with food</span>
+          </label>
+        </div>
+
+        <div class="sched-row" style="gap:6px;flex-wrap:wrap">
+          <button type="button" class="sched-mini-toggle" id="schedSpecificToggle" onclick="schedToggleReveal('schedSpecificReveal',this)">+ Specific times</button>
+          <button type="button" class="sched-mini-toggle" id="schedCycleToggle" onclick="schedToggleReveal('schedCycleReveal',this)">+ Cycle (e.g., 21 on / 7 off)</button>
+          <button type="button" class="sched-mini-toggle" id="schedPrnToggle" onclick="schedToggleReveal('schedPrnReveal',this)">+ As-needed limit</button>
+        </div>
+
+        <div class="sched-reveal" id="schedSpecificReveal" hidden>
+          <label class="form-label">Specific times</label>
+          <input class="form-input" type="text" id="mScheduleSpecific" placeholder="e.g. 8:00 AM, 8:00 PM">
+        </div>
+
+        <div class="sched-reveal" id="schedCycleReveal" hidden>
+          <div class="form-row">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Days on</label>
+              <input class="form-input" type="number" min="1" id="mCycleOn" placeholder="21">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label">Days off</label>
+              <input class="form-input" type="number" min="1" id="mCycleOff" placeholder="7">
+            </div>
+          </div>
+        </div>
+
+        <div class="sched-reveal" id="schedPrnReveal" hidden>
+          <label class="form-label">Max doses per day</label>
+          <input class="form-input" type="number" min="1" id="mPrnMax" placeholder="4">
+        </div>
+
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Interaction warning <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">e.g. "Avoid grapefruit"</span></label>
+        <input class="form-input" type="text" id="mInteraction" placeholder="">
+      </div>
+
+      <!-- Hidden: time_of_day legacy (we derive from schedule_times now) -->
+      <select id="mTimeOfDay" style="display:none">
+        <option value="">— any —</option>
+        <option value="morning">morning</option>
+        <option value="evening">evening</option>
+        <option value="with_meals">with meals</option>
+        <option value="as_needed">as needed</option>
+      </select>
+    </div>
+
+    <!-- ── Prescription ──────────────────────────────────────── -->
+    <div class="v2-drawer-section">
+      <span class="v2-drawer-section-title">Prescription</span>
+
+      <div class="form-group">
+        <label class="form-label">Prescribing physician</label>
+        <select class="form-select" id="mPhysician"><option value="">— none —</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Pharmacy</label>
+        <select class="form-select" id="mPharmacy"></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label class="form-label">Rx #</label><input class="form-input" id="mRxNum" placeholder="Rx number"></div>
+        <div class="form-group">
+          <label class="form-label">Refills left</label>
+          <div class="refill-stepper">
+            <button type="button" onclick="refillStep(-1)" title="Decrease">−</button>
+            <input type="number" id="mRefills" min="0" value="0">
+            <button type="button" onclick="refillStep(1)" title="Increase">+</button>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Next refill</label><input class="form-input" type="date" id="mNextRefill"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Controlled schedule <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">optional</span></label>
+        <select class="form-select" id="mSchedule">
+          <option value="">— none —</option>
+          <option value="II">Schedule II</option>
+          <option value="III">Schedule III</option>
+          <option value="IV">Schedule IV</option>
+          <option value="V">Schedule V</option>
+        </select>
       </div>
     </div>
-<div class="btn-row">
+
+    <!-- ── Treatment ─────────────────────────────────────────── -->
+    <div class="v2-drawer-section">
+      <span class="v2-drawer-section-title">Treatment</span>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start date</label>
+          <input class="form-input" type="date" id="mStart">
+        </div>
+        <div class="form-group">
+          <label class="form-label">End date</label>
+          <input class="form-input" type="date" id="mEnd">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Treats condition <span style="font-size:10px;font-weight:400;color:var(--v2-text3)">optional</span></label>
+        <select class="form-select" id="mCondition"><option value="">— none —</option></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Purpose / indication</label>
+        <input class="form-input" type="text" id="mPurpose" placeholder="Why prescribed">
+      </div>
+    </div>
+
+    <!-- ── Notes & tags ──────────────────────────────────────── -->
+    <div class="v2-drawer-section">
+      <span class="v2-drawer-section-title">Notes &amp; tags</span>
+
+      <div class="form-group">
+        <label class="form-label">Notes</label>
+        <textarea class="form-textarea" id="mNotes" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tags</label>
+        <div class="tags-input-wrap" id="medTagsWrap" onclick="document.getElementById('medTagInput').focus()">
+          <input id="medTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeMedDrawer()">Cancel</button>
       <button class="btn btn-primary" onclick="saveMedication()">Save</button>
     </div>
@@ -1354,9 +1698,31 @@ async function openMedDrawer(r) {
   $id('mEnd').value = r?.end_date || '';
   $id('mPurpose').value = r?.purpose || '';
   $id('mRxNum').value = r?.rx_number || '';
-  $id('mRefills').value = r?.refills_remaining ?? '';
+  $id('mRefills').value = r?.refills_remaining ?? 0;
   $id('mNextRefill').value = r?.next_refill_date || '';
   $id('mSchedule').value = r?.controlled_schedule || '';
+  // Slice 1B fields
+  if ($id('mForm'))        $id('mForm').value        = r?.form || '';
+  if ($id('mGeneric'))     $id('mGeneric').value     = r?.generic_name || '';
+  if ($id('mBrand'))       $id('mBrand').value       = r?.brand_name || '';
+  if ($id('mClass'))       $id('mClass').value       = r?.drug_class || '';
+  if ($id('mTimeOfDay'))   $id('mTimeOfDay').value   = r?.time_of_day || '';
+  if ($id('mInteraction')) $id('mInteraction').value = r?.interaction_warning || '';
+  if ($id('mTakeWithFood')) $id('mTakeWithFood').checked = !!r?.take_with_food;
+
+  // Schedule panel state
+  schedSetDays(r?.schedule_days || 'S,M,T,W,R,F,A'); // default all days for new
+  schedSetTimes(r?.schedule_times || (r?.time_of_day === 'evening' ? 'NIGHT' : r?.time_of_day === 'morning' ? 'AM' : ''));
+  if ($id('mScheduleSpecific')) $id('mScheduleSpecific').value = r?.schedule_specific || '';
+  if ($id('mCycleOn'))          $id('mCycleOn').value          = r?.cycle_days_on  ?? '';
+  if ($id('mCycleOff'))         $id('mCycleOff').value         = r?.cycle_days_off ?? '';
+  if ($id('mPrnMax'))           $id('mPrnMax').value           = r?.prn_max_per_day ?? '';
+  // Auto-reveal if values set
+  schedSetReveal('schedSpecificReveal','schedSpecificToggle', !!r?.schedule_specific);
+  schedSetReveal('schedCycleReveal',   'schedCycleToggle',    !!r?.cycle_days_on || !!r?.cycle_days_off);
+  schedSetReveal('schedPrnReveal',     'schedPrnToggle',      !!r?.prn_max_per_day);
+  schedFoodSync();
+
   // Populate condition dropdown with active conditions for this patient
   await loadConditionsForPatient($id('mCondition'), r?.condition_id);
   $id('mNotes').value = r?.notes || '';
@@ -1390,6 +1756,21 @@ async function saveMedication() {
     next_refill_date: $id('mNextRefill').value||null,
     controlled_schedule: $id('mSchedule').value||null,
     purpose: $id('mPurpose').value.trim()||null, notes: $id('mNotes').value.trim()||null,
+    // Slice 1B
+    form:                $id('mForm')?.value || null,
+    generic_name:        $id('mGeneric')?.value.trim() || null,
+    brand_name:          $id('mBrand')?.value.trim() || null,
+    drug_class:          $id('mClass')?.value.trim() || null,
+    time_of_day:         $id('mTimeOfDay')?.value || null,
+    take_with_food:      $id('mTakeWithFood')?.checked ? 1 : 0,
+    interaction_warning: $id('mInteraction')?.value.trim() || null,
+    // Slice 1C — schedule (will persist once routes accept these next drop)
+    schedule_days:       schedGetDays() || null,
+    schedule_times:      schedGetTimes() || null,
+    schedule_specific:   $id('mScheduleSpecific')?.value.trim() || null,
+    cycle_days_on:       $id('mCycleOn')?.value  ? parseInt($id('mCycleOn').value)  : null,
+    cycle_days_off:      $id('mCycleOff')?.value ? parseInt($id('mCycleOff').value) : null,
+    prn_max_per_day:     $id('mPrnMax')?.value   ? parseInt($id('mPrnMax').value)   : null,
     tags: medFormTags,
   };
   try {
@@ -1398,6 +1779,68 @@ async function saveMedication() {
     closeMedDrawer(); await renderMedications();
   } catch(e) { showToast(e.message,'err'); }
 }
+
+// ── Schedule panel helpers (slice 1C) ────────────────────────────
+function schedGetDays() {
+  const active = Array.from(document.querySelectorAll('#schedDays .sched-pill.active'));
+  if (!active.length) return null;
+  return active.map(b => b.dataset.day).join(',');
+}
+function schedSetDays(csv) {
+  const set = new Set((csv||'').split(',').map(s => s.trim()).filter(Boolean));
+  document.querySelectorAll('#schedDays .sched-pill').forEach(b => {
+    b.classList.toggle('active', set.has(b.dataset.day));
+  });
+}
+function schedGetTimes() {
+  const active = Array.from(document.querySelectorAll('#schedTimes .sched-pill.active'));
+  if (!active.length) return null;
+  return active.map(b => b.dataset.tod).join(',');
+}
+function schedSetTimes(csv) {
+  const set = new Set((csv||'').split(',').map(s => s.trim()).filter(Boolean));
+  document.querySelectorAll('#schedTimes .sched-pill').forEach(b => {
+    b.classList.toggle('active', set.has(b.dataset.tod));
+  });
+}
+function schedSetReveal(revealId, toggleId, on) {
+  const r = $id(revealId), t = $id(toggleId);
+  if (!r) return;
+  r.hidden = !on;
+  if (t) t.style.opacity = on ? '0.5' : '1';
+}
+function schedToggleReveal(revealId, btn) {
+  const r = $id(revealId);
+  if (!r) return;
+  r.hidden = !r.hidden;
+  if (btn) btn.style.opacity = r.hidden ? '1' : '0.5';
+}
+function schedFoodSync() {
+  const cb = $id('mTakeWithFood'), wrap = $id('schedFoodToggle'), lbl = $id('schedFoodLabel');
+  if (!cb || !wrap) return;
+  wrap.classList.toggle('on', !!cb.checked);
+  if (lbl) lbl.textContent = cb.checked ? 'With food' : 'Take with food';
+}
+function refillStep(delta) {
+  const inp = $id('mRefills');
+  if (!inp) return;
+  const cur = parseInt(inp.value || '0', 10) || 0;
+  const next = Math.max(0, cur + delta);
+  inp.value = next;
+}
+
+// Wire pill clicks (delegated, runs once at load)
+document.addEventListener('click', (e) => {
+  const pill = e.target.closest('#schedDays .sched-pill, #schedTimes .sched-pill');
+  if (pill) { e.preventDefault(); pill.classList.toggle('active'); return; }
+  const food = e.target.closest('#schedFoodToggle');
+  if (food && e.target.tagName !== 'INPUT') {
+    const cb = $id('mTakeWithFood'); if (cb) { cb.checked = !cb.checked; schedFoodSync(); }
+  }
+}, true);
+document.addEventListener('change', (e) => {
+  if (e.target && e.target.id === 'mTakeWithFood') schedFoodSync();
+}, true);
 async function deleteMed(id) {
   confirmCb = async () => {
     await api('DELETE',`/medical/medications/${id}`);
@@ -1998,7 +2441,7 @@ async function lookupDrug() {
       const d2 = await r2.json();
       if (d2.error || !d2.results?.length) {
         fb.style.color = 'var(--amber)';
-        fb.textContent = '⚠ Not found in FDA database — check spelling';
+        fb.textContent = 'No auto-fill available — fill in details manually';
         return;
       }
       processResult(d2.results[0], fb);
