@@ -384,113 +384,25 @@ body.v2 .gh-family-label, body.v2 [class*="gh-family"] [class*="-label"]:first-c
 
 
 /* ════════════════════════════════════════════════════════════
-   SLICE 1B — Card #1 v5 medication card + center modal styles
-   Light mode versions
+   SLICE 1B — Card #1 v5 medication card (locked draft #1.1/#1.2)
+   Card uses inline styles per draft. Only utility classes here.
    ══════════════════════════════════════════════════════════ */
 .med-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(440px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(440px, 520px));
   gap: 14px;
   padding: 4px 20px 100px;
+  justify-content: start;
 }
 @media(max-width:600px){
   .med-grid { grid-template-columns: 1fr; padding: 4px 12px 100px; gap: 12px; }
 }
-
-.med-card {
-  background: var(--v2-bg-card, #fff);
-  border: 1px solid var(--v2-card-border, #e2e8f0);
-  border-radius: 14px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: all .15s;
-  box-shadow: var(--v2-card-shadow, 0 1px 2px rgba(0,0,0,0.03), 0 8px 20px rgba(0,0,0,0.04));
-}
-.med-card:hover {
-  border-color: var(--v2-card-border-hover, #cbd5e1);
-  box-shadow: var(--v2-card-shadow-hover, 0 2px 4px rgba(0,0,0,0.05), 0 12px 28px rgba(0,0,0,0.07));
-}
-.med-card.refill-due { border-color: rgba(245,158,11,0.45); }
-.med-card.refill-overdue { border-color: rgba(220,38,38,0.45); }
-
-.med-z1 { display:flex; align-items:center; gap:6px; padding:12px 16px 0; flex-wrap:wrap; }
-.med-z2 { display:flex; gap:14px; padding:10px 16px 6px; align-items:center; }
-.med-z3 { display:flex; gap:6px; padding:2px 16px 10px; }
-.med-tags-row { display:flex; gap:6px; padding:0 16px 8px; align-items:center; flex-wrap:wrap; font-size:11px; color:#94a3b8; }
-.med-strip { display:flex; gap:18px; padding:10px 16px; border-top:1px dashed #e2e8f0; flex-wrap:wrap; font-size:11px; }
-.med-strip > span { white-space:nowrap; }
-.med-strip .lbl { text-transform:uppercase; letter-spacing:0.04em; font-size:9.5px; color:#94a3b8; margin-right:4px; font-weight:600; }
-.med-strip strong { color:#1a2332; font-size:12px; font-weight:600; }
-.med-alert { margin:4px 16px 12px; padding:12px; border-radius:10px; }
-.med-alert.amber { background:rgba(254,243,199,0.5); border:1px solid rgba(245,158,11,0.30); }
-.med-alert.red   { background:rgba(254,226,226,0.5); border:1px solid rgba(220,38,38,0.30); }
-.med-alert .row1 { display:flex; align-items:center; gap:10px; margin-bottom:6px; flex-wrap:wrap; }
-.med-alert .msg { font-size:12px; font-weight:600; color:#1a2332; }
-.med-alert .meta { font-size:11px; color:#94a3b8; font-weight:500; }
-.med-alert .row2 { display:flex; justify-content:space-between; align-items:center; font-size:11px; gap:8px; flex-wrap:wrap; }
-.med-z4 { display:flex; gap:8px; padding:12px 16px 14px; align-items:center; border-top:1px solid #e2e8f0; flex-wrap:wrap; }
-
-.med-status-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
-.med-status-dot.green { background:#34c759; box-shadow:0 0 0 3px rgba(52,199,89,0.18); }
-.med-status-dot.amber { background:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.18); }
-.med-status-dot.red   { background:#dc2626; box-shadow:0 0 0 3px rgba(220,38,38,0.18); }
-.med-status-dot.gray  { background:#94a3b8; box-shadow:0 0 0 3px rgba(148,163,184,0.18); }
-
-.med-cond-chip {
-  display:inline-flex; align-items:center; gap:4px;
-  padding:3px 9px 3px 6px; border-radius:999px;
-  background:rgba(220,38,38,0.08); color:#991b1b;
-  font-size:11px; font-weight:500;
-}
-.med-cond-chip img { width:13px; height:13px; opacity:.85; }
-.med-class { font-size:11px; color:#94a3b8; font-weight:500; }
-.med-icon-btn {
-  width:30px; height:30px; border-radius:7px;
-  display:flex; align-items:center; justify-content:center;
-  background:transparent; border:none; cursor:pointer; color:#94a3b8;
-}
-.med-icon-btn:hover { background:#f1f5f9; color:#475569; }
-.med-icon-btn img { width:16px; height:16px; opacity:.6; }
-
-.med-pill-hero {
-  flex:0 0 84px; height:60px;
-  display:flex; align-items:center; justify-content:center;
-  border-radius:11px;
-}
-.med-pill-hero img { width:42px; height:42px; }
-.med-pill-hero.active   { background:rgba(20,184,166,0.10); }
-.med-pill-hero.refill   { background:rgba(245,158,11,0.10); }
-.med-pill-hero.overdue  { background:rgba(220,38,38,0.10); }
-.med-pill-hero.discont  { background:rgba(148,163,184,0.10); }
-
-.med-name-line { display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
-.med-name { font-size:17px; font-weight:600; color:#1a2332; line-height:1.1; letter-spacing:-0.01em; }
-.med-dose { font-size:13px; color:#475569; font-weight:500; }
-.med-sub  { font-size:12px; color:#94a3b8; margin-top:2px; }
-.med-schedule { font-size:12px; color:#475569; margin-top:5px; }
-
-.med-instr-chip {
-  width:36px; height:36px; border-radius:9px;
-  display:flex; align-items:center; justify-content:center;
-}
-.med-instr-chip img { width:20px; height:20px; }
-.med-instr-chip.evening { background:rgba(99,102,241,0.10); }
-.med-instr-chip.food    { background:rgba(217,119,6,0.10); }
-.med-instr-chip.warn    { background:rgba(220,38,38,0.10); }
-
-.med-ent-circle {
-  width:30px; height:30px; border-radius:50%;
-  display:flex; align-items:center; justify-content:center;
-  color:#fff; font-size:11px; font-weight:600; flex-shrink:0;
-}
-.med-ent-circle.brand { border-radius:7px; font-size:9px; font-weight:700; letter-spacing:0.04em; }
-.med-link-chip {
-  display:inline-flex; align-items:center; gap:4px;
-  font-size:11px; color:#94a3b8; font-weight:500;
-  padding:4px 7px; border-radius:6px; background:transparent; border:none; cursor:pointer;
-}
-.med-link-chip:hover { background:#f1f5f9; color:#475569; }
-.med-link-chip img { width:13px; height:13px; opacity:.7; }
+.ph-icon { display: inline-flex; align-items: center; justify-content: center; }
+.ph-icon svg { display: block; width: 100%; height: 100%; }
+.chip-tap { transition: background 120ms ease, transform 120ms ease; cursor: pointer; }
+.chip-tap:hover { transform: translateY(-1px); }
+.ent-circle { transition: transform 120ms ease, box-shadow 120ms ease; cursor: pointer; }
+.ent-circle:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
 
 /* Center modal */
 .gh-cmodal-overlay {
@@ -1236,7 +1148,7 @@ async function renderMedications() {
       const avatar = (member && window.GH_AVATAR) ? GH_AVATAR.render(member, 'sm') : '';
       return `
         <div class="section-label" style="display:flex;align-items:center;gap:8px">${avatar}<span>${esc(patient)}</span></div>
-        <div class="med-grid">${meds.map(r => renderMedCard(r)).join('')}</div>
+        <div class="gh-card-grid">${meds.map(r => renderMedCard(r)).join('')}</div>
       `;
     }).join('');
 
@@ -1246,6 +1158,7 @@ async function renderMedications() {
   }
 }
 
+// ── Card #1 v5 helpers — uses GH_ICONS + .gh-* component classes ──
 function medRefillState(r) {
   if (r.status === 'Discontinued' || r.status === 'Completed') return 'discont';
   if (r.refills_remaining === 0 && r.rx_number) return 'overdue';
@@ -1261,175 +1174,177 @@ function medRefillState(r) {
   if (r.refills_remaining === 1) return 'refill';
   return 'active';
 }
-function medStateDot(state) {
-  return state === 'overdue' ? 'red' : state === 'refill' ? 'amber' : state === 'discont' ? 'gray' : 'green';
+
+function medSubtitle(r) {
+  const parts = [];
+  if (r.generic_name && r.name && r.name.toLowerCase() !== r.generic_name.toLowerCase()) parts.push(r.generic_name);
+  if (r.brand_name && r.name && r.name.toLowerCase() !== r.brand_name.toLowerCase() && !parts.includes(r.brand_name)) parts.push(r.brand_name);
+  if (r.form) parts.push(r.form);
+  return parts.join(' · ');
 }
 
-function medHeroLines(r) {
-  const hero = r.name || ''; const dose = r.dosage || ''; const form = r.form || '';
-  let sub = '';
-  if (r.brand_name && r.generic_name) {
-    if (hero.toLowerCase() === r.brand_name.toLowerCase())   sub = `${r.generic_name}${form?' · '+form:''}`;
-    else if (hero.toLowerCase() === r.generic_name.toLowerCase()) sub = `generic version of ${r.brand_name}${form?' · '+form:''}`;
-    else sub = form;
-  } else if (r.brand_name && hero.toLowerCase() !== r.brand_name.toLowerCase()) {
-    sub = `generic version of ${r.brand_name}${form?' · '+form:''}`;
-  } else if (r.generic_name && hero.toLowerCase() !== r.generic_name.toLowerCase()) {
-    sub = `${r.generic_name}${form?' · '+form:''}`;
-  } else { sub = form; }
-  return { hero, dose, sub };
+function medHeroSvg(r) {
+  // Neutral capsule, tinted by state
+  const state = medRefillState(r);
+  const grad = state === 'overdue' ? ['#fecaca','#fda4af']
+              : state === 'refill' ? ['#fed7aa','#fdba74']
+              : state === 'discont'? ['#e5e7eb','#cbd5e1']
+              :                       ['#a7f3d0','#5eead4'];
+  return `
+    <svg width="140" height="84" viewBox="0 0 140 84" aria-hidden="true">
+      <defs>
+        <linearGradient id="ph_${r.id}" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="${grad[0]}"/><stop offset="50%" stop-color="${grad[0]}"/>
+          <stop offset="50%" stop-color="${grad[1]}"/><stop offset="100%" stop-color="${grad[1]}"/>
+        </linearGradient>
+      </defs>
+      <ellipse cx="70" cy="76" rx="46" ry="3" fill="rgba(0,0,0,0.10)"/>
+      <g transform="rotate(-6 70 42)">
+        <rect x="22" y="32" width="96" height="22" rx="11" fill="url(#ph_${r.id})" stroke="rgba(0,0,0,0.12)" stroke-width="0.7"/>
+        <line x1="70" y1="32" x2="70" y2="54" stroke="rgba(0,0,0,0.15)" stroke-width="0.6"/>
+      </g>
+    </svg>`;
 }
 
-function medFormIcon(form) {
-  const f = (form||'').toLowerCase();
-  if (f.includes('inject') || f.includes('syringe')) return '/assets/icons/phosphor/duotone/syringe-duotone.svg';
-  if (f.includes('liquid')  || f.includes('drop'))   return '/assets/icons/phosphor/duotone/eyedropper-duotone.svg';
-  if (f.includes('inhal'))                            return '/assets/icons/phosphor/duotone/eyedropper-duotone.svg';
-  return '/assets/icons/phosphor/duotone/pill-duotone.svg';
-}
-
-function medAvatar(label, opts = {}) {
-  const t = (label||'?').slice(0, opts.brand ? 3 : 2).toUpperCase();
+function medEntCircle(label, kind) {
+  const t = (label||'?').slice(0, kind === 'pharmacy' ? 3 : 2).toUpperCase();
   let h = 0; for (const c of (label||'')) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   const grads = [
     ['#f472b6','#db2777'], ['#34d399','#047857'], ['#a78bfa','#7c3aed'],
-    ['#fb923c','#c2410c'], ['#60a5fa','#1d4ed8'], ['#5eead4','#0d9488'],
+    ['#93c5fd','#1d4ed8'], ['#fb923c','#c2410c'], ['#5eead4','#0d9488']
   ];
+  if (kind === 'pharmacy') {
+    return `<div class="gh-ent-circle gh-ent-circle--brand" style="background:linear-gradient(135deg,#ef4444,#b91c1c)" title="${esc(label)}">${esc(t)}</div>`;
+  }
   const g = grads[h % grads.length];
-  const cls = opts.brand ? 'med-ent-circle brand' : 'med-ent-circle';
-  return `<div class="${cls}" style="background:linear-gradient(135deg,${g[0]},${g[1]})" title="${esc(opts.title||label||'')}">${esc(t)}</div>`;
+  return `<div class="gh-ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})" title="${esc(label)}">${esc(t)}</div>`;
 }
 
+// ── renderMedCard — uses .gh-* classes + GH_ICONS, max ~80 lines ──
 function renderMedCard(r) {
+  const I = window.GH_ICONS || {};
   const state = medRefillState(r);
-  const dot = medStateDot(state);
-  const heroTint = state === 'overdue' ? 'overdue' : state === 'refill' ? 'refill' : state === 'discont' ? 'discont' : 'active';
-  const { hero, dose, sub } = medHeroLines(r);
-  const pillImg = `<img src="${medFormIcon(r.form)}" alt="" />`;
+  const dotClass = state === 'overdue' ? 'gh-status-dot--bad'
+                 : state === 'refill'  ? 'gh-status-dot--warn'
+                 : state === 'discont' ? 'gh-status-dot--mute'
+                 :                       'gh-status-dot--good';
+  const sub = medSubtitle(r);
+  const cardClass = state === 'overdue' ? 'is-bad'
+                  : state === 'refill'  ? 'is-warn' : '';
 
+  // Z1: condition chips
   const conds = Array.isArray(r.conditions) ? r.conditions
               : (r.condition_name_text ? [{ id: r.condition_id, condition_name: r.condition_name_text }] : []);
   const condChips = conds.slice(0, 2).map(c => `
-    <span class="med-cond-chip" title="Treats: ${esc(c.condition_name)}">
-      <img src="/assets/icons/phosphor/duotone/heart-duotone.svg" alt="">${esc(c.condition_name)}
-    </span>
-  `).join('');
+    <div class="gh-chip-cond gh-tap" title="Treats: ${esc(c.condition_name)}">
+      <div class="gh-ph">${I.heart||''}</div>
+      <span>${esc(c.condition_name)}</span>
+    </div>`).join('');
   const condOverflow = conds.length > 2
-    ? `<span class="med-cond-chip" style="background:transparent;border:1px dashed #cbd5e1;color:#94a3b8">+${conds.length-2}</span>`
+    ? `<span class="gh-chip-overflow gh-tap" title="${conds.length-2} more">+${conds.length-2}</span>` : '';
+
+  // Z3: instruction chips — derived from row state
+  const instr = [];
+  if (r.time_of_day === 'morning')  instr.push(`<div class="gh-instr-chip gh-instr-chip--morning gh-tap" title="Take in morning"><div class="gh-ph">${I.sun||''}</div></div>`);
+  if (r.time_of_day === 'evening')  instr.push(`<div class="gh-instr-chip gh-instr-chip--evening gh-tap" title="Take in evening"><div class="gh-ph">${I.moon||''}</div></div>`);
+  if (r.take_with_food)             instr.push(`<div class="gh-instr-chip gh-instr-chip--food gh-tap" title="Take with food"><div class="gh-ph">${I.fork||''}</div></div>`);
+  if (r.interaction_warning)        instr.push(`<div class="gh-instr-chip gh-instr-chip--warn gh-tap" title="${esc(r.interaction_warning)}"><div class="gh-ph">${I.warn||''}</div></div>`);
+
+  // Tags
+  const tags = (r.tags && r.tags.length)
+    ? `<div class="gh-card-zone gh-card-zone--tags">${r.tags.slice(0,4).map(t=>`<span class="text-[11px] text-tx-mute font-medium">#${esc(t)}</span>`).join('')}${r.tags.length>4?`<span class="text-[11px] text-tx-mute font-medium">+${r.tags.length-4}</span>`:''}</div>`
     : '';
 
-  const instr = [];
-  if (r.time_of_day === 'evening') instr.push(`<div class="med-instr-chip evening" title="Take in evening"><img src="/assets/icons/phosphor/duotone/moon-duotone.svg" alt=""></div>`);
-  if (r.take_with_food) instr.push(`<div class="med-instr-chip food" title="Take with food"><img src="/assets/icons/phosphor/duotone/fork-knife-duotone.svg" alt=""></div>`);
-  if (r.interaction_warning) instr.push(`<div class="med-instr-chip warn" title="${esc(r.interaction_warning)}"><img src="/assets/icons/phosphor/duotone/warning-duotone.svg" alt=""></div>`);
-
+  // Cross-module strip
   const hsaYtd = (r.hsa_ytd != null) ? `$${Number(r.hsa_ytd).toFixed(2)}` : '$0.00';
   const lastFilled = r.last_filled ? formatDate(r.last_filled) : '—';
+  const logMentions = r.log_mentions != null ? r.log_mentions : 0;
+  const strip = `
+    <div class="gh-card-zone gh-card-zone--strip">
+      <span class="gh-strip-stat gh-tap" title="HSA spending YTD"><span class="gh-strip-stat-label">HSA YTD</span><strong class="gh-strip-stat-value">${hsaYtd}</strong></span>
+      <span class="gh-strip-stat gh-tap" title="Mentions in daily log"><span class="gh-strip-stat-label">Log mentions</span><strong class="gh-strip-stat-value">${logMentions}</strong></span>
+      <span class="gh-strip-stat gh-tap" title="Last refill date"><span class="gh-strip-stat-label">Last filled</span><strong class="gh-strip-stat-value">${esc(lastFilled)}</strong></span>
+    </div>`;
 
+  // Z4 alert
   let alertBlock = '';
   if (state === 'overdue' || state === 'refill') {
+    const isOverdue = state === 'overdue';
     const daysText = (() => {
-      if (!r.next_refill_date) return state === 'overdue' ? 'Refill overdue' : 'Refill needed soon';
+      if (!r.next_refill_date) return isOverdue ? 'Refill overdue' : 'Refill needed soon';
       const today = new Date(); today.setHours(0,0,0,0);
       const next = new Date(r.next_refill_date);
       const days = Math.round((next - today) / 86400000);
       if (days < 0) return `Refill ${Math.abs(days)} day${Math.abs(days)===1?'':'s'} overdue`;
-      if (days === 0) return `Refill today`;
+      if (days === 0) return 'Refill today';
       return `Refill in ${days} day${days===1?'':'s'}`;
     })();
-    const supplyMeta = r.refills_remaining != null
-      ? `${r.refills_remaining} refill${r.refills_remaining===1?'':'s'} left` : '';
+    const supplyMeta = r.refills_remaining != null ? `${r.refills_remaining} refill${r.refills_remaining===1?'':'s'} left` : '';
     alertBlock = `
-      <div class="med-alert ${state==='overdue'?'red':'amber'}">
-        <div class="row1">
-          <span class="msg">${esc(daysText)}</span>
-          ${supplyMeta ? `<span class="meta">${esc(supplyMeta)}</span>` : ''}
-          <div style="flex:1"></div>
-          <button class="btn btn-primary" style="padding:6px 12px;font-size:12px"
-                  onclick="event.stopPropagation();openRefillModal(${r.id})">Record refill</button>
+      <div class="gh-alert gh-alert--${isOverdue?'bad':'warn'}">
+        <div class="gh-alert-row1">
+          <div class="gh-alert-msg">${esc(daysText)}</div>
+          ${supplyMeta ? `<div class="gh-alert-meta">${esc(supplyMeta)}</div>` : ''}
+          <div class="flex-1"></div>
+          <button class="gh-alert-action gh-alert-action--${isOverdue?'bad':'warn'}" onclick="event.stopPropagation();openRefillModal(${r.id})">Order Refill</button>
         </div>
-        <div class="row2">
-          <span style="color:#94a3b8">
-            ${r.last_filled ? `Last filled ${formatDate(r.last_filled)}` : ''}
+        <div class="gh-alert-row2">
+          <span class="text-tx-mute">
+            ${r.last_filled ? `Last refilled ${formatDate(r.last_filled)}` : 'No fill history'}
             ${r.pharmacy_name ? ` · ${esc(r.pharmacy_name)}` : ''}
             ${r.last_fill_cost != null ? ` · $${Number(r.last_fill_cost).toFixed(2)}` : ''}
           </span>
-          ${r.rx_number ? `<span style="font-family:var(--mono);color:#475569" title="Rx number">Rx# ${esc(r.rx_number)}</span>` : ''}
+          ${r.rx_number ? `<span class="gh-tap font-mono text-tx-2" title="Tap to copy Rx">Rx# ${esc(r.rx_number)}</span>` : ''}
         </div>
-      </div>
-    `;
+      </div>`;
   }
 
+  // Z5 entities
   const ents = [];
   const memberName = r.family_member_name || r.patient;
-  if (memberName) ents.push(medAvatar(memberName, { title: memberName + ' · patient' }));
-  if (r.physician || r.physician_contact_id) {
-    const docLabel = r.physician ? `D${r.physician.split(/\s+/).slice(-1)[0][0]||'?'}` : 'DR';
-    ents.push(medAvatar(docLabel, { title: (r.physician||'Doctor') + ' · prescriber' }));
-  }
-  if (r.pharmacy_name) ents.push(medAvatar(r.pharmacy_name, { brand: true, title: r.pharmacy_name + ' · pharmacy' }));
-
-  const tagRow = (r.tags && r.tags.length)
-    ? `<div class="med-tags-row">${r.tags.slice(0,4).map(t=>`<span style="color:#94a3b8">#${esc(t)}</span>`).join('')}${r.tags.length>4?`<span style="color:#94a3b8">+${r.tags.length-4}</span>`:''}</div>`
-    : '';
+  if (memberName) ents.push(medEntCircle(memberName, 'patient'));
+  if (r.physician || r.physician_contact_id) ents.push(medEntCircle(r.physician || 'Doctor', 'doctor'));
+  if (r.pharmacy_name) ents.push(medEntCircle(r.pharmacy_name, 'pharmacy'));
 
   return `
-    <div class="med-card ${state==='refill'?'refill-due':state==='overdue'?'refill-overdue':''}" onclick="openMedDetail(${r.id})">
-
-      <div class="med-z1">
-        <div class="med-status-dot ${dot}" title="${esc(r.status)}"></div>
+    <div class="gh-card ${cardClass}" onclick="openMedDetail(${r.id})">
+      <div class="gh-card-zone">
+        <div class="gh-status-dot ${dotClass}" title="${esc(r.status||'')}"></div>
         ${condChips}${condOverflow}
-        ${r.drug_class ? `<span class="med-class">${esc(r.drug_class)}</span>` : ''}
-        <div style="flex:1"></div>
-        <button class="med-icon-btn" title="Delete"
-                onclick="event.stopPropagation();deleteMed(${r.id})">
-          <img src="/assets/icons/phosphor/duotone/trash-duotone.svg" alt="">
+        ${r.drug_class ? `<span class="gh-chip-class">${esc(r.drug_class)}</span>` : ''}
+        <div class="flex-1"></div>
+        <button class="gh-iconbtn" title="Pin to top" onclick="event.stopPropagation();void 0">
+          <div class="gh-ph">${I.pin||''}</div>
+        </button>
+        <button class="gh-iconbtn" title="More" onclick="event.stopPropagation();editMedication(${r.id})">
+          <div class="gh-ph">${I.dots3||''}</div>
         </button>
       </div>
 
-      <div class="med-z2">
-        <div class="med-pill-hero ${heroTint}">${pillImg}</div>
-        <div style="flex:1; min-width:0;">
-          <div class="med-name-line">
-            <span class="med-name">${esc(hero)}</span>
-            ${dose ? `<span class="med-dose">${esc(dose)}</span>` : ''}
+      <div class="gh-card-zone gh-card-zone--hero">
+        <div style="flex:0 0 140px">${medHeroSvg(r)}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline gap-2 flex-wrap">
+            <div style="font-size:20px;font-weight:600;color:var(--gh-text-1);line-height:1.1;letter-spacing:-0.01em">${esc(r.name||'')}</div>
+            ${r.dosage ? `<div class="text-sm text-tx-3 font-medium">${esc(r.dosage)}</div>` : ''}
           </div>
-          ${sub ? `<div class="med-sub">${esc(sub)}</div>` : ''}
-          ${r.frequency ? `<div class="med-schedule">${esc(r.frequency)}</div>` : ''}
+          ${sub ? `<div class="text-xs text-tx-mute mt-0.5">${esc(sub)}</div>` : ''}
+          ${r.frequency ? `<div class="text-[13px] text-tx-2 mt-2">${esc(r.frequency)}</div>` : ''}
         </div>
       </div>
 
-      ${instr.length ? `<div class="med-z3">${instr.join('')}</div>` : ''}
-      ${tagRow}
-
-      <div class="med-strip">
-        <span title="HSA YTD">
-          <span class="lbl">HSA YTD</span><strong>${hsaYtd}</strong>
-        </span>
-        <span title="Last refill date">
-          <span class="lbl">Last filled</span><strong>${esc(lastFilled)}</strong>
-        </span>
-        <span title="Refills remaining">
-          <span class="lbl">Refills</span><strong>${r.refills_remaining != null ? r.refills_remaining : '—'}</strong>
-        </span>
-      </div>
-
+      ${instr.length ? `<div class="gh-card-zone gh-card-zone--instr">${instr.join('')}</div>` : ''}
+      ${tags}
+      ${strip}
       ${alertBlock}
 
-      <div class="med-z4">
+      <div class="gh-card-zone gh-card-zone--bottom">
         ${ents.join('')}
-        <div style="flex:1"></div>
-        <button class="med-link-chip" title="Link an HSA receipt"
-                onclick="event.stopPropagation();openLinkReceiptModal(${r.id},'${esc(hero).replace(/'/g,"\\'")}')">
-          <img src="/assets/icons/phosphor/duotone/link-duotone.svg" alt="">Link receipt
-        </button>
-        ${r.attachment_count ? `<span class="med-link-chip" title="${r.attachment_count} attachment${r.attachment_count===1?'':'s'}">
-          <img src="/assets/icons/phosphor/duotone/paperclip-duotone.svg" alt="">${r.attachment_count}
-        </span>` : ''}
+        <div class="flex-1"></div>
+        ${r.attachment_count ? `<span class="gh-tap inline-flex items-center gap-1 text-[11px] text-tx-mute font-medium" title="${r.attachment_count} attachment${r.attachment_count===1?'':'s'}"><div class="gh-ph w-3.5 h-3.5">${I.paperclip||''}</div>${r.attachment_count}</span>` : ''}
+        <span class="gh-tap inline-flex items-center gap-1 text-xs text-tx-2 font-medium" onclick="event.stopPropagation();openMedDetail(${r.id})">Timeline<div class="gh-ph w-3.5 h-3.5 text-tx-mute">${I.caretR||''}</div></span>
       </div>
-
-    </div>
-  `;
+    </div>`;
 }
 
 // Center modal — minimal version for v2 preview
