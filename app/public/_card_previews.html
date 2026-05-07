@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Card previews — Ghrava</title>
+<link rel="stylesheet" href="/shared.css">
+<link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500;1,600&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500;600&display=swap">
+<script src="/theme.js"></script>
+</head>
+<body class="v2">
+
+<!-- ──────────────────────────────────────────────────────────────
+     v202604.147 — Card preview page for Condition, Visit, EOB
+     ──────────────────────────────────────────────────────────────
+     Standalone visual preview — not wired to data yet. Lives at
+     /_card_previews.html so we can iterate on layout before
+     committing to schemas, routes, or migrations.
+
+     Re-uses the medication card's design DNA:
+       - Vellum surface, Fraunces serif italic for the hero
+       - DM Mono eyebrows + labels
+       - 5-zone layout (A status / B identity-or-hero /
+                        C strip with measure / E entities)
+       - Same card padding, divider, border
+     The hero of each card varies by domain:
+       Medication — name (Atorvastatin)
+       Condition  — number (128/82 BP)  ← number-as-hero
+       Visit      — date (Mar 12, 11 days ago) ← number-as-hero
+       EOB        — money (you owe $42.18) ← number-as-hero
+     ────────────────────────────────────────────────────────────── */ -->
+
+<style>
+/* Inherit medical_v2.html's plain-name tokens. Anything with --bg,
+   --text, --accent, --r-xl flows from body.v2 in shared.css when we
+   merge. For preview we redeclare on the page itself so the file is
+   testable in isolation. */
+body.v2 {
+  --bg:           #f5f7f9;
+  --bg-card:      #fbf6e9;
+  --bg-card-2:    #f4ecd8;
+  --border:       #d8cba8;
+  --border-2:     #c5b58c;
+  --divider:      #ede5cb;
+  --text:         #2a241a;
+  --text-2:       #5e5440;
+  --text-3:       #8a7d62;
+  --text-4:       #b3a684;
+  --accent:       #c0392b;
+  --accent-h:     #a8311f;
+  --accent-bg:    rgba(192,57,43,0.08);
+  --good:         #527a3f;
+  --good-bg:      rgba(82,122,63,0.10);
+  --warn:         #b07b16;
+  --warn-bg:      rgba(176,123,22,0.10);
+  --warn-bd:      rgba(176,123,22,0.30);
+  --bad:          #a8311f;
+  --bad-bg:       rgba(168,49,31,0.08);
+  --bad-bd:       rgba(168,49,31,0.30);
+  --purple:       #6c5083;
+  --purple-bg:    rgba(108,80,131,0.10);
+  --blue:         #1d4ed8;
+  --blue-bg:      rgba(29,78,216,0.10);
+  --teal:         #0d9488;
+  --teal-bg:      rgba(13,148,136,0.10);
+  --font-sans:    'Inter', -apple-system, system-ui, sans-serif;
+  --font-serif:   'Fraunces', Georgia, serif;
+  --font-mono:    'DM Mono', 'SF Mono', Menlo, monospace;
+  --r:    8px;
+  --r-lg: 12px;
+  --r-xl: 18px;
+  --shadow-card: 0 1px 0 rgba(0,0,0,0.04), 0 8px 24px -12px rgba(76,52,12,0.18);
+  background: var(--bg);
+  font-family: var(--font-sans);
+  color: var(--text);
+}
+
+/* Page chrome */
+.preview-wrap {
+  max-width: 1320px; margin: 24px auto 80px; padding: 0 24px;
+}
+.preview-h1 {
+  font-family: var(--font-serif);
+  font-size: 32px; font-style: italic; font-weight: 400;
+  letter-spacing: -0.02em; color: var(--text);
+  margin: 0 0 4px;
+}
+.preview-sub {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 24px;
+}
+.preview-section {
+  margin-top: 36px;
+}
+.preview-section-h {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-3); margin: 0 0 14px;
+}
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(440px, 580px));
+  gap: 14px;
+  justify-content: center;
+}
+
+/* ─────────────────────────────────────────────────────────
+   SHARED CARD CHROME — same as medication card (.cardv5-*)
+   Generic prefix so it's reusable across card types.
+   ───────────────────────────────────────────────────────── */
+.cardv5 {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-card);
+  padding: 18px 22px 16px;
+  color: var(--text);
+  cursor: pointer;
+  transition: box-shadow 160ms ease;
+}
+.cardv5:hover { box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 14px 32px -10px rgba(76,52,12,0.24); }
+.cardv5__eyebrow {
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: 0.16em; text-transform: uppercase;
+  color: var(--text-3); margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.cardv5__eyebrow .dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.cardv5__eyebrow .dot--good { background: var(--good); box-shadow: 0 0 0 4px var(--good-bg); }
+.cardv5__eyebrow .dot--warn { background: var(--warn); box-shadow: 0 0 0 4px var(--warn-bg); }
+.cardv5__eyebrow .dot--bad  { background: var(--bad);  box-shadow: 0 0 0 4px var(--bad-bg); }
+.cardv5__eyebrow .dot--blue { background: var(--blue); box-shadow: 0 0 0 4px var(--blue-bg); }
+
+.cardv5__divider {
+  border: none;
+  border-top: 1px dashed var(--border-2);
+  margin: 14px 0 12px;
+}
+
+/* Hero block — number/date/money on the left, type+icons right */
+.cardv5__hero-row {
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.cardv5__hero-block { flex: 1; min-width: 0; }
+.cardv5__hero-num {
+  font-family: var(--font-serif);
+  font-size: 56px; font-weight: 300; font-style: italic;
+  letter-spacing: -0.03em; color: var(--text); line-height: 1;
+}
+.cardv5__hero-num--bad { color: var(--bad); }
+.cardv5__hero-num--good { color: var(--good); }
+.cardv5__hero-unit {
+  font-family: var(--font-mono); font-size: 12px;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-3); margin-left: 8px; font-style: normal;
+}
+.cardv5__hero-sub {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 16px; color: var(--text-2); margin-top: 6px;
+}
+.cardv5__hero-context {
+  font-size: 12px; color: var(--text-2); margin-top: 6px;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+}
+.cardv5__hero-context .sep { color: var(--border-2); }
+
+/* Right-aligned chips/icons row in B */
+.cardv5__b-right {
+  display: flex; gap: 6px; flex-shrink: 0; padding-top: 6px;
+}
+.cardv5__iico {
+  width: 32px; height: 32px; border-radius: var(--r);
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; border: none; padding: 0; cursor: pointer;
+}
+.cardv5__iico svg {
+  width: 17px; height: 17px;
+  stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round; fill: none;
+}
+.cardv5__iico--blue   { background: var(--blue-bg); color: var(--blue); }
+.cardv5__iico--purple { background: var(--purple-bg); color: var(--purple); }
+.cardv5__iico--warn   { background: var(--warn-bg); color: var(--warn); }
+.cardv5__iico--good   { background: var(--good-bg); color: var(--good); }
+.cardv5__iico--more   { background: transparent; color: var(--text-3); border: 1px solid var(--border-2); }
+.cardv5__iico--more svg { fill: currentColor; stroke: none; }
+
+/* Tag chips (replaces condition chips on the medication card,
+   reusable for body-system, visit-type, claim-status) */
+.cardv5__tag-row {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; flex-wrap: wrap;
+}
+.cardv5__tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px 4px 7px; border-radius: 999px;
+  background: var(--bad-bg); color: var(--bad);
+  font-size: 12px; font-weight: 500;
+}
+.cardv5__tag svg {
+  width: 13px; height: 13px;
+  stroke: currentColor; stroke-width: 2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.cardv5__tag--purple { background: var(--purple-bg); color: var(--purple); }
+.cardv5__tag--blue   { background: var(--blue-bg);   color: var(--blue); }
+.cardv5__tag--good   { background: var(--good-bg);   color: var(--good); }
+.cardv5__tag--warn   { background: var(--warn-bg);   color: var(--warn); }
+.cardv5__tag-spacer { flex: 1; }
+.cardv5__status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px 4px 9px; border-radius: 999px;
+  border: 1px solid var(--warn); color: var(--warn);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  background: transparent;
+}
+.cardv5__status-pill::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--warn);
+}
+.cardv5__status-pill.is-good   { border-color: var(--good); color: var(--good); }
+.cardv5__status-pill.is-good::before { background: var(--good); }
+.cardv5__status-pill.is-bad    { border-color: var(--bad); color: var(--bad); }
+.cardv5__status-pill.is-bad::before { background: var(--bad); }
+
+/* Strip — same DNA as medication strip */
+.cardv5__strip {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1px 1fr 1fr;
+  gap: 14px;
+  align-items: center;
+}
+.cardv5__strip-divider {
+  width: 1px; height: 38px; background: var(--border-2); opacity: 0.5;
+}
+@media (max-width: 520px) {
+  .cardv5__strip { grid-template-columns: 1fr 1fr; }
+  .cardv5__strip-divider { display: none; }
+}
+.cardv5__strip-item {
+  display: flex; gap: 8px; align-items: flex-start; min-width: 0;
+}
+.cardv5__strip-icon {
+  width: 26px; height: 26px; flex-shrink: 0; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-bg); color: var(--accent);
+}
+.cardv5__strip-icon svg {
+  width: 14px; height: 14px;
+  stroke: currentColor; stroke-width: 2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.cardv5__strip-icon--green  { background: var(--good-bg);   color: var(--good); }
+.cardv5__strip-icon--purple { background: var(--purple-bg); color: var(--purple); }
+.cardv5__strip-icon--amber  { background: var(--warn-bg);   color: var(--warn); }
+.cardv5__strip-icon--blue   { background: var(--blue-bg);   color: var(--blue); }
+.cardv5__strip-icon--red    { background: var(--bad-bg);    color: var(--bad); }
+.cardv5__strip-meta { display: flex; flex-direction: column; min-width: 0; }
+.cardv5__strip-label {
+  font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: 0.10em; text-transform: uppercase;
+  color: var(--text-3); line-height: 1.2;
+}
+.cardv5__strip-value {
+  font-family: var(--font-serif); font-size: 16px;
+  font-weight: 400; font-style: italic; color: var(--text);
+  letter-spacing: -0.01em; margin-top: 1px;
+}
+.cardv5__strip-value-of {
+  font-family: var(--font-mono); font-size: 10px; font-style: normal;
+  color: var(--text-3); letter-spacing: 0.04em;
+  text-transform: uppercase; margin-left: 4px;
+}
+
+/* Sparkline meter — Condition card uses this where Med uses the
+   doses bar. Inline SVG, fits in the strip. */
+.cardv5__spark {
+  width: 90px; height: 22px; margin-top: 4px;
+}
+.cardv5__spark-line { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+.cardv5__spark-band { fill: var(--good-bg); }
+.cardv5__spark-dot { fill: var(--accent); }
+
+/* Amount-paid bar (EOB) — segmented like the doses bar but
+   showing what slice of the total bill you paid */
+.cardv5__paybar {
+  display: flex; height: 8px; border-radius: 4px; overflow: hidden;
+  width: 100%; margin-top: 4px;
+}
+.cardv5__paybar-seg-paid    { background: var(--bad); }
+.cardv5__paybar-seg-ins     { background: var(--good); }
+.cardv5__paybar-seg-disc    { background: var(--text-4); }
+.cardv5__paybar-legend {
+  display: flex; gap: 10px; margin-top: 4px;
+  font-family: var(--font-mono); font-size: 9.5px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-3);
+}
+.cardv5__paybar-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.cardv5__paybar-legend i {
+  width: 7px; height: 7px; border-radius: 1.5px; flex-shrink: 0;
+}
+
+/* Entity row — same as medication */
+.cardv5__entities {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.cardv5__ent {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 4px; position: relative; cursor: pointer;
+}
+.cardv5__ent-tile { width: 40px; height: 40px; position: relative; flex-shrink: 0; }
+.cardv5__ent-circle {
+  width: 40px; height: 40px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.4);
+  display: flex; align-items: center; justify-content: center;
+  color: white; font-family: var(--font-mono); font-size: 12px;
+  font-weight: 600; overflow: hidden;
+}
+.cardv5__ent-circle svg {
+  width: 20px; height: 20px;
+  stroke: white; stroke-width: 2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round; opacity: 0.95;
+}
+.cardv5__ent-badge {
+  position: absolute; right: -3px; bottom: -3px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--bg-card); border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--good);
+}
+.cardv5__ent-badge svg {
+  width: 10px; height: 10px;
+  stroke: currentColor; stroke-width: 2.2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.cardv5__ent-label {
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 11px; color: var(--text-2);
+  white-space: nowrap;
+  max-width: 70px; overflow: hidden; text-overflow: ellipsis;
+}
+.cardv5__ent-spacer { flex: 1; }
+.cardv5__attach {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-3); letter-spacing: 0.06em;
+}
+.cardv5__attach svg {
+  width: 13px; height: 13px;
+  stroke: currentColor; stroke-width: 2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.cardv5__drill {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 13px; color: var(--text);
+}
+.cardv5__drill svg {
+  width: 13px; height: 13px;
+  stroke: var(--text-3); stroke-width: 2.2; fill: none;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* Linked-meds avatar stack (Condition card) */
+.cardv5__med-stack { display: flex; align-items: center; }
+.cardv5__med-stack .pill-mini {
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid var(--bg-card);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  color: white;
+}
+.cardv5__med-stack .pill-mini + .pill-mini { margin-left: -8px; }
+
+/* Note-tag (Visit card line items) */
+.cardv5__notes {
+  margin-top: 12px;
+  font-family: var(--font-serif); font-style: italic;
+  font-size: 13px; color: var(--text-2); line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.cardv5__notes::before {
+  content: '"';
+  font-size: 24px; color: var(--text-4);
+  margin-right: 4px; vertical-align: -8px;
+}
+</style>
+
+<div class="preview-wrap">
+  <h1 class="preview-h1">Card preview</h1>
+  <p class="preview-sub">v202604.147 · Conditions / Visits / EOB</p>
+
+  <!-- ─────────  CONDITION CARDS  ───────── -->
+  <div class="preview-section">
+    <h2 class="preview-section-h">Condition · number-as-hero · vitals-driven</h2>
+
+    <div class="preview-grid">
+
+      <!-- Condition #1 — Hypertension (in range, controlled) -->
+      <div class="cardv5">
+
+        <div class="cardv5__eyebrow">
+          <span class="dot dot--good"></span>Hypertension · Sarah · Cardiovascular
+        </div>
+
+        <div class="cardv5__hero-row">
+          <div class="cardv5__hero-block">
+            <div class="cardv5__hero-num cardv5__hero-num--good">128/82<span class="cardv5__hero-unit">mmHg</span></div>
+            <div class="cardv5__hero-sub">Last reading May 5 — within target</div>
+            <div class="cardv5__hero-context">
+              <span>Goal &lt;130/80</span><span class="sep">·</span>
+              <span>Diagnosed Mar 2024</span>
+            </div>
+          </div>
+          <div class="cardv5__b-right">
+            <span class="cardv5__iico cardv5__iico--good" title="Add reading">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </span>
+            <span class="cardv5__iico cardv5__iico--more" title="More">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="cardv5__tag-row">
+          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Cardiovascular</span>
+          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Chronic</span>
+          <span class="cardv5__tag-spacer"></span>
+          <span class="cardv5__status-pill is-good">Controlled</span>
+        </div>
+
+        <hr class="cardv5__divider"/>
+
+        <div class="cardv5__strip">
+
+          <div class="cardv5__strip-item" title="Last visit for this condition">
+            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Last visit</span>
+              <span class="cardv5__strip-value">Mar 12</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Last 7 BP readings">
+            <div class="cardv5__strip-icon cardv5__strip-icon--green">
+              <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">7-day trend</span>
+              <svg class="cardv5__spark" viewBox="0 0 90 22" preserveAspectRatio="none">
+                <rect class="cardv5__spark-band" x="0" y="6" width="90" height="10"/>
+                <polyline class="cardv5__spark-line" points="0,14 15,11 30,12 45,9 60,10 75,8 90,10"/>
+                <circle class="cardv5__spark-dot" cx="90" cy="10" r="2"/>
+              </svg>
+              <span class="cardv5__strip-value">128/82<span class="cardv5__strip-value-of">latest</span></span>
+            </div>
+          </div>
+
+          <span class="cardv5__strip-divider"></span>
+
+          <div class="cardv5__strip-item" title="Active medications for this condition">
+            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
+              <svg viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Meds</span>
+              <span class="cardv5__strip-value">3</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="HSA spent on this condition YTD">
+            <div class="cardv5__strip-icon cardv5__strip-icon--green">
+              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">HSA YTD</span>
+              <span class="cardv5__strip-value">$184.90</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="cardv5__entities">
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#c084fc,#db2777)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
+            <span class="cardv5__ent-label">Sarah</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#93c5fd,#2563eb)">DP</div>
+              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
+            </div>
+            <span class="cardv5__ent-label">Dr. Patel</span>
+          </div>
+          <div class="cardv5__med-stack">
+            <div class="pill-mini" style="background:linear-gradient(135deg,#fb923c,#c2410c)">A</div>
+            <div class="pill-mini" style="background:linear-gradient(135deg,#5eead4,#0d9488)">L</div>
+            <div class="pill-mini" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">M</div>
+          </div>
+          <span class="cardv5__ent-spacer"></span>
+          <span class="cardv5__attach">
+            <svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>5
+          </span>
+          <span class="cardv5__drill">
+            Timeline<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Condition #2 — Diabetes (out of range, monitoring) -->
+      <div class="cardv5">
+
+        <div class="cardv5__eyebrow">
+          <span class="dot dot--warn"></span>Type 2 Diabetes · Algir · Endocrine
+        </div>
+
+        <div class="cardv5__hero-row">
+          <div class="cardv5__hero-block">
+            <div class="cardv5__hero-num cardv5__hero-num--bad">7.4<span class="cardv5__hero-unit">% A1C</span></div>
+            <div class="cardv5__hero-sub">Last test Apr 8 — above target</div>
+            <div class="cardv5__hero-context">
+              <span>Goal &lt;7.0%</span><span class="sep">·</span>
+              <span>Diagnosed Aug 2022</span>
+            </div>
+          </div>
+          <div class="cardv5__b-right">
+            <span class="cardv5__iico cardv5__iico--good" title="Add reading">
+              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+            </span>
+            <span class="cardv5__iico cardv5__iico--more" title="More">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="cardv5__tag-row">
+          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.5.5 0 0 1-.96 0L9.24 2.18a.5.5 0 0 0-.96 0l-2.35 8.36A2 2 0 0 1 4 12H2"/></svg>Endocrine</span>
+          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Chronic</span>
+          <span class="cardv5__tag-spacer"></span>
+          <span class="cardv5__status-pill">Monitoring</span>
+        </div>
+
+        <hr class="cardv5__divider"/>
+
+        <div class="cardv5__strip">
+
+          <div class="cardv5__strip-item" title="Last visit">
+            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Last visit</span>
+              <span class="cardv5__strip-value">Apr 8</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="A1C trend over last 4 tests">
+            <div class="cardv5__strip-icon cardv5__strip-icon--red">
+              <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">A1C trend</span>
+              <svg class="cardv5__spark" viewBox="0 0 90 22" preserveAspectRatio="none">
+                <rect class="cardv5__spark-band" x="0" y="11" width="90" height="11"/>
+                <polyline class="cardv5__spark-line" style="stroke:var(--bad)" points="0,12 30,11 60,8 90,5"/>
+                <circle class="cardv5__spark-dot" style="fill:var(--bad)" cx="90" cy="5" r="2"/>
+              </svg>
+              <span class="cardv5__strip-value">7.4<span class="cardv5__strip-value-of">↑ 0.4 vs prev</span></span>
+            </div>
+          </div>
+
+          <span class="cardv5__strip-divider"></span>
+
+          <div class="cardv5__strip-item" title="Active medications">
+            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
+              <svg viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Meds</span>
+              <span class="cardv5__strip-value">2</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="HSA YTD">
+            <div class="cardv5__strip-icon cardv5__strip-icon--green">
+              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">HSA YTD</span>
+              <span class="cardv5__strip-value">$312.50</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="cardv5__entities">
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#fb923c,#c2410c)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
+            <span class="cardv5__ent-label">Algir</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#34d399,#047857)">RG</div>
+              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
+            </div>
+            <span class="cardv5__ent-label">Dr. Goyal</span>
+          </div>
+          <div class="cardv5__med-stack">
+            <div class="pill-mini" style="background:linear-gradient(135deg,#5eead4,#0d9488)">M</div>
+            <div class="pill-mini" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">G</div>
+          </div>
+          <span class="cardv5__ent-spacer"></span>
+          <span class="cardv5__drill">
+            Timeline<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─────────  VISIT CARDS  ───────── -->
+  <div class="preview-section">
+    <h2 class="preview-section-h">Visit · date-as-hero · clinical event</h2>
+
+    <div class="preview-grid">
+
+      <!-- Visit #1 — Annual physical (recent, complete) -->
+      <div class="cardv5">
+
+        <div class="cardv5__eyebrow">
+          <span class="dot dot--good"></span>Visit · Sarah · Annual physical
+        </div>
+
+        <div class="cardv5__hero-row">
+          <div class="cardv5__hero-block">
+            <div class="cardv5__hero-num">Mar 12<span class="cardv5__hero-unit">11d ago</span></div>
+            <div class="cardv5__hero-sub">9:30 AM — 45 min · in-person</div>
+            <div class="cardv5__hero-context">
+              <span>UPMC East</span><span class="sep">·</span>
+              <span>2nd floor — Internal Med</span>
+            </div>
+          </div>
+          <div class="cardv5__b-right">
+            <span class="cardv5__iico cardv5__iico--more" title="More">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="cardv5__tag-row">
+          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Hypertension</span>
+          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>Cholesterol</span>
+          <span class="cardv5__tag-spacer"></span>
+          <span class="cardv5__status-pill is-good">Visit notes available</span>
+        </div>
+
+        <div class="cardv5__notes">
+          BP improving on current dose. Continue lisinopril 10mg, recheck in 3 months. Discussed Mediterranean diet, recommended LDL panel at next visit.
+        </div>
+
+        <hr class="cardv5__divider"/>
+
+        <div class="cardv5__strip">
+
+          <div class="cardv5__strip-item" title="Blood pressure recorded at visit">
+            <div class="cardv5__strip-icon cardv5__strip-icon--green">
+              <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">BP</span>
+              <span class="cardv5__strip-value">128/82</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Weight recorded">
+            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><path d="M6.5 21h11l-2-13h-7z"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Weight</span>
+              <span class="cardv5__strip-value">154 <span class="cardv5__strip-value-of">lb</span></span>
+            </div>
+          </div>
+
+          <span class="cardv5__strip-divider"></span>
+
+          <div class="cardv5__strip-item" title="Visit cost (out-of-pocket)">
+            <div class="cardv5__strip-icon cardv5__strip-icon--red">
+              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">You paid</span>
+              <span class="cardv5__strip-value">$30.00</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Next follow-up">
+            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
+              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Follow-up</span>
+              <span class="cardv5__strip-value">Jun 12</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="cardv5__entities">
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#c084fc,#db2777)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
+            <span class="cardv5__ent-label">Sarah</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#93c5fd,#2563eb)">DP</div>
+              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
+            </div>
+            <span class="cardv5__ent-label">Dr. Patel</span>
+          </div>
+          <span class="cardv5__ent-spacer"></span>
+          <span class="cardv5__attach">
+            <svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>3
+          </span>
+          <span class="cardv5__drill">
+            Open<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </div>
+
+      </div>
+
+      <!-- Visit #2 — Upcoming visit -->
+      <div class="cardv5">
+
+        <div class="cardv5__eyebrow">
+          <span class="dot dot--blue"></span>Upcoming visit · Algir · Endocrinology
+        </div>
+
+        <div class="cardv5__hero-row">
+          <div class="cardv5__hero-block">
+            <div class="cardv5__hero-num cardv5__hero-num--good">in 4d<span class="cardv5__hero-unit">May 11</span></div>
+            <div class="cardv5__hero-sub">10:00 AM — 30 min · in-person</div>
+            <div class="cardv5__hero-context">
+              <span>Diabetes follow-up</span><span class="sep">·</span>
+              <span>Bring glucose log</span>
+            </div>
+          </div>
+          <div class="cardv5__b-right">
+            <span class="cardv5__iico cardv5__iico--more" title="More">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="cardv5__tag-row">
+          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.5.5 0 0 1-.96 0L9.24 2.18a.5.5 0 0 0-.96 0l-2.35 8.36A2 2 0 0 1 4 12H2"/></svg>Diabetes</span>
+          <span class="cardv5__tag-spacer"></span>
+          <span class="cardv5__status-pill">Confirmed</span>
+        </div>
+
+        <hr class="cardv5__divider"/>
+
+        <div class="cardv5__strip">
+
+          <div class="cardv5__strip-item" title="Most recent visit, same provider">
+            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Last visit</span>
+              <span class="cardv5__strip-value">Feb 8</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Visit purpose">
+            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
+              <svg viewBox="0 0 24 24"><path d="M9 12h6m-3-3v6"/><circle cx="12" cy="12" r="10"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Reason</span>
+              <span class="cardv5__strip-value">Lab review</span>
+            </div>
+          </div>
+
+          <span class="cardv5__strip-divider"></span>
+
+          <div class="cardv5__strip-item" title="Estimated copay">
+            <div class="cardv5__strip-icon cardv5__strip-icon--red">
+              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Est. copay</span>
+              <span class="cardv5__strip-value">$45.00</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Pre-visit reminders">
+            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
+              <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Reminders</span>
+              <span class="cardv5__strip-value">2</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="cardv5__entities">
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#fb923c,#c2410c)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
+            <span class="cardv5__ent-label">Algir</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#34d399,#047857)">RG</div>
+              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
+            </div>
+            <span class="cardv5__ent-label">Dr. Goyal</span>
+          </div>
+          <span class="cardv5__ent-spacer"></span>
+          <span class="cardv5__drill">
+            Reschedule<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ─────────  EOB CARDS  ───────── -->
+  <div class="preview-section">
+    <h2 class="preview-section-h">EOB · money-as-hero · billing reconciliation</h2>
+
+    <div class="preview-grid">
+
+      <!-- EOB #1 — Settled, you owe nothing -->
+      <div class="cardv5">
+
+        <div class="cardv5__eyebrow">
+          <span class="dot dot--good"></span>EOB · Sarah · Annual physical
+        </div>
+
+        <div class="cardv5__hero-row">
+          <div class="cardv5__hero-block">
+            <div class="cardv5__hero-num cardv5__hero-num--good">$30.00<span class="cardv5__hero-unit">you paid</span></div>
+            <div class="cardv5__hero-sub">Settled — no further amount due</div>
+            <div class="cardv5__hero-context">
+              <span>Claim # 8472-19A</span><span class="sep">·</span>
+              <span>Processed Mar 28</span>
+            </div>
+          </div>
+          <div class="cardv5__b-right">
+            <span class="cardv5__iico cardv5__iico--more" title="More">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="cardv5__tag-row">
+          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>Visit Mar 12</span>
+          <span class="cardv5__tag-spacer"></span>
+          <span class="cardv5__status-pill is-good">Paid in full</span>
+        </div>
+
+        <div style="margin-top:14px">
+          <div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;color:var(--text-3);line-height:1.2;margin-bottom:4px">Bill breakdown</div>
+          <div class="cardv5__paybar">
+            <div class="cardv5__paybar-seg-paid"  style="width:8%"></div>
+            <div class="cardv5__paybar-seg-ins"   style="width:62%"></div>
+            <div class="cardv5__paybar-seg-disc"  style="width:30%"></div>
+          </div>
+          <div class="cardv5__paybar-legend">
+            <span><i style="background:var(--bad)"></i>You $30</span>
+            <span><i style="background:var(--good)"></i>Insurance $232</span>
+            <span><i style="background:var(--text-4)"></i>Adjusted $113</span>
+          </div>
+        </div>
+
+        <hr class="cardv5__divider"/>
+
+        <div class="cardv5__strip">
+
+          <div class="cardv5__strip-item" title="Total billed by provider">
+            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Billed</span>
+              <span class="cardv5__strip-value">$375.00</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Insurance paid + plan adjustment">
+            <div class="cardv5__strip-icon cardv5__strip-icon--green">
+              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Covered</span>
+              <span class="cardv5__strip-value">$345.00</span>
+            </div>
+          </div>
+
+          <span class="cardv5__strip-divider"></span>
+
+          <div class="cardv5__strip-item" title="Number of line items">
+            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
+              <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Lines</span>
+              <span class="cardv5__strip-value">4</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Out-of-pocket year-to-date toward deductible">
+            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Toward ded.</span>
+              <span class="cardv5__strip-value">$486 <span class="cardv5__strip-value-of">of $1500</span></span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="cardv5__entities">
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#c084fc,#db2777)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
+            <span class="cardv5__ent-label">Sarah</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#93c5fd,#2563eb)">DP</div>
+              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
+            </div>
+            <span class="cardv5__ent-label">Dr. Patel</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div style="width:40px;height:40px;border-radius:9px;background:#0c4a6e;color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.04em">UPMC</div>
+            </div>
+            <span class="cardv5__ent-label">UPMC</span>
+          </div>
+          <span class="cardv5__ent-spacer"></span>
+          <span class="cardv5__attach">
+            <svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>2
+          </span>
+          <span class="cardv5__drill">
+            Lines<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </div>
+
+      </div>
+
+      <!-- EOB #2 — You owe (open balance) -->
+      <div class="cardv5">
+
+        <div class="cardv5__eyebrow">
+          <span class="dot dot--bad"></span>EOB · Algir · Lab work
+        </div>
+
+        <div class="cardv5__hero-row">
+          <div class="cardv5__hero-block">
+            <div class="cardv5__hero-num cardv5__hero-num--bad">$142.18<span class="cardv5__hero-unit">you owe</span></div>
+            <div class="cardv5__hero-sub">Due May 28 · A1C panel + lipid panel</div>
+            <div class="cardv5__hero-context">
+              <span>Claim # 9201-44B</span><span class="sep">·</span>
+              <span>Received Apr 22</span>
+            </div>
+          </div>
+          <div class="cardv5__b-right">
+            <span class="cardv5__iico cardv5__iico--more" title="More">
+              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+            </span>
+          </div>
+        </div>
+
+        <div class="cardv5__tag-row">
+          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>Visit Apr 8</span>
+          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36"/><path d="M9.24 2.18a.5.5 0 0 0-.96 0"/></svg>Diabetes</span>
+          <span class="cardv5__tag-spacer"></span>
+          <span class="cardv5__status-pill is-bad">Payment due</span>
+        </div>
+
+        <div style="margin-top:14px">
+          <div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;color:var(--text-3);line-height:1.2;margin-bottom:4px">Bill breakdown</div>
+          <div class="cardv5__paybar">
+            <div class="cardv5__paybar-seg-paid"  style="width:36%"></div>
+            <div class="cardv5__paybar-seg-ins"   style="width:42%"></div>
+            <div class="cardv5__paybar-seg-disc"  style="width:22%"></div>
+          </div>
+          <div class="cardv5__paybar-legend">
+            <span><i style="background:var(--bad)"></i>You $142</span>
+            <span><i style="background:var(--good)"></i>Insurance $164</span>
+            <span><i style="background:var(--text-4)"></i>Adjusted $86</span>
+          </div>
+        </div>
+
+        <hr class="cardv5__divider"/>
+
+        <div class="cardv5__strip">
+
+          <div class="cardv5__strip-item" title="Total billed">
+            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Billed</span>
+              <span class="cardv5__strip-value">$392.00</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Insurance covered">
+            <div class="cardv5__strip-icon cardv5__strip-icon--green">
+              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Covered</span>
+              <span class="cardv5__strip-value">$249.82</span>
+            </div>
+          </div>
+
+          <span class="cardv5__strip-divider"></span>
+
+          <div class="cardv5__strip-item" title="Line items">
+            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
+              <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Lines</span>
+              <span class="cardv5__strip-value">3</span>
+            </div>
+          </div>
+
+          <div class="cardv5__strip-item" title="Days until due">
+            <div class="cardv5__strip-icon cardv5__strip-icon--red">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            </div>
+            <div class="cardv5__strip-meta">
+              <span class="cardv5__strip-label">Due in</span>
+              <span class="cardv5__strip-value">21d</span>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="cardv5__entities">
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#fb923c,#c2410c)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
+            <span class="cardv5__ent-label">Algir</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#34d399,#047857)">QD</div>
+              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
+            </div>
+            <span class="cardv5__ent-label">Quest Dx</span>
+          </div>
+          <div class="cardv5__ent">
+            <div class="cardv5__ent-tile">
+              <div style="width:40px;height:40px;border-radius:9px;background:#003366;color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.04em">BCBS</div>
+            </div>
+            <span class="cardv5__ent-label">Insurance</span>
+          </div>
+          <span class="cardv5__ent-spacer"></span>
+          <span class="cardv5__drill">
+            Pay<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+          </span>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <p style="font-family:var(--font-mono);font-size:11px;color:var(--text-3);text-align:center;margin-top:48px;letter-spacing:0.06em">
+    PREVIEW PAGE · NOT WIRED TO DATA · ALL VALUES STATIC ·
+    <a href="/medical_v2.html" style="color:var(--accent)">← back to Medical</a>
+  </p>
+
+</div>
+
+<script src="/nav.js"></script>
+</body>
+</html>
