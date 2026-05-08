@@ -499,34 +499,6 @@ body.v2 .gh-family-label, body.v2 [class*="gh-family"] [class*="-label"]:first-c
   padding: 1px 6px; border-radius: 4px;
 }
 
-/* v202604.147 — Tab count badge for cross-card lens.
-   Renders next to the tab label as a small pill showing how many
-   records on that tab match the current lens + patient filters.
-   Hidden when lens is empty (no filter active). */
-.v2-tab-count {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  background: rgba(192,57,43,0.12);
-  color: #c0392b;
-  font-family: 'DM Mono', monospace;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  vertical-align: middle;
-  min-width: 14px;
-  text-align: center;
-}
-.v2-tab.active .v2-tab-count {
-  background: #c0392b;
-  color: white;
-}
-.v2-tab-count.is-zero {
-  background: rgba(0,0,0,0.06);
-  color: #8a7d62;
-}
-
 /* ════════════════════════════════════════════════════════════════
    v202604.145 — VELLUM THEME TOKENS + MEDICATION CARD (V1)
    ────────────────────────────────────────────────────────────────
@@ -1505,11 +1477,12 @@ body.v2 {
   <!-- Segmented tabs (replaces old .view-tabs) -->
   <div style="padding:0 20px 12px">
     <div class="v2-tabs">
-      <button class="v2-tab active view-tab" onclick="switchView('medications',this)">Meds<span class="v2-tab-count" id="tabCount-medications" style="display:none"></span></button>
-      <button class="v2-tab view-tab" onclick="switchView('conditions',this)">Conditions<span class="v2-tab-count" id="tabCount-conditions" style="display:none"></span></button>
-      <button class="v2-tab view-tab" onclick="switchView('notes',this)">Visits<span class="v2-tab-count" id="tabCount-notes" style="display:none"></span></button>
+      <button class="v2-tab active view-tab" onclick="switchView('medications',this)">Meds</button>
+      <button class="v2-tab view-tab" onclick="switchView('conditions',this)">Conditions</button>
+      <button class="v2-tab view-tab" onclick="switchView('notes',this)">Visits</button>
       <button class="v2-tab view-tab" onclick="switchView('hw',this)">H&amp;W</button>
-      <button class="v2-tab view-tab" onclick="switchView('eob',this)">EOB<span class="v2-tab-count" id="tabCount-eob" style="display:none"></span></button>
+      <button class="v2-tab view-tab" onclick="switchView('eob',this)">EOB</button>
+      <button class="v2-tab view-tab" onclick="switchView('all_medical',this)" title="Cross-card view: meds + conditions + visits + EOBs together">All</button>
       <button class="v2-tab view-tab" onclick="switchView('summary',this)">Summary</button>
     </div>
   </div>
@@ -2218,13 +2191,11 @@ function switchView(view, btn) {
   document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const strip = $id('patientStrip');
-  strip.style.display = (view === 'summary' || view === 'eob') ? 'none' : 'flex';
+  strip.style.display = (view === 'summary' || view === 'eob' || view === 'all_medical') ? 'none' : 'flex';
   AttachmentManager.injectStyles();
-  renderCurrentView();
-  // v202604.147 — refresh cross-card counts whenever the active tab changes
-  // (so the badge styling reflects the new active state). Cheap call —
-  // most tabs already cache rows, see refreshTabCounts.
-  if (typeof refreshTabCounts === 'function') refreshTabCounts();
+  // v202604.148 — re-init lens so dimensions match the new subview
+  if (typeof initMedLensForView === 'function') initMedLensForView(view);
+renderCurrentView();
 }
 
 function setPatient(btn, val) {
@@ -2232,7 +2203,6 @@ function setPatient(btn, val) {
   document.querySelectorAll('.patient-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderCurrentView();
-  if (typeof refreshTabCounts === 'function') refreshTabCounts();
 }
 
 async function renderCurrentView() {
@@ -2250,6 +2220,7 @@ async function renderCurrentView() {
     else if (currentView === 'notes')   await renderNotes();
     else if (currentView === 'hw')      await renderHW();
     else if (currentView === 'eob')     await renderEob();
+    else if (currentView === 'all_medical') await renderAllMedical();
   }
 }
 
@@ -3222,7 +3193,7 @@ function renderEobCard(s) {
   const heroLabel = settled ? 'paid' : 'you owe';
 
   return `
-    <div class="cardv5" onclick="window.location.hash='#eob-${s.id}'">
+    <div class="cardv5" onclick="_eobShowDetail(${s.id})">
       <div class="cardv5__eyebrow">
         <span class="dot dot--${stateCls}"></span>
         EOB · ${esc(patientName)} · ${esc(s.statement_date || '—')}
@@ -3239,7 +3210,7 @@ function renderEobCard(s) {
         </div>
         <div class="cardv5__b-right">
           ${s.auto_imported ? '<span class="cardv5__tag cardv5__tag--blue" style="margin-right:4px">auto</span>' : ''}
-          <button class="cardv5__iico cardv5__iico--more" title="More" onclick="event.stopPropagation();window.location.hash='#eob-${s.id}'">
+          <button class="cardv5__iico cardv5__iico--more" title="More" onclick="event.stopPropagation();_eobShowDetail(${s.id})">
             <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
           </button>
         </div>
@@ -4028,16 +3999,19 @@ async function _medBoot() {
     searchEl.addEventListener('input', e => {
       _medSearch = e.target.value.trim().toLowerCase();
       renderCurrentView();
-      if (typeof refreshTabCounts === 'function') refreshTabCounts();
     });
   }
   // The Lens — re-inits per active subview (medications / conditions / visits)
   // because each has a different module config (verbs, statuses).
+  // v202604.148 — also handles 'all_medical' (cross-card mode).
   window._medFilters = {};
   function initMedLens(view) {
-    const moduleId = view === 'conditions' ? 'medical_conditions'
-                   : view === 'notes'      ? 'medical_notes'
-                   :                         'medical_medications';
+    let moduleId;
+    if (view === 'conditions')        moduleId = 'medical_conditions';
+    else if (view === 'notes')        moduleId = 'medical_notes';
+    else if (view === 'eob')          moduleId = 'medical_eob';
+    else if (view === 'all_medical')  moduleId = 'medical_all';
+    else                              moduleId = 'medical_medications';
     GH_LENS.init({
       container: 'medLens',
       moduleId,
@@ -4058,11 +4032,11 @@ async function _medBoot() {
         }
         window._medFilters = f;
         renderCurrentView();
-        // v202604.147 — cross-card lens: count matches on every tab.
-        if (typeof refreshTabCounts === 'function') refreshTabCounts();
       },
     });
   }
+  // v202604.148 — expose so switchView() can re-init on tab change
+  window.initMedLensForView = initMedLens;
   // Initial — the medical page's renderCurrentView decides which subview is up
   initMedLens(window._medActiveView || 'medications');
   // Hook into setMedView if defined to re-init lens on subview change
@@ -4416,34 +4390,126 @@ async function _eobDelete(id, dateLabel) {
   } catch(e) { toast(e.message || 'Delete failed', 'err'); }
 }
 
+// ════════════════════════════════════════════════════════════════
+// v202604.148 — EOB drill-down modal (real-data, Vellum-styled).
+// Opens GET /medical/eob/:id which returns the statement with nested
+// claims → services and balances arrays. Modeled on openContactQuickView.
+// ════════════════════════════════════════════════════════════════
 async function _eobShowDetail(id) {
-  const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
-  const s = await window.api('GET', `/medical/eob/${id}`);
-  if (!s || s.error) return;
+  if (!id) return;
+  let s;
+  try {
+    s = await window.api('GET', `/medical/eob/${id}`);
+  } catch (e) {
+    showToast(e.message || 'Could not load EOB', 'err');
+    return;
+  }
+  if (!s || s.error) {
+    showToast(s?.error || 'Could not load EOB', 'err');
+    return;
+  }
 
-  // Build detail modal using LT.confirm style — simple alert-style for now
-  let html = `<b>${s.statement_date} — ${esc(s.group_name||'MHBP')}</b><br>`;
-  html += `<small style="color:var(--text3)">${esc(s.plan_name||'')} · ${esc(s.member_id||'')}</small><br><br>`;
+  const fmt$ = (n) => '$' + Number(n || 0).toFixed(2);
+  const youShare = Number(s.your_share_total || 0);
+  const settled  = youShare === 0;
+  const heroColor = settled ? '#1d8a4d' : '#a8311f';
 
-  for (const c of (s.claims||[])) {
-    html += `<b>${esc(c.patient)}</b> — ${esc(c.provider||'')}<br>`;
-    html += `Plan paid: <b>$${(c.plan_paid||0).toFixed(2)}</b> &nbsp; Your share: <span style="color:var(--red)">$${(c.your_share||0).toFixed(2)}</span>`;
-    if (c.fund_paid) html += ` &nbsp; Fund: $${c.fund_paid.toFixed(2)}`;
-    html += '<br>';
-    for (const sv of (c.services||[])) {
-      html += `&nbsp;&nbsp;<small style="color:var(--text3)">${esc(sv.service_code||'')} ${esc(sv.service_description||'')} on ${sv.service_date||''} — $${(sv.amount_billed||0).toFixed(2)} billed</small><br>`;
+  // Patients on this statement
+  const patientNames = (s.claims || [])
+    .map(c => (c.patient || '').replace(/\s*\([^)]*\)/, '').trim())
+    .filter(Boolean);
+  const uniquePatients = [...new Set(patientNames)].join(', ') || (s.member_name || '—');
+
+  // Claims block
+  const claimsHtml = (s.claims || []).map(c => {
+    const services = (c.services || []).map(sv => `
+      <div style="display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:12px;color:#5e5440">
+        <span style="flex:1">
+          ${esc(sv.service_description || sv.service_code || 'Service')}
+          ${sv.service_date ? `<span style="color:#8a7d62"> · ${esc(sv.service_date)}</span>` : ''}
+        </span>
+        <span style="font-family:'DM Mono',monospace;color:#2a241a">${fmt$(sv.amount_billed)}</span>
+      </div>
+    `).join('');
+
+    return `
+      <div style="background:#fbf6e9;border:1px solid #d8cba8;border-radius:8px;padding:12px 14px;margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
+          <div style="flex:1">
+            <div style="font-family:'Fraunces',serif;font-style:italic;font-size:16px;color:#2a241a">${esc(c.patient || '—')}</div>
+            <div style="font-size:12px;color:#5e5440;margin-top:2px">${esc(c.provider || '')}</div>
+            ${c.claim_id ? `<div style="font-family:'DM Mono',monospace;font-size:10px;color:#8a7d62;margin-top:2px">Claim ${esc(c.claim_id)}</div>` : ''}
+          </div>
+          <div style="text-align:right;font-family:'DM Mono',monospace;font-size:11px">
+            <div style="color:#8a7d62">Plan paid</div>
+            <div style="color:#2a241a;font-weight:600">${fmt$(c.plan_paid)}</div>
+            <div style="color:#8a7d62;margin-top:4px">Your share</div>
+            <div style="color:${(c.your_share||0) > 0 ? '#a8311f' : '#1d8a4d'};font-weight:600">${fmt$(c.your_share)}</div>
+            ${c.fund_paid ? `<div style="color:#8a7d62;margin-top:4px">Fund</div><div style="color:#2a241a;font-weight:600">${fmt$(c.fund_paid)}</div>` : ''}
+          </div>
+        </div>
+        ${services ? `<div style="border-top:1px solid #e6dcc0;padding-top:6px;margin-top:6px">${services}</div>` : ''}
+      </div>
+    `;
+  }).join('');
+
+  // Balances block (deductible, healthfund, etc.)
+  const balancesHtml = (s.balances && s.balances.length) ? `
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e6dcc0">
+      <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:#8a7d62;margin-bottom:8px">Balances</div>
+      <div style="display:grid;grid-template-columns:1fr auto;gap:4px 14px;font-size:12px">
+        ${s.balances.map(b => `
+          <span style="color:#5e5440">${esc(b.person || '')} · ${esc(b.balance_type || '')}</span>
+          <span style="font-family:'DM Mono',monospace;color:#2a241a">${fmt$(b.amount)}${b.cap ? ` of ${fmt$(b.cap)}` : ''}</span>
+        `).join('')}
+      </div>
+    </div>
+  ` : (s.deductible_annual || s.healthfund_remaining != null) ? `
+    <div style="margin-top:14px;padding-top:14px;border-top:1px solid #e6dcc0;font-size:12px;color:#5e5440">
+      ${s.deductible_annual ? `<div>Deductible: ${fmt$(s.deductible_used)} of ${fmt$(s.deductible_annual)} used</div>` : ''}
+      ${s.healthfund_remaining != null ? `<div style="margin-top:4px">HealthFund remaining: ${fmt$(s.healthfund_remaining)}</div>` : ''}
+    </div>
+  ` : '';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ghEobDetail';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:1100;display:flex;align-items:center;justify-content:center;padding:20px;overflow-y:auto';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;max-width:560px;width:100%;max-height:90vh;overflow:hidden;display:flex;flex-direction:column;font-family:'Inter',sans-serif">
+      <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb;flex-shrink:0">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${heroColor};margin-bottom:4px">
+          EOB · ${esc(s.statement_date || '—')}${s.auto_imported ? ' · auto-imported' : ''}
+        </div>
+        <div style="font-family:'Fraunces',serif;font-style:italic;font-size:24px;color:#2a241a;letter-spacing:-0.01em">
+          ${fmt$(youShare)} <span style="font-style:normal;font-size:13px;color:${heroColor};font-family:'DM Mono',monospace;letter-spacing:0.06em;text-transform:uppercase">${settled ? 'paid' : 'you owe'}</span>
+        </div>
+        <div style="font-size:13px;color:#5e5440;margin-top:2px">
+          ${esc(uniquePatients)}${s.insurer ? ` · ${esc(s.insurer)}` : ''}${s.member_id ? ` · Member ${esc(s.member_id)}` : ''}
+        </div>
+        ${s.plan_name ? `<div style="font-size:12px;color:#8a7d62;margin-top:2px">${esc(s.plan_name)}</div>` : ''}
+      </div>
+      <div style="padding:16px 20px;overflow-y:auto;flex:1">
+        ${claimsHtml || '<div style="color:#8a7d62;font-style:italic;text-align:center;padding:20px">No claims on this statement</div>'}
+        ${balancesHtml}
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:space-between;align-items:center;flex-shrink:0">
+        <div style="font-size:11px;color:#8a7d62;font-family:'DM Mono',monospace">
+          ${(s.claims||[]).length} claim${(s.claims||[]).length === 1 ? '' : 's'} ·
+          billed ${fmt$(s.amount_billed)} · covered ${fmt$(s.plan_paid_total)}
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ghEobDetail').remove()">Close</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  // Esc to close
+  const onKey = (e) => {
+    if (e.key === 'Escape') {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
     }
-    html += '<br>';
-  }
-
-  if (s.deductible_annual) {
-    html += `<small>Deductible: $${(s.deductible_used||0).toFixed(2)} of $${s.deductible_annual.toFixed(2)} used</small><br>`;
-  }
-  if (s.healthfund_remaining != null) {
-    html += `<small>HealthFund remaining: $${(s.healthfund_remaining||0).toFixed(2)}</small><br>`;
-  }
-
-  alert(html.replace(/<[^>]+>/g, ''));
+  };
+  document.addEventListener('keydown', onKey);
+  document.body.appendChild(overlay);
 }
 
 // ── OpenFDA Drug Lookup ──────────────────────────────────────
@@ -4609,140 +4675,9 @@ async function resolvePending(id, resolution) {
 // Refresh on page load — uses requestIdleCallback so it doesn't compete
 // with first paint of the medication list.
 (function () {
-  const run = () => { try { refreshPendingBanner(); refreshTabCounts(); } catch {} };
+  const run = () => { try { refreshPendingBanner(); } catch {} };
   if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(run);
   else setTimeout(run, 200);
-})();
-
-// ════════════════════════════════════════════════════════════════
-// v202604.147 — CROSS-CARD LENS COUNTS
-// ────────────────────────────────────────────────────────────────
-// When the user types in the lens or picks a patient, every tab
-// shows a count badge of how many records on THAT tab match the
-// current filters. Click a tab → switches + applies the same
-// filter (rendering already reads _medSearch + currentPatient).
-//
-// Counts are computed by re-running the same filter predicates that
-// each render function uses, against fresh GETs (small payloads).
-// We cache results in window._tabCountCache for 30 seconds to avoid
-// hammering the API on every keystroke. The cache is invalidated
-// whenever a record is created/updated/deleted (not yet wired —
-// will fall back on the 30s expiry).
-// ════════════════════════════════════════════════════════════════
-
-window._tabCountCache = { ts: 0, data: null };
-
-function _matchesPatient(row) {
-  if (!currentPatient) return true;
-  return (row.patient || '').toLowerCase() === currentPatient.toLowerCase();
-}
-
-function _filterMeds(rows) {
-  let out = rows.filter(_matchesPatient);
-  if (_medSearch) {
-    out = out.filter(r =>
-      ['name','patient','dosage','frequency','purpose','notes','generic_of','brand_name'].some(k =>
-        (r[k]||'').toLowerCase().includes(_medSearch)));
-  }
-  return out;
-}
-function _filterConds(rows) {
-  let out = rows.filter(_matchesPatient);
-  if (_medSearch) {
-    out = out.filter(r =>
-      ['condition_name','patient','notes','body_system','goal'].some(k =>
-        (r[k]||'').toLowerCase().includes(_medSearch)));
-  }
-  return out;
-}
-function _filterVisits(rows) {
-  let out = rows.filter(_matchesPatient);
-  if (_medSearch) {
-    out = out.filter(r =>
-      ['patient','questions','doctors_response','notes','visit_location','visit_type','reason'].some(k =>
-        (r[k]||'').toLowerCase().includes(_medSearch)));
-  }
-  return out;
-}
-function _filterEob(rows) {
-  // EOB rows aggregate patients into a comma-joined string; check that field.
-  let out = rows;
-  if (currentPatient) {
-    out = out.filter(s => (s.patients || '').toLowerCase().includes(currentPatient.toLowerCase()));
-  }
-  if (_medSearch) {
-    out = out.filter(s =>
-      ['member_id','member_name','insurer','plan_name','group_name','patients'].some(k =>
-        (s[k]||'').toLowerCase().includes(_medSearch)));
-  }
-  return out;
-}
-
-async function _loadTabCountData(force) {
-  const now = Date.now();
-  if (!force && window._tabCountCache.data && (now - window._tabCountCache.ts) < 30000) {
-    return window._tabCountCache.data;
-  }
-  try {
-    const [meds, conds, visits, eob] = await Promise.all([
-      api('GET', '/medical/medications').catch(() => []),
-      api('GET', '/medical/conditions').catch(() => []),
-      api('GET', '/medical/notes').catch(() => []),
-      api('GET', '/medical/eob').catch(() => []),
-    ]);
-    window._tabCountCache = { ts: now, data: { meds, conds, visits, eob } };
-    return window._tabCountCache.data;
-  } catch {
-    return null;
-  }
-}
-
-async function refreshTabCounts() {
-  // No counts to show when the user hasn't filtered anything (clean default).
-  // Show counts whenever search OR patient filter is active.
-  const filterActive = !!_medSearch || !!currentPatient;
-  const tabIds = ['medications','conditions','notes','eob'];
-
-  if (!filterActive) {
-    for (const id of tabIds) {
-      const el = document.getElementById('tabCount-' + id);
-      if (el) el.style.display = 'none';
-    }
-    return;
-  }
-
-  const data = await _loadTabCountData();
-  if (!data) return;
-
-  const counts = {
-    medications: _filterMeds(data.meds).length,
-    conditions:  _filterConds(data.conds).length,
-    notes:       _filterVisits(data.visits).length,
-    eob:         _filterEob(data.eob).length,
-  };
-
-  for (const id of tabIds) {
-    const el = document.getElementById('tabCount-' + id);
-    if (!el) continue;
-    el.style.display = 'inline-block';
-    el.textContent = String(counts[id]);
-    el.classList.toggle('is-zero', counts[id] === 0);
-  }
-}
-
-// Invalidate the cache after any save/delete so counts refresh.
-// Cheap hook: monkey-patch the global api() to invalidate on writes.
-(function () {
-  if (!window.api || window._apiCacheBustInstalled) return;
-  const orig = window.api;
-  window.api = async function (method, ...rest) {
-    const r = await orig(method, ...rest);
-    if (method && /^(POST|PUT|DELETE)$/i.test(method)) {
-      window._tabCountCache = { ts: 0, data: null };
-    }
-    return r;
-  };
-  window._apiCacheBustInstalled = true;
 })();
 
 // ════════════════════════════════════════════════════════════════
@@ -4876,6 +4811,174 @@ async function openFamilyQuickView(familyMemberId) {
   overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
 }
+
+// ════════════════════════════════════════════════════════════════
+// v202604.148 — CROSS-CARD "All" RENDERER + DEVICE FAMILY SCOPE
+// ────────────────────────────────────────────────────────────────
+// renderAllMedical: fetches meds + conditions + visits + EOBs in
+// parallel, applies the lens filters that make sense across all four
+// (person, time, name, tag), and renders one mixed grid grouped by
+// domain. Visits go first because they're most time-sensitive.
+//
+// Device family scope: nav.js owns the scope pill + picker. The
+// medical page just listens for `gh-scope-changed` and applies the
+// scope as the lens person filter. On boot, if a scope is already set
+// and no person filter is active, we apply it once.
+// ════════════════════════════════════════════════════════════════
+
+async function renderAllMedical() {
+  const area = $id('listArea');
+  if (!area) return;
+  area.innerHTML = '<div class="spinner"><div class="spin"></div> Loading…</div>';
+  try {
+    const ps = currentPatient ? `?patient=${encodeURIComponent(currentPatient)}` : '';
+    const [medsR, condsR, visitsR, eobsR] = await Promise.all([
+      api('GET', '/medical/medications' + ps).catch(() => []),
+      api('GET', '/medical/conditions' + ps).catch(() => []),
+      api('GET', '/medical/notes' + ps).catch(() => []),
+      api('GET', '/medical/eob').catch(() => []),
+    ]);
+    let meds = Array.isArray(medsR) ? medsR : [];
+    let conds = Array.isArray(condsR) ? condsR : [];
+    let visits = Array.isArray(visitsR) ? visitsR : [];
+    let eobs = Array.isArray(eobsR) ? eobsR : [];
+
+    const f = window._medFilters || {};
+
+    // Person filter — applies to meds/conds/visits via family_member_id.
+    // EOB statements don't have family_member_id at the statement level;
+    // we filter by patients aggregate string when present.
+    if (f.person != null) {
+      meds   = meds.filter(x => String(x.family_member_id) === String(f.person));
+      conds  = conds.filter(x => String(x.family_member_id) === String(f.person));
+      visits = visits.filter(x => String(x.family_member_id) === String(f.person));
+      const member = (familyMembers || []).find(m => String(m.id) === String(f.person));
+      if (member && member.display_name) {
+        const needle = member.display_name.toLowerCase();
+        eobs = eobs.filter(x => (x.patients || x.member_name || '').toLowerCase().includes(needle));
+      }
+    }
+
+    // Tag filter — meds/conds/visits have tags arrays; EOBs don't.
+    if (f.tag) {
+      meds   = meds.filter(x => (x.tags || []).includes(f.tag));
+      conds  = conds.filter(x => (x.tags || []).includes(f.tag));
+      visits = visits.filter(x => (x.tags || []).includes(f.tag));
+    }
+
+    // Name filter — substring match against the most identifying field
+    // for each domain. EOBs use insurer + member_name + patients.
+    if (f.name) {
+      const q = String(f.name).toLowerCase();
+      meds   = meds.filter(x => (x.name || '').toLowerCase().includes(q));
+      conds  = conds.filter(x => (x.condition_name || x.name || '').toLowerCase().includes(q));
+      visits = visits.filter(x => {
+        const blob = [x.provider, x.notes, x.reason, x.visit_type].filter(Boolean).join(' ').toLowerCase();
+        return blob.includes(q);
+      });
+      eobs = eobs.filter(x => {
+        const blob = [x.insurer, x.member_name, x.patients].filter(Boolean).join(' ').toLowerCase();
+        return blob.includes(q);
+      });
+    }
+
+    // Time filter — each domain has a different date column. Use the
+    // shared timeMatch helper from lens-config with each domain's date.
+    if (f.time && window.LENS_CONFIG?.timeMatch) {
+      const tm = window.LENS_CONFIG.timeMatch;
+      meds   = meds.filter(x => tm(x.start_date, f.time, 'past'));
+      conds  = conds.filter(x => tm(x.start_date || x.diagnosed_date, f.time, 'past'));
+      visits = visits.filter(x => tm(x.visit_date, f.time, 'past'));
+      eobs   = eobs.filter(x => tm(x.statement_date, f.time, 'past'));
+    }
+
+    const total = meds.length + conds.length + visits.length + eobs.length;
+    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
+      GH_LENS.setCount(total);
+    }
+
+    if (total === 0) {
+      area.innerHTML = `
+        <div style="text-align:center;padding:60px 20px;color:var(--text3)">
+          <div style="font-size:36px;margin-bottom:10px">🔍</div>
+          <h3 style="color:var(--text2);margin:0 0 6px">No medical records match</h3>
+          <p style="font-size:13px;margin:0">Try clearing filters or narrowing the lens.</p>
+        </div>`;
+      return;
+    }
+
+    const sectionLabel = (label, n) =>
+      `<div class="section-label" style="display:flex;align-items:center;gap:8px;margin-top:20px">
+        <span>${esc(label)}</span>
+        <span style="color:var(--text3);font-weight:400">${n}</span>
+      </div>`;
+
+    let html = '';
+    if (visits.length) {
+      html += sectionLabel('Visits', visits.length);
+      html += `<div class="medv5-grid">${visits.map(x => renderVisitCard(x)).join('')}</div>`;
+    }
+    if (meds.length) {
+      html += sectionLabel('Medications', meds.length);
+      html += `<div class="medv5-grid">${meds.map(x => renderMedCard(x)).join('')}</div>`;
+    }
+    if (conds.length) {
+      html += sectionLabel('Conditions', conds.length);
+      html += `<div class="medv5-grid">${conds.map(x => renderConditionCard(x)).join('')}</div>`;
+    }
+    if (eobs.length) {
+      html += sectionLabel('EOBs', eobs.length);
+      html += `<div class="medv5-grid">${eobs.map(x => renderEobCard(x)).join('')}</div>`;
+    }
+
+    area.innerHTML = html;
+
+    if (meds.length && window.checkInteractionsForAll) {
+      window.checkInteractionsForAll(meds);
+    }
+  } catch (err) {
+    area.innerHTML = (typeof errorState === 'function')
+      ? errorState(err.message || String(err), '')
+      : `<div style="color:var(--red);padding:20px">${esc(err.message || String(err))}</div>`;
+  }
+}
+
+// ── Device family scope wiring (v202604.148) ─────────────────────
+// nav.js exposes window.GH_NAV.getScope() / setScope() / openScopePicker()
+// and dispatches 'gh-scope-changed' when the user picks. The medical
+// page maps scope → lens person filter so all four card renderers
+// (meds, conds, visits, EOBs, and the new All view) honor it without
+// duplicating UI here. The scope pill in the page header (rendered by
+// nav.js) remains the single source of truth.
+(function _wireMedicalScope() {
+  function applyScope(scope) {
+    window._medFilters = window._medFilters || {};
+    if (scope && scope.id != null) {
+      window._medFilters.person = scope.id;
+    } else {
+      delete window._medFilters.person;
+    }
+    if (typeof renderCurrentView === 'function') renderCurrentView();
+  }
+  window.addEventListener('gh-scope-changed', (e) => applyScope(e?.detail || null));
+  // On boot: if scope is already set and no person filter is active, apply it.
+  // Defer so _medBoot finishes mounting the lens first.
+  function bootApply() {
+    const scope = window.GH_NAV?.getScope?.();
+    if (!scope || scope.id == null) return;
+    if (window._medFilters && window._medFilters.person != null) return;
+    window._medFilters = window._medFilters || {};
+    window._medFilters.person = scope.id;
+    if (typeof renderCurrentView === 'function') {
+      try { renderCurrentView(); } catch (e) {}
+    }
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    setTimeout(bootApply, 500);
+  } else {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(bootApply, 500));
+  }
+})();
 </script>
 </body>
 </html>

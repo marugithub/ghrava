@@ -10,202 +10,150 @@
 
 ## Current version
 
-**v202604.147** — packaged and shipped to live. Multiple sub-drops within .147:
+**v202604.148** — packaged. Bundled drop covering 3 of 4 IN-FLIGHT items:
+EOB drill-down modal (#3), auto-todo for upcoming visits (#5), cross-card
+lens (#1), and family-scope wiring (#2). Item #4 (dedicated /family.html
+and /contacts.html pages) remains blocked — those pages don't exist yet.
 
 | Sub-drop | Contents |
 |---|---|
 | .147a (schema) | Migration 124, dedup helper, routes dedup gate, reactivate endpoint, pending-review CRUD, condition metrics CRUD, watcher dedup wiring, lens extension, lt-core error.body |
 | .147b (forms + cards) | Visit form regrouped, Condition form regrouped + inline metric panel, fill INSERT column-aware, GET /medications enriches `last_dose_change_at`, GET /conditions prefers new metrics table, PUT /conditions recomputes hash, EOB import surfaces queued/identical_file, click-through modals (family quick-view, contact quick-view) |
 | .147c (real-data renderers) | renderConditionCard / renderVisitCard / renderEobCard using the .cardv5__* chrome, replaced static preview block, tabs render real data |
-
-Earlier .145 and .146 are folded into .147 deploys.
+| **.148 (this drop)** | EOB drill-down modal, med_visit_upcoming auto-todo rule, "All" cross-card tab + renderer, medical_all lens module, device family scope wiring on medical page |
 
 ---
 
-## ✅ SHIPPED THIS CONVERSATION
+## ✋ DON'T TRUST WITHOUT RETEST (v202604.148)
 
-### Schema (migrations 122 → 124)
+**Critical: this list survives across chats.** Anything below has been
+*touched* this drop but NOT confirmed working by Al. The next Claude
+chat MUST treat these as suspect until Al explicitly says "tested,
+works." Clear an entry only on Al's confirmation, never on assumption.
 
-```
-122_med_generic_of.js              additive: med_medications.generic_of
-123_med_fill_enrichment.js         additive: qty_unit, doses_per_day on
-                                   med_medications; quantity, prescriber_contact_id,
-                                   brand_dispensed, you_paid_oop, insurance_covered,
-                                   rx_number, refill_seq on med_medication_fills
-124_card_schema_expansion.js       additive: visit fields (start_time, duration_min,
-                                   visit_location, visit_type, physician_contact_id,
-                                   bp_systolic, bp_diastolic, weight_lb, temperature_f,
-                                   heart_rate_bpm, visit_cost_oop, reason);
-                                   dedup_hash on med/cond/visit/eob_statement/eob_claim;
-                                   file_hash + auto_imported on eob_statement;
-                                   NEW tables: med_medication_dose_changes,
-                                   med_condition_metrics (UNIQUE on cond_id+metric+date),
-                                   med_pending_review;
-                                   indexes on every dedup_hash + file_hash
-```
+| File | Change | Risk |
+|---|---|---|
+| `app/public/medical_v2.html` | Replaced `_eobShowDetail` (was alert()) with Vellum-styled modal that fetches GET /medical/eob/:id and renders claims + services + balances | Medium — modal is new code; alert() was effectively dead so risk of regression is low, but the modal layout has not been seen with real data |
+| `app/public/medical_v2.html` | Two `#eob-{id}` hash links on EOB card replaced with `_eobShowDetail(${s.id})` calls | Low — direct swap |
+| `app/public/medical_v2.html` | New "All" tab in segmented v2-tabs row (between EOB and Summary), with switchView('all_medical', ...) handler | Low — additive tab |
+| `app/public/medical_v2.html` | switchView() now hides patientStrip on 'all_medical' too, and calls window.initMedLensForView(view) before renderCurrentView | Low — additive guards, initMedLensForView is null-checked |
+| `app/public/medical_v2.html` | initMedLens() inside _medBoot now also resolves moduleId for 'all_medical' (medical_all) and 'eob' (medical_eob), and is exposed as window.initMedLensForView | Low — pure addition |
+| `app/public/medical_v2.html` | New `renderAllMedical()` function — fetches meds + conditions + visits + EOBs in parallel, applies person/tag/name/time filters, renders sections | Medium — new render path; EOB person filter falls back to substring match on `patients` field since EOBs lack family_member_id |
+| `app/public/medical_v2.html` | New `_wireMedicalScope` IIFE — listens for 'gh-scope-changed' and applies scope.id as window._medFilters.person, plus boot-time apply if scope already set | Medium — race condition possible if user has scope set AND has manually narrowed lens before bootApply fires (250ms defer). Defensive: bootApply skips if person already set. |
+| `app/public/js/lens-config.js` | Added `medical_all` module with person/name/time/tag dimensions | Low — additive |
+| `app/shared/autoTodos.js` | Added rule 7b `med_visit_upcoming` — creates auto-todo for any med_visit_notes row with visit_date > today, due_date = visit_date, priority=medium, category=Medical | Medium — joins to contacts table for provider name; if contacts row missing, falls back to "Visit for {patient}". Resolves automatically when visit_date passes (or row is deleted). |
+| `app/version.txt` | Bumped to 202604.148 | — |
 
-All migrations: additive only, idempotent, no CASCADE, no destructive ops.
-Simulated against live-shape schema before shipping.
+**Untouched but still listed in earlier "✓ SHIPPED" sections — assume
+those are stable from prior testing.** Do not re-clear them in this list.
 
-### Routes (`app/features/medical/routes.js` ~78 KB)
+---
 
-- POST /medications — dedup gate, returns 409 with `_dedup` signal on
-  reactivate_match / dose_change; persists hash on insert
-- PUT /medications/:id — logs dose change before update if dosage changed,
-  recomputes hash
-- POST /conditions — dedup gate (silent skip identical), persists hash
-- PUT /conditions/:id — recomputes hash
-- POST /notes — dedup gate, accepts all visit fields
-- PUT /notes/:id — accepts all visit fields, recomputes hash
-- POST /eob/import — file_hash gate, then record-level gate, returns
-  imported/skipped/queued counts; persists file_hash + dedup_hash + auto_imported
-- POST /medications/:id/reactivate — handles reactivate prompt resolution
-- POST /medications/:id/fills — column-aware INSERT, auto-decrements
-  refills_remaining, optionally updates rx_number on Rx renewal
-- GET/POST/DELETE /conditions/:id/metrics — UPSERT on (cond_id, metric, date)
-- GET /pending-review, POST /pending-review/:id/resolve, GET /pending-review-count
-- GET /medications/:id/dose-changes
-- POST /dedup/backfill — one-shot to populate dedup_hash on existing rows
-- GET /medications enriches: last_filled, last_fill_cost, last_fill_quantity,
-  last_fill_days_supply, hsa_ytd, last_dose_change_at, conditions[]
-- GET /conditions enriches: latest_metric, metric_series (12 points),
-  active_meds_count, related_visits_count, hsa_ytd, medications[]
+## ✅ SHIPPED THIS DROP (v202604.148)
 
-### Dedup (`app/features/medical/dedup.js`)
+### Item #3 — EOB drill-down modal (real data)
 
-- Natural-key SHA-256 hashes (16-char hex):
-  - **Med:** family_member_id|name|dosage
-  - **Condition:** family_member_id|condition_name
-  - **Visit:** family_member_id|provider|date|start_time|visit_type
-  - **EOB stmt:** insurer|member_id|statement_date
-  - **EOB claim:** patient|claim_id|send_date
-- File hash: full SHA-256 of buffer
-- `queueReview(db, item)` auto-creates a Todo when source !== 'manual'
-- Outcomes: identical (silent skip) / strong_match (queue) / weak_match
-  (insert + auto_imported flag) / new
+`_eobShowDetail(id)` in medical_v2.html now opens a centered Vellum
+modal with three sections:
+- Header: hero $youShare with "paid" or "you owe" badge, statement_date,
+  patient names (from claims aggregate), insurer + member_id + plan name
+- Body: per-claim cards with patient/provider, claim_id, plan_paid +
+  your_share + fund_paid (right-aligned mono), and per-service rows
+  underneath showing description + date + billed amount
+- Footer: balances rows (or deductible_used / healthfund_remaining
+  legacy fallback) + claim count + total billed/covered + Close button
 
-### Watcher (`app/shared/folder-watcher.js`)
+Both card click-targets (whole-card + ⋯ icon) call _eobShowDetail
+directly instead of the dead `#eob-{id}` hash navigation. Esc key closes;
+backdrop click closes; explicit Close button.
 
-- `importEob` actually persists now (was a stub that just counted)
-- File-hash silent skip
-- Record-level dedup → queues to pending_review with auto-todo
-- Marks rows `auto_imported=1` when source='watcher'
+### Item #5 — Auto-todo for upcoming visits
 
-### Frontend (`app/public/medical_v2.html` ~211 KB)
+New rule in `shared/autoTodos.js` (slot 7b, between med_discontinued and
+vehicle_service_due). Fires on every GET /api/v1/todos call:
 
-**Cards (Vellum design system):**
-- `.cardv5__*` chrome shared by all 4 card types
-- `renderMedCard` — name as hero
-- `renderConditionCard` — number as hero (BP/A1C/etc.) with sparkline; falls
-  back to name as hero when no metric tracked
-- `renderVisitCard` — date as hero with relative-day suffix (in 4d / 11d ago)
-- `renderEobCard` — money as hero (you-share), red/green by settled status
+- Selects med_visit_notes rows with visit_date > today
+- For each: upserts a todo with title "{visit_type} — {provider_name}"
+  (or "{visit_type} for {patient}" if no provider), due_date = visit_date,
+  priority=medium, category=Medical, auto_type=med_visit_upcoming,
+  auto_source_type=med_visit, auto_source_id=visit_id
+- Auto-resolves todos for visits whose date has passed or were deleted
+- Fully idempotent (existing upsert/resolve helper pattern)
 
-**Forms:**
-- Visit drawer — 4 grouped panels: When/where (with split date+time, duration
-  quick-picks), Vitals (collapsible), Notes, Follow-up
-- Condition drawer — 5 grouped panels: Identity, Goal & metric, Status,
-  Notes, Recent readings (only on edit, with inline add)
-- Medication form — generic_of field added; reactivate-prompt-aware save
-  (handles 409 _dedup signals)
+### Item #1 — Cross-card "All" lens
 
-**Banner:**
-- `#ghPendingBanner` — visible when /pending-review-count > 0
-- Click opens modal with Merge/Insert/Discard buttons per item
-- Refreshes on page load via requestIdleCallback, after every EOB import
+New "All" tab in the segmented v2-tabs row (positioned between EOB and
+Summary). Selecting it:
 
-**Click-throughs:**
-- Patient avatar → `openFamilyQuickView(family_member_id)` — modal with
-  cross-domain summary (meds/conditions/visits counts)
-- Doctor avatar → `openContactQuickView(contact_id)` — phone/email/website/
-  address modal, with "Open website ↗" button when website is set
-- Pharmacy avatar → `openContactQuickView(contact_id)` — same modal,
-  pharmacy URL surfaces as primary action
+- Switches `currentView` to 'all_medical'
+- Re-inits the lens with moduleId 'medical_all' (new lens module
+  exposing person + name + time + tag dimensions)
+- Calls `renderAllMedical()`, which fetches meds + conditions + visits +
+  EOBs in parallel, applies the lens filters across all four, and
+  renders sections (Visits → Meds → Conditions → EOBs) using the
+  existing renderMedCard/renderConditionCard/renderVisitCard/renderEobCard
+- Total record count flows into the lens's setCount() like the per-tab
+  views do
 
-**Layout:**
-- 2-column locked grid (`repeat(2, minmax(0, 1fr))`)
-- Mobile (<700px): single column
-- `overflow-x: hidden` + `min-width: 0` on body to guarantee no horizontal scroll
-- Card grid centered with max-width 1320px
+EOB person filtering uses substring match on the aggregated `patients`
+field since EOBs lack family_member_id at the statement level. This is
+documented in code; if/when EOBs gain family_member_id, the renderer
+should switch to direct ID match.
 
-**Lens (`app/public/js/lens-config.js`):**
-- Extended dimensions for medical_medications (refill, controlled, generic),
-  medical_conditions (system, state), medical_notes (visit_type, when, location)
-- New domain: medical_eob (claim#, status, amount range)
+### Item #2 — Device family scope wiring on medical page
 
-**lt-core.js:**
-- Errors thrown by `api()` now carry `.status` and `.body` so callers can
-  branch on `_dedup` signals (backward compatible)
+nav.js already owns the scope pill, picker modal, and localStorage
+key (`gh_device_family_scope`). The medical page now:
+
+- Listens for `gh-scope-changed` events and maps scope.id →
+  `window._medFilters.person`, then calls renderCurrentView()
+- On boot, if a scope is already set AND no person filter is yet
+  active, applies the scope as a default person filter (deferred 500ms
+  so _medBoot's lens mount has time to settle)
+- Clearing the scope (setScope(null)) deletes the person filter and
+  re-renders
+
+No new UI was added on the medical page — the scope pill in the
+nav.js-rendered page header remains the single source of truth.
 
 ---
 
 ## ⏳ IN FLIGHT — NEXT DROP
 
-Locked decisions, just need to be built. Priority order:
+### 1. Card click-throughs to dedicated pages (was item #4 in v.147)
 
-### 1. Cross-card lens (highest user value)
-Currently the lens is per-tab. Typing "Sarah" on the Meds tab doesn't show
-her conditions, visits, or EOBs. Build a unified search mode that, when the
-lens narrows by family member or by date range, shows results from all 4
-domains stacked.
+Still blocked: `/family.html` and `/contacts.html` don't exist yet.
+Avatar click-through currently opens openFamilyQuickView /
+openContactQuickView modals — fine for now. Swap to navigation when
+those pages land.
 
-**Approach:**
-- Lens currently keyed to a single domain (e.g. `medical_medications`)
-- Add a "cross-card" mode that runs the same filters across med + cond +
-  visit + eob endpoints in parallel and renders mixed-card grid
-- Sort by relevance score: same-day visit first, then meds, then conditions,
-  then EOBs
-- Toggle between "All medical" and per-tab views
+### 2. Receipt vault polish (carryover from v140 loose ends)
 
-**No schema changes required.** Pure frontend + lens-config extension.
+- EOB folder-drop persistence: importEob counts but doesn't save when
+  uploaded via the watcher folder. Verify after .148 ships.
+- LP-FSA plan info Settings UI (only API exists)
+- Mileage UI on medical visit form (`round_trip_miles` field not
+  exposed in frontend)
+- attach-lifecycle adoption for documents/insurance/subscriptions
 
-### 2. Family scope picker
-Right now `currentPatient` is set globally. The agreed model: per-device
-family scope stored in localStorage, with a first-time prompt "who is this?"
-The nav already has scaffolding for this in the userMemories notes.
+### 3. Backlog items
 
-**Approach:**
-- localStorage key: `gh_device_family_scope` (already exists in nav.js per
-  earlier handoff)
-- Surface a small avatar in the medical page header showing current scope
-- Click → modal with "switch family member" picker
-- All renderX() calls pass `?family_member_id=N` when scope is set
-
-### 3. Real-data EOB drill-down
-EOB card currently navigates to `#eob-{id}` hash which doesn't go anywhere.
-Build a real detail modal showing claims, services, balances using the
-existing GET /eob/:id endpoint (which already returns the nested structure).
-
-### 4. Card click-throughs to dedicated pages (when they exist)
-- `/family.html` — doesn't exist yet, click-through goes to quick-view modal
-  for now. When the page lands, swap the modal for navigation.
-- `/contacts.html` — same situation.
-
-### 5. Auto-create todo for upcoming visits
-When a visit is saved with `visit_date > today`, also create a calendar event
-or todo. Confirmed in earlier session as desired but never wired.
-
----
-
-## 📋 BACKLOG — beyond medical
-
-Per the userMemories module list (15+ modules). After medical settles:
+Per userMemories (15+ modules). After medical settles:
 
 **High priority:**
-- Per-device family filter — first-time prompt, localStorage only
 - Photo-first wardrobe — drag/drop creates draft, fill rest later
-- Today page (LOCKED design): Now (red, due today/overdue) + Soon (amber,
-  next 7 days). Endpoint /api/v1/today aggregates subscriptions/documents/
-  insurance/todos. New `today_snoozes` table.
+- Today page (LOCKED design): Now (red) + Soon (amber). Endpoint
+  /api/v1/today aggregates subscriptions/documents/insurance/todos.
+  New `today_snoozes` table.
 
 **Medium:**
 - Drafts/status pages (`/_drafts.html` exists, build `/_drafts/status.html`)
-- Reports module rollups (cross-medication spend, monthly Rx, pharmacy
-  distribution, missed-refill streaks)
+- Reports module rollups (cross-medication spend, monthly Rx,
+  pharmacy distribution, missed-refill streaks)
 - Amazon orders → inventory via Gmail (regex parser, no AI cost)
 
-**Low:**
-- Calendar sync, browser extension, email receipt parsing (REJECTED earlier)
+**Low:** Calendar sync, browser extension. (Email receipt parsing was
+REJECTED earlier — duplicates bank data.)
 
 ---
 
@@ -260,8 +208,9 @@ These are not up for re-litigation. Reference, don't re-debate:
 
 - Zip naming: **always `Ghrava_DEPLOY.zip`** (no version suffix)
 - Always presented via `present_files` tool
-- Drop into `~/Downloads`, run `Deploy-Patch.ps1` on Windows machine that
-  maps NAS as Z:\ghrava
+- Drop into `~/Downloads`, run `ghrava_deploy.ps1` on Windows machine
+  (auto-finds zip in Downloads, robocopies to `Z:\ghrava`, deletes zip,
+  prints docker restart command)
 - `docker restart ghrava` for code changes
 - `--build` ONLY when package.json changes
 - **NEVER package after a single fix.** Bundle multiple changes per drop.
@@ -271,19 +220,18 @@ These are not up for re-litigation. Reference, don't re-debate:
 
 ## 📝 RUNNING LIST OF SMALL THINGS NOT YET FIXED
 
-These came up during the build but were deferred:
-
+Carried over from v.147:
 - Card eyebrow's "↻ Dose updated" pill is wired but cosmetically untested
-  (need a real dose-change row to verify rendering)
-- `last_fill_quantity` is enriched but the meter renderer assumes it. Old
-  fills without quantity render `—` correctly, but should show a hint
-  ("log a fill with quantity to see remaining doses")
-- EOB tab still uses the upload-driven UI mostly intact; the new `renderEobCard`
-  only renders the history list. Preview during upload uses the old shape.
-- The `_eobShowDetail` modal is the old plain-HTML version, not the Vellum
-  card style. Listed as "next drop #3" above.
-- Per-device family scope isn't surfaced visually yet (handled by nav.js).
-  Medical page should show current scope as a small avatar near the header.
+- `last_fill_quantity` enriched but meter shows `—` for old fills without
+  quantity — should show a hint ("log a fill with quantity to see…")
+- EOB tab still uses old upload-driven preview shape on initial parse —
+  the renderEobCard path runs only on history list. (Detail modal in
+  v.148 covers the post-import drill-down, but pre-import preview is
+  unchanged.)
+- Per-device family scope is now wired on the medical page (v.148) but
+  NOT yet on insurance / documents / subscriptions / kids etc. Apply
+  the same pattern (`gh-scope-changed` listener + bootApply) when those
+  modules need it.
 
 ---
 
@@ -291,32 +239,31 @@ These came up during the build but were deferred:
 
 ```
 app/
-├── version.txt                                  current version string
+├── version.txt                                  202604.148
 ├── db/
 │   ├── db.js                                    (not in deploy; live)
-│   └── migrations/
-│       ├── 122_med_generic_of.js                .145
-│       ├── 123_med_fill_enrichment.js           .146
-│       └── 124_card_schema_expansion.js         .147
+│   └── migrations/                              (none new in .148)
 ├── features/
 │   └── medical/
-│       ├── routes.js                            ALL medical CRUD + dedup gate
-│       ├── dedup.js                             natural-key hashes, queueReview
+│       ├── routes.js                            (not modified in .148)
+│       ├── dedup.js                             (not modified in .148)
 │       └── eob-parser.js                        (not modified)
 ├── shared/
-│   └── folder-watcher.js                        importEob now persists
+│   ├── autoTodos.js                             .148 adds rule 7b (med_visit_upcoming)
+│   └── folder-watcher.js                        (not modified in .148)
 └── public/
-    ├── medical_v2.html                          card chrome, renderers, forms,
-    │                                             banner, quick-view modals
+    ├── medical_v2.html                          .148: EOB modal, All tab,
+    │                                             renderAllMedical, scope wiring
     └── js/
-        ├── lt-core.js                           api() error has .body and .status
-        └── lens-config.js                       extended medical lens
+        ├── lt-core.js                           (not modified in .148)
+        └── lens-config.js                       .148 adds medical_all module
 ```
 
 NOT in this zip but related (unchanged):
 - `app/features/settings/routes.js` — owns /contacts/:id used by quick-view
-- `app/public/nav.js` — owns family scope localStorage
+- `app/public/nav.js` — owns family scope localStorage + pill + picker
 - `app/public/shared.css` — global styles
+- `app/features/todos/routes.js` — calls syncAutoTodos() on each GET
 - All other modules untouched
 
 ---
@@ -332,9 +279,9 @@ NOT in this zip but related (unchanged):
 - **"Make it similar to X"** = identical layout, not approximation.
 - Says "go" when locked. Says "continue" when ready for the next item in
   the queued backlog.
-- Catches mistakes well — e.g. spotted the "Self" grouping was useless,
-  the static preview page was a detour, the dose-change-without-hash-match
-  edge case I'd missed. Trust the corrections.
+- Catches mistakes well — trust the corrections.
+- **Tests at milestones, not per-feature.** This means: any change in the
+  "✋ DON'T TRUST WITHOUT RETEST" section is suspect until Al confirms.
 
 ---
 
@@ -342,13 +289,10 @@ NOT in this zip but related (unchanged):
 
 1. Read this file end-to-end.
 2. Look at `app/version.txt` for current version.
-3. Skim `app/features/medical/routes.js` end (everything past the
-   `v202604.147 — REACTIVATE / DEDUP RESOLUTION / METRICS / PENDING` banner).
-4. Skim the bottom of `app/public/medical_v2.html` (renderers,
-   quick-view modals, banner refresh logic).
-5. Pick from "IN FLIGHT — NEXT DROP" priority order.
-6. Confirm with Al before writing code: "I'm picking up #1 (cross-card lens).
-   Confirm scope, or do you want a different item?"
-7. Build, validate (5 gates), zip, present_files.
+3. Check the "✋ DON'T TRUST WITHOUT RETEST" section first — anything
+   listed there should be verified with Al before assuming it works.
+4. Pick from "IN FLIGHT — NEXT DROP" priority order.
+5. Confirm with Al before writing code.
+6. Build, validate (5 gates), zip, present_files.
 
 End of state.

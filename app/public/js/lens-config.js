@@ -255,6 +255,21 @@
       },
     },
 
+    // v202604.148 — cross-card "All" lens. Spans medications + conditions
+    // + visits + EOBs. Only common dimensions are exposed; per-domain
+    // niceties (form, refill, claim#) live on their dedicated tabs.
+    medical_all: {
+      label: 'All medical',
+      plural: 'records',
+      personPrimary: true,
+      dimensions: {
+        person: { verb: 'for', field: 'family_member_id' },
+        name:   { type: 'text', verb: 'matching', field: 'name' },
+        time:   { verb: 'within', field: 'date' },
+        tag:    { verb: 'tagged', field: 'tags' },
+      },
+    },
+
     todos: {
       label: 'Todos',
       plural: 'todos',

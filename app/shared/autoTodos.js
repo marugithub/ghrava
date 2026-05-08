@@ -19,6 +19,7 @@
  *  inv_missing_doc       — item purchase_price >= $200 with zero attachments
  *  follow_up_overdue     — daily_log entry with overdue follow_up_date
  *  med_discontinued      — medication Discontinued with no end_date
+ *  med_visit_upcoming    — visit_date > today, todo due on visit date (v202604.148)
  *  vehicle_service_due   — vehicle_service next_due_date within 30 days
  *  property_maint_due    — property_maintenance next_due_date within 30 days
  */
@@ -284,6 +285,53 @@ function syncAutoTodos() {
       );
     }
   } catch (e) { console.error('[todos] med_discontinued:', e.message); }
+
+  // ── 7b. Upcoming medical visits (v202604.148) ──────────────
+  // Visits with visit_date strictly in the future create a todo due on
+  // the visit date. Resolves automatically once the date passes (or the
+  // visit row is deleted). Modeled exactly on rule 7 / 8 / 9.
+  try {
+    const upcoming = db.prepare(`
+      SELECT v.id, v.visit_date, v.start_time, v.visit_type, v.reason,
+             v.patient, v.family_member_id, v.visit_location,
+             c.name AS provider_name
+      FROM med_visit_notes v
+      LEFT JOIN contacts c ON c.id = COALESCE(v.physician_contact_id, v.contact_id)
+      WHERE v.visit_date IS NOT NULL AND v.visit_date > ?
+    `).all(now);
+
+    const upcomingIds = new Set(upcoming.map(v => v.id));
+    const openVisitIds = db.prepare(
+      `SELECT auto_source_id FROM todos
+       WHERE is_auto=1 AND auto_type='med_visit_upcoming' AND auto_source_type='med_visit'
+         AND status IN ('open','in_progress')`
+    ).all().map(r => r.auto_source_id);
+    for (const sid of openVisitIds) {
+      if (!upcomingIds.has(sid)) resolve.run('med_visit_upcoming', 'med_visit', sid);
+    }
+
+    for (const v of upcoming) {
+      const who      = v.patient || 'Self';
+      const provider = v.provider_name || '';
+      const kind     = v.visit_type || v.reason || 'Visit';
+      const title    = provider
+        ? `${kind} — ${provider}`
+        : `${kind} for ${who}`;
+      const noteParts = [
+        `Upcoming ${kind.toLowerCase()} for ${who} on ${v.visit_date}${v.start_time ? ' at ' + v.start_time : ''}.`,
+        provider ? `Provider: ${provider}.` : '',
+        v.visit_location ? `Location: ${v.visit_location}.` : '',
+      ].filter(Boolean).join(' ');
+
+      upsert.run(
+        title,
+        noteParts,
+        v.visit_date, 'medium', 'Medical',
+        'med_visit_upcoming', 'med_visit', v.id,
+        'med_visit_upcoming', 'med_visit', v.id
+      );
+    }
+  } catch (e) { console.error('[todos] med_visit_upcoming:', e.message); }
 
   // ── 8. Vehicle service next_due_date within 30 days ─────────
   try {
