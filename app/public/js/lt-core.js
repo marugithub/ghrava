@@ -178,7 +178,13 @@ window.api = async function(method, path, body, _isRetry) {
     const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
     const msg = errBody.error || errBody.detail || `HTTP ${res.status}`;
     GH_LOG.error(`${method} ${path} → ${res.status} (${ms}ms)`, { msg });
-    throw new Error(msg);
+    // v202604.147 — attach body + status so callers can branch on dedup
+    // signals (e.g. _dedup='reactivate_match' from POST /medical/medications).
+    // Backward compatible: existing callers that just call .message still work.
+    const err = new Error(msg);
+    err.status = res.status;
+    err.body = errBody;
+    throw err;
   }
 
   GH_LOG.info(`${method} ${path} → ${res.status} (${ms}ms)`);

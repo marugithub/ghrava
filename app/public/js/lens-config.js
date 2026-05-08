@@ -188,6 +188,13 @@
           values: ['Active', 'Discontinued', 'As Needed', 'Completed'] },
         form:    { type: 'select', verb: 'in form', field: 'form',
           values: ['Tablet', 'Capsule', 'Liquid', 'Injection', 'Topical', 'Other'] },
+        // v202604.147 — refill state, controlled, generic flag
+        refill:  { type: 'select', verb: 'with refill', field: 'refill_state',
+          values: ['due', 'overdue', 'ok'] },
+        controlled: { type: 'select', verb: 'controlled', field: 'controlled_schedule',
+          values: ['CII', 'CIII', 'CIV', 'CV'] },
+        generic: { type: 'select', verb: 'is', field: 'is_generic',
+          values: ['generic', 'brand'] },
         time:    { verb: 'started', field: 'start_date' },
         tag:     { verb: 'tagged', field: 'tags' },
       },
@@ -202,6 +209,12 @@
         person: { verb: 'for', field: 'family_member_id' },
         status: { verb: 'that are', field: 'status',
           values: ['Active', 'Resolved', 'Monitoring', 'Chronic'] },
+        // v202604.147 — body system, control state
+        system: { type: 'select', verb: 'in system', field: 'body_system',
+          values: ['Cardiovascular','Endocrine','Respiratory','Musculoskeletal',
+                   'Neurological','Digestive','Renal','Mental health','Other'] },
+        state:  { type: 'select', verb: 'state', field: 'condition_state',
+          values: ['controlled','monitoring','out_of_range','acute'] },
         time:   { verb: 'diagnosed', field: 'start_date' },
         tag:    { verb: 'tagged', field: 'tags' },
       },
@@ -214,8 +227,31 @@
       dimensions: {
         person:   { verb: 'for', field: 'family_member_id' },
         provider: { type: 'text', verb: 'with', field: 'provider' },
+        // v202604.147 — visit type, upcoming/past, location
+        visit_type: { type: 'select', verb: 'type', field: 'visit_type',
+          values: ['annual', 'follow-up', 'lab', 'specialist', 'urgent', 'other'] },
+        when:     { type: 'select', verb: 'when', field: 'visit_when',
+          values: ['upcoming', 'past', 'today'] },
+        location: { type: 'text', verb: 'at', field: 'visit_location' },
         time:     { verb: 'on', field: 'visit_date' },
         tag:      { verb: 'tagged', field: 'tags' },
+      },
+    },
+
+    // v202604.147 — EOB lens (new)
+    medical_eob: {
+      label: 'EOBs',
+      plural: 'EOBs',
+      personPrimary: true,
+      dimensions: {
+        person:   { verb: 'for', field: 'family_member_id' },
+        provider: { type: 'text', verb: 'from', field: 'provider' },
+        claim:    { type: 'text', verb: 'claim#', field: 'claim_id' },
+        status:   { type: 'select', verb: 'status', field: 'eob_status',
+          values: ['paid', 'owed', 'processing', 'review'] },
+        amount:   { type: 'select', verb: 'amount', field: 'your_share',
+          values: ['> $100', '> $500', '< $50'] },
+        time:     { verb: 'dated', field: 'statement_date' },
       },
     },
 

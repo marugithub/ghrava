@@ -14,6 +14,7 @@ const { notFound, badRequest, serverError } = require('../../shared/errors');
 const { clearReview, flagRecord } = require('../../shared/needs-review');
 const { resolvePatient }                = require('../../shared/namematch');
 const { saveTagsByName, getTagNames, withTagNames, clearTags } = require('../../shared/tags');
+const dedup    = require('./dedup');
 
 function escCsv(v) {
   if (v == null) return '';
@@ -67,7 +68,6 @@ router.get('/medications', (req, res) => {
         ORDER BY c.condition_name COLLATE NOCASE
       `) : null;
       // v202604.146 — also pull quantity (migration 123) when present.
-      // Older DBs without the column still get fill_date / days_supply / cost.
       let fillStmt = null;
       let hasQty = false;
       if (hasFills) {
@@ -114,6 +114,76 @@ router.post('/medications', requireAuth, (req, res) => {
     // this route works on a DB that hasn't run migration 119 yet.
     const cols = db.prepare("PRAGMA table_info(med_medications)").all().map(r => r.name);
     const hasSliceCols = cols.includes('brand_name');
+    const hasDedup     = cols.includes('dedup_hash');
+
+    // ── v202604.147 — Dedup gate ───────────────────────────────
+    // Skip the gate when the caller explicitly opts out (used by the
+    // resolution endpoint when the user clicked "Insert as new" after
+    // seeing the prompt). All normal traffic goes through the gate.
+    if (hasDedup && !d._skip_dedup) {
+      const hash = dedup.medicationHash(d);
+      const existing = dedup.findByHash(db, 'med_medications', hash);
+      if (existing) {
+        const existingActive = ['Active','As Needed','Monitoring'].includes(existing.status);
+        const existingDiscont = ['Discontinued','Resolved','Completed'].includes(existing.status);
+        // Same dose + active → identical → silent skip (return existing)
+        if (existingActive && (existing.dosage || '') === (d.dosage || '')) {
+          return res.status(200).json({
+            ...existing,
+            _dedup: 'identical',
+            _message: 'A matching active medication already exists.'
+          });
+        }
+        // Discontinued match → reactivate prompt path. Return 409 with
+        // candidate so the client can show the dialog.
+        if (existingDiscont) {
+          return res.status(409).json({
+            _dedup: 'reactivate_match',
+            existing: existing,
+            proposed_dosage: d.dosage || existing.dosage,
+            message: `Found discontinued ${existing.name} for this person. Reactivate that record (preserves history)?`,
+          });
+        }
+      }
+
+      // Hash miss → look for an active row with the same patient + drug
+      // name but a different dose. That's the "Lipitor 10mg → 20mg"
+      // scenario where the user is adjusting dosage. Hash differs because
+      // it's keyed on dose. Surface as a dose_change prompt.
+      const whoCol = d.family_member_id != null ? 'family_member_id' : 'patient';
+      const whoVal = d.family_member_id != null ? d.family_member_id : (d.patient || 'Self');
+      const activeSameName = db.prepare(`
+        SELECT * FROM med_medications
+         WHERE ${whoCol} = ? AND name = ? COLLATE NOCASE
+           AND status IN ('Active','As Needed','Monitoring')
+      `).get(whoVal, d.name);
+      if (activeSameName && (activeSameName.dosage || '') !== (d.dosage || '')) {
+        return res.status(409).json({
+          _dedup: 'dose_change',
+          existing: activeSameName,
+          proposed_dosage: d.dosage,
+          message: `${activeSameName.name} already exists at ${activeSameName.dosage}. Update the dose to ${d.dosage} on the same record?`,
+        });
+      }
+
+      // Also catch: hash miss but a discontinued row exists at a *different*
+      // dose for the same drug (the user is reactivating a previous Rx
+      // even though they're prescribed a different dose now).
+      const discontSameName = db.prepare(`
+        SELECT * FROM med_medications
+         WHERE ${whoCol} = ? AND name = ? COLLATE NOCASE
+           AND status IN ('Discontinued','Resolved','Completed')
+         ORDER BY end_date DESC, id DESC LIMIT 1
+      `).get(whoVal, d.name);
+      if (discontSameName) {
+        return res.status(409).json({
+          _dedup: 'reactivate_match',
+          existing: discontSameName,
+          proposed_dosage: d.dosage || discontSameName.dosage,
+          message: `Found discontinued ${discontSameName.name} (last at ${discontSameName.dosage || 'no dose'}) for this person. Reactivate that record${(d.dosage && d.dosage !== discontSameName.dosage) ? ' and update to ' + d.dosage : ''}?`,
+        });
+      }
+    }
 
     let info;
     if (hasSliceCols) {
@@ -165,11 +235,16 @@ router.post('/medications', requireAuth, (req, res) => {
     if (d.tags) saveTagsByName(newId, 'medical_medication', d.tags);
 
     // v202604.145 — additive: persist generic_of when migration 122 has run.
-    // Done as a separate UPDATE so the main INSERT statement above is
-    // unchanged and continues to work on a DB without the column.
     if (cols.includes('generic_of') && d.generic_of !== undefined) {
       db.prepare('UPDATE med_medications SET generic_of=? WHERE id=?')
         .run(d.generic_of || null, newId);
+    }
+
+    // v202604.147 — store the natural-key hash for future dedup lookups.
+    if (hasDedup) {
+      const row = db.prepare('SELECT * FROM med_medications WHERE id=?').get(newId);
+      const h = dedup.medicationHash(row);
+      db.prepare('UPDATE med_medications SET dedup_hash=? WHERE id=?').run(h, newId);
     }
 
     res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_medications WHERE id=?').get(newId), 'medical_medication'));
@@ -181,6 +256,21 @@ router.put('/medications/:id', requireAuth, (req, res) => {
     const d = req.body;
     const cols = db.prepare("PRAGMA table_info(med_medications)").all().map(r => r.name);
     const hasSliceCols = cols.includes('brand_name');
+    const hasDedup     = cols.includes('dedup_hash');
+
+    // v202604.147 — log dose change before mutation if dosage is changing.
+    // Driven by the dose_changes table (migration 124). Source flag lets
+    // us distinguish manual edits from parser-merge resolutions later.
+    const beforeRow = db.prepare('SELECT dosage FROM med_medications WHERE id=?').get(req.params.id);
+    if (beforeRow && d.dosage !== undefined && (beforeRow.dosage || '') !== (d.dosage || '')) {
+      const hasDoseTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_medication_dose_changes'").get();
+      if (hasDoseTable) {
+        db.prepare(`
+          INSERT INTO med_medication_dose_changes (medication_id, old_dosage, new_dosage, changed_by)
+          VALUES (?,?,?,?)
+        `).run(req.params.id, beforeRow.dosage || null, d.dosage || null, d._change_source || 'manual');
+      }
+    }
 
     if (hasSliceCols) {
       db.prepare(`
@@ -230,10 +320,18 @@ router.put('/medications/:id', requireAuth, (req, res) => {
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'medical_medication', d.tags);
 
     // v202604.145 — additive: persist generic_of when migration 122 has run.
-    // Separate UPDATE keeps the main statement above unchanged.
     if (cols.includes('generic_of') && d.generic_of !== undefined) {
       db.prepare('UPDATE med_medications SET generic_of=? WHERE id=?')
         .run(d.generic_of || null, req.params.id);
+    }
+
+    // v202604.147 — recompute dedup_hash since dosage / patient / name may have changed.
+    if (hasDedup) {
+      const row = db.prepare('SELECT * FROM med_medications WHERE id=?').get(req.params.id);
+      if (row) {
+        const h = dedup.medicationHash(row);
+        db.prepare('UPDATE med_medications SET dedup_hash=? WHERE id=?').run(h, req.params.id);
+      }
     }
 
     clearReview('med_medications', req.params.id);
@@ -529,7 +627,23 @@ router.post('/conditions', requireAuth, (req, res) => {
     if (!d.condition_name) return badRequest(res, 'condition_name required');
     const condCols = db.prepare("PRAGMA table_info(med_conditions)").all().map(r => r.name);
     const hasSlice2 = condCols.includes('body_system');
+    const hasDedup  = condCols.includes('dedup_hash');
 
+    // v202604.147 — dedup gate. Conditions are one-per-person-per-name,
+    // so a hash collision is always identical → silent skip (return existing).
+    if (hasDedup && !d._skip_dedup) {
+      const hash = dedup.conditionHash(d);
+      const existing = dedup.findByHash(db, 'med_conditions', hash);
+      if (existing) {
+        return res.status(200).json({
+          ...existing,
+          _dedup: 'identical',
+          _message: 'A matching condition already exists for this person.'
+        });
+      }
+    }
+
+    let newId;
     if (hasSlice2) {
       const info = db.prepare(`
         INSERT INTO med_conditions
@@ -542,7 +656,7 @@ router.post('/conditions', requireAuth, (req, res) => {
              d.treatment_notes||null, d.status||'Active', d.notes||null,
              d.family_member_id||null,
              d.body_system||null, d.goal||null, d.tracked_metric||null, d.condition_state||null);
-      res.status(201).json({ id: info.lastInsertRowid });
+      newId = info.lastInsertRowid;
     } else {
       const info = db.prepare(`
         INSERT INTO med_conditions
@@ -553,8 +667,16 @@ router.post('/conditions', requireAuth, (req, res) => {
              d.physician||null, d.physician_contact_id||null,
              d.treatment_notes||null, d.status||'Active', d.notes||null,
              d.family_member_id||null);
-      res.status(201).json({ id: info.lastInsertRowid });
+      newId = info.lastInsertRowid;
     }
+
+    if (hasDedup) {
+      const row = db.prepare('SELECT * FROM med_conditions WHERE id=?').get(newId);
+      const h = dedup.conditionHash(row);
+      db.prepare('UPDATE med_conditions SET dedup_hash=? WHERE id=?').run(h, newId);
+    }
+
+    res.status(201).json({ id: newId });
   } catch (e) { serverError(res, e); }
 });
 
@@ -626,32 +748,111 @@ router.post('/notes', requireAuth, (req, res) => {
   try {
     const d = req.body;
     if (!d.visit_date) return badRequest(res, 'visit_date required');
-    const info = db.prepare(`
-      INSERT INTO med_visit_notes
-        (patient, contact_id, visit_date, questions, doctors_response, follow_up_needed, follow_up_date, notes, family_member_id)
-      VALUES (?,?,?,?,?,?,?,?,?)
-    `).run(d.patient||'Self', d.contact_id||null, d.visit_date,
-           d.questions||null, d.doctors_response||null,
-           d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
-           d.family_member_id||null);
-    if (d.tags) saveTagsByName(info.lastInsertRowid, 'medical_visit', d.tags);
-    res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(info.lastInsertRowid), 'medical_visit'));
+    const visitCols = db.prepare("PRAGMA table_info(med_visit_notes)").all().map(r => r.name);
+    const hasNewFields = visitCols.includes('start_time');
+    const hasDedup     = visitCols.includes('dedup_hash');
+
+    // v202604.147 — dedup gate. Visit hash includes start_time so two
+    // follow-ups same day same provider don't collide.
+    if (hasDedup && hasNewFields && !d._skip_dedup) {
+      const hash = dedup.visitHash(d);
+      const existing = dedup.findByHash(db, 'med_visit_notes', hash);
+      if (existing) {
+        return res.status(409).json({
+          _dedup: 'strong_match',
+          existing: existing,
+          message: 'A visit at this time with this provider already exists. Update the existing record instead?'
+        });
+      }
+    }
+
+    let info;
+    if (hasNewFields) {
+      info = db.prepare(`
+        INSERT INTO med_visit_notes
+          (patient, contact_id, physician_contact_id, visit_date, start_time, duration_min,
+           visit_location, visit_type, reason,
+           questions, doctors_response, follow_up_needed, follow_up_date, notes,
+           bp_systolic, bp_diastolic, weight_lb, temperature_f, heart_rate_bpm, visit_cost_oop,
+           family_member_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `).run(d.patient||'Self', d.contact_id||null, d.physician_contact_id||null,
+             d.visit_date, d.start_time||null, d.duration_min||null,
+             d.visit_location||null, d.visit_type||null, d.reason||null,
+             d.questions||null, d.doctors_response||null,
+             d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
+             d.bp_systolic||null, d.bp_diastolic||null, d.weight_lb||null,
+             d.temperature_f||null, d.heart_rate_bpm||null, d.visit_cost_oop||null,
+             d.family_member_id||null);
+    } else {
+      info = db.prepare(`
+        INSERT INTO med_visit_notes
+          (patient, contact_id, visit_date, questions, doctors_response, follow_up_needed, follow_up_date, notes, family_member_id)
+        VALUES (?,?,?,?,?,?,?,?,?)
+      `).run(d.patient||'Self', d.contact_id||null, d.visit_date,
+             d.questions||null, d.doctors_response||null,
+             d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
+             d.family_member_id||null);
+    }
+
+    const newId = info.lastInsertRowid;
+    if (d.tags) saveTagsByName(newId, 'medical_visit', d.tags);
+
+    if (hasDedup) {
+      const row = db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(newId);
+      const h = dedup.visitHash(row);
+      db.prepare('UPDATE med_visit_notes SET dedup_hash=? WHERE id=?').run(h, newId);
+    }
+
+    res.status(201).json(withTagNames(db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(newId), 'medical_visit'));
   } catch (e) { serverError(res, e); }
 });
 
 router.put('/notes/:id', requireAuth, (req, res) => {
   try {
     const d = req.body;
-    db.prepare(`
-      UPDATE med_visit_notes SET patient=?, contact_id=?, visit_date=?,
-        questions=?, doctors_response=?, follow_up_needed=?, follow_up_date=?,
-        notes=?, family_member_id=?, updated_at=CURRENT_TIMESTAMP
-      WHERE id=?
-    `).run(d.patient||'Self', d.contact_id||null, d.visit_date,
-           d.questions||null, d.doctors_response||null,
-           d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
-           d.family_member_id||null, req.params.id);
+    const visitCols = db.prepare("PRAGMA table_info(med_visit_notes)").all().map(r => r.name);
+    const hasNewFields = visitCols.includes('start_time');
+    const hasDedup     = visitCols.includes('dedup_hash');
+
+    if (hasNewFields) {
+      db.prepare(`
+        UPDATE med_visit_notes SET patient=?, contact_id=?, physician_contact_id=?,
+          visit_date=?, start_time=?, duration_min=?, visit_location=?, visit_type=?, reason=?,
+          questions=?, doctors_response=?, follow_up_needed=?, follow_up_date=?, notes=?,
+          bp_systolic=?, bp_diastolic=?, weight_lb=?, temperature_f=?, heart_rate_bpm=?, visit_cost_oop=?,
+          family_member_id=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+      `).run(d.patient||'Self', d.contact_id||null, d.physician_contact_id||null,
+             d.visit_date, d.start_time||null, d.duration_min||null,
+             d.visit_location||null, d.visit_type||null, d.reason||null,
+             d.questions||null, d.doctors_response||null,
+             d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
+             d.bp_systolic||null, d.bp_diastolic||null, d.weight_lb||null,
+             d.temperature_f||null, d.heart_rate_bpm||null, d.visit_cost_oop||null,
+             d.family_member_id||null, req.params.id);
+    } else {
+      db.prepare(`
+        UPDATE med_visit_notes SET patient=?, contact_id=?, visit_date=?,
+          questions=?, doctors_response=?, follow_up_needed=?, follow_up_date=?,
+          notes=?, family_member_id=?, updated_at=CURRENT_TIMESTAMP
+        WHERE id=?
+      `).run(d.patient||'Self', d.contact_id||null, d.visit_date,
+             d.questions||null, d.doctors_response||null,
+             d.follow_up_needed ? 1 : 0, d.follow_up_date||null, d.notes||null,
+             d.family_member_id||null, req.params.id);
+    }
+
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'medical_visit', d.tags);
+
+    if (hasDedup) {
+      const row = db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(req.params.id);
+      if (row) {
+        const h = dedup.visitHash(row);
+        db.prepare('UPDATE med_visit_notes SET dedup_hash=? WHERE id=?').run(h, req.params.id);
+      }
+    }
+
     clearReview('med_visit_notes', req.params.id);
     res.json(withTagNames(db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(req.params.id), 'medical_visit'));
   } catch (e) { serverError(res, e); }
@@ -813,6 +1014,24 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
   try {
     const parserType = getEobParser();
     if (parserType !== 'mhbp') return badRequest(res, `Parser '${parserType}' not yet implemented`);
+
+    // ── v202604.147 — File-level hash gate ──────────────────────
+    // Same PDF dropped twice → silent skip. Cheapest layer, runs before parse.
+    const stmtCols = db.prepare("PRAGMA table_info(med_eob_statements)").all().map(r => r.name);
+    const hasFileHash = stmtCols.includes('file_hash');
+    const fileHash = hasFileHash ? dedup.fileHash(req.file.buffer) : null;
+    if (hasFileHash && fileHash) {
+      const sameFile = db.prepare('SELECT id, statement_date FROM med_eob_statements WHERE file_hash=? LIMIT 1')
+        .get(fileHash);
+      if (sameFile) {
+        return res.json({
+          ok: true, imported: 0, skipped: 1,
+          _dedup: 'identical_file',
+          message: `This exact file was already imported (statement ${sameFile.statement_date}).`
+        });
+      }
+    }
+
     const { parseEobPdf } = require('./eob-parser');
     const statements = await parseEobPdf(req.file.buffer, req.file.originalname);
     if (!statements.length) return badRequest(res, 'No MHBP statements detected');
@@ -821,7 +1040,7 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
     let selected = null;
     try { selected = JSON.parse(req.body.selected_dates || 'null'); } catch {}
 
-    let imported = 0, skipped = 0;
+    let imported = 0, skipped = 0, queued = 0;
     const nameFlags = [];
 
     const doImport = db.transaction(() => {
@@ -829,10 +1048,33 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
         if (!s.statement_date || !s.member_id) { skipped++; continue; }
         if (selected && !selected.includes(s.statement_date)) { skipped++; continue; }
 
-        // Dedup
-        const exists = db.prepare('SELECT id FROM med_eob_statements WHERE statement_date=? AND member_id=?')
-          .get(s.statement_date, s.member_id);
-        if (exists) { skipped++; continue; }
+        // ── Record-level dedup ───────────────────────────────────
+        // Statement key = insurer + member_id + statement_date.
+        // Identical statement key with different file → it's a re-issued
+        // EOB; queue for review rather than silent-skip or duplicate.
+        const sHash = dedup.eobStatementHash(s);
+        const exists = db.prepare(
+          'SELECT id, file_hash FROM med_eob_statements WHERE statement_date=? AND member_id=?'
+        ).get(s.statement_date, s.member_id);
+        if (exists) {
+          // Same record key, same file hash → silent skip (we already
+          // caught this above as a file-level dedup; defensive double-check).
+          if (hasFileHash && fileHash && exists.file_hash === fileHash) {
+            skipped++; continue;
+          }
+          // Same record key, different file → queue for review.
+          dedup.queueReview(db, {
+            source: req.body._source || 'manual_eob',
+            entity_type: 'eob_statement',
+            proposed_action: 'review_resissue',
+            payload: s,
+            existing_id: exists.id,
+            dedup_hash: sHash,
+            file_hash: fileHash,
+            reason: `Re-issued EOB for ${s.statement_date} member ${s.member_id} — file differs from already-imported version`,
+          });
+          queued++; continue;
+        }
 
         // Insert statement
         const stmtId = db.prepare(`
@@ -860,6 +1102,15 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
           s.source_filename||null
         ).lastInsertRowid;
 
+        // v202604.147 — record provenance + dedup hash on the new row.
+        if (hasFileHash) {
+          db.prepare(`
+            UPDATE med_eob_statements
+               SET file_hash = ?, dedup_hash = ?, auto_imported = ?
+             WHERE id = ?
+          `).run(fileHash, sHash, (req.body._source === 'watcher') ? 1 : 0, stmtId);
+        }
+
         // Insert claims — resolve patient name to family_member_id (S3/A9)
         for (const c of (s.claims || [])) {
           const patientRaw = c.patient || 'Unknown';
@@ -877,6 +1128,14 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
             c.applied_to_deductible||null, c.copay||null, c.plan_paid||null,
             c.fund_paid||null, c.coinsurance||null, c.your_share||null
           ).lastInsertRowid;
+          // v202604.147 — claim-level dedup hash for cross-EOB joinability.
+          {
+            const claimCols = db.prepare("PRAGMA table_info(med_eob_claims)").all().map(r => r.name);
+            if (claimCols.includes('dedup_hash')) {
+              const cHash = dedup.eobClaimHash({ patient: patientRaw, claim_id: c.claim_id, send_date: c.send_date });
+              db.prepare('UPDATE med_eob_claims SET dedup_hash=? WHERE id=?').run(cHash, claimId);
+            }
+          }
           // Flag if name wasn't an exact match
           if (nameMatch.confidence !== 'exact') {
             const reason = nameMatch.confidence === 'none'
@@ -943,7 +1202,7 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
       }
     });
     doImport();
-    res.json({ ok: true, imported, skipped, name_flags: nameFlags });
+    res.json({ ok: true, imported, skipped, queued, name_flags: nameFlags });
   } catch(e) { serverError(res, e); }
 });
 
@@ -994,4 +1253,281 @@ router.delete('/eob/:id', requireAuth, (req, res) => {
     db.prepare('DELETE FROM med_eob_statements WHERE id=?').run(id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
+//  v202604.147 — REACTIVATE / DEDUP RESOLUTION / METRICS / PENDING
+//  All routes below are surface for the Visit / Condition / Medication
+//  card flows. Documented inline.
+// ══════════════════════════════════════════════════════════════
+
+// POST /api/v1/medical/medications/:id/reactivate
+//   Used after the user accepts the reactivate prompt returned by POST
+//   /medications when a discontinued match was found. Body:
+//     { dosage?: string, discontinue_id?: number }
+//
+//   Effects:
+//     - Sets the target medication to status='Active', clears end_date
+//     - If dosage changed, updates dosage and writes a med_medication_dose_changes row
+//     - If discontinue_id is set, marks that other medication as Discontinued
+//     - Recomputes dedup_hash on the reactivated row
+router.post('/medications/:id/reactivate', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { dosage, discontinue_id } = req.body || {};
+    const cols = db.prepare("PRAGMA table_info(med_medications)").all().map(r => r.name);
+    const hasDedup = cols.includes('dedup_hash');
+
+    const target = db.prepare('SELECT * FROM med_medications WHERE id=?').get(id);
+    if (!target) return notFound(res, 'Medication not found');
+
+    db.transaction(() => {
+      // Log dose change if applicable
+      const newDose = dosage != null ? dosage : target.dosage;
+      const hasDoseTable = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_medication_dose_changes'").get();
+      if (hasDoseTable && (target.dosage || '') !== (newDose || '')) {
+        db.prepare(`
+          INSERT INTO med_medication_dose_changes (medication_id, old_dosage, new_dosage, changed_by, notes)
+          VALUES (?,?,?,?,?)
+        `).run(id, target.dosage || null, newDose || null, 'reactivate',
+               'Reactivated previously discontinued medication');
+      }
+      // Reactivate
+      db.prepare(`
+        UPDATE med_medications
+           SET status='Active', end_date=NULL, dosage=?, updated_at=CURRENT_TIMESTAMP
+         WHERE id=?
+      `).run(newDose || null, id);
+      // Optional: discontinue another active record (the one being replaced)
+      if (discontinue_id) {
+        const today = new Date().toISOString().slice(0,10);
+        db.prepare(`
+          UPDATE med_medications
+             SET status='Discontinued', end_date=?, updated_at=CURRENT_TIMESTAMP
+           WHERE id=?
+        `).run(today, discontinue_id);
+        // Recompute its dedup hash too
+        if (hasDedup) {
+          const r2 = db.prepare('SELECT * FROM med_medications WHERE id=?').get(discontinue_id);
+          if (r2) {
+            const h = dedup.medicationHash(r2);
+            db.prepare('UPDATE med_medications SET dedup_hash=? WHERE id=?').run(h, discontinue_id);
+          }
+        }
+      }
+      // Recompute dedup hash on the reactivated row (dose may have changed)
+      if (hasDedup) {
+        const r = db.prepare('SELECT * FROM med_medications WHERE id=?').get(id);
+        const h = dedup.medicationHash(r);
+        db.prepare('UPDATE med_medications SET dedup_hash=? WHERE id=?').run(h, id);
+      }
+    })();
+
+    res.json({ ok: true, id, dosage: dosage || target.dosage });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── Condition metrics CRUD ────────────────────────────────────────
+//
+// Per-reading rows (BP, A1C, LDL...) that drive the sparkline + hero
+// number on the Condition card. Unique on (condition_id, metric_name,
+// measured_on) — duplicate readings for the same day overwrite via PUT.
+
+// GET /api/v1/medical/conditions/:id/metrics?metric=bp&limit=30
+router.get('/conditions/:id/metrics', (req, res) => {
+  try {
+    const cid = parseInt(req.params.id);
+    const { metric, limit } = req.query;
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_condition_metrics'").get()) {
+      return res.json({ metrics: [] });
+    }
+    let sql = 'SELECT * FROM med_condition_metrics WHERE condition_id=?';
+    const params = [cid];
+    if (metric) { sql += ' AND metric_name=?'; params.push(metric); }
+    sql += ' ORDER BY measured_on DESC, id DESC';
+    if (limit) { sql += ' LIMIT ?'; params.push(parseInt(limit)); }
+    const rows = db.prepare(sql).all(...params);
+    res.json({ metrics: rows });
+  } catch (e) { serverError(res, e); }
+});
+
+// POST /api/v1/medical/conditions/:id/metrics
+//   Body: { metric_name, value_numeric?, value_text?, unit?, measured_on, notes? }
+//   Same-day duplicate: replaces (UPSERT semantics on the unique index).
+router.post('/conditions/:id/metrics', requireAuth, (req, res) => {
+  try {
+    const cid = parseInt(req.params.id);
+    const d = req.body || {};
+    if (!d.metric_name || !d.measured_on) return badRequest(res, 'metric_name and measured_on required');
+
+    const exists = db.prepare(`
+      SELECT id FROM med_condition_metrics
+       WHERE condition_id=? AND metric_name=? AND measured_on=?
+    `).get(cid, d.metric_name, d.measured_on);
+
+    if (exists) {
+      db.prepare(`
+        UPDATE med_condition_metrics
+           SET value_numeric=?, value_text=?, unit=?, notes=?,
+               source=?, source_visit_id=?, measured_at=CURRENT_TIMESTAMP
+         WHERE id=?
+      `).run(d.value_numeric != null ? Number(d.value_numeric) : null,
+             d.value_text || null, d.unit || null, d.notes || null,
+             d.source || 'manual', d.source_visit_id || null, exists.id);
+      return res.json({ id: exists.id, updated: true });
+    }
+    const info = db.prepare(`
+      INSERT INTO med_condition_metrics
+        (condition_id, metric_name, value_numeric, value_text, unit, measured_on, source, source_visit_id, notes)
+      VALUES (?,?,?,?,?,?,?,?,?)
+    `).run(cid, d.metric_name,
+           d.value_numeric != null ? Number(d.value_numeric) : null,
+           d.value_text || null, d.unit || null, d.measured_on,
+           d.source || 'manual', d.source_visit_id || null, d.notes || null);
+    res.status(201).json({ id: info.lastInsertRowid });
+  } catch (e) { serverError(res, e); }
+});
+
+// DELETE /api/v1/medical/conditions/:cid/metrics/:mid
+router.delete('/conditions/:cid/metrics/:mid', requireAuth, (req, res) => {
+  try {
+    db.prepare('DELETE FROM med_condition_metrics WHERE id=? AND condition_id=?')
+      .run(req.params.mid, req.params.cid);
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── Pending review queue surface ──────────────────────────────────
+
+// GET /api/v1/medical/pending-review
+//   Query: ?status=open|resolved (default open), ?entity_type=, ?limit=50
+router.get('/pending-review', (req, res) => {
+  try {
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_pending_review'").get()) {
+      return res.json({ items: [], total: 0 });
+    }
+    const status = req.query.status || 'open';
+    const entity_type = req.query.entity_type;
+    const limit = parseInt(req.query.limit) || 50;
+    let sql = 'SELECT * FROM med_pending_review WHERE status=?';
+    const params = [status];
+    if (entity_type) { sql += ' AND entity_type=?'; params.push(entity_type); }
+    sql += ' ORDER BY created_at DESC LIMIT ?';
+    params.push(limit);
+    const items = db.prepare(sql).all(...params).map(r => ({
+      ...r,
+      payload: (() => { try { return JSON.parse(r.payload); } catch { return null; } })(),
+    }));
+    const total = db.prepare(`SELECT COUNT(*) AS n FROM med_pending_review WHERE status='open'`).get().n;
+    res.json({ items, total });
+  } catch (e) { serverError(res, e); }
+});
+
+// POST /api/v1/medical/pending-review/:id/resolve
+//   Body: { resolution: 'merge'|'insert'|'discard', merge_into_id? }
+router.post('/pending-review/:id/resolve', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { resolution, merge_into_id } = req.body || {};
+    if (!['merge', 'insert', 'discard', 'reactivate'].includes(resolution)) {
+      return badRequest(res, 'resolution must be one of: merge, insert, discard, reactivate');
+    }
+
+    const item = db.prepare('SELECT * FROM med_pending_review WHERE id=?').get(id);
+    if (!item) return notFound(res, 'Pending review not found');
+    if (item.status !== 'open') return badRequest(res, 'Already resolved');
+
+    db.prepare(`
+      UPDATE med_pending_review
+         SET status='resolved', resolved_at=CURRENT_TIMESTAMP, resolution=?
+       WHERE id=?
+    `).run(resolution, id);
+
+    // Mark linked todo done if any
+    if (item.todo_id) {
+      try {
+        const todoCols = db.prepare("PRAGMA table_info(todos)").all().map(r => r.name);
+        if (todoCols.includes('status')) {
+          db.prepare('UPDATE todos SET status=? WHERE id=?').run('done', item.todo_id);
+        }
+      } catch {}
+    }
+
+    res.json({ ok: true, id, resolution });
+  } catch (e) { serverError(res, e); }
+});
+
+// GET /api/v1/medical/pending-review/count — fast banner counter
+router.get('/pending-review-count', (req, res) => {
+  try {
+    res.json({ count: dedup.openReviewCount(db) });
+  } catch (e) { res.json({ count: 0 }); }
+});
+
+// ── Dose change history ───────────────────────────────────────────
+
+// GET /api/v1/medical/medications/:id/dose-changes
+router.get('/medications/:id/dose-changes', (req, res) => {
+  try {
+    if (!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_medication_dose_changes'").get()) {
+      return res.json({ changes: [] });
+    }
+    const changes = db.prepare(`
+      SELECT * FROM med_medication_dose_changes
+       WHERE medication_id=? ORDER BY changed_at DESC
+    `).all(req.params.id);
+    res.json({ changes });
+  } catch (e) { serverError(res, e); }
+});
+
+// ── Backfill dedup hashes for existing rows ──────────────────────
+//
+// One-shot endpoint. Useful right after migration 124 lands.
+// POST /api/v1/medical/dedup/backfill
+router.post('/dedup/backfill', requireAuth, (req, res) => {
+  try {
+    let updated = { medications: 0, conditions: 0, visits: 0, eob_statements: 0, eob_claims: 0 };
+
+    const checkCol = (table, col) => {
+      const cols = db.prepare(`PRAGMA table_info(${table})`).all().map(r => r.name);
+      return cols.includes(col);
+    };
+
+    if (checkCol('med_medications', 'dedup_hash')) {
+      const rows = db.prepare('SELECT * FROM med_medications WHERE dedup_hash IS NULL').all();
+      const upd = db.prepare('UPDATE med_medications SET dedup_hash=? WHERE id=?');
+      db.transaction(() => {
+        for (const r of rows) { upd.run(dedup.medicationHash(r), r.id); updated.medications++; }
+      })();
+    }
+    if (checkCol('med_conditions', 'dedup_hash')) {
+      const rows = db.prepare('SELECT * FROM med_conditions WHERE dedup_hash IS NULL').all();
+      const upd = db.prepare('UPDATE med_conditions SET dedup_hash=? WHERE id=?');
+      db.transaction(() => {
+        for (const r of rows) { upd.run(dedup.conditionHash(r), r.id); updated.conditions++; }
+      })();
+    }
+    if (checkCol('med_visit_notes', 'dedup_hash') && checkCol('med_visit_notes', 'start_time')) {
+      const rows = db.prepare('SELECT * FROM med_visit_notes WHERE dedup_hash IS NULL').all();
+      const upd = db.prepare('UPDATE med_visit_notes SET dedup_hash=? WHERE id=?');
+      db.transaction(() => {
+        for (const r of rows) { upd.run(dedup.visitHash(r), r.id); updated.visits++; }
+      })();
+    }
+    if (checkCol('med_eob_statements', 'dedup_hash')) {
+      const rows = db.prepare('SELECT * FROM med_eob_statements WHERE dedup_hash IS NULL').all();
+      const upd = db.prepare('UPDATE med_eob_statements SET dedup_hash=? WHERE id=?');
+      db.transaction(() => {
+        for (const r of rows) { upd.run(dedup.eobStatementHash(r), r.id); updated.eob_statements++; }
+      })();
+    }
+    if (checkCol('med_eob_claims', 'dedup_hash')) {
+      const rows = db.prepare('SELECT * FROM med_eob_claims WHERE dedup_hash IS NULL').all();
+      const upd = db.prepare('UPDATE med_eob_claims SET dedup_hash=? WHERE id=?');
+      db.transaction(() => {
+        for (const r of rows) { upd.run(dedup.eobClaimHash(r), r.id); updated.eob_claims++; }
+      })();
+    }
+    res.json({ ok: true, updated });
+  } catch (e) { serverError(res, e); }
 });

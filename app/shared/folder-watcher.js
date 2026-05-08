@@ -119,12 +119,151 @@ async function importEob(filePath, rule) {
   const parser = rule.parser || 'mhbp';
   if (parser !== 'mhbp') throw new Error(`Parser '${parser}' not implemented`);
   const buf = fs.readFileSync(filePath);
+  const fname = path.basename(filePath);
+
+  // ── v202604.147 — go through the same dedup gate as manual /eob/import ──
+  // File-level hash gate first (cheapest). Then per-statement record-level
+  // gate via the dedup helper. Anything ambiguous lands in med_pending_review
+  // and an auto-todo is created so the user is notified.
+  const dedup = require('../features/medical/dedup');
+  const stmtCols = db.prepare("PRAGMA table_info(med_eob_statements)").all().map(r => r.name);
+  const hasFileHash = stmtCols.includes('file_hash');
+  const fileHash = hasFileHash ? dedup.fileHash(buf) : null;
+  if (hasFileHash && fileHash) {
+    const sameFile = db.prepare('SELECT id FROM med_eob_statements WHERE file_hash=? LIMIT 1').get(fileHash);
+    if (sameFile) {
+      // Already imported — silent skip. Watcher counts 0.
+      return 0;
+    }
+  }
+
   const { parseEobPdf } = require('../features/medical/eob-parser');
-  const statements = await parseEobPdf(buf, path.basename(filePath));
-  // Mirror the import logic from medical/routes.js /eob/import
-  let count = 0;
-  statements.forEach(s => { count += s.claims?.length || 0; });
-  return count;
+  const statements = await parseEobPdf(buf, fname);
+
+  const { resolvePatient } = require('./namematch');
+  const { flagRecord } = require('./needs-review');
+
+  let claimsImported = 0;
+
+  const tx = db.transaction(() => {
+    for (const s of statements) {
+      if (!s.statement_date || !s.member_id) continue;
+
+      const sHash = dedup.eobStatementHash(s);
+      const exists = db.prepare(
+        'SELECT id, file_hash FROM med_eob_statements WHERE statement_date=? AND member_id=?'
+      ).get(s.statement_date, s.member_id);
+
+      if (exists) {
+        // Same record key, different file → re-issued EOB → queue for review.
+        // Watcher source is non-manual so queueReview auto-creates a todo.
+        if (!exists.file_hash || exists.file_hash !== fileHash) {
+          dedup.queueReview(db, {
+            source: 'watcher',
+            entity_type: 'eob_statement',
+            proposed_action: 'review_reissue',
+            payload: s,
+            existing_id: exists.id,
+            dedup_hash: sHash,
+            file_hash: fileHash,
+            reason: `Re-issued EOB for ${s.statement_date} (${path.basename(filePath)}) — file differs from already-imported version`,
+          });
+        }
+        continue;
+      }
+
+      // Insert statement row
+      const stmtId = db.prepare(`
+        INSERT INTO med_eob_statements
+          (insurer,plan_name,group_name,member_id,group_number,member_name,
+           statement_date,period_start,period_end,
+           amount_billed,allowed_amount,pending_not_payable,deductible_applied,
+           copay_total,coinsurance_total,plan_paid_total,your_share_total,
+           amount_saved,healthfund_applied,
+           deductible_annual,deductible_used,deductible_remaining,
+           oop_max_annual,oop_used,oop_remaining,
+           healthfund_total,healthfund_used,healthfund_remaining,source_filename)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `).run(
+        s.insurer||'MHBP', s.plan_name||null, s.group_name||null,
+        s.member_id, s.group_number||null, s.member_name||null,
+        s.statement_date, s.period_start||null, s.period_end||null,
+        s.amount_billed||null, s.allowed_amount||null, s.pending_not_payable||null,
+        s.deductible_applied||null, s.copay_total||null, s.coinsurance_total||null,
+        s.plan_paid_total||null, s.your_share_total||null,
+        s.amount_saved||null, s.healthfund_applied||null,
+        s.deductible_annual||null, s.deductible_used||null, s.deductible_remaining||null,
+        s.oop_max_annual||null, s.oop_used||null, s.oop_remaining||null,
+        s.healthfund_total||null, s.healthfund_used||null, s.healthfund_remaining||null,
+        s.source_filename||fname
+      ).lastInsertRowid;
+
+      // Provenance + dedup hash
+      if (hasFileHash) {
+        db.prepare(`
+          UPDATE med_eob_statements SET file_hash=?, dedup_hash=?, auto_imported=1 WHERE id=?
+        `).run(fileHash, sHash, stmtId);
+      }
+
+      // Insert claims with dedup hashes
+      const claimCols = db.prepare("PRAGMA table_info(med_eob_claims)").all().map(r => r.name);
+      const claimHasDedup = claimCols.includes('dedup_hash');
+      for (const c of (s.claims || [])) {
+        const patientRaw = c.patient || 'Unknown';
+        const nameMatch = resolvePatient(patientRaw);
+        const claimId = db.prepare(`
+          INSERT INTO med_eob_claims
+            (eob_id,patient,family_member_id,claim_id,received_date,provider,network_status,send_date,
+             amount_billed,member_rate,pending_not_payable,applied_to_deductible,
+             copay,plan_paid,fund_paid,coinsurance,your_share)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        `).run(
+          stmtId, patientRaw, nameMatch.id||null, c.claim_id||null, c.received_date||null,
+          c.provider||null, c.network_status||null, c.send_date||null,
+          c.amount_billed||null, c.member_rate||null, c.pending_not_payable||null,
+          c.applied_to_deductible||null, c.copay||null, c.plan_paid||null,
+          c.fund_paid||null, c.coinsurance||null, c.your_share||null
+        ).lastInsertRowid;
+        claimsImported++;
+        if (claimHasDedup) {
+          const cHash = dedup.eobClaimHash({ patient: patientRaw, claim_id: c.claim_id, send_date: c.send_date });
+          db.prepare('UPDATE med_eob_claims SET dedup_hash=? WHERE id=?').run(cHash, claimId);
+        }
+        if (nameMatch.confidence !== 'exact') {
+          try {
+            const reason = nameMatch.confidence === 'none'
+              ? `Patient not matched: "${patientRaw}"`
+              : nameMatch.confidence === 'ambiguous'
+                ? `Patient ambiguous: "${patientRaw}"`
+                : `Patient auto-matched: "${patientRaw}"`;
+            const cat = nameMatch.confidence === 'none' ? 'name_unmatched' : 'data_quality';
+            flagRecord('med_eob_claims', claimId, reason, cat);
+          } catch {}
+        }
+        // Insert services
+        for (const sv of (c.services || [])) {
+          db.prepare(`
+            INSERT INTO med_eob_services
+              (claim_id,service_description,service_code,service_date,
+               amount_billed,member_rate,plan_share,your_share)
+            VALUES (?,?,?,?,?,?,?,?)
+          `).run(
+            claimId, sv.service_description||null, sv.service_code||null,
+            sv.service_date||null, sv.amount_billed||null, sv.member_rate||null,
+            sv.plan_share||null, sv.your_share||null
+          );
+        }
+      }
+      for (const b of (s.balances || [])) {
+        db.prepare(`
+          INSERT INTO med_eob_balances (eob_id,person,balance_type,annual_limit,amount_used,amount_remaining)
+          VALUES (?,?,?,?,?,?)
+        `).run(stmtId, b.person, b.balance_type, b.annual_limit||null, b.amount_used||null, b.amount_remaining||null);
+      }
+    }
+  });
+  tx();
+  return claimsImported;
 }
 
 async function importStatement(filePath, rule) {

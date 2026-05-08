@@ -427,6 +427,78 @@ body.v2 .gh-family-label, body.v2 [class*="gh-family"] [class*="-label"]:first-c
 }
 .gh-cmodal-actions .btn { flex:1; min-width:90px; }
 
+/* v202604.147 — Form panel grouping + pending-review banner */
+.form-section {
+  background: rgba(0,0,0,0.015);
+  border: 1px solid rgba(0,0,0,0.04);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+}
+.form-section-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #8a7d62;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+  min-height: 28px;
+}
+.duration-quick-row .btn-sm {
+  border: 1px solid #c5b58c;
+  background: transparent;
+  color: #5e5440;
+  border-radius: 6px;
+}
+.duration-quick-row .btn-sm:hover {
+  background: rgba(0,0,0,0.04);
+}
+/* Pending-review banner — sits above listArea when count > 0 */
+.gh-pending-banner {
+  max-width: 1320px;
+  margin: 8px auto 4px;
+  padding: 10px 16px;
+  background: rgba(176,123,22,0.10);
+  border: 1px solid rgba(176,123,22,0.30);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: #2a241a;
+  cursor: pointer;
+}
+.gh-pending-banner-icon {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: 50%;
+  background: #b07b16;
+  color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px; font-weight: 700;
+}
+.gh-pending-banner-text { flex: 1; }
+.gh-pending-banner-go {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #b07b16;
+}
+/* Dose-change indicator on card eyebrow */
+.medv5-dose-change {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9.5px; letter-spacing: 0.06em;
+  color: #6c5083;
+  background: rgba(108,80,131,0.10);
+  padding: 1px 6px; border-radius: 4px;
+}
+
 /* ════════════════════════════════════════════════════════════════
    v202604.145 — VELLUM THEME TOKENS + MEDICATION CARD (V1)
    ────────────────────────────────────────────────────────────────
@@ -2105,6 +2177,15 @@ body.v2 {
     </div>
   </div>
 
+<!-- v202604.147 — Pending-review banner (shown only when count > 0) -->
+  <div id="ghPendingBanner" class="gh-pending-banner" style="display:none" onclick="openPendingReview()">
+    <div class="gh-pending-banner-icon" id="ghPendingBannerCount">0</div>
+    <div class="gh-pending-banner-text">
+      <strong>Records need your review.</strong> An imported file matched an existing entry — pick how to resolve.
+    </div>
+    <span class="gh-pending-banner-go">Open →</span>
+  </div>
+
 <!-- ── Main list ────────────────────────────────────────── -->
   <div class="content" style="padding-top:4px"><div id="listArea"></div></div>
 
@@ -2448,49 +2529,144 @@ body.v2 {
     <div class="drawer-handle" onclick="closeNoteDrawer()"></div>
     <div class="drawer-title" id="noteDrawerTitle">Add Visit Note</div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Patient <span class="req">*</span></label>
-        <div id="nFamilyWrap"></div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Visit Date <span class="req">*</span></label>
-        <input class="form-input" type="date" id="nDate">
-      </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Physician</label>
-      <select class="form-select" id="nPhysician">
-        <option value="">— Select or leave blank —</option>
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Questions / Concerns Brought</label>
-      <textarea class="form-textarea" id="nQuestions" rows="3" placeholder="What did you want to discuss?"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Doctor's Response / Assessment</label>
-      <textarea class="form-textarea" id="nResponse" rows="3" placeholder="What did the doctor say?"></textarea>
-    </div>
-    <div class="toggle-row">
-      <span class="toggle-label">Follow-up Needed</span>
-      <label class="toggle"><input type="checkbox" id="nFollowUp" onchange="toggleFollowDate()"><span class="toggle-track"></span></label>
-    </div>
-    <div class="form-group" id="followDateGroup" style="display:none;margin-top:10px">
-      <label class="form-label">Follow-up Date</label>
-      <input class="form-input" type="date" id="nFollowDate">
-    </div>
-    <div class="form-group" style="margin-top:10px">
-      <label class="form-label">Notes</label>
-      <textarea class="form-textarea" id="nNotes" rows="2"></textarea>
-    </div>
+    <!-- ── Panel 1: When & where ──────────────────────────────
+         v202604.147 — patient + date + start_time (split per design),
+         duration as quick-pick, location, visit type, physician.
+         These are the identity fields — they always show. -->
+    <div class="form-section">
+      <div class="form-section-title">When & where</div>
+      <div class="form-row">
         <div class="form-group">
-      <label class="form-label">Tags</label>
-      <div class="tags-input-wrap" id="visitTagsWrap" onclick="document.getElementById('visitTagInput').focus()">
-        <input id="visitTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+          <label class="form-label">Patient <span class="req">*</span></label>
+          <div id="nFamilyWrap"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Visit type</label>
+          <select class="form-select" id="nVisitType">
+            <option value="">—</option>
+            <option value="annual">Annual physical</option>
+            <option value="follow-up">Follow-up</option>
+            <option value="lab">Lab</option>
+            <option value="specialist">Specialist</option>
+            <option value="urgent">Urgent care</option>
+            <option value="telehealth">Telehealth</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Date <span class="req">*</span></label>
+          <input class="form-input" type="date" id="nDate">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start time</label>
+          <input class="form-input" type="time" id="nStartTime">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Duration</label>
+          <div class="duration-quick-row" style="display:flex;gap:6px;flex-wrap:wrap">
+            <button type="button" class="btn btn-ghost btn-sm" data-min="15" onclick="setDuration(15)">15m</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-min="30" onclick="setDuration(30)">30m</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-min="45" onclick="setDuration(45)">45m</button>
+            <button type="button" class="btn btn-ghost btn-sm" data-min="60" onclick="setDuration(60)">1h</button>
+            <input class="form-input" type="number" id="nDuration" placeholder="min" style="width:80px" min="0" max="600">
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Location</label>
+          <input class="form-input" type="text" id="nLocation" placeholder="UPMC East · 2nd floor">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Physician</label>
+        <select class="form-select" id="nPhysician">
+          <option value="">— Select or leave blank —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Reason / chief complaint</label>
+        <input class="form-input" type="text" id="nReason" placeholder="e.g. annual review, BP check">
       </div>
     </div>
-<div class="btn-row">
+
+    <!-- ── Panel 2: Vitals (collapsible) ──────────────────────
+         v202604.147 — vitals captured AT the visit. Five common
+         measurements as inline numbers. Anything more complex goes
+         into med_condition_metrics linked to the relevant condition. -->
+    <details class="form-section" style="margin-top:12px">
+      <summary class="form-section-title" style="cursor:pointer">Vitals captured</summary>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">BP systolic</label>
+          <input class="form-input" type="number" id="nBpSys" placeholder="128">
+        </div>
+        <div class="form-group">
+          <label class="form-label">BP diastolic</label>
+          <input class="form-input" type="number" id="nBpDia" placeholder="82">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Weight (lb)</label>
+          <input class="form-input" type="number" step="0.1" id="nWeight" placeholder="154">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Heart rate (bpm)</label>
+          <input class="form-input" type="number" id="nHr" placeholder="72">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Temperature (°F)</label>
+          <input class="form-input" type="number" step="0.1" id="nTemp" placeholder="98.6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Out-of-pocket cost</label>
+          <input class="form-input" type="number" step="0.01" id="nVisitCost" placeholder="30.00">
+        </div>
+      </div>
+    </details>
+
+    <!-- ── Panel 3: Notes ─────────────────────────────────── -->
+    <div class="form-section" style="margin-top:12px">
+      <div class="form-section-title">Notes</div>
+      <div class="form-group">
+        <label class="form-label">Questions / concerns brought</label>
+        <textarea class="form-textarea" id="nQuestions" rows="3" placeholder="What did you want to discuss?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Doctor's response / assessment</label>
+        <textarea class="form-textarea" id="nResponse" rows="3" placeholder="What did the doctor say?"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Additional notes</label>
+        <textarea class="form-textarea" id="nNotes" rows="2"></textarea>
+      </div>
+    </div>
+
+    <!-- ── Panel 4: Follow-up + tags ─────────────────────── -->
+    <div class="form-section" style="margin-top:12px">
+      <div class="form-section-title">Follow-up</div>
+      <div class="toggle-row">
+        <span class="toggle-label">Follow-up needed</span>
+        <label class="toggle"><input type="checkbox" id="nFollowUp" onchange="toggleFollowDate()"><span class="toggle-track"></span></label>
+      </div>
+      <div class="form-group" id="followDateGroup" style="display:none;margin-top:10px">
+        <label class="form-label">Follow-up date</label>
+        <input class="form-input" type="date" id="nFollowDate">
+      </div>
+      <div class="form-group" style="margin-top:10px">
+        <label class="form-label">Tags</label>
+        <div class="tags-input-wrap" id="visitTagsWrap" onclick="document.getElementById('visitTagInput').focus()">
+          <input id="visitTagInput" class="tags-input" placeholder="Add tag…" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <div class="btn-row" style="margin-top:14px">
       <button class="btn btn-ghost" onclick="closeNoteDrawer()">Cancel</button>
       <button class="btn btn-primary" onclick="saveNote()">Save</button>
     </div>
@@ -3116,7 +3292,18 @@ function renderMedCard(r) {
     <div class="medv5-card" onclick="openMedDetail(${r.id})">
 
       <div class="medv5-eyebrow ${eyebrowCls}">
-        <span class="dot"></span>${esc(eyebrowText)}
+        <span class="dot"></span>${esc(eyebrowText)}${
+          // v202604.147 — show dose-change pill when last change <30 days ago.
+          // Server doesn't surface this yet; client-side hint based on
+          // r.last_dose_change_at if present (added in a future GET enrichment).
+          (() => {
+            const ts = r.last_dose_change_at;
+            if (!ts) return '';
+            const days = Math.round((Date.now() - new Date(ts)) / 86400000);
+            if (days < 0 || days > 30) return '';
+            return `<span class="medv5-dose-change" title="Dosage updated ${days}d ago">↻ Dose updated</span>`;
+          })()
+        }
       </div>
 
       <div class="medv5-name-row">
@@ -3535,7 +3722,52 @@ async function saveMedication() {
   };
   try {
     if (editingId) { await api('PUT',`/medical/medications/${editingId}`,body); showToast('Updated'); }
-    else { await api('POST','/medical/medications',body); showToast('Saved'); }
+    else {
+      // v202604.147 — handle dedup gate responses from POST /medications.
+      // Server returns 409 with _dedup='reactivate_match' when a discontinued
+      // record matches, or 'dose_change' when an active record at a different
+      // dose matches. Surface as a confirm prompt; user picks reactivate or
+      // skip. "Reactivate" calls /reactivate/:id; "Insert as new" retries
+      // with _skip_dedup=1.
+      try {
+        await api('POST','/medical/medications',body);
+        showToast('Saved');
+      } catch (apiErr) {
+        const e = apiErr && apiErr.body;
+        if (e && e._dedup === 'reactivate_match') {
+          const exId  = e.existing && e.existing.id;
+          const exDose = e.existing && e.existing.dosage;
+          const newDose = body.dosage;
+          const msg = (newDose && newDose !== exDose)
+            ? `${e.message}\n\nDosage will change from ${exDose} to ${newDose} (logged in dose history).`
+            : e.message;
+          if (confirm(msg + '\n\nReactivate? Click Cancel to insert as new.')) {
+            await api('POST', `/medical/medications/${exId}/reactivate`,
+                      { dosage: newDose, discontinue_id: null });
+            showToast('Reactivated');
+          } else if (confirm('Insert as a brand-new medication record instead?')) {
+            await api('POST','/medical/medications', { ...body, _skip_dedup: 1 });
+            showToast('Saved as new');
+          } else { return; }
+        } else if (e && e._dedup === 'dose_change') {
+          const exId   = e.existing && e.existing.id;
+          const exDose = e.existing && e.existing.dosage;
+          const msg = `${e.message}\n\nThis will log a dose change from ${exDose} to ${body.dosage}.`;
+          if (confirm(msg + '\n\nUpdate same record? Click Cancel to keep both.')) {
+            await api('POST', `/medical/medications/${exId}/reactivate`,
+                      { dosage: body.dosage });
+            showToast('Dose updated');
+          } else if (confirm('Insert as a brand-new medication record instead?')) {
+            await api('POST','/medical/medications', { ...body, _skip_dedup: 1 });
+            showToast('Saved as new');
+          } else { return; }
+        } else if (e && e._dedup === 'identical') {
+          showToast('Already exists — opened existing record', 'info');
+        } else {
+          throw apiErr;
+        }
+      }
+    }
     closeMedDrawer(); await renderMedications();
   } catch(e) { showToast(e.message,'err'); }
 }
@@ -3663,8 +3895,21 @@ async function openNoteDrawer(r) {
   editingId = r?.id || null;
   $id('noteDrawerTitle').textContent = editingId ? 'Edit Visit Note' : 'Add Visit Note';
   GH_FAMILY.init('nFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
-  await GH_REFS.populateContact('nPhysician', r?.contact_id || null, { type: 'Medical', placeholder: '— Select or leave blank —' });
+  await GH_REFS.populateContact('nPhysician', r?.physician_contact_id || r?.contact_id || null,
+                                { type: 'Medical', placeholder: '— Select or leave blank —' });
   $id('nDate').value = r?.visit_date || new Date().toISOString().split('T')[0];
+  // v202604.147 — new visit fields
+  if ($id('nStartTime')) $id('nStartTime').value  = r?.start_time || '';
+  if ($id('nDuration'))  $id('nDuration').value   = r?.duration_min != null ? r.duration_min : '';
+  if ($id('nLocation'))  $id('nLocation').value   = r?.visit_location || '';
+  if ($id('nVisitType')) $id('nVisitType').value  = r?.visit_type || '';
+  if ($id('nReason'))    $id('nReason').value     = r?.reason || '';
+  if ($id('nBpSys'))     $id('nBpSys').value      = r?.bp_systolic != null ? r.bp_systolic : '';
+  if ($id('nBpDia'))     $id('nBpDia').value      = r?.bp_diastolic != null ? r.bp_diastolic : '';
+  if ($id('nWeight'))    $id('nWeight').value     = r?.weight_lb != null ? r.weight_lb : '';
+  if ($id('nTemp'))      $id('nTemp').value       = r?.temperature_f != null ? r.temperature_f : '';
+  if ($id('nHr'))        $id('nHr').value         = r?.heart_rate_bpm != null ? r.heart_rate_bpm : '';
+  if ($id('nVisitCost')) $id('nVisitCost').value  = r?.visit_cost_oop != null ? r.visit_cost_oop : '';
   $id('nQuestions').value = r?.questions || '';
   $id('nResponse').value = r?.doctors_response || '';
   $id('nFollowUp').checked = !!r?.follow_up_needed;
@@ -3674,6 +3919,13 @@ async function openNoteDrawer(r) {
   initVisitTags(r?.tags||[]);
   $id('noteDrawer').classList.add('open');
 }
+
+// v202604.147 — duration quick-pick: writes minutes into #nDuration
+function setDuration(min) {
+  const el = $id('nDuration');
+  if (el) el.value = min;
+}
+
 function closeNoteDrawer() { $id('noteDrawer').classList.remove('open'); }
 
 async function editNote(id) {
@@ -3685,11 +3937,28 @@ async function editNote(id) {
 }
 async function saveNote() {
   if (!$id('nDate').value) { showToast('Visit date required','err'); return; }
+  const numOrNull = id => {
+    const v = $id(id)?.value; if (v === '' || v == null) return null;
+    const n = Number(v); return isNaN(n) ? null : n;
+  };
   const body = {
     family_member_id: GH_FAMILY.getIds('nFamilyWrap')[0] || null,
     patient: GH_FAMILY.getIds('nFamilyWrap').length ? null : (currentPatient || 'Self'),
     visit_date: $id('nDate').value,
-    contact_id: $id('nPhysician').value ? parseInt($id('nPhysician').value) : null,
+    physician_contact_id: $id('nPhysician')?.value ? parseInt($id('nPhysician').value) : null,
+    contact_id: $id('nPhysician')?.value ? parseInt($id('nPhysician').value) : null, // backward-compat
+    // v202604.147 — new fields
+    start_time:     $id('nStartTime')?.value || null,
+    duration_min:   numOrNull('nDuration'),
+    visit_location: $id('nLocation')?.value.trim() || null,
+    visit_type:     $id('nVisitType')?.value || null,
+    reason:         $id('nReason')?.value.trim() || null,
+    bp_systolic:    numOrNull('nBpSys'),
+    bp_diastolic:   numOrNull('nBpDia'),
+    weight_lb:      numOrNull('nWeight'),
+    temperature_f:  numOrNull('nTemp'),
+    heart_rate_bpm: numOrNull('nHr'),
+    visit_cost_oop: numOrNull('nVisitCost'),
     questions: $id('nQuestions').value.trim()||null,
     doctors_response: $id('nResponse').value.trim()||null,
     follow_up_needed: $id('nFollowUp').checked,
@@ -3700,7 +3969,24 @@ async function saveNote() {
   try {
     if (editingId) { await api('PUT',`/medical/notes/${editingId}`,body); showToast('Updated'); }
     else {
-      const saved = await api('POST','/medical/notes',body); showToast('Saved');
+      // v202604.147 — server may return 409 with _dedup='strong_match' for
+      // a same-time-same-provider visit. Surface as a confirm dialog;
+      // user can click "Insert anyway" which retries with _skip_dedup=1.
+      let saved;
+      try {
+        saved = await api('POST','/medical/notes',body);
+      } catch (apiErr) {
+        if (apiErr && apiErr.body && apiErr.body._dedup === 'strong_match') {
+          if (confirm(apiErr.body.message + '\n\nInsert as a new record anyway?')) {
+            saved = await api('POST','/medical/notes', { ...body, _skip_dedup: 1 });
+          } else {
+            return;
+          }
+        } else {
+          throw apiErr;
+        }
+      }
+      showToast('Saved');
       // v202604.139 — link source daily-log entry to this new visit
       if (window._seedDailyLogId && saved && saved.id) {
         try {
@@ -4243,6 +4529,109 @@ async function loadConditionsForPatient(selectEl, selectedId) {
       active.map(c => `<option value="${c.id}"${c.id === selectedId?' selected':''}>${esc(c.condition_name)}</option>`).join('');
   } catch { /* non-fatal */ }
 }
+
+// ════════════════════════════════════════════════════════════════
+// v202604.147 — PENDING REVIEW BANNER + MODAL
+// ────────────────────────────────────────────────────────────────
+// Polls /pending-review-count on page load and after every import.
+// When > 0, shows the warning banner. Clicking opens a center modal
+// listing each pending item with Merge / Insert / Discard buttons.
+// ════════════════════════════════════════════════════════════════
+
+async function refreshPendingBanner() {
+  try {
+    const r = await api('GET', '/medical/pending-review-count');
+    const n = (r && r.count) || 0;
+    const banner = $id('ghPendingBanner');
+    const counter = $id('ghPendingBannerCount');
+    if (!banner) return;
+    if (n > 0) {
+      banner.style.display = 'flex';
+      counter.textContent = String(n);
+    } else {
+      banner.style.display = 'none';
+    }
+  } catch { /* non-fatal */ }
+}
+
+async function openPendingReview() {
+  try {
+    const r = await api('GET', '/medical/pending-review?status=open&limit=50');
+    const items = (r && r.items) || [];
+    if (!items.length) {
+      showToast('Nothing pending', 'info');
+      return refreshPendingBanner();
+    }
+    // Build the modal content
+    const rowsHtml = items.map(item => {
+      const p = item.payload || {};
+      const summary = (() => {
+        if (item.entity_type === 'eob_statement') {
+          return `EOB · ${p.statement_date || '—'} · member ${p.member_id || '—'}`;
+        }
+        if (item.entity_type === 'medication') {
+          return `Medication · ${p.name || '—'} ${p.dosage || ''}`;
+        }
+        if (item.entity_type === 'visit_note') {
+          return `Visit · ${p.visit_date || '—'} ${p.start_time || ''}`;
+        }
+        return `${item.entity_type} · #${item.id}`;
+      })();
+      return `
+        <div class="gh-pending-row" style="padding:12px 14px;border-bottom:1px solid #e5e7eb">
+          <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:#8a7d62;margin-bottom:4px">
+            ${esc(item.source)} · ${new Date(item.created_at).toLocaleDateString()}
+          </div>
+          <div style="font-family:'Fraunces',serif;font-size:16px;font-style:italic;color:#2a241a;margin-bottom:4px">
+            ${esc(summary)}
+          </div>
+          <div style="font-size:12px;color:#5e5440;margin-bottom:10px">
+            ${esc(item.reason || '')}
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn btn-ghost btn-sm" onclick="resolvePending(${item.id}, 'merge')">Merge into existing</button>
+            <button class="btn btn-ghost btn-sm" onclick="resolvePending(${item.id}, 'insert')">Insert as new</button>
+            <button class="btn btn-ghost btn-sm" onclick="resolvePending(${item.id}, 'discard')">Discard</button>
+          </div>
+        </div>`;
+    }).join('');
+
+    // Reuse existing confirmDlg overlay as a quick modal
+    const existing = document.getElementById('ghPendingModal');
+    if (existing) existing.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'ghPendingModal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = `
+      <div style="background:white;border-radius:14px;max-width:600px;width:100%;max-height:80vh;overflow:auto">
+        <div style="padding:16px 18px;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:10px">
+          <div style="font-family:'Fraunces',serif;font-size:20px;font-style:italic;color:#2a241a;flex:1">Records needing review</div>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ghPendingModal').remove()">Close</button>
+        </div>
+        ${rowsHtml}
+      </div>`;
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+  } catch (e) { showToast(e.message, 'err'); }
+}
+
+async function resolvePending(id, resolution) {
+  try {
+    await api('POST', `/medical/pending-review/${id}/resolve`, { resolution });
+    showToast(`Marked as ${resolution}`);
+    document.getElementById('ghPendingModal')?.remove();
+    await refreshPendingBanner();
+    if (typeof renderMedications === 'function') await renderMedications();
+  } catch (e) { showToast(e.message, 'err'); }
+}
+
+// Refresh on page load — uses requestIdleCallback so it doesn't compete
+// with first paint of the medication list.
+(function () {
+  const run = () => { try { refreshPendingBanner(); } catch {} };
+  if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(run);
+  else setTimeout(run, 200);
+})();
 </script>
 </body>
 </html>
