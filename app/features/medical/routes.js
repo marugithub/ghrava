@@ -59,8 +59,9 @@ router.get('/medications', (req, res) => {
     const hasJunction = tableExists('med_medication_conditions');
     const hasFills    = tableExists('med_medication_fills');
     const hasLinks    = tableExists('hsa_payment_links');
+    const hasDoseChg  = tableExists('med_medication_dose_changes');
 
-    if (hasJunction || hasFills || hasLinks) {
+    if (hasJunction || hasFills || hasLinks || hasDoseChg) {
       const condStmt = hasJunction ? db.prepare(`
         SELECT c.id, c.condition_name FROM med_medication_conditions mc
         JOIN med_conditions c ON c.id = mc.condition_id
@@ -87,6 +88,12 @@ router.get('/medications', (req, res) => {
         WHERE l.entity_type = 'medication' AND l.entity_id = ?
           AND substr(p.date, 1, 4) = strftime('%Y', 'now')
       `) : null;
+      // v202604.147 — last dose change for the eyebrow "↻ Dose updated" pill.
+      const doseStmt = hasDoseChg ? db.prepare(`
+        SELECT changed_at FROM med_medication_dose_changes
+         WHERE medication_id = ?
+         ORDER BY changed_at DESC LIMIT 1
+      `) : null;
 
       for (const m of rows) {
         if (condStmt) m.conditions = condStmt.all(m.id);
@@ -98,6 +105,10 @@ router.get('/medications', (req, res) => {
           if (hasQty) m.last_fill_quantity = f ? f.quantity : null;
         }
         if (ytdStmt) m.hsa_ytd = ytdStmt.get(m.id).total;
+        if (doseStmt) {
+          const dc = doseStmt.get(m.id);
+          m.last_dose_change_at = dc ? dc.changed_at : null;
+        }
       }
     }
 
@@ -430,22 +441,46 @@ router.post('/medications/:id/fills', requireAuth, (req, res) => {
   try {
     const d = req.body || {};
     if (!d.fill_date) return badRequest(res, 'fill_date required');
-    const info = db.prepare(`
-      INSERT INTO med_medication_fills
-        (medication_id, fill_date, days_supply, pharmacy_contact_id, cost, hsa_payment_id, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      req.params.id,
-      d.fill_date,
+
+    // v202604.147 — column-aware insert. Migration 123 added quantity,
+    // prescriber_contact_id, brand_dispensed, you_paid_oop, insurance_covered,
+    // rx_number, refill_seq. Build the INSERT dynamically so this still
+    // works on a DB that hasn't run 123 yet.
+    const fillCols = db.prepare("PRAGMA table_info(med_medication_fills)").all().map(r => r.name);
+    const baseCols = ['medication_id','fill_date','days_supply','pharmacy_contact_id','cost','hsa_payment_id','notes'];
+    const baseVals = [
+      req.params.id, d.fill_date,
       d.days_supply != null ? parseInt(d.days_supply) : null,
       d.pharmacy_contact_id || null,
       d.cost != null ? parseFloat(d.cost) : null,
       d.hsa_payment_id || null,
-      d.notes || null
-    );
+      d.notes || null,
+    ];
+    const extraCols = [];
+    const extraVals = [];
+    const maybeAdd = (col, val) => {
+      if (fillCols.includes(col)) { extraCols.push(col); extraVals.push(val); }
+    };
+    maybeAdd('quantity',              d.quantity              != null ? Number(d.quantity)              : null);
+    maybeAdd('prescriber_contact_id', d.prescriber_contact_id != null ? parseInt(d.prescriber_contact_id) : null);
+    maybeAdd('brand_dispensed',       d.brand_dispensed       || null);
+    maybeAdd('you_paid_oop',          d.you_paid_oop          != null ? Number(d.you_paid_oop)          : null);
+    maybeAdd('insurance_covered',     d.insurance_covered     != null ? Number(d.insurance_covered)     : null);
+    maybeAdd('rx_number',             d.rx_number             || null);
+    maybeAdd('refill_seq',            d.refill_seq            != null ? parseInt(d.refill_seq)          : null);
 
-    // Side effect: update next_refill_date and refills_remaining on the med
-    const med = db.prepare('SELECT refills_remaining FROM med_medications WHERE id=?').get(req.params.id);
+    const cols = [...baseCols, ...extraCols];
+    const vals = [...baseVals, ...extraVals];
+    const placeholders = cols.map(() => '?').join(',');
+    const info = db.prepare(
+      `INSERT INTO med_medication_fills (${cols.join(',')}) VALUES (${placeholders})`
+    ).run(...vals);
+
+    // Side effect: update next_refill_date and refills_remaining on the med.
+    // v202604.147 — auto-decrement happens here. Spec: clicking "Order refill"
+    // / logging a fill decrements refills_remaining by 1 (floor 0). Resets the
+    // doses-left bar visually because last_filled refreshes too.
+    const med = db.prepare('SELECT refills_remaining, rx_number FROM med_medications WHERE id=?').get(req.params.id);
     if (med) {
       let nextDate = null;
       if (d.days_supply) {
@@ -458,13 +493,17 @@ router.post('/medications/:id/fills', requireAuth, (req, res) => {
       const newRefills = (med.refills_remaining != null && med.refills_remaining > 0)
         ? med.refills_remaining - 1
         : med.refills_remaining;
+      // If the fill carried a different rx_number than what's on the med
+      // (renewal), update it. Otherwise leave med.rx_number alone.
+      const rxToUse = (d.rx_number && d.rx_number !== med.rx_number) ? d.rx_number : null;
       db.prepare(`
         UPDATE med_medications
            SET next_refill_date = COALESCE(?, next_refill_date),
                refills_remaining = ?,
+               rx_number = COALESCE(?, rx_number),
                updated_at = CURRENT_TIMESTAMP
          WHERE id = ?
-      `).run(nextDate, newRefills, req.params.id);
+      `).run(nextDate, newRefills, rxToUse, req.params.id);
     }
 
     res.status(201).json(db.prepare('SELECT * FROM med_medication_fills WHERE id=?').get(info.lastInsertRowid));
@@ -535,8 +574,11 @@ router.get('/conditions', (req, res) => {
       !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
     const hasJunction = tableExists('med_medication_conditions');
     const hasLinks    = tableExists('hsa_payment_links');
+    // v202604.147 — prefer the new med_condition_metrics table (written by
+    // the inline reading panel on the condition card) over older `labs`
+    // shapes. Fall back to whichever exists.
+    const hasNewMetrics = tableExists('med_condition_metrics');
     const hasLabs     = tableExists('medical_labs') || tableExists('med_labs') || tableExists('vitals');
-    // Pick whichever labs table exists — we only read from one, derived view
     const labsTable = tableExists('medical_labs') ? 'medical_labs'
                     : tableExists('med_labs')     ? 'med_labs'
                     : tableExists('vitals')       ? 'vitals'
@@ -592,6 +634,21 @@ router.get('/conditions', (req, res) => {
         AND ((? IS NOT NULL AND family_member_id = ?) OR patient = ?)
       ORDER BY recorded_at DESC LIMIT 12
     `) : null;
+    // v202604.147 — readers for the new med_condition_metrics table.
+    // Keyed by condition_id rather than patient+metric, so they're more
+    // reliable. Used preferentially when the table exists and has rows.
+    const newLatestStmt = hasNewMetrics ? db.prepare(`
+      SELECT value_numeric, value_text, unit, measured_on
+        FROM med_condition_metrics
+       WHERE condition_id = ? ${hasMetric ? 'AND metric_name = COALESCE(?, metric_name)' : ''}
+       ORDER BY measured_on DESC LIMIT 1
+    `) : null;
+    const newSeriesStmt = hasNewMetrics ? db.prepare(`
+      SELECT value_numeric, value_text, unit, measured_on
+        FROM med_condition_metrics
+       WHERE condition_id = ? ${hasMetric ? 'AND metric_name = COALESCE(?, metric_name)' : ''}
+       ORDER BY measured_on DESC LIMIT 12
+    `) : null;
 
     for (const c of rows) {
       // active medication count
@@ -608,12 +665,33 @@ router.get('/conditions', (req, res) => {
       // HSA spent on this condition this year
       c.hsa_ytd = ytdStmt ? (ytdStmt.get(c.id)?.total || 0) : 0;
       // Latest reading + small series for sparkline
-      if (latestMetricStmt && c.tracked_metric) {
+      // v202604.147 — try med_condition_metrics first (always keyed by
+      // condition.id, no patient-text fuzziness). Fall back to labs table
+      // for backward compat with pre-.147 data.
+      let metricResolved = false;
+      if (newLatestStmt) {
+        const params = hasMetric ? [c.id, c.tracked_metric || null] : [c.id];
+        const latestNew = newLatestStmt.get(...params);
+        if (latestNew) {
+          const v = latestNew.value_numeric != null ? latestNew.value_numeric : latestNew.value_text;
+          c.latest_metric = { value: v, unit: latestNew.unit, recorded_at: latestNew.measured_on };
+          if (newSeriesStmt) {
+            const sParams = hasMetric ? [c.id, c.tracked_metric || null] : [c.id];
+            const series = newSeriesStmt.all(...sParams).map(r => ({
+              value: r.value_numeric != null ? r.value_numeric : r.value_text,
+              recorded_at: r.measured_on,
+            }));
+            c.metric_series = series.reverse();
+          }
+          metricResolved = true;
+        }
+      }
+      if (!metricResolved && latestMetricStmt && c.tracked_metric) {
         const latest = latestMetricStmt.get(c.tracked_metric, c.family_member_id, c.family_member_id, c.patient);
         if (latest) c.latest_metric = { value: latest.value, recorded_at: latest.recorded_at };
         if (metricSeriesStmt) {
           const series = metricSeriesStmt.all(c.tracked_metric, c.family_member_id, c.family_member_id, c.patient);
-          c.metric_series = series.reverse(); // chronological for the sparkline
+          c.metric_series = series.reverse();
         }
       }
     }
@@ -711,6 +789,16 @@ router.put('/conditions/:id', requireAuth, (req, res) => {
              d.treatment_notes||null, d.status||'Active', d.notes||null,
              d.family_member_id||null, req.params.id);
     }
+
+    // v202604.147 — recompute dedup_hash since patient/name may have changed.
+    if (condCols.includes('dedup_hash')) {
+      const row = db.prepare('SELECT * FROM med_conditions WHERE id=?').get(req.params.id);
+      if (row) {
+        const h = dedup.conditionHash(row);
+        db.prepare('UPDATE med_conditions SET dedup_hash=? WHERE id=?').run(h, req.params.id);
+      }
+    }
+
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });

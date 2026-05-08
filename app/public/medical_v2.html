@@ -2477,45 +2477,140 @@ body.v2 {
     <div class="drawer-handle" onclick="closeCondDrawer()"></div>
     <div class="drawer-title" id="condDrawerTitle">Add Condition</div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Patient <span class="req">*</span></label>
-        <div id="cFamilyWrap"></div>
+    <!-- ── Panel 1: Identity ──────────────────────────────────
+         v202604.147 — patient, name, body system, dates, physician.
+         These don't change after diagnosis. -->
+    <div class="form-section">
+      <div class="form-section-title">Identity</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Patient <span class="req">*</span></label>
+          <div id="cFamilyWrap"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Body system</label>
+          <select class="form-select" id="cBodySystem">
+            <option value="">—</option>
+            <option value="Cardiovascular">Cardiovascular</option>
+            <option value="Endocrine">Endocrine</option>
+            <option value="Respiratory">Respiratory</option>
+            <option value="Musculoskeletal">Musculoskeletal</option>
+            <option value="Neurological">Neurological</option>
+            <option value="Digestive">Digestive</option>
+            <option value="Renal">Renal</option>
+            <option value="Mental health">Mental health</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
       </div>
       <div class="form-group">
-        <label class="form-label">Status</label>
-        <select class="form-select" id="cStatus"></select>
+        <label class="form-label">Condition name <span class="req">*</span></label>
+        <input class="form-input" type="text" id="cName" placeholder="e.g. Hypertension">
       </div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Condition Name <span class="req">*</span></label>
-      <input class="form-input" type="text" id="cName" placeholder="e.g. Hypertension">
-    </div>
-    <div class="form-row">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Onset date</label>
+          <input class="form-input" type="date" id="cStart">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Resolved date</label>
+          <input class="form-input" type="date" id="cEnd">
+        </div>
+      </div>
       <div class="form-group">
-        <label class="form-label">Onset Date</label>
-        <input class="form-input" type="date" id="cStart">
+        <label class="form-label">Physician</label>
+        <select class="form-select" id="cPhysician">
+          <option value="">— none —</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- ── Panel 2: Goal & tracked metric ─────────────────────
+         What we're trying to achieve and what we measure to know
+         it's working. tracked_metric drives the sparkline + hero
+         number on the card. -->
+    <div class="form-section" style="margin-top:12px">
+      <div class="form-section-title">Goal & tracked metric</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tracked metric</label>
+          <select class="form-select" id="cTrackedMetric">
+            <option value="">—</option>
+            <option value="bp">Blood pressure (mmHg)</option>
+            <option value="a1c">A1C (%)</option>
+            <option value="ldl">LDL cholesterol (mg/dL)</option>
+            <option value="hdl">HDL cholesterol (mg/dL)</option>
+            <option value="glucose">Fasting glucose (mg/dL)</option>
+            <option value="weight">Weight (lb)</option>
+            <option value="peak_flow">Peak flow (L/min)</option>
+            <option value="other">Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Goal / target</label>
+          <input class="form-input" type="text" id="cGoal" placeholder="e.g. <130/80, A1C <7%">
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Panel 3: Status ───────────────────────────────────
+         Status (active/resolved) is one axis; control state
+         (controlled/monitoring/out_of_range) is another. They mean
+         different things — both render on the card. -->
+    <div class="form-section" style="margin-top:12px">
+      <div class="form-section-title">Status</div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <select class="form-select" id="cStatus"></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Control state</label>
+          <select class="form-select" id="cConditionState">
+            <option value="">—</option>
+            <option value="controlled">Controlled (in target)</option>
+            <option value="monitoring">Monitoring</option>
+            <option value="out_of_range">Out of range</option>
+            <option value="acute">Acute / flare</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Panel 4: Notes ─────────────────────────────────── -->
+    <div class="form-section" style="margin-top:12px">
+      <div class="form-section-title">Notes</div>
+      <div class="form-group">
+        <label class="form-label">Treatment notes</label>
+        <textarea class="form-textarea" id="cTreatment" rows="3" placeholder="Treatment plan, medications, outcomes…"></textarea>
       </div>
       <div class="form-group">
-        <label class="form-label">Resolved Date</label>
-        <input class="form-input" type="date" id="cEnd">
+        <label class="form-label">Additional notes</label>
+        <textarea class="form-textarea" id="cNotes" rows="2"></textarea>
       </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Physician</label>
-      <select class="form-select" id="cPhysician">
-        <option value="">— none —</option>
-      </select>
+
+    <!-- ── Panel 5: Recent readings ────────────────────────
+         v202604.147 — only visible when editing an existing condition
+         (we need an id to attach readings to). Shows the last 10
+         metric rows + an inline "add new" form. -->
+    <div class="form-section" id="cMetricsSection" style="margin-top:12px;display:none">
+      <div class="form-section-title">Recent readings</div>
+      <div id="cMetricsList" style="font-family:'DM Mono',monospace;font-size:12px;color:#5e5440">Loading…</div>
+      <div style="display:flex;gap:6px;align-items:flex-end;margin-top:10px;flex-wrap:wrap">
+        <div style="flex:1;min-width:120px">
+          <label class="form-label" style="font-size:10px">Reading</label>
+          <input class="form-input" type="text" id="cMetricValue" placeholder="e.g. 128/82, 6.8, 95">
+        </div>
+        <div style="width:140px">
+          <label class="form-label" style="font-size:10px">Date</label>
+          <input class="form-input" type="date" id="cMetricDate">
+        </div>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="addConditionMetric()">Add reading</button>
+      </div>
     </div>
-    <div class="form-group">
-      <label class="form-label">Treatment Notes</label>
-      <textarea class="form-textarea" id="cTreatment" rows="3" placeholder="Treatment plan, medications, outcomes…"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Notes</label>
-      <textarea class="form-textarea" id="cNotes" rows="2"></textarea>
-    </div>
-    <div class="btn-row">
+
+    <div class="btn-row" style="margin-top:14px">
       <button class="btn btn-ghost" onclick="closeCondDrawer()">Cancel</button>
       <button class="btn btn-primary" onclick="saveCondition()">Save</button>
     </div>
@@ -3241,8 +3336,11 @@ function renderMedCard(r) {
   const ents = [];
   if (memberName) {
     const g = _gradFor(memberName);
+    // v202604.147 — patient avatar: open family-member quick-view if linked.
+    const fmId = r.family_member_id;
+    const memberOnclick = fmId ? `event.stopPropagation();openFamilyQuickView(${fmId})` : `event.stopPropagation()`;
     ents.push(`
-      <div class="medv5-ent" title="${esc(memberName)}">
+      <div class="medv5-ent" title="${esc(memberName)}" onclick="${memberOnclick}">
         <div class="medv5-ent-tile">
           <div class="medv5-ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${_LU.user}</div>
         </div>
@@ -3252,8 +3350,11 @@ function renderMedCard(r) {
   if (docName) {
     const g = _gradFor(docName);
     const ini = docName.split(/\s+/).map(s=>s[0]||'').join('').slice(0,2).toUpperCase() || 'DR';
+    // v202604.147 — doctor avatar: open contact quick-view modal when contact id known.
+    const docCid = r.physician_contact_id;
+    const docOnclick = docCid ? `event.stopPropagation();openContactQuickView(${docCid})` : `event.stopPropagation()`;
     ents.push(`
-      <div class="medv5-ent" title="${esc(docName)} · prescriber">
+      <div class="medv5-ent" title="${esc(docName)} · prescriber" onclick="${docOnclick}">
         <div class="medv5-ent-tile">
           <div class="medv5-ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${esc(ini)}</div>
           <div class="medv5-ent-badge" title="Prescriber">${_LU.steth}</div>
@@ -3263,8 +3364,12 @@ function renderMedCard(r) {
   }
   if (pharmName) {
     const m = _pharmacyMark(pharmName);
+    // v202604.147 — pharmacy: open contact quick-view (which surfaces the
+    // website URL if present, openable in a new tab from inside the modal).
+    const pharmCid = r.pharmacy_contact_id;
+    const pharmOnclick = pharmCid ? `event.stopPropagation();openContactQuickView(${pharmCid})` : `event.stopPropagation()`;
     ents.push(`
-      <div class="medv5-ent" title="${esc(pharmName)} · pharmacy">
+      <div class="medv5-ent" title="${esc(pharmName)} · pharmacy" onclick="${pharmOnclick}">
         <div class="medv5-ent-tile">
           <div class="medv5-ent-pharmacy ${m.cls}">${esc(m.label)}</div>
         </div>
@@ -3853,6 +3958,20 @@ async function openCondDrawer(r) {
   $id('cEnd').value = r?.end_date || '';
   $id('cTreatment').value = r?.treatment_notes || '';
   $id('cNotes').value = r?.notes || '';
+  // v202604.147 — new condition fields
+  if ($id('cBodySystem'))     $id('cBodySystem').value     = r?.body_system     || '';
+  if ($id('cTrackedMetric'))  $id('cTrackedMetric').value  = r?.tracked_metric  || '';
+  if ($id('cGoal'))           $id('cGoal').value           = r?.goal            || '';
+  if ($id('cConditionState')) $id('cConditionState').value = r?.condition_state || '';
+  // Recent readings panel — only when editing
+  const metricsSection = $id('cMetricsSection');
+  if (metricsSection) {
+    metricsSection.style.display = editingId ? 'block' : 'none';
+    if (editingId) {
+      $id('cMetricDate').value = new Date().toISOString().slice(0,10);
+      await loadConditionMetrics(editingId);
+    }
+  }
   $id('condDrawer').classList.add('open');
 }
 function closeCondDrawer() { $id('condDrawer').classList.remove('open'); }
@@ -3874,16 +3993,102 @@ async function saveCondition() {
     end_date: $id('cEnd').value||null,
     physician_contact_id: $id('cPhysician').value ? parseInt($id('cPhysician').value) : null,
     treatment_notes: $id('cTreatment').value.trim()||null, notes: $id('cNotes').value.trim()||null,
+    // v202604.147 — body system, goal, tracked metric, control state
+    body_system:     $id('cBodySystem')?.value || null,
+    tracked_metric:  $id('cTrackedMetric')?.value || null,
+    goal:            $id('cGoal')?.value.trim() || null,
+    condition_state: $id('cConditionState')?.value || null,
   };
   try {
     if (editingId) { await api('PUT',`/medical/conditions/${editingId}`,body); showToast('Updated'); }
-    else { await api('POST','/medical/conditions',body); showToast('Saved'); }
+    else {
+      // v202604.147 — server may return identical (200 with _dedup signal).
+      // For conditions a hash collision is always identical (one per
+      // patient+name), so we just toast and proceed.
+      const r = await api('POST','/medical/conditions',body);
+      if (r && r._dedup === 'identical') {
+        showToast('Already exists for this person', 'info');
+      } else {
+        showToast('Saved');
+      }
+    }
     closeCondDrawer(); await renderConditions();
   } catch(e) { showToast(e.message,'err'); }
 }
 async function deleteCond(id) {
   confirmCb = async () => { await api('DELETE',`/medical/conditions/${id}`); showToast('Deleted'); await renderConditions(); };
   showConfirm('Delete condition?');
+}
+
+// ── v202604.147 — Condition metrics inline panel ─────────────────
+//
+// Used by the "Recent readings" sub-panel in the condition drawer.
+// Pulls the last 10 rows from /conditions/:id/metrics and renders a
+// compact list. Add-form below. Same-day duplicate replaces (the
+// server enforces UNIQUE(condition_id, metric_name, measured_on)).
+
+async function loadConditionMetrics(conditionId) {
+  const list = $id('cMetricsList');
+  if (!list) return;
+  try {
+    const r = await api('GET', `/medical/conditions/${conditionId}/metrics?limit=10`);
+    const items = (r && r.metrics) || [];
+    if (!items.length) {
+      list.textContent = 'No readings yet — add one below.';
+      return;
+    }
+    list.innerHTML = items.map(m => {
+      const val = m.value_numeric != null ? m.value_numeric : (m.value_text || '—');
+      const unit = m.unit || '';
+      return `<div style="padding:5px 0;border-bottom:1px solid #ede5cb;display:flex;align-items:center;gap:10px">
+        <span style="font-family:'Fraunces',serif;font-style:italic;font-size:14px;color:#2a241a;flex:1">
+          ${esc(m.measured_on)} · ${esc(m.metric_name)} <strong>${esc(val)}</strong> ${esc(unit)}
+        </span>
+        <button class="btn btn-ghost btn-sm" onclick="deleteConditionMetric(${conditionId}, ${m.id})" style="font-size:10px">×</button>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    list.textContent = 'Could not load readings.';
+  }
+}
+
+async function addConditionMetric() {
+  if (!editingId) { showToast('Save the condition first', 'err'); return; }
+  const value = $id('cMetricValue').value.trim();
+  const date  = $id('cMetricDate').value;
+  if (!value || !date) { showToast('Reading and date required', 'err'); return; }
+  const metric = $id('cTrackedMetric').value || 'reading';
+  // Heuristic: if pure number → numeric, else text (handles "128/82").
+  const asNum = Number(value);
+  const isNum = !isNaN(asNum) && /^[-+]?[\d.]+$/.test(value);
+  const unit = (() => {
+    switch (metric) {
+      case 'bp': return 'mmHg';
+      case 'a1c': return '%';
+      case 'ldl': case 'hdl': case 'glucose': return 'mg/dL';
+      case 'weight': return 'lb';
+      case 'peak_flow': return 'L/min';
+      default: return null;
+    }
+  })();
+  try {
+    await api('POST', `/medical/conditions/${editingId}/metrics`, {
+      metric_name: metric,
+      value_numeric: isNum ? asNum : null,
+      value_text:    isNum ? null  : value,
+      unit, measured_on: date,
+    });
+    $id('cMetricValue').value = '';
+    showToast('Reading added');
+    await loadConditionMetrics(editingId);
+  } catch (e) { showToast(e.message, 'err'); }
+}
+
+async function deleteConditionMetric(conditionId, metricId) {
+  try {
+    await api('DELETE', `/medical/conditions/${conditionId}/metrics/${metricId}`);
+    await loadConditionMetrics(conditionId);
+  } catch (e) { showToast(e.message, 'err'); }
 }
 
 // ── Visit Notes CRUD ────────────────────────────────────────────
@@ -4343,12 +4548,27 @@ async function _eobImport() {
     const r = await fetch('/api/v1/medical/eob/import', { method:'POST', headers:h, body:fd });
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || 'Import failed');
-    if (window.toast) toast(`✓ ${d.imported} EOB statement${d.imported!==1?'s':''} imported`);
+
+    // v202604.147 — surface dedup signals from the new server logic:
+    //   _dedup === 'identical_file'  : same PDF, silent skip
+    //   d.queued > 0                  : re-issued EOB → pending review
+    if (d._dedup === 'identical_file') {
+      if (window.toast) toast(d.message || 'Already imported', 'info');
+    } else {
+      const parts = [`✓ ${d.imported} imported`];
+      if (d.skipped) parts.push(`${d.skipped} skipped`);
+      if (d.queued)  parts.push(`${d.queued} queued for review`);
+      if (window.toast) toast(parts.join(' · '));
+    }
     _eobClear();
     await _eobLoadHistory();
     // Show name-match prompt if any flags were raised (S3/A10)
     if (d.name_flags && d.name_flags.length) {
       _showNameFlagPrompt(d.name_flags);
+    }
+    // v202604.147 — refresh banner if review queue grew
+    if (d.queued && typeof refreshPendingBanner === 'function') {
+      try { await refreshPendingBanner(); } catch {}
     }
   } catch(e) {
     if (window.toast) toast(e.message || 'Import failed', 'err');
@@ -4632,6 +4852,138 @@ async function resolvePending(id, resolution) {
   if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(run);
   else setTimeout(run, 200);
 })();
+
+// ════════════════════════════════════════════════════════════════
+// v202604.147 — CONTACT / FAMILY QUICK-VIEW MODALS
+// ────────────────────────────────────────────────────────────────
+// Card click-throughs surface a lightweight read-only modal showing
+// who the avatar represents. No dedicated /family.html or /contacts.html
+// page exists yet — when those land, swap these for navigations.
+//
+// Pharmacy with a website URL gets a clickable link; the user can open
+// the pharmacy's web portal directly.
+// ════════════════════════════════════════════════════════════════
+
+async function openContactQuickView(contactId) {
+  if (!contactId) return;
+  let c;
+  try {
+    c = await api('GET', `/settings/contacts/${contactId}`);
+  } catch (e) {
+    showToast('Could not load contact', 'err');
+    return;
+  }
+  // Type → label colour
+  const typeColor = (() => {
+    const t = (c.contact_type || '').toLowerCase();
+    if (t.includes('medical') || t.includes('physician') || t.includes('doctor')) return '#1d4ed8';
+    if (t.includes('pharmacy')) return '#a8311f';
+    return '#5e5440';
+  })();
+  const phoneEl = c.phone_primary
+    ? `<a href="tel:${esc(c.phone_primary)}" style="color:#1d4ed8;text-decoration:none">${esc(c.phone_primary)}</a>` : '—';
+  const emailEl = c.email
+    ? `<a href="mailto:${esc(c.email)}" style="color:#1d4ed8;text-decoration:none">${esc(c.email)}</a>` : '—';
+  const webEl = c.website
+    ? `<a href="${esc(c.website)}" target="_blank" rel="noopener" style="color:#1d4ed8;text-decoration:none">${esc(c.website.replace(/^https?:\/\//,''))}</a>`
+    : '—';
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ghContactQuickView';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1100;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;max-width:440px;width:100%;overflow:hidden;font-family:'Inter',sans-serif">
+      <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:${typeColor};margin-bottom:4px">
+          ${esc(c.contact_type || 'Contact')}${c.specialty ? ' · ' + esc(c.specialty) : ''}
+        </div>
+        <div style="font-family:'Fraunces',serif;font-style:italic;font-size:24px;color:#2a241a;letter-spacing:-0.01em">
+          ${esc(c.name)}
+        </div>
+        ${c.company ? `<div style="font-size:13px;color:#5e5440;margin-top:2px">${esc(c.company)}</div>` : ''}
+      </div>
+      <div style="padding:14px 20px;font-size:13px;color:#2a241a">
+        <div style="display:grid;grid-template-columns:80px 1fr;gap:8px 14px">
+          <span style="color:#8a7d62;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;padding-top:2px">Phone</span><span>${phoneEl}</span>
+          <span style="color:#8a7d62;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;padding-top:2px">Email</span><span>${emailEl}</span>
+          <span style="color:#8a7d62;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;padding-top:2px">Website</span><span>${webEl}</span>
+          ${c.address ? `<span style="color:#8a7d62;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;padding-top:2px">Address</span><span>${esc(c.address)}</span>` : ''}
+          ${c.notes ? `<span style="color:#8a7d62;font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;padding-top:2px">Notes</span><span style="font-style:italic;color:#5e5440">${esc(c.notes)}</span>` : ''}
+        </div>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end">
+        ${c.website ? `<a class="btn btn-ghost btn-sm" href="${esc(c.website)}" target="_blank" rel="noopener">Open website ↗</a>` : ''}
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ghContactQuickView').remove()">Close</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
+async function openFamilyQuickView(familyMemberId) {
+  if (!familyMemberId) return;
+  let fm;
+  try {
+    const all = await api('GET', '/settings/family');
+    fm = (all || []).find(x => x.id === familyMemberId);
+  } catch (e) {
+    showToast('Could not load family member', 'err');
+    return;
+  }
+  if (!fm) {
+    showToast('Family member not found', 'err');
+    return;
+  }
+  // Cross-domain summary: how many meds / conditions / visits / EOBs for this person?
+  let meds = 0, conds = 0, visits = 0;
+  try {
+    const [m, c, v] = await Promise.all([
+      api('GET', '/medical/medications').catch(() => []),
+      api('GET', '/medical/conditions').catch(() => []),
+      api('GET', '/medical/notes').catch(() => []),
+    ]);
+    meds = (m || []).filter(x => x.family_member_id === familyMemberId).length;
+    conds = (c || []).filter(x => x.family_member_id === familyMemberId).length;
+    visits = (v || []).filter(x => x.family_member_id === familyMemberId).length;
+  } catch {}
+
+  const overlay = document.createElement('div');
+  overlay.id = 'ghFamilyQuickView';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:1100;display:flex;align-items:center;justify-content:center;padding:20px';
+  overlay.innerHTML = `
+    <div style="background:white;border-radius:14px;max-width:440px;width:100%;overflow:hidden;font-family:'Inter',sans-serif">
+      <div style="padding:18px 20px;border-bottom:1px solid #e5e7eb">
+        <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:#5e5440;margin-bottom:4px">
+          Family member${fm.relationship ? ' · ' + esc(fm.relationship) : ''}
+        </div>
+        <div style="font-family:'Fraunces',serif;font-style:italic;font-size:24px;color:#2a241a;letter-spacing:-0.01em">
+          ${esc(fm.display_name || fm.name || 'Unknown')}
+        </div>
+        ${fm.dob ? `<div style="font-size:13px;color:#5e5440;margin-top:2px">DOB ${esc(fm.dob)}</div>` : ''}
+      </div>
+      <div style="padding:14px 20px;font-size:13px;color:#2a241a">
+        <div style="display:flex;gap:18px;justify-content:space-around;text-align:center">
+          <div>
+            <div style="font-family:'Fraunces',serif;font-style:italic;font-size:28px;color:#2a241a">${meds}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:#8a7d62">Medications</div>
+          </div>
+          <div>
+            <div style="font-family:'Fraunces',serif;font-style:italic;font-size:28px;color:#2a241a">${conds}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:#8a7d62">Conditions</div>
+          </div>
+          <div>
+            <div style="font-family:'Fraunces',serif;font-style:italic;font-size:28px;color:#2a241a">${visits}</div>
+            <div style="font-family:'DM Mono',monospace;font-size:10px;letter-spacing:0.10em;text-transform:uppercase;color:#8a7d62">Visits</div>
+          </div>
+        </div>
+      </div>
+      <div style="padding:14px 20px;border-top:1px solid #e5e7eb;display:flex;gap:8px;justify-content:flex-end">
+        <button class="btn btn-ghost btn-sm" onclick="document.getElementById('ghFamilyQuickView').remove()">Close</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
 </script>
 </body>
 </html>
