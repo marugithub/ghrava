@@ -818,11 +818,24 @@ router.delete('/conditions/:id', requireAuth, (req, res) => {
 // Joins physician name/specialty from contacts table.
 router.get('/notes', (req, res) => {
   try {
+    // v202604.147 — prefer physician_contact_id (new) over contact_id (legacy).
+    // Also surface family_member_name so the visit card can render the
+    // patient avatar with proper display name, matching the conditions GET.
+    const visitCols = db.prepare("PRAGMA table_info(med_visit_notes)").all().map(r => r.name);
+    const hasPhysFK = visitCols.includes('physician_contact_id');
+    const docJoin = hasPhysFK
+      ? 'COALESCE(n.physician_contact_id, n.contact_id)'
+      : 'n.contact_id';
     let sql = `
-      SELECT n.*, c.name AS physician_name, c.specialty, c.company AS practice_name
-      FROM med_visit_notes n
-      LEFT JOIN contacts c ON c.id = n.contact_id
-      WHERE 1=1
+      SELECT n.*,
+             c.name      AS physician_name,
+             c.specialty AS specialty,
+             c.company   AS practice_name,
+             fm.display_name AS family_member_name
+        FROM med_visit_notes n
+   LEFT JOIN contacts c        ON c.id = ${docJoin}
+   LEFT JOIN family_members fm ON fm.id = n.family_member_id
+       WHERE 1=1
     `;
     const params = [];
     if (req.query.patient)    { sql += ' AND n.patient=?';          params.push(req.query.patient); }

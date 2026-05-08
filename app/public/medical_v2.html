@@ -499,6 +499,34 @@ body.v2 .gh-family-label, body.v2 [class*="gh-family"] [class*="-label"]:first-c
   padding: 1px 6px; border-radius: 4px;
 }
 
+/* v202604.147 — Tab count badge for cross-card lens.
+   Renders next to the tab label as a small pill showing how many
+   records on that tab match the current lens + patient filters.
+   Hidden when lens is empty (no filter active). */
+.v2-tab-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: rgba(192,57,43,0.12);
+  color: #c0392b;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  vertical-align: middle;
+  min-width: 14px;
+  text-align: center;
+}
+.v2-tab.active .v2-tab-count {
+  background: #c0392b;
+  color: white;
+}
+.v2-tab-count.is-zero {
+  background: rgba(0,0,0,0.06);
+  color: #8a7d62;
+}
+
 /* ════════════════════════════════════════════════════════════════
    v202604.145 — VELLUM THEME TOKENS + MEDICATION CARD (V1)
    ────────────────────────────────────────────────────────────────
@@ -1477,11 +1505,11 @@ body.v2 {
   <!-- Segmented tabs (replaces old .view-tabs) -->
   <div style="padding:0 20px 12px">
     <div class="v2-tabs">
-      <button class="v2-tab active view-tab" onclick="switchView('medications',this)">Meds</button>
-      <button class="v2-tab view-tab" onclick="switchView('conditions',this)">Conditions</button>
-      <button class="v2-tab view-tab" onclick="switchView('notes',this)">Visits</button>
+      <button class="v2-tab active view-tab" onclick="switchView('medications',this)">Meds<span class="v2-tab-count" id="tabCount-medications" style="display:none"></span></button>
+      <button class="v2-tab view-tab" onclick="switchView('conditions',this)">Conditions<span class="v2-tab-count" id="tabCount-conditions" style="display:none"></span></button>
+      <button class="v2-tab view-tab" onclick="switchView('notes',this)">Visits<span class="v2-tab-count" id="tabCount-notes" style="display:none"></span></button>
       <button class="v2-tab view-tab" onclick="switchView('hw',this)">H&amp;W</button>
-      <button class="v2-tab view-tab" onclick="switchView('eob',this)">EOB</button>
+      <button class="v2-tab view-tab" onclick="switchView('eob',this)">EOB<span class="v2-tab-count" id="tabCount-eob" style="display:none"></span></button>
       <button class="v2-tab view-tab" onclick="switchView('summary',this)">Summary</button>
     </div>
   </div>
@@ -2192,7 +2220,11 @@ function switchView(view, btn) {
   const strip = $id('patientStrip');
   strip.style.display = (view === 'summary' || view === 'eob') ? 'none' : 'flex';
   AttachmentManager.injectStyles();
-renderCurrentView();
+  renderCurrentView();
+  // v202604.147 — refresh cross-card counts whenever the active tab changes
+  // (so the badge styling reflects the new active state). Cheap call —
+  // most tabs already cache rows, see refreshTabCounts.
+  if (typeof refreshTabCounts === 'function') refreshTabCounts();
 }
 
 function setPatient(btn, val) {
@@ -2200,6 +2232,7 @@ function setPatient(btn, val) {
   document.querySelectorAll('.patient-pill').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderCurrentView();
+  if (typeof refreshTabCounts === 'function') refreshTabCounts();
 }
 
 async function renderCurrentView() {
@@ -3995,6 +4028,7 @@ async function _medBoot() {
     searchEl.addEventListener('input', e => {
       _medSearch = e.target.value.trim().toLowerCase();
       renderCurrentView();
+      if (typeof refreshTabCounts === 'function') refreshTabCounts();
     });
   }
   // The Lens — re-inits per active subview (medications / conditions / visits)
@@ -4024,6 +4058,8 @@ async function _medBoot() {
         }
         window._medFilters = f;
         renderCurrentView();
+        // v202604.147 — cross-card lens: count matches on every tab.
+        if (typeof refreshTabCounts === 'function') refreshTabCounts();
       },
     });
   }
@@ -4573,9 +4609,140 @@ async function resolvePending(id, resolution) {
 // Refresh on page load — uses requestIdleCallback so it doesn't compete
 // with first paint of the medication list.
 (function () {
-  const run = () => { try { refreshPendingBanner(); } catch {} };
+  const run = () => { try { refreshPendingBanner(); refreshTabCounts(); } catch {} };
   if (typeof requestIdleCallback !== 'undefined') requestIdleCallback(run);
   else setTimeout(run, 200);
+})();
+
+// ════════════════════════════════════════════════════════════════
+// v202604.147 — CROSS-CARD LENS COUNTS
+// ────────────────────────────────────────────────────────────────
+// When the user types in the lens or picks a patient, every tab
+// shows a count badge of how many records on THAT tab match the
+// current filters. Click a tab → switches + applies the same
+// filter (rendering already reads _medSearch + currentPatient).
+//
+// Counts are computed by re-running the same filter predicates that
+// each render function uses, against fresh GETs (small payloads).
+// We cache results in window._tabCountCache for 30 seconds to avoid
+// hammering the API on every keystroke. The cache is invalidated
+// whenever a record is created/updated/deleted (not yet wired —
+// will fall back on the 30s expiry).
+// ════════════════════════════════════════════════════════════════
+
+window._tabCountCache = { ts: 0, data: null };
+
+function _matchesPatient(row) {
+  if (!currentPatient) return true;
+  return (row.patient || '').toLowerCase() === currentPatient.toLowerCase();
+}
+
+function _filterMeds(rows) {
+  let out = rows.filter(_matchesPatient);
+  if (_medSearch) {
+    out = out.filter(r =>
+      ['name','patient','dosage','frequency','purpose','notes','generic_of','brand_name'].some(k =>
+        (r[k]||'').toLowerCase().includes(_medSearch)));
+  }
+  return out;
+}
+function _filterConds(rows) {
+  let out = rows.filter(_matchesPatient);
+  if (_medSearch) {
+    out = out.filter(r =>
+      ['condition_name','patient','notes','body_system','goal'].some(k =>
+        (r[k]||'').toLowerCase().includes(_medSearch)));
+  }
+  return out;
+}
+function _filterVisits(rows) {
+  let out = rows.filter(_matchesPatient);
+  if (_medSearch) {
+    out = out.filter(r =>
+      ['patient','questions','doctors_response','notes','visit_location','visit_type','reason'].some(k =>
+        (r[k]||'').toLowerCase().includes(_medSearch)));
+  }
+  return out;
+}
+function _filterEob(rows) {
+  // EOB rows aggregate patients into a comma-joined string; check that field.
+  let out = rows;
+  if (currentPatient) {
+    out = out.filter(s => (s.patients || '').toLowerCase().includes(currentPatient.toLowerCase()));
+  }
+  if (_medSearch) {
+    out = out.filter(s =>
+      ['member_id','member_name','insurer','plan_name','group_name','patients'].some(k =>
+        (s[k]||'').toLowerCase().includes(_medSearch)));
+  }
+  return out;
+}
+
+async function _loadTabCountData(force) {
+  const now = Date.now();
+  if (!force && window._tabCountCache.data && (now - window._tabCountCache.ts) < 30000) {
+    return window._tabCountCache.data;
+  }
+  try {
+    const [meds, conds, visits, eob] = await Promise.all([
+      api('GET', '/medical/medications').catch(() => []),
+      api('GET', '/medical/conditions').catch(() => []),
+      api('GET', '/medical/notes').catch(() => []),
+      api('GET', '/medical/eob').catch(() => []),
+    ]);
+    window._tabCountCache = { ts: now, data: { meds, conds, visits, eob } };
+    return window._tabCountCache.data;
+  } catch {
+    return null;
+  }
+}
+
+async function refreshTabCounts() {
+  // No counts to show when the user hasn't filtered anything (clean default).
+  // Show counts whenever search OR patient filter is active.
+  const filterActive = !!_medSearch || !!currentPatient;
+  const tabIds = ['medications','conditions','notes','eob'];
+
+  if (!filterActive) {
+    for (const id of tabIds) {
+      const el = document.getElementById('tabCount-' + id);
+      if (el) el.style.display = 'none';
+    }
+    return;
+  }
+
+  const data = await _loadTabCountData();
+  if (!data) return;
+
+  const counts = {
+    medications: _filterMeds(data.meds).length,
+    conditions:  _filterConds(data.conds).length,
+    notes:       _filterVisits(data.visits).length,
+    eob:         _filterEob(data.eob).length,
+  };
+
+  for (const id of tabIds) {
+    const el = document.getElementById('tabCount-' + id);
+    if (!el) continue;
+    el.style.display = 'inline-block';
+    el.textContent = String(counts[id]);
+    el.classList.toggle('is-zero', counts[id] === 0);
+  }
+}
+
+// Invalidate the cache after any save/delete so counts refresh.
+// Cheap hook: monkey-patch the global api() to invalidate on writes.
+(function () {
+  if (!window.api || window._apiCacheBustInstalled) return;
+  const orig = window.api;
+  window.api = async function (method, ...rest) {
+    const r = await orig(method, ...rest);
+    if (method && /^(POST|PUT|DELETE)$/i.test(method)) {
+      window._tabCountCache = { ts: 0, data: null };
+    }
+    return r;
+  };
+  window._apiCacheBustInstalled = true;
 })();
 
 // ════════════════════════════════════════════════════════════════
