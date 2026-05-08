@@ -1499,683 +1499,6 @@ body.v2 {
   <div id="medViewToolbar" style="display:none"></div>
 
   
-  <!-- ════════════════════════════════════════════════════════════════
-       v202604.147 — STATIC CARD PREVIEWS (Conditions / Visits / EOB)
-       ──────────────────────────────────────────────────────────────────
-       Hardcoded sample cards living above the live medication list so
-       all 4 card types share one landing page. Not wired to data yet.
-       2-column layout, no horizontal scroll, no grouping (per request).
-       ════════════════════════════════════════════════════════════════ -->
-  <div style="max-width: 1320px; margin: 0 auto; padding: 12px 18px 0;">
-    <div style="font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-3); margin: 0 0 12px;">
-      Static previews — Conditions, Visits, EOBs
-    </div>
-    <div class="medv5-grid medv5-grid--static">
-      <!-- Condition #1 — Hypertension (in range, controlled) -->
-      <div class="cardv5">
-
-        <div class="cardv5__eyebrow">
-          <span class="dot dot--good"></span>Hypertension · Sarah · Cardiovascular
-        </div>
-
-        <div class="cardv5__hero-row">
-          <div class="cardv5__hero-block">
-            <div class="cardv5__hero-num cardv5__hero-num--good">128/82<span class="cardv5__hero-unit">mmHg</span></div>
-            <div class="cardv5__hero-sub">Last reading May 5 — within target</div>
-            <div class="cardv5__hero-context">
-              <span>Goal &lt;130/80</span><span class="sep">·</span>
-              <span>Diagnosed Mar 2024</span>
-            </div>
-          </div>
-          <div class="cardv5__b-right">
-            <span class="cardv5__iico cardv5__iico--good" title="Add reading">
-              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            </span>
-            <span class="cardv5__iico cardv5__iico--more" title="More">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-            </span>
-          </div>
-        </div>
-
-        <div class="cardv5__tag-row">
-          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Cardiovascular</span>
-          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Chronic</span>
-          <span class="cardv5__tag-spacer"></span>
-          <span class="cardv5__status-pill is-good">Controlled</span>
-        </div>
-
-        <hr class="cardv5__divider"/>
-
-        <div class="cardv5__strip">
-
-          <div class="cardv5__strip-item" title="Last visit for this condition">
-            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
-              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Last visit</span>
-              <span class="cardv5__strip-value">Mar 12</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Last 7 BP readings">
-            <div class="cardv5__strip-icon cardv5__strip-icon--green">
-              <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">7-day trend</span>
-              <svg class="cardv5__spark" viewBox="0 0 90 22" preserveAspectRatio="none">
-                <rect class="cardv5__spark-band" x="0" y="6" width="90" height="10"/>
-                <polyline class="cardv5__spark-line" points="0,14 15,11 30,12 45,9 60,10 75,8 90,10"/>
-                <circle class="cardv5__spark-dot" cx="90" cy="10" r="2"/>
-              </svg>
-              <span class="cardv5__strip-value">128/82<span class="cardv5__strip-value-of">latest</span></span>
-            </div>
-          </div>
-
-          <span class="cardv5__strip-divider"></span>
-
-          <div class="cardv5__strip-item" title="Active medications for this condition">
-            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
-              <svg viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Meds</span>
-              <span class="cardv5__strip-value">3</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="HSA spent on this condition YTD">
-            <div class="cardv5__strip-icon cardv5__strip-icon--green">
-              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">HSA YTD</span>
-              <span class="cardv5__strip-value">$184.90</span>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="cardv5__entities">
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#c084fc,#db2777)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
-            <span class="cardv5__ent-label">Sarah</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#93c5fd,#2563eb)">DP</div>
-              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
-            </div>
-            <span class="cardv5__ent-label">Dr. Patel</span>
-          </div>
-          <div class="cardv5__med-stack">
-            <div class="pill-mini" style="background:linear-gradient(135deg,#fb923c,#c2410c)">A</div>
-            <div class="pill-mini" style="background:linear-gradient(135deg,#5eead4,#0d9488)">L</div>
-            <div class="pill-mini" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">M</div>
-          </div>
-          <span class="cardv5__ent-spacer"></span>
-          <span class="cardv5__attach">
-            <svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>5
-          </span>
-          <span class="cardv5__drill">
-            Timeline<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-          </span>
-        </div>
-
-      </div>
-
-      <!-- Condition #2 — Diabetes (out of range, monitoring) -->
-      <div class="cardv5">
-
-        <div class="cardv5__eyebrow">
-          <span class="dot dot--warn"></span>Type 2 Diabetes · Algir · Endocrine
-        </div>
-
-        <div class="cardv5__hero-row">
-          <div class="cardv5__hero-block">
-            <div class="cardv5__hero-num cardv5__hero-num--bad">7.4<span class="cardv5__hero-unit">% A1C</span></div>
-            <div class="cardv5__hero-sub">Last test Apr 8 — above target</div>
-            <div class="cardv5__hero-context">
-              <span>Goal &lt;7.0%</span><span class="sep">·</span>
-              <span>Diagnosed Aug 2022</span>
-            </div>
-          </div>
-          <div class="cardv5__b-right">
-            <span class="cardv5__iico cardv5__iico--good" title="Add reading">
-              <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            </span>
-            <span class="cardv5__iico cardv5__iico--more" title="More">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-            </span>
-          </div>
-        </div>
-
-        <div class="cardv5__tag-row">
-          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.5.5 0 0 1-.96 0L9.24 2.18a.5.5 0 0 0-.96 0l-2.35 8.36A2 2 0 0 1 4 12H2"/></svg>Endocrine</span>
-          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>Chronic</span>
-          <span class="cardv5__tag-spacer"></span>
-          <span class="cardv5__status-pill">Monitoring</span>
-        </div>
-
-        <hr class="cardv5__divider"/>
-
-        <div class="cardv5__strip">
-
-          <div class="cardv5__strip-item" title="Last visit">
-            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
-              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Last visit</span>
-              <span class="cardv5__strip-value">Apr 8</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="A1C trend over last 4 tests">
-            <div class="cardv5__strip-icon cardv5__strip-icon--red">
-              <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">A1C trend</span>
-              <svg class="cardv5__spark" viewBox="0 0 90 22" preserveAspectRatio="none">
-                <rect class="cardv5__spark-band" x="0" y="11" width="90" height="11"/>
-                <polyline class="cardv5__spark-line" style="stroke:var(--bad)" points="0,12 30,11 60,8 90,5"/>
-                <circle class="cardv5__spark-dot" style="fill:var(--bad)" cx="90" cy="5" r="2"/>
-              </svg>
-              <span class="cardv5__strip-value">7.4<span class="cardv5__strip-value-of">↑ 0.4 vs prev</span></span>
-            </div>
-          </div>
-
-          <span class="cardv5__strip-divider"></span>
-
-          <div class="cardv5__strip-item" title="Active medications">
-            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
-              <svg viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Meds</span>
-              <span class="cardv5__strip-value">2</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="HSA YTD">
-            <div class="cardv5__strip-icon cardv5__strip-icon--green">
-              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">HSA YTD</span>
-              <span class="cardv5__strip-value">$312.50</span>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="cardv5__entities">
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#fb923c,#c2410c)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
-            <span class="cardv5__ent-label">Algir</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#34d399,#047857)">RG</div>
-              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
-            </div>
-            <span class="cardv5__ent-label">Dr. Goyal</span>
-          </div>
-          <div class="cardv5__med-stack">
-            <div class="pill-mini" style="background:linear-gradient(135deg,#5eead4,#0d9488)">M</div>
-            <div class="pill-mini" style="background:linear-gradient(135deg,#a78bfa,#7c3aed)">G</div>
-          </div>
-          <span class="cardv5__ent-spacer"></span>
-          <span class="cardv5__drill">
-            Timeline<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-          </span>
-        </div>
-
-      </div>
-
-      <!-- Visit #1 — Annual physical (recent, complete) -->
-      <div class="cardv5">
-
-        <div class="cardv5__eyebrow">
-          <span class="dot dot--good"></span>Visit · Sarah · Annual physical
-        </div>
-
-        <div class="cardv5__hero-row">
-          <div class="cardv5__hero-block">
-            <div class="cardv5__hero-num">Mar 12<span class="cardv5__hero-unit">11d ago</span></div>
-            <div class="cardv5__hero-sub">9:30 AM — 45 min · in-person</div>
-            <div class="cardv5__hero-context">
-              <span>UPMC East</span><span class="sep">·</span>
-              <span>2nd floor — Internal Med</span>
-            </div>
-          </div>
-          <div class="cardv5__b-right">
-            <span class="cardv5__iico cardv5__iico--more" title="More">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-            </span>
-          </div>
-        </div>
-
-        <div class="cardv5__tag-row">
-          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>Hypertension</span>
-          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/></svg>Cholesterol</span>
-          <span class="cardv5__tag-spacer"></span>
-          <span class="cardv5__status-pill is-good">Visit notes available</span>
-        </div>
-
-        <div class="cardv5__notes">
-          BP improving on current dose. Continue lisinopril 10mg, recheck in 3 months. Discussed Mediterranean diet, recommended LDL panel at next visit.
-        </div>
-
-        <hr class="cardv5__divider"/>
-
-        <div class="cardv5__strip">
-
-          <div class="cardv5__strip-item" title="Blood pressure recorded at visit">
-            <div class="cardv5__strip-icon cardv5__strip-icon--green">
-              <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">BP</span>
-              <span class="cardv5__strip-value">128/82</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Weight recorded">
-            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><path d="M6.5 21h11l-2-13h-7z"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Weight</span>
-              <span class="cardv5__strip-value">154 <span class="cardv5__strip-value-of">lb</span></span>
-            </div>
-          </div>
-
-          <span class="cardv5__strip-divider"></span>
-
-          <div class="cardv5__strip-item" title="Visit cost (out-of-pocket)">
-            <div class="cardv5__strip-icon cardv5__strip-icon--red">
-              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">You paid</span>
-              <span class="cardv5__strip-value">$30.00</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Next follow-up">
-            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
-              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Follow-up</span>
-              <span class="cardv5__strip-value">Jun 12</span>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="cardv5__entities">
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#c084fc,#db2777)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
-            <span class="cardv5__ent-label">Sarah</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#93c5fd,#2563eb)">DP</div>
-              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
-            </div>
-            <span class="cardv5__ent-label">Dr. Patel</span>
-          </div>
-          <span class="cardv5__ent-spacer"></span>
-          <span class="cardv5__attach">
-            <svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>3
-          </span>
-          <span class="cardv5__drill">
-            Open<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-          </span>
-        </div>
-
-      </div>
-
-      <!-- Visit #2 — Upcoming visit -->
-      <div class="cardv5">
-
-        <div class="cardv5__eyebrow">
-          <span class="dot dot--blue"></span>Upcoming visit · Algir · Endocrinology
-        </div>
-
-        <div class="cardv5__hero-row">
-          <div class="cardv5__hero-block">
-            <div class="cardv5__hero-num cardv5__hero-num--good">in 4d<span class="cardv5__hero-unit">May 11</span></div>
-            <div class="cardv5__hero-sub">10:00 AM — 30 min · in-person</div>
-            <div class="cardv5__hero-context">
-              <span>Diabetes follow-up</span><span class="sep">·</span>
-              <span>Bring glucose log</span>
-            </div>
-          </div>
-          <div class="cardv5__b-right">
-            <span class="cardv5__iico cardv5__iico--more" title="More">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-            </span>
-          </div>
-        </div>
-
-        <div class="cardv5__tag-row">
-          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.5.5 0 0 1-.96 0L9.24 2.18a.5.5 0 0 0-.96 0l-2.35 8.36A2 2 0 0 1 4 12H2"/></svg>Diabetes</span>
-          <span class="cardv5__tag-spacer"></span>
-          <span class="cardv5__status-pill">Confirmed</span>
-        </div>
-
-        <hr class="cardv5__divider"/>
-
-        <div class="cardv5__strip">
-
-          <div class="cardv5__strip-item" title="Most recent visit, same provider">
-            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
-              <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Last visit</span>
-              <span class="cardv5__strip-value">Feb 8</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Visit purpose">
-            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
-              <svg viewBox="0 0 24 24"><path d="M9 12h6m-3-3v6"/><circle cx="12" cy="12" r="10"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Reason</span>
-              <span class="cardv5__strip-value">Lab review</span>
-            </div>
-          </div>
-
-          <span class="cardv5__strip-divider"></span>
-
-          <div class="cardv5__strip-item" title="Estimated copay">
-            <div class="cardv5__strip-icon cardv5__strip-icon--red">
-              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Est. copay</span>
-              <span class="cardv5__strip-value">$45.00</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Pre-visit reminders">
-            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
-              <svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Reminders</span>
-              <span class="cardv5__strip-value">2</span>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="cardv5__entities">
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#fb923c,#c2410c)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
-            <span class="cardv5__ent-label">Algir</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#34d399,#047857)">RG</div>
-              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
-            </div>
-            <span class="cardv5__ent-label">Dr. Goyal</span>
-          </div>
-          <span class="cardv5__ent-spacer"></span>
-          <span class="cardv5__drill">
-            Reschedule<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-          </span>
-        </div>
-
-      </div>
-
-      <!-- EOB #1 — Settled, you owe nothing -->
-      <div class="cardv5">
-
-        <div class="cardv5__eyebrow">
-          <span class="dot dot--good"></span>EOB · Sarah · Annual physical
-        </div>
-
-        <div class="cardv5__hero-row">
-          <div class="cardv5__hero-block">
-            <div class="cardv5__hero-num cardv5__hero-num--good">$30.00<span class="cardv5__hero-unit">you paid</span></div>
-            <div class="cardv5__hero-sub">Settled — no further amount due</div>
-            <div class="cardv5__hero-context">
-              <span>Claim # 8472-19A</span><span class="sep">·</span>
-              <span>Processed Mar 28</span>
-            </div>
-          </div>
-          <div class="cardv5__b-right">
-            <span class="cardv5__iico cardv5__iico--more" title="More">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-            </span>
-          </div>
-        </div>
-
-        <div class="cardv5__tag-row">
-          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>Visit Mar 12</span>
-          <span class="cardv5__tag-spacer"></span>
-          <span class="cardv5__status-pill is-good">Paid in full</span>
-        </div>
-
-        <div style="margin-top:14px">
-          <div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;color:var(--text-3);line-height:1.2;margin-bottom:4px">Bill breakdown</div>
-          <div class="cardv5__paybar">
-            <div class="cardv5__paybar-seg-paid"  style="width:8%"></div>
-            <div class="cardv5__paybar-seg-ins"   style="width:62%"></div>
-            <div class="cardv5__paybar-seg-disc"  style="width:30%"></div>
-          </div>
-          <div class="cardv5__paybar-legend">
-            <span><i style="background:var(--bad)"></i>You $30</span>
-            <span><i style="background:var(--good)"></i>Insurance $232</span>
-            <span><i style="background:var(--text-4)"></i>Adjusted $113</span>
-          </div>
-        </div>
-
-        <hr class="cardv5__divider"/>
-
-        <div class="cardv5__strip">
-
-          <div class="cardv5__strip-item" title="Total billed by provider">
-            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
-              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Billed</span>
-              <span class="cardv5__strip-value">$375.00</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Insurance paid + plan adjustment">
-            <div class="cardv5__strip-icon cardv5__strip-icon--green">
-              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Covered</span>
-              <span class="cardv5__strip-value">$345.00</span>
-            </div>
-          </div>
-
-          <span class="cardv5__strip-divider"></span>
-
-          <div class="cardv5__strip-item" title="Number of line items">
-            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
-              <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Lines</span>
-              <span class="cardv5__strip-value">4</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Out-of-pocket year-to-date toward deductible">
-            <div class="cardv5__strip-icon cardv5__strip-icon--amber">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Toward ded.</span>
-              <span class="cardv5__strip-value">$486 <span class="cardv5__strip-value-of">of $1500</span></span>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="cardv5__entities">
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#c084fc,#db2777)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
-            <span class="cardv5__ent-label">Sarah</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#93c5fd,#2563eb)">DP</div>
-              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
-            </div>
-            <span class="cardv5__ent-label">Dr. Patel</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div style="width:40px;height:40px;border-radius:9px;background:#0c4a6e;color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.04em">UPMC</div>
-            </div>
-            <span class="cardv5__ent-label">UPMC</span>
-          </div>
-          <span class="cardv5__ent-spacer"></span>
-          <span class="cardv5__attach">
-            <svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>2
-          </span>
-          <span class="cardv5__drill">
-            Lines<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-          </span>
-        </div>
-
-      </div>
-
-      <!-- EOB #2 — You owe (open balance) -->
-      <div class="cardv5">
-
-        <div class="cardv5__eyebrow">
-          <span class="dot dot--bad"></span>EOB · Algir · Lab work
-        </div>
-
-        <div class="cardv5__hero-row">
-          <div class="cardv5__hero-block">
-            <div class="cardv5__hero-num cardv5__hero-num--bad">$142.18<span class="cardv5__hero-unit">you owe</span></div>
-            <div class="cardv5__hero-sub">Due May 28 · A1C panel + lipid panel</div>
-            <div class="cardv5__hero-context">
-              <span>Claim # 9201-44B</span><span class="sep">·</span>
-              <span>Received Apr 22</span>
-            </div>
-          </div>
-          <div class="cardv5__b-right">
-            <span class="cardv5__iico cardv5__iico--more" title="More">
-              <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
-            </span>
-          </div>
-        </div>
-
-        <div class="cardv5__tag-row">
-          <span class="cardv5__tag cardv5__tag--purple"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>Visit Apr 8</span>
-          <span class="cardv5__tag cardv5__tag--blue"><svg viewBox="0 0 24 24"><path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36"/><path d="M9.24 2.18a.5.5 0 0 0-.96 0"/></svg>Diabetes</span>
-          <span class="cardv5__tag-spacer"></span>
-          <span class="cardv5__status-pill is-bad">Payment due</span>
-        </div>
-
-        <div style="margin-top:14px">
-          <div style="font-family:var(--font-mono);font-size:9.5px;letter-spacing:0.10em;text-transform:uppercase;color:var(--text-3);line-height:1.2;margin-bottom:4px">Bill breakdown</div>
-          <div class="cardv5__paybar">
-            <div class="cardv5__paybar-seg-paid"  style="width:36%"></div>
-            <div class="cardv5__paybar-seg-ins"   style="width:42%"></div>
-            <div class="cardv5__paybar-seg-disc"  style="width:22%"></div>
-          </div>
-          <div class="cardv5__paybar-legend">
-            <span><i style="background:var(--bad)"></i>You $142</span>
-            <span><i style="background:var(--good)"></i>Insurance $164</span>
-            <span><i style="background:var(--text-4)"></i>Adjusted $86</span>
-          </div>
-        </div>
-
-        <hr class="cardv5__divider"/>
-
-        <div class="cardv5__strip">
-
-          <div class="cardv5__strip-item" title="Total billed">
-            <div class="cardv5__strip-icon cardv5__strip-icon--purple">
-              <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Billed</span>
-              <span class="cardv5__strip-value">$392.00</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Insurance covered">
-            <div class="cardv5__strip-icon cardv5__strip-icon--green">
-              <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Covered</span>
-              <span class="cardv5__strip-value">$249.82</span>
-            </div>
-          </div>
-
-          <span class="cardv5__strip-divider"></span>
-
-          <div class="cardv5__strip-item" title="Line items">
-            <div class="cardv5__strip-icon cardv5__strip-icon--blue">
-              <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Lines</span>
-              <span class="cardv5__strip-value">3</span>
-            </div>
-          </div>
-
-          <div class="cardv5__strip-item" title="Days until due">
-            <div class="cardv5__strip-icon cardv5__strip-icon--red">
-              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-            </div>
-            <div class="cardv5__strip-meta">
-              <span class="cardv5__strip-label">Due in</span>
-              <span class="cardv5__strip-value">21d</span>
-            </div>
-          </div>
-
-        </div>
-
-        <div class="cardv5__entities">
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#fb923c,#c2410c)"><svg viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>
-            <span class="cardv5__ent-label">Algir</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,#34d399,#047857)">QD</div>
-              <div class="cardv5__ent-badge"><svg viewBox="0 0 24 24"><path d="M11 2v2"/><path d="M5 2v2"/><path d="M5 3a2 2 0 0 0-2 2v4a6 6 0 0 0 12 0V5a2 2 0 0 0-2-2"/><path d="M8 15a6 6 0 0 0 12 0v-3"/><circle cx="20" cy="10" r="2"/></svg></div>
-            </div>
-            <span class="cardv5__ent-label">Quest Dx</span>
-          </div>
-          <div class="cardv5__ent">
-            <div class="cardv5__ent-tile">
-              <div style="width:40px;height:40px;border-radius:9px;background:#003366;color:white;display:flex;align-items:center;justify-content:center;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;letter-spacing:0.04em">BCBS</div>
-            </div>
-            <span class="cardv5__ent-label">Insurance</span>
-          </div>
-          <span class="cardv5__ent-spacer"></span>
-          <span class="cardv5__drill">
-            Pay<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-          </span>
-        </div>
-
-      </div>
-    </div>
-  </div>
 
 <!-- v202604.147 — Pending-review banner (shown only when count > 0) -->
   <div id="ghPendingBanner" class="gh-pending-banner" style="display:none" onclick="openPendingReview()">
@@ -3482,6 +2805,457 @@ function renderMedCard(r) {
     </div>`;
 }
 
+// ════════════════════════════════════════════════════════════════
+// v202604.147 — Condition / Visit / EOB card renderers
+// ────────────────────────────────────────────────────────────────
+// Same Vellum DNA as renderMedCard. Each card has its own hero
+// strategy (number / date / money) but shares chrome (.cardv5__*).
+// All three are data-bound — they read from the GET endpoints we
+// just enriched (med_condition_metrics, visit fields, EOB dedup).
+// ════════════════════════════════════════════════════════════════
+
+// ── Condition card (number-as-hero) ─────────────────────────────
+//
+// Hero = the latest tracked metric reading (BP/A1C/LDL/...).
+// Eyebrow = condition name + patient + body system.
+// Strip = last visit · trend sparkline · meds count · HSA YTD.
+// Falls back gracefully when no metric is tracked.
+function renderConditionCard(c) {
+  const memberName = c.family_member_name || c.patient || '';
+  const stateCls = (() => {
+    if (c.condition_state === 'controlled')    return 'good';
+    if (c.condition_state === 'monitoring')    return 'warn';
+    if (c.condition_state === 'out_of_range')  return 'bad';
+    if (c.condition_state === 'acute')         return 'bad';
+    if (c.status === 'Resolved')               return 'good';
+    return 'warn';
+  })();
+  const stateText = c.condition_state
+    ? c.condition_state.replace('_',' ').replace(/\b\w/g, x => x.toUpperCase())
+    : (c.status || 'Active');
+
+  // Hero: prefer latest_metric.value, else condition name.
+  const m = c.latest_metric;
+  const heroNumColor = (() => {
+    if (c.condition_state === 'controlled')   return 'cardv5__hero-num--good';
+    if (c.condition_state === 'out_of_range') return 'cardv5__hero-num--bad';
+    if (c.condition_state === 'acute')        return 'cardv5__hero-num--bad';
+    return '';
+  })();
+  const heroBlock = m
+    ? `<div class="cardv5__hero-num ${heroNumColor}">${esc(String(m.value))}${m.unit ? `<span class="cardv5__hero-unit">${esc(m.unit)}</span>` : ''}</div>
+       <div class="cardv5__hero-sub">Last reading ${esc(formatDate(m.recorded_at))}${c.goal ? ' — goal ' + esc(c.goal) : ''}</div>`
+    : `<div class="cardv5__hero-num" style="font-size:32px">${esc(c.condition_name || '')}</div>
+       ${c.goal ? `<div class="cardv5__hero-sub">Goal: ${esc(c.goal)}</div>` : ''}`;
+
+  // Sparkline from metric_series (chronological array of {value, recorded_at})
+  let spark = '';
+  if (Array.isArray(c.metric_series) && c.metric_series.length >= 2) {
+    const nums = c.metric_series.map(s => {
+      const v = s.value;
+      if (typeof v === 'number') return v;
+      // BP "128/82" → use systolic
+      const mm = String(v).match(/(\d+)/);
+      return mm ? parseInt(mm[1]) : null;
+    }).filter(n => n != null);
+    if (nums.length >= 2) {
+      const min = Math.min(...nums), max = Math.max(...nums);
+      const range = (max - min) || 1;
+      const pts = nums.map((n, i) => {
+        const x = (i / (nums.length - 1)) * 90;
+        const y = 18 - ((n - min) / range) * 14;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+      }).join(' ');
+      spark = `<svg class="cardv5__spark" viewBox="0 0 90 22" preserveAspectRatio="none">
+        <polyline class="cardv5__spark-line" points="${pts}"/>
+        <circle class="cardv5__spark-dot" cx="${(90).toFixed(1)}" cy="${(18 - ((nums[nums.length-1] - min) / range) * 14).toFixed(1)}" r="2"/>
+      </svg>`;
+    }
+  }
+
+  // Body-system tag color
+  const sysColor = (() => {
+    const s = (c.body_system || '').toLowerCase();
+    if (s.includes('cardio'))    return 'cardv5__tag--purple';
+    if (s.includes('endo'))      return 'cardv5__tag--blue';
+    if (s.includes('respir'))    return 'cardv5__tag--blue';
+    if (s.includes('mental'))    return 'cardv5__tag--purple';
+    return '';
+  })();
+
+  // Patient avatar
+  let patientEnt = '';
+  if (memberName) {
+    const g = _gradFor(memberName);
+    const fmId = c.family_member_id;
+    const onClick = fmId ? `event.stopPropagation();openFamilyQuickView(${fmId})` : 'event.stopPropagation()';
+    patientEnt = `
+      <div class="cardv5__ent" onclick="${onClick}" title="${esc(memberName)}">
+        <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${_LU.user}</div></div>
+        <span class="cardv5__ent-label">${esc(memberName.split(/\s+/)[0])}</span>
+      </div>`;
+  }
+  // Doctor avatar (if any)
+  let docEnt = '';
+  if (c.physician_contact_id || c.physician) {
+    const docName = c.physician || 'Doctor';
+    const g = _gradFor(docName);
+    const ini = docName.split(/\s+/).map(s=>s[0]||'').join('').slice(0,2).toUpperCase() || 'DR';
+    const cid = c.physician_contact_id;
+    const onClick = cid ? `event.stopPropagation();openContactQuickView(${cid})` : 'event.stopPropagation()';
+    docEnt = `
+      <div class="cardv5__ent" onclick="${onClick}" title="${esc(docName)}">
+        <div class="cardv5__ent-tile">
+          <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${esc(ini)}</div>
+          <div class="cardv5__ent-badge">${_LU.steth}</div>
+        </div>
+        <span class="cardv5__ent-label">${esc(docName)}</span>
+      </div>`;
+  }
+
+  // Linked-meds avatar stack (first letters of up to 3 active meds)
+  let medsStack = '';
+  if (Array.isArray(c.medications) && c.medications.length) {
+    medsStack = `<div style="display:flex;align-items:center;margin-left:6px">
+      ${c.medications.slice(0,3).map(med => {
+        const g = _gradFor(med.name);
+        const initial = (med.name || '?').slice(0,1).toUpperCase();
+        return `<div title="${esc(med.name)} ${esc(med.dosage || '')}" style="width:24px;height:24px;border-radius:50%;border:2px solid #fbf6e9;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,${g[0]},${g[1]});color:white;font-family:'DM Mono',monospace;font-size:10px;font-weight:600;margin-left:-8px">${esc(initial)}</div>`;
+      }).join('')}
+    </div>`;
+  }
+
+  return `
+    <div class="cardv5" onclick="editCondition(${c.id})">
+      <div class="cardv5__eyebrow">
+        <span class="dot dot--${stateCls}"></span>
+        ${esc(c.condition_name || '')} · ${esc(memberName)}${c.body_system ? ' · ' + esc(c.body_system) : ''}
+      </div>
+
+      <div class="cardv5__hero-row">
+        <div class="cardv5__hero-block">${heroBlock}</div>
+        <div class="cardv5__b-right">
+          <button class="cardv5__iico cardv5__iico--good" title="Add reading" onclick="event.stopPropagation();editCondition(${c.id})">
+            <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+          </button>
+          <button class="cardv5__iico cardv5__iico--more" title="More" onclick="event.stopPropagation();editCondition(${c.id})">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="cardv5__tag-row">
+        ${c.body_system ? `<span class="cardv5__tag ${sysColor}">${esc(c.body_system)}</span>` : ''}
+        ${c.status === 'Chronic' ? `<span class="cardv5__tag cardv5__tag--blue">Chronic</span>` : ''}
+        <span class="cardv5__tag-spacer"></span>
+        <span class="cardv5__status-pill is-${stateCls === 'good' ? 'good' : stateCls === 'bad' ? 'bad' : ''}">${esc(stateText)}</span>
+      </div>
+
+      <hr class="cardv5__divider"/>
+
+      <div class="cardv5__strip">
+        <div class="cardv5__strip-item" title="Visits in this person's history">
+          <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+            <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Visits</span>
+            <span class="cardv5__strip-value">${c.related_visits_count || 0}</span>
+          </div>
+        </div>
+        <div class="cardv5__strip-item" title="Recent trend (latest reading)">
+          <div class="cardv5__strip-icon cardv5__strip-icon--green">
+            <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Trend</span>
+            ${spark || '<span class="cardv5__strip-value">—</span>'}
+            ${m ? `<span class="cardv5__strip-value" style="font-size:13px;margin-top:2px">${esc(String(m.value))}</span>` : ''}
+          </div>
+        </div>
+        <span class="cardv5__strip-divider"></span>
+        <div class="cardv5__strip-item" title="Active medications">
+          <div class="cardv5__strip-icon cardv5__strip-icon--amber">
+            <svg viewBox="0 0 24 24"><path d="m10.5 20.5 10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="m8.5 8.5 7 7"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Meds</span>
+            <span class="cardv5__strip-value">${c.active_meds_count || 0}</span>
+          </div>
+        </div>
+        <div class="cardv5__strip-item" title="HSA spent on this condition this year">
+          <div class="cardv5__strip-icon cardv5__strip-icon--green">
+            <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">HSA YTD</span>
+            <span class="cardv5__strip-value">$${Number(c.hsa_ytd || 0).toFixed(2)}</span>
+          </div>
+        </div>
+      </div>
+
+      ${(patientEnt || docEnt || medsStack) ? `<div class="cardv5__entities">
+        ${patientEnt}${docEnt}${medsStack}
+        <span class="cardv5__ent-spacer"></span>
+        ${c.attachment_count ? `<span class="cardv5__attach"><svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${c.attachment_count}</span>` : ''}
+        <span class="cardv5__drill" onclick="event.stopPropagation();editCondition(${c.id})">Open<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></span>
+      </div>` : ''}
+    </div>`;
+}
+
+// ── Visit card (date-as-hero) ───────────────────────────────────
+//
+// Hero = visit date with relative-day suffix ("Mar 12 · 11d ago").
+// Future visits show "in N days"; today shows "today".
+// Strip = vitals captured · cost · follow-up date · location.
+function renderVisitCard(v) {
+  const memberName = v.family_member_name || v.patient || '';
+  const today = new Date(); today.setHours(0,0,0,0);
+  const visitDate = v.visit_date ? new Date(v.visit_date + 'T00:00') : null;
+  let relText = '';
+  let isFuture = false;
+  if (visitDate && !isNaN(visitDate.getTime())) {
+    const days = Math.round((visitDate - today) / 86400000);
+    if (days === 0)      relText = 'today';
+    else if (days > 0)   { relText = `in ${days}d`; isFuture = true; }
+    else                 relText = `${Math.abs(days)}d ago`;
+  }
+  const stateCls = isFuture ? 'blue' : 'good';
+  const heroDateText = visitDate ? visitDate.toLocaleDateString('en-US',{month:'short',day:'numeric'}) : '—';
+  const heroNumColor = isFuture ? 'cardv5__hero-num--good' : '';
+  const eyebrowLabel = isFuture ? 'Upcoming visit' : 'Visit';
+
+  // Build "9:30 AM · 45 min · in-person" sub-text
+  const fmtTime = t => {
+    if (!t) return '';
+    const [h, m] = t.split(':');
+    const hh = parseInt(h);
+    const ampm = hh >= 12 ? 'PM' : 'AM';
+    const h12 = ((hh % 12) || 12);
+    return `${h12}:${m} ${ampm}`;
+  };
+  const subBits = [];
+  if (v.start_time)    subBits.push(fmtTime(v.start_time));
+  if (v.duration_min)  subBits.push(`${v.duration_min} min`);
+  const subline = subBits.length ? subBits.join(' · ') : '';
+
+  // Build optional "UPMC East · 2nd floor" context line
+  const contextBits = [];
+  if (v.visit_location) contextBits.push(esc(v.visit_location));
+  if (v.reason)         contextBits.push(esc(v.reason));
+  const contextLine = contextBits.length
+    ? `<div class="cardv5__hero-context">${contextBits.map((b,i) => i ? `<span class="sep">·</span><span>${b}</span>` : `<span>${b}</span>`).join('')}</div>`
+    : '';
+
+  // Patient + doctor entities
+  let patientEnt = '';
+  if (memberName) {
+    const g = _gradFor(memberName);
+    const fmId = v.family_member_id;
+    const onClick = fmId ? `event.stopPropagation();openFamilyQuickView(${fmId})` : 'event.stopPropagation()';
+    patientEnt = `
+      <div class="cardv5__ent" onclick="${onClick}">
+        <div class="cardv5__ent-tile"><div class="cardv5__ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${_LU.user}</div></div>
+        <span class="cardv5__ent-label">${esc(memberName.split(/\s+/)[0])}</span>
+      </div>`;
+  }
+  let docEnt = '';
+  if (v.physician_contact_id || v.physician_name) {
+    const docName = v.physician_name || 'Doctor';
+    const g = _gradFor(docName);
+    const ini = docName.split(/\s+/).map(s=>s[0]||'').join('').slice(0,2).toUpperCase() || 'DR';
+    const cid = v.physician_contact_id;
+    const onClick = cid ? `event.stopPropagation();openContactQuickView(${cid})` : 'event.stopPropagation()';
+    docEnt = `
+      <div class="cardv5__ent" onclick="${onClick}">
+        <div class="cardv5__ent-tile">
+          <div class="cardv5__ent-circle" style="background:linear-gradient(135deg,${g[0]},${g[1]})">${esc(ini)}</div>
+          <div class="cardv5__ent-badge">${_LU.steth}</div>
+        </div>
+        <span class="cardv5__ent-label">${esc(docName)}</span>
+      </div>`;
+  }
+
+  // Tag row: visit_type chip + linked condition chips (if present)
+  const typeChip = v.visit_type
+    ? `<span class="cardv5__tag cardv5__tag--blue">${esc(v.visit_type.charAt(0).toUpperCase() + v.visit_type.slice(1))}</span>`
+    : '';
+
+  // Strip cells: BP / Weight / You-paid / Follow-up date
+  const bpText = (v.bp_systolic && v.bp_diastolic)
+    ? `${v.bp_systolic}/${v.bp_diastolic}`
+    : '—';
+  const weightText = v.weight_lb != null ? `${v.weight_lb}<span class="cardv5__strip-value-of">lb</span>` : '—';
+  const costText = v.visit_cost_oop != null ? `$${Number(v.visit_cost_oop).toFixed(2)}` : '—';
+  const followText = v.follow_up_needed && v.follow_up_date
+    ? formatDate(v.follow_up_date)
+    : '—';
+
+  // Notes preview (first 200 chars of doctors_response if present)
+  const notesPreview = v.doctors_response
+    ? `<div class="cardv5__notes">${esc(v.doctors_response.slice(0, 240))}${v.doctors_response.length > 240 ? '…' : ''}</div>`
+    : '';
+
+  return `
+    <div class="cardv5" onclick="editNote(${v.id})">
+      <div class="cardv5__eyebrow">
+        <span class="dot dot--${stateCls}"></span>
+        ${esc(eyebrowLabel)} · ${esc(memberName)}${v.visit_type ? ' · ' + esc(v.visit_type) : ''}
+      </div>
+
+      <div class="cardv5__hero-row">
+        <div class="cardv5__hero-block">
+          <div class="cardv5__hero-num ${heroNumColor}">${esc(heroDateText)}<span class="cardv5__hero-unit">${esc(relText)}</span></div>
+          ${subline ? `<div class="cardv5__hero-sub">${esc(subline)}</div>` : ''}
+          ${contextLine}
+        </div>
+        <div class="cardv5__b-right">
+          <button class="cardv5__iico cardv5__iico--more" title="More" onclick="event.stopPropagation();editNote(${v.id})">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      ${typeChip ? `<div class="cardv5__tag-row">${typeChip}<span class="cardv5__tag-spacer"></span>${v.follow_up_needed ? '<span class="cardv5__status-pill">Follow-up needed</span>' : ''}</div>` : ''}
+
+      ${notesPreview}
+
+      <hr class="cardv5__divider"/>
+
+      <div class="cardv5__strip">
+        <div class="cardv5__strip-item" title="Blood pressure recorded at visit">
+          <div class="cardv5__strip-icon cardv5__strip-icon--green">
+            <svg viewBox="0 0 24 24"><path d="m22 12-4 0-3-9L9 21 6 12 2 12"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">BP</span>
+            <span class="cardv5__strip-value">${esc(bpText)}</span>
+          </div>
+        </div>
+        <div class="cardv5__strip-item" title="Weight recorded">
+          <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="3"/><path d="M6.5 21h11l-2-13h-7z"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Weight</span>
+            <span class="cardv5__strip-value">${weightText}</span>
+          </div>
+        </div>
+        <span class="cardv5__strip-divider"></span>
+        <div class="cardv5__strip-item" title="Out-of-pocket cost for this visit">
+          <div class="cardv5__strip-icon cardv5__strip-icon--red">
+            <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">You paid</span>
+            <span class="cardv5__strip-value">${esc(costText)}</span>
+          </div>
+        </div>
+        <div class="cardv5__strip-item" title="Follow-up date">
+          <div class="cardv5__strip-icon cardv5__strip-icon--blue">
+            <svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Follow-up</span>
+            <span class="cardv5__strip-value">${esc(followText)}</span>
+          </div>
+        </div>
+      </div>
+
+      ${(patientEnt || docEnt) ? `<div class="cardv5__entities">
+        ${patientEnt}${docEnt}
+        <span class="cardv5__ent-spacer"></span>
+        ${v.attachment_count ? `<span class="cardv5__attach"><svg viewBox="0 0 24 24"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 17.93 8.8l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>${v.attachment_count}</span>` : ''}
+        <span class="cardv5__drill" onclick="event.stopPropagation();editNote(${v.id})">Open<svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg></span>
+      </div>` : ''}
+    </div>`;
+}
+
+// ── EOB card (money-as-hero) ────────────────────────────────────
+//
+// Hero = your-share amount.
+// Strip = billed · covered · lines · running-toward-deductible.
+// Auto-imported records get a small "auto" tag.
+function renderEobCard(s) {
+  // Aggregate patient names for the header
+  const patientName = s.patients
+    ? s.patients.split(',').map(p => p.replace(/\s*\([^)]*\)/, '').trim()).filter(Boolean).join(', ')
+    : (s.member_name || '—');
+
+  const youShare = Number(s.your_share_total || 0);
+  const settled = youShare === 0;
+  const stateCls = settled ? 'good' : 'bad';
+  const heroNumColor = settled ? 'cardv5__hero-num--good' : 'cardv5__hero-num--bad';
+  const heroLabel = settled ? 'paid' : 'you owe';
+
+  return `
+    <div class="cardv5" onclick="window.location.hash='#eob-${s.id}'">
+      <div class="cardv5__eyebrow">
+        <span class="dot dot--${stateCls}"></span>
+        EOB · ${esc(patientName)} · ${esc(s.statement_date || '—')}
+      </div>
+
+      <div class="cardv5__hero-row">
+        <div class="cardv5__hero-block">
+          <div class="cardv5__hero-num ${heroNumColor}">$${youShare.toFixed(2)}<span class="cardv5__hero-unit">${esc(heroLabel)}</span></div>
+          <div class="cardv5__hero-sub">${settled ? 'Settled — no further amount due' : 'Outstanding balance'}</div>
+          <div class="cardv5__hero-context">
+            ${s.insurer ? `<span>${esc(s.insurer)}</span>` : ''}
+            ${s.member_id ? `<span class="sep">·</span><span>Member ${esc(s.member_id)}</span>` : ''}
+          </div>
+        </div>
+        <div class="cardv5__b-right">
+          ${s.auto_imported ? '<span class="cardv5__tag cardv5__tag--blue" style="margin-right:4px">auto</span>' : ''}
+          <button class="cardv5__iico cardv5__iico--more" title="More" onclick="event.stopPropagation();window.location.hash='#eob-${s.id}'">
+            <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="1.6"/><circle cx="5" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <hr class="cardv5__divider"/>
+
+      <div class="cardv5__strip">
+        <div class="cardv5__strip-item" title="Total billed by provider">
+          <div class="cardv5__strip-icon cardv5__strip-icon--purple">
+            <svg viewBox="0 0 24 24"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Billed</span>
+            <span class="cardv5__strip-value">$${Number(s.amount_billed || 0).toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="cardv5__strip-item" title="Insurance paid">
+          <div class="cardv5__strip-icon cardv5__strip-icon--green">
+            <svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Covered</span>
+            <span class="cardv5__strip-value">$${Number(s.plan_paid_total || 0).toFixed(2)}</span>
+          </div>
+        </div>
+        <span class="cardv5__strip-divider"></span>
+        <div class="cardv5__strip-item" title="Number of claim line items">
+          <div class="cardv5__strip-icon cardv5__strip-icon--blue">
+            <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Claims</span>
+            <span class="cardv5__strip-value">${s.claims_count || 0}</span>
+          </div>
+        </div>
+        <div class="cardv5__strip-item" title="Toward annual deductible">
+          <div class="cardv5__strip-icon cardv5__strip-icon--amber">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div class="cardv5__strip-meta">
+            <span class="cardv5__strip-label">Toward ded.</span>
+            <span class="cardv5__strip-value">$${Number(s.deductible_used || 0).toFixed(0)}${s.deductible_annual ? `<span class="cardv5__strip-value-of">of $${Number(s.deductible_annual).toFixed(0)}</span>` : ''}</span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
 // Center modal — minimal version for v2 preview
 function openMedDetail(id) {
   const r = (window._medRowsCache || []).find(x => x.id === id);
@@ -3568,30 +3342,10 @@ async function renderConditions() {
     let url = '/medical/conditions';
     if (currentPatient) url += `?patient=${encodeURIComponent(currentPatient)}`;
     let rows = await api('GET', url);
-    if (_medSearch) rows = rows.filter(r =>['condition','patient','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch)));
+    if (_medSearch) rows = rows.filter(r =>['condition_name','patient','notes','body_system'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch)));
     if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.conditions); return; }
-
-    area.innerHTML = rows.map(r => `
-      <div class="gh-card gh-s-gray card" onclick="editCondition(${r.id})">
-        <div class="card-right">
-          <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
-                  onclick="event.stopPropagation();deleteCond(${r.id})">✕</button>
-        </div>
-        <div class="card-title">
-          <span class="status-dot ${statusDotClass(r.status)}"></span>
-          ${esc(r.condition_name)}
-          <span class="badge badge-grey">${r.status}</span>
-          <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
-        </div>
-        <div class="card-meta">
-          ${r.physician ? `<span>${esc(r.physician)}</span>` : ''}
-          ${r.start_date ? `<span>Since ${formatDate(r.start_date)}</span>` : ''}
-          ${r.end_date ? `<span>→ ${formatDate(r.end_date)}</span>` : ''}
-        </div>
-        ${r.treatment_notes ? `<div class="med-card-sub">${esc(r.treatment_notes)}</div>` : ''}
-        ${r.attachment_count?AttachmentManager.staticBadge('med_condition',r.id,r.attachment_count):''}
-      </div>
-    `).join('');
+    // v202604.147 — render with the new Vellum condition card.
+    area.innerHTML = `<div class="medv5-grid">${rows.map(r => renderConditionCard(r)).join('')}</div>`;
   } catch (e) {
     area.innerHTML = errorState(e.message, '');
   }
@@ -3605,35 +3359,19 @@ async function renderNotes() {
     let url = '/medical/notes';
     if (currentPatient) url += `?patient=${encodeURIComponent(currentPatient)}`;
     let rows = await api('GET', url);
-    if (_medSearch) rows = rows.filter(r =>['patient','questions','doctors_response','notes'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch)));
-    if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.visits); return;
-    }
-
-    area.innerHTML = rows.map(r => `
-      <div class="gh-card gh-s-gray card" onclick="editNote(${r.id})">
-        <div class="card-right">
-          <button class="btn btn-ghost" style="padding:3px 6px;font-size:11px;color:var(--red)" title="Delete"
-                  onclick="event.stopPropagation();deleteNote(${r.id})">✕</button>
-        </div>
-        <div class="card-title">
-          ${r.physician_name ? esc(r.physician_name) : 'Visit Note'}
-          ${r.follow_up_needed ? `<span class="followup-badge">Follow-up needed</span>` : ''}
-          <span class="badge badge-blue" style="font-size:10px">${esc(r.patient)}</span>
-        </div>
-        <div class="card-meta">
-          <span>${formatDate(r.visit_date)}</span>
-          ${r.specialty ? `<span>${esc(r.specialty)}</span>` : ''}
-          ${r.follow_up_date ? `<span style="color:var(--amber)">→ ${formatDate(r.follow_up_date)}</span>` : ''}
-        </div>
-        ${r.questions ? `<div class="med-card-sub" style="margin-top:6px">
-          <span style="color:var(--text3);font-size:11px">Q: </span>${esc(r.questions).substring(0,120)}${r.questions.length>120?'…':''}
-        </div>` : ''}
-        ${r.doctors_response ? `<div class="med-card-sub">
-          <span style="color:var(--text3);font-size:11px">A: </span>${esc(r.doctors_response).substring(0,120)}${r.doctors_response.length>120?'…':''}
-        </div>` : ''}
-        ${r.attachment_count?AttachmentManager.staticBadge('med_visit',r.id,r.attachment_count):''}
-      </div>
-    `).join('');
+    if (_medSearch) rows = rows.filter(r =>['patient','questions','doctors_response','notes','visit_location','visit_type'].some(k=>(r[k]||'').toLowerCase().includes(_medSearch)));
+    if (!rows.length) { area.innerHTML = emptyState(...GH_EMPTY.visits); return; }
+    // v202604.147 — sort upcoming first (future at top), then past reverse-chronologically
+    rows.sort((a, b) => {
+      const today = new Date(); today.setHours(0,0,0,0);
+      const da = new Date((a.visit_date || '') + 'T00:00');
+      const db = new Date((b.visit_date || '') + 'T00:00');
+      const aFuture = da >= today, bFuture = db >= today;
+      if (aFuture && !bFuture) return -1;
+      if (!aFuture && bFuture) return 1;
+      return aFuture ? (da - db) : (db - da);
+    });
+    area.innerHTML = `<div class="medv5-grid">${rows.map(r => renderVisitCard(r)).join('')}</div>`;
   } catch (e) {
     area.innerHTML = errorState(e.message, '');
   }
@@ -4616,29 +4354,16 @@ function _eobClear() {
 async function _eobLoadHistory() {
   const el = $id('eobHistory'); if (!el) return;
   try {
-    const h = {}; if (window.LT?.authToken) h['Authorization'] = 'Bearer ' + LT.authToken;
     const stmts = await window.api('GET', '/medical/eob');
     if (!stmts.length) {
       el.innerHTML = '<div style="text-align:center;padding:24px 0;color:var(--text3);font-size:13px">No EOBs imported yet</div>';
       return;
     }
+    // v202604.147 — render via the new EOB Vellum card.
     el.innerHTML = `
-      <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text3);margin-bottom:8px">Imported Statements</div>
-      ${stmts.map(s => `
-        <div class="gh-card gh-s-gray card" style="padding:12px 14px;margin-bottom:8px">
-          <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-            <div style="flex:1;cursor:pointer;min-width:0" onclick="_eobShowDetail(${s.id})">
-              <div style="font-weight:600;font-size:13px">${s.statement_date} · ${esc(s.group_name||'MHBP')}</div>
-              <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(s.patients||'')} · ${s.claims_count||0} claim${s.claims_count!==1?'s':''}</div>
-            </div>
-            <div style="text-align:right;flex-shrink:0;display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-              <div style="font-size:13px;font-weight:600;color:var(--green)">Plan: $${(s.plan_paid_total||0).toFixed(2)}</div>
-              <div style="font-size:11px;color:${(s.your_share_total||0)>0?'var(--red)':'var(--text3)'}">You: $${(s.your_share_total||0).toFixed(2)}</div>
-              <button class="btn btn-ghost" style="font-size:11px;padding:2px 8px;color:var(--red);border-color:var(--red);margin-top:2px"
-                onclick="event.stopPropagation();_eobDelete(${s.id},'${esc(s.statement_date)}')">Delete</button>
-            </div>
-          </div>
-        </div>`).join('')}`;
+      <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--text-3);margin:0 0 12px">Imported statements</div>
+      <div class="medv5-grid">${stmts.map(s => renderEobCard(s)).join('')}</div>
+    `;
   } catch(e) {
     el.innerHTML = '<div style="color:var(--red);font-size:12px">Could not load history</div>';
   }
