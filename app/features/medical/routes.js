@@ -40,6 +40,7 @@ router.get('/medications', (req, res) => {
       (hasFamilyMed  ? `, fm.display_name AS family_member_name` : `, NULL AS family_member_name`) +
       (hasPharmacy   ? `, pharm.name AS pharmacy_name` : `, NULL AS pharmacy_name`) +
       (hasCondition  ? `, cond.condition_name AS condition_name_text` : `, NULL AS condition_name_text`) +
+      `, (SELECT COUNT(*) FROM attachments WHERE entity_type='med_medication' AND entity_id=m.id) AS attachment_count` +
       ` FROM med_medications m` +
       (hasFamilyMed  ? ` LEFT JOIN family_members fm   ON fm.id    = m.family_member_id` : ``) +
       (hasPharmacy   ? ` LEFT JOIN contacts pharm      ON pharm.id = m.pharmacy_contact_id` : ``) +
@@ -588,7 +589,9 @@ router.get('/conditions', (req, res) => {
         (SELECT COUNT(*) FROM med_visit_notes v
            WHERE (c.family_member_id IS NOT NULL AND v.family_member_id = c.family_member_id)
               OR v.patient = c.patient
-        ) AS related_visits_count
+        ) AS related_visits_count,
+        (SELECT COUNT(*) FROM attachments
+           WHERE entity_type='med_condition' AND entity_id=c.id) AS attachment_count
       FROM med_conditions c
       LEFT JOIN family_members fm ON fm.id = c.family_member_id
       WHERE 1=1`;
@@ -805,6 +808,8 @@ router.put('/conditions/:id', requireAuth, (req, res) => {
 
 router.delete('/conditions/:id', requireAuth, (req, res) => {
   try {
+    // v202604.149 — clear junctions before delete (no CASCADE per arch rule)
+    try { db.prepare('DELETE FROM med_visit_conditions WHERE condition_id=?').run(req.params.id); } catch(e) {}
     db.prepare('DELETE FROM med_conditions WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
@@ -818,30 +823,48 @@ router.delete('/conditions/:id', requireAuth, (req, res) => {
 // Joins physician name/specialty from contacts table.
 router.get('/notes', (req, res) => {
   try {
-    // v202604.147 — prefer physician_contact_id (new) over contact_id (legacy).
-    // Also surface family_member_name so the visit card can render the
-    // patient avatar with proper display name, matching the conditions GET.
-    const visitCols = db.prepare("PRAGMA table_info(med_visit_notes)").all().map(r => r.name);
-    const hasPhysFK = visitCols.includes('physician_contact_id');
-    const docJoin = hasPhysFK
-      ? 'COALESCE(n.physician_contact_id, n.contact_id)'
-      : 'n.contact_id';
+    // v202604.149 — visit list enrichment for unified card view.
+    //   - family_member_name (avatar label on card)
+    //   - attachment_count (paperclip badge)
+    //   - linked_conditions array (chips on the card)
+    // Guarded so route still runs even if the junction table hasn't
+    // been migrated yet on a particular DB.
+    const tableExists = (name) =>
+      !!db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(name);
+    const hasJunction  = tableExists('med_visit_conditions');
+    const hasFamily    = !!db.prepare("PRAGMA table_info(med_visit_notes)").all()
+                          .find(c => c.name === 'family_member_id');
+
     let sql = `
-      SELECT n.*,
-             c.name      AS physician_name,
-             c.specialty AS specialty,
-             c.company   AS practice_name,
-             fm.display_name AS family_member_name
-        FROM med_visit_notes n
-   LEFT JOIN contacts c        ON c.id = ${docJoin}
-   LEFT JOIN family_members fm ON fm.id = n.family_member_id
-       WHERE 1=1
+      SELECT n.*, c.name AS physician_name, c.specialty, c.company AS practice_name,
+        ${hasFamily ? 'fm.display_name AS family_member_name,' : 'NULL AS family_member_name,'}
+        (SELECT COUNT(*) FROM attachments
+           WHERE entity_type='med_visit' AND entity_id=n.id) AS attachment_count
+      FROM med_visit_notes n
+      LEFT JOIN contacts c ON c.id = n.contact_id
+      ${hasFamily ? 'LEFT JOIN family_members fm ON fm.id = n.family_member_id' : ''}
+      WHERE 1=1
     `;
     const params = [];
     if (req.query.patient)    { sql += ' AND n.patient=?';          params.push(req.query.patient); }
     if (req.query.follow_up)  { sql += ' AND n.follow_up_needed=?'; params.push(req.query.follow_up); }
     sql += ' ORDER BY n.visit_date DESC, n.id DESC';
-    res.json(db.prepare(sql).all(...params).map(n => withTagNames(n, 'medical_visit')));
+
+    const rows = db.prepare(sql).all(...params);
+
+    // Linked conditions per visit (small array of {id, name})
+    const linkStmt = hasJunction ? db.prepare(`
+      SELECT mc.id, mc.condition_name AS name
+        FROM med_visit_conditions vc
+        JOIN med_conditions mc ON mc.id = vc.condition_id
+       WHERE vc.visit_id = ?
+       ORDER BY mc.condition_name COLLATE NOCASE
+    `) : null;
+    for (const r of rows) {
+      r.linked_conditions = linkStmt ? linkStmt.all(r.id) : [];
+    }
+
+    res.json(rows.map(n => withTagNames(n, 'medical_visit')));
   } catch (e) { serverError(res, e); }
 });
 
@@ -899,6 +922,19 @@ router.post('/notes', requireAuth, (req, res) => {
     const newId = info.lastInsertRowid;
     if (d.tags) saveTagsByName(newId, 'medical_visit', d.tags);
 
+    // v202604.149 — visit ↔ condition junction. Body may include
+    // linked_condition_ids: [int, ...]. Replace the set wholesale
+    // (POST has no prior set, so just inserts).
+    try {
+      if (Array.isArray(d.linked_condition_ids) &&
+          db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_visit_conditions'").get()) {
+        const ins = db.prepare('INSERT OR IGNORE INTO med_visit_conditions(visit_id,condition_id) VALUES (?,?)');
+        for (const cid of d.linked_condition_ids) {
+          if (cid != null) ins.run(newId, +cid);
+        }
+      }
+    } catch(e) { /* table may not exist yet */ }
+
     if (hasDedup) {
       const row = db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(newId);
       const h = dedup.visitHash(row);
@@ -946,6 +982,20 @@ router.put('/notes/:id', requireAuth, (req, res) => {
 
     if (d.tags !== undefined) saveTagsByName(req.params.id, 'medical_visit', d.tags);
 
+    // v202604.149 — visit ↔ condition junction. Replace-set semantics:
+    // if the body includes linked_condition_ids (even an empty array),
+    // wipe and rewrite. If undefined, leave the set untouched.
+    try {
+      if (Array.isArray(d.linked_condition_ids) &&
+          db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='med_visit_conditions'").get()) {
+        db.prepare('DELETE FROM med_visit_conditions WHERE visit_id=?').run(req.params.id);
+        const ins = db.prepare('INSERT OR IGNORE INTO med_visit_conditions(visit_id,condition_id) VALUES (?,?)');
+        for (const cid of d.linked_condition_ids) {
+          if (cid != null) ins.run(req.params.id, +cid);
+        }
+      }
+    } catch(e) { /* table may not exist yet */ }
+
     if (hasDedup) {
       const row = db.prepare('SELECT * FROM med_visit_notes WHERE id=?').get(req.params.id);
       if (row) {
@@ -962,6 +1012,8 @@ router.put('/notes/:id', requireAuth, (req, res) => {
 router.delete('/notes/:id', requireAuth, (req, res) => {
   try {
     clearTags(req.params.id, 'medical_visit');
+    // v202604.149 — clear visit↔condition junction (no FK CASCADE per arch rule)
+    try { db.prepare('DELETE FROM med_visit_conditions WHERE visit_id=?').run(req.params.id); } catch(e) {}
     db.prepare('DELETE FROM med_visit_notes WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
@@ -1310,15 +1362,33 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
 // GET /api/v1/medical/eob  — list all statements
 router.get('/eob', (req, res) => {
   try {
+    // v202604.149 — list-page enrichment.
+    //   - attachment_count (paperclip badge on card)
+    //   - family_member_ids: JSON array of distinct claim.family_member_id
+    //     values, lets the All-tab person filter narrow EOBs that
+    //     mention any selected member, even though the statement row
+    //     itself doesn't have a single owner.
     const stmts = db.prepare(`
       SELECT s.*,
         COUNT(DISTINCT c.id) AS claims_count,
-        GROUP_CONCAT(DISTINCT REPLACE(c.patient, SUBSTR(c.patient, INSTR(c.patient,' (')), '')) AS patients
+        GROUP_CONCAT(DISTINCT REPLACE(c.patient, SUBSTR(c.patient, INSTR(c.patient,' (')), '')) AS patients,
+        (SELECT COUNT(*) FROM attachments
+           WHERE entity_type='med_eob_statement' AND entity_id=s.id) AS attachment_count
       FROM med_eob_statements s
       LEFT JOIN med_eob_claims c ON c.eob_id = s.id
       GROUP BY s.id
       ORDER BY s.statement_date DESC
     `).all();
+    // Pull per-statement member rollup separately to avoid mixing GROUP_CONCAT contexts.
+    const memberStmt = db.prepare(`
+      SELECT DISTINCT family_member_id FROM med_eob_claims
+       WHERE eob_id=? AND family_member_id IS NOT NULL
+    `);
+    for (const s of stmts) {
+      try {
+        s.family_member_ids = memberStmt.all(s.id).map(r => r.family_member_id);
+      } catch(e) { s.family_member_ids = []; }
+    }
     res.json(stmts);
   } catch(e) { serverError(res, e); }
 });

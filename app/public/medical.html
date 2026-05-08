@@ -589,6 +589,36 @@ body.v2 * { min-width: 0; }
   .medv5-grid { grid-template-columns: 1fr; }
 }
 
+/* v202604.149 — All-tab specific: on mobile, switch from a single-column
+   stack to a horizontal swipe-snap carousel (one card at a time). On
+   desktop, identical to the standard medv5-grid. */
+.medv5-grid--all {
+  /* desktop: inherit 2-col behaviour from .medv5-grid */
+}
+@media (max-width: 700px) {
+  .medv5-grid--all {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding: 4px 12px 100px;
+    gap: 12px;
+    /* hide the scrollbar — swipe is the gesture, not visible track */
+    scrollbar-width: none;
+  }
+  .medv5-grid--all::-webkit-scrollbar { display: none; }
+  .medv5-grid--all > .cardv5,
+  .medv5-grid--all > .medv5-card {
+    flex: 0 0 calc(100vw - 28px);  /* one card per viewport, 14px margin per side */
+    max-width: calc(100vw - 28px);
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
+}
+
 .medv5-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1474,12 +1504,12 @@ body.v2 {
   <!-- Segmented tabs (replaces old .view-tabs) -->
   <div style="padding:0 20px 12px">
     <div class="v2-tabs">
-      <button class="v2-tab active view-tab" onclick="switchView('medications',this)">Meds</button>
+      <button class="v2-tab active view-tab" onclick="switchView('all_medical',this)" title="Everything at once: meds, conditions, visits, EOBs">All</button>
+      <button class="v2-tab view-tab" onclick="switchView('medications',this)">Meds</button>
       <button class="v2-tab view-tab" onclick="switchView('conditions',this)">Conditions</button>
       <button class="v2-tab view-tab" onclick="switchView('notes',this)">Visits</button>
       <button class="v2-tab view-tab" onclick="switchView('hw',this)">H&amp;W</button>
       <button class="v2-tab view-tab" onclick="switchView('eob',this)">EOB</button>
-      <button class="v2-tab view-tab" onclick="switchView('all_medical',this)" title="Cross-card view: meds + conditions + visits + EOBs together">All</button>
       <button class="v2-tab view-tab" onclick="switchView('summary',this)">Summary</button>
     </div>
   </div>
@@ -2006,6 +2036,15 @@ body.v2 {
         <label class="form-label">Reason / chief complaint</label>
         <input class="form-input" type="text" id="nReason" placeholder="e.g. annual review, BP check">
       </div>
+      <!-- v202604.149 — linked conditions. The visit is "for" these.
+           Renders as chips on the visit card. Multi-select; no
+           condition required. -->
+      <div class="form-group">
+        <label class="form-label">For which conditions?
+          <span style="font-weight:400;color:var(--text3);font-size:11px">(optional · pick all that apply)</span>
+        </label>
+        <div id="nLinkedConditions" class="linked-cond-wrap" style="border:1px solid var(--border2);border-radius:var(--r);padding:6px 8px;background:var(--bg3);min-height:36px;display:flex;flex-wrap:wrap;gap:5px;align-items:center"></div>
+      </div>
     </div>
 
     <!-- ── Panel 2: Vitals (collapsible) ──────────────────────
@@ -2158,6 +2197,21 @@ function populatePhysicianDatalist(datalistEl) {
   });
 }
 
+// v202604.149 — single helper used by all three drawer-open paths.
+// Returns the family member id matching the active patient strip
+// selection (currentPatient is a display_name string), so when the
+// user opens "Add medication" with their own pill active, the
+// family widget pre-fills with their member, instead of leaving the
+// wrap empty and falling through to the "Self" string fallback at
+// save time. Returns null when no match is found OR no patient is
+// active — in that case the wrap stays empty and the user is forced
+// to pick someone, which is the correct behavior.
+function _currentMemberId() {
+  if (!currentPatient) return null;
+  const m = (familyMembers || []).find(x => x.display_name === currentPatient);
+  return m ? m.id : null;
+}
+
 function $id(id) { return document.getElementById(id); }
 function showToast(msg, type='ok') {
   const t = $id('toast');
@@ -2176,7 +2230,10 @@ function formatDate(d) {
 }
 
 // ── State ──────────────────────────────────────────────────────
-let currentView = 'medications';
+// v202604.149 — default to All on every page load. The cross-card
+// view is the natural landing for a household OS; per-domain tabs
+// are still one click away.
+let currentView = 'all_medical';
 let _medSearch = '';
 let currentPatient = '';
 let editingId = null;
@@ -2653,7 +2710,7 @@ function renderMedCard(r) {
   // Patient: silhouette glyph by default (photo when GH_AVATAR has one).
   // Doctor:  initials in gradient circle + stethoscope corner badge.
   // Pharmacy: brand mark when name matches a known chain, else generic Rx.
-  const memberName = r.family_member_name || r.patient || '';
+  const memberName = r.family_member_name || (r.family_member_id ? r.patient : '') || (r.patient && r.patient !== 'Self' ? r.patient : '');
   const docName    = r.physician || (r.physician_contact_id ? 'Doctor' : '');
   const pharmName  = r.pharmacy_name || '';
 
@@ -2822,7 +2879,7 @@ function renderMedCard(r) {
 // Strip = last visit · trend sparkline · meds count · HSA YTD.
 // Falls back gracefully when no metric is tracked.
 function renderConditionCard(c) {
-  const memberName = c.family_member_name || c.patient || '';
+  const memberName = c.family_member_name || (c.family_member_id ? c.patient : '') || (c.patient && c.patient !== 'Self' ? c.patient : '');
   const stateCls = (() => {
     if (c.condition_state === 'controlled')    return 'good';
     if (c.condition_state === 'monitoring')    return 'warn';
@@ -3010,7 +3067,7 @@ function renderConditionCard(c) {
 // Future visits show "in N days"; today shows "today".
 // Strip = vitals captured · cost · follow-up date · location.
 function renderVisitCard(v) {
-  const memberName = v.family_member_name || v.patient || '';
+  const memberName = v.family_member_name || (v.family_member_id ? v.patient : '') || (v.patient && v.patient !== 'Self' ? v.patient : '');
   const today = new Date(); today.setHours(0,0,0,0);
   const visitDate = v.visit_date ? new Date(v.visit_date + 'T00:00') : null;
   let relText = '';
@@ -3081,6 +3138,10 @@ function renderVisitCard(v) {
   const typeChip = v.visit_type
     ? `<span class="cardv5__tag cardv5__tag--blue">${esc(v.visit_type.charAt(0).toUpperCase() + v.visit_type.slice(1))}</span>`
     : '';
+  // v202604.149 — linked condition chips (from visit↔condition junction)
+  const condChips = Array.isArray(v.linked_conditions) && v.linked_conditions.length
+    ? v.linked_conditions.map(c => `<span class="cardv5__tag cardv5__tag--purple">${esc(c.name || '')}</span>`).join('')
+    : '';
 
   // Strip cells: BP / Weight / You-paid / Follow-up date
   const bpText = (v.bp_systolic && v.bp_diastolic)
@@ -3117,7 +3178,7 @@ function renderVisitCard(v) {
         </div>
       </div>
 
-      ${typeChip ? `<div class="cardv5__tag-row">${typeChip}<span class="cardv5__tag-spacer"></span>${v.follow_up_needed ? '<span class="cardv5__status-pill">Follow-up needed</span>' : ''}</div>` : ''}
+      ${(typeChip || condChips) ? `<div class="cardv5__tag-row">${typeChip}${condChips}<span class="cardv5__tag-spacer"></span>${v.follow_up_needed ? '<span class="cardv5__status-pill">Follow-up needed</span>' : ''}</div>` : ''}
 
       ${notesPreview}
 
@@ -3476,7 +3537,10 @@ function openAddDrawer() {
 async function openMedDrawer(r) {
   editingId = r?.id || null;
   $id('medDrawerTitle').textContent = editingId ? 'Edit Medication' : 'Add Medication';
-  GH_FAMILY.init('mFamilyWrap', r?.family_member_id ? [r.family_member_id] : (currentPatient ? [] : []));
+  GH_FAMILY.init('mFamilyWrap',
+    r?.family_member_id ? [r.family_member_id]
+    : (_currentMemberId() ? [_currentMemberId()] : [])
+  );
   GH_REFS.populateContact('mPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
   await GH_REFS.populateContact('mPharmacy', r?.pharmacy_contact_id || null, { type: 'General', placeholder: '— none —' });
   await GH_SELECT.init('mStatus', 'med_medication_status', r?.status||'Active', { placeholder: '— status —', allowAdd: true });
@@ -3533,7 +3597,7 @@ async function saveMedication() {
   if (!$id('mName').value.trim()) { showToast('Name required','err'); return; }
   const body = {
     family_member_id: GH_FAMILY.getIds('mFamilyWrap')[0] || null,
-    patient: GH_FAMILY.getIds('mFamilyWrap').length ? null : (currentPatient || 'Self'),
+    patient: GH_FAMILY.getIds('mFamilyWrap').length ? null : (currentPatient || null),
     status: $id('mStatus').value,
     name: $id('mName').value.trim(), dosage: $id('mDosage').value.trim()||null,
     frequency: $id('mFreq').value.trim()||null,
@@ -3689,7 +3753,10 @@ async function deleteMed(id) {
 async function openCondDrawer(r) {
   editingId = r?.id || null;
   $id('condDrawerTitle').textContent = editingId ? 'Edit Condition' : 'Add Condition';
-  GH_FAMILY.init('cFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
+  GH_FAMILY.init('cFamilyWrap',
+    r?.family_member_id ? [r.family_member_id]
+    : (_currentMemberId() ? [_currentMemberId()] : [])
+  );
   GH_REFS.populateContact('cPhysician', r?.physician_contact_id || null, { type: 'Medical', placeholder: '— none —' });
   await GH_SELECT.init('cStatus', 'med_condition_status', r?.status||'Active', { placeholder: '— status —', allowAdd: true });
   $id('cName').value = r?.condition_name || '';
@@ -3726,7 +3793,7 @@ async function saveCondition() {
   if (!$id('cName').value.trim()) { showToast('Condition name required','err'); return; }
   const body = {
     family_member_id: GH_FAMILY.getIds('cFamilyWrap')[0] || null,
-    patient: GH_FAMILY.getIds('cFamilyWrap').length ? null : (currentPatient || 'Self'),
+    patient: GH_FAMILY.getIds('cFamilyWrap').length ? null : (currentPatient || null),
     status: $id('cStatus').value,
     condition_name: $id('cName').value.trim(), start_date: $id('cStart').value||null,
     end_date: $id('cEnd').value||null,
@@ -3838,7 +3905,10 @@ function toggleFollowDate() {
 async function openNoteDrawer(r) {
   editingId = r?.id || null;
   $id('noteDrawerTitle').textContent = editingId ? 'Edit Visit Note' : 'Add Visit Note';
-  GH_FAMILY.init('nFamilyWrap', r?.family_member_id ? [r.family_member_id] : []);
+  GH_FAMILY.init('nFamilyWrap',
+    r?.family_member_id ? [r.family_member_id]
+    : (_currentMemberId() ? [_currentMemberId()] : [])
+  );
   await GH_REFS.populateContact('nPhysician', r?.physician_contact_id || r?.contact_id || null,
                                 { type: 'Medical', placeholder: '— Select or leave blank —' });
   $id('nDate').value = r?.visit_date || new Date().toISOString().split('T')[0];
@@ -3861,7 +3931,61 @@ async function openNoteDrawer(r) {
   $id('followDateGroup').style.display = r?.follow_up_needed ? 'block' : 'none';
   $id('nNotes').value = r?.notes || '';
   initVisitTags(r?.tags||[]);
+  // v202604.149 — linked-conditions multi-select picker.
+  // Pre-fill from r.linked_conditions on edit; empty for new.
+  await _renderLinkedCondsPicker(
+    r?.linked_conditions ? r.linked_conditions.map(c => c.id) : [],
+    r?.family_member_id || _currentMemberId() || null
+  );
   $id('noteDrawer').classList.add('open');
+}
+
+// v202604.149 — chip-picker for the visit form's "For which conditions?"
+// field. Loads conditions for the patient and renders one chip per
+// active/chronic condition, toggleable. Returns the picked id list via
+// _readLinkedCondIds() at save time.
+window._linkedCondPicked = new Set();
+async function _renderLinkedCondsPicker(initialIds, memberId) {
+  const wrap = document.getElementById('nLinkedConditions');
+  if (!wrap) return;
+  window._linkedCondPicked = new Set((initialIds || []).map(Number));
+  let conds = [];
+  try {
+    conds = await api('GET', '/medical/conditions');
+  } catch (e) { conds = []; }
+  // Limit to this patient if one is set; else show all
+  if (memberId) {
+    conds = conds.filter(c => String(c.family_member_id) === String(memberId));
+  }
+  if (!conds.length) {
+    wrap.innerHTML = `<span style="color:var(--text3);font-size:12px;font-style:italic">No conditions yet for this patient. Add one first to link.</span>`;
+    return;
+  }
+  wrap.innerHTML = conds.map(c => {
+    const picked = window._linkedCondPicked.has(c.id);
+    const cls = picked
+      ? 'cardv5__tag cardv5__tag--purple'
+      : 'cardv5__tag';
+    return `<span class="${cls}" data-cid="${c.id}" style="cursor:pointer;user-select:none;${picked?'':'opacity:.55'}">${esc(c.condition_name || '')}</span>`;
+  }).join('');
+  // Click toggles
+  wrap.querySelectorAll('[data-cid]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = +el.dataset.cid;
+      if (window._linkedCondPicked.has(id)) {
+        window._linkedCondPicked.delete(id);
+        el.classList.remove('cardv5__tag--purple');
+        el.style.opacity = '.55';
+      } else {
+        window._linkedCondPicked.add(id);
+        el.classList.add('cardv5__tag--purple');
+        el.style.opacity = '1';
+      }
+    });
+  });
+}
+function _readLinkedCondIds() {
+  return Array.from(window._linkedCondPicked || []);
 }
 
 // v202604.147 — duration quick-pick: writes minutes into #nDuration
@@ -3887,7 +4011,7 @@ async function saveNote() {
   };
   const body = {
     family_member_id: GH_FAMILY.getIds('nFamilyWrap')[0] || null,
-    patient: GH_FAMILY.getIds('nFamilyWrap').length ? null : (currentPatient || 'Self'),
+    patient: GH_FAMILY.getIds('nFamilyWrap').length ? null : (currentPatient || null),
     visit_date: $id('nDate').value,
     physician_contact_id: $id('nPhysician')?.value ? parseInt($id('nPhysician').value) : null,
     contact_id: $id('nPhysician')?.value ? parseInt($id('nPhysician').value) : null, // backward-compat
@@ -3909,6 +4033,8 @@ async function saveNote() {
     follow_up_date: $id('nFollowDate').value||null,
     notes: $id('nNotes').value.trim()||null,
     tags: visitFormTags,
+    // v202604.149 — visit ↔ condition junction
+    linked_condition_ids: _readLinkedCondIds(),
   };
   try {
     if (editingId) { await api('PUT',`/medical/notes/${editingId}`,body); showToast('Updated'); }
@@ -4034,8 +4160,8 @@ async function _medBoot() {
   }
   // v202604.148 — expose so switchView() can re-init on tab change
   window.initMedLensForView = initMedLens;
-  // Initial — the medical page's renderCurrentView decides which subview is up
-  initMedLens(window._medActiveView || 'medications');
+  // v202604.149 — initial subview is All; initialize lens for that.
+  initMedLens(currentView);
   // Hook into setMedView if defined to re-init lens on subview change
   const _origSetMedView = window.setMedView;
   if (typeof _origSetMedView === 'function') {
@@ -4044,7 +4170,8 @@ async function _medBoot() {
       initMedLens(v);
     };
   }
-  renderMedications();
+  // v202604.149 — render whatever the active view is, not always Meds.
+  renderCurrentView();
   // v202604.139 — handle ?seed=N from daily-log promote
   setTimeout(() => maybeHandleMedicalSeed(), 100);
 }
@@ -4810,17 +4937,24 @@ async function openFamilyQuickView(familyMemberId) {
 }
 
 // ════════════════════════════════════════════════════════════════
-// v202604.148 — CROSS-CARD "All" RENDERER + DEVICE FAMILY SCOPE
+// v202604.149 — CROSS-CARD "All" RENDERER (flat grid, newest first)
 // ────────────────────────────────────────────────────────────────
-// renderAllMedical: fetches meds + conditions + visits + EOBs in
-// parallel, applies the lens filters that make sense across all four
-// (person, time, name, tag), and renders one mixed grid grouped by
-// domain. Visits go first because they're most time-sensitive.
+// Fetches meds + conditions + visits + EOBs in parallel, applies the
+// lens filters that span all four (person/time/name/tag), and renders
+// one interleaved grid sorted by most-recent-event date descending.
+// No section labels, no per-domain sub-grids — the user wanted to see
+// the cards mixed.
 //
-// Device family scope: nav.js owns the scope pill + picker. The
-// medical page just listens for `gh-scope-changed` and applies the
-// scope as the lens person filter. On boot, if a scope is already set
-// and no person filter is active, we apply it once.
+// Sort key per domain (fallback chain):
+//   medication → start_date | created_at
+//   condition  → latest_metric.recorded_at | start_date | created_at
+//   visit      → visit_date
+//   EOB        → statement_date
+//
+// EOB person filter (v.149): uses statement.family_member_ids array
+// (rolled up from claims) — direct match instead of fuzzy patient
+// substring. Falls back to the old substring match if the rollup
+// field isn't there yet (defensive for old API shape).
 // ════════════════════════════════════════════════════════════════
 
 async function renderAllMedical() {
@@ -4835,36 +4969,38 @@ async function renderAllMedical() {
       api('GET', '/medical/notes' + ps).catch(() => []),
       api('GET', '/medical/eob').catch(() => []),
     ]);
-    let meds = Array.isArray(medsR) ? medsR : [];
-    let conds = Array.isArray(condsR) ? condsR : [];
+    let meds   = Array.isArray(medsR)   ? medsR   : [];
+    let conds  = Array.isArray(condsR)  ? condsR  : [];
     let visits = Array.isArray(visitsR) ? visitsR : [];
-    let eobs = Array.isArray(eobsR) ? eobsR : [];
+    let eobs   = Array.isArray(eobsR)   ? eobsR   : [];
 
     const f = window._medFilters || {};
 
-    // Person filter — applies to meds/conds/visits via family_member_id.
-    // EOB statements don't have family_member_id at the statement level;
-    // we filter by patients aggregate string when present.
+    // ── Person filter ──
     if (f.person != null) {
       meds   = meds.filter(x => String(x.family_member_id) === String(f.person));
       conds  = conds.filter(x => String(x.family_member_id) === String(f.person));
       visits = visits.filter(x => String(x.family_member_id) === String(f.person));
-      const member = (familyMembers || []).find(m => String(m.id) === String(f.person));
-      if (member && member.display_name) {
-        const needle = member.display_name.toLowerCase();
-        eobs = eobs.filter(x => (x.patients || x.member_name || '').toLowerCase().includes(needle));
-      }
+      // EOBs: prefer family_member_ids rollup (v.149), fall back to substring
+      eobs = eobs.filter(s => {
+        if (Array.isArray(s.family_member_ids) && s.family_member_ids.length) {
+          return s.family_member_ids.some(id => String(id) === String(f.person));
+        }
+        const member = (familyMembers || []).find(m => String(m.id) === String(f.person));
+        if (!member) return false;
+        const needle = (member.display_name || '').toLowerCase();
+        return (s.patients || s.member_name || '').toLowerCase().includes(needle);
+      });
     }
 
-    // Tag filter — meds/conds/visits have tags arrays; EOBs don't.
+    // ── Tag filter ──
     if (f.tag) {
       meds   = meds.filter(x => (x.tags || []).includes(f.tag));
       conds  = conds.filter(x => (x.tags || []).includes(f.tag));
       visits = visits.filter(x => (x.tags || []).includes(f.tag));
     }
 
-    // Name filter — substring match against the most identifying field
-    // for each domain. EOBs use insurer + member_name + patients.
+    // ── Name (substring) filter ──
     if (f.name) {
       const q = String(f.name).toLowerCase();
       meds   = meds.filter(x => (x.name || '').toLowerCase().includes(q));
@@ -4879,8 +5015,7 @@ async function renderAllMedical() {
       });
     }
 
-    // Time filter — each domain has a different date column. Use the
-    // shared timeMatch helper from lens-config with each domain's date.
+    // ── Time filter ──
     if (f.time && window.LENS_CONFIG?.timeMatch) {
       const tm = window.LENS_CONFIG.timeMatch;
       meds   = meds.filter(x => tm(x.start_date, f.time, 'past'));
@@ -4889,12 +5024,27 @@ async function renderAllMedical() {
       eobs   = eobs.filter(x => tm(x.statement_date, f.time, 'past'));
     }
 
-    const total = meds.length + conds.length + visits.length + eobs.length;
+    // ── Build a flat sortable list. Each element gets a `_kind` discriminator
+    //    so the right renderer fires, plus a `_sortDate` for ordering. ──
+    const items = [];
+    for (const x of meds)   items.push({ _kind: 'med',  _sortDate: x.start_date || x.created_at || '', data: x });
+    for (const x of conds)  items.push({ _kind: 'cond', _sortDate: x.latest_metric?.recorded_at || x.start_date || x.diagnosed_date || x.created_at || '', data: x });
+    for (const x of visits) items.push({ _kind: 'visit', _sortDate: x.visit_date || '', data: x });
+    for (const x of eobs)   items.push({ _kind: 'eob',  _sortDate: x.statement_date || '', data: x });
+
+    // Sort newest first (empty dates fall to the bottom)
+    items.sort((a, b) => {
+      if (!a._sortDate && !b._sortDate) return 0;
+      if (!a._sortDate) return 1;
+      if (!b._sortDate) return -1;
+      return b._sortDate.localeCompare(a._sortDate);
+    });
+
     if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
-      GH_LENS.setCount(total);
+      GH_LENS.setCount(items.length);
     }
 
-    if (total === 0) {
+    if (items.length === 0) {
       area.innerHTML = `
         <div style="text-align:center;padding:60px 20px;color:var(--text3)">
           <div style="font-size:36px;margin-bottom:10px">🔍</div>
@@ -4904,31 +5054,15 @@ async function renderAllMedical() {
       return;
     }
 
-    const sectionLabel = (label, n) =>
-      `<div class="section-label" style="display:flex;align-items:center;gap:8px;margin-top:20px">
-        <span>${esc(label)}</span>
-        <span style="color:var(--text3);font-weight:400">${n}</span>
-      </div>`;
+    const cardHtml = items.map(it => {
+      if (it._kind === 'med')   return renderMedCard(it.data);
+      if (it._kind === 'cond')  return renderConditionCard(it.data);
+      if (it._kind === 'visit') return renderVisitCard(it.data);
+      if (it._kind === 'eob')   return renderEobCard(it.data);
+      return '';
+    }).join('');
 
-    let html = '';
-    if (visits.length) {
-      html += sectionLabel('Visits', visits.length);
-      html += `<div class="medv5-grid">${visits.map(x => renderVisitCard(x)).join('')}</div>`;
-    }
-    if (meds.length) {
-      html += sectionLabel('Medications', meds.length);
-      html += `<div class="medv5-grid">${meds.map(x => renderMedCard(x)).join('')}</div>`;
-    }
-    if (conds.length) {
-      html += sectionLabel('Conditions', conds.length);
-      html += `<div class="medv5-grid">${conds.map(x => renderConditionCard(x)).join('')}</div>`;
-    }
-    if (eobs.length) {
-      html += sectionLabel('EOBs', eobs.length);
-      html += `<div class="medv5-grid">${eobs.map(x => renderEobCard(x)).join('')}</div>`;
-    }
-
-    area.innerHTML = html;
+    area.innerHTML = `<div class="medv5-grid medv5-grid--all">${cardHtml}</div>`;
 
     if (meds.length && window.checkInteractionsForAll) {
       window.checkInteractionsForAll(meds);

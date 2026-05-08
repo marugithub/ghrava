@@ -1,146 +1,158 @@
-# TOUCHED — v202604.148
+# TOUCHED — v202604.149
 
 Files modified or added in this drop. **Every entry is suspect until
-Al confirms "tested, works."** This file replaces itself on each drop;
-the running record across all drops lives in STATE.md under
-"✋ DON'T TRUST WITHOUT RETEST."
+Al confirms "tested, works."** Replaced on each drop; the running
+record across drops is in STATE.md "✋ DON'T TRUST WITHOUT RETEST."
 
 ---
 
-## app/public/medical.html — REPLACED
+## NEW: app/db/migrations/125_med_visit_conditions.js
 
-Wholesale page replacement. The old `medical.html` (v1, 2505 lines)
-is gone; this new `medical.html` is the former `medical_v2.html`
-contents (4985 lines including v.148 features) renamed.
-
-**Visible cleanup:** "v2 preview" pill in the header was removed —
-this page is no longer a preview. CSS comment about token inheritance
-updated from "medical_v2.html's plain-name tokens" to "medical.html's".
-
-**Existing behavior preserved (not changed by this drop):** all v2
-card renderers (renderMedCard / renderConditionCard / renderVisitCard
-/ renderEobCard), all CRUD drawers (medication, condition, note),
-attachment manager, EOB import + folder watcher integration, summary
-view, family/contact quick-view modals, condition metric
-add/edit/delete, dose-change tracking, dedup-resolution flow,
-pending-review banner, drug FDA lookup, daily-log seed handling,
-keyboard shortcuts, sched panel, status banner, refill UI buttons.
-
-**v.148 changes within this file** (all from prior session work):
-- `_eobShowDetail(id)` rewritten as Vellum modal hitting GET
-  /medical/eob/:id (was: alert with stripped HTML).
-- `renderEobCard()` — both `#eob-{id}` hash-link click handlers
-  replaced with `_eobShowDetail(${s.id})` calls.
-- New `<button>` for "All" tab in v2-tabs row, between EOB and Summary.
-- `switchView(view, btn)` — added 'all_medical' to patient-strip-hide
-  condition; calls `window.initMedLensForView(view)` before render.
-- `renderCurrentView()` — added 'all_medical' dispatch to
-  `renderAllMedical()`.
-- `initMedLens(view)` (inside `_medBoot`) — added 'all_medical' →
-  'medical_all' and 'eob' → 'medical_eob' branches; exposed as
-  `window.initMedLensForView`.
-- New top-level `renderAllMedical()` — fetches meds + conditions +
-  visits + EOBs in parallel, applies `window._medFilters`
-  (person/tag/name/time), renders sections.
-- New IIFE `_wireMedicalScope` — listens for `gh-scope-changed`,
-  applies scope.id as window._medFilters.person; on
-  DOMContentLoaded with 500ms defer, applies any existing scope.
-
-**Lost (deliberately, per Al):** v1's `openRefillModal` /
-`saveRefill` / `openLinkReceiptModal` / `confirmLinkReceipt`. v2's
-stub functions handle the calls (refill button → edit drawer; link
-receipt → no-op).
+Creates `med_visit_conditions(visit_id, condition_id)` junction
+table with composite PK and two indexes (one each direction).
+Idempotent, additive only, no FKs.
 
 ---
 
-## app/public/_card_previews.html
+## app/features/medical/routes.js
 
-**Two reference updates:**
-- Back-link `href="/medical_v2.html"` → `href="/medical.html"`
-- CSS comment "Inherit medical_v2.html's plain-name tokens" → "Inherit
-  medical.html's plain-name tokens"
+**GET /notes** — added joins:
+- `family_member_name` from family_members (was MISSING; primary
+  cause of SE/Self bug for visits)
+- `attachment_count` (paperclip badge)
+- `linked_conditions: [{id, name}]` per visit (from new junction)
 
-No code or behavior change.
+**POST /notes** — also writes `linked_condition_ids` array body
+field into the junction (insert-only on POST, replace-set on PUT).
+
+**PUT /notes** — replace-set on `linked_condition_ids`. Sending an
+empty array wipes all links; omitting the field leaves them alone.
+
+**DELETE /notes/:id** — clears junction rows for that visit
+(no CASCADE).
+
+**DELETE /conditions/:id** — clears junction rows pointing at that
+condition (no CASCADE).
+
+**GET /medications, /conditions, /eob** — added `attachment_count`
+subselect (entity_type strings: med_medication, med_condition,
+med_eob_statement; visit uses `med_visit`).
+
+**GET /eob** — added `family_member_ids` array per statement
+(DISTINCT non-null from claims) so the All-tab person filter can
+narrow EOBs by member-id directly.
 
 ---
 
-## app/public/js/lens-config.js
+## app/public/medical.html
 
-**One additive change:**
-- New `medical_all` module under LENS_CONFIG with dimensions
-  person/name/time/tag, `personPrimary: true`.
+### SE/Self bug fix
+- New helper `_currentMemberId()` resolves the active patient strip
+  selection (a display_name string) to a family member id.
+- Three drawer-open paths (`openMedDrawer`, `openCondDrawer`,
+  `openNoteDrawer`) pre-fill `GH_FAMILY.init` with that member id
+  when adding new (no record id).
+- Three save handlers (`saveMedication`, `saveCondition`, `saveNote`)
+  no longer write the literal string `'Self'` — they write `null`.
+- Three card renderers (`renderMedCard`, `renderConditionCard`,
+  `renderVisitCard`) compute `memberName` only from real family
+  links. Stale `patient = 'Self'` rows render avatar-less.
 
-No existing module changed.
+### Default tab + structural
+- `currentView = 'all_medical'` (was `'medications'`).
+- All tab moved to first position in the tab row, marked active.
+- `_medBoot` calls `renderCurrentView()` instead of forcing
+  `renderMedications()`.
+- `renderAllMedical()` rewritten:
+  - One flat sortable list (no per-domain sections).
+  - Sort newest first by per-domain date (visit_date,
+    statement_date, latest_metric.recorded_at | start_date,
+    start_date | created_at).
+  - EOB person filter uses new `family_member_ids` rollup;
+    substring fallback retained for old API shape.
+  - Renders into `.medv5-grid.medv5-grid--all`.
 
----
+### Mobile swipe-snap
+- New CSS class `.medv5-grid--all` (desktop unchanged from
+  `.medv5-grid`).
+- @media ≤700px: flex row, x-overflow auto, scroll-snap-type
+  x mandatory, hidden scrollbar. Cards sized to viewport width
+  minus 28px, snap-align center, snap-stop always.
 
-## app/shared/autoTodos.js
+### Visit form: linked-conditions chip picker
+- New `<div id="nLinkedConditions">` field after Reason.
+- New helpers `_renderLinkedCondsPicker` (loads conditions for the
+  active patient, renders chips, wires click toggles) and
+  `_readLinkedCondIds` (reads back into a number array at save time).
+- `openNoteDrawer` calls `_renderLinkedCondsPicker` with initial ids
+  from `r.linked_conditions` (when editing) or `[]` (when adding).
+- `saveNote` body includes `linked_condition_ids: _readLinkedCondIds()`.
 
-**One additive change:**
-- New rule 7b (between med_discontinued and vehicle_service_due):
-  `med_visit_upcoming`. Selects med_visit_notes WHERE visit_date >
-  today, joins contacts via `physician_contact_id` or `contact_id`
-  for provider name. Upserts a todo: title "{visit_type} — {provider}"
-  or "{visit_type} for {patient}", due_date = visit_date,
-  priority=medium, category=Medical. Auto-resolves on date pass or
-  row delete.
-- Doc comment block at top updated with the new auto-todo type.
-
-No existing rule changed.
+### Visit card: linked-condition tag chips
+- `renderVisitCard` builds `condChips` from `v.linked_conditions`
+  array, displays them as purple tag chips alongside the
+  visit-type chip.
+- Tag-row visibility now triggered by either `typeChip` OR
+  `condChips` (was: only typeChip).
 
 ---
 
 ## app/version.txt
 
-Bumped from 202604.147 to 202604.148.
+Bumped 202604.148 → 202604.149.
 
 ---
 
-## NOT IN THIS ZIP
+## NOT MODIFIED (carried over from v.148)
 
-- `medical_v2.html` is GONE from source. The live NAS will still have
-  it from prior deploys — clean it up by hand if desired:
-  `Remove-Item Z:\ghrava\app\public\medical_v2.html`
-- All other unchanged files (nav.js, shared.css, all other modules,
-  routes, migrations, etc.) — robocopy /E does NOT delete files, so
-  everything else on the NAS stays exactly as it is.
+- `app/shared/autoTodos.js` — rule 7b for upcoming visits still ships.
+- `app/public/js/lens-config.js` — `medical_all` module still ships.
+
+These two are in the zip because robocopy `/E` only writes what's in
+the source — anything not in the zip is implicitly "use whatever's
+already on disk." But since v.148 added these and you haven't deployed
+v.148 to a fresh container, including them keeps the zip
+self-sufficient.
 
 ---
 
-## TEST PLAN (when Al is ready)
+## TEST PLAN (for Al)
 
-In rough priority order:
+**P0 — does the page load at all?**
+1. Visit `/medical.html`. Should land on the All tab automatically.
+2. Cards should appear (your existing condition + anything else),
+   sorted newest first, no section labels.
 
-1. **`/medical.html` loads at all** — open the URL, page renders without
-   errors. If you see a 404 or blank page, that's the canonical bug to
-   debug first.
+**P1 — SE/Self bug**
+3. Click your name in the patient strip (or pick a person via the
+   nav scope pill). Click "Add condition." The family widget at the
+   top of the drawer should already have your name as a pill — you
+   should NOT have to pick it again.
+4. Fill the form, save. New condition card should show your name in
+   the avatar label, NOT "SE."
+5. Edit an OLD condition that previously showed "SE." It will still
+   show "SE" because the old DB row has `patient='Self'` —
+   re-pick yourself in the family widget and save to fix.
 
-2. **All tabs render** — click through Meds, Conditions, Visits, H&W,
-   EOB, All, Summary. Each should show data or an empty state.
-   - Specifically the "All" tab should show every domain that has rows,
-     with the section labels Visits/Medications/Conditions/EOBs.
+**P2 — Visit ↔ condition links**
+6. Open Visits tab. Add a visit with date today. In the new "For
+   which conditions?" field, click your hypertension chip (or
+   whatever condition you have).
+7. Save. Visit card should show that condition as a purple chip.
+8. Edit the visit, unclick the chip, save. Chip should disappear.
 
-3. **EOB modal** — go to EOB tab, click any imported statement card.
-   Modal should show patient + claims + services + balances. Esc /
-   backdrop / Close all dismiss.
+**P3 — Mobile**
+9. On a phone, the All tab should be a horizontal swipe, one card
+   per screen, snapping to the next card. Don't use devtools mobile
+   mode for this — actual phone.
 
-4. **Med visit auto-todo** — add a med visit dated 7 days out. Visit
-   /todos.html; should see auto-todo "{visit_type} — {provider}" due
-   on that date, category Medical. Move the visit's date to yesterday
-   → todo should disappear on next /todos.html load.
+**P4 — Auto-todo (carried from v.148)**
+10. Upcoming visit dated tomorrow should appear in /todos.html as
+    "{visit_type} — {provider}" due tomorrow, category Medical.
 
-5. **Family scope** — click the scope pill in the page header (top
-   right area, near search/notif icons). Pick a family member.
-   Medical page should re-render with that person's records only.
-   Clear scope → restore.
+**P5 — Counts on cards**
+11. Cards with attachments should show a paperclip badge and count.
+    Cards without should show no badge.
 
-6. **CRUD smoke** — create a medication, edit it, delete it. Same for
-   a condition and a visit note. Drawer-form-save flow.
-
-7. **Drugs that v1 had but v2 lost:** the "Record Refill" button on
-   med cards now opens the edit drawer (stub behavior), and "Link
-   Receipt" does nothing. Both are documented in STATE.md as accepted
-   losses.
-
-If any of these fail, the relevant function lives in the file map
-in STATE.md.
+If any test fails, the relevant function is named in TOUCHED.md
+above; STATE.md file map says which file owns it.
