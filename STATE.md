@@ -8,6 +8,89 @@
 
 ---
 
+## 🚨 NEW CHAT? READ THIS BLOCK FIRST
+
+You are picking up an in-progress project. The previous session ran out
+of capacity; Al started a new chat to keep continuity. Everything you
+need to know is in this file.
+
+### 30-second context
+
+Al runs **Ghrava** — a self-hosted household OS on a QNAP NAS, accessible
+at `http://192.168.4.62:3001`. Stack: Node.js/Express + SQLite
+(better-sqlite3) + vanilla JS. Single user, single developer. The most
+recent shipped version is **v202604.149**; the deploy zip in
+`/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
+session) IS that version.
+
+### What was just shipped (v.149) — needs Al's manual test before next drop
+
+- Default landing tab on `/medical.html` is now "All" (cross-card grid)
+- Mobile = swipe one card at a time
+- "SE/Self" avatar bug fix at the root (form pre-fill from patient strip,
+  no more `'Self'` string fallback)
+- Visit ↔ condition junction (new migration 125, new chip picker on
+  visit form, purple chips on visit cards)
+- Data joins audit fixed: `family_member_name`, `attachment_count`,
+  `family_member_ids` rollup added across med/cond/visit/EOB
+
+Full list in `## ✋ DON'T TRUST WITHOUT RETEST` and `## ✅ SHIPPED THIS
+DROP`. **Do NOT re-touch any of those files unless Al asks** — wait for
+test results.
+
+### Next-drop work is queued
+
+See `## ⏳ IN FLIGHT — NEXT DROPS` for the priority-ordered list. Top
+items: finance dedup tightening (description normalization, pending/posted
+window, sign-convention spec tests), categorization rule editor, EOB
+parser field contract verification, vision/dental EOB ingest.
+
+**Don't pick a top item and start coding.** Al chats first, then builds.
+Ask which item to take, confirm scope, then go.
+
+### The most important rules to internalize
+
+- **Chat first, code second.** Discuss before writing. Confirm before
+  building. Short replies. Don't over-explain.
+- **Don't package after one fix.** Bundle multiple changes. Al has
+  corrected this multiple times.
+- **Don't defend, look.** When Al says something is broken, check the
+  code — don't argue from cache or assumptions.
+- **Don't re-derive locked decisions.** This file has them. Read the
+  whole thing.
+- **Run the 5 predeploy gates** before every zip. Listed in
+  `## 🎯 LOCKED DESIGN DECISIONS → Code quality (5 gates)`.
+
+### How Al deploys
+
+1. You build a zip → `present_files` it as `Ghrava_DEPLOY.zip`
+2. Al downloads to `~/Downloads`
+3. Al runs `ghrava_deploy.ps1` on Windows — it auto-finds the zip,
+   robocopies to `Z:\ghrava` (NAS-mapped), deletes the zip, prints
+   either "docker restart ghrava" or "docker compose up --build -d"
+   depending on whether `package.json` changed
+4. Al SSHs to NAS and runs that command
+5. Al hits refresh on the page
+
+Full ps1 details: `## 🚦 DEPLOY WORKFLOW`.
+
+### Where Al's actual code lives
+
+- **NAS:** `/share/Docker/home-core/ghrava/` (Docker compose root) →
+  `app/` is the code root inside container at `/app`
+- **Windows:** `Z:\ghrava\` (mapped network drive to same path)
+- **Sandbox (yours):** start fresh each chat. To get the live code,
+  Al uploads `Ghrava_Share_<date>.zip` (full folder export). Don't ask
+  unless you actually need to read source — STATE.md has most answers.
+
+### Your sandbox staging directory
+
+Last session staged all v.149 changes in `/home/claude/drop/`. That
+directory is gone now. To resume staging, recreate it from Al's share
+zip if needed.
+
+---
+
 ## Current version
 
 **v202604.149** — packaged. Cross-card "All" tab is now the default
@@ -734,7 +817,8 @@ later.** Don't change today.
 ## 🩺 EOB PARSING — handoff for the next session
 
 > Locking this in here so the next chat doesn't re-derive it.
-> Al will upload an EOB folder for parser work.
+> Al uploaded sample EOBs 2026-05-08; analysis below reflects what
+> those PDFs actually contain.
 
 ### Carrier scope — LOCKED (Al, 2026-05-08)
 
@@ -743,10 +827,6 @@ This is the federal insurance plan administered by Aetna; what the
 existing parser calls "MHBP" is the same thing as "Aetna MHBP."
 **No other carriers are planned.** Don't suggest BCBS, Cigna, UHC,
 or Kaiser support — that's out of scope.
-
-The Settings parser selector exists from prior design work, but it
-should only ever show one entry (`Aetna MHBP`). If a future need
-arises for another carrier, that's a separate decision; today, no.
 
 ### What exists today
 
@@ -762,14 +842,182 @@ arises for another carrier, that's a separate decision; today, no.
   during import. Names that don't match a family member exactly
   get flagged into `med_pending_review`.
 
-### Real gaps Al needs to know about (in plain English)
+### EOB PARSER FIELD CONTRACT — LOCKED (Al + analysis, 2026-05-08)
+
+These rules are non-negotiable for the next parser-touching drop:
+
+1. **A single PDF can contain multiple EOB statements.** Confirmed
+   by Al's sample folder: one file had 2 statements glued together.
+   Split on each `Statement date:` + `Group #:` reappearance. Each
+   becomes one row in `med_eob_statements`.
+2. **Dedup key for statement** = file_hash (silent skip identical
+   files) + `(group_number, statement_date)` as natural key.
+   **Group_number must be part of the key** because Al has two
+   plans on the same member ID; two different statements can share
+   a date.
+3. **Patient name format** is `"Name (relation)"`. Known relations
+   in Al's data: `(self)`, `(spouse)`, `(son)`. resolvePatient maps
+   to family_member_id. Anything else → flag for review.
+4. **Pending/not-payable amounts may have a `(N)` remark suffix**
+   like `47.91(3)`. Strip `\(\d+\)$` before parsing the number.
+5. **Header text varies** between "Pending or not payable" and
+   "Not payable by plan". Match either.
+6. **Capture `Sent to` + `Send date`** per claim row when plan
+   paid the provider directly.
+7. **Capture both Individual AND Family balance blocks** — they
+   feed different cards (per-person OOP-max progress vs family
+   deductible progress).
+8. **Capture the balance-block date range** (e.g. `1/1/26 to
+   12/31/26`). Used to associate balances with the correct plan
+   period (see plan period rule below).
+9. **Sub-cent service rows are kept**, not filtered. They carry
+   CPT codes (`3079F`, `1036F`) that link to visit context.
+
+### EOB CAPTURE-EVERYTHING RULE — LOCKED (Al, 2026-05-08)
+
+**Capture every field on the PDF, even if no card displays it
+today.** Storage is cheap; re-parsing is expensive; future reports
+can't use data that was thrown away.
+
+Concretely:
+- Beyond the obvious fields (statement date, claim, service,
+  amounts), also capture: "Amount you saved" / discount delta,
+  "Track your health care costs" tile breakdown, "Amount remaining"
+  per claim row, HealthFund balance (when present), appeals
+  address, plan-name strings ("Aetna HealthFund® Aetna Choice®
+  POS II"), any "Did you know?" health tip text.
+- **Add a `raw_pdf_text` TEXT column to `med_eob_statements`** that
+  stores the full extracted text from the PDF as belt-and-suspenders.
+  Even if the structured parser misses a field today, the raw text
+  is there to re-extract later. Additive migration. Same pattern
+  applies to any future parsed-from-document table (bank statements,
+  receipts).
+
+### HEALTH PLAN PERIOD MODEL — LOCKED (Al, 2026-05-08)
+
+**Federal employee plan years do NOT start on January 1.** Al's 2026
+plan year began on **January 10 or 11, 2026**, not Jan 1. This is
+true for FEHB/MHBP plans broadly (open season, plan effective dates
+follow federal calendar). The system MUST track plan periods by
+their actual effective dates, not by calendar year, or every
+year-over-year report will be slightly wrong.
+
+**Schema addition** (additive migration, no FK CASCADE per arch
+rules):
+
+```sql
+CREATE TABLE health_plans (
+  id                          INTEGER PRIMARY KEY,
+  group_number                TEXT NOT NULL,    -- e.g. '0285642-10-003'
+  plan_name                   TEXT,             -- 'MHBP HDHP' / 'MHBP Non-HDHP'
+  is_hdhp                     INTEGER NOT NULL DEFAULT 0,
+  effective_start             DATE NOT NULL,    -- e.g. 2026-01-11
+  effective_end               DATE,             -- NULL = current
+  annual_deductible_individual REAL,
+  annual_deductible_family    REAL,
+  oop_max_individual          REAL,
+  oop_max_family              REAL,
+  healthfund_amount           REAL DEFAULT 0,   -- $300 in 2025, $0 in 2026
+  notes                       TEXT,
+  created_at                  DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE med_eob_statements ADD COLUMN health_plan_id INTEGER;
+-- No FK constraint — manual maintenance per arch rule
+```
+
+Behavior:
+- On EOB import, parser reads group_number from the PDF
+- If a `health_plans` row exists with that group_number AND
+  the statement_date falls within `effective_start..effective_end`,
+  auto-link via `health_plan_id`
+- If no matching row, queue into `med_pending_review` with category
+  `unknown_plan` — Al confirms "this group_number belongs to plan
+  X starting on date Y, ending Z, HDHP=true/false"
+- Once Al confirms, all past + future statements with that
+  group_number auto-link
+
+Confirmed plan periods from Al's sample EOBs:
+- `0285629-10-004` — 2025 plan year, non-HDHP, $700 family
+  deductible, $300 HealthFund
+- `0285642-10-003` — 2026 plan year (started ~Jan 10–11, 2026),
+  HDHP, $4,000 family deductible, no HealthFund
+
+**HSA / LP-FSA eligibility downstream:** the HSA module reads
+`is_hdhp` to determine whether expenses in a given period are
+eligible for HSA contribution/reimbursement. Non-HDHP-period
+expenses are NOT HSA-eligible per IRS. (See "LP-FSA TRACKING"
+below for the current-year picture.)
+
+### LP-FSA + HSA COMBINED TRACKING (2026) — LOCKED
+
+For 2026, Al has BOTH:
+- **HSA** (because of HDHP plan)
+- **Limited-Purpose FSA** (LP-FSA) — vision and dental ONLY
+
+LP-FSA design was locked in chat-16 ("v140 design") as a two-pot
+module: HSA + LP-FSA share the same `hsa_payments` table with a
+`pot` discriminator (`'hsa'` or `'lpfsa'`). Use-it-or-lose-it
+deadline tracked per LP-FSA plan year.
+
+Implementation status (per prior STATE.md): "tables done, UI deferred"
+— verify in `db/migrations/118_hsa_inbox_lp_fsa.sql` and
+`features/hsa/routes.js` before promising the next chat anything
+specific.
+
+**Eligibility rules applied at receipt-save time:**
+- HSA: any qualified medical expense in an HDHP-eligible period
+- LP-FSA: dental + vision only, in the LP-FSA plan period
+- A receipt for general medical (not dental/vision) routes to HSA
+- A receipt for dental or vision in 2026 → user picks pot at save
+  time (LP-FSA preferred, since it's use-it-or-lose-it)
+
+### VISION + DENTAL INSURANCE EOBS — handoff TO-DO
+
+**Al confirmed 2026-05-08:** he has separate vision and dental
+insurance, with their own EOBs. Volume is low enough that **manual
+entry is acceptable** instead of automated parsing.
+
+**Action for the next session that touches medical:** ASK AL to
+upload a sample vision EOB and a sample dental EOB. Once seen,
+define:
+- Whether they fit existing `med_eob_statements` schema or need a
+  separate table (probably fit, with an `eob_type` discriminator
+  column: `'medical' | 'vision' | 'dental'`)
+- A manual-entry form on `medical.html` so Al can type these in
+  without a parser
+- Card design in `_card_previews.html` if different from medical EOBs
+
+If schema turns out to be the same, just add `eob_type` column
+defaulting to `'medical'` and add a Vision/Dental option to the
+manual-entry drawer. **Do NOT build a vision/dental parser** —
+volume doesn't justify it.
+
+### EOB DELETE + ATTACHMENT LIFECYCLE — LOCKED (Al, 2026-05-08)
+
+When user deletes an EOB:
+1. `DELETE /api/v1/medical/eob/:id` removes the statement + claims +
+   services rows (already wired today)
+2. Attached PDF file moves to `/share/Backups/MyAppAttachments/_orphans/`
+   with hash-prefix filename + audit-log entry. Never auto-purged.
+   *(This is the v140 "EOB folder-drop persistence" gap — needs
+   verification of `attach-lifecycle.js` integration.)*
+3. **Permanent delete** (file gone from disk too, for HIPAA / privacy)
+   = separate "Empty Orphans" action in Settings, manual only.
+   Logged in audit log with timestamp + filename hash.
+
+Until permanent delete is invoked, orphaned PDFs sit on the NAS but
+are invisible in the app. This is the locked design — protects
+against accidental "I shouldn't have deleted that" while keeping
+real delete possible.
+
+### Real gaps Al still needs to know about (in plain English)
 
 1. **EOB → HSA receipt matching** is *designed* (chat-7), not
    *built*. When a new HSA receipt is saved, look for matching
    claims (same patient + service date + amount) and link them.
    When a new EOB is imported, do the reverse. Status of actual
-   code: **uncertain — needs verification** before promising users
-   it works.
+   code: **uncertain — needs verification.**
 
 2. **Amount mismatch UX missing.** When EOB says "you owe $142.18"
    but receipt has $145, neither one is "wrong." The two should
@@ -783,39 +1031,32 @@ arises for another carrier, that's a separate decision; today, no.
 4. **No EOB cards on the medical "All" tab cross-domain link.**
    Today EOB cards show on their own tab and on All, but they
    don't visually link to which medication or visit they covered.
-   Should an EOB card show pills like "Lisinopril · Annual visit"
-   when it covers those? Designed loosely, not built.
 
 5. **EOB folder-drop persistence.** Watcher's `importEob` counts
    imports but supposedly "doesn't save." Status uncertain — past
-   STATE.md said this was a v140 loose end. Verify before
+   STATE.md flagged this as a v140 loose end. Verify before
    promising.
 
 6. **Field extraction completeness for cards.** The cross-card
    "All" tab and the EOB drill-down modal need every field that
-   shows up on `_card_previews.html`'s EOB cards. Plan for next
-   session: parse Al's real EOBs, list which fields are missing
-   or wrong, fix one by one.
+   shows up on `_card_previews.html`'s EOB cards. Plan: parse Al's
+   real EOBs, list which fields are missing or wrong, fix one by
+   one.
 
-### Plan when Al uploads the EOB sample folder
+### Plan when next session opens to do parser work
 
-1. Run each PDF through the existing Aetna MHBP parser; print the
-   extracted JSON.
-2. Compare against what the EOB card and drill-down modal display.
-   List any field that's missing or wrong (e.g. "deductible_used
-   shows $0 but PDF shows $1,247").
-3. List any structural mismatch the parser stumbles on (e.g.
-   "statement covers 3 family members but parser only captured 2"
-   — flag and fix).
-4. Verify `resolvePatient()` matches every name format Aetna uses
-   for Al's family. Fix the matcher if a name pattern slips
-   through (e.g. middle initial variations, hyphenated names).
-5. Verify dedup keys are unique across Al's real history. If two
-   real EOBs collide on `(insurer, member_id, statement_date)`
-   that's a parser bug, not a dedup bug.
-6. Once all that is verified, gaps 1–4 above (HSA matching,
-   amount mismatch, retry hook, cross-domain links) are next on
-   the queue — separate session each.
+1. Verify the existing parser actually splits multi-statement PDFs.
+   If not, fix that FIRST — half of Al's data is at risk.
+2. Apply the FIELD CONTRACT (rules 1–9 above).
+3. Implement `health_plans` table + migration. Backfill the two
+   known plan rows with Al's confirmed dates.
+4. Add `raw_pdf_text` column to `med_eob_statements`. Backfill
+   from existing PDFs if Al wants (re-parse pass).
+5. Wire EOB delete → orphans-folder move via attach-lifecycle.
+6. Ask Al for vision + dental sample EOBs. Add `eob_type` column
+   and manual-entry path.
+7. Then circle back to the gaps in section above (HSA matching,
+   amount mismatch, retry hook, cross-domain links).
 
 This is multi-session work. Don't rush it.
 
@@ -823,21 +1064,82 @@ This is multi-session work. Don't rush it.
 
 ## 🚦 DEPLOY WORKFLOW
 
-- Zip: always `Ghrava_DEPLOY.zip`, no version suffix
-- Always `present_files` in chat
-- Drop into `~/Downloads`, run `ghrava_deploy.ps1`
-- `docker restart ghrava` for code; `--build` only when
-  package.json changed
-- **NEVER package after a single fix.** Bundle multiple per drop.
+### The deploy script (`ghrava_deploy.ps1`)
 
-### NAS cleanup outstanding
+Al has a PowerShell script at `~/scripts/ghrava_deploy.ps1` (or wherever
+he keeps it) that handles the Windows-side of every deploy. **You don't
+need to write or modify this script — it's locked.** Just produce the
+zip, present it, and Al runs the script.
 
-robocopy `/E` does not delete files. Old `medical_v2.html` may still
-linger on the NAS from pre-v.148 deploys. Remove by hand:
+**What the script does:**
 
+1. **Finds the zip.** Default: scans `~\Downloads` for the most-recent
+   `Ghrava_DEPLOY.zip`. Override via `-ZipPath C:\path\to\zip` if needed.
+2. **Verifies NAS reachable** at `Z:\ghrava` (Z: must be mapped to
+   `\\soninas\Docker\home-core\ghrava` or wherever Al has it).
+3. **Snapshots `package.json` MD5 hash** before extract — used later to
+   detect if a docker rebuild is needed.
+4. **Extracts to a temp dir** (`%TEMP%\ghrava_deploy_<timestamp>`).
+5. **Robocopies extracted files to `Z:\ghrava` with `/E`** — this is
+   recursive and ADDITIVE. **Robocopy never deletes files that aren't in
+   the source.** This is critical: if a file you want gone (like the
+   old `medical_v2.html`) isn't in your zip, it stays on the NAS forever
+   until manually removed.
+6. **Deletes the zip** from Downloads after successful copy.
+7. **Reads `app/version.txt`** and prints the deployed version.
+8. **Compares package.json hash** before vs after. If changed, prompts
+   for `docker compose up --build -d`. Otherwise, prompts for plain
+   `docker restart ghrava`.
+9. **Optionally runs `ghrava_git_push.ps1`** if it exists alongside (Al
+   has this commented out for prompt; it currently auto-pushes).
+10. **Logs to `Z:\ghrava\logs\deploy_<timestamp>.log`**.
+
+**What this means for the zip you produce:**
+
+- Filename MUST be exactly `Ghrava_DEPLOY.zip` — the script's auto-find
+  matches this name.
+- Zip root MUST contain the file tree as it should appear at `Z:\ghrava\`
+  (so `app/version.txt` is at `Z:\ghrava\app\version.txt` after extract).
+- Top-level files like `STATE.md` at the zip root land at `Z:\ghrava\STATE.md`.
+- Only include files that NEED to change. Don't bundle the whole `app/`
+  directory — it's slow and noisy.
+- For deletions: robocopy can't help. Either:
+  (a) Tell Al to manually `Remove-Item Z:\ghrava\path\to\file` after
+      deploy, or
+  (b) Add a one-liner cleanup section to the next ps1 update (don't do
+      this without asking).
+
+### Standard deploy mantras
+
+- Zip name: **always `Ghrava_DEPLOY.zip`**, no version suffix
+- Always present via `present_files` in chat
+- `docker restart ghrava` for code-only changes (~2s)
+- `docker compose up --build -d` only when `package.json` changes (~90s)
+- **NEVER package after a single fix.** Bundle multiple per drop. (Al
+  has corrected this twice.)
+- After Al deploys, wait for him to test. Don't proactively build the
+  next drop.
+
+### When you'd want to update the ps1 script itself
+
+- Adding a manual cleanup step (e.g. delete obsolete files post-extract)
+- Adding a pre-deploy DB backup (Al asked for this informally)
+- Adding a healthcheck after `docker restart` to verify the server came
+  back up
+- None of these are queued today — flag and ask before changing the
+  script.
+
+### NAS cleanup outstanding (manual one-time tasks)
+
+robocopy `/E` does not delete files. These are still on the NAS until
+removed by hand:
+
+```powershell
+# v.148 left this orphan; nothing references it anymore
+Remove-Item Z:\ghrava\app\public\medical_v2.html -ErrorAction SilentlyContinue
 ```
-Remove-Item Z:\ghrava\app\public\medical_v2.html
-```
+
+If new orphans show up in future deploys, list them here.
 
 ---
 
@@ -859,56 +1161,465 @@ Remove-Item Z:\ghrava\app\public\medical_v2.html
 
 ## 🛠 FILE MAP
 
+### What's in the v.149 deploy zip
+
 ```
-app/
-├── version.txt                                  202604.149
-├── db/
-│   └── migrations/
-│       └── 125_med_visit_conditions.js          NEW — junction table
-├── features/
-│   └── medical/
-│       └── routes.js                            .149 — joins, attachment_count,
-│                                                  linked_condition_ids handling,
-│                                                  EOB family_member_ids rollup
-├── shared/
-│   └── autoTodos.js                             .148 (carried over)
-└── public/
-    ├── medical.html                             .149 — All landing, flat grid,
-    │                                              mobile swipe, SE/Self bug fix,
-    │                                              linked-conditions form picker,
-    │                                              visit card chips
-    └── js/
-        └── lens-config.js                       .148 (carried over)
+Ghrava_DEPLOY.zip (~110 KB, 9 files)
+├── STATE.md                                     this file
+├── TOUCHED.md                                   per-drop manifest of v.149 changes
+└── app/
+    ├── version.txt                              "202604.149"
+    ├── db/
+    │   └── migrations/
+    │       └── 125_med_visit_conditions.js      NEW — visit↔condition junction table
+    ├── features/
+    │   └── medical/
+    │       └── routes.js                        .149 — joins, attachment_count,
+    │                                              linked_condition_ids handling,
+    │                                              EOB family_member_ids rollup
+    ├── shared/
+    │   └── autoTodos.js                         .148 (carried over for completeness)
+    └── public/
+        ├── medical.html                         .149 — All landing, flat grid,
+        │                                          mobile swipe, SE/Self bug fix,
+        │                                          linked-conditions form picker,
+        │                                          visit card chips
+        ├── _card_previews.html                  .148 — back-link href fixed
+        └── js/
+            └── lens-config.js                   .148 (carried over)
 ```
 
-NOT in this zip but related:
-- `app/features/todos/routes.js` — calls syncAutoTodos()
-- `app/public/nav.js` — owns family scope
-- `app/public/shared.css` — global styles
+### NOT in v.149 zip but related
+
+These files exist on Al's live NAS, are referenced by changed files,
+but were not modified in v.149:
+
+- `app/features/todos/routes.js` — calls `syncAutoTodos()` on each GET
+- `app/features/medical/eob-parser.js` — Aetna MHBP parser; will be
+  touched in next-drop EOB work
+- `app/features/medical/dedup.js` — record-level natural-key hashes;
+  will be referenced when finance dedup work begins
+- `app/public/nav.js` — owns family scope picker + page header
+  (changes propagate via `gh-scope-changed` event, no direct edit needed)
+- `app/public/shared.css` — global CSS tokens (`--bg-card`, `--accent`,
+  etc.); page-level CSS overrides go in the page's `<style>` block
+- `app/public/js/lt-core.js` — `GH_VIEW`, `GH_SELECT`, `GH_FAMILY`,
+  `GH_AVATAR` (the SE/Self bug source — initials computed from name
+  string here)
+- `app/public/js/lt-refs.js` — `GH_REFS` cross-module lookup widget
+- `app/shared/folder-watcher.js` — watcher dispatch (eob, attach,
+  statement actions); finance-watcher work touches this
+- `app/features/import/parsers.js` — 11-bank finance parser (NOT
+  touched in v.149 but is the heart of the next finance drop)
+- `app/features/import/routes.js` — `/import/preview`, `/import/confirm`,
+  etc.
+
+### Where things live on Al's filesystem
+
+```
+NAS (QNAP, mounted as Z: on Windows):
+  /share/Docker/home-core/ghrava/        Docker compose root
+    ├── docker-compose.yml               (provided to me earlier)
+    ├── .env                             environment vars (NEVER in zip)
+    ├── data/                            SQLite database lives here
+    │   └── lifetracker.db
+    ├── app/                             code root (mounted as /app in container)
+    │   ├── version.txt
+    │   ├── server.js                    entry point
+    │   ├── package.json                 deps — change triggers --build
+    │   ├── db/
+    │   │   ├── db.js                    DB init + migrations runner
+    │   │   └── migrations/              numbered SQL/JS files (additive only)
+    │   ├── features/                    one folder per module
+    │   ├── shared/                      cross-module helpers
+    │   └── public/                      HTML + JS + CSS (served as static)
+    └── logs/                            deploy_*.log files
+
+  /share/Backups/MyAppAttachments/       Mounted as /app/attachments
+    ├── _inbox/                          Watcher reads here (per LOCKED layout)
+    │   ├── eob/                         Aetna MHBP PDFs
+    │   ├── receipts/                    HSA/FSA receipts → attach module
+    │   ├── chase-checking/              (future: per-account bank CSVs)
+    │   └── _failed/                     parse failures park here
+    ├── _orphans/                        record deleted, file kept (audit log)
+    ├── _rejected/                       user rejected during review
+    ├── eob/                             final EOB PDFs after import
+    ├── hsa/                             final HSA receipts after import
+    ├── medical/                         medical attachments
+    └── …                                one folder per module
+
+  /share/Backups/XPS - My Documents/AllDocuments/_SaveForever/MyAppBackups/
+                                         Mounted as /app/backups
+                                         Manual DB backups land here
+```
+
+### Project memory files (live on NAS, not in deploy zip)
+
+These are markdown docs Al maintains for design history. Don't edit
+unless asked:
+
+- `Z:\ghrava\HSA_INBOX_DESIGN.md` — v140 LP-FSA + receipt vault design
+- `Z:\ghrava\TRANSACTION_LINKING_SPEC.md` — chat-14 cross-module
+  link design (`tx_record_links`, `tx_link_rules`)
+- `Z:\ghrava\BACKLOG.md` — running backlog (older format; STATE.md
+  has superseded most of it)
+- `Z:\ghrava\UI_STANDARDS.md` — frontend rules (gh-card, gh-s-* etc.)
+- `Z:\ghrava\UPGRADE_NOTES.md` — schema migration notes
 
 ---
 
-## 💬 HOW AL WORKS
+## 🧪 PENDING TESTS — manual, by Al, at next milestone
 
-- Chat first. Discuss design before code. Confirm before building.
-- Short replies preferred.
-- Don't fix unless asked. Document, don't silently patch.
-- Group changes per drop.
-- Apply patterns to all relevant modules in the same session.
-- "Make it similar to X" = identical layout, not approximation.
-- Tests at milestones, not per-feature → ✋ retest list above is gospel.
-- Catches mistakes well — trust the corrections. Don't defend.
-- Tokens are limited — be brief, don't over-explain.
+> Al tests at milestones, not per-feature. These accumulate until he's
+> ready to verify a batch. Each entry: what to do, what should happen,
+> and where to look if it's wrong.
+
+### From v.149 (highest priority — never tested yet)
+
+**T1. Medical page lands on All tab.**
+- Visit `/medical.html` fresh (close tab, reopen)
+- Expected: All tab is highlighted, cards show meds + conditions +
+  visits + EOBs interleaved
+- If wrong: `currentView` initialization in `medical.html` line ~2194,
+  or `_medBoot()` calling `renderCurrentView()` instead of
+  `renderMedications()`
+
+**T2. SE/Self bug fixed.**
+- Click your name in the patient strip (top of page)
+- Open "Add condition" drawer
+- Expected: family widget shows your name as a pill, already selected
+- Save. Card should show your name in avatar, NOT "SE"
+- If wrong: `_currentMemberId()` helper in medical.html, or
+  `GH_FAMILY.init()` call in `openCondDrawer()`
+
+**T3. Old "Self" rows still show "SE".**
+- This is by design — old DB rows have `patient='Self'` literal string
+- Edit the old condition, re-pick yourself in the family widget, save
+- Expected: card now shows your real name
+- This is a one-time fix per old row, not a bug
+
+**T4. Visit ↔ condition linking.**
+- Add a visit dated today
+- In "For which conditions?" field, click a condition chip (e.g.
+  hypertension)
+- Save
+- Expected: visit card shows a purple chip with that condition name
+- Edit the visit, unclick the chip, save
+- Expected: chip disappears
+
+**T5. Mobile swipe-snap on All tab.**
+- Open Ghrava on actual phone (not devtools mobile mode)
+- Should swipe one card at a time, snap to center
+- DevTools mobile mode lies — don't trust it for this
+
+**T6. Auto-todo for upcoming visits.**
+- Add a visit dated 7 days out
+- Open `/todos.html`
+- Expected: see auto-todo "{visit_type} — {provider}" due on that date,
+  category Medical
+- Move visit's date to yesterday, reload todos
+- Expected: todo disappears (auto-resolved)
+
+**T7. Paperclip badges show on cards with attachments.**
+- Cards with attachments show a count
+- Cards without show no badge
+
+**T8. EOB modal shows real data.**
+- Click any EOB card
+- Modal should show patient names, claims, services, balances
+- Esc / backdrop / Close all dismiss
+
+### Smoke tests (always run after any deploy)
+
+**S1. Page loads.** `/medical.html` renders without console errors.
+**S2. CRUD works.** Add a med, edit it, delete it. Same for condition,
+visit. No 500s.
+**S3. Family scope.** Click scope pill in nav header, pick a member,
+medical page narrows to that person.
+**S4. Settings doesn't crash.** Just visit `/settings.html` and click
+through tabs. (Past chats have broken Settings via auth changes — be
+careful.)
+**S5. Existing data still renders.** Especially conditions and visits
+that existed before the v.149 deploy — they should still show, even if
+some fields are empty.
+
+### Carryover tests from v.148 (still uncleared)
+
+(none — v.148 was Al-tested per his "finally you did the right thing"
+acknowledgement on the merge, but EOB modal was untested as of
+deploy)
 
 ---
 
-## ▶️ TO RESUME WORK
+## 🛠 SCRIPT / TOOLING UPDATES — queued, not done
 
-1. Read this file end-to-end.
-2. `app/version.txt` for current version.
-3. Check ✋ section first — verify with Al before assuming anything works.
-4. Pick from "IN FLIGHT — NEXT DROP" priority order.
-5. Confirm with Al before writing code.
-6. Build, validate (5 gates), zip, present_files.
+> Things to update in the ps1 or other tooling, paired with the work
+> that motivates them. Don't do these standalone; bundle with the
+> related code drop.
+
+### Pre-deploy DB backup (P1 — high value, low effort)
+
+Before extracting the zip, ps1 should copy `Z:\ghrava\data\lifetracker.db`
+to the backups folder with a timestamp. Al has been informally asking
+for this. ~5 lines of PowerShell.
+
+When: bundle with the next migration-touching drop (e.g. when
+`125_med_visit_conditions.js` actually runs against live DB, or the
+`health_plans` table is added).
+
+### Healthcheck after docker restart (P2 — defensive)
+
+Add an HTTP poll to `http://192.168.4.62:3001/health` (or `/`) after
+the docker restart command. If 200 within 30s, OK. If timeout, surface
+"server failed to start" error. Today the script tells Al to run
+`docker restart` himself and walk away — failure mode is "Al refreshes
+page and gets a hung connection."
+
+When: bundle with any drop where the server might fail to start (i.e.
+big migration drops or new dependency drops).
+
+### Orphan-file cleanup (P3 — quality of life)
+
+After successful copy, optionally check a known-orphan list in the zip
+(e.g. `_DELETE_ON_NAS.txt` listing paths to remove). Run `Remove-Item`
+on each. This solves the "robocopy doesn't delete" problem cleanly.
+
+When: only when there are orphans to clean. Not urgent.
+
+### Finance parser fixture tests (P4 — the gate that doesn't exist)
+
+Add a `node test/run-parser-tests.js` invocation as a 6th predeploy
+gate. Reads fixtures from `app/test/parser-fixtures/`, runs each
+through `parsers.js`, asserts expected JSON output. Catches sign-flip
+regressions silently.
+
+When: bundle with the finance dedup tightening drop (IN FLIGHT #1–3).
+
+### Fixture CSV creation (P5 — depends on Al)
+
+Create one fixture CSV per supported bank (Chase, BofA, Navy Fed,
+Schwab Checking, Schwab Brokerage, Vanguard, TSP, Capital One,
+Discover, Citi, USAA). Each ~5–10 representative rows. Al provides
+sanitized samples; you write the expected-output JSON.
+
+When: same drop as P4.
+
+---
+
+## 💬 HOW AL WORKS (extended — read in full)
+
+### Communication
+
+- **Chat first, code second.** Discuss design before writing. Confirm
+  approach before building. Don't reach for the keyboard on a vague ask.
+- **Short replies preferred.** Tokens are limited. Don't over-explain.
+  Don't pad. Don't repeat his question back unless clarifying.
+- **One question at a time.** If you have three, pick the one that
+  actually unblocks you and ask that one.
+- **No emojis in prose** unless he uses them first. Section headers
+  with emojis (📥 ✋ 🎯) are fine — they're navigational.
+- **Don't apologize repeatedly.** Acknowledge once, fix it, move on.
+
+### Building
+
+- **Don't fix unless asked.** If you see a bug while doing other work,
+  document it (TOUCHED.md or STATE.md "small things"), don't silently
+  patch.
+- **Group changes per drop.** NEVER package after one fix. He has
+  corrected this multiple times. Bundle related changes; if you finish
+  one thing and there's a follow-up, do the follow-up before zipping.
+- **Apply patterns to all relevant modules in the same session.** If
+  fixing a SE/Self bug in medical, check whether HSA, finance,
+  insurance have the same pattern and fix all at once.
+- **"Make it similar to X" = identical layout, not approximation.**
+  Copy the working pattern verbatim. Don't reinvent.
+- **Don't invent scope.** If asked for "Aetna MHBP only," don't add
+  "and BCBS, Cigna, UHC for future" hedges. Past chats hallucinated
+  scope this way and Al hated it.
+
+### Quality
+
+- **Run the 5 gates before every zip.** No exceptions:
+  1. Node syntax check on every JS file (`node --check`)
+  2. Inline `<script>` syntax check on every HTML file changed
+  3. Critical IDs preserved (compare against UNION of v1+v2 sources)
+  4. Migration sim against live DB shape
+  5. No `requireAuth` outside `/settings/*` and `/watcher/*`
+- **Tests at milestones, not per-feature.** The ✋ DON'T TRUST list
+  in this file is gospel. Don't assume v.149 works until Al confirms.
+- **Catches mistakes well — trust the corrections.** When Al pushes
+  back, look at the code. Don't argue from cache. Don't defend.
+
+### When you screw up
+
+- **Acknowledge once, fix it, don't grovel.** Repeated apologies waste
+  tokens.
+- **Show you understood the correction.** Reflect back what was wrong
+  in one sentence, then act on it.
+- **Don't promise it won't happen again.** Just don't do it again.
+
+### Things that have wasted his time before (avoid)
+
+- Re-asking questions whose answers are in this file or memory
+- Packaging after one fix
+- "Let me check if X works" without actually checking
+- Confidently claiming something is wired when it's a placeholder
+- Hallucinating future scope ("we'll also support BCBS...")
+- Touching files he didn't ask about
+- Defending a mistake instead of looking at the evidence
+- Ending a chat with "I'll do this in the next session" when he wanted
+  it done now
+
+---
+
+## 🌐 ENVIRONMENT REFERENCE (don't search — answer is here)
+
+### Container / Docker
+
+```yaml
+# docker-compose.yml (verified 2026-05-08)
+services:
+  ghrava:
+    build: ./app
+    container_name: ghrava
+    ports:
+      - "3001:3001"            # PORT env var, default 3001
+    volumes:
+      - ./app:/app             # code mounted live; restart picks up changes
+      - /app/node_modules      # node_modules NOT shadowed by mount
+      - ./data:/app/data       # SQLite lives here
+      - ./.env:/app/.env:ro
+      - /share/Backups/MyAppAttachments:/app/attachments
+      - /share/Backups/XPS - My Documents/AllDocuments/_SaveForever/MyAppBackups:/app/backups
+    networks:
+      - home-core-net          # external network shared with Caddy etc.
+```
+
+### Database invariants (NEVER violate)
+
+- **`journal_mode = DELETE`** (not WAL). Instant commits, no .db-wal files.
+- **`synchronous = FULL`**. Every write fsynced.
+- **NEVER `ON DELETE CASCADE`** on any FK. Cleanup is explicit in delete
+  handlers — `DELETE FROM child_table WHERE parent_id=?` first, then
+  `DELETE FROM parent_table WHERE id=?`.
+- **Migrations are additive only.** Never `DROP COLUMN`, never
+  `DROP TABLE` for active data. Mark deprecated, ignore in code.
+- **`finance_accounts` (banking) ≠ `financial_accounts` (investment).**
+  These are two different tables. Never JOIN them. Never refer to one
+  when meaning the other.
+
+### Auth invariants
+
+- `requireAuth` middleware exists ONLY in `app/features/settings/routes.js`
+  and `app/features/watcher/routes.js`.
+- ALL read-only GETs are public. Reads never behind auth.
+- The live container runs in **open (no-password) mode**. Adding auth
+  enforcement to other routes would lock Al out.
+- Browser `<img>` tags can't send auth headers — attachment thumbnail
+  routes (`/file/:id`, `/thumb/:id`) MUST stay public.
+
+### Family + members
+
+```
+Algir Soni  (self)         — Al, the user
+Zarna       (spouse)
+Arnav       (son)
+```
+
+Stored in `family_members` table with `display_name` matching exactly
+("Algir", "Zarna", "Arnav" — no parentheses in display_name; the
+"(self)" / "(spouse)" / "(son)" suffix is rendered by UI).
+
+### Insurance plans (federal employee)
+
+| Group # | Period | HDHP? | Family deductible | HealthFund |
+|---|---|---|---|---|
+| `0285629-10-004` | 2025 plan year | No | $700 | $300 |
+| `0285642-10-003` | 2026 (started ~Jan 10–11, 2026) | Yes | $4,000 | $0 |
+
+**Federal plan years do NOT start Jan 1.** Track by `effective_start` /
+`effective_end` per plan, not calendar year.
+
+Vision and dental are separate insurance carriers (low volume — manual
+entry path). Al will upload sample EOBs when next medical session opens.
+
+### Networking
+
+- Local: `http://192.168.4.62:3001`
+- Tailscale: `qnap-nas-36.tail73fb11.ts.net` (works remotely)
+- Hosts file (Al's PC): `ghrava.home` → 192.168.4.62
+- Caddy reverse proxy on `home-core-net` Docker network (don't touch)
+- Google OAuth blocked pending Tailscale HTTPS cert for `.ts.net`
+  hostname
+
+### External APIs (free tiers, mostly)
+
+- **Fragella API** — perfume lookup, 20 req/month, results cached
+- **Finnhub** — earnings calendar
+- **Yahoo Finance** + **Alpha Vantage** — market data fallback chain
+- **StockTwits** — proxy for sentiment
+- **Reddit public JSON** — for some scraping
+- **House STOCK Act S3** — congressional trades
+
+None of these require keys for the current free-tier usage.
+
+### Frontend libraries (loaded via CDN, not npm)
+
+- **Chart.js** — price charts on trade terminal
+- **React via Babel CDN** — ONLY on trade terminal, no build step
+- **Lucide SVGs** — inline icons (copy-paste from lucide.dev)
+- **No bundler.** Vanilla JS everywhere except React on trade terminal.
+
+---
+
+## 🗂 INDEX — what's where in this file
+
+(Use this to jump to a section without scrolling.)
+
+| Section | What it covers |
+|---|---|
+| 🚨 NEW CHAT? READ THIS BLOCK FIRST | 30-second orientation for fresh context |
+| Current version | v.149 summary |
+| ✋ DON'T TRUST WITHOUT RETEST | Files touched in v.149, awaiting Al's manual test |
+| ✅ SHIPPED THIS DROP | Detailed v.149 changelog with rationale |
+| ⏳ IN FLIGHT — NEXT DROPS | Priority-ordered queue (#1–#14) |
+| 🎯 LOCKED DESIGN DECISIONS | Cards / Dedup / Architecture / 5 gates |
+| 📥 INGEST CONTRACTS | EOB rules + watcher status, wired vs not |
+| 🛡️ SMART DEDUP RULES | The 8 domains + 11 edge cases |
+| 🎴 CARDS EVERYWHERE | The principle, table of which modules get what |
+| 📥 IMPORT/UPLOAD ENTRY POINTS | Where every import lives + locked rule |
+| 🩺 EOB PARSING | Field contract, plan period model, vision/dental TODO |
+| 🚦 DEPLOY WORKFLOW | Full ps1 documentation |
+| 📝 SMALL THINGS NOT YET FIXED | Cosmetic / minor bugs to flag |
+| 🛠 FILE MAP | What's in zip, what's on NAS, what's where |
+| 🧪 PENDING TESTS | T1–T8 + smoke tests |
+| 🛠 SCRIPT / TOOLING UPDATES | P1–P5 ps1 updates queued |
+| 💬 HOW AL WORKS | Communication / building / quality / mistakes |
+| 🌐 ENVIRONMENT REFERENCE | Docker / DB / auth / family / insurance / networking |
+| 🗂 INDEX | This table |
+| ▶️ TO RESUME WORK | Step-by-step for the next chat |
+
+---
+
+## ▶️ TO RESUME WORK (next chat checklist)
+
+1. **Read this STATE.md end-to-end.** Yes, all of it. Al has paid for
+   this context once already.
+2. **Check `app/version.txt`** for current version (should be
+   202604.149 unless Al has deployed since).
+3. **Verify the ✋ DON'T TRUST WITHOUT RETEST list.** Ask Al what he
+   tested and what he didn't. Update the list as he confirms each item.
+4. **Ask Al "ready?" — let him pick from IN FLIGHT.** Don't assume #1
+   is the next thing. He may want to test more first, or have a new
+   pain point that jumped the queue.
+5. **Discuss design BEFORE writing code.** Confirm scope. Confirm what
+   touches what. Confirm "we are not in scope creep."
+6. **Stage in `/home/claude/drop/`** if you need a working directory.
+   Recreate from Al's share zip if he provides one.
+7. **Run the 5 predeploy gates.** No exceptions.
+8. **`present_files` final zip as `Ghrava_DEPLOY.zip`.**
+9. **Update STATE.md and TOUCHED.md** to reflect what shipped, what's
+   still suspect, what's now resolved. **Don't make Al ask.** He's
+   tired of asking.
 
 End of state.
