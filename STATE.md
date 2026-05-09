@@ -257,19 +257,24 @@ Same treatment:
 - **Vault card** — Hero: unreimbursed pool. Strip: # receipts, oldest
   date.
 
-### 9. EOB parsing — multi-carrier expansion
+### 9. EOB parsing — verify Aetna MHBP parser is complete
 
-Currently MHBP only. Each carrier has different PDF layouts:
-- MHBP (✅ wired)
-- BCBS (❌ — Al will upload sample)
-- Aetna, Cigna, UHC, Kaiser (❌ — only as needed)
+**Single carrier: Aetna MHBP** (Mail Handlers Benefit Plan, the
+federal insurance plan administered by Aetna). No other carriers
+are planned. The existing parser at `features/medical/eob-parser.js`
+handles this carrier; the parser-selector machinery in Settings
+exists but currently only ever lists this one option.
 
-Plan: keep `eob-parser.js` as the dispatcher (already reads
-`app_config.eob_parser` to pick which carrier's parser to run).
-Add one parser file per carrier (`eob-parser-bcbs.js`, etc.).
-Settings UI to auto-detect or pick parser per file. Each carrier
-parser exports the same shape: `{statement_date, member_id,
-plan_name, claims: [{patient, provider, claim_id, services: [...]}]}`.
+When Al uploads sample EOBs:
+- Verify every field the cards need is being extracted (statement
+  date, member ID, plan name, per-claim patient/provider/claim ID,
+  per-service date/code/amount, balances/deductible)
+- Fill gaps if any
+- Verify dedup keys (insurer + member_id + statement_date for
+  statement; patient + claim_id + send_date for claim) are unique
+  across Al's real history
+- Verify `family_member_id` resolution works for every patient
+  name format the EOB uses
 
 ### 10. Card click-throughs to dedicated /family.html and /contacts.html
 
@@ -731,79 +736,88 @@ later.** Don't change today.
 > Locking this in here so the next chat doesn't re-derive it.
 > Al will upload an EOB folder for parser work.
 
+### Carrier scope — LOCKED (Al, 2026-05-08)
+
+**One carrier only: Aetna MHBP** (Mail Handlers Benefit Plan).
+This is the federal insurance plan administered by Aetna; what the
+existing parser calls "MHBP" is the same thing as "Aetna MHBP."
+**No other carriers are planned.** Don't suggest BCBS, Cigna, UHC,
+or Kaiser support — that's out of scope.
+
+The Settings parser selector exists from prior design work, but it
+should only ever show one entry (`Aetna MHBP`). If a future need
+arises for another carrier, that's a separate decision; today, no.
+
 ### What exists today
 
-- **`features/medical/eob-parser.js`** — single parser, MHBP-only.
+- **`features/medical/eob-parser.js`** — parser for Aetna MHBP PDFs.
   Returns array of statements with claims and services nested.
-- **`app_config.eob_parser`** — config row that picks which parser
-  to run. Default `'mhbp'`. Other values currently throw "not
-  implemented."
+- **`app_config.eob_parser`** — config row defaulting to `'mhbp'`.
 - **`/eob/preview` and `/eob/import` endpoints** — call
-  `getEobParser()` then dispatch to the named parser.
+  `getEobParser()` then dispatch to the named parser. Any other
+  value throws "not implemented" — by design.
 - **Watcher** — calls same `parseEobPdf` for files dropped in
   `_inbox/eob/`.
 - **Per-claim `family_member_id`** — populated by `resolvePatient()`
   during import. Names that don't match a family member exactly
   get flagged into `med_pending_review`.
 
-### Gaps Al needs to know about (in plain English)
+### Real gaps Al needs to know about (in plain English)
 
-1. **Only MHBP works.** Drop a BCBS, Aetna, Cigna, UHC, or Kaiser
-   PDF and the parser will say "no statements detected" and reject
-   the file. Each carrier has a different PDF layout, so each
-   needs its own parser file.
+1. **EOB → HSA receipt matching** is *designed* (chat-7), not
+   *built*. When a new HSA receipt is saved, look for matching
+   claims (same patient + service date + amount) and link them.
+   When a new EOB is imported, do the reverse. Status of actual
+   code: **uncertain — needs verification** before promising users
+   it works.
 
-2. **No way to pick a parser per file.** Today it reads
-   `app_config.eob_parser` globally. If you have MHBP for one
-   family member and BCBS for another, you'd have to flip the
-   global setting between uploads. Needs a per-file selector or
-   auto-detect from PDF text patterns.
-
-3. **EOB → HSA receipt matching** is *designed* (chat-7), not
-   *built*. The design: when a new HSA receipt is saved, look for
-   matching claims (same patient + service date + amount) and link
-   them. When a new EOB is imported, do the reverse. Status of
-   actual code: **uncertain — needs verification** before promising
-   users it works.
-
-4. **Amount mismatch UX missing.** When EOB says "you owe $142.18"
+2. **Amount mismatch UX missing.** When EOB says "you owe $142.18"
    but receipt has $145, neither one is "wrong." The two should
    show side-by-side with the delta highlighted, user picks which
    to trust. Designed, not built.
 
-5. **EOB-arrives-before-receipt** case has a "retry hook" design —
+3. **EOB-arrives-before-receipt** case has a "retry hook" design —
    on every new receipt save, check for pending EOB matches —
    uncertain if wired.
 
-6. **No EOB cards on the medical "All" tab cross-domain link.**
+4. **No EOB cards on the medical "All" tab cross-domain link.**
    Today EOB cards show on their own tab and on All, but they
    don't visually link to which medication or visit they covered.
    Should an EOB card show pills like "Lisinopril · Annual visit"
    when it covers those? Designed loosely, not built.
 
-7. **EOB folder-drop persistence.** Watcher's `importEob` counts
+5. **EOB folder-drop persistence.** Watcher's `importEob` counts
    imports but supposedly "doesn't save." Status uncertain — past
    STATE.md said this was a v140 loose end. Verify before
    promising.
 
+6. **Field extraction completeness for cards.** The cross-card
+   "All" tab and the EOB drill-down modal need every field that
+   shows up on `_card_previews.html`'s EOB cards. Plan for next
+   session: parse Al's real EOBs, list which fields are missing
+   or wrong, fix one by one.
+
 ### Plan when Al uploads the EOB sample folder
 
-1. Identify each file's carrier (probably mix — MHBP + maybe BCBS
-   and others).
-2. For non-MHBP carriers, write `eob-parser-<carrier>.js`. Each
-   exports `parseEobPdf(buffer, filename)` returning the same
-   shape MHBP does.
-3. Replace the single-parser dispatch in
-   `features/medical/routes.js` with a multi-parser dispatcher
-   that auto-detects from the first page (regex on insurer name,
-   member ID format, etc.).
-4. Test against Al's folder, verify field extraction is right,
-   verify dedup works across carriers (insurer + member_id +
-   statement_date is the natural key — should be globally unique).
-5. Add the carrier picker to the `/eob/preview` upload UI as a
-   fallback when auto-detect fails.
+1. Run each PDF through the existing Aetna MHBP parser; print the
+   extracted JSON.
+2. Compare against what the EOB card and drill-down modal display.
+   List any field that's missing or wrong (e.g. "deductible_used
+   shows $0 but PDF shows $1,247").
+3. List any structural mismatch the parser stumbles on (e.g.
+   "statement covers 3 family members but parser only captured 2"
+   — flag and fix).
+4. Verify `resolvePatient()` matches every name format Aetna uses
+   for Al's family. Fix the matcher if a name pattern slips
+   through (e.g. middle initial variations, hyphenated names).
+5. Verify dedup keys are unique across Al's real history. If two
+   real EOBs collide on `(insurer, member_id, statement_date)`
+   that's a parser bug, not a dedup bug.
+6. Once all that is verified, gaps 1–4 above (HSA matching,
+   amount mismatch, retry hook, cross-domain links) are next on
+   the queue — separate session each.
 
-This is a multi-session piece of work. Don't rush it.
+This is multi-session work. Don't rush it.
 
 ---
 
