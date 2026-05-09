@@ -364,41 +364,84 @@ Watcher creates `_failed`, `_orphans`, `_rejected` on startup if
 absent. Watcher config (`app_config.folder_watcher_config`) holds
 absolute paths like `/app/attachments/_inbox/eob`.
 
-### Folder watcher vs Finance Import screen — LOCKED
+### Folder watcher vs Finance Import screen — LOCKED (revised 2026-05-08)
 
-Both stay. Both do real work. Both call the **same parser** (see
-"Parser reuse" below).
-- **Finance Import screen** = manual UI for one-off imports,
-  corrections, file picker on a phone with no NAS access.
-- **Folder watcher** = drop CSVs into `_inbox/<account>/` from the
-  bank's "auto-download to a folder" tool, get them imported on
-  the watcher's next pass.
-- Both gates pass through the dedup framework (see "Smart dedup
-  scope" below). Neither can skip.
-- Manual single-row transaction entry on the Transactions list also
-  stays — that's a separate path, not redundant with these two.
+**Three entry points exist as a principle for every file-driven module:**
+1. Folder watcher (bulk + ongoing — eventual)
+2. Upload UI on the module page (one-off, mobile, no-NAS — primary)
+3. Manual single-record entry (corrections, no-file cases — always)
+
+**Build order is one entry point at a time, not all three at once.**
+Starting with **upload-from-page**. Refine it until it handles every
+bank/account/format reliably. Only then, wire the same parser into
+the watcher and any settings-upload path. **No broken experience** —
+finance-via-watcher is all-or-nothing when it ships, but it's not
+shipping yet.
+
+- **Upload from page** = the priority. Built, refined first.
+- **Manual single-row entry** = no parser involved, just runs through
+  the dedup gate. Stays as-is.
+- **Folder watcher for finance** = **deferred**. The placeholder in
+  `shared/folder-watcher.js` (`importStatement` returns line count,
+  inserts nothing) stays in place but should NOT be relied on.
+  Wire it later with the same parser the upload path uses.
+- **Folder watcher for EOB and HSA receipts** = stays wired and
+  working. No regression there.
 
 ### Parser reuse — LOCKED (Al, 2026-05-08)
 
 > "Can we reuse the parser no matter what the input source is."
 
-**Yes, and we will.** Pattern that EOB already uses (`eob-parser.js`
-called from both `/eob/import` and watcher's `importEob`) gets
-mirrored for finance:
+**Yes — and the parser ships as a standalone module from day one, even
+though only one entry point will use it initially.** This is to avoid
+the trap of "build it inline, refactor later" — refactor never happens.
+
+Pattern that EOB already follows (`eob-parser.js` called from both
+`/eob/import` and `importEob`) gets mirrored:
 
 - New `shared/finance-parser.js` with `parseFile(buffer, filename,
   account_type)` and `insertTransactions(rows, account_id, source)`
 - Dedup gate lives **inside** `insertTransactions` — neither caller
   can bypass
-- Finance Import screen's `/import/preview` + `/import/confirm` call
-  it. `importStatement` in folder-watcher.js calls it.
-- Same rule generalizes: **one parser per data type, multiple entry
-  points.** EOB already follows this. Finance is next. Anything
-  else with structured input (future bank formats, future EOB
-  carriers) follows the same pattern.
+- Manual single-row entry calls `insertTransactions(...)` with one row
+- Future watcher path calls `parseFile` then `insertTransactions`
+- One parser per data type, multiple entry points. Same rule for any
+  future structured input (new bank format, new EOB carrier).
 
-This is **future work for the next finance-touching drop**, not
-shipped yet. Logged here so the next chat doesn't re-decide.
+### Finance scope — LOCKED (Al, 2026-05-08)
+
+**Two halves stay separated** (per the existing schema rule:
+`finance_accounts` for banking ≠ `financial_accounts` for investment;
+never mix):
+
+- **Bank statements** = checking, savings, credit cards
+- **Trading** = taxable brokerage, retirement (TSP, IRA, 401k), HSA
+  invested, FSA invested
+
+Both halves get the three-entry-point principle. Both call the same
+shared parser. Both gate through dedup.
+
+### Bank + format coverage matrix (incomplete — fill in when building)
+
+CSV-first. PDF deferred unless a specific account refuses to give CSV.
+OFX/QFX as backup for accounts that lean on it.
+
+| Institution | Account type | Format(s) | Notes |
+|---|---|---|---|
+| Chase | checking, credit | CSV ✓ OFX ✓ QFX ✓ | Single signed amount column |
+| Schwab | checking | CSV ✓ OFX ✓ | Split debit/credit columns — merge on import |
+| Schwab | brokerage | CSV ✓ | 2-row junk header to skip |
+| Vanguard | brokerage | CSV ✓ | Wide format, most columns irrelevant — use Net Amount |
+| Vanguard | checking | CSV ✓ | Simple 4-column |
+| TSP | retirement | CSV ✓ | Government format, minimal columns |
+| BofA | checking, credit | CSV ✓ OFX ✓ | Sometimes no header row |
+| Navy Federal | checking, credit | CSV ✓ | Positive=credit, negative=debit |
+| Fidelity | HSA invested | CSV ✓ | Standard format |
+| Discover | credit | CSV (verify) | TBD |
+| _other credit cards_ | _Al has more_ | TBD | Al will provide list when finance drop starts |
+
+Format detection has to be **silent** — auto-detect bank from column
+headers, no user input needed for the listed banks.
 
 ---
 
