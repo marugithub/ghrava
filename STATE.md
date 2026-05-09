@@ -155,37 +155,149 @@ the tag row, alongside the visit-type chip.
 
 ---
 
-## ⏳ IN FLIGHT — NEXT DROP
+## ⏳ IN FLIGHT — NEXT DROPS
 
-### 1. Card click-throughs to dedicated /family.html and /contacts.html
+> **Priority order locked 2026-05-08.** Items 1–5 are the finance
+> hardening sequence Al approved ("go build, you're the PM").
+> Items 6+ are independent.
 
-Still blocked: those pages don't exist yet. Avatar click currently
-opens `openFamilyQuickView` / `openContactQuickView` modals.
+### 1. Description normalization for dedup (finance, ALL)
 
-### 2. Receipt vault polish (carryover from v140)
+Current `fingerprint = hash(account_id + date + amount + description)`
+treats `"AMAZON.COM*1A2B3C"` and `"AMAZON.COM*9X8Y7Z"` as different
+because of trailing reference IDs. Add a normalize step:
+- uppercase
+- collapse multiple spaces
+- strip trailing `*ABC123` / `#REF` / `XX/YY` reference ID suffixes
+- trim
 
-- EOB folder-drop persistence (importEob counts but doesn't save
-  via watcher folder)
+Hash the normalized string, store original for display. Backfill
+existing rows with `UPDATE imported_transactions SET fingerprint =
+new_hash` in a migration.
+
+### 2. Pending → posted window for dedup
+
+Pending and posted versions of the same charge often have different
+dates. Add second-layer check: same account + same amount (within
+$0.01) + within 5 days + similar normalized description → flag, not
+silent skip. Already partially wired (the `flagged=1` field exists);
+extend the SQL window from "same date" to "5-day window" and add
+description-similarity check.
+
+### 3. Sign-convention spec tests (finance parsers)
+
+No automated test today proves the sign convention is right per
+bank. A future parser change could flip a sign silently and corrupt
+every Chase or Schwab transaction. Add fixture CSV + expected
+output JSON per parser (one file per bank), assert on import. Lives
+in `app/test/parser-fixtures/`. Run via `npm test` or `node test/run-parser-tests.js`.
+
+Banks to start with: Chase, BofA, Navy Fed, Schwab Checking, Schwab
+Brokerage, Vanguard, TSP, Capital One, Discover, Citi, USAA. (One
+fixture per bank, 5–10 representative rows.)
+
+### 4. Categorization rule editor in Settings
+
+50+ rules seeded in migration 046 (`import_category_rules`),
+editable only via SQL today. Build a Settings panel under
+Settings → Imports → Category rules:
+- List view: pattern · category · sort_order · active toggle
+- Add / edit / delete (additive — never wipe seeded rules silently)
+- Test pane: paste a transaction description, see which rule
+  matches and what category it'd assign
+- Import/export rules as CSV (so power users can bulk-edit)
+
+### 5. Cross-module link table (`tx_record_links`, `tx_link_rules`)
+
+Designed in chat-14, not built. Lets you link a transaction to a
+specific record in another module — fuel transactions to the right
+vehicle, CVS transactions to the right Rx, etc. Schema is additive,
+two tables. Integration: each card with derived numbers (vehicle
+YTD fuel, Rx YTD cost, HSA YTD) reads from `tx_record_links` to
+compute its number. Not started.
+
+### 6. Inventory bulk import — move from Settings to module page
+
+Currently lives in Settings (`POST /api/v1/import` for CSV/upload).
+Should match the principle: file imports live on the module page.
+Move the upload widget to `inventory.html`, leave a Settings page
+that just links to it.
+
+### 7. Cross-module cards on FINANCE (mirror medical's "All" tab)
+
+Medical has the cards-and-grid model with an "All" tab that
+combines meds + conditions + visits + EOBs. Finance needs the same
+treatment. Card types live there:
+- **Account card** — one per banking/credit/brokerage account.
+  Hero: current balance. Strip: this-month spend, last
+  reconciled, account # last 4. Entities: institution avatar,
+  primary owner.
+- **Transaction card** — for review queue and "flagged"
+  transactions. Hero: amount + merchant. Strip: date, category,
+  account. Entities: merchant logo (future), linked record (if
+  cross-module link exists).
+- **Holding card** — one per stock/ETF/fund position. Hero: market
+  value. Strip: shares, cost basis, gain/loss. Entities: symbol
+  pill, account.
+- **Budget card** — one per active budget. Hero: spent / limit
+  with progress bar. Strip: days left in period, top category.
+- **Net-worth card** — single card, monthly trend hero +
+  asset/liability split.
+
+All four card domains get a unified "All" tab that interleaves
+recent transactions, flagged items, and account snapshots, sorted
+newest first (same pattern as medical).
+
+### 8. Cross-module cards on HSA
+
+Same treatment:
+- **Receipt card** — Hero: amount. Strip: vendor, date, category.
+  Entities: patient avatar, linked EOB (if matched).
+- **Reimbursement card** — Hero: claimed amount. Strip: status, date.
+- **Vault card** — Hero: unreimbursed pool. Strip: # receipts, oldest
+  date.
+
+### 9. EOB parsing — multi-carrier expansion
+
+Currently MHBP only. Each carrier has different PDF layouts:
+- MHBP (✅ wired)
+- BCBS (❌ — Al will upload sample)
+- Aetna, Cigna, UHC, Kaiser (❌ — only as needed)
+
+Plan: keep `eob-parser.js` as the dispatcher (already reads
+`app_config.eob_parser` to pick which carrier's parser to run).
+Add one parser file per carrier (`eob-parser-bcbs.js`, etc.).
+Settings UI to auto-detect or pick parser per file. Each carrier
+parser exports the same shape: `{statement_date, member_id,
+plan_name, claims: [{patient, provider, claim_id, services: [...]}]}`.
+
+### 10. Card click-throughs to dedicated /family.html and /contacts.html
+
+Blocked: those pages don't exist yet. Quick-view modals are the
+fallback.
+
+### 11. Receipt vault polish (v140 carryover)
+
+- EOB folder-drop persistence (importEob counts but doesn't save)
 - LP-FSA plan info Settings UI
 - Mileage UI on medical visit form (`round_trip_miles` backend ready)
 - attach-lifecycle adoption for documents/insurance/subscriptions
 
-### 3. Restore Record Refill / Link Receipt? (if Al wants it back)
+### 12. Restore Record Refill / Link Receipt? (if Al wants it back)
 
-Lost in the v1→v2 merge in v.148. v2 stubs make the buttons no-op
-gracefully. Source of original modals preserved in
-`Ghrava_Share_20260508.zip` if needed.
+Lost in v.148 v1→v2 merge. v2 stubs make buttons no-op gracefully.
+Source preserved in `Ghrava_Share_20260508.zip` if needed.
 
-### 4. Apply scope-wiring pattern to other modules
+### 13. Apply scope-wiring pattern to other modules
 
 Insurance / documents / subscriptions / kids could honor the device
-family scope the same way medical does. One IIFE per page listening
+family scope same way medical does. One IIFE per page listening
 for `gh-scope-changed`.
 
-### 5. Backlog (per userMemories — 15+ modules)
+### 14. Backlog (per userMemories — 15+ modules)
 
-- **High:** Photo-first wardrobe, Today page (Now/Soon, /api/v1/today,
-  today_snoozes table)
+- **High:** Photo-first wardrobe, Today page (Now/Soon,
+  /api/v1/today, today_snoozes table)
 - **Medium:** /_drafts/status.html, Reports rollups, Amazon→inventory
   via Gmail
 - **Low:** Calendar sync, browser extension. Email receipt parsing
@@ -532,15 +644,166 @@ twice means drop it twice; user takes responsibility.**
 | EOB statement+claim natural-key dedup | ✅ wired (`dedup.eobStatementHash`, `dedup.eobClaimHash`) |
 | Visit + medication natural-key dedup | ✅ wired (`dedup.visitHash`, `dedup.medicationHash`) |
 | Pending-review queue (`med_pending_review`) | ✅ wired |
+| Bank transaction dedup (fingerprint) | ✅ wired in `/import/confirm` — but description-normalization gap and pending-window gap remain (see IN FLIGHT #1, #2) |
+| Categorization rules | ✅ 50+ seeded rules in migration 046, applied on import; ❌ no editor UI (IN FLIGHT #4) |
+| Auto-categorize on import | ✅ wired |
+| `is_transfer` classifier (CC payments, brokerage deposits) | ✅ wired |
+| Sign-convention spec tests | ❌ not wired (IN FLIGHT #3) |
 | Force-create confirm modal (manual entry) | ⚠️ partial — exists for some domains, not all 8 |
 | HSA receipt natural-key dedup | ⚠️ unverified — `shared/dedupe.js` referenced in design but verify it exists in code |
-| Bank transaction natural-key dedup | ⚠️ assumed wired in finance import (per chat-16); verify in `/import/confirm` path |
 | Subscription / insurance dedup | ❌ design spec'd, code unverified |
 | EOB→HSA retry hook | ❌ design spec'd, code unverified |
 | Audit log for force-creates | ❌ design spec'd, code unverified |
+| Cross-module link table (`tx_record_links`) | ❌ designed in chat-14, no migration, no code |
 
 > Items in ⚠️ / ❌ should be verified by grepping for the named
 > functions before any next chat assumes they work.
+
+---
+
+## 🎴 CARDS EVERYWHERE — design principle (LOCKED 2026-05-08)
+
+> Medical's card system is the reference. Every module that has
+> records of varying types gets the same treatment.
+
+**Principle:** Each domain (medical, finance, HSA, future) has:
+- Per-domain "tabs" for individual record types
+- An **"All" tab as the landing tab** that mixes records, sorted
+  newest first
+- One card style per record type, with the locked Vellum design:
+  5 zones (eyebrow / hero / tags / strip / entities)
+- 2-col desktop, 1-card swipe mobile
+- Lens-based filtering shared across the All tab
+
+**Modules getting this treatment** (in priority order):
+
+| Module | Status | Card types planned |
+|---|---|---|
+| Medical | ✅ shipped v.149 | Med, Condition, Visit, EOB |
+| Finance | ❌ planned (IN FLIGHT #7) | Account, Transaction, Holding, Budget, Net-worth |
+| HSA | ❌ planned (IN FLIGHT #8) | Receipt, Reimbursement, Vault |
+| Insurance | ❌ later | Policy, Claim, Premium |
+| Inventory | ❌ later | Item, Receipt, Warranty |
+| Subscriptions | ❌ later | Subscription, Renewal, Cancellation |
+| Property | ❌ later | Property, Maintenance, Tax |
+
+**Card preview pages** like `/_card_previews.html` (medical) are the
+reference spec. As each module gets cards, it should get its own
+`_card_previews_<module>.html` showing the locked design before code
+gets written.
+
+---
+
+## 📥 IMPORT/UPLOAD ENTRY POINTS — current state + locked plan
+
+### Where things live TODAY (audited 2026-05-08)
+
+| Module | Path | Status | Lives on |
+|---|---|---|---|
+| Finance (banking + brokerage) | `/finance.html` Import tab → POST `/api/v1/import/preview` then `/import/confirm` or `/finance/transactions/import-file` | ✅ wired | Module page |
+| EOB | `/medical.html` upload + watcher folder `_inbox/eob/` | ✅ wired | Module page + watcher |
+| HSA receipts | `/hsa.html` inbox modal + watcher folder `_inbox/receipts/` | ✅ wired | Module page + watcher |
+| Inventory bulk import | `/settings.html` → POST `/api/v1/import` | ⚠️ wrong location | Settings (should be module) |
+| Whole-DB backup/restore | `/settings.html` → `/api/v1/data/import` and `/data/export` | ✅ correct location | Settings (this is right) |
+| Watcher rules editor | `/settings.html#watcher` | ✅ correct location | Settings (this is right) |
+
+### Locked rule (Al, 2026-05-08)
+
+**File imports for module data live on the module page.**
+Settings is for app-wide things only:
+- Whole-DB backup/restore
+- Watcher folder rules
+- Categorization rules editor (future, IN FLIGHT #4)
+- Parser preferences (future)
+- Account onboarding wizard (future)
+
+### Inventory bulk import — needs to move
+
+The inventory bulk import currently lives in Settings. It should
+move to `/inventory.html` (the module page), with Settings keeping
+nothing more than a link to it. **Logged as IN FLIGHT #6 — work
+later.** Don't change today.
+
+---
+
+## 🩺 EOB PARSING — handoff for the next session
+
+> Locking this in here so the next chat doesn't re-derive it.
+> Al will upload an EOB folder for parser work.
+
+### What exists today
+
+- **`features/medical/eob-parser.js`** — single parser, MHBP-only.
+  Returns array of statements with claims and services nested.
+- **`app_config.eob_parser`** — config row that picks which parser
+  to run. Default `'mhbp'`. Other values currently throw "not
+  implemented."
+- **`/eob/preview` and `/eob/import` endpoints** — call
+  `getEobParser()` then dispatch to the named parser.
+- **Watcher** — calls same `parseEobPdf` for files dropped in
+  `_inbox/eob/`.
+- **Per-claim `family_member_id`** — populated by `resolvePatient()`
+  during import. Names that don't match a family member exactly
+  get flagged into `med_pending_review`.
+
+### Gaps Al needs to know about (in plain English)
+
+1. **Only MHBP works.** Drop a BCBS, Aetna, Cigna, UHC, or Kaiser
+   PDF and the parser will say "no statements detected" and reject
+   the file. Each carrier has a different PDF layout, so each
+   needs its own parser file.
+
+2. **No way to pick a parser per file.** Today it reads
+   `app_config.eob_parser` globally. If you have MHBP for one
+   family member and BCBS for another, you'd have to flip the
+   global setting between uploads. Needs a per-file selector or
+   auto-detect from PDF text patterns.
+
+3. **EOB → HSA receipt matching** is *designed* (chat-7), not
+   *built*. The design: when a new HSA receipt is saved, look for
+   matching claims (same patient + service date + amount) and link
+   them. When a new EOB is imported, do the reverse. Status of
+   actual code: **uncertain — needs verification** before promising
+   users it works.
+
+4. **Amount mismatch UX missing.** When EOB says "you owe $142.18"
+   but receipt has $145, neither one is "wrong." The two should
+   show side-by-side with the delta highlighted, user picks which
+   to trust. Designed, not built.
+
+5. **EOB-arrives-before-receipt** case has a "retry hook" design —
+   on every new receipt save, check for pending EOB matches —
+   uncertain if wired.
+
+6. **No EOB cards on the medical "All" tab cross-domain link.**
+   Today EOB cards show on their own tab and on All, but they
+   don't visually link to which medication or visit they covered.
+   Should an EOB card show pills like "Lisinopril · Annual visit"
+   when it covers those? Designed loosely, not built.
+
+7. **EOB folder-drop persistence.** Watcher's `importEob` counts
+   imports but supposedly "doesn't save." Status uncertain — past
+   STATE.md said this was a v140 loose end. Verify before
+   promising.
+
+### Plan when Al uploads the EOB sample folder
+
+1. Identify each file's carrier (probably mix — MHBP + maybe BCBS
+   and others).
+2. For non-MHBP carriers, write `eob-parser-<carrier>.js`. Each
+   exports `parseEobPdf(buffer, filename)` returning the same
+   shape MHBP does.
+3. Replace the single-parser dispatch in
+   `features/medical/routes.js` with a multi-parser dispatcher
+   that auto-detects from the first page (regex on insurer name,
+   member ID format, etc.).
+4. Test against Al's folder, verify field extraction is right,
+   verify dedup works across carriers (insurer + member_id +
+   statement_date is the natural key — should be globally unique).
+5. Add the carrier picker to the `/eob/preview` upload UI as a
+   fallback when auto-detect fails.
+
+This is a multi-session piece of work. Don't rush it.
 
 ---
 
