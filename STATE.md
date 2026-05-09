@@ -232,6 +232,275 @@ for `gh-scope-changed`.
 
 ---
 
+## 📥 INGEST CONTRACTS — what's wired vs not
+
+> **Stable rules** for how files (EOBs, receipts, statements) become
+> records. Verified against live code on 2026-05-08. Update whenever
+> the import path changes.
+
+### EOB import — wired and locked
+
+1. **File-level dedup.** Watcher computes SHA-256 of file bytes. If the
+   same hash exists in `med_eob_statements.file_hash`, the file is
+   silently skipped. Same logic on the manual `/eob/import` endpoint
+   when invoked with the same buffer. *(`dedup.fileHash`)*
+
+2. **Statement-level dedup.** After parse, hash =
+   `insurer + member_id + statement_date`. If the key already exists
+   but the file_hash is different (carrier re-issued a corrected EOB),
+   the new statement goes into `med_pending_review` instead of being
+   silently inserted. An auto-todo is created. *(`dedup.eobStatementHash`)*
+
+3. **Multiple family members per statement.** EOB statements are
+   shared (covering all dependents). Each `med_eob_claims` row carries
+   its own `patient` text + `family_member_id`. `GET /eob` returns a
+   `family_member_ids: [...]` array per statement (rolled up from
+   claims, v.149) so the All-tab person filter works.
+
+4. **Multiple visits per statement.** Each statement has many claim
+   rows. The drill-down modal shows them grouped by patient with
+   per-service expansion. *(`/eob/:id` returns nested
+   claims → services + balances)*
+
+5. **Per-claim dedup hash** on `med_eob_claims.dedup_hash` =
+   `patient + claim_id + send_date`. Designed for cross-EOB joining
+   (recognizing the same claim on a corrected statement).
+   *(`dedup.eobClaimHash`)*
+
+6. **Patient name resolution.** `resolvePatient(rawName)` returns
+   `{id, display_name, confidence: exact|initial|ambiguous|none}`.
+   Exact + initial → write `family_member_id`. Ambiguous + none →
+   leave id null AND flag the claim into `med_pending_review` with
+   category `name_unmatched` or `name_ambiguous`. The pending-review
+   banner on medical.html surfaces these.
+
+### EOB import — gaps (not wired or unverified)
+
+7. **EOB → HSA receipt auto-match.** Discussed in design chats
+   ("retry hook fires when a new HSA receipt is saved, looking for
+   matching claim + amount"). **Status uncertain.** Look in
+   `features/medical/eob-parser.js` and `features/hsa/routes.js` for
+   any `eob_match` or `claim_link` references before assuming it
+   works.
+
+8. **Amount-mismatch UX** (EOB says you owe $X, HSA receipt has $Y).
+   Designed, **not verified live.**
+
+9. **Settings UI to pick the parser.** Only MHBP is implemented.
+   Migration 094 added `app_config.eob_parser` and a Settings panel
+   was designed; **not yet visible in current settings.html**
+   (verify before promising users they can switch parsers).
+
+### Bank/finance statement import via watcher — NOT WIRED
+
+10. `importStatement(filePath, rule)` in `shared/folder-watcher.js`
+    is a placeholder: it counts CSV rows (`lines - 1`) and returns
+    that count. **No rows are inserted.** Real import still requires
+    the user to use the Finance → Import tab manually.
+
+11. The Finance Import tab (`finance.html`) still owns the live
+    bank/brokerage CSV path. Routes:
+    - `POST /api/v1/import/preview` (banking)
+    - `POST /api/v1/finance/transactions/import-file` (banking confirm)
+    - `POST /api/v1/import/confirm` (investment)
+
+### Watcher actions that ARE wired
+
+12. **`module: 'eob'`** — full pipeline (file hash → parse → statement
+    hash → pending-review on conflict → claim insert → name
+    resolution → flag).
+
+13. **`module: 'attach'`** — generic "drop a receipt anywhere, it
+    becomes a draft row" handler. Used today for HSA receipts. Hash
+    dedup at file level, then moves the file into the target module
+    folder using hash-prefix naming, inserts a draft `attachments`
+    row + a draft target row (e.g. `hsa_payments` with status='draft').
+    The user resolves drafts via the Inbox modal on `hsa.html`.
+
+14. **`module: 'statement'`** — placeholder, see (10).
+
+### Configuration shape
+
+```jsonc
+{
+  "watch_paths": ["/data/_inbox/eob", "/data/_inbox/receipts"],
+  "rules": [
+    { "name": "MHBP EOBs", "watch_path": "...eob",      "module": "eob",       "parser": "mhbp" },
+    { "name": "HSA receipts","watch_path":"...receipts","module": "attach",
+      "target_module": "hsa", "target_table": "hsa_payments", "pot": "hsa" },
+    { "name": "Chase ckg",   "watch_path": "...chase",   "module": "statement",
+      "account_id": 7  /* PLACEHOLDER — won't actually import */ }
+  ],
+  "catch_all": { "enabled": true, "action": "queue" }
+}
+```
+
+Stored in `app_config.folder_watcher_config` (JSON). Edited via
+Settings → Watcher panel (`/settings.html#watcher`).
+
+### Where files live — LOCKED (Al, 2026-05-08)
+
+Docker compose mounts `/share/Backups/MyAppAttachments` →
+`/app/attachments`. No new Docker mount needed. The watcher's inbox
+lives **under that same mount** as a `_inbox/` subtree. Layout:
+
+```
+/share/Backups/MyAppAttachments/         ← existing NAS mount
+├── _inbox/                              ← watcher reads here
+│   ├── eob/                             (EOB PDFs — MHBP today)
+│   ├── receipts/                        (HSA/FSA receipts → attach)
+│   ├── chase-checking/                  (per-account bank CSV)
+│   ├── schwab-brokerage/                (brokerage CSV)
+│   ├── …                                (one folder per finance account)
+│   └── _failed/                         (parse failures park here)
+├── _orphans/                            (record deleted, file kept)
+├── _rejected/                           (user rejected during review)
+└── eob/, hsa/, medical/, …              ← existing per-module folders,
+                                            untouched, holds final files
+```
+
+NAS bootstrap: create `_inbox/` and its subfolders by hand once.
+Watcher creates `_failed`, `_orphans`, `_rejected` on startup if
+absent. Watcher config (`app_config.folder_watcher_config`) holds
+absolute paths like `/app/attachments/_inbox/eob`.
+
+### Folder watcher vs Finance Import screen — LOCKED
+
+Both stay. Both do real work. Both call the **same parser** (see
+"Parser reuse" below).
+- **Finance Import screen** = manual UI for one-off imports,
+  corrections, file picker on a phone with no NAS access.
+- **Folder watcher** = drop CSVs into `_inbox/<account>/` from the
+  bank's "auto-download to a folder" tool, get them imported on
+  the watcher's next pass.
+- Both gates pass through the dedup framework (see "Smart dedup
+  scope" below). Neither can skip.
+- Manual single-row transaction entry on the Transactions list also
+  stays — that's a separate path, not redundant with these two.
+
+### Parser reuse — LOCKED (Al, 2026-05-08)
+
+> "Can we reuse the parser no matter what the input source is."
+
+**Yes, and we will.** Pattern that EOB already uses (`eob-parser.js`
+called from both `/eob/import` and watcher's `importEob`) gets
+mirrored for finance:
+
+- New `shared/finance-parser.js` with `parseFile(buffer, filename,
+  account_type)` and `insertTransactions(rows, account_id, source)`
+- Dedup gate lives **inside** `insertTransactions` — neither caller
+  can bypass
+- Finance Import screen's `/import/preview` + `/import/confirm` call
+  it. `importStatement` in folder-watcher.js calls it.
+- Same rule generalizes: **one parser per data type, multiple entry
+  points.** EOB already follows this. Finance is next. Anything
+  else with structured input (future bank formats, future EOB
+  carriers) follows the same pattern.
+
+This is **future work for the next finance-touching drop**, not
+shipped yet. Logged here so the next chat doesn't re-decide.
+
+---
+
+## 🛡️ SMART DEDUP RULES — domain-by-domain
+
+> Locked across multiple past chats (chat-16 design + chat-7
+> follow-up). Captured here so the next session doesn't have to
+> grep history.
+
+### Two-layer model
+
+1. **File-hash dedup** (SHA-256 of file bytes). Catches literal
+   duplicate files. Silent skip — no UI, no warning, no audit-log
+   noise. Applies everywhere a file is uploaded (every module).
+
+2. **Smart natural-key dedup.** Per-domain function checks if a
+   semantic duplicate already exists. **Warns, does not block.**
+   User can force-create with two-tap confirm. Applies to a
+   specific list (next subsection).
+
+### Domains where smart dedup applies (8)
+
+| Domain | Natural key |
+|---|---|
+| HSA receipts | date + vendor + amount + person |
+| FSA receipts | date + vendor + amount + person |
+| EOBs (statement) | insurer + member_id + statement_date |
+| EOB claims | patient + claim_id + send_date |
+| Bank/credit transactions | date + amount + description (account-scoped) |
+| Subscriptions | name (case-insensitive) |
+| Insurance policies | policy_number |
+| Medical visits | date + provider + patient |
+| Prescriptions / med fills | medication_id + fill_date |
+
+### Domains where smart dedup is NOT applied (file-hash only)
+
+inventory, wardrobe, perfume / jewelry, kids, daily-log, todos,
+books, career, property, resources, documents.
+
+The line: **if duplicating it costs money, time-with-IRS, or
+pollutes a clinical record → smart dedup. Otherwise → drop it
+twice means drop it twice; user takes responsibility.**
+
+### Behavior contract
+
+- Dedup **warns, never blocks**. Modal: "This looks like a
+  duplicate of #142 from Mar 12. Save anyway?" Two-tap to confirm.
+- Force-creates leave an audit-log entry: "user-confirmed
+  duplicate of #142."
+- For watcher path (no human in the loop): suspected duplicates
+  go to `med_pending_review` (or domain equivalent) instead of
+  silently inserting. An auto-todo surfaces them in the Notifications
+  banner.
+- Manual entry path: dedup check is a synchronous API call returning
+  `{ duplicate_of: id, warning: "..." }` if hit; UI shows confirm
+  modal; user clicks Save Anyway → `?force=1` on the POST.
+
+### Edge cases (the 11)
+
+1. File dropped twice → file-hash dedup catches it, watcher logs
+   "duplicate, skipped." No second draft.
+2. User reviews receipt, deletes the HSA row later → file moves to
+   `_orphans/`, never auto-purged. Audit log entry.
+3. Upload interrupted → hash isn't recorded until file fully
+   written. Half-files discarded on watcher restart.
+4. User opens review modal, fills 2 of 4 fields, closes browser →
+   draft preserved as-is. Re-opens to same state.
+5. EOB parser fails → file lands in `_inbox/_failed/`, status 🔴 in
+   pending review, fields blank, manual entry resolves.
+6. EOB matches multiple receipts → status ⚠️ conflict, user picks
+   one in review modal.
+7. EOB arrives before receipt → sits as 🔵 awaiting-receipt, retries
+   on every new receipt save (the "retry hook" in eob-parser.js;
+   status uncertain — verify before assuming wired).
+8. Receipt amount differs from EOB "your responsibility" → review
+   screen shows both with delta highlighted.
+9. Receipt rejected as not medical → file moves to `_rejected/`,
+   draft deleted, audit log.
+10. Same receipt via app + folder drop → first wins, hash dedup
+    catches second.
+11. File too big (>20MB) → friendly error, user retakes/accepts.
+
+### Implementation status
+
+| Piece | Status |
+|---|---|
+| File-hash dedup (file_hash on tables) | ✅ wired for med_eob_statements, med_visit_notes, med_medications, attachments |
+| EOB statement+claim natural-key dedup | ✅ wired (`dedup.eobStatementHash`, `dedup.eobClaimHash`) |
+| Visit + medication natural-key dedup | ✅ wired (`dedup.visitHash`, `dedup.medicationHash`) |
+| Pending-review queue (`med_pending_review`) | ✅ wired |
+| Force-create confirm modal (manual entry) | ⚠️ partial — exists for some domains, not all 8 |
+| HSA receipt natural-key dedup | ⚠️ unverified — `shared/dedupe.js` referenced in design but verify it exists in code |
+| Bank transaction natural-key dedup | ⚠️ assumed wired in finance import (per chat-16); verify in `/import/confirm` path |
+| Subscription / insurance dedup | ❌ design spec'd, code unverified |
+| EOB→HSA retry hook | ❌ design spec'd, code unverified |
+| Audit log for force-creates | ❌ design spec'd, code unverified |
+
+> Items in ⚠️ / ❌ should be verified by grepping for the named
+> functions before any next chat assumes they work.
+
+---
+
 ## 🚦 DEPLOY WORKFLOW
 
 - Zip: always `Ghrava_DEPLOY.zip`, no version suffix
