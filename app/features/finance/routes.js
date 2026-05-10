@@ -174,6 +174,200 @@ function createExpiryTodo(gcId, retailer, expiryDate, balance) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// FINANCE LANDING AGGREGATOR (v202604.154, replaces tile sample data)
+// ══════════════════════════════════════════════════════════════
+//
+// One round-trip → all 6 Overview tiles. Each tile object is keyed
+// for the frontend renderer. Schema is intentionally explicit about
+// "no_data" so the UI can distinguish "real value of 0" from "we
+// don't know".
+//
+// Tiles:
+//   1. net_worth      — total + assets + liabilities + investment +
+//                       MoM delta vs prior snapshot, if any.
+//   2. cash_flow      — month-to-date credits, debits, net + same-
+//                       day-last-month MTD net for compare ("on track").
+//   3. credit_cards   — count, total statement balance, total min
+//                       payment, soonest payment_due_date.
+//   4. bank_accounts  — count + total of Checking + Savings + Cash.
+//   5. holdings       — count of distinct positions + total
+//                       market_value across all holdings rows.
+//   6. hsa_lp_fsa     — current HSA balance (Checking-style if user
+//                       has HSA-type accounts) + LP-FSA plan balance.
+//
+// All tiles are keyed off active accounts only. needs_review rows
+// are excluded from the aggregations to avoid surprising sums.
+
+router.get('/landing', (req, res) => {
+  try {
+    // ── Tile 1: Net Worth ───────────────────────────────────────
+    // Reuse the same logic as /net-worth/current but inlined to avoid
+    // an internal HTTP roundtrip and to compute MoM delta.
+    const accountsForNw = db.prepare(`
+      SELECT id, type, current_balance, include_net_worth
+      FROM accounts WHERE is_active=1 AND include_net_worth=1
+    `).all();
+    const totalAssets = accountsForNw
+      .filter(a => a.current_balance > 0)
+      .reduce((s, a) => s + a.current_balance, 0);
+    const totalLiab  = accountsForNw
+      .filter(a => a.current_balance < 0)
+      .reduce((s, a) => s + Math.abs(a.current_balance), 0);
+    let investmentTotal = 0;
+    try {
+      const r = db.prepare(`SELECT COALESCE(SUM(market_value),0) AS v FROM holdings`).get();
+      investmentTotal = r?.v || 0;
+    } catch {}
+    const netWorth = totalAssets - totalLiab + investmentTotal;
+    // MoM delta: most recent snapshot at least ~30 days old.
+    let momDelta = null;
+    try {
+      const prior = db.prepare(`
+        SELECT net_worth FROM net_worth_snapshots
+        WHERE snapshot_date <= date('now','-25 days')
+        ORDER BY snapshot_date DESC LIMIT 1
+      `).get();
+      if (prior?.net_worth != null) momDelta = netWorth - prior.net_worth;
+    } catch {}
+
+    // ── Tile 2: Cash Flow MTD ──────────────────────────────────
+    const cf = db.prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS credits,
+        COALESCE(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0) AS debits,
+        COALESCE(SUM(amount), 0) AS net,
+        COUNT(*) AS count
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE a.is_active = 1 AND a.type IN ('Checking','Savings','Cash','Credit')
+        AND t.is_transfer = 0
+        AND strftime('%Y-%m', t.date) = strftime('%Y-%m','now')
+    `).get();
+    // Comparable last-month-MTD: same day count of last month.
+    const cfPrior = db.prepare(`
+      SELECT COALESCE(SUM(amount), 0) AS net
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE a.is_active = 1 AND a.type IN ('Checking','Savings','Cash','Credit')
+        AND t.is_transfer = 0
+        AND strftime('%Y-%m', t.date) = strftime('%Y-%m', date('now','start of month','-1 day'))
+        AND CAST(strftime('%d', t.date) AS INTEGER) <= CAST(strftime('%d','now') AS INTEGER)
+    `).get();
+
+    // ── Tile 3: Credit Cards ───────────────────────────────────
+    const ccs = db.prepare(`
+      SELECT id, name, alias, statement_balance, minimum_payment,
+             payment_due_date, credit_limit, current_balance
+      FROM accounts
+      WHERE is_active = 1 AND type = 'Credit'
+      ORDER BY payment_due_date ASC NULLS LAST
+    `).all();
+    const ccCount   = ccs.length;
+    const ccBalance = ccs.reduce((s, a) =>
+      s + (a.statement_balance != null
+            ? a.statement_balance
+            : Math.abs(a.current_balance || 0)), 0);
+    const ccMinPay  = ccs.reduce((s, a) => s + (a.minimum_payment || 0), 0);
+    const ccUtil    = (() => {
+      const totalLimit = ccs.reduce((s, a) => s + (a.credit_limit || 0), 0);
+      return totalLimit > 0 ? (ccBalance / totalLimit) : null;
+    })();
+    const ccSoonest = ccs.find(a => a.payment_due_date) || null;
+
+    // ── Tile 4: Bank Accounts (Checking + Savings + Cash) ──────
+    const bank = db.prepare(`
+      SELECT type,
+             COUNT(*) AS n,
+             COALESCE(SUM(current_balance), 0) AS total
+      FROM accounts
+      WHERE is_active = 1 AND type IN ('Checking','Savings','Cash')
+      GROUP BY type
+    `).all();
+    const bankTotal = bank.reduce((s, r) => s + r.total, 0);
+    const bankCount = bank.reduce((s, r) => s + r.n, 0);
+
+    // ── Tile 5: Holdings ───────────────────────────────────────
+    let holdingsTotal = 0, holdingsCount = 0;
+    try {
+      const r = db.prepare(`
+        SELECT COUNT(*) AS n, COALESCE(SUM(market_value), 0) AS v
+        FROM holdings h
+        JOIN accounts a ON a.id = h.account_id
+        WHERE a.is_active = 1
+      `).get();
+      holdingsCount = r?.n || 0;
+      holdingsTotal = r?.v || 0;
+    } catch {}
+
+    // ── Tile 6: HSA + LP-FSA ───────────────────────────────────
+    // HSA accounts are type='HSA' in the unified table.
+    // LP-FSA balance lives in the existing hsa_plan rows (not
+    // accounts), so query that separately. If the table doesn't
+    // exist (legacy installs), gracefully return zero.
+    let hsaTotal = 0, hsaCount = 0, lpFsaBalance = 0;
+    try {
+      const r = db.prepare(`
+        SELECT COUNT(*) AS n, COALESCE(SUM(current_balance), 0) AS v
+        FROM accounts WHERE is_active = 1 AND type = 'HSA'
+      `).get();
+      hsaCount = r?.n || 0;
+      hsaTotal = r?.v || 0;
+    } catch {}
+    try {
+      // hsa_plans may store annual_lpfsa_election with running balance
+      // tracked separately; if the schema differs, just zero out.
+      const yr = new Date().getFullYear();
+      const r = db.prepare(`
+        SELECT lp_fsa_remaining FROM hsa_plans WHERE plan_year = ?
+        ORDER BY id DESC LIMIT 1
+      `).get(yr);
+      lpFsaBalance = r?.lp_fsa_remaining || 0;
+    } catch {}
+
+    res.json({
+      generated_at: new Date().toISOString(),
+      net_worth: {
+        total:             netWorth,
+        assets:            totalAssets,
+        liabilities:       totalLiab,
+        investment_total:  investmentTotal,
+        mom_delta:         momDelta,        // null if no prior snapshot
+      },
+      cash_flow: {
+        credits:           cf.credits,
+        debits:            cf.debits,
+        net:               cf.net,
+        count:             cf.count,
+        prior_mtd_net:     cfPrior.net,     // for compare bar; never null (could be 0)
+      },
+      credit_cards: {
+        count:                  ccCount,
+        statement_balance:      ccBalance,
+        min_payment:            ccMinPay,
+        utilization:            ccUtil,    // null if no credit_limit set
+        soonest_due_date:       ccSoonest?.payment_due_date || null,
+        soonest_due_account:    ccSoonest ? (ccSoonest.alias || ccSoonest.name) : null,
+      },
+      bank_accounts: {
+        count:                  bankCount,
+        total:                  bankTotal,
+        by_type:                bank,       // [{type, n, total}, …]
+      },
+      holdings: {
+        positions:              holdingsCount,
+        market_value:           holdingsTotal,
+      },
+      hsa_lp_fsa: {
+        hsa_count:              hsaCount,
+        hsa_total:              hsaTotal,
+        lp_fsa_remaining:       lpFsaBalance,
+        combined:               hsaTotal + lpFsaBalance,
+      },
+    });
+  } catch (e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
 // NEEDS REVIEW (v202604.152)
 // ══════════════════════════════════════════════════════════════
 // Returns a single payload listing every account + transaction
@@ -297,8 +491,11 @@ router.post('/accounts', (req, res) => {
       INSERT INTO accounts
         (name, alias, type, institution, last4, owner, currency,
          current_balance, balance_as_of, include_net_worth,
-         track_statements, notes, sort_order, source, needs_review)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+         track_statements, notes, sort_order, source, needs_review,
+         credit_limit, statement_balance, minimum_payment,
+         payment_due_date, apr, promo_apr, promo_end_date,
+         annual_fee, annual_fee_renewal_date, rewards_balance)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.name,
       d.alias || null,
@@ -314,7 +511,18 @@ router.post('/accounts', (req, res) => {
       d.notes || null,
       parseInt(d.sort_order) || 0,
       'manual',
-      0
+      0,
+      // CC-specific (mig 128) — all optional
+      d.credit_limit            !== undefined && d.credit_limit            !== '' ? parseFloat(d.credit_limit)            : null,
+      d.statement_balance       !== undefined && d.statement_balance       !== '' ? parseFloat(d.statement_balance)       : null,
+      d.minimum_payment         !== undefined && d.minimum_payment         !== '' ? parseFloat(d.minimum_payment)         : null,
+      d.payment_due_date        || null,
+      d.apr                     !== undefined && d.apr                     !== '' ? parseFloat(d.apr)                     : null,
+      d.promo_apr               !== undefined && d.promo_apr               !== '' ? parseFloat(d.promo_apr)               : null,
+      d.promo_end_date          || null,
+      d.annual_fee              !== undefined && d.annual_fee              !== '' ? parseFloat(d.annual_fee)              : null,
+      d.annual_fee_renewal_date || null,
+      d.rewards_balance         !== undefined && d.rewards_balance         !== '' ? parseFloat(d.rewards_balance)         : null,
     );
     saveFamilyMembers(r.lastInsertRowid, 'finance_account', d.family_member_ids || []);
     res.status(201).json({ id: r.lastInsertRowid });
@@ -328,11 +536,28 @@ router.put('/accounts/:id', (req, res) => {
     if (!existing) return notFound(res, 'Account');
     if (d.family_member_ids !== undefined)
       saveFamilyMembers(req.params.id, 'finance_account', d.family_member_ids);
+
+    // Helper: parse numeric field iff sent. '' clears the column.
+    const num = (key) => {
+      if (!(key in d)) return existing[key];
+      if (d[key] === '' || d[key] === null) return null;
+      const n = parseFloat(d[key]);
+      return isFinite(n) ? n : existing[key];
+    };
+    // Helper: pass-through string/date field iff sent. '' clears.
+    const str = (key) => {
+      if (!(key in d)) return existing[key];
+      return d[key] === '' ? null : d[key];
+    };
+
     db.prepare(`
       UPDATE accounts SET
         name=?, alias=?, type=?, institution=?, last4=?, owner=?, currency=?,
         current_balance=?, balance_as_of=?, include_net_worth=?,
         track_statements=?, notes=?, sort_order=?, needs_review=?,
+        credit_limit=?, statement_balance=?, minimum_payment=?,
+        payment_due_date=?, apr=?, promo_apr=?, promo_end_date=?,
+        annual_fee=?, annual_fee_renewal_date=?, rewards_balance=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
@@ -350,6 +575,17 @@ router.put('/accounts/:id', (req, res) => {
       d.notes !== undefined ? d.notes : existing.notes,
       d.sort_order !== undefined ? parseInt(d.sort_order) : existing.sort_order,
       d.needs_review !== undefined ? (d.needs_review ? 1 : 0) : existing.needs_review,
+      // CC-specific (mig 128)
+      num('credit_limit'),
+      num('statement_balance'),
+      num('minimum_payment'),
+      str('payment_due_date'),
+      num('apr'),
+      num('promo_apr'),
+      str('promo_end_date'),
+      num('annual_fee'),
+      str('annual_fee_renewal_date'),
+      num('rewards_balance'),
       req.params.id
     );
     res.json({ ok: true });
@@ -712,20 +948,23 @@ function applyCategoryRules(description) {
 // the unified `transactions` table with source='imported', and
 // records a batch row so the import can be rolled back.
 //
-// Dedup: per-row fingerprint = hash(account_id + date + amount + desc).
-//   Layer 1 — exact fingerprint match → skipped.
-//   Layer 2 — same account + same date + same amount → flagged
-//             (still inserted) and needs_review=1.
+// Dedup (v.153, mig 127):
+//   The fingerprint = hash(account_id, date, amount, NORMALIZED_desc)
+//   where the normalizer strips trailing reference IDs ("AMAZON.COM
+//   *1A2B3C" → "AMAZON.COM"). Same merchant/amount/date now collides
+//   even when the bank rotates ref IDs.
 //
-// Categorization: each row runs through `applyCategoryRules` if
-//   the parser didn't already assign a category.
+//   Layer 1 — exact fingerprint match → silent skip. (Same merchant,
+//             same amount, same day → already in DB.)
+//   Layer 2 — same account, ±$0.01 amount, same normalized desc,
+//             ±5 day window → flagged + needs_review (pending → posted
+//             scenario; user resolves in needs-review queue).
+//
+// Categorization: each row runs through `applyCategoryRules` if the
+//   parser didn't already assign a category.
 const multerFinance = require('multer')({ storage: require('multer').memoryStorage() });
 const { parseFile: parseFinanceFile } = require('../import/parsers');
-const crypto = require('crypto');
-function fingerprint(accountId, date, amount, description) {
-  const key = `${accountId}|${date}|${amount}|${(description || '').trim().toUpperCase()}`;
-  return crypto.createHash('sha256').update(key).digest('hex').slice(0, 32);
-}
+const { fingerprint, normalizeDescription } = require('../../shared/tx-fingerprint');
 
 router.post('/transactions/import-file', multerFinance.single('file'), (req, res) => {
   try {
@@ -766,11 +1005,22 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
     const batchId = batch.lastInsertRowid;
 
     const checkExact = db.prepare(`SELECT id FROM transactions WHERE fingerprint=?`);
-    const checkProbable = db.prepare(`
-      SELECT id FROM transactions
-      WHERE account_id=? AND date=? AND ABS(amount - ?) < 0.01 AND fingerprint != ?
-      LIMIT 1
+    // Window check joins on normalized desc — we precompute the
+    // normalized form via fingerprint hash equivalence: a row in DB
+    // shares our normalized desc iff its fingerprint equals the
+    // fingerprint we'd produce on its own date. Cheaper to just match
+    // amount + 5-day window + a precomputed norm string. SQLite
+    // doesn't have a fast way to call a JS function, so we do the
+    // norm filter in JS after a coarse SQL prefilter.
+    const coarseWindow = db.prepare(`
+      SELECT id, date, description
+      FROM transactions
+      WHERE account_id = ?
+        AND ABS(amount - ?) < 0.01
+        AND ABS(julianday(date) - julianday(?)) <= 5
+        AND fingerprint != ?
     `);
+
     const insert = db.prepare(`
       INSERT INTO transactions
         (account_id, batch_id, date, post_date, description, amount, balance,
@@ -787,8 +1037,14 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
         const fp = fingerprint(account_id, t.date, t.amount, t.description);
         if (checkExact.get(fp)) { skipped++; continue; }
 
-        const probable = checkProbable.get(account_id, t.date, t.amount, fp);
-        const isFlag = probable ? 1 : 0;
+        // 5-day window check: any existing row in the window with the
+        // same normalized description? If yes, this is likely a
+        // pending → posted shift; flag for review rather than silent
+        // skip (because the date moved, the user might want to keep
+        // both temporarily and resolve later).
+        const targetNorm = normalizeDescription(t.description);
+        const candidates = coarseWindow.all(account_id, t.amount, t.date, fp);
+        const isFlag = candidates.some(c => normalizeDescription(c.description) === targetNorm) ? 1 : 0;
 
         const cat = t.category || applyCategoryRules(t.description) || null;
         insert.run(

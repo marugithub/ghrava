@@ -28,12 +28,12 @@
 
 const express  = require('express');
 const multer   = require('multer');
-const crypto   = require('crypto');
 const path     = require('path');
 const router   = express.Router();
 const db       = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { parseFile }   = require('./parsers');
+const { fingerprint, normalizeDescription } = require('../../shared/tx-fingerprint');
 
 let XLSX;
 try { XLSX = require('xlsx'); } catch { XLSX = null; }
@@ -43,11 +43,6 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 
 // ── Helpers ────────────────────────────────────────────────────
 
 function err(res, msg, status = 400) { res.status(status).json({ error: msg }); }
-
-function fingerprint(accountId, date, amount, description) {
-  const s = `${accountId}|${date}|${amount}|${(description || '').toLowerCase().trim().slice(0, 80)}`;
-  return crypto.createHash('md5').update(s).digest('hex');
-}
 
 function classifyTransfer(txn, accountType) {
   const desc = (txn.description || '').toLowerCase();
@@ -213,6 +208,19 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
     'SELECT * FROM import_category_rules WHERE is_active=1 ORDER BY sort_order'
   ).all();
 
+  // Coarse SQL prefilter for the 5-day window — same account, same
+  // amount (±$0.01), date within ±5 days, different fingerprint. The
+  // JS-side filter then keeps only candidates whose normalized desc
+  // matches the input row. This is the v.153 pending → posted check.
+  const coarseWindow = db.prepare(`
+    SELECT id, date, description
+    FROM transactions
+    WHERE account_id = ?
+      AND ABS(amount - ?) < 0.01
+      AND ABS(julianday(date) - julianday(?)) <= 5
+      AND fingerprint != ?
+  `);
+
   const doImport = db.transaction(() => {
     for (const t of parsed.transactions) {
       if (!t.date || t.amount === null) continue;
@@ -221,11 +229,9 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
       const exists = db.prepare('SELECT id FROM transactions WHERE fingerprint=?').get(fp);
       if (exists) { skipped++; continue; }
 
-      const probable = db.prepare(`
-        SELECT id FROM transactions
-        WHERE account_id=? AND date=? AND ABS(amount - ?) < 0.01 AND fingerprint != ?
-        LIMIT 1
-      `).get(accountId, t.date, t.amount, fp);
+      const targetNorm = normalizeDescription(t.description);
+      const candidates = coarseWindow.all(accountId, t.amount, t.date, fp);
+      const probable = candidates.some(c => normalizeDescription(c.description) === targetNorm);
 
       const isTransfer = classifyTransfer(t, account.type);
 

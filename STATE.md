@@ -23,97 +23,99 @@ recent shipped version is **v202604.150**; the deploy zip in
 `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
 session) IS that version.
 
-### What was just shipped (v.152) — needs Al's manual test before next drop
+### What was just shipped (v.154) — needs Al's manual test before next drop
 
-**FINANCE FRONTEND PARITY + NEEDS-REVIEW QUEUE.** Repairs a v.151
-regression (the import-route rewrite returned unified column names but
-the frontend was still reading old `nickname`/`account_type`/`last_four`)
-AND lands the form parity work locked in chat. Bundle includes the
-v.151 schema migration since Al hadn't deployed v.151 yet — this zip
-is self-contained from v.150. **Schema-touching drop — back up DB on
-NAS BEFORE container restart**, even though legacy tables are renamed
-not dropped.
+**CC SCHEMA + LANDING AGGREGATOR + REAL-DATA TILES.** Bundles three
+adjacent improvements: additive credit-card columns on `accounts`,
+single-shot `/api/v1/finance/landing` aggregator that feeds all 6
+Overview tiles, and frontend wiring that drops every hardcoded
+sample value. Self-contained from v.150 (still the live version).
 
-- **Account form rebuilt.** alias / owner / currency / track_statements
-  always-visible. Type dropdown driven by the locked vocab from mig 126
-  (Checking, Savings, Credit, Cash, HSA, Brokerage, TSP, Retirement,
-  Loan, Mortgage, Other) — no more "Credit Card" / "Investment (other)".
-- **Single-endpoint write path.** `saveAccount` POSTs/PUTs to
-  `/api/v1/finance/accounts` for every account type. The
-  `_accSourceTable` fork is gone.
-- **Single-fetch reads.** `populateTxAccountFilter`,
-  `loadImpAccountSelect`, `loadImpAccounts`, `loadImpHistory` all hit
-  one endpoint; type filtering happens client-side. Fixes the
-  duplicate-rows bug v.151 introduced (both endpoints returned the
-  same unified rows).
-- **Delete → Deactivate.** UI matches mig 126 architecture. Drawer
-  shows an Inactive banner + Reactivate button when editing a
-  deactivated row. Re-saving a flagged row clears `needs_review`
-  implicitly.
-- **Rollback button uses POST.** Was DELETE — the route doesn't exist
-  after v.151. Single endpoint for both batch types.
-- **Field-shape repair.** alias preferred over name in every
-  list/strip; review badges (⚠ review) on flagged rows; unified-shape
-  reads on holdings, missing-statement alerts, account rows, batch
-  history.
-- **Needs-review queue.** New banner on Overview tab showing total
-  flagged count. Clicking expands a panel listing flagged accounts +
-  transactions with two actions per row: Edit (opens drawer) or Looks
-  fine (one-tap clear). Backend: `GET /api/v1/finance/needs-review`,
-  `POST /accounts/:id/clear-review`, `POST /transactions/:id/clear-review`.
-  Fires on initial DOMContentLoaded so the banner shows on first paint.
+**Schema-touching drop** — back up `data/ghrava.db` before
+`docker restart ghrava`. Mig 128 is purely additive (new NULL columns)
+so risk is much lower than mig 126/127, but the rule stands.
 
-**v.151 carried into this zip (because Al didn't deploy v.151 yet):**
-- mig 126 (unification migration with compat views)
-- unified `app/features/finance/routes.js` (+ v.152 needs-review
-  endpoints)
-- unified `app/features/import/routes.js`
-- type vocab locked: Checking, Savings, Credit, Cash, HSA, Brokerage,
-  TSP, Retirement, Loan, Mortgage, Other
-- no DELETE on accounts/transactions; no CASCADE; alias field on
-  every account; needs_review flag; merged-row dedup on
-  (institution, last4)
-- compat views (`finance_accounts`, `financial_accounts`, etc.) keep
-  the rest of the codebase working unchanged
+- **Mig 128 — credit-card columns on `accounts`**:
+  `credit_limit`, `statement_balance`, `minimum_payment`,
+  `payment_due_date`, `apr`, `promo_apr`, `promo_end_date`,
+  `annual_fee`, `annual_fee_renewal_date`, `rewards_balance`. All
+  nullable. Idempotent via `_migrations_cc_columns_done` marker
+  table; per-column ALTER wrapped in try/catch so partial reruns
+  recover cleanly. Partial-index on `payment_due_date` for tile 3
+  "soonest due" lookup.
+- **`GET /api/v1/finance/landing`** — one round trip → all 6 tiles:
+  - `net_worth` — total + assets + liabilities + investment +
+    MoM delta vs prior snapshot (NULL if no snapshot ≥25 days old).
+  - `cash_flow` — MTD credits/debits/net + count + same-day
+    last-month MTD net for the "vs last mo" pill.
+  - `credit_cards` — count, total statement balance, total min
+    payment, utilization (NULL if no `credit_limit` set), soonest
+    due date + account label.
+  - `bank_accounts` — count + total + per-type breakdown
+    (Checking/Savings/Cash).
+  - `holdings` — distinct positions count + total market value.
+  - `hsa_lp_fsa` — HSA accounts total + LP-FSA remaining (from
+    `hsa_plans`) + combined.
+  - All aggregations exclude inactive accounts.
+- **Account form** — new "Credit card details" section, shown only
+  when type=Credit. Wires all 10 CC fields. Form preserves values
+  on type switch (no nuking on hide).
+- **Account POST/PUT** accept the new CC fields. Empty string from
+  the form clears the column.
+- **Overview tiles wired to `/landing`.** Sample-data banner removed.
+  Hardcoded `$487,300`, `$3,420`, etc. all gone. Tiles render
+  placeholders ("—") until the first fetch resolves. Tiles call
+  `loadLandingTiles()` on initial DOMContentLoaded and on every
+  Overview tab activation.
+- **Tile 2 cash-flow pill** uses simple "vs last month MTD pace"
+  heuristic since no explicit "on track" target is defined yet.
+  Pill shows `+$X MoM` (ok) or `-$X MoM` (warn).
 
-Carried from v.150 (still suspect, never tested by Al):
-- 6-tile finance Overview grid with sample data (round 1 of 3)
+Carried from v.153 (still suspect, never tested by Al):
+- Shared `tx-fingerprint.js` helper (normalizer + fingerprint)
+- Migration 127 — recompute fingerprints, flag dups
+- Both import paths use 5-day window dedup
+
+Carried from v.152 (still suspect):
+- Account form rebuild (alias/owner/currency/track_statements)
+- Single-fetch reads, Delete→Deactivate, needs-review queue
+- `GET /needs-review`, `POST /clear-review`
+
+Carried from v.151 (still suspect):
+- Mig 126 — unified accounts + transactions
+- Compat views, type vocab lock, no-CASCADE, no-DELETE
+
+Carried from v.150 (still suspect):
+- 6-tile Overview grid markup (now wired to real data)
+- HSA + LP-FSA combined tile
 
 Carried from v.149 (still suspect):
-- Medical /medical.html lands on All tab, SE/Self avatar fix,
-  visit↔condition junction (mig 125)
+- Medical /medical.html All tab landing
+- Visit ↔ condition junction (mig 125)
 
 Full list in `## ✋ DON'T TRUST WITHOUT RETEST` and `## ✅ SHIPPED THIS
-DROP`. **Do NOT re-touch any of those files unless Al asks** — wait for
-test results.
+DROP`.
 
 ### Next-drop work is queued
 
-**P0 #3 (next drop):** description normalization for fingerprint +
-pending/posted 5-day window dedup. Schema-touching mig with backfill.
-
-**P1:**
-- Credit-card-specific columns on `accounts` (credit_limit,
-  payment_due_date, minimum_payment, statement_balance, apr,
-  promo_apr, promo_end_date, annual_fee, annual_fee_renewal_date,
-  rewards_balance) — additive migration.
-- `/api/v1/finance/landing` aggregator. Replace sample data on tiles
-  1/2/3/5. Tile 1 auto-snapshot scheduler. Tile 2 needs "on track"
-  rule defined.
-
 **P2:**
-- Sign-convention parser tests
+- Sign-convention parser tests (Chase, BofA, Navy Fed, Schwab Checking,
+  Schwab Brokerage, Vanguard, TSP, Capital One, Discover, Citi, USAA)
 - Categorization rule editor in Settings
 
 **P3:**
 - Missing-statement → todos auto-feed
 - `tx_record_links` cross-module table + "All" tab on finance
-- Drop `_legacy_*` tables once v.151+v.152 are stable
+- Drop `_legacy_*` tables once v.151+v.152+v.153+v.154 confirmed stable
 - Repoint dashboard/search/subs/reports/recurring-transactions.js off
   compat views
 
+**Tile-2 follow-up:** Al hasn't defined an "on track" rule yet. Current
+v.154 heuristic compares MTD net to same-day-last-month MTD net. If
+he wants a real budget target (e.g. "stay net positive" or a fixed
+spend cap), wire it in P3 along with the categorization editor.
+
 **Don't pick a top item and start coding.** Al chats first, then builds.
-Ask which item to take, confirm scope, then go.
 
 ### The most important rules to internalize
 
@@ -160,75 +162,69 @@ zip if needed.
 
 ## Current version
 
-**v202604.152** — packaged. Finance frontend parity + needs-review
-queue, bundled with v.151 schema unification (because v.151 was never
-deployed standalone).
+**v202604.154** — packaged. Credit-card schema + landing aggregator
++ real-data tile wiring. Bundled with v.151 + v.152 + v.153 because
+Al hasn't deployed any of them yet.
 
-### v.152 frontend changes
+### v.154 changes
 
-- **Account form rebuilt.** alias / owner / currency /
-  track_statements always-visible. Locked-vocab type dropdown.
-- **Single-endpoint write path.** `saveAccount` uses
-  `/api/v1/finance/accounts` for every type. No more
-  `_accSourceTable` fork.
-- **Single-fetch reads.** `populateTxAccountFilter`,
-  `loadImpAccountSelect`, `loadImpAccounts`, `loadImpHistory` all
-  call one endpoint and split by type client-side. Fixes
-  duplicate-rows bug v.151 introduced.
-- **Delete → Deactivate.** Drawer shows Inactive banner +
-  Reactivate button when editing a deactivated row. Re-saving a
-  flagged row clears `needs_review`.
-- **Rollback button uses POST** (DELETE is gone after v.151).
-- **Field-shape repair across the page** — alias preferred over
-  name, ⚠ review badges, unified-shape reads on every list.
+- **Migration 128** — additive credit-card columns on `accounts`:
+  `credit_limit`, `statement_balance`, `minimum_payment`,
+  `payment_due_date`, `apr`, `promo_apr`, `promo_end_date`,
+  `annual_fee`, `annual_fee_renewal_date`, `rewards_balance`. All
+  nullable. Idempotent guard via `_migrations_cc_columns_done`;
+  per-column ALTER wrapped in try/catch for partial-rerun recovery.
+- **`GET /api/v1/finance/landing`** — single aggregator returning
+  data for all 6 Overview tiles (`net_worth`, `cash_flow`,
+  `credit_cards`, `bank_accounts`, `holdings`, `hsa_lp_fsa`).
+  Excludes inactive accounts.
+- **Account POST/PUT** accept the new CC fields. Empty string from
+  the form clears the column.
+- **Account form** — new "Credit card details" section, shown only
+  when type=Credit. 10 fields wired.
+- **Overview tiles** wired to `/landing`. Sample-data banner
+  removed. Tiles render "—" placeholders until first fetch
+  resolves. Fires on DOMContentLoaded and on Overview tab
+  activation.
+- **Tile 2 cash-flow pill** uses simple "vs last month MTD pace"
+  heuristic (no formal "on track" target defined yet — deferred).
 
-### v.152 needs-review queue
+### v.153 carryovers (bundled in this zip)
 
-- **Banner on Overview tab** showing total count of flagged
-  rows (`accounts + transactions`). Hidden when count is 0.
-- **Expandable panel** lists flagged accounts and transactions
-  with two actions per row: Edit (opens drawer) or Looks fine
-  (one-tap clear).
-- **Backend additions:**
-  - `GET /api/v1/finance/needs-review` — returns
-    `{accounts, transactions, counts}`. Inactive accounts excluded
-    from counts.
-  - `POST /api/v1/finance/accounts/:id/clear-review`
-  - `POST /api/v1/finance/transactions/:id/clear-review`
-- **Boot path** fires `loadNeedsReview()` on DOMContentLoaded so
-  the banner shows on first paint without requiring a tab switch.
+- `app/shared/tx-fingerprint.js` shared helper
+- Migration 127 — recompute fingerprints, flag dups
+- Both import paths use 5-day window dedup
+
+### v.152 carryovers (bundled in this zip)
+
+- Account form rebuilt — alias / owner / currency /
+  track_statements always-visible, locked-vocab type, single
+  endpoint, Delete→Deactivate.
+- Single-fetch reads across populateTxAccountFilter /
+  loadImpAccountSelect / loadImpAccounts / loadImpHistory.
+- Needs-review queue: banner on Overview + expandable panel,
+  `GET /needs-review`, `POST /clear-review`.
 
 ### v.151 carryovers (bundled in this zip)
 
-- **Migration 126** — merges `finance_*` and `financial_*` tables
-  into one unified `accounts` + one unified `transactions` table.
-  Compat views keep dashboard/search/subs/reports/etc. working.
-  Idempotent. Reversible — legacy tables renamed `_legacy_*`.
-- **Type vocabulary locked**: Checking, Savings, Credit, Cash,
-  HSA, Brokerage, TSP, Retirement, Loan, Mortgage, Other.
-- **Dedup on (institution, last4)** during merge — pulls
-  `nickname` over as `alias`.
-- **No CASCADE** anywhere; **no DELETE** on accounts or
-  transactions (deactivate / void / rollback only).
-- **Validation on manual tx POST** — account exists+active,
-  amount finite, future-date → `needs_review=1`.
-- **Net worth** includes holdings on assets side; snapshot
-  history never auto-pruned.
+- Migration 126 — unified `accounts` + `transactions`. Compat
+  views keep dashboard/search/subs/reports/etc. working unchanged.
+- Type vocabulary locked: Checking, Savings, Credit, Cash, HSA,
+  Brokerage, TSP, Retirement, Loan, Mortgage, Other.
+- Dedup on (institution, last4) during merge.
+- No CASCADE; no DELETE; soft inactive only.
 
-Carry-over from v.150 (still shipped, unchanged in code):
-- 6-tile Overview grid on /finance.html, Vellum theme, sample data
-- HSA + LP-FSA combined tile, click drills to HSA tab
-- gotoFinTab(id) helper, FAB/year-pill hidden on Overview tab
+Carry-over from v.150 (still shipped, unchanged):
+- 6-tile Overview grid markup (now wired to real data)
+- HSA + LP-FSA combined tile
 
-Carry-over from v.149 (still shipped, unchanged in code):
+Carry-over from v.149 (still shipped, unchanged):
 - Medical "All" tab as default landing, mobile swipe, SE/Self fix
 - Visit ↔ condition junction (migration 125)
-- Data joins audit (`family_member_name`, `attachment_count`,
-  `family_member_ids` rollup across med/cond/visit/EOB)
 
 ---
 
-## ✋ DON'T TRUST WITHOUT RETEST (v202604.152)
+## ✋ DON'T TRUST WITHOUT RETEST (v202604.154)
 
 **This list survives across chats.** Anything below is *touched* this
 drop but NOT confirmed working by Al. Treat as suspect until Al says
@@ -236,18 +232,19 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 | File | Change | Risk |
 |---|---|---|
-| `app/db/migrations/126_finance_unify.js` | NEW (carried from v.151). Merges 4 tables into 2, creates compat views, renames legacy tables. Idempotent. | **HIGH** — schema change. Smoke-tested in sandbox. Al should manually back up `data/ghrava.db` before container restart. Legacy tables stay queryable for rollback. |
-| `app/features/finance/routes.js` | All read/write paths repointed to unified `accounts`/`transactions` (v.151). v.152 adds `GET /needs-review`, `POST /accounts/:id/clear-review`, `POST /transactions/:id/clear-review`. DELETE endpoints removed. | **HIGH** — every finance write path touched. Test: create manual account with alias/owner/currency, edit it, deactivate, reactivate, save a flagged row → flag clears. |
-| `app/features/import/routes.js` | Full file rewrite (v.151). All paths target unified tables. No DELETE — POST `/accounts/:id/deactivate` and `/batches/:id/rollback`. Holdings upsert switched from ON CONFLICT to SELECT-then-UPDATE-or-INSERT. | **HIGH** — every file-import path touched. Test: preview a CSV, confirm import, verify transactions appear, roll back the batch. |
-| `app/public/finance.html` | Account form rebuilt (alias/owner/currency/track_statements always-visible, locked-vocab type dropdown, Inactive banner + Reactivate, Delete→Deactivate). saveAccount/openAccountDrawer use single `/finance/accounts` endpoint. populateTxAccountFilter / loadImpAccountSelect / loadImpAccounts / loadImpHistory all single-fetch. accountRowHtml + holdings + missing-statements use unified shape with alias preferred. Needs-review banner + expandable panel on Overview tab. Boot fires `loadNeedsReview()`. | **HIGH** — every account-touching surface on the page. Test: open Overview → banner shows count; expand panel → see flagged rows; click "Looks fine" → row disappears. Add new account → all fields present. Edit existing account → fields populate. Switch type to HSA / Retirement / Mortgage → form still works. Deactivate → confirm; banner appears on next open. Reactivate from banner. Tx filter dropdown shows accounts only once (no dup). |
-| `app/version.txt` | `202604.152` | None. |
+| `app/db/migrations/128_cc_columns.js` | NEW (v.154). 10 additive columns on `accounts`. Idempotent. | Low — additive only, all NULL default. Test: open existing account → unchanged; open Credit account → CC section visible; fill in fields, save → reload → values persist. |
+| `app/features/finance/routes.js` | v.154: new `GET /landing` aggregator; POST/PUT `/accounts` accept 10 new CC fields. v.153: import-file uses shared fingerprint + 5-day window. v.152: `GET /needs-review`, `POST /clear-review`. v.151: unified read/write paths. | **HIGH** — every finance route either added to or rewritten. Test: open Overview → all 6 tiles render real values (no `$487,300` placeholders). Test pending→posted dedup. Test CC field round-trip. |
+| `app/public/finance.html` | v.154: 6 Overview tiles rewired to `/landing`. Sample-data banner removed. CC fields section in account form. v.152: account form rebuild + single-fetch reads + needs-review queue. | **HIGH** — every account/tile surface touched. Test: Overview tiles show real numbers (or em-dash if no data). Add a Credit account, fill APR/limit/min, save → tile 3 reflects it. |
+| `app/shared/tx-fingerprint.js` | NEW (v.153). Shared `normalizeDescription` + `fingerprint` helpers. | Low — pure functions, smoke-tested with 10+5 cases. |
+| `app/db/migrations/127_fingerprint_v2.js` | NEW (v.153). Recomputes fingerprint on every transaction; flags dups. Idempotent. | **HIGH** — touches every row in `transactions`. Surfaces existing dups to needs-review queue. Backup DB before deploy. |
+| `app/db/migrations/126_finance_unify.js` | NEW (carried from v.151). Merges 4 tables into 2, creates compat views, renames legacy tables. Idempotent. | **HIGH** — schema change. Smoke-tested in sandbox. Backup DB before deploy. |
+| `app/features/import/routes.js` | v.153: confirm path uses shared fingerprint + 5-day window. v.151 full rewrite. | **HIGH** — every file-import path touched. |
+| `app/version.txt` | `202604.154` | None. |
 
 ### Carryover from v.150 — still untested
 
 - Finance Overview tab as default landing on /finance.html
-- 6 tiles with sample data, Vellum theme
 - gotoFinTab() helper, FAB/year-pill hidden on Overview
-- HSA + LP-FSA combined tile clicking into HSA tab
 
 ### Carryover from v.149 — still untested
 
@@ -257,9 +254,66 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 ---
 
-## ✅ SHIPPED THIS DROP (v202604.152)
+## ✅ SHIPPED THIS DROP (v202604.154)
 
-### Finance frontend parity (form + list reads)
+### Credit-card schema + landing aggregator + real-data tiles (v.154)
+
+- **Migration 128** — additive CC columns on `accounts`:
+  `credit_limit`, `statement_balance`, `minimum_payment`,
+  `payment_due_date`, `apr`, `promo_apr`, `promo_end_date`,
+  `annual_fee`, `annual_fee_renewal_date`, `rewards_balance`. All
+  NULL default. Idempotent guard via `_migrations_cc_columns_done`.
+  Per-column ALTER wrapped in try/catch so partial reruns recover.
+- **`GET /api/v1/finance/landing`** — single aggregator returning
+  data for all 6 Overview tiles. Excludes inactive accounts.
+  - Tile 1 net_worth: total + assets + liabilities + investment +
+    MoM delta vs prior snapshot (≥25 days old).
+  - Tile 2 cash_flow: MTD credits/debits/net + count + same-day
+    last-month MTD net for the "vs last mo" pill.
+  - Tile 3 credit_cards: count, total statement balance, total min
+    payment, utilization, soonest due date + account label.
+  - Tile 4 bank_accounts: count + total + per-type breakdown.
+  - Tile 5 holdings: positions + market value.
+  - Tile 6 hsa_lp_fsa: HSA total + LP-FSA remaining + combined.
+- **POST/PUT `/accounts`** accept the new CC fields. Empty string
+  clears the column.
+- **Account form** — new "Credit card details" collapsible section
+  shown only when type=Credit. 10 fields wired through
+  openAccountDrawer / saveAccount.
+- **Overview tiles wired.** Sample-data banner removed. Hardcoded
+  sample numbers (`$487,300`, `$3,420`, etc.) all gone. Tiles
+  render `—` placeholders until first fetch resolves. Fires on
+  DOMContentLoaded and on every Overview tab activation.
+- **Tile 2 pace heuristic** — compares MTD net to same-day-last-
+  month MTD net. No formal "on track" target defined yet; revisit
+  when categorization editor lands.
+
+### Fingerprint v2 + 5-day window dedup (v.153)
+
+- **Shared helper** `app/shared/tx-fingerprint.js`:
+  - `normalizeDescription(s)` — uppercase, collapse whitespace,
+    strip leading bank prefixes (POS DEBIT, DEBIT CARD PURCHASE,
+    PURCHASE AUTHORIZED ON dd/dd, etc.), strip trailing reference
+    IDs (`*[A-Z0-9]{4,}`, `#\d+`, `REF: …`, `ID: …`, `XX/dd`,
+    bare 6+ digit suffix). Repeats trailing strip until stable.
+  - `fingerprint(account, date, amount, desc)` — md5 of
+    `${account}|${date}|${amount.toFixed(2)}|${normalize(desc)}`.
+  - Smoke test: 10/10 normalization cases pass; 5/5 dedup cases
+    pass.
+- **Migration 127** recomputes every row's fingerprint, then
+  flags duplicate fingerprints (`flagged=1, needs_review=1`,
+  notes appended). Surfaces existing dups in v.152 needs-review
+  queue.
+- **Both import paths** (`/api/v1/finance/transactions/import-file`
+  and `/api/v1/import/confirm`) use the shared helper. 5-day
+  window dedup logic: same account, ±$0.01 amount, ±5 day window,
+  same normalized desc, different fingerprint → flag.
+- **Coarse SQL prefilter** (`julianday()` math for date window,
+  amount range, account, fingerprint differs) followed by
+  JS-side normalized-desc equality check. No need for a
+  generated column.
+
+### Finance frontend parity (form + list reads) — carried from v.152
 
 - **Account form** — alias, owner, currency, track_statements always
   visible. Locked vocab dropdown (11 types). Inactive banner with

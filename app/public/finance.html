@@ -305,206 +305,115 @@
         <div id="finReviewTxns"></div>
       </div>
 
-      <div class="fin-tile-sample-banner">SAMPLE DATA — round 1 design preview. Click any tile to drill into its tab.</div>
-
-      <div class="fin-tiles-grid">
+      <div class="fin-tiles-grid" id="finTilesGrid">
 
         <!-- Tile 1: Net Worth -->
-        <div class="fin-tile" onclick="gotoFinTab('networth')" role="button" tabindex="0">
+        <div class="fin-tile" data-tile="net_worth" onclick="gotoFinTab('networth')" role="button" tabindex="0">
           <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok"></span>
-            <span>Net worth · May 8</span>
+            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
+            <span data-tile-eyebrow>Net worth</span>
           </div>
           <div class="fin-tile-hero-row">
             <div>
               <div class="fin-tile-hero-label">Total</div>
-              <div class="fin-tile-hero">$487,300</div>
+              <div class="fin-tile-hero" data-tile-hero>—</div>
             </div>
-            <span class="fin-tile-pill fin-tile-pill--ok">+$3.2k MoM</span>
-          </div>
-          <div class="fin-tile-spark">
-            <i style="height:50%;opacity:.4"></i><i style="height:55%;opacity:.45"></i><i style="height:60%;opacity:.5"></i><i style="height:65%;opacity:.55"></i><i style="height:70%;opacity:.6"></i><i style="height:75%;opacity:.7"></i><i style="height:80%;opacity:.75"></i><i style="height:78%;opacity:.7"></i><i style="height:82%;opacity:.8"></i><i style="height:88%;opacity:.85"></i><i style="height:92%;opacity:.9"></i><i style="height:100%"></i>
+            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
           </div>
           <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line">$521k assets · $34k liabilities</div>
-          </div>
-          <div class="fin-tile-avatars">
-            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
-            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
-            <span class="fin-tile-avatar fin-tile-avatar--N">A</span>
+            <div class="fin-tile-strip-line" data-tile-strip>—</div>
           </div>
         </div>
 
-        <!-- Tile 2: Cash Flow -->
-        <div class="fin-tile" onclick="gotoFinTab('transactions')" role="button" tabindex="0">
+        <!-- Tile 2: Cash Flow MTD -->
+        <div class="fin-tile" data-tile="cash_flow" onclick="gotoFinTab('transactions')" role="button" tabindex="0">
           <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok"></span>
-            <span>Cash flow · MTD May</span>
+            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
+            <span data-tile-eyebrow>Cash flow · MTD</span>
           </div>
           <div class="fin-tile-hero-row">
             <div>
               <div class="fin-tile-hero-label">Net</div>
-              <div class="fin-tile-hero">+$1,420</div>
+              <div class="fin-tile-hero" data-tile-hero>—</div>
             </div>
-            <span class="fin-tile-pill fin-tile-pill--ok">on track</span>
+            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
           </div>
-          <div class="fin-tile-cf-bar">
-            <div class="in" style="flex:9840"></div>
-            <div class="out" style="flex:8420"></div>
+          <div class="fin-tile-cf-bar" data-tile-cfbar style="display:none">
+            <div class="in" data-cfbar-in></div>
+            <div class="out" data-cfbar-out></div>
           </div>
-          <div class="fin-tile-cf-labels">
-            <span>in $9,840</span>
-            <span>out $8,420</span>
+          <div class="fin-tile-cf-labels" data-tile-cflabels style="display:none">
+            <span data-cf-in>in $0</span>
+            <span data-cf-out>out $0</span>
           </div>
           <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line">vs Apr +$1,820 · YTD +$8,140</div>
-          </div>
-          <div class="fin-tile-avatars">
-            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
-            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
+            <div class="fin-tile-strip-line" data-tile-strip>—</div>
           </div>
         </div>
 
         <!-- Tile 3: Credit Cards -->
-        <div class="fin-tile" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
+        <div class="fin-tile" data-tile="credit_cards" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
           <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok"></span>
-            <span>Credit cards · 4 active</span>
+            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
+            <span data-tile-eyebrow>Credit cards</span>
           </div>
           <div class="fin-tile-hero-row">
             <div>
               <div class="fin-tile-hero-label">Owed</div>
-              <div class="fin-tile-hero">$3,420</div>
+              <div class="fin-tile-hero" data-tile-hero>—</div>
             </div>
-            <span class="fin-tile-pill fin-tile-pill--ok">12% util</span>
-          </div>
-          <div class="fin-tile-rows">
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">Sapphire</span>
-              <span class="fin-tile-row-bar"><i style="width:60%"></i></span>
-              <span class="fin-tile-row-amt">$1,240</span>
-            </div>
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">Amex Blue</span>
-              <span class="fin-tile-row-bar"><i style="width:43%;opacity:.85"></i></span>
-              <span class="fin-tile-row-amt">$890</span>
-            </div>
-            <div class="fin-tile-row fin-tile-row--muted">
-              <span class="fin-tile-row-label">+2 more</span>
-              <span class="fin-tile-row-amt">$1,290</span>
-            </div>
+            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
           </div>
           <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line">next due in 7 days · $340 min</div>
-          </div>
-          <div class="fin-tile-avatars">
-            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
-            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
+            <div class="fin-tile-strip-line" data-tile-strip>—</div>
           </div>
         </div>
 
         <!-- Tile 4: Bank Accounts -->
-        <div class="fin-tile" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
+        <div class="fin-tile" data-tile="bank_accounts" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
           <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--warn"></span>
-            <span>Banks · 5 accounts</span>
+            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
+            <span data-tile-eyebrow>Banks</span>
           </div>
           <div class="fin-tile-hero-row">
             <div>
               <div class="fin-tile-hero-label">Liquid</div>
-              <div class="fin-tile-hero">$28,540</div>
-            </div>
-            <span class="fin-tile-pill fin-tile-pill--warn">1 stale</span>
-          </div>
-          <div class="fin-tile-rows">
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">Checking</span>
-              <span class="fin-tile-row-amt">$12,140</span>
-            </div>
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">Savings</span>
-              <span class="fin-tile-row-amt">$16,400</span>
+              <div class="fin-tile-hero" data-tile-hero>—</div>
             </div>
           </div>
-          <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line">Navy Fed not reconciled in 18 days</div>
-          </div>
-          <div class="fin-tile-avatars">
-            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
-            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
-          </div>
+          <div class="fin-tile-rows" data-tile-rows></div>
         </div>
 
         <!-- Tile 5: Holdings -->
-        <div class="fin-tile" onclick="gotoFinTab('holdings')" role="button" tabindex="0">
+        <div class="fin-tile" data-tile="holdings" onclick="gotoFinTab('holdings')" role="button" tabindex="0">
           <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok"></span>
-            <span>Holdings · 28 positions</span>
+            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
+            <span data-tile-eyebrow>Holdings</span>
           </div>
           <div class="fin-tile-hero-row">
             <div>
               <div class="fin-tile-hero-label">Market value</div>
-              <div class="fin-tile-hero">$184,300</div>
-            </div>
-            <span class="fin-tile-pill fin-tile-pill--ok">+8.4% YTD</span>
-          </div>
-          <div class="fin-tile-rows">
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">VOO</span>
-              <span class="fin-tile-row-amt fin-tile-row-amt--pos">+3.4%</span>
-              <span class="fin-tile-row-amt">$12,840</span>
-            </div>
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">TSP C</span>
-              <span class="fin-tile-row-amt fin-tile-row-amt--pos">+9.1%</span>
-              <span class="fin-tile-row-amt">$84,200</span>
-            </div>
-            <div class="fin-tile-row fin-tile-row--muted">
-              <span class="fin-tile-row-label">+26 more</span>
-              <span class="fin-tile-row-amt">$87,260</span>
+              <div class="fin-tile-hero" data-tile-hero>—</div>
             </div>
           </div>
           <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line">vs S&amp;P +6.1% · today +0.3%</div>
-          </div>
-          <div class="fin-tile-avatars">
-            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
+            <div class="fin-tile-strip-line" data-tile-strip>—</div>
           </div>
         </div>
 
         <!-- Tile 6: HSA + LP-FSA -->
-        <div class="fin-tile" onclick="gotoFinTab('hsa')" role="button" tabindex="0">
+        <div class="fin-tile" data-tile="hsa_lp_fsa" onclick="gotoFinTab('hsa')" role="button" tabindex="0">
           <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--warn"></span>
-            <span>HSA + LP-FSA · unreimbursed</span>
+            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
+            <span data-tile-eyebrow>HSA + LP-FSA</span>
           </div>
           <div class="fin-tile-hero-row">
             <div>
               <div class="fin-tile-hero-label">Pool</div>
-              <div class="fin-tile-hero">$5,650</div>
-            </div>
-            <span class="fin-tile-pill fin-tile-pill--warn">FSA in 47d</span>
-          </div>
-          <div class="fin-tile-rows">
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">HSA</span>
-              <span class="fin-tile-row-amt fin-tile-row-amt--pos" style="color:#888780;font-weight:400">14 receipts</span>
-              <span class="fin-tile-row-amt">$4,820</span>
-            </div>
-            <div class="fin-tile-row">
-              <span class="fin-tile-row-label">LP-FSA</span>
-              <span class="fin-tile-row-amt fin-tile-row-amt--pos" style="color:#888780;font-weight:400">3 receipts</span>
-              <span class="fin-tile-row-amt">$830</span>
+              <div class="fin-tile-hero" data-tile-hero>—</div>
             </div>
           </div>
-          <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line">manage in Medical → Receipts</div>
-          </div>
-          <div class="fin-tile-avatars">
-            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
-            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
-            <span class="fin-tile-avatar fin-tile-avatar--N">A</span>
-          </div>
+          <div class="fin-tile-rows" data-tile-rows></div>
         </div>
 
       </div>
@@ -1249,6 +1158,7 @@ function switchFinTab(id, btn) {
   if (id === 'overview') {
     fab.style.display = 'none';
     loadNeedsReview();
+    loadLandingTiles();
   } else if (id === 'hsa') {
     fab.style.display = 'flex';
     updateFabForHsaView(hsaView);
@@ -1995,8 +1905,9 @@ document.addEventListener('DOMContentLoaded', () => {
   loadSharedData().then(() => {
     loadHsaAll();
     // Overview is default tab (v.150) — fire its loaders immediately
-    // so the needs-review banner shows on first paint.
-    if (typeof loadNeedsReview === 'function') loadNeedsReview();
+    // so the needs-review banner + real-data tiles show on first paint.
+    if (typeof loadNeedsReview   === 'function') loadNeedsReview();
+    if (typeof loadLandingTiles  === 'function') loadLandingTiles();
     // Handle hash navigation — e.g. /finance.html#import from data.html
     if (window.location.hash === '#import') {
       setTimeout(() => {
@@ -2184,6 +2095,217 @@ async function clearReviewTxn(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
+// Overview tiles (v.154) — real data from /api/v1/finance/landing.
+//
+// Each tile has a stable `data-tile` attribute on its outer div
+// and `data-tile-*` attributes on its parts (eyebrow, hero, pill,
+// strip, rows). The renderer fills those in. No inline sample
+// values remain on the markup.
+// ─────────────────────────────────────────────────────────────
+
+const FIN_TILE_FMT = {
+  // Compact dollars. $12,345 / $1.2k / $1.2M based on size.
+  $: (v) => {
+    const n = v == null ? 0 : v;
+    const abs = Math.abs(n);
+    const sign = n < 0 ? '-' : '';
+    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
+    if (abs >= 10_000)    return `${sign}$${Math.round(abs / 1000)}k`;
+    if (abs >= 1_000)     return `${sign}$${(abs / 1000).toFixed(1)}k`;
+    return `${sign}$${abs.toFixed(0)}`;
+  },
+  // Full dollars with cents — for hero values where precision matters.
+  $$: (v) => {
+    const n = v == null ? 0 : v;
+    return (n < 0 ? '-' : '') + '$' +
+      Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  },
+  // Signed dollars: leading +/- sign.
+  $signed: (v) => (v >= 0 ? '+' : '-') +
+    '$' + Math.abs(v || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
+  // Percent.
+  pct: (v, digits = 0) => `${(v || 0).toFixed(digits)}%`,
+};
+
+function setTilePart(tileEl, attr, value) {
+  const el = tileEl.querySelector(`[data-tile-${attr}]`);
+  if (el) el.textContent = value;
+  return el;
+}
+function setTilePill(tileEl, text, kind /* 'ok'|'warn'|'bad'|null */) {
+  const el = tileEl.querySelector('[data-tile-pill]');
+  if (!el) return;
+  el.classList.remove('fin-tile-pill--ok', 'fin-tile-pill--warn', 'fin-tile-pill--bad');
+  if (kind) el.classList.add(`fin-tile-pill--${kind}`);
+  if (text) {
+    el.textContent = text;
+    el.style.display = '';
+  } else {
+    el.style.display = 'none';
+  }
+}
+function setTileDot(tileEl, kind /* 'ok'|'warn'|'bad' */) {
+  const el = tileEl.querySelector('[data-tile-dot]');
+  if (!el) return;
+  el.classList.remove('fin-tile-dot--ok', 'fin-tile-dot--warn', 'fin-tile-dot--bad');
+  el.classList.add(`fin-tile-dot--${kind || 'ok'}`);
+}
+
+function daysUntil(dateStr) {
+  if (!dateStr) return null;
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d)) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((d - today) / 86400000);
+}
+
+async function loadLandingTiles() {
+  let data;
+  try { data = await api('GET', '/finance/landing'); }
+  catch (e) { console.warn('landing fetch failed', e); return; }
+
+  const grid = $('finTilesGrid');
+  if (!grid) return;
+  const tile = (id) => grid.querySelector(`[data-tile="${id}"]`);
+
+  // ── Tile 1: Net Worth ────────────────────────────────────────
+  const nw = data.net_worth;
+  if (nw) {
+    const t = tile('net_worth');
+    setTilePart(t, 'hero', FIN_TILE_FMT.$$(nw.total));
+    setTilePart(t, 'eyebrow', `Net worth · ${new Date(data.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
+    if (nw.mom_delta != null) {
+      setTilePill(t,
+        `${FIN_TILE_FMT.$signed(nw.mom_delta)} MoM`,
+        nw.mom_delta >= 0 ? 'ok' : 'bad');
+    } else {
+      setTilePill(t, 'first month', 'warn');
+    }
+    setTileDot(t, nw.total >= 0 ? 'ok' : 'bad');
+    setTilePart(t, 'strip',
+      `${FIN_TILE_FMT.$(nw.assets + nw.investment_total)} assets · ${FIN_TILE_FMT.$(nw.liabilities)} liabilities`);
+  }
+
+  // ── Tile 2: Cash Flow MTD ────────────────────────────────────
+  const cf = data.cash_flow;
+  if (cf) {
+    const t = tile('cash_flow');
+    const monthName = new Date().toLocaleDateString('en-US', { month: 'short' });
+    setTilePart(t, 'eyebrow', `Cash flow · MTD ${monthName}`);
+    setTilePart(t, 'hero', FIN_TILE_FMT.$signed(cf.net));
+    // Pace pill: compare current MTD net to same-day-last-month MTD net.
+    if (cf.count > 0 && cf.prior_mtd_net !== 0) {
+      const delta = cf.net - cf.prior_mtd_net;
+      const pct = cf.prior_mtd_net !== 0 ? Math.abs(delta / cf.prior_mtd_net) * 100 : 0;
+      const kind = cf.net >= cf.prior_mtd_net ? 'ok' : 'warn';
+      setTilePill(t, `vs last mo ${FIN_TILE_FMT.$signed(delta)}`, kind);
+    } else if (cf.count === 0) {
+      setTilePill(t, 'no data yet', 'warn');
+    } else {
+      setTilePill(t, '', null);
+    }
+    setTileDot(t, cf.net >= 0 ? 'ok' : 'warn');
+    // Bar
+    const totalAbs = Math.abs(cf.credits) + Math.abs(cf.debits);
+    if (totalAbs > 0) {
+      const inFlex  = Math.max(1, Math.round((cf.credits / totalAbs) * 100));
+      const outFlex = Math.max(1, Math.round((Math.abs(cf.debits) / totalAbs) * 100));
+      const bar = t.querySelector('[data-tile-cfbar]');
+      const labels = t.querySelector('[data-tile-cflabels]');
+      if (bar) { bar.style.display = ''; t.querySelector('[data-cfbar-in]').style.flex = inFlex; t.querySelector('[data-cfbar-out]').style.flex = outFlex; }
+      if (labels) {
+        labels.style.display = '';
+        t.querySelector('[data-cf-in]').textContent  = `in ${FIN_TILE_FMT.$$(cf.credits)}`;
+        t.querySelector('[data-cf-out]').textContent = `out ${FIN_TILE_FMT.$$(Math.abs(cf.debits))}`;
+      }
+    }
+    setTilePart(t, 'strip', `${cf.count} transactions this month`);
+  }
+
+  // ── Tile 3: Credit Cards ─────────────────────────────────────
+  const cc = data.credit_cards;
+  if (cc) {
+    const t = tile('credit_cards');
+    setTilePart(t, 'eyebrow', cc.count > 0 ? `Credit cards · ${cc.count} active` : 'Credit cards');
+    setTilePart(t, 'hero', cc.count ? FIN_TILE_FMT.$$(cc.statement_balance) : '—');
+    if (cc.utilization != null) {
+      const pct = cc.utilization * 100;
+      const kind = pct < 30 ? 'ok' : pct < 60 ? 'warn' : 'bad';
+      setTilePill(t, `${pct.toFixed(0)}% util`, kind);
+    } else if (cc.count > 0) {
+      setTilePill(t, 'no limit set', 'warn');
+    } else {
+      setTilePill(t, '', null);
+    }
+    if (cc.soonest_due_date) {
+      const dd = daysUntil(cc.soonest_due_date);
+      const dotKind = dd != null && dd <= 3 ? 'bad' : dd != null && dd <= 7 ? 'warn' : 'ok';
+      setTileDot(t, dotKind);
+      const minLine = cc.min_payment > 0 ? ` · ${FIN_TILE_FMT.$$(cc.min_payment)} min` : '';
+      const dueLabel = dd == null ? cc.soonest_due_date : (dd < 0 ? `overdue ${Math.abs(dd)}d` : (dd === 0 ? 'due today' : `due in ${dd}d`));
+      setTilePart(t, 'strip', `${cc.soonest_due_account || 'next card'} ${dueLabel}${minLine}`);
+    } else {
+      setTileDot(t, 'ok');
+      setTilePart(t, 'strip', cc.count ? 'no due dates set' : 'no credit accounts');
+    }
+  }
+
+  // ── Tile 4: Bank Accounts ────────────────────────────────────
+  const ba = data.bank_accounts;
+  if (ba) {
+    const t = tile('bank_accounts');
+    setTilePart(t, 'eyebrow', ba.count > 0 ? `Banks · ${ba.count} account${ba.count === 1 ? '' : 's'}` : 'Banks');
+    setTilePart(t, 'hero', ba.count ? FIN_TILE_FMT.$$(ba.total) : '—');
+    setTileDot(t, 'ok');
+    const rows = t.querySelector('[data-tile-rows]');
+    if (rows) {
+      rows.innerHTML = (ba.by_type || []).map(r => `
+        <div class="fin-tile-row">
+          <span class="fin-tile-row-label">${esc(r.type)}</span>
+          <span class="fin-tile-row-amt">${FIN_TILE_FMT.$$(r.total)}</span>
+        </div>
+      `).join('') || '<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">No banking accounts yet</span></div>';
+    }
+  }
+
+  // ── Tile 5: Holdings ─────────────────────────────────────────
+  const h = data.holdings;
+  if (h) {
+    const t = tile('holdings');
+    setTilePart(t, 'eyebrow', h.positions > 0 ? `Holdings · ${h.positions} position${h.positions === 1 ? '' : 's'}` : 'Holdings');
+    setTilePart(t, 'hero', h.positions ? FIN_TILE_FMT.$$(h.market_value) : '—');
+    setTileDot(t, 'ok');
+    setTilePart(t, 'strip', h.positions ? 'tap to manage' : 'no holdings imported yet');
+  }
+
+  // ── Tile 6: HSA + LP-FSA ─────────────────────────────────────
+  const hl = data.hsa_lp_fsa;
+  if (hl) {
+    const t = tile('hsa_lp_fsa');
+    setTilePart(t, 'eyebrow', 'HSA + LP-FSA');
+    setTilePart(t, 'hero', (hl.hsa_count || hl.lp_fsa_remaining)
+      ? FIN_TILE_FMT.$$(hl.combined)
+      : '—');
+    setTileDot(t, 'ok');
+    const rows = t.querySelector('[data-tile-rows]');
+    if (rows) {
+      const items = [];
+      if (hl.hsa_count) items.push({ label: 'HSA', amt: hl.hsa_total });
+      if (hl.lp_fsa_remaining) items.push({ label: 'LP-FSA', amt: hl.lp_fsa_remaining });
+      rows.innerHTML = items.length
+        ? items.map(i => `
+          <div class="fin-tile-row">
+            <span class="fin-tile-row-label">${i.label}</span>
+            <span class="fin-tile-row-amt">${FIN_TILE_FMT.$$(i.amt)}</span>
+          </div>
+        `).join('')
+        : '<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">No HSA / LP-FSA setup yet</span></div>';
+    }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
 // Account form (v.152) — unified through /api/v1/finance/accounts.
 //
 // Before v.151 there were two backend tables (finance_accounts +
@@ -2214,6 +2336,9 @@ function onAccTypeChange() {
     else if (t === 'Cash' || t === 'Checking' || t === 'Savings' || t === 'HSA') hint.textContent = '';
     else hint.textContent = '';
   }
+  // CC-specific section: only visible for Credit type.
+  const ccBlock = $('accCcFields');
+  if (ccBlock) ccBlock.style.display = (t === 'Credit') ? '' : 'none';
 }
 
 async function openAccountDrawer(id /*, sourceTable (legacy, ignored) */) {
@@ -2254,6 +2379,18 @@ async function openAccountDrawer(id /*, sourceTable (legacy, ignored) */) {
   $('accAsOf').value      = a.balance_as_of || new Date().toISOString().slice(0, 10);
   $('accInNw').checked    = a.include_net_worth !== 0;
   $('accNotes').value     = a.notes || '';
+  // Credit-card-specific (mig 128). Pull through; fields hidden when
+  // type !== 'Credit' but values are still preserved on save.
+  $('accCreditLimit').value      = (a.credit_limit            != null) ? a.credit_limit            : '';
+  $('accStatementBalance').value = (a.statement_balance       != null) ? a.statement_balance       : '';
+  $('accMinPayment').value       = (a.minimum_payment         != null) ? a.minimum_payment         : '';
+  $('accDueDate').value          = a.payment_due_date         || '';
+  $('accApr').value              = (a.apr                     != null) ? a.apr                     : '';
+  $('accPromoApr').value         = (a.promo_apr               != null) ? a.promo_apr               : '';
+  $('accPromoEnd').value         = a.promo_end_date           || '';
+  $('accAnnualFee').value        = (a.annual_fee              != null) ? a.annual_fee              : '';
+  $('accFeeRenewal').value       = a.annual_fee_renewal_date  || '';
+  $('accRewards').value          = (a.rewards_balance         != null) ? a.rewards_balance         : '';
   $('accDeactivateBtn').style.display = (id && a.is_active !== 0) ? 'inline-flex' : 'none';
   onAccTypeChange();
   GH_REFS.populateContact('accContactId', a.contact_id || null,
@@ -2291,6 +2428,17 @@ async function saveAccount() {
       contact_id:             $('accContactId').value ? parseInt($('accContactId').value) : null,
       institution_contact_id: $('accInstContact').value ? parseInt($('accInstContact').value) : null,
       family_member_ids:      GH_FAMILY.getIds('accFamilyWrap'),
+      // CC-specific (mig 128). Empty string → null in backend.
+      credit_limit:            $('accCreditLimit').value,
+      statement_balance:       $('accStatementBalance').value,
+      minimum_payment:         $('accMinPayment').value,
+      payment_due_date:        $('accDueDate').value || null,
+      apr:                     $('accApr').value,
+      promo_apr:               $('accPromoApr').value,
+      promo_end_date:          $('accPromoEnd').value || null,
+      annual_fee:              $('accAnnualFee').value,
+      annual_fee_renewal_date: $('accFeeRenewal').value || null,
+      rewards_balance:         $('accRewards').value,
       // Editing a flagged row implicitly clears the flag —
       // saving is an explicit "I've reviewed this" gesture.
       needs_review:           0,
@@ -3112,6 +3260,62 @@ async function deleteGc() {
       <div style="display:flex;align-items:center;gap:8px;padding:4px 0 10px">
         <input type="checkbox" id="accInNw" checked style="width:16px;height:16px;accent-color:var(--accent)">
         <label for="accInNw" style="font-size:13px;color:var(--text2)">Include in Net Worth</label>
+      </div>
+    </div>
+
+    <!-- Credit-card-specific fields (mig 128). Section toggles open
+         only when type === 'Credit'. Loan / Mortgage borrow the
+         payment_due_date + minimum_payment fields too if useful;
+         keep collapsed for now to avoid form bloat. -->
+    <div id="accCcFields" style="display:none;border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-bottom:12px;background:var(--bg2)">
+      <div style="font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3);margin-bottom:6px">Credit card details</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Credit limit</label>
+          <input class="form-input" type="number" id="accCreditLimit" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Statement balance</label>
+          <input class="form-input" type="number" id="accStatementBalance" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Minimum payment</label>
+          <input class="form-input" type="number" id="accMinPayment" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Payment due</label>
+          <input class="form-input" type="date" id="accDueDate">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">APR (%)</label>
+          <input class="form-input" type="number" id="accApr" step="0.01" placeholder="e.g. 19.99">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Promo APR (%)</label>
+          <input class="form-input" type="number" id="accPromoApr" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Promo ends</label>
+          <input class="form-input" type="date" id="accPromoEnd">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Annual fee</label>
+          <input class="form-input" type="number" id="accAnnualFee" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Annual fee renews</label>
+          <input class="form-input" type="date" id="accFeeRenewal">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Rewards balance</label>
+          <input class="form-input" type="number" id="accRewards" step="0.01" placeholder="0.00">
+        </div>
       </div>
     </div>
 
