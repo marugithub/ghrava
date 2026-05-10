@@ -204,6 +204,52 @@
 .imp-preview-table { width:100%;border-collapse:collapse;font-size:11px }
 .imp-preview-table th { text-align:left;padding:4px 6px;color:var(--text3);font-family:var(--mono);border-bottom:1px solid var(--border);font-size:10px;text-transform:uppercase;letter-spacing:.06em }
 .imp-preview-table td { padding:4px 6px;border-bottom:1px solid var(--border);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+
+/* v202604.150 — Overview landing tile grid (Vellum theme to match medical) */
+.fin-tiles-wrap { padding:14px 16px }
+.fin-tiles-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px }
+.fin-tile { background:#fbf6e9; border:1px solid #d8cba8; border-radius:12px; padding:14px 16px; min-height:220px; display:flex; flex-direction:column; cursor:pointer; transition:transform .12s ease, box-shadow .12s ease; font-family:var(--font) }
+.fin-tile:hover { transform:translateY(-1px); box-shadow:0 6px 18px rgba(0,0,0,0.06) }
+.fin-tile:active { transform:translateY(0); opacity:.92 }
+.fin-tile--full { grid-column:1 / -1 }
+.fin-tile-eyebrow { display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:#888780;text-transform:uppercase }
+.fin-tile-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0 }
+.fin-tile-dot--ok { background:#15803d } .fin-tile-dot--warn { background:#b45309 } .fin-tile-dot--bad { background:#b91c1c }
+.fin-tile-hero-row { margin-top:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px }
+.fin-tile-hero-label { font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#888780;margin-bottom:2px;line-height:1.2 }
+.fin-tile-hero { font-family:'Newsreader','Fraunces',Georgia,serif;font-style:italic;font-size:40px;font-weight:500;color:#1a1a1a;line-height:1 }
+.fin-tile-pill { font-size:11px;padding:3px 10px;border-radius:999px;flex-shrink:0;margin-top:4px;white-space:nowrap }
+.fin-tile-pill--ok { background:rgba(21,128,61,0.12); color:#15803d }
+.fin-tile-pill--warn { background:rgba(180,83,9,0.10); color:#b45309 }
+.fin-tile-pill--bad { background:rgba(185,28,28,0.12); color:#b91c1c }
+.fin-tile-rows { margin-top:12px;display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:12px }
+.fin-tile-row { display:flex;align-items:center;gap:8px }
+.fin-tile-row--muted { color:#888780 }
+.fin-tile-row-label { flex:1;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+.fin-tile-row-bar { width:50px;height:4px;background:rgba(0,0,0,0.05);border-radius:999px;overflow:hidden;flex-shrink:0 }
+.fin-tile-row-bar > i { display:block;height:100%;background:#c0392b }
+.fin-tile-row-amt { color:#1a1a1a;font-weight:500;min-width:54px;text-align:right }
+.fin-tile-row-amt--pos { color:#15803d }
+.fin-tile-strip { margin-top:auto;padding-top:12px;font-family:var(--mono);font-size:11px;color:#5F5E5A;border-top:1px solid rgba(216,203,168,0.5) }
+.fin-tile-strip-line { margin-top:8px }
+.fin-tile-strip-line--alert { color:#b91c1c }
+.fin-tile-avatars { display:flex;gap:4px;margin-top:10px }
+.fin-tile-avatar { width:22px;height:22px;border-radius:50%;color:#fff;font-family:'Newsreader','Fraunces',Georgia,serif;font-style:italic;font-size:11px;display:flex;align-items:center;justify-content:center }
+.fin-tile-avatar--A { background:#c0392b } .fin-tile-avatar--Z { background:#b91c1c } .fin-tile-avatar--N { background:#6b3410 }
+.fin-tile-spark { margin-top:14px;display:flex;align-items:flex-end;gap:2px;height:26px }
+.fin-tile-spark > i { display:block;flex:1;background:#c0392b;border-radius:1px }
+.fin-tile-cf-bar { display:flex;gap:4px;height:8px;margin-top:14px;border-radius:2px;overflow:hidden }
+.fin-tile-cf-bar > .in  { background:#15803d;opacity:.55 }
+.fin-tile-cf-bar > .out { background:#c0392b;opacity:.55 }
+.fin-tile-cf-labels { display:flex;justify-content:space-between;margin-top:6px;font-family:var(--mono);font-size:11px;color:#5F5E5A }
+.fin-tile-subs-mid { display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-top:12px }
+.fin-tile-subs-mid-list { flex:1;display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:12px;min-width:0 }
+.fin-tile-sample-banner { background:rgba(192,57,43,0.06);border:1px dashed rgba(192,57,43,0.25);color:#7a2618;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:14px;font-family:var(--mono);letter-spacing:.04em }
+@media (max-width:700px) {
+  .fin-tiles-grid { grid-template-columns:1fr }
+  .fin-tile { min-height:200px }
+  .fin-tile-hero { font-size:36px }
+}
   </style>
 </head>
 <body>
@@ -217,7 +263,8 @@
   <div class="gh-stitched">
     <div class="gh-stitched__row">
       <div class="view-tabs" style="--tab-color:#22c55e" id="finTabs">
-        <button class="view-tab active" onclick="switchFinTab('hsa',this)">HSA</button>
+        <button class="view-tab active" onclick="switchFinTab('overview',this)">Overview</button>
+        <button class="view-tab" onclick="switchFinTab('hsa',this)">HSA</button>
         <button class="view-tab" onclick="switchFinTab('accounts',this)">Accounts</button>
         <button class="view-tab" onclick="switchFinTab('transactions',this)">Transactions</button>
         <button class="view-tab" onclick="switchFinTab('networth',this)">Net Worth</button>
@@ -230,9 +277,223 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════
+       OVERVIEW TAB — finance landing (v202604.150)
+       Sample data; tiles are clickable → switch to detail tab.
+       Round 3 will replace samples with /api/v1/finance/landing.
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel active" id="panel-overview">
+    <div class="fin-tiles-wrap">
+
+      <div class="fin-tile-sample-banner">SAMPLE DATA — round 1 design preview. Click any tile to drill into its tab.</div>
+
+      <div class="fin-tiles-grid">
+
+        <!-- Tile 1: Net Worth -->
+        <div class="fin-tile" onclick="gotoFinTab('networth')" role="button" tabindex="0">
+          <div class="fin-tile-eyebrow">
+            <span class="fin-tile-dot fin-tile-dot--ok"></span>
+            <span>Net worth · May 8</span>
+          </div>
+          <div class="fin-tile-hero-row">
+            <div>
+              <div class="fin-tile-hero-label">Total</div>
+              <div class="fin-tile-hero">$487,300</div>
+            </div>
+            <span class="fin-tile-pill fin-tile-pill--ok">+$3.2k MoM</span>
+          </div>
+          <div class="fin-tile-spark">
+            <i style="height:50%;opacity:.4"></i><i style="height:55%;opacity:.45"></i><i style="height:60%;opacity:.5"></i><i style="height:65%;opacity:.55"></i><i style="height:70%;opacity:.6"></i><i style="height:75%;opacity:.7"></i><i style="height:80%;opacity:.75"></i><i style="height:78%;opacity:.7"></i><i style="height:82%;opacity:.8"></i><i style="height:88%;opacity:.85"></i><i style="height:92%;opacity:.9"></i><i style="height:100%"></i>
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">$521k assets · $34k liabilities</div>
+          </div>
+          <div class="fin-tile-avatars">
+            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
+            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
+            <span class="fin-tile-avatar fin-tile-avatar--N">A</span>
+          </div>
+        </div>
+
+        <!-- Tile 2: Cash Flow -->
+        <div class="fin-tile" onclick="gotoFinTab('transactions')" role="button" tabindex="0">
+          <div class="fin-tile-eyebrow">
+            <span class="fin-tile-dot fin-tile-dot--ok"></span>
+            <span>Cash flow · MTD May</span>
+          </div>
+          <div class="fin-tile-hero-row">
+            <div>
+              <div class="fin-tile-hero-label">Net</div>
+              <div class="fin-tile-hero">+$1,420</div>
+            </div>
+            <span class="fin-tile-pill fin-tile-pill--ok">on track</span>
+          </div>
+          <div class="fin-tile-cf-bar">
+            <div class="in" style="flex:9840"></div>
+            <div class="out" style="flex:8420"></div>
+          </div>
+          <div class="fin-tile-cf-labels">
+            <span>in $9,840</span>
+            <span>out $8,420</span>
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">vs Apr +$1,820 · YTD +$8,140</div>
+          </div>
+          <div class="fin-tile-avatars">
+            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
+            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
+          </div>
+        </div>
+
+        <!-- Tile 3: Credit Cards -->
+        <div class="fin-tile" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
+          <div class="fin-tile-eyebrow">
+            <span class="fin-tile-dot fin-tile-dot--ok"></span>
+            <span>Credit cards · 4 active</span>
+          </div>
+          <div class="fin-tile-hero-row">
+            <div>
+              <div class="fin-tile-hero-label">Owed</div>
+              <div class="fin-tile-hero">$3,420</div>
+            </div>
+            <span class="fin-tile-pill fin-tile-pill--ok">12% util</span>
+          </div>
+          <div class="fin-tile-rows">
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">Sapphire</span>
+              <span class="fin-tile-row-bar"><i style="width:60%"></i></span>
+              <span class="fin-tile-row-amt">$1,240</span>
+            </div>
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">Amex Blue</span>
+              <span class="fin-tile-row-bar"><i style="width:43%;opacity:.85"></i></span>
+              <span class="fin-tile-row-amt">$890</span>
+            </div>
+            <div class="fin-tile-row fin-tile-row--muted">
+              <span class="fin-tile-row-label">+2 more</span>
+              <span class="fin-tile-row-amt">$1,290</span>
+            </div>
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">next due in 7 days · $340 min</div>
+          </div>
+          <div class="fin-tile-avatars">
+            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
+            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
+          </div>
+        </div>
+
+        <!-- Tile 4: Bank Accounts -->
+        <div class="fin-tile" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
+          <div class="fin-tile-eyebrow">
+            <span class="fin-tile-dot fin-tile-dot--warn"></span>
+            <span>Banks · 5 accounts</span>
+          </div>
+          <div class="fin-tile-hero-row">
+            <div>
+              <div class="fin-tile-hero-label">Liquid</div>
+              <div class="fin-tile-hero">$28,540</div>
+            </div>
+            <span class="fin-tile-pill fin-tile-pill--warn">1 stale</span>
+          </div>
+          <div class="fin-tile-rows">
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">Checking</span>
+              <span class="fin-tile-row-amt">$12,140</span>
+            </div>
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">Savings</span>
+              <span class="fin-tile-row-amt">$16,400</span>
+            </div>
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">Navy Fed not reconciled in 18 days</div>
+          </div>
+          <div class="fin-tile-avatars">
+            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
+            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
+          </div>
+        </div>
+
+        <!-- Tile 5: Holdings -->
+        <div class="fin-tile" onclick="gotoFinTab('holdings')" role="button" tabindex="0">
+          <div class="fin-tile-eyebrow">
+            <span class="fin-tile-dot fin-tile-dot--ok"></span>
+            <span>Holdings · 28 positions</span>
+          </div>
+          <div class="fin-tile-hero-row">
+            <div>
+              <div class="fin-tile-hero-label">Market value</div>
+              <div class="fin-tile-hero">$184,300</div>
+            </div>
+            <span class="fin-tile-pill fin-tile-pill--ok">+8.4% YTD</span>
+          </div>
+          <div class="fin-tile-rows">
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">VOO</span>
+              <span class="fin-tile-row-amt fin-tile-row-amt--pos">+3.4%</span>
+              <span class="fin-tile-row-amt">$12,840</span>
+            </div>
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">TSP C</span>
+              <span class="fin-tile-row-amt fin-tile-row-amt--pos">+9.1%</span>
+              <span class="fin-tile-row-amt">$84,200</span>
+            </div>
+            <div class="fin-tile-row fin-tile-row--muted">
+              <span class="fin-tile-row-label">+26 more</span>
+              <span class="fin-tile-row-amt">$87,260</span>
+            </div>
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">vs S&amp;P +6.1% · today +0.3%</div>
+          </div>
+          <div class="fin-tile-avatars">
+            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
+          </div>
+        </div>
+
+        <!-- Tile 6: HSA + LP-FSA -->
+        <div class="fin-tile" onclick="gotoFinTab('hsa')" role="button" tabindex="0">
+          <div class="fin-tile-eyebrow">
+            <span class="fin-tile-dot fin-tile-dot--warn"></span>
+            <span>HSA + LP-FSA · unreimbursed</span>
+          </div>
+          <div class="fin-tile-hero-row">
+            <div>
+              <div class="fin-tile-hero-label">Pool</div>
+              <div class="fin-tile-hero">$5,650</div>
+            </div>
+            <span class="fin-tile-pill fin-tile-pill--warn">FSA in 47d</span>
+          </div>
+          <div class="fin-tile-rows">
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">HSA</span>
+              <span class="fin-tile-row-amt fin-tile-row-amt--pos" style="color:#888780;font-weight:400">14 receipts</span>
+              <span class="fin-tile-row-amt">$4,820</span>
+            </div>
+            <div class="fin-tile-row">
+              <span class="fin-tile-row-label">LP-FSA</span>
+              <span class="fin-tile-row-amt fin-tile-row-amt--pos" style="color:#888780;font-weight:400">3 receipts</span>
+              <span class="fin-tile-row-amt">$830</span>
+            </div>
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">manage in Medical → Receipts</div>
+          </div>
+          <div class="fin-tile-avatars">
+            <span class="fin-tile-avatar fin-tile-avatar--A">A</span>
+            <span class="fin-tile-avatar fin-tile-avatar--Z">Z</span>
+            <span class="fin-tile-avatar fin-tile-avatar--N">A</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
        HSA TAB — fully live
        ══════════════════════════════════════════════════════ -->
-  <div class="view-panel active" id="panel-hsa">
+  <div class="view-panel" id="panel-hsa">
 
     <!-- Summary cards -->
     <div class="hsa-grid" id="summaryGrid">
@@ -632,7 +893,7 @@
 <div class="drawer-overlay" id="acctDrawer" style="display:none"></div>
 
 <!-- ── FAB ──────────────────────────────────────────────────── -->
-<button class="fab fab-pill" id="fabBtn" onclick="onFab()" title="Add expense"><span>+ Add Expense</span></button>
+<button class="fab fab-pill" id="fabBtn" style="display:none" onclick="onFab()" title="Add expense"><span>+ Add Expense</span></button>
 
 <!-- ════════════════════════════════════════════════════════════
      DRAWERS
@@ -877,7 +1138,7 @@ window.GH_PAGE = {
   module: 'finance',
   title:  'Finance',
   rightExtra: `
-    <div id="yearPillWrap" class="year-pill" style="margin-right:2px">
+    <div id="yearPillWrap" class="year-pill" style="margin-right:2px;display:none">
       <span>📅</span>
       <select id="yearSel" onchange="onYearChange()"></select>
     </div>`,
@@ -989,6 +1250,18 @@ function switchFinTab(id, btn) {
     fab.style.display = 'none';
   }
 }
+
+// v202604.150 — Programmatic tab switch used by Overview tile clicks
+window.gotoFinTab = function(id) {
+  const btns = document.querySelectorAll('#finTabs .view-tab');
+  for (let i = 0; i < btns.length; i++) {
+    const oc = btns[i].getAttribute('onclick') || '';
+    if (oc.indexOf("switchFinTab('" + id + "'") !== -1) {
+      switchFinTab(id, btns[i]);
+      return;
+    }
+  }
+};
 
 // ── HSA sub-tab switching ──────────────────────────────────────
 function switchHsaView(view, btn) {

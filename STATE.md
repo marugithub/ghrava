@@ -19,20 +19,61 @@ need to know is in this file.
 Al runs **Ghrava** — a self-hosted household OS on a QNAP NAS, accessible
 at `http://192.168.4.62:3001`. Stack: Node.js/Express + SQLite
 (better-sqlite3) + vanilla JS. Single user, single developer. The most
-recent shipped version is **v202604.149**; the deploy zip in
+recent shipped version is **v202604.150**; the deploy zip in
 `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
 session) IS that version.
 
-### What was just shipped (v.149) — needs Al's manual test before next drop
+### What was just shipped (v.151) — needs Al's manual test before next drop
 
-- Default landing tab on `/medical.html` is now "All" (cross-card grid)
-- Mobile = swipe one card at a time
-- "SE/Self" avatar bug fix at the root (form pre-fill from patient strip,
-  no more `'Self'` string fallback)
-- Visit ↔ condition junction (new migration 125, new chip picker on
-  visit form, purple chips on visit cards)
-- Data joins audit fixed: `family_member_name`, `attachment_count`,
-  `family_member_ids` rollup added across med/cond/visit/EOB
+**FINANCE MODULE UNIFICATION (mig 126).** Two parallel sets of tables
+(`finance_*` from manual entry, `financial_*` from file import) merged
+into one `accounts` + one `transactions` table. **Schema-touching
+drop — back up DB on NAS BEFORE container restart**, even though
+legacy tables are renamed not dropped.
+
+- **One `accounts` table** replaces `finance_accounts` and
+  `financial_accounts`. Has `alias` field (locked requirement),
+  `source` ('manual' | 'imported' | 'merged'), `needs_review` flag.
+  Type vocabulary LOCKED: Checking, Savings, Credit, Cash, HSA,
+  Brokerage, TSP, Retirement, Loan, Mortgage, Other.
+- **One `transactions` table** replaces `finance_transactions` and
+  `imported_transactions`. Same `source` + `needs_review` cols.
+  Carries fingerprint, flagged, batch_id, txn_type for the import path.
+- **Dedup on (institution, last4)** during merge. When a row from
+  `financial_accounts` matches an existing row in `accounts`, it MERGES
+  into the existing row (filling nulls only — never overwriting), sets
+  `source='merged'` and `needs_review=1`, and pulls `nickname` over as
+  `alias`. Smoke-tested with Chase Checking dup case → confirmed merge.
+- **No CASCADE anywhere** in the new schema. (Old `imported_transactions`
+  had ON DELETE CASCADE — silently nuked history if account deleted.
+  Also fixed in mig 126.)
+- **DELETE endpoints removed.** Accounts and transactions cannot be
+  deleted via the API. New endpoints:
+  - `POST /accounts/:id/deactivate`, `/reactivate`
+  - `POST /transactions/:id/void` (flag + note, never delete)
+  - `POST /import-batches/:id/rollback` (replaces `DELETE /batches/:id`)
+- **Validation added to manual entry**: account must exist + be active,
+  amount must be finite, future-dated tx → `needs_review=1`.
+- **Old tables renamed `_legacy_*`, not dropped.** Reversible — full
+  rollback path documented at top of mig 126.
+- **Compat VIEWs** named `finance_accounts`, `financial_accounts`,
+  `finance_transactions`, `imported_transactions`, `fin_import_batches`
+  point at the unified tables with old column shapes. This means
+  dashboard/search/subscriptions/reports/recurring-transactions.js etc.
+  keep working unchanged — they read through views. Only the WRITE paths
+  in `features/finance/routes.js` and `features/import/routes.js` were
+  rewritten to target unified tables directly.
+- **Net worth math now includes holdings** market value on the
+  assets side (was missing).
+- **Net worth snapshots: never auto-prune.** Removed `LIMIT 24` from
+  `GET /net-worth/snapshots`.
+- **finance.html unchanged this drop.** Frontend works through views
+  + repointed routes; UI rewrites for tile 1/2/3/5 deferred.
+
+What's still suspect from earlier drops:
+- v.150: 6-tile finance Overview grid with sample data (round 1 of 3)
+- v.149: medical /medical.html lands on All tab, SE/Self avatar fix,
+  visit↔condition junction (mig 125)
 
 Full list in `## ✋ DON'T TRUST WITHOUT RETEST` and `## ✅ SHIPPED THIS
 DROP`. **Do NOT re-touch any of those files unless Al asks** — wait for
@@ -40,10 +81,26 @@ test results.
 
 ### Next-drop work is queued
 
-See `## ⏳ IN FLIGHT — NEXT DROPS` for the priority-ordered list. Top
-items: finance dedup tightening (description normalization, pending/posted
-window, sign-convention spec tests), categorization rule editor, EOB
-parser field contract verification, vision/dental EOB ingest.
+**Resolved by v.151** (no longer in flight):
+- ~~Finance landing round 2 — alias field~~ DONE (alias is on every
+  account row)
+- ~~v140 unify finance_accounts vs financial_accounts~~ DONE
+- ~~Description-normalization dedup, pending/posted window~~ — easier
+  to revisit now since unified schema; defer next.
+
+**Remaining queue:**
+- **Finance landing round 2** (cards): credit-card-specific columns
+  (credit_limit, payment_due_date, minimum_payment, statement_balance,
+  apr, promo_apr, promo_end_date, annual_fee, annual_fee_renewal_date,
+  rewards_balance) — additive migration on `accounts`.
+- **Finance landing round 3**: `/api/v1/finance/landing` aggregator,
+  swap sample data on Overview tiles for real values.
+- Description normalization for dedup
+- Pending/posted window for dedup (5-day overlap rule)
+- Sign-convention spec tests (finance parsers)
+- Categorization rule editor in Settings
+- Tag fixes / data-quality checker / per-device family filter
+- EOB Aetna MHBP parser verify, vision/dental EOB ingest
 
 **Don't pick a top item and start coding.** Al chats first, then builds.
 Ask which item to take, confirm scope, then go.
@@ -93,8 +150,284 @@ zip if needed.
 
 ## Current version
 
-**v202604.149** — packaged. Cross-card "All" tab is now the default
-landing on `/medical.html`. Contents:
+**v202604.151** — packaged. Finance module schema unification.
+
+- **Migration 126** (`126_finance_unify.js`) merges the parallel
+  `finance_*` (manual entry path) and `financial_*` (file import path)
+  tables into one unified `accounts` + one unified `transactions`
+  table. Same real-world account no longer ends up in two tables
+  depending on entry path.
+- **`accounts` table** — full union of fields from both sources,
+  plus `alias` (locked requirement for tile/report display),
+  `source` ('manual' | 'imported' | 'merged'), `needs_review` flag.
+  Type vocabulary locked: Checking, Savings, Credit, Cash, HSA,
+  Brokerage, TSP, Retirement, Loan, Mortgage, Other.
+- **`transactions` table** — replaces `finance_transactions` and
+  `imported_transactions`. Carries `source`, `needs_review`,
+  fingerprint, flagged, batch_id, txn_type.
+- **Dedup logic** — financial_accounts rows whose `(institution,
+  last4)` already exists in `accounts` are MERGED (fill-nulls only,
+  never overwrite); merged row gets `source='merged'`,
+  `needs_review=1`, alias set from `nickname`.
+- **No CASCADE** anywhere in the new schema. The old
+  `imported_transactions.account_id → financial_accounts(id) ON
+  DELETE CASCADE` (silently nuked history if account was deleted) is
+  gone.
+- **No DELETE endpoints** on accounts or transactions in either
+  `/api/v1/finance` or `/api/v1/import`. Replacements:
+  - `POST /api/v1/finance/accounts/:id/deactivate` + `/reactivate`
+  - `POST /api/v1/finance/transactions/:id/void`
+  - `POST /api/v1/finance/import-batches/:id/rollback`
+  - `POST /api/v1/import/accounts/:id/deactivate`
+  - `POST /api/v1/import/batches/:id/rollback`
+- **Validation on manual transaction POST** — account exists + active,
+  amount finite, future-date → `needs_review=1`.
+- **Net worth** now includes holdings market value on assets side and
+  no longer caps snapshot history (was `LIMIT 24`).
+- **Reversibility** — old tables renamed `_legacy_*`, not dropped.
+  Full rollback recipe in the comment block at the top of mig 126.
+- **Compat VIEWs** named `finance_accounts`, `financial_accounts`,
+  `finance_transactions`, `imported_transactions`, `fin_import_batches`
+  point at the unified tables with old column shapes. Other modules
+  (dashboard, search, subs, reports, recurring-transactions.js,
+  shared/dedupe.js, shared/exportQueries.js, etc.) keep working
+  unchanged through views; only the WRITE paths in
+  `features/finance/routes.js` and `features/import/routes.js` were
+  rewritten to target the unified tables directly.
+- **finance.html unchanged this drop** — frontend reads through views
+  + repointed routes; UI rewrites for tile 1/2/3/5 deferred.
+
+Carry-over from v.150 (still shipped, unchanged in code):
+- 6-tile Overview grid on /finance.html, Vellum theme, sample data
+- HSA + LP-FSA combined tile, click drills to HSA tab
+- gotoFinTab(id) helper, FAB/year-pill hidden on Overview tab
+
+Carry-over from v.149 (still shipped, unchanged in code):
+- Medical "All" tab as default landing, mobile swipe, SE/Self fix
+- Visit ↔ condition junction (migration 125)
+- Data joins audit (`family_member_name`, `attachment_count`,
+  `family_member_ids` rollup across med/cond/visit/EOB)
+
+---
+
+## ✋ DON'T TRUST WITHOUT RETEST (v202604.151)
+
+**This list survives across chats.** Anything below is *touched* this
+drop but NOT confirmed working by Al. Treat as suspect until Al says
+"tested, works." Clear an entry only on Al's confirmation.
+
+| File | Change | Risk |
+|---|---|---|
+| `app/db/migrations/126_finance_unify.js` | NEW. Merges 4 tables into 2, creates compat views, renames legacy tables. Idempotent guard via `_migrations_finance_unify_done`. | **HIGH** — schema change. Smoke-tested in sandbox with synthetic data; Al should manually back up `data/ghrava.db` before container restart. Legacy tables stay queryable for rollback. |
+| `app/features/finance/routes.js` | All read/write paths repointed from `finance_accounts`/`finance_transactions` → unified `accounts`/`transactions`. Added `alias` to POST/PUT. DELETE endpoints removed and replaced with deactivate/void/rollback. Validation added (active account, finite amount, future-date flag). | **HIGH** — every finance write path touched. Test: create manual account, edit alias, add transaction, deactivate, reactivate. |
+| `app/features/import/routes.js` | Full file rewrite. All paths target `accounts`/`transactions`. `DELETE /accounts/:id` → `POST /accounts/:id/deactivate`. `DELETE /batches/:id` → `POST /batches/:id/rollback`. Holdings upsert pattern changed from ON CONFLICT → manual SELECT-then-UPDATE-or-INSERT. | **HIGH** — every file-import path touched. Test: preview a CSV, confirm import, verify transactions appear, roll back the batch, verify rollback removed them. |
+| `app/version.txt` | `202604.151` | None. |
+
+### Carryover from v.150 — still untested
+
+- Finance Overview tab as default landing on /finance.html
+- 6 tiles with sample data, Vellum theme
+- gotoFinTab() helper, FAB/year-pill hidden on Overview
+- HSA + LP-FSA combined tile clicking into HSA tab
+
+### Carryover from v.149 — still untested
+
+- Medical /medical.html lands on All tab
+- SE/Self avatar bug fix
+- Visit ↔ condition junction (migration 125)
+
+**This list survives across chats.** Anything below is *touched* this
+drop but NOT confirmed working by Al. Treat as suspect until Al says
+"tested, works." Clear an entry only on Al's confirmation.
+
+(See top-of-file v.151 table — this block was the v.150 list, now
+folded into the carryover entries above.)
+
+---
+
+## ✅ SHIPPED THIS DROP (v202604.151)
+
+### Finance schema unification
+
+Plan locked with Al in chat (2026-05-10):
+
+- **Two parallel sets of finance tables had grown by historical
+  accident** — `finance_*` (mig 020, manual entry) and `financial_*`
+  (mig 032, file import). Same kind of data, two type vocabularies,
+  same real-world account could land in either depending on input
+  path. Plus a pre-existing `ON DELETE CASCADE` on
+  `imported_transactions.account_id` that silently nuked history
+  when an account was deleted.
+
+- **Decision (locked):** ONE `accounts` table, ONE `transactions`
+  table. Both manual entry and file import write to the same place.
+  `source` column ('manual' | 'imported' | 'merged') records origin.
+  `needs_review` flag on each row. NO CASCADE anywhere.
+
+- **Decision (locked):** Keep existing rows — merge them, do not
+  start from scratch. Dedup on `(institution, last4)` for the
+  financial_accounts → accounts copy. When a match exists, MERGE
+  fills nulls only (never overwrites), sets `source='merged'`,
+  `needs_review=1`, and pulls `nickname` over as `alias`.
+
+- **Decision (locked):** Type vocabulary frozen. Checking, Savings,
+  Credit, Cash, HSA, Brokerage, TSP, Retirement, Loan, Mortgage,
+  Other. Drives every dropdown. Anything else → 'Other' +
+  needs_review=1.
+
+- **Decision (locked):** No DELETE on accounts or transactions.
+  Soft inactive only. Even if a statement is loaded by mistake, use
+  rollback feature, never delete. `is_active=0` is the only way to
+  remove an account from view; `POST .../void` is the only way to
+  flag an individual mistaken transaction.
+
+- **Decision (locked):** Alias field required on every account row.
+  Drives tile and report display.
+
+- **Decision (locked):** Never auto-prune historical snapshots. Data
+  is cheap.
+
+- **Smoke test passed** in sandbox: 6 source rows (3 + 3) → 5 unified
+  rows with the Chase-Checking-style dup correctly merged
+  (`source='merged'`, alias filled, needs_review=1). 4 transactions
+  copied with correct FK rewrites. Holdings + batches FK-rewritten.
+  Legacy tables intact under `_legacy_*`. Compat views return
+  expected row counts.
+
+### Finance landing — round 1 of 3 (design)
+
+Plan locked with Al in chat 16 (this session, 2026-05-09):
+
+- **Round 1 (DONE):** Tile-grid landing on /finance.html. Sample data
+  hardcoded. Visual review only — no backend wiring.
+- **Round 2 (next):** Drill-in card design for credit cards, accounts,
+  holdings, transactions. Same Vellum 5-zone template as medical.
+  Will need additive schema for credit-card-specific fields (see
+  Round 2 schema gaps below).
+- **Round 3 (after R2):** Backend `/api/v1/finance/landing` aggregator
+  endpoint. New tables/columns where needed. Sample tile data
+  replaced with real API results.
+
+### Why tiles vs cards (locked language)
+
+- A **tile** is a roll-up: one number summarizing many records
+  (e.g. "Credit Cards · $3,420 owed across 4 active"). Click → drills
+  into the section's detail page.
+- A **card** is one record with detail (e.g. one specific transaction
+  at Shell for $58.12). Used on detail pages, never on landing.
+- Both use the same 5-zone template (eyebrow / hero / pill / strip /
+  entities) and the Vellum theme.
+
+### Tile composition (locked v.150)
+
+The 6 tiles, in display order:
+
+1. **Net Worth** — Total $ + MoM delta + 12-month sparkline + assets
+   vs liabilities. Click → networth tab.
+2. **Cash Flow MTD** — Net + on-track pill + in/out bar + vs-prior-month
+   + YTD. Click → transactions tab.
+3. **Credit Cards** — Total owed + utilization pill + top 2 cards by
+   balance with mini bars + "+N more" rollup + earliest due date.
+   Click → accounts tab.
+4. **Bank Accounts** — Total liquid + stale-count pill + checking /
+   savings split + last-reconciled callout. Click → accounts tab.
+5. **Holdings** — Market value + YTD % pill + top 2 positions with
+   gain% + "+N more" rollup + vs-S&P / today line. Click → holdings.
+6. **HSA + LP-FSA** — Combined unreimbursed pool + LP-FSA deadline pill +
+   per-pot mini rows + "manage in Medical → Receipts" hint. Click →
+   hsa tab (will redirect to Medical Receipts when Path B ships).
+
+**Subscriptions tile dropped from landing** — Subscriptions has its
+own module page in nav already. Adding a tile here was duplicate
+signal.
+
+**Budgets tile not added** — Al said skip; can add later if he uses
+budgets actively.
+
+**Gift cards / trade terminal / property** — kept off the landing.
+Low signal as tiles. Trade has its own page.
+
+### Visual rules (locked v.150) — applies to every finance tile
+
+- Status dot in eyebrow, semantic colors: green = healthy, amber =
+  needs attention, red = problem.
+- Status pill on right of hero, same color family as the dot.
+- Hero number is `Newsreader/Fraunces` italic 40px on desktop, 36px on
+  mobile.
+- Mini list rows are DM Mono 12px. Each row has a `flex:1` label slot
+  on the left, optional bar/badge in middle, right-aligned $ amount
+  with `min-width:54px` for column alignment.
+- Strip line at bottom (mono 11px) — most-actionable single line of
+  text. Color shifts to red when it's an alert.
+- Entities row at the very bottom — family avatars (NEVER overlap;
+  see medical's universal avatar rules in `_templates.html` #17).
+- Mobile: 1-column grid below 700px viewport.
+
+### "Alias" field (locked, schema gap for round 2/3)
+
+Account/card display names truncate at ~18 characters in mini rows.
+Add `alias TEXT` to `finance_accounts` (additive, nullable). Render
+rule: show alias if set, otherwise fall back to `name`. Examples:
+"Apple" instead of "Apple Card", "Amex BCP" instead of "American
+Express Blue Cash Preferred".
+
+### Earliest-due-date rule (locked, round 3 logic)
+
+The "next due in N days" line on the Credit Cards tile resolves
+across all credit cards: minimum `payment_due_date` where balance
+> 0. Tiebreak by larger `minimum_payment`.
+
+### HSA + LP-FSA combined into one tile (locked)
+
+Hero is the combined unreimbursed pool. Two mini rows split it by pot.
+Click target opens HSA on /finance.html for now; once Path B (HSA
+receipts in Medical) lands, the click target changes to /medical.html
+on the Receipts tab.
+
+### Round 2 schema gaps (logged for the round 2 drop, not yet built)
+
+For credit-card detail cards to work, `finance_accounts` needs
+additive columns (or a `finance_credit_card_details` sidecar table):
+
+- `alias` TEXT (locked v.150 — applies to all finance accounts, not
+  just credit cards)
+- `credit_limit` REAL
+- `payment_due_date` DATE
+- `minimum_payment` REAL
+- `statement_balance` REAL  (distinct from `current_balance`)
+- `statement_date` DATE
+- `apr` REAL
+- `promo_apr` REAL
+- `promo_end_date` DATE
+- `annual_fee` REAL
+- `annual_fee_renewal_date` DATE
+- `rewards_balance` REAL
+- `rewards_program` TEXT
+
+CSV imports won't populate most of these — they're entered once per
+card and updated when statements come in. Detail-card edit form
+needs to capture them.
+
+### Capture-everything rule (carry-over from EOB, applies to finance)
+
+Per the EOB CAPTURE-EVERYTHING RULE locked earlier:
+
+- Add `raw_row` JSON column to `imported_transactions` — preserves
+  the original CSV/OFX row even if the parser drops a column.
+- Add `original_headers` per import batch — so old imports can be
+  re-parsed if a parser improves.
+- Add `normalized_description` for dedup (separate from display
+  description). See IN FLIGHT #1 (description normalization).
+- Add `pending_or_posted` flag distinct from `flagged`.
+- Add `linked_record_type` + `linked_record_id` for cross-module
+  links (fuel → vehicle, CVS → prescription). This is the same
+  as the `tx_record_links` design in TRANSACTION_LINKING_SPEC.md;
+  decide before round 3 whether to use a sidecar table or add
+  direct columns.
+
+These are NOT yet wired. Logged here so round 3 doesn't forget.
+
+---
 
 - **SE/Self bug fixed** at the root. Form drawers (med, condition,
   visit) pre-fill the family widget from the active patient strip.
@@ -126,115 +459,37 @@ Carry-over from v.148 (still shipped, unchanged in code):
 
 ---
 
-## ✋ DON'T TRUST WITHOUT RETEST (v202604.149)
+## ✅ SHIPPED — RECENT DROPS (compressed)
 
-**This list survives across chats.** Anything below is *touched* this
-drop but NOT confirmed working by Al. Treat as suspect until Al says
-"tested, works." Clear an entry only on Al's confirmation.
+### v202604.150 (finance landing) — see ✋ DON'T TRUST list above for items still untested
 
-| File | Change | Risk |
-|---|---|---|
-| `app/db/migrations/125_med_visit_conditions.js` (NEW) | Creates `med_visit_conditions` junction table with indexes; idempotent | Low — additive, simulated against in-memory shape, idempotent confirmed |
-| `app/features/medical/routes.js` | GET /notes returns family_member_name + attachment_count + linked_conditions | Medium — new joins. Routes still parse OK; needs runtime test against real DB |
-| `app/features/medical/routes.js` | POST/PUT /notes write linked_condition_ids junction (replace-set on PUT). DELETE /notes clears junction. | Medium |
-| `app/features/medical/routes.js` | DELETE /conditions clears the visit junction first | Low |
-| `app/features/medical/routes.js` | GET /medications, /conditions, /eob each return attachment_count | Low — additive subselect |
-| `app/features/medical/routes.js` | GET /eob returns family_member_ids (DISTINCT from claims) | Low |
-| `app/public/medical.html` | Default `currentView = 'all_medical'`; All tab moved to first position; tab marked `active` by default | Medium — every page load lands here. Verify deep-links from daily-log/dashboard still work (they don't pass a tab; they trigger drawer open via seed/visit query params). |
-| `app/public/medical.html` | New helper `_currentMemberId()`. All three drawer-open paths use it to pre-fill the family wrap | Medium — relies on `currentPatient` matching `display_name` exactly. Was the existing convention already. |
-| `app/public/medical.html` | Three `patient: ... 'Self'` save fallbacks → `null` instead | Low |
-| `app/public/medical.html` | `memberName` in renderMedCard/Condition/Visit no longer falls through to `'Self'` string | Low |
-| `app/public/medical.html` | New visit form field "For which conditions?" — chip picker. Loads conditions for the active patient | Medium — picker filters conditions by family_member_id; if patient hasn't been selected yet, shows all. |
-| `app/public/medical.html` | New saveNote field `linked_condition_ids` | Low |
-| `app/public/medical.html` | `renderAllMedical()` rewritten — flat grid sorted newest first; EOB filter uses new family_member_ids rollup | Medium — sort key per domain documented in code |
-| `app/public/medical.html` | `.medv5-grid--all` CSS — mobile swipe-snap carousel | Medium — needs touch testing on a real phone, not just devtools mobile mode |
-| `app/public/medical.html` | Visit card shows linked-condition chips when `linked_conditions` array is populated | Low |
-| `app/version.txt` | Bumped 202604.148 → 202604.149 | — |
+- /finance.html lands on a new "Overview" tab (first tab, default).
+- 6-tile grid with sample data (Net Worth, Cash Flow MTD, Credit
+  Cards, Bank Accounts, Holdings, HSA + LP-FSA), Vellum theme.
+- Tiles clickable; `gotoFinTab(id)` drills into the existing tab.
+- HSA + LP-FSA combined into one tile.
+- FAB and year pill hidden initially (HSA-only chrome).
 
----
+### v202604.149 (medical) — see ✋ DON'T TRUST list above for items still untested
 
-## ✅ SHIPPED THIS DROP (v202604.149)
+- SE/Self avatar bug fixed at the root: form drawers pre-fill the
+  family widget from the active patient strip; save handlers no longer
+  write the literal string `'Self'` (they write `null`); card
+  renderers no longer compute initials from `'Self'`.
+- All tab as default landing on /medical.html (cross-card grid,
+  newest-first sort).
+- Mobile swipe-snap carousel on the All tab (≤700px).
+- Visit ↔ condition junction (migration 125): chip picker on visit
+  drawer, purple chips on visit cards. Replace-set on PUT, DELETE
+  clears junction; no FK CASCADE per arch rule.
+- Data joins audit: `family_member_name`, `attachment_count`,
+  `family_member_ids` rollup added across med/cond/visit/EOB.
 
-### SE/Self bug — root cause fix
+### v202604.148 (medical, prior) — already tested
 
-The display name "SE" was appearing because:
-1. Form drawer opened with empty family widget
-2. User selected nothing in widget; current patient strip had a
-   selection but wasn't used
-3. Save wrote `family_member_id: null, patient: "Self"` (literal string)
-4. Render fell back to `"Self"` and GH_AVATAR computed initials → "SE"
-
-Three-layer fix:
-- **Forms** pre-fill the family widget with the active patient strip's
-  member id when no record id is being edited. New helper
-  `_currentMemberId()` resolves `currentPatient` (display_name string)
-  to a member id from `familyMembers`.
-- **Save handlers** stop substituting `'Self'` for missing patient.
-  Body sends `null` so backend has clean signal.
-- **Renderers** compute `memberName` only from real family data.
-  Stale rows where `patient = 'Self'` and `family_member_id = NULL`
-  render with no avatar, instead of "SE."
-
-The backend `'Self'` defaults in routes.js were left in place as a
-defensive last-resort — only the client-side path was changed. Old
-rows with `patient = 'Self'` already in the DB will render
-avatar-less from now on; if you want them attributed to a real
-member, edit them and resave.
-
-### Data-joins audit + fixes
-
-**Visit list (`GET /medical/notes`)** — added joins/columns:
-- `family_member_name` (was missing — primary cause of SE bug for visits)
-- `attachment_count` (paperclip badge)
-- `linked_conditions: [{id, name}, ...]` (new junction)
-
-**Condition list (`GET /medical/conditions`)** — added:
-- `attachment_count`
-
-**Medication list (`GET /medical/medications`)** — added:
-- `attachment_count`
-
-**EOB list (`GET /medical/eob`)** — added:
-- `attachment_count`
-- `family_member_ids` — DISTINCT from claims, lets the All-tab
-  person filter narrow EOBs by person directly. Substring fallback
-  still in place for older clients.
-
-### Visit ↔ condition junction (migration 125)
-
-New table `med_visit_conditions(visit_id, condition_id)`. No FK
-constraints (per architecture rule). Indexed both directions.
-
-**Form**: new "For which conditions?" chip picker on the visit
-drawer, between Reason and Vitals. Loads conditions filtered to the
-active patient (or all conditions if no patient set yet). Click a
-chip to toggle. Multi-select.
-
-**API contract**: POST/PUT /notes accept `linked_condition_ids: [int...]`
-in the body. PUT does **replace-set** (an empty array clears all
-links). DELETE /notes clears the visit's links. DELETE /conditions
-clears links pointing at that condition.
-
-**Render**: visit cards show one purple chip per linked condition in
-the tag row, alongside the visit-type chip.
-
-### All-tab landing + flat grid + mobile swipe
-
-- `currentView` initial value is now `'all_medical'`. Tab order
-  reshuffled so All is first and starts with the `active` class.
-- `_medBoot()` calls `renderCurrentView()` instead of forcing
-  `renderMedications()`, so the initial render matches whatever
-  `currentView` is.
-- `renderAllMedical()` rewritten: builds one flat list `items` with
-  a `_kind` discriminator and `_sortDate` per row, sorts by sortDate
-  descending, dispatches to the correct render function. No section
-  labels.
-- Sort keys: visit_date, statement_date, latest_metric.recorded_at /
-  start_date, start_date / created_at — newest first, empties to bottom.
-- New CSS class `medv5-grid--all`. Desktop: inherits 2-col layout.
-  Mobile (≤700px): becomes `display:flex; overflow-x:auto;
-  scroll-snap-type:x mandatory`, with each card sized to viewport
-  width minus 28px and `scroll-snap-align:center; scroll-snap-stop:always`.
+- EOB drill-down modal (real data, Vellum styled)
+- Auto-todo for upcoming visits (rule 7b in autoTodos.js)
+- Device family scope wiring (`gh-scope-changed` listener)
 
 ---
 
@@ -255,17 +510,20 @@ because of trailing reference IDs. Add a normalize step:
 - trim
 
 Hash the normalized string, store original for display. Backfill
-existing rows with `UPDATE imported_transactions SET fingerprint =
-new_hash` in a migration.
+existing rows with `UPDATE transactions SET fingerprint = new_hash
+WHERE source='imported'` in a migration. (After v.151 unification,
+fingerprints are stored on the unified `transactions` table.)
 
 ### 2. Pending → posted window for dedup
 
 Pending and posted versions of the same charge often have different
 dates. Add second-layer check: same account + same amount (within
 $0.01) + within 5 days + similar normalized description → flag, not
-silent skip. Already partially wired (the `flagged=1` field exists);
-extend the SQL window from "same date" to "5-day window" and add
-description-similarity check.
+silent skip. Already partially wired (the `flagged=1` field exists on
+the unified `transactions` table); extend the SQL window from "same
+date" to "5-day window" and add description-similarity check. Both
+the `/api/v1/finance/transactions/import-file` and `/api/v1/import/
+confirm` paths need updating.
 
 ### 3. Sign-convention spec tests (finance parsers)
 
@@ -1161,38 +1419,54 @@ If new orphans show up in future deploys, list them here.
 
 ## 🛠 FILE MAP
 
-### What's in the v.149 deploy zip
+### What's in the v.150 deploy zip (current)
+
+Only the files actually changed in this drop. Per Al's standing rule:
+"only necessary files to avoid redundant files."
+
+```
+Ghrava_DEPLOY.zip (4 files)
+├── STATE.md                            this file
+├── TOUCHED.md                          v.150 manifest
+└── app/
+    ├── version.txt                     "202604.150"
+    └── public/
+        └── finance.html                .150 — Overview tile-grid landing,
+                                          Vellum theme, gotoFinTab helper,
+                                          FAB + year-pill hidden initially
+```
+
+### What was in the v.149 deploy zip (historical)
 
 ```
 Ghrava_DEPLOY.zip (~110 KB, 9 files)
-├── STATE.md                                     this file
-├── TOUCHED.md                                   per-drop manifest of v.149 changes
+├── STATE.md                            this file
+├── TOUCHED.md                          per-drop manifest of v.149 changes
 └── app/
-    ├── version.txt                              "202604.149"
-    ├── db/
-    │   └── migrations/
-    │       └── 125_med_visit_conditions.js      NEW — visit↔condition junction table
-    ├── features/
-    │   └── medical/
-    │       └── routes.js                        .149 — joins, attachment_count,
-    │                                              linked_condition_ids handling,
-    │                                              EOB family_member_ids rollup
-    ├── shared/
-    │   └── autoTodos.js                         .148 (carried over for completeness)
+    ├── version.txt                     "202604.149"
+    ├── db/migrations/
+    │   └── 125_med_visit_conditions.js NEW — visit↔condition junction table
+    ├── features/medical/
+    │   └── routes.js                   .149 — joins, attachment_count,
+    │                                     linked_condition_ids, EOB rollup
+    ├── shared/autoTodos.js             .148 (carried over)
     └── public/
-        ├── medical.html                         .149 — All landing, flat grid,
-        │                                          mobile swipe, SE/Self bug fix,
-        │                                          linked-conditions form picker,
-        │                                          visit card chips
-        ├── _card_previews.html                  .148 — back-link href fixed
-        └── js/
-            └── lens-config.js                   .148 (carried over)
+        ├── medical.html                .149 — All landing, swipe, SE fix,
+        │                                  linked-conditions chip picker
+        ├── _card_previews.html         .148 — back-link href fixed
+        └── js/lens-config.js           .148 (carried over)
 ```
 
-### NOT in v.149 zip but related
+### NOT in v.150 zip but related
 
 These files exist on Al's live NAS, are referenced by changed files,
-but were not modified in v.149:
+but were not modified in v.150:
+
+- `app/features/finance/routes.js` — finance routes; will be touched in
+  round 3 (aggregator endpoint)
+- `app/features/import/parsers.js` — 13-bank parser; relevant for the
+  finance dedup tightening drops (IN FLIGHT #1–3) but untouched here
+- `app/features/import/routes.js` — `/import/preview`, `/import/confirm`
 
 - `app/features/todos/routes.js` — calls `syncAutoTodos()` on each GET
 - `app/features/medical/eob-parser.js` — Aetna MHBP parser; will be
@@ -1606,7 +1880,7 @@ None of these require keys for the current free-tier usage.
 1. **Read this STATE.md end-to-end.** Yes, all of it. Al has paid for
    this context once already.
 2. **Check `app/version.txt`** for current version (should be
-   202604.149 unless Al has deployed since).
+   202604.150 unless Al has deployed since).
 3. **Verify the ✋ DON'T TRUST WITHOUT RETEST list.** Ask Al what he
    tested and what he didn't. Update the list as he confirms each item.
 4. **Ask Al "ready?" — let him pick from IN FLIGHT.** Don't assume #1

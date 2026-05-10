@@ -177,23 +177,35 @@ function createExpiryTodo(gcId, retailer, expiryDate, balance) {
 // ACCOUNTS
 // ══════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════
+// ACCOUNTS — unified table (v202604.151, mig 126)
+//   `accounts` replaces both `finance_accounts` and `financial_accounts`.
+//   `transactions` replaces both `finance_transactions` and
+//   `imported_transactions`. Both manual and file-import paths target
+//   these. The `source` column on each row records origin
+//   ('manual' | 'imported' | 'merged'); `needs_review` flags rows
+//   that need a human eye (typically post-merge).
+//
+//   No DELETE endpoints — accounts and transactions can only be
+//   set inactive. This is enforced because:
+//     (a) historical FK refs from holdings, batches, todos
+//     (b) deleting an account silently nuking its history was the
+//         old CASCADE bug (mig 126 also removed those CASCADEs)
+// ══════════════════════════════════════════════════════════════
+
 router.get('/accounts', (req, res) => {
   try {
+    const includeInactive = req.query.include_inactive === '1';
+    const where = includeInactive ? '' : 'WHERE a.is_active = 1';
     const rows = db.prepare(`
       SELECT a.*,
-        (SELECT COALESCE(SUM(amount), 0) FROM finance_transactions WHERE account_id = a.id) AS tx_total,
-        (SELECT COUNT(*) FROM finance_transactions WHERE account_id = a.id) AS tx_count,
-        -- v202604.116 card field gaps: surface counts for cross-module strip.
-        -- These joins are cheap (indexed FKs) and let the card render the
-        -- "Linked subs" cross-module row without a second round-trip.
+        (SELECT COALESCE(SUM(amount), 0) FROM transactions WHERE account_id = a.id) AS tx_total,
+        (SELECT COUNT(*) FROM transactions WHERE account_id = a.id) AS tx_count,
         (SELECT COUNT(*) FROM subscriptions WHERE finance_account_id = a.id AND status = 'active') AS linked_subs_count,
-        -- Last-30-day balance delta from imported_transactions linked to this account.
-        -- Net change of inflows - outflows. Null when the account hasn't been linked
-        -- to any imported transactions, so the card row simply omits.
-        (SELECT COALESCE(SUM(amount), 0) FROM finance_transactions
+        (SELECT COALESCE(SUM(amount), 0) FROM transactions
            WHERE account_id = a.id AND date >= date('now','-30 days')) AS balance_change_30d
-      FROM finance_accounts a
-      WHERE a.is_active = 1
+      FROM accounts a
+      ${where}
       ORDER BY a.sort_order ASC, a.name ASC
     `).all();
     res.json(rows);
@@ -204,18 +216,30 @@ router.post('/accounts', (req, res) => {
   try {
     const d = req.body;
     if (!d.name) return badRequest(res, 'name required');
+    // Type is REQUIRED in the unified vocab. Old default 'Checking' kept
+    // for back-compat with clients that don't send a type.
     const r = db.prepare(`
-      INSERT INTO finance_accounts
-        (name, type, institution, account_last4, current_balance, balance_as_of, include_net_worth, notes, contact_id, institution_contact_id, sort_order)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      INSERT INTO accounts
+        (name, alias, type, institution, last4, owner, currency,
+         current_balance, balance_as_of, include_net_worth,
+         track_statements, notes, sort_order, source, needs_review)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     `).run(
-      d.name, d.type||'Checking', d.institution||null, d.account_last4||null,
-      parseFloat(d.current_balance)||0, d.balance_as_of||null,
+      d.name,
+      d.alias || null,
+      d.type || 'Checking',
+      d.institution || null,
+      d.last4 || d.account_last4 || null,
+      d.owner || null,
+      d.currency || 'USD',
+      parseFloat(d.current_balance) || 0,
+      d.balance_as_of || null,
       d.include_net_worth !== false ? 1 : 0,
-      d.notes||null,
-      d.contact_id||null,
-      d.institution_contact_id||null,
-      parseInt(d.sort_order)||0
+      d.track_statements ? 1 : 0,
+      d.notes || null,
+      parseInt(d.sort_order) || 0,
+      'manual',
+      0
     );
     saveFamilyMembers(r.lastInsertRowid, 'finance_account', d.family_member_ids || []);
     res.status(201).json({ id: r.lastInsertRowid });
@@ -224,28 +248,33 @@ router.post('/accounts', (req, res) => {
 
 router.put('/accounts/:id', (req, res) => {
   try {
-    const d   = req.body;
-    const existing = db.prepare('SELECT * FROM finance_accounts WHERE id=?').get(req.params.id);
+    const d = req.body;
+    const existing = db.prepare('SELECT * FROM accounts WHERE id=?').get(req.params.id);
     if (!existing) return notFound(res, 'Account');
-    if (d.family_member_ids !== undefined) saveFamilyMembers(req.params.id, 'finance_account', d.family_member_ids);
+    if (d.family_member_ids !== undefined)
+      saveFamilyMembers(req.params.id, 'finance_account', d.family_member_ids);
     db.prepare(`
-      UPDATE finance_accounts SET
-        name=?, type=?, institution=?, account_last4=?,
-        current_balance=?, balance_as_of=?, include_net_worth=?, notes=?, contact_id=?,
-        institution_contact_id=?, sort_order=?,
+      UPDATE accounts SET
+        name=?, alias=?, type=?, institution=?, last4=?, owner=?, currency=?,
+        current_balance=?, balance_as_of=?, include_net_worth=?,
+        track_statements=?, notes=?, sort_order=?, needs_review=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
-      d.name||existing.name, d.type||existing.type,
-      d.institution!==undefined ? d.institution : existing.institution,
-      d.account_last4!==undefined ? d.account_last4 : existing.account_last4,
-      d.current_balance!==undefined ? parseFloat(d.current_balance) : existing.current_balance,
-      d.balance_as_of!==undefined ? d.balance_as_of : existing.balance_as_of,
-      d.include_net_worth!==undefined ? (d.include_net_worth ? 1 : 0) : existing.include_net_worth,
-      d.notes!==undefined ? d.notes : existing.notes,
-      d.contact_id!==undefined ? d.contact_id||null : existing.contact_id||null,
-      d.institution_contact_id!==undefined ? d.institution_contact_id||null : existing.institution_contact_id||null,
-      d.sort_order!==undefined ? parseInt(d.sort_order) : existing.sort_order,
+      d.name || existing.name,
+      d.alias !== undefined ? d.alias : existing.alias,
+      d.type || existing.type,
+      d.institution !== undefined ? d.institution : existing.institution,
+      d.last4 !== undefined ? d.last4 : (d.account_last4 !== undefined ? d.account_last4 : existing.last4),
+      d.owner !== undefined ? d.owner : existing.owner,
+      d.currency !== undefined ? d.currency : existing.currency,
+      d.current_balance !== undefined ? parseFloat(d.current_balance) : existing.current_balance,
+      d.balance_as_of !== undefined ? d.balance_as_of : existing.balance_as_of,
+      d.include_net_worth !== undefined ? (d.include_net_worth ? 1 : 0) : existing.include_net_worth,
+      d.track_statements !== undefined ? (d.track_statements ? 1 : 0) : existing.track_statements,
+      d.notes !== undefined ? d.notes : existing.notes,
+      d.sort_order !== undefined ? parseInt(d.sort_order) : existing.sort_order,
+      d.needs_review !== undefined ? (d.needs_review ? 1 : 0) : existing.needs_review,
       req.params.id
     );
     res.json({ ok: true });
@@ -257,17 +286,27 @@ router.patch('/accounts/:id/balance', (req, res) => {
     const { balance, as_of } = req.body;
     if (balance === undefined) return badRequest(res, 'balance required');
     db.prepare(`
-      UPDATE finance_accounts SET current_balance=?, balance_as_of=?, updated_at=CURRENT_TIMESTAMP WHERE id=?
+      UPDATE accounts SET current_balance=?, balance_as_of=?, updated_at=CURRENT_TIMESTAMP WHERE id=?
     `).run(parseFloat(balance), as_of || new Date().toISOString().slice(0,10), req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
 
-router.delete('/accounts/:id', (req, res) => {
+// Soft-deactivate only. No DELETE — use PUT { is_active: 0 } or this endpoint.
+router.post('/accounts/:id/deactivate', (req, res) => {
   try {
-    const existing = db.prepare('SELECT id FROM finance_accounts WHERE id=?').get(req.params.id);
+    const existing = db.prepare('SELECT id FROM accounts WHERE id=?').get(req.params.id);
     if (!existing) return notFound(res, 'Account');
-    db.prepare('UPDATE finance_accounts SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(req.params.id);
+    db.prepare('UPDATE accounts SET is_active=0, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(req.params.id);
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+router.post('/accounts/:id/reactivate', (req, res) => {
+  try {
+    const existing = db.prepare('SELECT id FROM accounts WHERE id=?').get(req.params.id);
+    if (!existing) return notFound(res, 'Account');
+    db.prepare('UPDATE accounts SET is_active=1, updated_at=CURRENT_TIMESTAMP WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
@@ -276,13 +315,17 @@ router.delete('/accounts/:id', (req, res) => {
 // TRANSACTIONS
 // ══════════════════════════════════════════════════════════════
 
+// ══════════════════════════════════════════════════════════════
+// TRANSACTIONS — unified table (v202604.151, mig 126)
+// ══════════════════════════════════════════════════════════════
+
 router.get('/transactions', (req, res) => {
   try {
-    const { account_id, year, month, category, limit = 100, offset = 0 } = req.query;
+    const { account_id, year, month, category, source, limit = 100, offset = 0 } = req.query;
     let sql = `
       SELECT t.*, a.name as account_name, a.type as account_type
-      FROM finance_transactions t
-      JOIN finance_accounts a ON a.id = t.account_id
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
       WHERE 1=1
     `;
     const params = [];
@@ -290,24 +333,25 @@ router.get('/transactions', (req, res) => {
     if (year)       { sql += " AND strftime('%Y', t.date) = ?"; params.push(String(year)); }
     if (month)      { sql += " AND strftime('%Y-%m', t.date) = ?"; params.push(String(month)); }
     if (category)   { sql += ' AND t.category = ?'; params.push(category); }
+    if (source)     { sql += ' AND t.source = ?'; params.push(source); }
     sql += ' ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?';
     params.push(parseInt(limit), parseInt(offset));
     const rows = db.prepare(sql).all(...params).map(r => withTagNames(r, 'finance_transaction'));
 
-    // Also return summary
     let sumSql = `
       SELECT
         COUNT(*) as total_count,
         COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) as total_credits,
         COALESCE(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0) as total_debits,
         COALESCE(SUM(amount), 0) as net
-      FROM finance_transactions t WHERE 1=1
+      FROM transactions t WHERE 1=1
     `;
     const sumParams = [];
     if (account_id) { sumSql += ' AND t.account_id = ?'; sumParams.push(account_id); }
     if (year)       { sumSql += " AND strftime('%Y', t.date) = ?"; sumParams.push(String(year)); }
     if (month)      { sumSql += " AND strftime('%Y-%m', t.date) = ?"; sumParams.push(String(month)); }
     if (category)   { sumSql += ' AND t.category = ?'; sumParams.push(category); }
+    if (source)     { sumSql += ' AND t.source = ?'; sumParams.push(source); }
     const summary = db.prepare(sumSql).get(...sumParams);
 
     res.json({ transactions: rows, summary });
@@ -315,61 +359,35 @@ router.get('/transactions', (req, res) => {
 });
 
 
-// GET /api/v1/finance/transactions/unified — merges manual + imported transactions
-// Returns both finance_transactions and imported_transactions in one sorted list.
+// /transactions/unified — backward-compatible. Now just an alias for
+// /transactions with optional source filter, since both record types
+// live in the same table.
 router.get('/transactions/unified', (req, res) => {
   try {
-    const { account_id, account_type, year, month, search, limit = 200, offset = 0 } = req.query;
+    const { account_id, year, month, search, limit = 200, offset = 0 } = req.query;
     const params = [];
-    const impParams = [];
-    // account_type: 'banking' | 'investment' | undefined (both)
-    const showBanking    = !account_type || account_type === 'banking';
-    const showInvestment = !account_type || account_type === 'investment';
+    let sql = `
+      SELECT t.*, a.name AS account_name, a.type AS account_type, a.alias AS account_alias
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE 1=1
+    `;
+    if (account_id) { sql += ' AND t.account_id = ?'; params.push(account_id); }
+    if (year)       { sql += " AND strftime('%Y', t.date) = ?"; params.push(String(year)); }
+    if (month)      { sql += " AND strftime('%Y-%m', t.date) = ?"; params.push(String(month)); }
+    if (search)     { sql += ' AND (t.description LIKE ? OR t.notes LIKE ? OR t.memo LIKE ?)';
+                      params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+    sql += ' ORDER BY t.date DESC, t.id DESC LIMIT ? OFFSET ?';
+    params.push(parseInt(limit), parseInt(offset));
+    const all = db.prepare(sql).all(...params).map(r => withTagNames(r, 'finance_transaction'));
 
-    // Build WHERE for manual transactions
-    let manWhere = 'WHERE 1=1';
-    if (account_id && showBanking) { manWhere += ' AND t.account_id=?'; params.push(account_id); }
-    if (!showBanking) { manWhere += ' AND 1=0'; } // exclude banking entirely
-    if (year)       { manWhere += " AND strftime('%Y',t.date)=?"; params.push(String(year)); }
-    if (month)      { manWhere += " AND strftime('%Y-%m',t.date)=?"; params.push(String(month)); }
-    if (search)     { manWhere += ' AND (t.description LIKE ? OR t.notes LIKE ?)'; params.push(`%${search}%`,`%${search}%`); }
-
-    // Build WHERE for imported transactions
-    let impWhere = 'WHERE t.is_transfer=0';
-    if (!showInvestment) { impWhere += ' AND 1=0'; } // exclude investment entirely
-    if (account_id && showInvestment) { impWhere += ' AND t.account_id=?'; impParams.push(account_id); }
-    if (year)       { impWhere += " AND strftime('%Y',t.txn_date)=?"; impParams.push(String(year)); }
-    if (month)      { impWhere += " AND strftime('%Y-%m',t.txn_date)=?"; impParams.push(String(month)); }
-    if (search)     { impWhere += ' AND t.description LIKE ?'; impParams.push(`%${search}%`); }
-
-    const manTxns = db.prepare(`
-      SELECT t.id, t.account_id, t.date, t.description, t.amount,
-             t.category, t.notes, t.is_reconciled,
-             a.name AS account_name, 'manual' AS source, NULL AS batch_id,
-             0 AS flagged, 0 AS is_transfer
-      FROM finance_transactions t
-      JOIN finance_accounts a ON a.id=t.account_id
-      ${manWhere}
-    `).all(...params).map(r => withTagNames(r, 'finance_transaction'));
-
-    const impTxns = db.prepare(`
-      SELECT t.id, t.account_id, t.txn_date AS date, t.description, t.amount,
-             t.category, t.memo AS notes, 0 AS is_reconciled,
-             fa.nickname AS account_name, 'imported' AS source, t.batch_id,
-             t.flagged, t.is_transfer
-      FROM imported_transactions t
-      JOIN financial_accounts fa ON fa.id=t.account_id
-      ${impWhere}
-    `).all(...impParams);
-
-    const all = [...manTxns, ...impTxns]
-      .sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id)
-      .slice(parseInt(offset), parseInt(offset) + parseInt(limit));
-
-    const total_credits = all.reduce((s,t) => s + (t.amount > 0 ? t.amount : 0), 0);
-    const total_debits  = all.reduce((s,t) => s + (t.amount < 0 ? t.amount : 0), 0);
-    res.json({ transactions: all, summary: { total_credits, total_debits, net: total_credits + total_debits } });
-  } catch(e) { serverError(res, e); }
+    const total_credits = all.reduce((s, t) => s + (t.amount > 0 ? t.amount : 0), 0);
+    const total_debits  = all.reduce((s, t) => s + (t.amount < 0 ? t.amount : 0), 0);
+    res.json({
+      transactions: all,
+      summary: { total_credits, total_debits, net: total_credits + total_debits }
+    });
+  } catch (e) { serverError(res, e); }
 });
 
 // ── Category rules ────────────────────────────────────────────
@@ -400,13 +418,15 @@ router.delete('/category-rules/:id', requireAuth, (req, res) => {
 router.post('/category-rules/apply', requireAuth, (req, res) => {
   try {
     const rules = db.prepare('SELECT * FROM import_category_rules WHERE is_active=1 ORDER BY sort_order').all();
-    const uncategorized = db.prepare("SELECT id, description FROM imported_transactions WHERE (category IS NULL OR category='')").all();
+    const uncategorized = db.prepare(`
+      SELECT id, description FROM transactions
+      WHERE source='imported' AND (category IS NULL OR category='')
+    `).all();
     let updated = 0;
-    const stmt = db.prepare('UPDATE imported_transactions SET category=? WHERE id=?');
+    const stmt = db.prepare('UPDATE transactions SET category=? WHERE id=?');
     for (const txn of uncategorized) {
       const desc = (txn.description || '').toUpperCase();
       for (const rule of rules) {
-        // Convert SQL LIKE to JS: % = any, _ = single char
         const regex = new RegExp('^' + rule.pattern.replace(/%/g,'.*').replace(/_/g,'.') + '$', 'i');
         if (regex.test(desc)) {
           stmt.run(rule.category, txn.id);
@@ -427,13 +447,30 @@ router.post('/transactions', (req, res) => {
     if (!d.description)  return badRequest(res, 'description required');
     if (d.amount === undefined) return badRequest(res, 'amount required');
 
+    // Validation: account exists + active
+    const acc = db.prepare(`SELECT id, is_active FROM accounts WHERE id=?`).get(d.account_id);
+    if (!acc) return badRequest(res, 'unknown account_id');
+    if (!acc.is_active) return badRequest(res, 'account is inactive');
+
+    // Validation: amount is finite number
+    const amt = parseFloat(d.amount);
+    if (!isFinite(amt)) return badRequest(res, 'amount must be a number');
+
+    // Validation: date is not in far future (1 year)
+    const dDate = new Date(d.date);
+    if (isNaN(dDate)) return badRequest(res, 'invalid date');
+    const yearFromNow = new Date(); yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
+    const needsReview = dDate > yearFromNow ? 1 : 0;
+
     const r = db.prepare(`
-      INSERT INTO finance_transactions (account_id, date, description, amount, category, notes, is_reconciled)
-      VALUES (?,?,?,?,?,?,?)
+      INSERT INTO transactions
+        (account_id, date, description, amount, category, notes, is_reconciled, source, needs_review)
+      VALUES (?,?,?,?,?,?,?,'manual',?)
     `).run(
       d.account_id, d.date, d.description,
-      parseFloat(d.amount), d.category||null, d.notes||null,
-      d.is_reconciled ? 1 : 0
+      amt, d.category || null, d.notes || null,
+      d.is_reconciled ? 1 : 0,
+      needsReview
     );
     saveFamilyMembers(r.lastInsertRowid, 'finance_transaction', d.family_member_ids || []);
     if (d.tags?.length) saveTagsByName(r.lastInsertRowid, 'finance_transaction', d.tags);
@@ -444,20 +481,22 @@ router.post('/transactions', (req, res) => {
 router.put('/transactions/:id', (req, res) => {
   try {
     const d = req.body;
-    const existing = db.prepare('SELECT * FROM finance_transactions WHERE id=?').get(req.params.id);
+    const existing = db.prepare('SELECT * FROM transactions WHERE id=?').get(req.params.id);
     if (!existing) return notFound(res, 'Transaction');
     db.prepare(`
-      UPDATE finance_transactions SET
-        account_id=?, date=?, description=?, amount=?, category=?, notes=?, is_reconciled=?
+      UPDATE transactions SET
+        account_id=?, date=?, description=?, amount=?, category=?, notes=?,
+        is_reconciled=?, needs_review=?
       WHERE id=?
     `).run(
-      d.account_id||existing.account_id,
-      d.date||existing.date,
-      d.description||existing.description,
-      d.amount!==undefined ? parseFloat(d.amount) : existing.amount,
-      d.category!==undefined ? d.category : existing.category,
-      d.notes!==undefined ? d.notes : existing.notes,
-      d.is_reconciled!==undefined ? (d.is_reconciled?1:0) : existing.is_reconciled,
+      d.account_id || existing.account_id,
+      d.date || existing.date,
+      d.description || existing.description,
+      d.amount !== undefined ? parseFloat(d.amount) : existing.amount,
+      d.category !== undefined ? d.category : existing.category,
+      d.notes !== undefined ? d.notes : existing.notes,
+      d.is_reconciled !== undefined ? (d.is_reconciled ? 1 : 0) : existing.is_reconciled,
+      d.needs_review !== undefined ? (d.needs_review ? 1 : 0) : existing.needs_review,
       req.params.id
     );
     if (d.tags !== undefined) saveTagsByName(parseInt(req.params.id), 'finance_transaction', d.tags);
@@ -465,13 +504,18 @@ router.put('/transactions/:id', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
-router.delete('/transactions/:id', (req, res) => {
+// No DELETE on transactions either. To remove a manual mistake:
+//   - mark needs_review=1 with a note explaining
+//   - or roll back the entire batch (POST /import-batches/:id/rollback)
+//
+// The void endpoint flags the row but keeps it. Use this for individual
+// manual mistakes; use batch rollback for bad imports.
+router.post('/transactions/:id/void', requireAuth, (req, res) => {
   try {
-    const existing = db.prepare('SELECT id FROM finance_transactions WHERE id=?').get(req.params.id);
+    const existing = db.prepare('SELECT id FROM transactions WHERE id=?').get(req.params.id);
     if (!existing) return notFound(res, 'Transaction');
-    clearFamilyMembers(req.params.id, 'finance_transaction');
-    clearTags(req.params.id, 'finance_transaction');
-    db.prepare('DELETE FROM finance_transactions WHERE id=?').run(req.params.id);
+    db.prepare(`UPDATE transactions SET needs_review=1, notes=COALESCE(notes,'')||' [VOIDED]' WHERE id=?`)
+      .run(req.params.id);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
 });
@@ -483,8 +527,8 @@ router.delete('/transactions/:id', (req, res) => {
 router.get('/net-worth/current', (req, res) => {
   try {
     const accounts = db.prepare(`
-      SELECT id, name, type, current_balance, include_net_worth
-      FROM finance_accounts WHERE is_active=1
+      SELECT id, name, alias, type, current_balance, include_net_worth, source
+      FROM accounts WHERE is_active=1
     `).all();
 
     const assets      = accounts.filter(a => a.include_net_worth && a.current_balance > 0);
@@ -492,14 +536,16 @@ router.get('/net-worth/current', (req, res) => {
     const totalAssets = assets.reduce((s, a) => s + a.current_balance, 0);
     const totalLiab   = liabilities.reduce((s, a) => s + Math.abs(a.current_balance), 0);
 
-    // B8: Include investment holdings market value
+    // Investment holdings market value (now joined to unified accounts)
     const holdingsSummary = db.prepare(`
-      SELECT fa.id AS account_id, fa.nickname, fa.institution,
+      SELECT a.id AS account_id, a.name AS nickname, a.alias, a.institution,
              COALESCE(SUM(h.market_value), 0) AS total_value,
              COUNT(h.id) AS positions
-      FROM financial_accounts fa
-      LEFT JOIN holdings h ON h.account_id = fa.id
-      GROUP BY fa.id
+      FROM accounts a
+      LEFT JOIN holdings h ON h.account_id = a.id
+      WHERE a.is_active=1
+      GROUP BY a.id
+      HAVING positions > 0
     `).all();
     const investmentTotal = holdingsSummary.reduce((s, a) => s + (a.total_value || 0), 0);
 
@@ -517,7 +563,8 @@ router.get('/net-worth/current', (req, res) => {
 
 router.get('/net-worth/snapshots', (req, res) => {
   try {
-    const rows = db.prepare('SELECT * FROM net_worth_snapshots ORDER BY snapshot_date DESC LIMIT 24').all();
+    // Returns ALL snapshots — never auto-prune. Front end paginates.
+    const rows = db.prepare('SELECT * FROM net_worth_snapshots ORDER BY snapshot_date DESC').all();
     res.json(rows);
   } catch (e) { serverError(res, e); }
 });
@@ -528,19 +575,25 @@ router.post('/net-worth/snapshot', (req, res) => {
       SELECT
         COALESCE(SUM(CASE WHEN current_balance > 0 THEN current_balance ELSE 0 END), 0) AS assets,
         COALESCE(SUM(CASE WHEN current_balance < 0 THEN ABS(current_balance) ELSE 0 END), 0) AS liabilities
-      FROM finance_accounts WHERE is_active=1 AND include_net_worth=1
+      FROM accounts WHERE is_active=1 AND include_net_worth=1
     `).get();
-    const nw = (current.assets || 0) - (current.liabilities || 0);
+    // Add holdings market value to assets side
+    let invTotal = 0;
+    try {
+      const r = db.prepare(`SELECT COALESCE(SUM(market_value),0) AS v FROM holdings`).get();
+      invTotal = r?.v || 0;
+    } catch {}
+    const totalAssets = (current.assets || 0) + invTotal;
+    const nw = totalAssets - (current.liabilities || 0);
     const today = req.body.date || new Date().toISOString().slice(0,10);
     let snapshotId = null;
     try {
       const r = db.prepare(`
         INSERT INTO net_worth_snapshots (snapshot_date, total_assets, total_liabilities, net_worth, notes)
         VALUES (?,?,?,?,?)
-      `).run(today, current.assets, current.liabilities, nw, req.body.notes||null);
+      `).run(today, totalAssets, current.liabilities, nw, req.body.notes||null);
       snapshotId = r.lastInsertRowid;
     } catch {
-      // Columns added by migration 076 — snapshot saved without summary cols until restart
       const r = db.prepare(`INSERT INTO net_worth_snapshots (snapshot_date, notes) VALUES (?,?)`)
         .run(today, req.body.notes||null);
       snapshotId = r.lastInsertRowid;
@@ -555,8 +608,8 @@ router.post('/net-worth/snapshot', (req, res) => {
 router.get('/categories', (req, res) => {
   try {
     const rows = db.prepare(`
-      SELECT DISTINCT category FROM finance_transactions
-      WHERE category IS NOT NULL ORDER BY category ASC
+      SELECT DISTINCT category FROM transactions
+      WHERE category IS NOT NULL AND category != '' ORDER BY category ASC
     `).all();
     res.json(rows.map(r => r.category));
   } catch (e) { serverError(res, e); }
@@ -578,15 +631,37 @@ function applyCategoryRules(description) {
 }
 
 // POST /api/v1/finance/transactions/import-file
-// Multipart: file + account_id — uses same parsers as /api/v1/import
-// Writes to finance_transactions (not imported_transactions)
+//
+// Multipart upload: `file` + `account_id`. Uses parsers in
+// /features/import/parsers.js (13 banks supported). Writes into
+// the unified `transactions` table with source='imported', and
+// records a batch row so the import can be rolled back.
+//
+// Dedup: per-row fingerprint = hash(account_id + date + amount + desc).
+//   Layer 1 — exact fingerprint match → skipped.
+//   Layer 2 — same account + same date + same amount → flagged
+//             (still inserted) and needs_review=1.
+//
+// Categorization: each row runs through `applyCategoryRules` if
+//   the parser didn't already assign a category.
 const multerFinance = require('multer')({ storage: require('multer').memoryStorage() });
 const { parseFile: parseFinanceFile } = require('../import/parsers');
+const crypto = require('crypto');
+function fingerprint(accountId, date, amount, description) {
+  const key = `${accountId}|${date}|${amount}|${(description || '').trim().toUpperCase()}`;
+  return crypto.createHash('sha256').update(key).digest('hex').slice(0, 32);
+}
 
 router.post('/transactions/import-file', multerFinance.single('file'), (req, res) => {
   try {
     if (!req.file) return badRequest(res, 'No file uploaded');
     const account_id = parseInt(req.body.account_id) || null;
+    if (!account_id) return badRequest(res, 'account_id required');
+
+    // Validation: account must exist and be active
+    const acc = db.prepare(`SELECT id, is_active FROM accounts WHERE id=?`).get(account_id);
+    if (!acc) return badRequest(res, 'unknown account_id');
+    if (!acc.is_active) return badRequest(res, 'account is inactive — reactivate before importing');
 
     let text = req.file.buffer.toString('utf-8');
     if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
@@ -597,84 +672,102 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
         const XLSX = require('xlsx');
         const wb = XLSX.read(req.file.buffer);
         text = XLSX.utils.sheet_to_csv(wb.Sheets[wb.SheetNames[0]]);
-      } catch(e) { return badRequest(res, 'Could not read Excel file: ' + e.message); }
+      } catch (e) { return badRequest(res, 'Could not read Excel file: ' + e.message); }
     }
 
     const parsed = parseFinanceFile(text, req.file.originalname || 'upload');
     if (parsed.error) return badRequest(res, parsed.error);
 
     const txns = parsed.transactions || [];
-    if (!txns.length) return res.json({ ok: true, imported: 0, format: parsed.format, message: 'No transactions found' });
+    if (!txns.length) {
+      return res.json({ ok: true, imported: 0, skipped: 0, flagged: 0, format: parsed.format, message: 'No transactions found' });
+    }
 
-    // Create batch record for rollback support
+    // Create batch row in unified import_batches (no CASCADE)
     const batch = db.prepare(`
-      INSERT INTO fin_import_batches (account_id, account_type, filename, format, rows_total)
-      VALUES (?, 'banking', ?, ?, ?)
+      INSERT INTO import_batches (account_id, filename, format, row_count)
+      VALUES (?, ?, ?, ?)
     `).run(account_id, req.file.originalname || 'upload', parsed.format || 'unknown', txns.length);
     const batchId = batch.lastInsertRowid;
 
+    const checkExact = db.prepare(`SELECT id FROM transactions WHERE fingerprint=?`);
+    const checkProbable = db.prepare(`
+      SELECT id FROM transactions
+      WHERE account_id=? AND date=? AND ABS(amount - ?) < 0.01 AND fingerprint != ?
+      LIMIT 1
+    `);
     const insert = db.prepare(`
-      INSERT OR IGNORE INTO finance_transactions
-        (account_id, date, description, amount, category, notes, batch_id)
-      VALUES (?,?,?,?,?,?,?)
+      INSERT INTO transactions
+        (account_id, batch_id, date, post_date, description, amount, balance,
+         category, txn_type, is_transfer, memo, fingerprint, flagged,
+         source, needs_review)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'imported',?)
     `);
 
+    let imported = 0, skipped = 0, flagged = 0;
     const doImport = db.transaction(() => {
-      let count = 0;
       for (const t of txns) {
-        if (!t.date || t.amount === null || t.amount === undefined) continue;
-        const autoCategory = t.category || applyCategoryRules(t.description) || null;
-        const r = insert.run(account_id, t.date, t.description || null,
-                   parseFloat(t.amount) || 0, autoCategory, t.memo || null, batchId);
-        if (r.changes) count++;
+        if (!t.date || t.amount === null || t.amount === undefined) { skipped++; continue; }
+
+        const fp = fingerprint(account_id, t.date, t.amount, t.description);
+        if (checkExact.get(fp)) { skipped++; continue; }
+
+        const probable = checkProbable.get(account_id, t.date, t.amount, fp);
+        const isFlag = probable ? 1 : 0;
+
+        const cat = t.category || applyCategoryRules(t.description) || null;
+        insert.run(
+          account_id, batchId, t.date, t.postDate || null,
+          t.description, parseFloat(t.amount) || 0, t.balance || null,
+          cat, t.type || 'transaction',
+          t.is_transfer ? 1 : 0, t.memo || null,
+          fp, isFlag,
+          isFlag   // flagged rows also need review
+        );
+        if (isFlag) flagged++;
+        imported++;
       }
-      return count;
     });
+    doImport();
 
-    const imported = doImport();
-    // Update actual imported count
-    db.prepare('UPDATE fin_import_batches SET rows_imported=? WHERE id=?').run(imported, batchId);
-
-    // Flag batch if rows were skipped (partial import)
-    const skipped = txns.length - imported;
-    if (skipped > 0) {
-      // Can't flag individual finance_transactions easily without IDs — log on batch record
-      // rows_skipped added by migration — safe to skip if col not yet present
-    try { db.prepare("UPDATE fin_import_batches SET rows_skipped=? WHERE id=?").run(skipped, batchId); } catch {}
-    }
-
-    res.json({ ok: true, imported, skipped, format: parsed.format, total: txns.length, batch_id: batchId });
-  } catch(e) { serverError(res, e); }
+    res.json({ ok: true, imported, skipped, flagged, format: parsed.format, total: txns.length, batch_id: batchId });
+  } catch (e) { serverError(res, e); }
 });
 
-// GET /api/v1/finance/import-batches — list banking import history for rollback
+// GET /api/v1/finance/import-batches — list import history for rollback
 router.get('/import-batches', (req, res) => {
   try {
     const { account_id } = req.query;
     const where = account_id ? 'WHERE b.account_id=?' : '';
     const rows = db.prepare(`
-      SELECT b.*, fa.name AS account_name
-      FROM fin_import_batches b
-      LEFT JOIN finance_accounts fa ON fa.id = b.account_id
+      SELECT b.*, a.name AS account_name, a.alias AS account_alias,
+        (SELECT COUNT(*) FROM transactions WHERE batch_id = b.id) AS rows_in_db
+      FROM import_batches b
+      LEFT JOIN accounts a ON a.id = b.account_id
       ${where}
       ORDER BY b.imported_at DESC
       LIMIT 50
     `).all(...(account_id ? [account_id] : []));
     res.json(rows);
-  } catch(e) { serverError(res, e); }
+  } catch (e) { serverError(res, e); }
 });
 
-// DELETE /api/v1/finance/import-batches/:id — roll back a banking import
-router.delete('/import-batches/:id', requireAuth, (req, res) => {
+// POST /api/v1/finance/import-batches/:id/rollback
+//   Removes the batch row and every transaction it inserted.
+//   This is the ONLY supported way to remove imported rows in bulk.
+//   Manual transactions (source='manual') are never affected.
+router.post('/import-batches/:id/rollback', requireAuth, (req, res) => {
   try {
-    const batch = db.prepare('SELECT * FROM fin_import_batches WHERE id=?').get(req.params.id);
+    const batch = db.prepare('SELECT * FROM import_batches WHERE id=?').get(req.params.id);
     if (!batch) return notFound(res);
+    let removed = 0;
     db.transaction(() => {
-      db.prepare('DELETE FROM finance_transactions WHERE batch_id=?').run(req.params.id);
-      db.prepare('DELETE FROM fin_import_batches WHERE id=?').run(req.params.id);
+      const r = db.prepare(`DELETE FROM transactions WHERE batch_id=? AND source='imported'`).run(req.params.id);
+      removed = r.changes;
+      db.prepare('DELETE FROM import_batches WHERE id=?').run(req.params.id);
     })();
-    res.json({ ok: true });
-  } catch(e) { serverError(res, e); }
+    res.json({ ok: true, removed });
+  } catch (e) { serverError(res, e); }
 });
 
 // POST /api/v1/finance/transactions/recategorize
@@ -683,11 +776,11 @@ router.post('/transactions/recategorize', (req, res) => {
   try {
     const overwrite = req.body?.overwrite === true;
     const where = overwrite
-      ? 'WHERE account_id IS NOT NULL'
+      ? 'WHERE 1=1'
       : `WHERE (category IS NULL OR category = '')`;
-    const rows = db.prepare(`SELECT id, description FROM finance_transactions ${where}`).all();
+    const rows = db.prepare(`SELECT id, description FROM transactions ${where}`).all();
     let updated = 0;
-    const upd = db.prepare('UPDATE finance_transactions SET category=? WHERE id=?');
+    const upd = db.prepare('UPDATE transactions SET category=? WHERE id=?');
     const doUpdate = db.transaction(() => {
       for (const row of rows) {
         const cat = applyCategoryRules(row.description);
@@ -716,9 +809,9 @@ const { getPortfolioPerformance, getAssetAllocation, getTopPerformers, takePortf
 router.get('/recurring', (req, res) => {
   try {
     const rows = db.prepare(`
-      SELECT rt.*, fa.name as account_name
+      SELECT rt.*, a.name as account_name, a.alias as account_alias
       FROM recurring_transactions rt
-      JOIN finance_accounts fa ON fa.id = rt.account_id
+      JOIN accounts a ON a.id = rt.account_id
       WHERE rt.is_active = 1 ORDER BY rt.next_date
     `).all();
     res.json(rows);

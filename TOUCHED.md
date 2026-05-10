@@ -1,158 +1,160 @@
-# TOUCHED — v202604.149
+# TOUCHED — v202604.150
 
-Files modified or added in this drop. **Every entry is suspect until
-Al confirms "tested, works."** Replaced on each drop; the running
-record across drops is in STATE.md "✋ DON'T TRUST WITHOUT RETEST."
+Files modified in this drop. **Every entry is suspect until Al
+confirms "tested, works."** Replaced on each drop; the running record
+across drops is in STATE.md "✋ DON'T TRUST WITHOUT RETEST."
 
----
-
-## NEW: app/db/migrations/125_med_visit_conditions.js
-
-Creates `med_visit_conditions(visit_id, condition_id)` junction
-table with composite PK and two indexes (one each direction).
-Idempotent, additive only, no FKs.
+This drop is **finance landing, round 1 of 3 (design, sample data
+only)**. No backend changes. No migrations. Pure HTML/CSS/JS on
+finance.html plus version + STATE/TOUCHED docs.
 
 ---
 
-## app/features/medical/routes.js
+## app/public/finance.html
 
-**GET /notes** — added joins:
-- `family_member_name` from family_members (was MISSING; primary
-  cause of SE/Self bug for visits)
-- `attachment_count` (paperclip badge)
-- `linked_conditions: [{id, name}]` per visit (from new junction)
+### New "Overview" tab (default landing)
 
-**POST /notes** — also writes `linked_condition_ids` array body
-field into the junction (insert-only on POST, replace-set on PUT).
+- Tab buttons: prepended `<button class="view-tab active"
+  onclick="switchFinTab('overview',this)">Overview</button>` as the
+  first tab. HSA tab loses its `active` class.
+- Panel: new `<div class="view-panel active" id="panel-overview">`
+  inserted before the existing HSA panel. HSA panel loses its
+  `active` class.
+- The Overview panel contains a 6-tile grid wrapped in
+  `.fin-tiles-wrap > .fin-tiles-grid` with hardcoded sample data.
 
-**PUT /notes** — replace-set on `linked_condition_ids`. Sending an
-empty array wipes all links; omitting the field leaves them alone.
+### 6 tiles (sample data)
 
-**DELETE /notes/:id** — clears junction rows for that visit
-(no CASCADE).
+1. **Net Worth** — $487,300 hero, +$3.2k MoM pill, 12-month
+   sparkline, $521k assets / $34k liabilities strip. Click →
+   `gotoFinTab('networth')`.
+2. **Cash Flow MTD** — +$1,420 net, on-track pill, in/out bar
+   ($9,840 / $8,420), vs-Apr / YTD strip. Click →
+   `gotoFinTab('transactions')`.
+3. **Credit Cards** — $3,420 owed hero, 12% util pill, 4 active,
+   top 2 cards by balance with mini bars + "+2 more" rollup,
+   "next due in 7 days · $340 min" strip. Click →
+   `gotoFinTab('accounts')`.
+4. **Bank Accounts** — $28,540 liquid, 1-stale pill (amber),
+   Checking / Savings split, "Navy Fed not reconciled in 18 days"
+   strip. Click → `gotoFinTab('accounts')`.
+5. **Holdings** — $184,300 market value, +8.4% YTD pill, 28
+   positions, top 2 with gain%, "+26 more" rollup, vs-S&P / today
+   strip. Click → `gotoFinTab('holdings')`.
+6. **HSA + LP-FSA** — $5,650 combined pool, FSA-in-47d pill (amber),
+   per-pot mini rows, "manage in Medical → Receipts" strip. Click →
+   `gotoFinTab('hsa')` for now (Path B redirect to Medical pending
+   in a later drop).
 
-**DELETE /conditions/:id** — clears junction rows pointing at that
-condition (no CASCADE).
+### CSS additions (Vellum theme, scoped)
 
-**GET /medications, /conditions, /eob** — added `attachment_count`
-subselect (entity_type strings: med_medication, med_condition,
-med_eob_statement; visit uses `med_visit`).
+~50 lines of `.fin-tile-*` rules added to the existing page `<style>`
+block. Specifics:
 
-**GET /eob** — added `family_member_ids` array per statement
-(DISTINCT non-null from claims) so the All-tab person filter can
-narrow EOBs by member-id directly.
+- Tile shell: `#fbf6e9` cream bg, `1px solid #d8cba8` border,
+  12px radius, hover lift on `transform: translateY(-1px)` +
+  subtle shadow.
+- Hero: `Newsreader/Fraunces` italic 40px desktop, 36px mobile.
+- Mini list rows: DM Mono 12px with `flex:1` label, optional bar,
+  right-aligned amount with `min-width:54px`.
+- Strip line: mono 11px, dotted top border via
+  `1px solid rgba(216,203,168,0.5)`.
+- Avatars: 22×22 circles, gradient color seeded by initial
+  (`fin-tile-avatar--A` etc.).
+- Mobile breakpoint 700px: grid collapses to 1 column.
+- Sample-data banner: dashed red-tinted box at top of Overview.
 
----
+### JS additions
 
-## app/public/medical.html
+- New `window.gotoFinTab(id)` helper: looks up the corresponding
+  `#finTabs .view-tab` button by matching `onclick` attribute,
+  calls existing `switchFinTab(id, btn)`. Inserted right after the
+  existing `switchFinTab` definition.
 
-### SE/Self bug fix
-- New helper `_currentMemberId()` resolves the active patient strip
-  selection (a display_name string) to a family member id.
-- Three drawer-open paths (`openMedDrawer`, `openCondDrawer`,
-  `openNoteDrawer`) pre-fill `GH_FAMILY.init` with that member id
-  when adding new (no record id).
-- Three save handlers (`saveMedication`, `saveCondition`, `saveNote`)
-  no longer write the literal string `'Self'` — they write `null`.
-- Three card renderers (`renderMedCard`, `renderConditionCard`,
-  `renderVisitCard`) compute `memberName` only from real family
-  links. Stale `patient = 'Self'` rows render avatar-less.
+### Existing-state changes (must verify they don't break things)
 
-### Default tab + structural
-- `currentView = 'all_medical'` (was `'medications'`).
-- All tab moved to first position in the tab row, marked active.
-- `_medBoot` calls `renderCurrentView()` instead of forcing
-  `renderMedications()`.
-- `renderAllMedical()` rewritten:
-  - One flat sortable list (no per-domain sections).
-  - Sort newest first by per-domain date (visit_date,
-    statement_date, latest_metric.recorded_at | start_date,
-    start_date | created_at).
-  - EOB person filter uses new `family_member_ids` rollup;
-    substring fallback retained for old API shape.
-  - Renders into `.medv5-grid.medv5-grid--all`.
+- `<button id="fabBtn">` initial state → `style="display:none"`.
+  Was visible by default (text "+ Add Expense"). Hidden now because
+  Overview is default and has no FAB. switchFinTab's tab branches
+  set display per tab, so HSA/Accounts/Transactions/Gift Cards all
+  still get the FAB when activated.
+- `<div id="yearPillWrap">` initial state → `display:none` (the
+  📅 year selector). Was visible by default. HSA-only chrome.
+  switchFinTab toggles it on entering HSA.
 
-### Mobile swipe-snap
-- New CSS class `.medv5-grid--all` (desktop unchanged from
-  `.medv5-grid`).
-- @media ≤700px: flex row, x-overflow auto, scroll-snap-type
-  x mandatory, hidden scrollbar. Cards sized to viewport width
-  minus 28px, snap-align center, snap-stop always.
+### NOT touched
 
-### Visit form: linked-conditions chip picker
-- New `<div id="nLinkedConditions">` field after Reason.
-- New helpers `_renderLinkedCondsPicker` (loads conditions for the
-  active patient, renders chips, wires click toggles) and
-  `_readLinkedCondIds` (reads back into a number array at save time).
-- `openNoteDrawer` calls `_renderLinkedCondsPicker` with initial ids
-  from `r.linked_conditions` (when editing) or `[]` (when adding).
-- `saveNote` body includes `linked_condition_ids: _readLinkedCondIds()`.
-
-### Visit card: linked-condition tag chips
-- `renderVisitCard` builds `condChips` from `v.linked_conditions`
-  array, displays them as purple tag chips alongside the
-  visit-type chip.
-- Tag-row visibility now triggered by either `typeChip` OR
-  `condChips` (was: only typeChip).
+- `switchFinTab()` itself — its existing else branch already handles
+  the 'overview' case (hides FAB).
+- All other panels (HSA, Accounts, Transactions, Net Worth, Budgets,
+  Gift Cards, Import, Holdings) — untouched.
+- Boot sequence — still calls `loadHsaAll()` after `loadSharedData()`,
+  which preloads HSA data even though Overview is the default. Wasted
+  request but not broken.
+- Hash navigation (`#import`) — still works; programmatically clicks
+  the Import tab after a 400ms delay.
 
 ---
 
 ## app/version.txt
 
-Bumped 202604.148 → 202604.149.
+Bumped 202604.149 → 202604.150.
 
 ---
 
-## NOT MODIFIED (carried over from v.148)
+## STATE.md
 
-- `app/shared/autoTodos.js` — rule 7b for upcoming visits still ships.
-- `app/public/js/lens-config.js` — `medical_all` module still ships.
-
-These two are in the zip because robocopy `/E` only writes what's in
-the source — anything not in the zip is implicitly "use whatever's
-already on disk." But since v.148 added these and you haven't deployed
-v.148 to a fresh container, including them keeps the zip
-self-sufficient.
+- "🚨 NEW CHAT" block updated to v.150.
+- Current version section rewritten for v.150.
+- "✋ DON'T TRUST WITHOUT RETEST" replaced with v.150 entries plus a
+  "Carryover from v.149" subsection so untested v.149 medical work
+  isn't lost.
+- "✅ SHIPPED THIS DROP" rewritten for v.150 — round 1/2/3 plan,
+  tile composition rationale, visual rules, alias-field decision,
+  earliest-due-date rule, HSA combined-tile decision, round 2
+  schema gaps, capture-everything rule.
+- "✅ SHIPPED — RECENT DROPS" added — compressed v.149 + v.148
+  changelog so the file doesn't keep growing per drop.
+- File map updated to reflect v.150 zip (4 files only).
 
 ---
 
 ## TEST PLAN (for Al)
 
-**P0 — does the page load at all?**
-1. Visit `/medical.html`. Should land on the All tab automatically.
-2. Cards should appear (your existing condition + anything else),
-   sorted newest first, no section labels.
+**P0 — does it load**
+1. Visit `/finance.html`. Should land on Overview tab automatically.
+2. 6 tiles should render: Net Worth, Cash Flow, Credit Cards, Bank
+   Accounts, Holdings, HSA + LP-FSA. Sample-data banner at the top.
+3. No console errors.
 
-**P1 — SE/Self bug**
-3. Click your name in the patient strip (or pick a person via the
-   nav scope pill). Click "Add condition." The family widget at the
-   top of the drawer should already have your name as a pill — you
-   should NOT have to pick it again.
-4. Fill the form, save. New condition card should show your name in
-   the avatar label, NOT "SE."
-5. Edit an OLD condition that previously showed "SE." It will still
-   show "SE" because the old DB row has `patient='Self'` —
-   re-pick yourself in the family widget and save to fix.
+**P1 — tile clicks navigate**
+4. Click Net Worth tile → switches to Net Worth tab.
+5. Click Cash Flow tile → switches to Transactions tab.
+6. Click Credit Cards tile → switches to Accounts tab.
+7. Click Bank Accounts tile → switches to Accounts tab (same as #6).
+8. Click Holdings tile → switches to Holdings tab.
+9. Click HSA + LP-FSA tile → switches to HSA tab.
 
-**P2 — Visit ↔ condition links**
-6. Open Visits tab. Add a visit with date today. In the new "For
-   which conditions?" field, click your hypertension chip (or
-   whatever condition you have).
-7. Save. Visit card should show that condition as a purple chip.
-8. Edit the visit, unclick the chip, save. Chip should disappear.
+**P2 — chrome state**
+10. On Overview: FAB hidden, year pill hidden.
+11. Click HSA tab: FAB appears with "+" symbol, year pill appears.
+12. Click Net Worth tab: FAB hidden again, year pill hidden.
+13. Click Accounts tab: FAB shows ("+ Add account").
+14. Back to Overview: FAB hidden, year pill hidden.
 
-**P3 — Mobile**
-9. On a phone, the All tab should be a horizontal swipe, one card
-   per screen, snapping to the next card. Don't use devtools mobile
-   mode for this — actual phone.
+**P3 — mobile**
+15. Open `/finance.html` on a phone (or devtools narrow viewport).
+    Tiles should stack 1-column at ≤700px.
 
-**P4 — Auto-todo (carried from v.148)**
-10. Upcoming visit dated tomorrow should appear in /todos.html as
-    "{visit_type} — {provider}" due tomorrow, category Medical.
+**P4 — no regression on other tabs**
+16. Walk through HSA, Accounts, Transactions, Net Worth, Budgets,
+    Gift Cards, Import, Holdings. CRUD on each should still work.
+17. `/finance.html#import` deep-link still lands on Import tab.
 
-**P5 — Counts on cards**
-11. Cards with attachments should show a paperclip badge and count.
-    Cards without should show no badge.
-
-If any test fails, the relevant function is named in TOUCHED.md
-above; STATE.md file map says which file owns it.
+If any test fails:
+- Tile click broken → `gotoFinTab()` selector mismatch. Check
+  `onclick` attr format on `#finTabs .view-tab` buttons.
+- FAB stuck visible → `switchFinTab()` else branch not hit. Verify
+  `id` arg matches one of the explicit cases.
+- Tiles unstyled → `.fin-tile-*` CSS not in scope. Check `<style>`
+  block in finance.html line ~210.
