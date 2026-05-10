@@ -23,73 +23,83 @@ recent shipped version is **v202604.150**; the deploy zip in
 `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
 session) IS that version.
 
-### What was just shipped (v.154) — needs Al's manual test before next drop
+### What was just shipped (v.155) — needs Al's manual test before next drop
 
-**CC SCHEMA + LANDING AGGREGATOR + REAL-DATA TILES.** Bundles three
-adjacent improvements: additive credit-card columns on `accounts`,
-single-shot `/api/v1/finance/landing` aggregator that feeds all 6
-Overview tiles, and frontend wiring that drops every hardcoded
-sample value. Self-contained from v.150 (still the live version).
+**P2 + P3 SAFE BUNDLE.** Three additive items shipped together:
+parser sign-convention test fixtures + runner, finance category rules
+editor in Settings, and missing-statement → todos auto-feed.
 
-**Schema-touching drop** — back up `data/ghrava.db` before
-`docker restart ghrava`. Mig 128 is purely additive (new NULL columns)
-so risk is much lower than mig 126/127, but the rule stands.
+**Skipped from P3 deliberately** (too invasive for "safely bundle"):
+- `tx_record_links` cross-module link table + finance "All" tab
+- Dropping `_legacy_*` tables (architectural rule: wait for stable)
+- Repointing dashboard/search/subs/reports/recurring-transactions.js
+  off compat views (cross-module refactor)
 
-- **Mig 128 — credit-card columns on `accounts`**:
-  `credit_limit`, `statement_balance`, `minimum_payment`,
-  `payment_due_date`, `apr`, `promo_apr`, `promo_end_date`,
-  `annual_fee`, `annual_fee_renewal_date`, `rewards_balance`. All
-  nullable. Idempotent via `_migrations_cc_columns_done` marker
-  table; per-column ALTER wrapped in try/catch so partial reruns
-  recover cleanly. Partial-index on `payment_due_date` for tile 3
-  "soonest due" lookup.
-- **`GET /api/v1/finance/landing`** — one round trip → all 6 tiles:
-  - `net_worth` — total + assets + liabilities + investment +
-    MoM delta vs prior snapshot (NULL if no snapshot ≥25 days old).
-  - `cash_flow` — MTD credits/debits/net + count + same-day
-    last-month MTD net for the "vs last mo" pill.
-  - `credit_cards` — count, total statement balance, total min
-    payment, utilization (NULL if no `credit_limit` set), soonest
-    due date + account label.
-  - `bank_accounts` — count + total + per-type breakdown
-    (Checking/Savings/Cash).
-  - `holdings` — distinct positions count + total market value.
-  - `hsa_lp_fsa` — HSA accounts total + LP-FSA remaining (from
-    `hsa_plans`) + combined.
-  - All aggregations exclude inactive accounts.
-- **Account form** — new "Credit card details" section, shown only
-  when type=Credit. Wires all 10 CC fields. Form preserves values
-  on type switch (no nuking on hide).
-- **Account POST/PUT** accept the new CC fields. Empty string from
-  the form clears the column.
-- **Overview tiles wired to `/landing`.** Sample-data banner removed.
-  Hardcoded `$487,300`, `$3,420`, etc. all gone. Tiles render
-  placeholders ("—") until the first fetch resolves. Tiles call
-  `loadLandingTiles()` on initial DOMContentLoaded and on every
-  Overview tab activation.
-- **Tile 2 cash-flow pill** uses simple "vs last month MTD pace"
-  heuristic since no explicit "on track" target is defined yet.
-  Pill shows `+$X MoM` (ok) or `-$X MoM` (warn).
+This drop touches no existing schema (no new mig). Bundles
+v.151–v.154 carryovers since none have been deployed yet.
 
-Carried from v.153 (still suspect, never tested by Al):
-- Shared `tx-fingerprint.js` helper (normalizer + fingerprint)
-- Migration 127 — recompute fingerprints, flag dups
-- Both import paths use 5-day window dedup
+- **Parser sign-convention tests** (`test/parser-fixtures/` +
+  `test/run-parser-tests.js`):
+  - 7 banks covered: Chase, BofA, Navy Fed, Capital One, Discover,
+    Citi, USAA. Each has a `.csv` fixture and a `.json` declaring
+    expected format, min row count, optional first-row spot-check,
+    and `amount_signs` substring map.
+  - Runner exits non-zero on any failure. Validated against live
+    parsers: **7/7 pass**.
+  - Run with: `NODE_PATH=/tmp/node_modules node test/run-parser-tests.js`
+    (or wire into a predeploy gate after `npm install csv-parse`).
+  - Banks intentionally NOT covered (deferred): Schwab Checking,
+    Schwab Brokerage, Vanguard, TSP, Wells Fargo. These have
+    multi-line / positional CSV formats that need closer inspection
+    before fixturing.
+- **Categorization rule editor in Settings**:
+  - New rail item under Apps & Integrations: "Finance category rules"
+    with rule-count badge.
+  - Sub-panel `panel-finrules` lists existing rules, lets you add
+    pattern + category + sort order, delete with confirm, and run
+    "Apply to uncategorized" against existing rows.
+  - Bare keywords get auto-wrapped in `%…%`. Wildcards passed through
+    if user types them.
+  - Backend endpoints `/finance/category-rules` + `/apply` already
+    existed (v.151+); this drop just adds the UI.
+  - Rail badge seeded on settings page boot (no auth required for
+    the GET).
+- **Missing-statement → todos auto-feed**:
+  - `detectMissingStatements(monthsBack)` extracted from the
+    existing `GET /api/v1/import/missing-statements` route into a
+    reusable function on the import router export.
+  - `shared/autoTodos.js` adds an `auto_type='missing_statement'`
+    block (item 11) that creates one todo per missing month per
+    tracked account. Auto-resolves when a statement is imported.
+  - `auto_source_id` encodes `(accountId * 1_000_000 + YYYYMM)` so
+    each (account, month) pair is uniquely keyed in INTEGER.
+  - Due date set to the 28th of the missing month so the todo list
+    sorts urgently for older gaps.
+  - Title: "Missing statement — Chase Sapphire (Chase) — April 2026".
 
-Carried from v.152 (still suspect):
-- Account form rebuild (alias/owner/currency/track_statements)
-- Single-fetch reads, Delete→Deactivate, needs-review queue
-- `GET /needs-review`, `POST /clear-review`
+**Carried from v.154 (still suspect):**
+- Mig 128 — additive credit-card columns on `accounts`
+- `GET /api/v1/finance/landing` aggregator
+- Account form CC fields section (type=Credit only)
+- Overview tiles wired to real data; sample-data banner gone
 
-Carried from v.151 (still suspect):
+**Carried from v.153 (still suspect):**
+- Shared `tx-fingerprint.js` helper
+- Mig 127 — fingerprint v2 + dup detection
+- 5-day window dedup on both import paths
+
+**Carried from v.152 (still suspect):**
+- Account form parity, single-fetch reads
+- Needs-review queue + endpoints
+
+**Carried from v.151 (still suspect):**
 - Mig 126 — unified accounts + transactions
 - Compat views, type vocab lock, no-CASCADE, no-DELETE
 
-Carried from v.150 (still suspect):
-- 6-tile Overview grid markup (now wired to real data)
-- HSA + LP-FSA combined tile
+**Carried from v.150 (still suspect):**
+- Overview grid markup (now wired to real data)
 
-Carried from v.149 (still suspect):
+**Carried from v.149 (still suspect):**
 - Medical /medical.html All tab landing
 - Visit ↔ condition junction (mig 125)
 
@@ -98,22 +108,23 @@ DROP`.
 
 ### Next-drop work is queued
 
-**P2:**
-- Sign-convention parser tests (Chase, BofA, Navy Fed, Schwab Checking,
-  Schwab Brokerage, Vanguard, TSP, Capital One, Discover, Citi, USAA)
-- Categorization rule editor in Settings
-
-**P3:**
-- Missing-statement → todos auto-feed
-- `tx_record_links` cross-module table + "All" tab on finance
-- Drop `_legacy_*` tables once v.151+v.152+v.153+v.154 confirmed stable
+**Remaining P3 (separate drops):**
+- `tx_record_links` cross-module link table + finance "All" tab
+- Drop `_legacy_*` tables once v.151+v.152+v.153+v.154+v.155 confirmed
+  stable
 - Repoint dashboard/search/subs/reports/recurring-transactions.js off
   compat views
 
-**Tile-2 follow-up:** Al hasn't defined an "on track" rule yet. Current
-v.154 heuristic compares MTD net to same-day-last-month MTD net. If
-he wants a real budget target (e.g. "stay net positive" or a fixed
-spend cap), wire it in P3 along with the categorization editor.
+**Tile-2 follow-up still open:** define an actual budget target so the
+"on track" pill is meaningful instead of the v.154 "vs last month"
+heuristic. Likely lands with the categorization editor's natural
+extension into per-category caps.
+
+**Other queued items (older, not in P0–P3):**
+- Schwab Brokerage / Schwab Checking / Vanguard / TSP / Wells Fargo
+  parser test fixtures (deferred from v.155)
+- Per-device family filter (separate from finance work)
+- Photo-first wardrobe (lowest priority)
 
 **Don't pick a top item and start coding.** Al chats first, then builds.
 
@@ -162,32 +173,36 @@ zip if needed.
 
 ## Current version
 
-**v202604.154** — packaged. Credit-card schema + landing aggregator
-+ real-data tile wiring. Bundled with v.151 + v.152 + v.153 because
-Al hasn't deployed any of them yet.
+**v202604.155** — packaged. P2 + P3 safe bundle: parser tests +
+category rules editor + missing-statement→todos. Bundled with
+v.151–v.154 because none have been deployed yet.
 
-### v.154 changes
+### v.155 changes
 
-- **Migration 128** — additive credit-card columns on `accounts`:
-  `credit_limit`, `statement_balance`, `minimum_payment`,
-  `payment_due_date`, `apr`, `promo_apr`, `promo_end_date`,
-  `annual_fee`, `annual_fee_renewal_date`, `rewards_balance`. All
-  nullable. Idempotent guard via `_migrations_cc_columns_done`;
-  per-column ALTER wrapped in try/catch for partial-rerun recovery.
-- **`GET /api/v1/finance/landing`** — single aggregator returning
-  data for all 6 Overview tiles (`net_worth`, `cash_flow`,
-  `credit_cards`, `bank_accounts`, `holdings`, `hsa_lp_fsa`).
-  Excludes inactive accounts.
-- **Account POST/PUT** accept the new CC fields. Empty string from
-  the form clears the column.
-- **Account form** — new "Credit card details" section, shown only
-  when type=Credit. 10 fields wired.
-- **Overview tiles** wired to `/landing`. Sample-data banner
-  removed. Tiles render "—" placeholders until first fetch
-  resolves. Fires on DOMContentLoaded and on Overview tab
-  activation.
-- **Tile 2 cash-flow pill** uses simple "vs last month MTD pace"
-  heuristic (no formal "on track" target defined yet — deferred).
+- **Parser sign-convention tests** — `test/run-parser-tests.js` +
+  `test/parser-fixtures/` (CSV + JSON pair per bank). Covers Chase,
+  BofA, Navy Fed, Capital One, Discover, Citi, USAA. **7/7 pass**
+  against live parsers. Runs with
+  `NODE_PATH=/tmp/node_modules node test/run-parser-tests.js`. Will
+  fail loudly on a future bank format change that flips a sign.
+- **Categorization rule editor** in Settings — new rail item
+  "Finance category rules" with rule-count badge. Sub-panel lists
+  existing rules, lets you add (auto-wraps bare keywords in
+  `%…%`), delete with confirm, and run "Apply to uncategorized"
+  to backfill. Backend endpoints already existed.
+- **Missing-statement → todos auto-feed** —
+  `detectMissingStatements()` extracted from existing route into
+  reusable export. `shared/autoTodos.js` adds an
+  `auto_type='missing_statement'` block. One todo per missing
+  month per tracked account. Auto-resolves when statement gets
+  imported.
+
+### v.154 carryovers (bundled in this zip)
+
+- Migration 128 — additive credit-card columns
+- `GET /api/v1/finance/landing` aggregator
+- Account form CC fields (type=Credit only)
+- Overview tiles wired to real data; sample banner gone
 
 ### v.153 carryovers (bundled in this zip)
 
@@ -197,34 +212,24 @@ Al hasn't deployed any of them yet.
 
 ### v.152 carryovers (bundled in this zip)
 
-- Account form rebuilt — alias / owner / currency /
-  track_statements always-visible, locked-vocab type, single
-  endpoint, Delete→Deactivate.
-- Single-fetch reads across populateTxAccountFilter /
-  loadImpAccountSelect / loadImpAccounts / loadImpHistory.
-- Needs-review queue: banner on Overview + expandable panel,
-  `GET /needs-review`, `POST /clear-review`.
+- Account form parity, single-fetch reads
+- Needs-review queue + endpoints
 
 ### v.151 carryovers (bundled in this zip)
 
-- Migration 126 — unified `accounts` + `transactions`. Compat
-  views keep dashboard/search/subs/reports/etc. working unchanged.
-- Type vocabulary locked: Checking, Savings, Credit, Cash, HSA,
-  Brokerage, TSP, Retirement, Loan, Mortgage, Other.
-- Dedup on (institution, last4) during merge.
-- No CASCADE; no DELETE; soft inactive only.
+- Migration 126 — unified `accounts` + `transactions`
+- Compat views, type vocab lock, no-CASCADE, no-DELETE
 
 Carry-over from v.150 (still shipped, unchanged):
-- 6-tile Overview grid markup (now wired to real data)
-- HSA + LP-FSA combined tile
+- 6-tile Overview grid markup (now wired)
 
 Carry-over from v.149 (still shipped, unchanged):
-- Medical "All" tab as default landing, mobile swipe, SE/Self fix
-- Visit ↔ condition junction (migration 125)
+- Medical "All" tab landing, mobile swipe, SE/Self fix
+- Visit ↔ condition junction (mig 125)
 
 ---
 
-## ✋ DON'T TRUST WITHOUT RETEST (v202604.154)
+## ✋ DON'T TRUST WITHOUT RETEST (v202604.155)
 
 **This list survives across chats.** Anything below is *touched* this
 drop but NOT confirmed working by Al. Treat as suspect until Al says
@@ -232,14 +237,18 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 | File | Change | Risk |
 |---|---|---|
-| `app/db/migrations/128_cc_columns.js` | NEW (v.154). 10 additive columns on `accounts`. Idempotent. | Low — additive only, all NULL default. Test: open existing account → unchanged; open Credit account → CC section visible; fill in fields, save → reload → values persist. |
-| `app/features/finance/routes.js` | v.154: new `GET /landing` aggregator; POST/PUT `/accounts` accept 10 new CC fields. v.153: import-file uses shared fingerprint + 5-day window. v.152: `GET /needs-review`, `POST /clear-review`. v.151: unified read/write paths. | **HIGH** — every finance route either added to or rewritten. Test: open Overview → all 6 tiles render real values (no `$487,300` placeholders). Test pending→posted dedup. Test CC field round-trip. |
-| `app/public/finance.html` | v.154: 6 Overview tiles rewired to `/landing`. Sample-data banner removed. CC fields section in account form. v.152: account form rebuild + single-fetch reads + needs-review queue. | **HIGH** — every account/tile surface touched. Test: Overview tiles show real numbers (or em-dash if no data). Add a Credit account, fill APR/limit/min, save → tile 3 reflects it. |
-| `app/shared/tx-fingerprint.js` | NEW (v.153). Shared `normalizeDescription` + `fingerprint` helpers. | Low — pure functions, smoke-tested with 10+5 cases. |
-| `app/db/migrations/127_fingerprint_v2.js` | NEW (v.153). Recomputes fingerprint on every transaction; flags dups. Idempotent. | **HIGH** — touches every row in `transactions`. Surfaces existing dups to needs-review queue. Backup DB before deploy. |
-| `app/db/migrations/126_finance_unify.js` | NEW (carried from v.151). Merges 4 tables into 2, creates compat views, renames legacy tables. Idempotent. | **HIGH** — schema change. Smoke-tested in sandbox. Backup DB before deploy. |
-| `app/features/import/routes.js` | v.153: confirm path uses shared fingerprint + 5-day window. v.151 full rewrite. | **HIGH** — every file-import path touched. |
-| `app/version.txt` | `202604.154` | None. |
+| `test/run-parser-tests.js` | NEW (v.155). Parser sign-convention test runner. | None at runtime — test-only file. Run with `NODE_PATH=/tmp/node_modules node test/run-parser-tests.js`. 7/7 banks pass against live parsers. |
+| `test/parser-fixtures/*` | NEW (v.155). 14 fixture files (CSV+JSON pairs for 7 banks). | None at runtime. |
+| `app/shared/autoTodos.js` | v.155: new "missing_statement" auto-todo block (item 11). Pulls `detectMissingStatements` from import routes. | Medium — adds to existing todo generation cycle. Test: open todos page, expect "Missing statement — <account> — <month>" rows for each tracked account that's missing recent imports. |
+| `app/features/import/routes.js` | v.155: extracts `detectMissingStatements()` as a reusable function on the router export. v.153: confirm path uses shared fingerprint + 5-day window. v.151 full rewrite. | **HIGH** — every file-import path touched. Existing `/missing-statements` GET behavior unchanged (still returns same shape). |
+| `app/public/settings.html` | NEW v.155: rail item "Finance category rules" + sub-panel `panel-finrules` with add/list/delete/apply UI. Boot seeds rule-count badge. | Medium — settings page is sprawling. Test: open Settings → see "Finance category rules" rail item with badge; click → see existing rules table; add rule "STARBUCKS" → "Coffee" → save → reload → confirm in list; click "Apply to uncategorized" → see toast with count. |
+| `app/db/migrations/128_cc_columns.js` | NEW (v.154). 10 additive columns on `accounts`. Idempotent. | Low — additive only. |
+| `app/features/finance/routes.js` | v.154: new `GET /landing`; POST/PUT `/accounts` accept CC fields. v.153: import-file uses shared fingerprint + 5-day window. v.152: `GET /needs-review`, `POST /clear-review`. v.151: unified read/write paths. | **HIGH** — every finance route added to or rewritten. |
+| `app/public/finance.html` | v.154 tiles wired + CC form section. v.152 account form rebuild + needs-review queue. | **HIGH** — every account/tile surface touched. |
+| `app/shared/tx-fingerprint.js` | NEW (v.153). | Low — pure helper. |
+| `app/db/migrations/127_fingerprint_v2.js` | NEW (v.153). | **HIGH** — touches every row in `transactions`. |
+| `app/db/migrations/126_finance_unify.js` | NEW (v.151). | **HIGH** — schema change. |
+| `app/version.txt` | `202604.155` | None. |
 
 ### Carryover from v.150 — still untested
 
@@ -254,7 +263,63 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 ---
 
-## ✅ SHIPPED THIS DROP (v202604.154)
+## ✅ SHIPPED THIS DROP (v202604.155)
+
+### Parser sign-convention tests (v.155)
+
+- **`test/run-parser-tests.js`** — fixture-driven test runner.
+  Loads each `<bank>.csv` + `<bank>.json` pair, parses through the
+  live `parsers.js`, and asserts:
+  - format auto-detection matches expected
+  - row count meets minimum
+  - first-row spot check (date / amount / description substring)
+  - sign convention: substrings → "positive" or "negative"
+  Exit 0 on full pass, non-zero on failure.
+- **Banks covered (7/7 pass):** Chase, BofA, Navy Fed, Capital One,
+  Discover, Citi, USAA. Chosen because their CSV layouts are
+  single-line clean and the parsers don't need text scaffolding.
+- **Banks deferred:** Schwab Checking, Schwab Brokerage, Vanguard,
+  TSP, Wells Fargo. These need richer fixtures (multi-line headers,
+  positional columns, mixed transactions+positions). Tracked for
+  next P2 drop.
+
+### Categorization rule editor in Settings (v.155)
+
+- **Rail item** under Apps & Integrations group: "Finance category
+  rules" with rule-count badge. Searchable via the existing
+  settings search.
+- **Sub-panel `panel-finrules`** — three sections:
+  1. "How rules work" — explainer (LIKE syntax, % wildcards,
+     case-insensitive, sort-order tiebreak).
+  2. "Add a rule" — pattern + category + sort-order inputs, plus
+     "Apply to uncategorized" button that backfills existing rows.
+  3. "Existing rules" — table with delete buttons per row.
+- **Bare keywords auto-wrapped** in `%…%`. If user types `%` or `_`
+  themselves, pass through unchanged.
+- **Backend already exposed** these endpoints in v.151 carryover —
+  this drop is UI-only.
+- **Rail badge** seeded on settings page boot (read-only GET, no
+  auth required).
+
+### Missing-statement → todos auto-feed (v.155)
+
+- **`detectMissingStatements(monthsBack)`** extracted from the
+  existing `GET /api/v1/import/missing-statements` route into a
+  reusable function. Now exported on the import router so
+  `shared/autoTodos.js` can `require()` it without auth coupling.
+- **`auto_type='missing_statement'`** added to `syncAutoTodos()` as
+  item 11. For each missing month per tracked account → one auto
+  todo. Auto-resolves when statement gets imported (i.e. when the
+  account no longer appears in the missing list for that month).
+- **`auto_source_id`** encodes `(accountId * 1_000_000 + YYYYMM)`
+  so each (account, month) is uniquely keyed in INTEGER. Avoids
+  needing a new column or a string-keyed source.
+- **Title format:** "Missing statement — Chase Sapphire (Chase) —
+  April 2026". Notes: "No import batch found for April 2026.
+  Download the statement and import it via Finance → Import."
+- **Due date:** end of the missing month (28th). Forces older gaps
+  to sort urgently in the todo list.
+- **Category:** "Finance".
 
 ### Credit-card schema + landing aggregator + real-data tiles (v.154)
 

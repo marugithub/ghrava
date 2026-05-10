@@ -1,0 +1,10 @@
+{
+  "format": "bofa",
+  "min_transactions": 3,
+  "amount_signs": {
+    "GROCERY": "negative",
+    "PAYCHECK": "positive",
+    "ATM WITHDRAWAL": "negative"
+  },
+  "balance_check": "first row balance is non-null"
+}

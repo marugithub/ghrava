@@ -399,6 +399,58 @@ function syncAutoTodos() {
       );
     }
   } catch (e) { console.error('[todos] property_maint_due:', e.message); }
+
+  // ── 11. Missing finance statements (v202604.155) ─────────────
+  // For each active account with track_statements=1, generate one
+  // todo per missing month in the last 3 months. Auto-resolves when
+  // a statement gets imported for that month.
+  //
+  // auto_source_id encodes (accountId * 1000000 + YYYYMM) so it
+  // fits in INTEGER and is uniquely keyed per (account, month).
+  // The detector lives in features/import/routes.js — required
+  // here lazily to avoid loading the express router at module-load
+  // time for callers (eg cron) that don't need it.
+  try {
+    const importMod = require('../features/import/routes');
+    const detect    = importMod.detectMissingStatements;
+    if (typeof detect === 'function') {
+      const missing = detect(3);
+      const sourceIds = missing.map(m =>
+        m.account_id * 1000000 +
+        parseInt(m.month.replace('-', ''), 10)
+      );
+      const sourceIdSet = new Set(sourceIds);
+
+      // Resolve any open missing-statement todos that no longer match.
+      const openIds = db.prepare(`
+        SELECT auto_source_id FROM todos
+        WHERE is_auto = 1 AND auto_type = 'missing_statement'
+          AND auto_source_type = 'import_batch'
+          AND status IN ('open','in_progress')
+      `).all().map(r => r.auto_source_id);
+      for (const sid of openIds) {
+        if (!sourceIdSet.has(sid)) resolve.run('missing_statement', 'import_batch', sid);
+      }
+
+      // Insert any not yet present.
+      for (let i = 0; i < missing.length; i++) {
+        const m   = missing[i];
+        const sid = sourceIds[i];
+        const acctName = m.alias || m.name || 'Account';
+        const inst     = m.institution ? ` (${m.institution})` : '';
+        upsert.run(
+          `Missing statement — ${acctName}${inst} — ${m.month_label}`,
+          `No import batch found for ${m.month_label}. Download the statement and import it via Finance → Import.`,
+          // Due date: end of the missing month so urgency rises
+          // naturally. Not strictly required but the UI sorts by it.
+          `${m.month}-28`,
+          'medium', 'Finance',
+          'missing_statement', 'import_batch', sid,
+          'missing_statement', 'import_batch', sid
+        );
+      }
+    }
+  } catch (e) { console.error('[todos] missing_statement:', e.message); }
 }
 
 

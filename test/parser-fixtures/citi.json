@@ -1,0 +1,9 @@
+{
+  "format": "generic_split",
+  "min_transactions": 3,
+  "amount_signs": {
+    "RESTAURANT": "negative",
+    "CASHBACK REWARD": "positive",
+    "GROCERY": "negative"
+  }
+}

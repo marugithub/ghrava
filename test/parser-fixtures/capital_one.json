@@ -1,0 +1,9 @@
+{
+  "format": "capital_one",
+  "min_transactions": 3,
+  "amount_signs": {
+    "STARBUCKS": "negative",
+    "STATEMENT CREDIT": "positive",
+    "GAS STATION": "negative"
+  }
+}

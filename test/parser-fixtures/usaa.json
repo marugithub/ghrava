@@ -1,0 +1,9 @@
+{
+  "format": "usaa",
+  "min_transactions": 3,
+  "amount_signs": {
+    "COFFEE": "negative",
+    "PAYCHECK": "positive",
+    "CABLE BILL": "negative"
+  }
+}

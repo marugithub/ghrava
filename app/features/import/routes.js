@@ -487,10 +487,21 @@ router.get('/spending', (req, res) => {
 });
 
 // ── Missing statement todos ────────────────────────────────────
+//
+// detectMissingStatements() is reused by:
+//   1. GET /missing-statements (this endpoint) — for the finance UI
+//      banner.
+//   2. shared/autoTodos.js (v.155) — feeds an `auto_type='missing_statement'`
+//      todo per missing month so they show up in the daily todo list.
+//
+// "Missing" = an active account with track_statements=1 has no
+// import_batch with statement_date in that month. Looks back N
+// months (default 3).
 
-router.get('/missing-statements', (req, res) => {
+function detectMissingStatements(monthsBack = 3) {
   const accounts = db.prepare(`
-    SELECT * FROM accounts WHERE is_active=1 AND track_statements=1
+    SELECT id, name, alias, institution
+    FROM accounts WHERE is_active = 1 AND track_statements = 1
   `).all();
 
   const missing = [];
@@ -500,12 +511,11 @@ router.get('/missing-statements', (req, res) => {
     const imported = db.prepare(`
       SELECT DISTINCT strftime('%Y-%m', statement_date) AS m
       FROM import_batches
-      WHERE account_id=? AND statement_date IS NOT NULL
+      WHERE account_id = ? AND statement_date IS NOT NULL
     `).all(acct.id).map(r => r.m);
-
     const importedSet = new Set(imported);
 
-    for (let i = 1; i <= 3; i++) {
+    for (let i = 1; i <= monthsBack; i++) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const month = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (!importedSet.has(month)) {
@@ -520,8 +530,14 @@ router.get('/missing-statements', (req, res) => {
       }
     }
   }
+  return missing;
+}
 
-  res.json(missing);
+router.get('/missing-statements', (req, res) => {
+  res.json(detectMissingStatements(3));
 });
 
+// Exported alongside the router so autoTodos can pull it without a
+// circular dependency on the route file's auth wrapper.
 module.exports = router;
+module.exports.detectMissingStatements = detectMissingStatements;

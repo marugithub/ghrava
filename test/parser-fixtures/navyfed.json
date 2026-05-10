@@ -1,0 +1,9 @@
+{
+  "format": "navyfed",
+  "min_transactions": 3,
+  "amount_signs": {
+    "UTILITY BILL": "negative",
+    "DIRECT DEPOSIT": "positive",
+    "COFFEE SHOP": "negative"
+  }
+}

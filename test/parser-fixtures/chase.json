@@ -1,0 +1,15 @@
+{
+  "format": "chase",
+  "min_transactions": 4,
+  "first_transaction": {
+    "date": "2026-04-15",
+    "amount": -5.95,
+    "description_contains": "STARBUCKS"
+  },
+  "amount_signs": {
+    "STARBUCKS": "negative",
+    "AMAZON": "negative",
+    "DIRECT DEPOSIT": "positive",
+    "PAYMENT THANK YOU": "negative"
+  }
+}

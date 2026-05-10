@@ -556,6 +556,11 @@
               <div><div class="settings-rail-label">EOB parser &amp; app config</div><div class="settings-rail-desc">Insurance parser, reminders, thresholds</div></div>
               <div class="settings-rail-right"><span id="eobParserBadge" class="settings-rail-pill">MHBP</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
             </div>
+            <div class="settings-rail-item" onclick="openPanel('finrules')" data-search="finance category rules transaction categorize import auto">
+              <div class="settings-rail-icon" style="background:rgba(92,114,250,.1);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11l-6-6H5a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V11z"/><line x1="13" y1="13" x2="9" y2="9"/><line x1="13" y1="13" x2="13" y2="17"/></svg></div>
+              <div><div class="settings-rail-label">Finance category rules</div><div class="settings-rail-desc">Auto-categorize imported transactions</div></div>
+              <div class="settings-rail-right"><span id="finrulesBadge" class="settings-rail-pill">—</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
           </div>
         </div>
 
@@ -1029,6 +1034,67 @@
 
     </div>
   </div>
+
+
+<!-- FINANCE CATEGORY RULES SUB-PANEL (v202604.155) -->
+<div class="sub-panel" id="panel-finrules">
+  <div class="sub-panel-header">
+    <button class="sub-back" onclick="closePanel('finrules')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Settings
+    </button>
+    <div class="sub-panel-title">Finance Category Rules</div>
+  </div>
+  <div class="content" style="padding:16px">
+
+    <div class="settings-card">
+      <div class="settings-card-title">How rules work</div>
+      <div class="settings-card-desc" style="line-height:1.5">
+        Each rule is a <b>pattern</b> matched against an imported transaction's
+        description and a <b>category</b> assigned when matched. Patterns use SQL
+        <code>LIKE</code> syntax: <code>%</code> matches anything, <code>_</code> matches
+        a single character. Matching is case-insensitive. Rules are applied in
+        ascending <b>sort order</b>; first match wins.
+        <br><br>
+        Example: <code>%STARBUCKS%</code> → <i>Coffee</i>. Bare keywords get
+        wrapped in <code>%…%</code> automatically when added.
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Add a rule</div>
+      <div class="form-row" style="gap:8px">
+        <div class="form-group" style="flex:2">
+          <label class="form-label">Pattern</label>
+          <input class="form-input" id="frPattern" placeholder="e.g. STARBUCKS or %AMAZON%">
+        </div>
+        <div class="form-group" style="flex:2">
+          <label class="form-label">Category</label>
+          <input class="form-input" id="frCategory" placeholder="e.g. Food, Gas, Rent">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Order</label>
+          <input class="form-input" type="number" id="frOrder" value="100" step="10">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button class="btn btn-primary" onclick="frAddRule()">Add rule</button>
+        <button class="btn btn-ghost" onclick="frApplyNow()" id="frApplyBtn">▶ Apply to uncategorized</button>
+        <span id="frApplyResult" style="font-size:12px;color:var(--text3);align-self:center"></span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Existing rules</span>
+        <span id="frCount" style="font-size:12px;color:var(--text3);font-weight:400">—</span>
+      </div>
+      <div id="frList" style="margin-top:8px">
+        <div style="color:var(--text3);font-size:13px;padding:12px;text-align:center">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <!-- EOB PARSER SUB-PANEL -->
@@ -1736,6 +1802,16 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.textContent = 'Yes, Restore'; btn.disabled = false;
     }
   });
+
+  // Seed Finance category rules badge so user sees count without
+  // opening the panel. Read-only, no auth, fail-quiet.
+  (async () => {
+    try {
+      const rules = await window.api('GET', '/finance/category-rules');
+      const badge = $('finrulesBadge');
+      if (badge) badge.textContent = String(Array.isArray(rules) ? rules.length : 0);
+    } catch (e) { /* ignore */ }
+  })();
 });
 
 // ── Panel navigation ──────────────────────────────────────────
@@ -1755,7 +1831,128 @@ const PANEL_LOADERS = {
   deleted:   () => { loadDeletedItems(); },
   database:  () => { loadDatabasePanel(); },
   webhooks:  () => { loadWebhooksPanel(); },
+  finrules:  () => { loadFinrulesPanel(); },
 };
+
+// ── Finance Category Rules (v202604.155) ─────────────────────────
+// Backend already exposes:
+//   GET    /api/v1/finance/category-rules
+//   POST   /api/v1/finance/category-rules         (auth)
+//   DELETE /api/v1/finance/category-rules/:id     (auth)
+//   POST   /api/v1/finance/category-rules/apply   (auth) — runs all
+//                                                  active rules against
+//                                                  uncategorized rows.
+// This panel is the human UI for them. Bare-keyword patterns get
+// wrapped in %…% on save; matching is case-insensitive (handled
+// server-side by the rule applier).
+
+async function loadFinrulesPanel() {
+  const list = $('frList');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px;text-align:center">Loading…</div>';
+  try {
+    const rules = await window.api('GET', '/finance/category-rules');
+    const count = Array.isArray(rules) ? rules.length : 0;
+    $('frCount').textContent = `${count} rule${count === 1 ? '' : 's'}`;
+    const badge = $('finrulesBadge');
+    if (badge) badge.textContent = String(count);
+
+    if (!count) {
+      list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px;text-align:center;border:1px dashed var(--border);border-radius:var(--r)">No rules yet. Add your first rule above.</div>';
+      return;
+    }
+
+    list.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text3);font-size:11px;letter-spacing:.06em;text-transform:uppercase">
+            <th style="padding:8px 10px">Pattern</th>
+            <th style="padding:8px 10px">Category</th>
+            <th style="padding:8px 10px;width:70px">Order</th>
+            <th style="padding:8px 10px;width:90px">Active</th>
+            <th style="padding:8px 10px;width:60px"></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rules.map(r => `
+            <tr style="border-bottom:1px solid var(--border)" data-fr-row="${r.id}">
+              <td style="padding:8px 10px;font-family:var(--mono);font-size:12px">${escHtml(r.pattern)}</td>
+              <td style="padding:8px 10px">${escHtml(r.category)}</td>
+              <td style="padding:8px 10px;color:var(--text3)">${r.sort_order ?? 100}</td>
+              <td style="padding:8px 10px">
+                <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${r.is_active ? 'rgba(34,197,94,.12)' : 'rgba(0,0,0,.06)'};color:${r.is_active ? '#15803d' : 'var(--text3)'}">
+                  ${r.is_active ? 'active' : 'paused'}
+                </span>
+              </td>
+              <td style="padding:8px 10px;text-align:right">
+                <button class="btn btn-ghost" style="font-size:11px;padding:3px 10px;color:var(--red)" onclick="frDeleteRule(${r.id})">Delete</button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    list.innerHTML = `<div style="color:var(--red);font-size:13px;padding:12px">Failed to load: ${escHtml(e.message)}</div>`;
+  }
+}
+
+async function frAddRule() {
+  const rawPattern  = ($('frPattern').value || '').trim();
+  const category    = ($('frCategory').value || '').trim();
+  const sortOrder   = parseInt($('frOrder').value) || 100;
+  if (!rawPattern || !category) { toast('Pattern and category required', 'err'); return; }
+
+  // Wrap bare keywords. If the user already used % or _ wildcards,
+  // assume they know what they're doing.
+  const pattern = (rawPattern.includes('%') || rawPattern.includes('_'))
+    ? rawPattern.toUpperCase()
+    : `%${rawPattern.toUpperCase()}%`;
+
+  try {
+    await window.api('POST', '/finance/category-rules', {
+      pattern, category, sort_order: sortOrder,
+    });
+    $('frPattern').value = '';
+    $('frCategory').value = '';
+    $('frOrder').value = '100';
+    toast('Rule added');
+    loadFinrulesPanel();
+  } catch (e) { toast(e.message || 'Failed to add', 'err'); }
+}
+
+async function frDeleteRule(id) {
+  if (!await LT.confirm('Delete this category rule?')) return;
+  try {
+    await window.api('DELETE', `/finance/category-rules/${id}`);
+    toast('Rule deleted');
+    loadFinrulesPanel();
+  } catch (e) { toast(e.message || 'Failed to delete', 'err'); }
+}
+
+async function frApplyNow() {
+  const btn = $('frApplyBtn');
+  btn.disabled = true; btn.textContent = '⏳ Applying…';
+  $('frApplyResult').textContent = '';
+  try {
+    const r = await window.api('POST', '/finance/category-rules/apply');
+    const updated = r?.updated ?? 0;
+    const total   = r?.total_uncategorized ?? 0;
+    $('frApplyResult').textContent = `${updated} of ${total} categorized`;
+    toast(`${updated} transaction${updated === 1 ? '' : 's'} categorized`);
+  } catch (e) {
+    toast(e.message || 'Apply failed', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Apply to uncategorized';
+  }
+}
+
+// Tiny html-escape used only here to avoid a dep on shared esc().
+function escHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
 
 // ── Google Services Panel ────────────────────────────────────
 async function loadGooglePanel() {

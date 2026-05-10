@@ -1,0 +1,10 @@
+{
+  "format": "default",
+  "min_transactions": 3,
+  "amount_signs": {
+    "WALMART": "negative",
+    "PAYMENT - THANK YOU": "positive",
+    "UBER": "negative"
+  },
+  "note": "Discover parser flips signs (raw positive=charge → flipped negative)"
+}
