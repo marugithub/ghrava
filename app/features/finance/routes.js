@@ -174,6 +174,81 @@ function createExpiryTodo(gcId, retailer, expiryDate, balance) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// NEEDS REVIEW (v202604.152)
+// ══════════════════════════════════════════════════════════════
+// Returns a single payload listing every account + transaction
+// flagged with needs_review=1. Drives the banner/queue on
+// /finance.html. Saving an account or transaction (PUT) implicitly
+// clears the flag — see saveAccount / saveTransaction.
+//
+// Counts ignore inactive accounts so deactivated rows don't keep
+// nagging. The transactions list caps at 200 to keep payload small;
+// the count field tells the UI when there are more.
+
+router.get('/needs-review', (req, res) => {
+  try {
+    const accounts = db.prepare(`
+      SELECT id, name, alias, type, institution, last4, source,
+             current_balance, balance_as_of
+      FROM accounts
+      WHERE needs_review = 1 AND is_active = 1
+      ORDER BY id ASC
+    `).all();
+
+    const txns = db.prepare(`
+      SELECT t.id, t.account_id, t.date, t.description, t.amount,
+             t.category, t.source, t.flagged,
+             a.name AS account_name, a.alias AS account_alias
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE t.needs_review = 1 AND a.is_active = 1
+      ORDER BY t.date DESC, t.id DESC
+      LIMIT 200
+    `).all();
+
+    const txnCount = db.prepare(`
+      SELECT COUNT(*) AS n
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE t.needs_review = 1 AND a.is_active = 1
+    `).get()?.n || 0;
+
+    res.json({
+      accounts,
+      transactions: txns,
+      counts: {
+        accounts:     accounts.length,
+        transactions: txnCount,
+        total:        accounts.length + txnCount,
+      },
+    });
+  } catch (e) { serverError(res, e); }
+});
+
+// Clear a transaction's needs_review without going through PUT.
+// (PUT requires every field; this is a one-tap "looks fine".)
+router.post('/transactions/:id/clear-review', requireAuth, (req, res) => {
+  try {
+    const r = db.prepare(
+      `UPDATE transactions SET needs_review=0 WHERE id=?`
+    ).run(req.params.id);
+    if (!r.changes) return notFound(res, 'Transaction');
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// Same for accounts.
+router.post('/accounts/:id/clear-review', requireAuth, (req, res) => {
+  try {
+    const r = db.prepare(
+      `UPDATE accounts SET needs_review=0, updated_at=CURRENT_TIMESTAMP WHERE id=?`
+    ).run(req.params.id);
+    if (!r.changes) return notFound(res, 'Account');
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
 // ACCOUNTS
 // ══════════════════════════════════════════════════════════════
 

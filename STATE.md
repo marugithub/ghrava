@@ -23,56 +23,64 @@ recent shipped version is **v202604.150**; the deploy zip in
 `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
 session) IS that version.
 
-### What was just shipped (v.151) — needs Al's manual test before next drop
+### What was just shipped (v.152) — needs Al's manual test before next drop
 
-**FINANCE MODULE UNIFICATION (mig 126).** Two parallel sets of tables
-(`finance_*` from manual entry, `financial_*` from file import) merged
-into one `accounts` + one `transactions` table. **Schema-touching
-drop — back up DB on NAS BEFORE container restart**, even though
-legacy tables are renamed not dropped.
+**FINANCE FRONTEND PARITY + NEEDS-REVIEW QUEUE.** Repairs a v.151
+regression (the import-route rewrite returned unified column names but
+the frontend was still reading old `nickname`/`account_type`/`last_four`)
+AND lands the form parity work locked in chat. Bundle includes the
+v.151 schema migration since Al hadn't deployed v.151 yet — this zip
+is self-contained from v.150. **Schema-touching drop — back up DB on
+NAS BEFORE container restart**, even though legacy tables are renamed
+not dropped.
 
-- **One `accounts` table** replaces `finance_accounts` and
-  `financial_accounts`. Has `alias` field (locked requirement),
-  `source` ('manual' | 'imported' | 'merged'), `needs_review` flag.
-  Type vocabulary LOCKED: Checking, Savings, Credit, Cash, HSA,
-  Brokerage, TSP, Retirement, Loan, Mortgage, Other.
-- **One `transactions` table** replaces `finance_transactions` and
-  `imported_transactions`. Same `source` + `needs_review` cols.
-  Carries fingerprint, flagged, batch_id, txn_type for the import path.
-- **Dedup on (institution, last4)** during merge. When a row from
-  `financial_accounts` matches an existing row in `accounts`, it MERGES
-  into the existing row (filling nulls only — never overwriting), sets
-  `source='merged'` and `needs_review=1`, and pulls `nickname` over as
-  `alias`. Smoke-tested with Chase Checking dup case → confirmed merge.
-- **No CASCADE anywhere** in the new schema. (Old `imported_transactions`
-  had ON DELETE CASCADE — silently nuked history if account deleted.
-  Also fixed in mig 126.)
-- **DELETE endpoints removed.** Accounts and transactions cannot be
-  deleted via the API. New endpoints:
-  - `POST /accounts/:id/deactivate`, `/reactivate`
-  - `POST /transactions/:id/void` (flag + note, never delete)
-  - `POST /import-batches/:id/rollback` (replaces `DELETE /batches/:id`)
-- **Validation added to manual entry**: account must exist + be active,
-  amount must be finite, future-dated tx → `needs_review=1`.
-- **Old tables renamed `_legacy_*`, not dropped.** Reversible — full
-  rollback path documented at top of mig 126.
-- **Compat VIEWs** named `finance_accounts`, `financial_accounts`,
-  `finance_transactions`, `imported_transactions`, `fin_import_batches`
-  point at the unified tables with old column shapes. This means
-  dashboard/search/subscriptions/reports/recurring-transactions.js etc.
-  keep working unchanged — they read through views. Only the WRITE paths
-  in `features/finance/routes.js` and `features/import/routes.js` were
-  rewritten to target unified tables directly.
-- **Net worth math now includes holdings** market value on the
-  assets side (was missing).
-- **Net worth snapshots: never auto-prune.** Removed `LIMIT 24` from
-  `GET /net-worth/snapshots`.
-- **finance.html unchanged this drop.** Frontend works through views
-  + repointed routes; UI rewrites for tile 1/2/3/5 deferred.
+- **Account form rebuilt.** alias / owner / currency / track_statements
+  always-visible. Type dropdown driven by the locked vocab from mig 126
+  (Checking, Savings, Credit, Cash, HSA, Brokerage, TSP, Retirement,
+  Loan, Mortgage, Other) — no more "Credit Card" / "Investment (other)".
+- **Single-endpoint write path.** `saveAccount` POSTs/PUTs to
+  `/api/v1/finance/accounts` for every account type. The
+  `_accSourceTable` fork is gone.
+- **Single-fetch reads.** `populateTxAccountFilter`,
+  `loadImpAccountSelect`, `loadImpAccounts`, `loadImpHistory` all hit
+  one endpoint; type filtering happens client-side. Fixes the
+  duplicate-rows bug v.151 introduced (both endpoints returned the
+  same unified rows).
+- **Delete → Deactivate.** UI matches mig 126 architecture. Drawer
+  shows an Inactive banner + Reactivate button when editing a
+  deactivated row. Re-saving a flagged row clears `needs_review`
+  implicitly.
+- **Rollback button uses POST.** Was DELETE — the route doesn't exist
+  after v.151. Single endpoint for both batch types.
+- **Field-shape repair.** alias preferred over name in every
+  list/strip; review badges (⚠ review) on flagged rows; unified-shape
+  reads on holdings, missing-statement alerts, account rows, batch
+  history.
+- **Needs-review queue.** New banner on Overview tab showing total
+  flagged count. Clicking expands a panel listing flagged accounts +
+  transactions with two actions per row: Edit (opens drawer) or Looks
+  fine (one-tap clear). Backend: `GET /api/v1/finance/needs-review`,
+  `POST /accounts/:id/clear-review`, `POST /transactions/:id/clear-review`.
+  Fires on initial DOMContentLoaded so the banner shows on first paint.
 
-What's still suspect from earlier drops:
-- v.150: 6-tile finance Overview grid with sample data (round 1 of 3)
-- v.149: medical /medical.html lands on All tab, SE/Self avatar fix,
+**v.151 carried into this zip (because Al didn't deploy v.151 yet):**
+- mig 126 (unification migration with compat views)
+- unified `app/features/finance/routes.js` (+ v.152 needs-review
+  endpoints)
+- unified `app/features/import/routes.js`
+- type vocab locked: Checking, Savings, Credit, Cash, HSA, Brokerage,
+  TSP, Retirement, Loan, Mortgage, Other
+- no DELETE on accounts/transactions; no CASCADE; alias field on
+  every account; needs_review flag; merged-row dedup on
+  (institution, last4)
+- compat views (`finance_accounts`, `financial_accounts`, etc.) keep
+  the rest of the codebase working unchanged
+
+Carried from v.150 (still suspect, never tested by Al):
+- 6-tile finance Overview grid with sample data (round 1 of 3)
+
+Carried from v.149 (still suspect):
+- Medical /medical.html lands on All tab, SE/Self avatar fix,
   visit↔condition junction (mig 125)
 
 Full list in `## ✋ DON'T TRUST WITHOUT RETEST` and `## ✅ SHIPPED THIS
@@ -81,26 +89,28 @@ test results.
 
 ### Next-drop work is queued
 
-**Resolved by v.151** (no longer in flight):
-- ~~Finance landing round 2 — alias field~~ DONE (alias is on every
-  account row)
-- ~~v140 unify finance_accounts vs financial_accounts~~ DONE
-- ~~Description-normalization dedup, pending/posted window~~ — easier
-  to revisit now since unified schema; defer next.
+**P0 #3 (next drop):** description normalization for fingerprint +
+pending/posted 5-day window dedup. Schema-touching mig with backfill.
 
-**Remaining queue:**
-- **Finance landing round 2** (cards): credit-card-specific columns
-  (credit_limit, payment_due_date, minimum_payment, statement_balance,
-  apr, promo_apr, promo_end_date, annual_fee, annual_fee_renewal_date,
-  rewards_balance) — additive migration on `accounts`.
-- **Finance landing round 3**: `/api/v1/finance/landing` aggregator,
-  swap sample data on Overview tiles for real values.
-- Description normalization for dedup
-- Pending/posted window for dedup (5-day overlap rule)
-- Sign-convention spec tests (finance parsers)
+**P1:**
+- Credit-card-specific columns on `accounts` (credit_limit,
+  payment_due_date, minimum_payment, statement_balance, apr,
+  promo_apr, promo_end_date, annual_fee, annual_fee_renewal_date,
+  rewards_balance) — additive migration.
+- `/api/v1/finance/landing` aggregator. Replace sample data on tiles
+  1/2/3/5. Tile 1 auto-snapshot scheduler. Tile 2 needs "on track"
+  rule defined.
+
+**P2:**
+- Sign-convention parser tests
 - Categorization rule editor in Settings
-- Tag fixes / data-quality checker / per-device family filter
-- EOB Aetna MHBP parser verify, vision/dental EOB ingest
+
+**P3:**
+- Missing-statement → todos auto-feed
+- `tx_record_links` cross-module table + "All" tab on finance
+- Drop `_legacy_*` tables once v.151+v.152 are stable
+- Repoint dashboard/search/subs/reports/recurring-transactions.js off
+  compat views
 
 **Don't pick a top item and start coding.** Al chats first, then builds.
 Ask which item to take, confirm scope, then go.
@@ -150,52 +160,60 @@ zip if needed.
 
 ## Current version
 
-**v202604.151** — packaged. Finance module schema unification.
+**v202604.152** — packaged. Finance frontend parity + needs-review
+queue, bundled with v.151 schema unification (because v.151 was never
+deployed standalone).
 
-- **Migration 126** (`126_finance_unify.js`) merges the parallel
-  `finance_*` (manual entry path) and `financial_*` (file import path)
-  tables into one unified `accounts` + one unified `transactions`
-  table. Same real-world account no longer ends up in two tables
-  depending on entry path.
-- **`accounts` table** — full union of fields from both sources,
-  plus `alias` (locked requirement for tile/report display),
-  `source` ('manual' | 'imported' | 'merged'), `needs_review` flag.
-  Type vocabulary locked: Checking, Savings, Credit, Cash, HSA,
-  Brokerage, TSP, Retirement, Loan, Mortgage, Other.
-- **`transactions` table** — replaces `finance_transactions` and
-  `imported_transactions`. Carries `source`, `needs_review`,
-  fingerprint, flagged, batch_id, txn_type.
-- **Dedup logic** — financial_accounts rows whose `(institution,
-  last4)` already exists in `accounts` are MERGED (fill-nulls only,
-  never overwrite); merged row gets `source='merged'`,
-  `needs_review=1`, alias set from `nickname`.
-- **No CASCADE** anywhere in the new schema. The old
-  `imported_transactions.account_id → financial_accounts(id) ON
-  DELETE CASCADE` (silently nuked history if account was deleted) is
-  gone.
-- **No DELETE endpoints** on accounts or transactions in either
-  `/api/v1/finance` or `/api/v1/import`. Replacements:
-  - `POST /api/v1/finance/accounts/:id/deactivate` + `/reactivate`
-  - `POST /api/v1/finance/transactions/:id/void`
-  - `POST /api/v1/finance/import-batches/:id/rollback`
-  - `POST /api/v1/import/accounts/:id/deactivate`
-  - `POST /api/v1/import/batches/:id/rollback`
-- **Validation on manual transaction POST** — account exists + active,
+### v.152 frontend changes
+
+- **Account form rebuilt.** alias / owner / currency /
+  track_statements always-visible. Locked-vocab type dropdown.
+- **Single-endpoint write path.** `saveAccount` uses
+  `/api/v1/finance/accounts` for every type. No more
+  `_accSourceTable` fork.
+- **Single-fetch reads.** `populateTxAccountFilter`,
+  `loadImpAccountSelect`, `loadImpAccounts`, `loadImpHistory` all
+  call one endpoint and split by type client-side. Fixes
+  duplicate-rows bug v.151 introduced.
+- **Delete → Deactivate.** Drawer shows Inactive banner +
+  Reactivate button when editing a deactivated row. Re-saving a
+  flagged row clears `needs_review`.
+- **Rollback button uses POST** (DELETE is gone after v.151).
+- **Field-shape repair across the page** — alias preferred over
+  name, ⚠ review badges, unified-shape reads on every list.
+
+### v.152 needs-review queue
+
+- **Banner on Overview tab** showing total count of flagged
+  rows (`accounts + transactions`). Hidden when count is 0.
+- **Expandable panel** lists flagged accounts and transactions
+  with two actions per row: Edit (opens drawer) or Looks fine
+  (one-tap clear).
+- **Backend additions:**
+  - `GET /api/v1/finance/needs-review` — returns
+    `{accounts, transactions, counts}`. Inactive accounts excluded
+    from counts.
+  - `POST /api/v1/finance/accounts/:id/clear-review`
+  - `POST /api/v1/finance/transactions/:id/clear-review`
+- **Boot path** fires `loadNeedsReview()` on DOMContentLoaded so
+  the banner shows on first paint without requiring a tab switch.
+
+### v.151 carryovers (bundled in this zip)
+
+- **Migration 126** — merges `finance_*` and `financial_*` tables
+  into one unified `accounts` + one unified `transactions` table.
+  Compat views keep dashboard/search/subs/reports/etc. working.
+  Idempotent. Reversible — legacy tables renamed `_legacy_*`.
+- **Type vocabulary locked**: Checking, Savings, Credit, Cash,
+  HSA, Brokerage, TSP, Retirement, Loan, Mortgage, Other.
+- **Dedup on (institution, last4)** during merge — pulls
+  `nickname` over as `alias`.
+- **No CASCADE** anywhere; **no DELETE** on accounts or
+  transactions (deactivate / void / rollback only).
+- **Validation on manual tx POST** — account exists+active,
   amount finite, future-date → `needs_review=1`.
-- **Net worth** now includes holdings market value on assets side and
-  no longer caps snapshot history (was `LIMIT 24`).
-- **Reversibility** — old tables renamed `_legacy_*`, not dropped.
-  Full rollback recipe in the comment block at the top of mig 126.
-- **Compat VIEWs** named `finance_accounts`, `financial_accounts`,
-  `finance_transactions`, `imported_transactions`, `fin_import_batches`
-  point at the unified tables with old column shapes. Other modules
-  (dashboard, search, subs, reports, recurring-transactions.js,
-  shared/dedupe.js, shared/exportQueries.js, etc.) keep working
-  unchanged through views; only the WRITE paths in
-  `features/finance/routes.js` and `features/import/routes.js` were
-  rewritten to target the unified tables directly.
-- **finance.html unchanged this drop** — frontend reads through views
-  + repointed routes; UI rewrites for tile 1/2/3/5 deferred.
+- **Net worth** includes holdings on assets side; snapshot
+  history never auto-pruned.
 
 Carry-over from v.150 (still shipped, unchanged in code):
 - 6-tile Overview grid on /finance.html, Vellum theme, sample data
@@ -210,7 +228,7 @@ Carry-over from v.149 (still shipped, unchanged in code):
 
 ---
 
-## ✋ DON'T TRUST WITHOUT RETEST (v202604.151)
+## ✋ DON'T TRUST WITHOUT RETEST (v202604.152)
 
 **This list survives across chats.** Anything below is *touched* this
 drop but NOT confirmed working by Al. Treat as suspect until Al says
@@ -218,10 +236,11 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 | File | Change | Risk |
 |---|---|---|
-| `app/db/migrations/126_finance_unify.js` | NEW. Merges 4 tables into 2, creates compat views, renames legacy tables. Idempotent guard via `_migrations_finance_unify_done`. | **HIGH** — schema change. Smoke-tested in sandbox with synthetic data; Al should manually back up `data/ghrava.db` before container restart. Legacy tables stay queryable for rollback. |
-| `app/features/finance/routes.js` | All read/write paths repointed from `finance_accounts`/`finance_transactions` → unified `accounts`/`transactions`. Added `alias` to POST/PUT. DELETE endpoints removed and replaced with deactivate/void/rollback. Validation added (active account, finite amount, future-date flag). | **HIGH** — every finance write path touched. Test: create manual account, edit alias, add transaction, deactivate, reactivate. |
-| `app/features/import/routes.js` | Full file rewrite. All paths target `accounts`/`transactions`. `DELETE /accounts/:id` → `POST /accounts/:id/deactivate`. `DELETE /batches/:id` → `POST /batches/:id/rollback`. Holdings upsert pattern changed from ON CONFLICT → manual SELECT-then-UPDATE-or-INSERT. | **HIGH** — every file-import path touched. Test: preview a CSV, confirm import, verify transactions appear, roll back the batch, verify rollback removed them. |
-| `app/version.txt` | `202604.151` | None. |
+| `app/db/migrations/126_finance_unify.js` | NEW (carried from v.151). Merges 4 tables into 2, creates compat views, renames legacy tables. Idempotent. | **HIGH** — schema change. Smoke-tested in sandbox. Al should manually back up `data/ghrava.db` before container restart. Legacy tables stay queryable for rollback. |
+| `app/features/finance/routes.js` | All read/write paths repointed to unified `accounts`/`transactions` (v.151). v.152 adds `GET /needs-review`, `POST /accounts/:id/clear-review`, `POST /transactions/:id/clear-review`. DELETE endpoints removed. | **HIGH** — every finance write path touched. Test: create manual account with alias/owner/currency, edit it, deactivate, reactivate, save a flagged row → flag clears. |
+| `app/features/import/routes.js` | Full file rewrite (v.151). All paths target unified tables. No DELETE — POST `/accounts/:id/deactivate` and `/batches/:id/rollback`. Holdings upsert switched from ON CONFLICT to SELECT-then-UPDATE-or-INSERT. | **HIGH** — every file-import path touched. Test: preview a CSV, confirm import, verify transactions appear, roll back the batch. |
+| `app/public/finance.html` | Account form rebuilt (alias/owner/currency/track_statements always-visible, locked-vocab type dropdown, Inactive banner + Reactivate, Delete→Deactivate). saveAccount/openAccountDrawer use single `/finance/accounts` endpoint. populateTxAccountFilter / loadImpAccountSelect / loadImpAccounts / loadImpHistory all single-fetch. accountRowHtml + holdings + missing-statements use unified shape with alias preferred. Needs-review banner + expandable panel on Overview tab. Boot fires `loadNeedsReview()`. | **HIGH** — every account-touching surface on the page. Test: open Overview → banner shows count; expand panel → see flagged rows; click "Looks fine" → row disappears. Add new account → all fields present. Edit existing account → fields populate. Switch type to HSA / Retirement / Mortgage → form still works. Deactivate → confirm; banner appears on next open. Reactivate from banner. Tx filter dropdown shows accounts only once (no dup). |
+| `app/version.txt` | `202604.152` | None. |
 
 ### Carryover from v.150 — still untested
 
@@ -236,63 +255,58 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 - SE/Self avatar bug fix
 - Visit ↔ condition junction (migration 125)
 
-**This list survives across chats.** Anything below is *touched* this
-drop but NOT confirmed working by Al. Treat as suspect until Al says
-"tested, works." Clear an entry only on Al's confirmation.
-
-(See top-of-file v.151 table — this block was the v.150 list, now
-folded into the carryover entries above.)
-
 ---
 
-## ✅ SHIPPED THIS DROP (v202604.151)
+## ✅ SHIPPED THIS DROP (v202604.152)
 
-### Finance schema unification
+### Finance frontend parity (form + list reads)
 
-Plan locked with Al in chat (2026-05-10):
+- **Account form** — alias, owner, currency, track_statements always
+  visible. Locked vocab dropdown (11 types). Inactive banner with
+  Reactivate. Drawer no longer routes by type — single endpoint for
+  every write.
+- **Single-fetch reads** across the page. Type filter happens in JS,
+  not via dual-endpoint joins. Fixes a v.151 regression that showed
+  every account twice and broke the Import-tab account create/edit
+  (frontend was sending `nickname`/`account_type`/`last_four`; backend
+  expected unified shape).
+- **Field-shape repair** — alias preferred over name; ⚠ review badges
+  on flagged rows; unified-shape reads on holdings, missing-statement
+  alerts, account list rows, batch history.
+- **Delete → Deactivate** UI parity with v.151 backend (no DELETE
+  endpoint exists).
+- **Batch rollback uses POST** (was DELETE).
 
-- **Two parallel sets of finance tables had grown by historical
-  accident** — `finance_*` (mig 020, manual entry) and `financial_*`
-  (mig 032, file import). Same kind of data, two type vocabularies,
-  same real-world account could land in either depending on input
-  path. Plus a pre-existing `ON DELETE CASCADE` on
-  `imported_transactions.account_id` that silently nuked history
-  when an account was deleted.
+### Needs-review queue
 
-- **Decision (locked):** ONE `accounts` table, ONE `transactions`
-  table. Both manual entry and file import write to the same place.
-  `source` column ('manual' | 'imported' | 'merged') records origin.
-  `needs_review` flag on each row. NO CASCADE anywhere.
+- **Banner on Overview tab** showing total flagged count (accounts +
+  transactions), hidden when count is zero.
+- **Expandable panel** lists each flagged row with two actions: Edit
+  (opens drawer) or Looks fine (one-tap clear). The panel
+  auto-refreshes after either action.
+- **Backend:** `GET /api/v1/finance/needs-review` returns
+  `{accounts, transactions, counts}`; inactive accounts excluded from
+  counts. `POST /accounts/:id/clear-review` and
+  `POST /transactions/:id/clear-review` for one-tap clears.
+- **Boot path** fires `loadNeedsReview()` on DOMContentLoaded so the
+  banner shows on first paint, not just after tab switching.
 
-- **Decision (locked):** Keep existing rows — merge them, do not
-  start from scratch. Dedup on `(institution, last4)` for the
-  financial_accounts → accounts copy. When a match exists, MERGE
-  fills nulls only (never overwrites), sets `source='merged'`,
-  `needs_review=1`, and pulls `nickname` over as `alias`.
+### Bundled v.151 carryover (since v.151 was never deployed)
 
-- **Decision (locked):** Type vocabulary frozen. Checking, Savings,
-  Credit, Cash, HSA, Brokerage, TSP, Retirement, Loan, Mortgage,
-  Other. Drives every dropdown. Anything else → 'Other' +
-  needs_review=1.
-
-- **Decision (locked):** No DELETE on accounts or transactions.
-  Soft inactive only. Even if a statement is loaded by mistake, use
-  rollback feature, never delete. `is_active=0` is the only way to
-  remove an account from view; `POST .../void` is the only way to
-  flag an individual mistaken transaction.
-
-- **Decision (locked):** Alias field required on every account row.
-  Drives tile and report display.
-
-- **Decision (locked):** Never auto-prune historical snapshots. Data
-  is cheap.
-
-- **Smoke test passed** in sandbox: 6 source rows (3 + 3) → 5 unified
-  rows with the Chase-Checking-style dup correctly merged
-  (`source='merged'`, alias filled, needs_review=1). 4 transactions
-  copied with correct FK rewrites. Holdings + batches FK-rewritten.
-  Legacy tables intact under `_legacy_*`. Compat views return
-  expected row counts.
+- **Migration 126** — merges `finance_*` + `financial_*` tables into
+  unified `accounts` + `transactions`. Compat views keep the rest of
+  the codebase working unchanged. Idempotent. Reversible (legacy
+  tables renamed `_legacy_*`).
+- **Type vocabulary locked**: Checking, Savings, Credit, Cash, HSA,
+  Brokerage, TSP, Retirement, Loan, Mortgage, Other.
+- **Dedup on (institution, last4)** during merge — pulls `nickname`
+  over as `alias`, sets `source='merged'`, `needs_review=1`.
+- **No CASCADE** anywhere; **no DELETE** on accounts or transactions
+  (deactivate / void / rollback only).
+- **Validation on manual tx POST** — account exists+active, amount
+  finite, future-date → `needs_review=1`.
+- **Net worth** includes holdings on assets side; snapshot history
+  never auto-pruned.
 
 ### Finance landing — round 1 of 3 (design)
 

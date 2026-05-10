@@ -245,6 +245,14 @@
 .fin-tile-subs-mid { display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-top:12px }
 .fin-tile-subs-mid-list { flex:1;display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:12px;min-width:0 }
 .fin-tile-sample-banner { background:rgba(192,57,43,0.06);border:1px dashed rgba(192,57,43,0.25);color:#7a2618;padding:8px 12px;border-radius:8px;font-size:12px;margin-bottom:14px;font-family:var(--mono);letter-spacing:.04em }
+.fin-review-banner { display:flex; align-items:center; gap:8px; background:#fef3c7; border:1px solid #fbbf24; color:#78350f; padding:8px 12px; border-radius:8px; font-size:13px; margin-bottom:8px; cursor:pointer; user-select:none }
+.fin-review-banner:hover { background:#fde68a }
+.fin-review-icon { font-size:16px }
+.fin-review-row { display:flex; align-items:center; gap:8px; padding:6px 4px; border-bottom:1px solid #fde68a; font-size:12px }
+.fin-review-row:last-child { border-bottom:none }
+.fin-review-row .review-edit { font-size:11px; padding:2px 8px; color:var(--text2); border:1px solid #d8cba8; border-radius:4px; background:#fff; cursor:pointer }
+.fin-review-row .review-clear { font-size:11px; padding:2px 8px; color:#78350f; border:1px solid #fbbf24; border-radius:4px; background:#fffbeb; cursor:pointer }
+.fin-review-section-title { font-family:var(--mono); font-size:10px; letter-spacing:.08em; text-transform:uppercase; color:#78350f; padding:6px 0 4px }
 @media (max-width:700px) {
   .fin-tiles-grid { grid-template-columns:1fr }
   .fin-tile { min-height:200px }
@@ -283,6 +291,19 @@
        ══════════════════════════════════════════════════════ -->
   <div class="view-panel active" id="panel-overview">
     <div class="fin-tiles-wrap">
+
+      <!-- Needs-review banner (v.152). Hidden until /needs-review reports
+           non-zero count. Click expands a list; users can clear individual
+           rows or jump to edit. The panel under it is just for the list. -->
+      <div id="finReviewBanner" class="fin-review-banner" style="display:none" onclick="toggleReviewPanel(event)">
+        <span class="fin-review-icon">⚠</span>
+        <span id="finReviewMsg" style="flex:1"></span>
+        <span id="finReviewCaret" style="font-family:var(--mono);color:var(--text3);font-size:11px">show ▾</span>
+      </div>
+      <div id="finReviewPanel" style="display:none;background:#fffbeb;border:1px solid #fbbf24;border-radius:6px;margin-bottom:12px;padding:10px 12px">
+        <div id="finReviewAccounts"></div>
+        <div id="finReviewTxns"></div>
+      </div>
 
       <div class="fin-tile-sample-banner">SAMPLE DATA — round 1 design preview. Click any tile to drill into its tab.</div>
 
@@ -1225,7 +1246,10 @@ function switchFinTab(id, btn) {
 
   // FAB wiring per tab
   const fab = $('fabBtn');
-  if (id === 'hsa') {
+  if (id === 'overview') {
+    fab.style.display = 'none';
+    loadNeedsReview();
+  } else if (id === 'hsa') {
     fab.style.display = 'flex';
     updateFabForHsaView(hsaView);
   } else if (id === 'accounts') {
@@ -1970,6 +1994,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initYearSel();
   loadSharedData().then(() => {
     loadHsaAll();
+    // Overview is default tab (v.150) — fire its loaders immediately
+    // so the needs-review banner shows on first paint.
+    if (typeof loadNeedsReview === 'function') loadNeedsReview();
     // Handle hash navigation — e.g. /finance.html#import from data.html
     if (window.location.hash === '#import') {
       setTimeout(() => {
@@ -2012,17 +2039,21 @@ async function loadAccounts() {
 }
 
 function accountRowHtml(a) {
-  const bal = parseFloat(a.current_balance)||0;
+  const bal = parseFloat(a.current_balance) || 0;
   const isLiab = bal < 0;
-  const fmt = v => '$' + Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const fmt = v => '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const last4 = a.last4 || a.account_last4;
+  const label = a.alias || a.name;
+  const reviewBadge = a.needs_review
+    ? `<span title="Needs review" style="background:#fef3c7;color:#78350f;border-radius:4px;padding:1px 5px;font-size:10px;margin-left:6px;font-weight:500">⚠ review</span>` : '';
   return `<div class="expense-row" onclick="openAccountDrawer(${a.id})" style="cursor:pointer">
     <div style="flex:1">
-      <div style="font-weight:600;font-size:14px">${esc(a.name)}${a.account_last4?` ···${a.account_last4}`:''}</div>
-      <div style="font-size:12px;color:var(--text3)">${a.institution||''}${a.balance_as_of?' · as of '+a.balance_as_of:''}</div>
+      <div style="font-weight:600;font-size:14px">${esc(label)}${last4 ? ` ···${last4}` : ''}${reviewBadge}</div>
+      <div style="font-size:12px;color:var(--text3)">${a.institution || ''}${a.owner ? ' · ' + esc(a.owner) : ''}${a.balance_as_of ? ' · as of ' + a.balance_as_of : ''}</div>
     </div>
     <div style="text-align:right">
-      <div style="font-weight:700;color:${isLiab?'var(--red)':'var(--green)'}">${isLiab?'-':''}${fmt(bal)}</div>
-      <div style="font-size:11px;color:var(--text3)">${a.include_net_worth?'in net worth':'excluded'}</div>
+      <div style="font-weight:700;color:${isLiab ? 'var(--red)' : 'var(--green)'}">${isLiab ? '-' : ''}${fmt(bal)}</div>
+      <div style="font-size:11px;color:var(--text3)">${a.include_net_worth ? 'in net worth' : 'excluded'}</div>
     </div>
   </div>`;
 }
@@ -2045,129 +2076,267 @@ function renderNetWorthStrip(nw) {
   nwEl && (nwEl.style.color = nw.net_worth >= 0 ? 'var(--green)' : 'var(--red)');
 }
 
-// Investment account types stored in financial_accounts
-window.ACC_INVEST_TYPES = new Set(['Brokerage','TSP','Investment']);
+// ─────────────────────────────────────────────────────────────
+// Needs-review queue (v.152)
+//
+// Surface every account/transaction the system has flagged for human
+// attention. Source of flag: mig 126 set needs_review=1 on every
+// merged-on-import account; the import path sets it on flagged
+// transactions (probable duplicates within 5-day window). Saving the
+// row clears the flag — see saveAccount/saveTransaction. The
+// "looks fine" link calls /clear-review without opening the form.
+// ─────────────────────────────────────────────────────────────
+
+let _reviewState = { accounts: [], transactions: [], counts: { accounts: 0, transactions: 0, total: 0 } };
+
+async function loadNeedsReview() {
+  try {
+    _reviewState = await api('GET', '/finance/needs-review');
+  } catch { _reviewState = { accounts: [], transactions: [], counts: { accounts: 0, transactions: 0, total: 0 } }; }
+
+  const banner = $('finReviewBanner');
+  const msg    = $('finReviewMsg');
+  if (!banner || !msg) return;
+
+  const c = _reviewState.counts || {};
+  if (!c.total) {
+    banner.style.display = 'none';
+    $('finReviewPanel').style.display = 'none';
+    return;
+  }
+
+  banner.style.display = '';
+  const parts = [];
+  if (c.accounts)     parts.push(`${c.accounts} account${c.accounts === 1 ? '' : 's'}`);
+  if (c.transactions) parts.push(`${c.transactions} transaction${c.transactions === 1 ? '' : 's'}`);
+  msg.innerHTML = `<b>${c.total} item${c.total === 1 ? '' : 's'}</b> need review · ${parts.join(' · ')}`;
+
+  // If the panel is already open (toggle state stored on the banner),
+  // re-render its contents.
+  if ($('finReviewPanel').style.display !== 'none') renderReviewPanel();
+}
+
+function toggleReviewPanel(e) {
+  if (e) e.stopPropagation();
+  const panel = $('finReviewPanel');
+  const caret = $('finReviewCaret');
+  if (panel.style.display === 'none') {
+    panel.style.display = '';
+    caret.textContent = 'hide ▴';
+    renderReviewPanel();
+  } else {
+    panel.style.display = 'none';
+    caret.textContent = 'show ▾';
+  }
+}
+
+function renderReviewPanel() {
+  const accs = _reviewState.accounts || [];
+  const txs  = _reviewState.transactions || [];
+  const fmt$ = v => '$' + Math.abs(v || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+  const accHtml = accs.length ? `
+    <div class="fin-review-section-title">Accounts (${accs.length})</div>
+    ${accs.map(a => `
+      <div class="fin-review-row">
+        <span style="flex:1">
+          <b>${esc(a.alias || a.name)}</b>
+          <span style="color:var(--text3)">· ${esc(a.type)}${a.institution ? ' · ' + esc(a.institution) : ''}${a.last4 ? ' ···' + a.last4 : ''}</span>
+          ${a.source === 'merged' ? `<span style="background:#dbeafe;color:#1e40af;border-radius:3px;padding:1px 5px;font-size:10px;margin-left:4px">merged</span>` : ''}
+        </span>
+        <button class="review-edit" onclick="event.stopPropagation();openAccountDrawer(${a.id})">Edit</button>
+        <button class="review-clear" onclick="event.stopPropagation();clearReviewAccount(${a.id})">Looks fine</button>
+      </div>
+    `).join('')}` : '';
+
+  const txHtml = txs.length ? `
+    <div class="fin-review-section-title">Transactions (${_reviewState.counts.transactions}${txs.length < _reviewState.counts.transactions ? ', showing ' + txs.length : ''})</div>
+    ${txs.map(t => `
+      <div class="fin-review-row">
+        <span style="flex:1;min-width:0">
+          <span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${t.date}</span>
+          <b style="margin-left:6px">${esc(t.description || '')}</b>
+          <span style="color:${t.amount < 0 ? 'var(--red)' : 'var(--green)'};font-family:var(--mono);font-size:11px;margin-left:6px">${t.amount < 0 ? '-' : '+'}${fmt$(t.amount)}</span>
+          <span style="color:var(--text3);font-size:11px"> · ${esc(t.account_alias || t.account_name)}${t.flagged ? ' · <i style="color:#f59e0b">flagged dup</i>' : ''}</span>
+        </span>
+        <button class="review-clear" onclick="event.stopPropagation();clearReviewTxn(${t.id})">Looks fine</button>
+      </div>
+    `).join('')}` : '';
+
+  $('finReviewAccounts').innerHTML = accHtml;
+  $('finReviewTxns').innerHTML     = txHtml;
+}
+
+async function clearReviewAccount(id) {
+  try {
+    await api('POST', `/finance/accounts/${id}/clear-review`);
+    toast('Cleared');
+    loadNeedsReview(); loadAccounts();
+  } catch (e) { toast(ghErrorMsg(e), 'err'); }
+}
+
+async function clearReviewTxn(id) {
+  try {
+    await api('POST', `/finance/transactions/${id}/clear-review`);
+    toast('Cleared');
+    loadNeedsReview();
+  } catch (e) { toast(ghErrorMsg(e), 'err'); }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Account form (v.152) — unified through /api/v1/finance/accounts.
+//
+// Before v.151 there were two backend tables (finance_accounts +
+// financial_accounts) and the form routed by type. Mig 126 unified
+// them. As of v.152 the frontend follows: ONE endpoint, ONE save
+// path, regardless of type. Type vocabulary is locked (see select
+// options in the drawer markup).
+//
+// Investment types (Brokerage / TSP / Retirement) keep the balance
+// field but the label hints that real balance comes from holdings
+// after import. The user can still record a manual balance — useful
+// before any statement is loaded.
+// ─────────────────────────────────────────────────────────────
+
+// Locked vocab — must match select options + backend mig 126 TYPE_MAP
+window.ACC_TYPES_INVESTMENT = new Set(['Brokerage', 'TSP', 'Retirement']);
+window.ACC_TYPES_LIABILITY  = new Set(['Credit', 'Loan', 'Mortgage']);
 
 function onAccTypeChange() {
   const t = $('accType').value;
-  const isInvest = ACC_INVEST_TYPES.has(t);
-  $('accBankingFields').style.display = isInvest ? 'none' : '';
-  $('accInvestFields').style.display  = isInvest ? ''     : 'none';
-  $('accDeleteBtn').style.display     = 'none'; // reset on type change
+  const isInv = ACC_TYPES_INVESTMENT.has(t);
+  const isLia = ACC_TYPES_LIABILITY.has(t);
+  // Hint label adjusts to type. Balance field stays visible for all.
+  const hint = $('accBalanceHint');
+  if (hint) {
+    if (isInv) hint.textContent = '— typically loaded from imported holdings';
+    else if (isLia) hint.textContent = '— enter as positive; treated as liability';
+    else if (t === 'Cash' || t === 'Checking' || t === 'Savings' || t === 'HSA') hint.textContent = '';
+    else hint.textContent = '';
+  }
 }
 
-async function openAccountDrawer(id, sourceTable) {
-  // sourceTable: 'finance' (checking/savings) | 'financial' (brokerage/TSP)
+async function openAccountDrawer(id /*, sourceTable (legacy, ignored) */) {
   editingAccountId = id || null;
-  window._accSourceTable = null; // will be determined on save by type
   let a = {};
 
   if (id) {
     try {
-      if (sourceTable === 'financial') {
-        const all = await api('GET', '/import/accounts');
-        a = all.find(x => x.id === id) || {};
-        window._accSourceTable = 'financial';
-        // Map financial_accounts fields to unified form IDs
-        a = {
-          name: a.nickname, type: ({'checking':'Checking','savings':'Savings',
-            'credit_card':'Credit Card','brokerage':'Brokerage','tsp':'TSP','other':'Other'})[a.account_type] || a.account_type,
-          institution: a.institution, account_last4: a.last_four,
-          notes: a.notes, _owner: a.owner, _track: a.track_statements,
-          include_net_worth: 1
-        };
-      } else {
-        const all = await api('GET', '/finance/accounts');
-        a = all.find(x => x.id === id) || {};
-        window._accSourceTable = 'finance';
-      }
-    } catch(e) {}
+      // Single source of truth: GET /api/v1/finance/accounts returns
+      // every account from the unified table. include_inactive=1 so
+      // the form can also be opened on a deactivated row.
+      const all = await api('GET', '/finance/accounts?include_inactive=1');
+      a = all.find(x => x.id === id) || {};
+    } catch (e) {}
   }
 
   $('accDrawerTitle').textContent = id ? 'Edit Account' : 'Add Account';
-  $('accName').value        = a.name || '';
-  $('accType').value        = a.type || '';
-  await GH_SELECT.init('accInstitution', 'financial_institution', a.institution || null, { placeholder: 'Select institution…', allowAdd: true });
-  await GH_REFS.populateContact('accInstContact', a.institution_contact_id||null, { type: 'Financial', placeholder: '— none —' });
-  $('accLast4').value       = a.account_last4 || '';
-  $('accBalance').value     = a.current_balance || '';
-  $('accAsOf').value        = a.balance_as_of || new Date().toISOString().slice(0,10);
-  $('accInNw').checked      = a.include_net_worth !== 0;
-  $('accOwner').value       = a._owner || '';
-  $('accTrack').value       = a._track !== undefined ? a._track : '1';
-  $('accNotes').value       = a.notes || '';
-  $('accDeleteBtn').style.display = id ? 'inline-flex' : 'none';
+
+  // Inactive banner + reactivate button
+  $('accInactiveBanner').style.display = (id && a.is_active === 0) ? '' : 'none';
+
+  // needs_review hint
+  $('accReviewHint').style.display = (id && a.needs_review) ? '' : 'none';
+
+  $('accName').value      = a.name || '';
+  $('accAlias').value     = a.alias || '';
+  $('accType').value      = a.type || '';
+  await GH_SELECT.init('accInstitution', 'financial_institution', a.institution || null,
+    { placeholder: 'Select institution…', allowAdd: true });
+  await GH_REFS.populateContact('accInstContact', a.institution_contact_id || null,
+    { type: 'Financial', placeholder: '— none —' });
+  $('accLast4').value     = a.last4 || '';
+  $('accOwner').value     = a.owner || '';
+  $('accCurrency').value  = a.currency || 'USD';
+  $('accTrack').checked   = !!a.track_statements;
+  $('accBalance').value   = (a.current_balance !== undefined && a.current_balance !== null)
+                            ? a.current_balance : '';
+  $('accAsOf').value      = a.balance_as_of || new Date().toISOString().slice(0, 10);
+  $('accInNw').checked    = a.include_net_worth !== 0;
+  $('accNotes').value     = a.notes || '';
+  $('accDeactivateBtn').style.display = (id && a.is_active !== 0) ? 'inline-flex' : 'none';
   onAccTypeChange();
-  GH_REFS.populateContact('accContactId', a.contact_id || null, { type: 'Financial', placeholder: '— none —' });
+  GH_REFS.populateContact('accContactId', a.contact_id || null,
+    { type: 'Financial', placeholder: '— none —' });
   GH_FAMILY.init('accFamilyWrap', a.family_members || []);
   $('accountDrawer').classList.add('open');
 }
 
-// Shim: Import tab "+ New account" button still calls openAcctDrawer
-function openAcctDrawer(id) { openAccountDrawer(id, id ? 'financial' : null); }
+// Legacy shim — Import tab "+ New account" still calls openAcctDrawer
+function openAcctDrawer(id) { openAccountDrawer(id); }
 
 async function saveAccount() {
   const name = $('accName').value.trim();
   const type = $('accType').value;
   if (!name) { toast('Name required', 'err'); return; }
-  if (!type) { toast('Account type required', 'err'); return; }
+  if (!type) { toast('Type required', 'err'); return; }
 
   const btn = $('accSave'); btn.textContent = 'Saving…'; btn.disabled = true;
   try {
-    const isInvest = window.ACC_INVEST_TYPES?.has(type);
     const inst = ($('accInstitution').value || '').trim();
-
-    if (isInvest) {
-      // → financial_accounts (Import tab / brokerage)
-      if (!inst) { toast('Institution required', 'err'); return; }
-      const typeMap = {'Brokerage':'brokerage','TSP':'tsp','Investment':'other'};
-      const payload = {
-        nickname: name, institution: inst,
-        account_type: typeMap[type] || 'other',
-        owner: $('accOwner').value.trim() || null,
-        last_four: $('accLast4').value.trim() || null,
-        notes: $('accNotes').value.trim() || null,
-        track_statements: parseInt($('accTrack').value),
-      };
-      if (editingAccountId && window._accSourceTable === 'financial') {
-        await api('PUT', '/import/accounts/' + editingAccountId, payload);
-      } else {
-        await api('POST', '/import/accounts', payload);
-      }
-      toast(editingAccountId ? 'Account updated' : 'Account added');
-      $('accountDrawer').classList.remove('open');
-      loadImpAccounts(); loadImpAccountSelect();
+    // Single payload shape — backend accepts everything.
+    const payload = {
+      name,
+      alias:                  $('accAlias').value.trim() || null,
+      type,
+      institution:            inst || null,
+      last4:                  $('accLast4').value.trim() || null,
+      owner:                  $('accOwner').value.trim() || null,
+      currency:               ($('accCurrency').value || 'USD').toUpperCase(),
+      track_statements:       $('accTrack').checked ? 1 : 0,
+      current_balance:        parseFloat($('accBalance').value) || 0,
+      balance_as_of:          $('accAsOf').value || null,
+      include_net_worth:      $('accInNw').checked ? 1 : 0,
+      notes:                  $('accNotes').value.trim() || null,
+      contact_id:             $('accContactId').value ? parseInt($('accContactId').value) : null,
+      institution_contact_id: $('accInstContact').value ? parseInt($('accInstContact').value) : null,
+      family_member_ids:      GH_FAMILY.getIds('accFamilyWrap'),
+      // Editing a flagged row implicitly clears the flag —
+      // saving is an explicit "I've reviewed this" gesture.
+      needs_review:           0,
+    };
+    if (editingAccountId) {
+      await api('PUT', '/finance/accounts/' + editingAccountId, payload);
     } else {
-      // → finance_accounts (Transactions tab / banking)
-      const payload = {
-        name, type, institution: inst || null,
-        account_last4: $('accLast4').value.trim() || null,
-        current_balance: parseFloat($('accBalance').value) || 0,
-        balance_as_of: $('accAsOf').value || null,
-        include_net_worth: $('accInNw').checked ? 1 : 0,
-        notes: $('accNotes').value.trim() || null,
-        contact_id: $('accContactId').value ? parseInt($('accContactId').value) : null,
-        institution_contact_id: $('accInstContact').value ? parseInt($('accInstContact').value) : null,
-        family_member_ids: GH_FAMILY.getIds('accFamilyWrap'),
-      };
-            if (editingAccountId && window._accSourceTable === 'finance') {
-        await api('PUT', '/finance/accounts/' + editingAccountId, payload);
-      } else {
-        await api('POST', '/finance/accounts', payload);
-      }
-      toast(editingAccountId ? 'Account updated' : 'Account added');
-      $('accountDrawer').classList.remove('open');
-      loadAccounts(); populateTxAccountFilter();
+      await api('POST', '/finance/accounts', payload);
     }
-  } catch(e) { toast(ghErrorMsg(e), 'err'); }
+    toast(editingAccountId ? 'Account updated' : 'Account added');
+    $('accountDrawer').classList.remove('open');
+    // Refresh every list that shows accounts
+    loadAccounts(); populateTxAccountFilter();
+    if (typeof loadImpAccounts === 'function') loadImpAccounts();
+    if (typeof loadImpAccountSelect === 'function') loadImpAccountSelect();
+    if (typeof loadNeedsReview === 'function') loadNeedsReview();
+  } catch (e) { toast(ghErrorMsg(e), 'err'); }
   finally { btn.textContent = 'Save Account'; btn.disabled = false; }
 }
 
-async function deleteAccount() {
+// No DELETE on accounts — only deactivate (mig 126 architecture rule).
+// History is preserved; account hides from lists/dropdowns until
+// reactivated.
+async function deactivateAccount() {
   if (!editingAccountId) return;
-  if (!await LT.confirm('Delete this account? Transactions will also be removed.')) return;
-  await api('DELETE', `/finance/accounts/${editingAccountId}`);
-  toast('Account removed'); $('accountDrawer').classList.remove('open'); loadAccounts();
+  if (!await LT.confirm('Deactivate this account?\n\nIts history (transactions, holdings, snapshots) is preserved. You can reactivate later.')) return;
+  try {
+    await api('POST', `/finance/accounts/${editingAccountId}/deactivate`);
+    toast('Account deactivated');
+    $('accountDrawer').classList.remove('open');
+    loadAccounts(); populateTxAccountFilter();
+    if (typeof loadImpAccounts === 'function') loadImpAccounts();
+    if (typeof loadNeedsReview === 'function') loadNeedsReview();
+  } catch (e) { toast(ghErrorMsg(e), 'err'); }
+}
+
+async function reactivateAccount() {
+  if (!editingAccountId) return;
+  try {
+    await api('POST', `/finance/accounts/${editingAccountId}/reactivate`);
+    toast('Account reactivated');
+    // Refresh the drawer to drop the inactive banner
+    openAccountDrawer(editingAccountId);
+    loadAccounts(); populateTxAccountFilter();
+    if (typeof loadImpAccounts === 'function') loadImpAccounts();
+  } catch (e) { toast(ghErrorMsg(e), 'err'); }
 }
 
 // ════════════════════════════════════════════════════════════
@@ -2184,27 +2353,33 @@ function _initTxTags(existing) {
 
 async function populateTxAccountFilter() {
   try {
-    const [banking, investment] = await Promise.all([
-      api('GET', '/finance/accounts').catch(()=>[]),
-      api('GET', '/import/accounts').catch(()=>[])
-    ]);
+    // Single fetch — unified accounts table. Split by type in JS.
+    // Investment types are surfaced under their own optgroup so the
+    // filter UX stays familiar.
+    const all = await api('GET', '/finance/accounts').catch(() => []);
+    const investmentTypes = ['Brokerage', 'TSP', 'Retirement'];
+    const banking    = all.filter(a => !investmentTypes.includes(a.type));
+    const investment = all.filter(a =>  investmentTypes.includes(a.type));
+
     const sel = $('txAccFilter');
     if (!sel) return;
+    const labelOf = a => a.alias || a.name;
     let opts = '<option value="">All accounts</option>';
     if (banking.length) {
       opts += '<optgroup label="Banking">' +
-        banking.map(a=>`<option value="b:${a.id}">${esc(a.name)}</option>`).join('') +
+        banking.map(a => `<option value="b:${a.id}">${esc(labelOf(a))}</option>`).join('') +
         '</optgroup>';
     }
     if (investment.length) {
       opts += '<optgroup label="Investment">' +
-        investment.map(a=>`<option value="i:${a.id}">${esc(a.nickname||a.institution)}</option>`).join('') +
+        investment.map(a => `<option value="i:${a.id}">${esc(labelOf(a))}</option>`).join('') +
         '</optgroup>';
     }
     sel.innerHTML = opts;
-    // Also populate tx drawer account select (banking only — manual txns are banking)
+    // Tx drawer account select shows banking-type accounts only (manual
+    // tx flow is for banking; brokerage activity comes via import).
     const dSel = $('txAccount');
-    if (dSel) dSel.innerHTML = banking.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('');
+    if (dSel) dSel.innerHTML = banking.map(a => `<option value="${a.id}">${esc(labelOf(a))}</option>`).join('');
   } catch(e) {}
 }
 
@@ -2229,13 +2404,16 @@ async function loadTransactions() {
   try {
     const accRaw  = $('txAccFilter')?.value || '';
     const year    = $('txYearFilter')?.value || new Date().getFullYear();
-    // accRaw is prefixed: "b:123" (banking) or "i:456" (investment) or ""
+    // accRaw is prefixed "b:<id>" (banking) or "i:<id>" (investment).
+    // The prefix used to route between two endpoints; v.151 unified
+    // them so we just extract the id and pass it through. Prefix
+    // retained for filter UI groupings only.
     let accParam = '';
     if (accRaw) {
-      const [prefix, id] = accRaw.split(':');
-      accParam = `&account_id=${id}&account_type=${prefix === 'i' ? 'investment' : 'banking'}`;
+      const [, id] = accRaw.split(':');
+      accParam = `&account_id=${id}`;
     }
-    const qs    = `?limit=200${accParam}${year?'&year='+year:''}`;
+    const qs    = `?limit=200${accParam}${year ? '&year=' + year : ''}`;
     const data  = await api('GET', '/finance/transactions/unified' + qs);
     const { transactions: txs, summary } = data;
 
@@ -2852,6 +3030,12 @@ async function deleteGc() {
     <div class="drawer-handle"></div>
     <div class="drawer-title" id="accDrawerTitle">Add Account</div>
 
+    <!-- Inactive notice (only shown when editing a deactivated account) -->
+    <div id="accInactiveBanner" style="display:none;background:#fef3c7;border:1px solid #fbbf24;color:#78350f;padding:8px 10px;border-radius:6px;font-size:12px;margin-bottom:10px">
+      This account is <b>deactivated</b>. It's hidden from lists and dropdowns but its history is preserved.
+      <button type="button" class="btn btn-ghost" style="margin-left:6px;padding:2px 8px;font-size:11px" onclick="reactivateAccount()">Reactivate</button>
+    </div>
+
     <div class="form-row">
       <div class="form-group" style="flex:2">
         <label class="form-label">Name <span class="req">*</span></label>
@@ -2861,23 +3045,26 @@ async function deleteGc() {
         <label class="form-label">Type <span class="req">*</span></label>
         <select class="form-select" id="accType" onchange="onAccTypeChange()">
           <option value="">— type —</option>
-          <optgroup label="Banking">
-            <option value="Checking">Checking</option>
-            <option value="Savings">Savings</option>
-            <option value="Credit Card">Credit Card</option>
-            <option value="Cash">Cash</option>
-            <option value="Loan">Loan</option>
-          </optgroup>
-          <optgroup label="Investment">
-            <option value="Brokerage">Brokerage</option>
-            <option value="TSP">TSP</option>
-            <option value="Investment">Investment (other)</option>
-          </optgroup>
-          <optgroup label="Other">
-            <option value="Other">Other</option>
-          </optgroup>
+          <option value="Checking">Checking</option>
+          <option value="Savings">Savings</option>
+          <option value="Credit">Credit</option>
+          <option value="Cash">Cash</option>
+          <option value="HSA">HSA</option>
+          <option value="Brokerage">Brokerage</option>
+          <option value="TSP">TSP</option>
+          <option value="Retirement">Retirement</option>
+          <option value="Loan">Loan</option>
+          <option value="Mortgage">Mortgage</option>
+          <option value="Other">Other</option>
         </select>
       </div>
+    </div>
+
+    <!-- Alias: always visible. Drives tile/report display.
+         Defaults to Name if blank. -->
+    <div class="form-group">
+      <label class="form-label">Alias <span style="font-size:10px;font-weight:400;color:var(--text3)">shown on tiles &amp; reports — defaults to Name</span></label>
+      <input class="form-input" id="accAlias" placeholder="Short label, e.g. Chase Joint">
     </div>
 
     <div class="form-row">
@@ -2895,10 +3082,31 @@ async function deleteGc() {
       <select class="form-select" id="accInstContact"></select>
     </div>
 
-    <!-- Banking fields (Checking/Savings/Credit/Cash/Loan) -->
-    <div id="accBankingFields">
+    <!-- Always-visible: owner / currency / track_statements -->
+    <div class="form-row">
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Owner</label>
+        <input class="form-input" id="accOwner" placeholder="Al, Spouse, Joint…">
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label">Currency</label>
+        <input class="form-input" id="accCurrency" maxlength="3" placeholder="USD" value="USD" style="text-transform:uppercase">
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:4px 0 10px">
+      <input type="checkbox" id="accTrack" style="width:16px;height:16px;accent-color:var(--accent)">
+      <label for="accTrack" style="font-size:13px;color:var(--text2)">Track statements (remind me if a monthly statement is missing)</label>
+    </div>
+
+    <!-- Balance fields — relevant for non-investment types.
+         For Brokerage/TSP/Retirement, balance comes from holdings.
+         The fields stay visible but are labeled accordingly. -->
+    <div id="accBalanceFields">
       <div class="form-row">
-        <div class="form-group"><label class="form-label">Balance</label><input class="form-input" type="number" id="accBalance" step="0.01" placeholder="0.00"></div>
+        <div class="form-group">
+          <label class="form-label">Balance <span id="accBalanceHint" style="font-size:10px;font-weight:400;color:var(--text3)"></span></label>
+          <input class="form-input" type="number" id="accBalance" step="0.01" placeholder="0.00">
+        </div>
         <div class="form-group"><label class="form-label">As of</label><input class="form-input" type="date" id="accAsOf"></div>
       </div>
       <div style="display:flex;align-items:center;gap:8px;padding:4px 0 10px">
@@ -2907,35 +3115,19 @@ async function deleteGc() {
       </div>
     </div>
 
-    <!-- Investment fields (Brokerage/TSP/Investment) -->
-    <div id="accInvestFields" style="display:none">
-      <div class="form-row">
-        <div class="form-group" style="flex:1">
-          <label class="form-label">Owner</label>
-          <input class="form-input" id="accOwner" placeholder="Al, Spouse, Joint…">
-        </div>
-        <div class="form-group" style="flex:1">
-          <label class="form-label">Track statements?</label>
-          <select class="form-select" id="accTrack">
-            <option value="1">Yes — remind me if missing</option>
-            <option value="0">No</option>
-          </select>
-        </div>
-      </div>
-    </div>
-
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:56px"></textarea></div>
     <div id="accFamilyWrap" style="margin-bottom:12px"></div>
     <div class="form-group"><label class="form-label" style="font-size:12px">Bank Contact <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label><select class="form-select" id="accContactId"></select></div>
 
-    <div style="font-size:11px;color:var(--text3);padding:4px 0 10px" id="accRoutingNote">
-      Checking/Savings/Credit → Transactions tab &nbsp;·&nbsp; Brokerage/TSP → Import tab
+    <!-- needs_review hint shown when editing a flagged row (e.g. merged in mig 126) -->
+    <div id="accReviewHint" style="display:none;background:#eff6ff;border:1px solid #93c5fd;color:#1e40af;padding:6px 10px;border-radius:6px;font-size:12px;margin-bottom:10px">
+      Flagged for review. After confirming the fields look right, save to clear the flag.
     </div>
 
     <div style="display:flex;gap:8px;margin-top:4px">
       <button class="btn btn-ghost" onclick="$('accountDrawer').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="accSave" style="flex:1" onclick="saveAccount()">Save Account</button>
-      <button class="btn btn-ghost" id="accDeleteBtn" style="color:var(--red);display:none" onclick="deleteAccount()">Delete</button>
+      <button class="btn btn-ghost" id="accDeactivateBtn" style="color:var(--red);display:none" onclick="deactivateAccount()">Deactivate</button>
     </div>
   </div>
 </div>
@@ -3346,35 +3538,29 @@ async function applyRulesNow() {
 }
 
 async function loadImpAccountSelect() {
-  // Load BOTH account types — all imports go through one place
+  // Single fetch — unified accounts table (v.151+). No more _table fork.
+  // Backend route picks the right import path internally.
   try {
-    const [invest, banking] = await Promise.all([
-      api('GET', '/import/accounts').catch(() => []),
-      api('GET', '/finance/accounts').catch(() => []),
-    ]);
-    // Normalize banking accounts to match investment shape for unified handling
-    const investNorm = (Array.isArray(invest) ? invest : []).map(a => ({
-      ...a, _table: 'financial', display: `${a.nickname} — ${a.institution} (${a.account_type})`
+    const all = await api('GET', '/finance/accounts').catch(() => []);
+    _impAccounts = (Array.isArray(all) ? all : []).map(a => ({
+      ...a,
+      display: `${a.alias || a.name}${a.institution ? ' — ' + a.institution : ''} (${a.type})`,
     }));
-    const bankingNorm = (Array.isArray(banking) ? banking : []).map(a => ({
-      id: a.id, nickname: a.name, institution: a.institution || '',
-      account_type: a.type, _table: 'finance',
-      display: `${a.name}${a.institution ? ' — ' + a.institution : ''} (${a.type})`
-    }));
-    _impAccounts = [...investNorm, ...bankingNorm];
   } catch { _impAccounts = []; }
+
+  const investmentTypes = ['Brokerage', 'TSP', 'Retirement'];
+  const investAccts = _impAccounts.filter(a => investmentTypes.includes(a.type));
+  const bankAccts   = _impAccounts.filter(a => !investmentTypes.includes(a.type));
 
   const sel = document.getElementById('impAccountSel');
   if (sel) {
     const prev = sel.value;
-    const investAccts = _impAccounts.filter(a => a._table === 'financial');
-    const bankAccts   = _impAccounts.filter(a => a._table === 'finance');
     sel.innerHTML = '<option value="">Choose account…</option>' +
       (investAccts.length ? `<optgroup label="Investment / Brokerage">` +
-        investAccts.map(a => `<option value="${a.id}|${a._table}">${esc(a.display)}</option>`).join('') +
+        investAccts.map(a => `<option value="${a.id}">${esc(a.display)}</option>`).join('') +
         `</optgroup>` : '') +
-      (bankAccts.length ? `<optgroup label="Checking / Savings / Credit">` +
-        bankAccts.map(a => `<option value="${a.id}|${a._table}">${esc(a.display)}</option>`).join('') +
+      (bankAccts.length ? `<optgroup label="Banking / Credit / Cash">` +
+        bankAccts.map(a => `<option value="${a.id}">${esc(a.display)}</option>`).join('') +
         `</optgroup>` : '');
     if (prev) sel.value = prev;
   }
@@ -3383,19 +3569,14 @@ async function loadImpAccountSelect() {
   if (hf) {
     const prev = hf.value;
     hf.innerHTML = '<option value="">All accounts</option>' +
-      _impAccounts.filter(a => a._table === 'financial' && ['brokerage','tsp','other'].includes(a.account_type))
-        .map(a => `<option value="${a.id}">${esc(a.nickname)}</option>`).join('');
+      investAccts.map(a => `<option value="${a.id}">${esc(a.alias || a.name)}</option>`).join('');
     if (prev) hf.value = prev;
   }
 }
 
 function impAccountChanged() {
   const raw = document.getElementById('impAccountSel').value;
-  if (!raw) { _impSelectedAcct = null; }
-  else {
-    const [id, table] = raw.split('|');
-    _impSelectedAcct = _impAccounts.find(a => a.id == id && a._table === table) || null;
-  }
+  _impSelectedAcct = raw ? (_impAccounts.find(a => a.id == raw) || null) : null;
   document.getElementById('impStep2').style.display = _impSelectedAcct ? 'block' : 'none';
   document.getElementById('impStep3').style.display = 'none';
   document.getElementById('impStep4').style.display = 'none';
@@ -3438,7 +3619,7 @@ function renderImpPreview(d) {
   const dupe = d.duplicates || 0;
   document.getElementById('impPreviewSummary').innerHTML = `
     <div style="font-weight:600;color:var(--text);margin-bottom:6px">
-      ${esc(_impSelectedAcct?.nickname)} &nbsp;·&nbsp; <span style="color:var(--text3);font-weight:400">${(d.format||'').replace(/_/g,' ')}</span>
+      ${esc(_impSelectedAcct?.alias || _impSelectedAcct?.name || '')} &nbsp;·&nbsp; <span style="color:var(--text3);font-weight:400">${(d.format||'').replace(/_/g,' ')}</span>
     </div>
     <div style="display:flex;gap:14px;flex-wrap:wrap;font-size:12px">
       <span><b style="color:var(--text)">${d.totalRows}</b> rows</span>
@@ -3488,11 +3669,16 @@ async function impConfirm() {
   fd.append('file', _impFile);
   fd.append('account_id', _impSelectedAcct.id);
 
-  // Route to correct endpoint based on account type
-  const isBanking = _impSelectedAcct._table === 'finance';
-  const endpoint  = isBanking
-    ? '/api/v1/finance/transactions/import-file'
-    : '/api/v1/import/confirm';
+  // Route to the right endpoint based on selected account type.
+  // Investment types (Brokerage/TSP/Retirement) use the import-confirm
+  // path which handles holdings + statement snapshots. Banking-style
+  // types use the simpler transactions/import-file path. Both write
+  // to the unified `transactions` table with source='imported'.
+  const investmentTypes = ['Brokerage', 'TSP', 'Retirement'];
+  const isInvestment = investmentTypes.includes(_impSelectedAcct?.type);
+  const endpoint = isInvestment
+    ? '/api/v1/import/confirm'
+    : '/api/v1/finance/transactions/import-file';
 
   try {
     const h = {};
@@ -3537,10 +3723,10 @@ async function loadImpMissingAlerts() {
     const el = document.getElementById('impMissingAlerts');
     if (!el) return;
     if (!missing.length) { el.innerHTML=''; return; }
-    el.innerHTML = missing.slice(0,5).map(m=>`
+    el.innerHTML = missing.slice(0, 5).map(m => `
       <div class="missing-alert">
         <span>📅</span>
-        <span style="flex:1">Missing: <b>${esc(m.nickname)}</b> — ${esc(m.month_label)}</span>
+        <span style="flex:1">Missing: <b>${esc(m.alias || m.name || m.nickname || '')}</b> — ${esc(m.month_label)}</span>
         <a onclick="document.getElementById('impAccountSel').value=${m.account_id};impAccountChanged()">Import now →</a>
       </div>`).join('');
   } catch {}
@@ -3548,63 +3734,66 @@ async function loadImpMissingAlerts() {
 
 async function loadImpAccounts() {
   try {
-    const accounts = await api('GET', '/import/accounts');
+    // Unified endpoint as of v.151. Filter to investment-leaning types
+    // since this is the Import-tab list (the tab also handles banking
+    // imports — show all account types here so the user can pick any).
+    const accounts = await api('GET', '/finance/accounts');
     _impAccounts = accounts;
     const el = document.getElementById('impAcctList');
     if (!el) return;
     if (!accounts.length) {
-      el.innerHTML='<div style="color:var(--text3);font-size:13px;text-align:center;padding:32px">No accounts yet.</div>';
+      el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:32px">No accounts yet.</div>';
       return;
     }
-    const typeColors = {checking:'#22c55e',savings:'#14b8a6',brokerage:'#5c72fa',credit_card:'#ef4444',tsp:'#f59e0b',other:'#8fa3bf'};
-    el.innerHTML = accounts.map(a=>`
+    // Color by unified type vocab (locked v.151)
+    const typeColors = {
+      Checking:'#22c55e', Savings:'#14b8a6', Cash:'#a3a3a3',
+      Credit:'#ef4444', Loan:'#ef4444', Mortgage:'#ef4444',
+      HSA:'#06b6d4',
+      Brokerage:'#5c72fa', TSP:'#f59e0b', Retirement:'#8b5cf6',
+      Other:'#8fa3bf',
+    };
+    el.innerHTML = accounts.map(a => {
+      const color = typeColors[a.type] || '#8fa3bf';
+      const label = a.alias || a.name;
+      const review = a.needs_review
+        ? `<span title="Needs review" style="background:#fef3c7;color:#78350f;border-radius:4px;padding:1px 5px;font-size:10px;margin-left:4px">⚠ review</span>`
+        : '';
+      return `
       <div class="acct-card" onclick="openAcctDrawer(${a.id})">
-        <span class="acct-badge" style="background:${typeColors[a.account_type]||'#8fa3bf'}22;color:${typeColors[a.account_type]||'#8fa3bf'}">${a.account_type.replace('_',' ')}</span>
+        <span class="acct-badge" style="background:${color}22;color:${color}">${esc(a.type)}</span>
         <div style="flex:1">
-          <div style="font-weight:600;font-size:13px;color:var(--text)">${esc(a.nickname)}</div>
-          <div style="font-size:11px;color:var(--text3)">${esc(a.institution)}${a.last_four?' ···'+a.last_four:''}${a.owner?' · '+esc(a.owner):''}</div>
+          <div style="font-weight:600;font-size:13px;color:var(--text)">${esc(label)}${review}</div>
+          <div style="font-size:11px;color:var(--text3)">${esc(a.institution || '')}${a.last4 ? ' ···' + a.last4 : ''}${a.owner ? ' · ' + esc(a.owner) : ''}</div>
         </div>
         <div style="text-align:right;font-size:11px;color:var(--text3)">
-          ${a.import_count||0} import${a.import_count==1?'':'s'}<br>
-          ${a.last_statement_date?a.last_statement_date:'Never'}
+          ${a.import_count || 0} import${a.import_count == 1 ? '' : 's'}<br>
+          ${a.last_statement_date ? a.last_statement_date : 'Never'}
         </div>
-      </div>`).join('');
-  } catch(e) { console.error(e); }
+      </div>`;
+    }).join('');
+  } catch (e) { console.error(e); }
 }
 
 async function loadImpHistory() {
   const el = document.getElementById('impHistoryList');
   if (!el) return;
   try {
-    // Fetch both investment and banking batches in parallel
-    const [inv, bank] = await Promise.all([
-      api('GET', '/import/batches').catch(()=>[]),
-      api('GET', '/finance/import-batches').catch(()=>[])
-    ]);
-
-    // Normalise into a shared shape
-    const rows = [
-      ...inv.map(r => ({
-        id: r.id, type: 'investment',
-        account: r.nickname || r.institution || '—',
-        imported: r.rows_inserted || 0,
-        skipped:  r.rows_skipped  || 0,
-        flagged:  r.rows_flagged  || 0,
+    // Single fetch — both endpoints now return rows from the unified
+    // import_batches table (mig 126). The /api/v1/finance/import-batches
+    // path also surfaces account name + alias and `rows_in_db` (current
+    // count of transactions still attached to the batch).
+    const rows = (await api('GET', '/finance/import-batches').catch(() => []))
+      .map(r => ({
+        id: r.id,
+        account: r.account_alias || r.account_name || '—',
+        total: r.row_count || 0,
+        in_db: r.rows_in_db !== undefined ? r.rows_in_db : (r.row_count || 0),
         filename: r.filename, format: r.format,
-        date:     r.statement_date || '?',
-        at:       r.imported_at,
-      })),
-      ...bank.map(r => ({
-        id: r.id, type: 'banking',
-        account: r.account_name || '—',
-        imported: r.rows_imported || 0,
-        skipped:  r.rows_skipped  || 0,
-        flagged:  0,
-        filename: r.filename, format: r.format,
-        date:     '—',
-        at:       r.imported_at,
+        date: r.statement_date || '—',
+        at: r.imported_at,
       }))
-    ].sort((a,b) => (b.at||'').localeCompare(a.at||''));
+      .sort((a, b) => (b.at || '').localeCompare(a.at || ''));
 
     if (!rows.length) {
       el.innerHTML = '<div style="color:var(--text3);font-size:13px;text-align:center;padding:32px">No imports yet.</div>';
@@ -3612,41 +3801,40 @@ async function loadImpHistory() {
     }
 
     el.innerHTML = rows.map(r => {
-      const typeBadge = r.type === 'investment'
-        ? `<span style="font-size:10px;font-family:var(--mono);background:var(--accent-bg);color:var(--accent);border-radius:4px;padding:1px 5px">INV</span>`
-        : `<span style="font-size:10px;font-family:var(--mono);background:var(--bg3);color:var(--text3);border-radius:4px;padding:1px 5px">BANK</span>`;
+      const removed = r.total - r.in_db;
+      const removedBadge = removed > 0
+        ? `<span title="rows since removed/voided" style="color:#f59e0b;font-size:11px">⚠${removed}</span>` : '';
       return `
       <div class="hist-row">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
           <div style="display:flex;align-items:center;gap:6px;min-width:0">
-            ${typeBadge}
             <span style="font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(r.account)}</span>
           </div>
           <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
-            <span style="font-family:var(--mono);color:var(--green);font-size:12px">+${r.imported}</span>
-            ${r.skipped ? `<span style="color:var(--text3);font-size:11px">⏭${r.skipped}</span>` : ''}
-            ${r.flagged ? `<span style="color:#f59e0b;font-size:11px">⚠${r.flagged}</span>` : ''}
+            <span style="font-family:var(--mono);color:var(--green);font-size:12px">+${r.in_db}</span>
+            ${removedBadge}
             <button class="btn" style="padding:2px 8px;font-size:11px;color:var(--red);border-color:var(--red)"
-              onclick="rollbackBatch(${r.id},'${r.type}',event)">Undo</button>
+              onclick="rollbackBatch(${r.id},event)">Undo</button>
           </div>
         </div>
         <div style="margin-top:3px;color:var(--text3);font-size:11px">
-          ${esc(r.filename||'')} · ${(r.format||'').replace(/_/g,' ')} · ${r.date} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}
+          ${esc(r.filename || '')} · ${(r.format || '').replace(/_/g,' ')} · ${r.date} · ${r.at ? new Date(r.at).toLocaleDateString() : ''}
         </div>
       </div>`;
     }).join('');
-  } catch(e) { console.error('loadImpHistory:', e); }
+  } catch (e) { console.error('loadImpHistory:', e); }
 }
 
-async function rollbackBatch(id, type, e) {
+async function rollbackBatch(id, e) {
   if (e) e.stopPropagation();
-  if (!await LT.confirm('Undo this import? All its transactions will be removed.')) return;
+  if (!await LT.confirm('Roll back this import?\n\nAll its imported transactions will be removed. Manual transactions are unaffected.')) return;
   try {
-    const path = type === 'banking' ? '/finance/import-batches/'+id : '/import/batches/'+id;
-    await api('DELETE', path);
-    toast('Import rolled back');
+    // POST .../rollback — DELETE removed in v.151
+    const r = await api('POST', '/finance/import-batches/' + id + '/rollback');
+    toast(`Rolled back · ${r?.removed ?? 0} rows removed`);
     loadImpHistory();
-  } catch(e) { toast('Failed: '+e.message,'err'); }
+    if (typeof loadAccounts === 'function') loadAccounts();
+  } catch (e) { toast('Failed: ' + e.message, 'err'); }
 }
 
 // openAcctDrawer and saveAcct removed — replaced by unified openAccountDrawer/saveAccount
@@ -3674,7 +3862,7 @@ async function loadHoldings() {
     acctSummary.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:4px;padding:4px 0">' +
       summary.map(s=>`
         <div style="background:var(--bg2);border-radius:var(--r);padding:5px 10px;font-size:12px;display:flex;gap:6px;align-items:center">
-          <span style="color:var(--text2)">${esc(s.nickname)}</span>
+          <span style="color:var(--text2)">${esc(s.alias || s.nickname)}</span>
           <span style="font-family:var(--mono);font-weight:600;color:var(--green)">${fmt$(s.total_value||0)}</span>
           <span style="color:var(--text3)">${s.positions}p</span>
         </div>`).join('') + '</div>';
@@ -3688,7 +3876,7 @@ async function loadHoldings() {
 
   const byAcct={};
   for (const h of holdings) {
-    if (!byAcct[h.account_id]) byAcct[h.account_id]={nickname:h.account_nickname,institution:h.institution,rows:[]};
+    if (!byAcct[h.account_id]) byAcct[h.account_id]={nickname:(h.account_alias || h.account_nickname),institution:h.institution,rows:[]};
     byAcct[h.account_id].rows.push(h);
   }
 
