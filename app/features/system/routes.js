@@ -81,7 +81,12 @@ router.post('/diag/cleanup', requireAuth, (req, res) => {
       ['tags',                'name'],
       ['documents',           'title'],
       ['books',               'title'],
-      ['financial_accounts',  'nickname'],
+      // v.156: was 'financial_accounts'/'nickname' (compat view, not
+      // deletable). Diagnostic test rows seeded with _diag_ prefix go
+      // into accounts.name. The v.151 "no DELETE on accounts" rule has
+      // a pragmatic exception for test cleanup confined to the
+      // _diag_ namespace.
+      ['accounts',            'name'],
     ];
     const results = {};
     let total = 0;

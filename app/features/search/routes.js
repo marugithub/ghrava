@@ -249,25 +249,35 @@ router.get('/', (req, res) => {
       r => ({ module: 'Kids', id: r.id, label: r.label, sub: r.sub, href: '/kids.html', icon: r.kind === 'act' ? '\u26bd' : '\ud83d\udcdd' })
     ));
 
-    // Finance accounts (banking)
+    // v202604.156: unified `accounts` (mig 126) replaces both
+    // `finance_accounts` and `financial_accounts`. Single search
+    // covers all account types. We split the result into "Finance"
+    // (banking-ish: Checking/Savings/Credit/Cash/HSA/Loan/Mortgage)
+    // vs "Investments" (Brokerage/TSP/Retirement) by type so the
+    // groups still feel right in the UI.
+    const FINANCE_TYPES = "('Checking','Savings','Credit','Cash','HSA','Loan','Mortgage','Other')";
+    const INV_TYPES     = "('Brokerage','TSP','Retirement')";
     add('Finance', safe(
-      `SELECT id, name, institution FROM finance_accounts
-       WHERE name LIKE ? OR institution LIKE ? OR notes LIKE ? LIMIT ?`,
-      [like, like, like, PER_MODULE_LIMIT],
+      `SELECT id, COALESCE(alias, name) AS name, institution FROM accounts
+       WHERE is_active = 1 AND type IN ${FINANCE_TYPES}
+         AND (name LIKE ? OR alias LIKE ? OR institution LIKE ? OR notes LIKE ?)
+       LIMIT ?`,
+      [like, like, like, like, PER_MODULE_LIMIT],
       r => ({ module: 'Finance', id: r.id, label: r.name, sub: r.institution, href: '/finance.html', icon: '\ud83c\udfe6' })
     ));
 
-    // Investments (separate from finance per rules)
     add('Investments', safe(
-      `SELECT id, nickname, institution FROM financial_accounts
-       WHERE nickname LIKE ? OR institution LIKE ? OR notes LIKE ? LIMIT ?`,
-      [like, like, like, PER_MODULE_LIMIT],
+      `SELECT id, COALESCE(alias, name) AS nickname, institution FROM accounts
+       WHERE is_active = 1 AND type IN ${INV_TYPES}
+         AND (name LIKE ? OR alias LIKE ? OR institution LIKE ? OR notes LIKE ?)
+       LIMIT ?`,
+      [like, like, like, like, PER_MODULE_LIMIT],
       r => ({ module: 'Investments', id: r.id, label: r.nickname, sub: r.institution, href: '/finance.html', icon: '\ud83d\udcc8' })
     ));
 
-    // Finance transactions
+    // Transactions — unified `transactions` covers manual + imported.
     add('Transactions', safe(
-      `SELECT id, date, description, amount, category FROM finance_transactions
+      `SELECT id, date, description, amount, category FROM transactions
        WHERE description LIKE ? OR category LIKE ? OR notes LIKE ?
        ORDER BY date DESC LIMIT ?`,
       [like, like, like, PER_MODULE_LIMIT],

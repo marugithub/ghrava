@@ -268,7 +268,10 @@ async function importEob(filePath, rule) {
 
 async function importStatement(filePath, rule) {
   if (!rule.account_id) throw new Error('No account_id in rule');
-  const account = db.prepare('SELECT account_type FROM financial_accounts WHERE id=?').get(rule.account_id);
+  // v202604.156: switched off `financial_accounts` compat view
+  // (account_type column on the view aliases unified.type) onto
+  // the underlying `accounts` table directly.
+  const account = db.prepare('SELECT type AS account_type FROM accounts WHERE id=?').get(rule.account_id);
   if (!account) throw new Error(`Account ${rule.account_id} not found`);
   // Routing — actual parse + insert mirrors /finance/transactions/import-file
   // For now: count rows in CSV as a placeholder (real parser wired per account type)

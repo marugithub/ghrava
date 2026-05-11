@@ -111,12 +111,13 @@ router.get('/completeness', (req, res) => {
       "SELECT display_name AS name FROM kids WHERE is_active=1 AND grade IS NULL",
       'No grade set');
 
-    // Finance transactions — uncategorized
+    // Finance transactions — uncategorized (v.156: unified
+    // `transactions` with source filter replaces the two compat views)
     check('finance', 'Finance', '/finance.html',
-      "SELECT description AS name FROM finance_transactions WHERE (category IS NULL OR category='') LIMIT 50",
+      "SELECT description AS name FROM transactions WHERE source='manual' AND (category IS NULL OR category='') LIMIT 50",
       'Manual transaction missing category');
     check('finance', 'Finance', '/finance.html',
-      "SELECT description AS name FROM imported_transactions WHERE (category IS NULL OR category='') LIMIT 50",
+      "SELECT description AS name FROM transactions WHERE source='imported' AND (category IS NULL OR category='') LIMIT 50",
       'Imported transaction missing category');
 
     // Property maintenance overdue
@@ -158,7 +159,7 @@ router.get('/tags/suggest', (req, res) => {
       resources:  { table: 'resources',              catCol: 'category',    entityType: 'resource' },
       kids:       { table: 'kid_activities',         catCol: 'category',    entityType: 'kid_activity' },
       dailylog:   { table: 'daily_log',              catCol: 'category',    entityType: 'daily_log' },
-      finance:    { table: 'finance_transactions',   catCol: 'category',    entityType: 'finance_tx' },
+      finance:    { table: 'transactions',           catCol: 'category',    entityType: 'finance_tx' },
     };
 
     const meta = MODULE_TABLE[mod];
@@ -744,7 +745,12 @@ router.put('/dropdowns/:id', (req, res) => {
       const newVal = value;
       const listKey = ex.list_key;
 
-      // Cascade map: list_key → [{table, column}]
+      // v.156: cascade rename targets the unified tables. The
+      // 'finance_account_type' dropdown drives accounts.type;
+      // 'transaction_category' drives transactions.category.
+      // Type values are LOCKED to the v.151 vocab — renaming a
+      // value here will correctly cascade to all matching rows
+      // in the unified table.
       const CASCADE = {
         'inventory_category':     [{ t: 'items',        c: 'category' }],
         'inventory_condition':    [{ t: 'items',        c: 'condition_rating' }],
@@ -752,8 +758,8 @@ router.put('/dropdowns/:id', (req, res) => {
         'daily_log_category':     [{ t: 'daily_log',    c: 'category' }],
         'resources_category':     [{ t: 'resources',    c: 'category' }],
         'todo_category':          [{ t: 'todos',        c: 'category' }],
-        'finance_account_type':   [{ t: 'finance_accounts', c: 'account_type' }],
-        'transaction_category':   [{ t: 'finance_transactions', c: 'category' }],
+        'finance_account_type':   [{ t: 'accounts',     c: 'type' }],
+        'transaction_category':   [{ t: 'transactions', c: 'category' }],
       };
 
       const targets = CASCADE[listKey] || [];
@@ -789,6 +795,7 @@ router.get('/dropdowns/:id/usage', (req, res) => {
     const row = db.prepare('SELECT * FROM dropdown_options WHERE id=?').get(req.params.id);
     if (!row) return badRequest(res, 'Not found');
 
+    // v.156: usage-counter targets the unified tables (mig 126).
     const CASCADE = {
       'inventory_category':     [{ t: 'items',        c: 'category',   label: 'Items' }],
       'inventory_condition':    [{ t: 'items',        c: 'condition_rating', label: 'Items' }],
@@ -796,8 +803,8 @@ router.get('/dropdowns/:id/usage', (req, res) => {
       'daily_log_category':     [{ t: 'daily_log',    c: 'category',   label: 'Log Entries' }],
       'resources_category':     [{ t: 'resources',    c: 'category',   label: 'Resources' }],
       'todo_category':          [{ t: 'todos',        c: 'category',   label: 'Todos' }],
-      'finance_account_type':   [{ t: 'finance_accounts', c: 'account_type', label: 'Accounts' }],
-      'transaction_category':   [{ t: 'finance_transactions', c: 'category', label: 'Transactions' }],
+      'finance_account_type':   [{ t: 'accounts',     c: 'type',       label: 'Accounts' }],
+      'transaction_category':   [{ t: 'transactions', c: 'category',   label: 'Transactions' }],
     };
 
     const row2 = /** @type {any} */ (row);

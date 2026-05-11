@@ -3,8 +3,16 @@
 /**
  * shared/recurring-transactions.js
  * Auto-generates transactions from recurring templates.
+ *
+ * v202604.156: switched the INSERT path off the `finance_transactions`
+ * compat VIEW (mig 126 made that a non-insertable view, breaking
+ * this code path silently) onto the unified `transactions` table.
+ * Recurring-generated rows are tagged source='manual' since they
+ * conceptually originate from a user-defined template, not an
+ * imported file.
  */
 const db = require('../db/db');
+const { fingerprint } = require('./tx-fingerprint');
 
 function calculateNextDate(currentDate, frequency) {
   const next = new Date(currentDate);
@@ -34,13 +42,32 @@ function generatePendingTransactions() {
   `).all(upToDate);
 
   let generated = 0;
-  const insertTx     = db.prepare(`INSERT INTO finance_transactions (account_id, date, description, amount, category, notes) VALUES (?,?,?,?,?,?)`);
-  const updateRecurr = db.prepare(`UPDATE recurring_transactions SET last_generated = next_date, next_date = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`);
+  // Unified transactions table (mig 126). Tagged source='manual'
+  // since these come from a user-defined template, not an import.
+  // Fingerprint is computed so dedup catches accidental re-runs.
+  const insertTx = db.prepare(`
+    INSERT INTO transactions
+      (account_id, date, description, amount, category, notes,
+       fingerprint, source, txn_type, needs_review)
+    VALUES (?,?,?,?,?,?, ?, 'manual', 'recurring', 0)
+  `);
+  const updateRecurr = db.prepare(`
+    UPDATE recurring_transactions
+       SET last_generated = next_date,
+           next_date = ?,
+           updated_at = CURRENT_TIMESTAMP
+     WHERE id = ?
+  `);
 
   const txn = db.transaction(() => {
     for (const rt of pending) {
       if (rt.next_date > today) continue;
-      insertTx.run(rt.account_id, rt.next_date, rt.description, rt.amount, rt.category, rt.notes || 'Auto-generated from recurring');
+      const fp = fingerprint(rt.account_id, rt.next_date, rt.amount, rt.description);
+      insertTx.run(
+        rt.account_id, rt.next_date, rt.description, rt.amount,
+        rt.category, rt.notes || 'Auto-generated from recurring',
+        fp
+      );
       updateRecurr.run(calculateNextDate(rt.next_date, rt.frequency), rt.id);
       generated++;
     }

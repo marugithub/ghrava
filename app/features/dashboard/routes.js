@@ -112,7 +112,7 @@ router.get('/', (req, res) => {
       SELECT
         COALESCE(SUM(CASE WHEN current_balance > 0 AND include_net_worth=1 THEN current_balance ELSE 0 END),0) AS assets,
         COALESCE(SUM(CASE WHEN current_balance < 0 AND include_net_worth=1 THEN ABS(current_balance) ELSE 0 END),0) AS liabilities
-      FROM finance_accounts WHERE is_active=1
+      FROM accounts WHERE is_active=1
     `).get());
 
     const certStats = safeGet(() => {
@@ -433,11 +433,16 @@ router.get('/attention', (req, res) => {
 
     // Records flagged needs_review across modules — surface as a single roll-up
     try {
+      // v202604.156: replaced 'finance_accounts','financial_accounts'
+      // pair with unified 'accounts' table. Also add 'transactions' so
+      // imported rows flagged for review surface in the dashboard
+      // count.
       const reviewTables = ['daily_log','todos','items','contacts','hsa_payments',
                             'med_medications','med_conditions','documents','perfumes',
                             'subscriptions','insurance_policies','books','resources',
-                            'family_members','kids','properties','vehicles','finance_accounts',
-                            'financial_accounts','wardrobe_outfits','career_certifications'];
+                            'family_members','kids','properties','vehicles',
+                            'accounts','transactions',
+                            'wardrobe_outfits','career_certifications'];
       let totalNeedsReview = 0;
       for (const t of reviewTables) {
         try {

@@ -179,12 +179,15 @@ app.get('/api/v1/app/module-inventory', (req, res) => {
     },
     {
       id: 'finance', label: 'Finance',
-      tables: ['finance_accounts','finance_transactions','budgets','gift_cards','holdings','hsa_payments','hsa_otc','net_worth_snapshots'],
+      // v.156: unified `accounts` + `transactions` (mig 126) replace
+      // the old finance_accounts/finance_transactions pair. Budgets,
+      // gift_cards, holdings, hsa_*, net_worth_snapshots unchanged.
+      tables: ['accounts','transactions','budgets','gift_cards','holdings','hsa_payments','hsa_otc','net_worth_snapshots'],
       stats: [
-        { label:'Accounts',           val: q("SELECT COUNT(*) n FROM finance_accounts WHERE is_active=1") },
-        { label:'Transactions',       val: q("SELECT COUNT(*) n FROM finance_transactions") },
+        { label:'Accounts',           val: q("SELECT COUNT(*) n FROM accounts WHERE is_active=1") },
+        { label:'Transactions',       val: q("SELECT COUNT(*) n FROM transactions") },
         { label:'Imported batches',   val: q("SELECT COUNT(*) n FROM import_batches") },
-        { label:'Transactions last 30d', val: q(`SELECT COUNT(*) n FROM finance_transactions WHERE date >= '${ago30}'`) },
+        { label:'Transactions last 30d', val: q(`SELECT COUNT(*) n FROM transactions WHERE date >= '${ago30}'`) },
         { label:'Budget categories',  val: q("SELECT COUNT(*) n FROM budgets WHERE is_active=1") },
         { label:'Gift cards (active)',val: q("SELECT COUNT(*) n FROM gift_cards WHERE is_active=1") },
         { label:'Holdings/positions', val: q("SELECT COUNT(*) n FROM holdings") },
@@ -366,7 +369,9 @@ app.get('/api/v1/app/info', (req, res) => {
       { key: 'items',                sql: "SELECT COUNT(*) AS n FROM items WHERE is_active=1 AND is_archived=0" },
       { key: 'hsa_payments',         sql: "SELECT COUNT(*) AS n FROM hsa_payments" },
       { key: 'med_visit_notes',      sql: "SELECT COUNT(*) AS n FROM med_visit_notes" },
-      { key: 'finance_transactions', sql: "SELECT COUNT(*) AS n FROM finance_transactions" },
+      // v.156: 'finance_transactions' kept as the response key for
+      // back-compat with consumers; SQL targets unified `transactions`.
+      { key: 'finance_transactions', sql: "SELECT COUNT(*) AS n FROM transactions" },
       { key: 'todos',                sql: "SELECT COUNT(*) AS n FROM todos WHERE is_active=1" },
       { key: 'daily_log',            sql: "SELECT COUNT(*) AS n FROM daily_log" },
       { key: 'contacts',             sql: "SELECT COUNT(*) AS n FROM contacts" },

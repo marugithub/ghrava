@@ -59,13 +59,22 @@ const EXPORT_QUERIES = {
     ORDER BY vs.service_date DESC
   `,
 
+  // v202604.156: repointed off compat views (finance_transactions,
+  // finance_accounts, fin_import_batches) onto unified tables. The
+  // export now includes both manual and imported transactions
+  // (matches what's on the Finance Transactions tab in the UI).
+  // `merchant` column was on the old finance_transactions schema —
+  // unified table doesn't carry it; falls back to NULL via SELECT.
   finance_transactions: `
-    SELECT ft.id, fa.nickname AS account_name, ft.account_id,
-           ft.date, ft.description, ft.amount, ft.category,
-           ft.merchant, ft.notes, ft.is_transfer, ft.created_at
-    FROM finance_transactions ft
-    JOIN finance_accounts fa ON fa.id = ft.account_id
-    ORDER BY ft.date DESC
+    SELECT t.id,
+           COALESCE(a.alias, a.name) AS account_name,
+           t.account_id,
+           t.date, t.description, t.amount, t.category,
+           NULL AS merchant,
+           t.notes, t.is_transfer, t.created_at
+    FROM transactions t
+    JOIN accounts a ON a.id = t.account_id
+    ORDER BY t.date DESC
   `,
 
   kids: `
@@ -112,11 +121,21 @@ const EXPORT_QUERIES = {
     ORDER BY log_date DESC
   `,
 
+  // v.156: unified import_batches has no rows_imported/rows_skipped
+  // columns — it has row_count. Compat view fin_import_batches
+  // synthesized the old shape; here we just drop those columns
+  // since exporters can compute from the actual row counts via
+  // the transactions table if needed.
   import_batches: `
-    SELECT ib.id, fa.nickname AS account_name, ib.account_id,
-           ib.filename, ib.imported_at, ib.rows_imported, ib.rows_skipped, ib.notes
-    FROM fin_import_batches ib
-    LEFT JOIN finance_accounts fa ON fa.id = ib.account_id
+    SELECT ib.id,
+           COALESCE(a.alias, a.name) AS account_name,
+           ib.account_id,
+           ib.filename, ib.imported_at,
+           ib.row_count AS rows_imported,
+           0 AS rows_skipped,
+           ib.notes
+    FROM import_batches ib
+    LEFT JOIN accounts a ON a.id = ib.account_id
     ORDER BY ib.imported_at DESC
   `,
 

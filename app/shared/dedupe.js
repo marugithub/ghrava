@@ -124,8 +124,13 @@ function findEobDuplicate(args) {
 function findTransactionDuplicate(args) {
   if (!args || !args.account_id || !args.date || args.amount == null) return null;
   const cents = _cents(args.amount);
+  // v202604.156: read from unified `transactions` (mig 126) instead
+  // of the `finance_transactions` compat view. Removed the source
+  // filter so this dedupe checks against both manual and imported
+  // rows — same real-world charge can collide regardless of how
+  // each side got entered.
   const candidate = db.prepare(`
-    SELECT id FROM finance_transactions
+    SELECT id FROM transactions
     WHERE account_id = ?
       AND date = ?
       AND ROUND(amount * 100) = ?

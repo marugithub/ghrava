@@ -281,8 +281,13 @@ router.get('/export-json', (req, res) => {
       medical_visits:       safeQuery('SELECT * FROM med_visit_notes ORDER BY visit_date'),
       daily_log:            safeQuery('SELECT * FROM daily_log ORDER BY log_date'),
       resources:            safeQuery('SELECT * FROM resources ORDER BY category, title'),
-      finance_accounts:     safeQuery('SELECT * FROM finance_accounts ORDER BY name'),
-      finance_transactions: safeQuery('SELECT * FROM finance_transactions ORDER BY date'),
+      // v202604.156: switched off compat views onto unified tables
+      // (mig 126). Backup keys preserved for restore-format
+      // compatibility — consumers that read this JSON keep working.
+      finance_accounts:     safeQuery('SELECT * FROM accounts ORDER BY name'),
+      finance_transactions: safeQuery('SELECT * FROM transactions ORDER BY date'),
+      finance_import_batches: safeQuery('SELECT * FROM import_batches ORDER BY imported_at'),
+      finance_holdings:     safeQuery('SELECT * FROM holdings ORDER BY symbol'),
       finance_budgets:      safeQuery('SELECT * FROM budgets ORDER BY year, month, category'),
       gift_cards:           safeQuery('SELECT * FROM gift_cards ORDER BY store'),
       books:                safeQuery('SELECT * FROM books WHERE is_active=1 ORDER BY title'),
@@ -308,6 +313,8 @@ router.get('/export-json', (req, res) => {
 
 // GET /api/v1/backup/export-csv/:table  — single-table CSV export
 router.get('/export-csv/:table', (req, res) => {
+  // v.156: 'finance_transactions' kept as the user-facing key for
+  // back-compat; routes to unified `transactions` table via tableMap.
   const ALLOWED = ['todos','hsa_payments','hsa_otc','finance_transactions','inventory_items',
                    'med_medications','med_conditions','med_visit_notes','daily_log','books',
                    'career_certifications','documents','gift_cards','vehicle_service'];
@@ -318,6 +325,7 @@ router.get('/export-csv/:table', (req, res) => {
     const tableMap = {
       inventory_items: 'items', med_medications: 'med_medications',
       med_conditions: 'med_conditions', med_visit_notes: 'med_visit_notes',
+      finance_transactions: 'transactions',  // v.156 unified
     };
     const actualTable = tableMap[table] || table;
     const rows = db.prepare(`SELECT * FROM ${actualTable} ORDER BY id`).all();
