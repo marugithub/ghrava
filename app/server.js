@@ -491,6 +491,11 @@ app.get('/', (req, res) => res.redirect('/index.html'));
 // Start recurring transaction scheduler
 try { require('./shared/recurring-transactions').startScheduler(); } catch(e) { console.error('[server] Recurring scheduler failed:', e.message); }
 
+// Start net-worth auto-snapshot scheduler (v.157). Takes one
+// snapshot per calendar day; idempotent. Tile 1 MoM delta on
+// Finance Overview depends on this.
+try { require('./shared/networth-scheduler').startScheduler(); } catch(e) { console.error('[server] NetWorth scheduler failed:', e.message); }
+
 // Start folder watcher (after 8s to let migrations settle)
 setTimeout(() => {
   try { require('./shared/folder-watcher').startWatcher(); }

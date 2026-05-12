@@ -272,6 +272,7 @@
     <div class="gh-stitched__row">
       <div class="view-tabs" style="--tab-color:#22c55e" id="finTabs">
         <button class="view-tab active" onclick="switchFinTab('overview',this)">Overview</button>
+        <button class="view-tab" onclick="switchFinTab('all',this)">All</button>
         <button class="view-tab" onclick="switchFinTab('hsa',this)">HSA</button>
         <button class="view-tab" onclick="switchFinTab('accounts',this)">Accounts</button>
         <button class="view-tab" onclick="switchFinTab('transactions',this)">Transactions</button>
@@ -416,6 +417,40 @@
           <div class="fin-tile-rows" data-tile-rows></div>
         </div>
 
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════
+       ALL TAB — unified feed (v202604.157)
+       Transactions with their linked records (subscriptions,
+       medical visits, HSA expenses, EOBs, documents) inline.
+       Backend: GET /api/v1/finance/all
+       ══════════════════════════════════════════════════════ -->
+  <div class="view-panel" id="panel-all">
+    <div style="padding:12px 16px 0">
+      <div class="settings-card" style="margin-bottom:12px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+          <div>
+            <div class="settings-card-title">All transactions, with context</div>
+            <div class="settings-card-desc" style="margin-top:2px">
+              Recent transactions across every account, with their
+              linked records (subscriptions, visits, EOBs, etc.) inline.
+              Imported transactions auto-link to subscriptions when the
+              amount and description match.
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--text3)" id="finAllSummary">—</div>
+        </div>
+      </div>
+      <div id="finAllList"
+           style="background:var(--bg1);border:1px solid var(--border);border-radius:var(--r);min-height:200px">
+        <div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">Loading…</div>
+      </div>
+      <div style="display:flex;justify-content:center;padding:12px">
+        <button class="btn btn-ghost" id="finAllMoreBtn" onclick="loadFinAllMore()" style="display:none">
+          Load older transactions
+        </button>
       </div>
     </div>
   </div>
@@ -1159,6 +1194,9 @@ function switchFinTab(id, btn) {
     fab.style.display = 'none';
     loadNeedsReview();
     loadLandingTiles();
+  } else if (id === 'all') {
+    fab.style.display = 'none';
+    loadFinAll({ reset: true });
   } else if (id === 'hsa') {
     fab.style.display = 'flex';
     updateFabForHsaView(hsaView);
@@ -2160,6 +2198,103 @@ function daysUntil(dateStr) {
   return Math.round((d - today) / 86400000);
 }
 
+// Sample data shown when a tile has no real backing values. Each
+// tile decides whether it has "real" data via tileHasRealData()
+// and falls back to these placeholders with a visible SAMPLE pill.
+// Keeps the page looking populated for fresh installs while making
+// it obvious that the numbers aren't real.
+const FIN_TILE_SAMPLE = {
+  net_worth: {
+    hero:    '$487,300',
+    eyebrow: 'Net worth · May 8',
+    pill:    '+$3.2k MoM',
+    pillKind:'ok',
+    strip:   '$521k assets · $34k liabilities',
+  },
+  cash_flow: {
+    hero:    '+$1,420',
+    eyebrow: 'Cash flow · MTD May',
+    pill:    'on track',
+    pillKind:'ok',
+    strip:   'in $9,840 · out $8,420',
+  },
+  credit_cards: {
+    hero:    '$3,420',
+    eyebrow: 'Credit cards · 4 active',
+    pill:    '12% util',
+    pillKind:'ok',
+    strip:   'next due in 7 days · $340 min',
+  },
+  bank_accounts: {
+    hero:    '$28,540',
+    eyebrow: 'Banks · 5 accounts',
+    pill:    null,
+    strip:   'Checking $12k · Savings $16k',
+  },
+  holdings: {
+    hero:    '$184,300',
+    eyebrow: 'Holdings · 28 positions',
+    pill:    '+8.4% YTD',
+    pillKind:'ok',
+    strip:   'sample data — import a brokerage CSV to see real',
+  },
+  hsa_lp_fsa: {
+    hero:    '$5,650',
+    eyebrow: 'HSA + LP-FSA',
+    pill:    'FSA in 47d',
+    pillKind:'warn',
+    strip:   'HSA $4,820 · LP-FSA $830',
+  },
+};
+
+// Renders sample placeholder values into a tile and shows the
+// SAMPLE badge. Used when /finance/landing returns zero data for a
+// tile (fresh install, no accounts yet, etc).
+function applyTileSampleFallback(tileEl, key) {
+  const s = FIN_TILE_SAMPLE[key];
+  if (!tileEl || !s) return;
+  setTilePart(tileEl, 'hero',    s.hero);
+  setTilePart(tileEl, 'eyebrow', s.eyebrow);
+  setTilePart(tileEl, 'strip',   s.strip);
+  setTileDot(tileEl, 'ok');
+  // SAMPLE badge takes over the pill slot. Distinct neutral styling
+  // so it doesn't look like a status indicator (warn/ok).
+  const pillEl = tileEl.querySelector('[data-tile-pill]');
+  if (pillEl) {
+    pillEl.classList.remove('fin-tile-pill--ok','fin-tile-pill--warn','fin-tile-pill--bad');
+    pillEl.style.background = 'rgba(0,0,0,.08)';
+    pillEl.style.color = 'var(--text2)';
+    pillEl.style.fontFamily = 'var(--mono)';
+    pillEl.style.fontSize = '10px';
+    pillEl.style.letterSpacing = '.08em';
+    pillEl.textContent = 'SAMPLE';
+    pillEl.style.display = '';
+  }
+  // Subtle visual hint that this tile is illustrative — slight
+  // opacity dim on the hero so it reads as "preview" not "real".
+  const heroEl = tileEl.querySelector('[data-tile-hero]');
+  if (heroEl) heroEl.style.opacity = '0.65';
+  tileEl.setAttribute('data-tile-state', 'sample');
+}
+
+// Resets the sample-state styling when real data arrives. Called
+// at the start of every render so a re-fetch after an account
+// gets added cleanly transitions to real data.
+function clearTileSampleState(tileEl) {
+  if (!tileEl) return;
+  const heroEl = tileEl.querySelector('[data-tile-hero]');
+  if (heroEl) heroEl.style.opacity = '';
+  const pillEl = tileEl.querySelector('[data-tile-pill]');
+  if (pillEl) {
+    pillEl.style.background = '';
+    pillEl.style.color = '';
+    pillEl.style.fontFamily = '';
+    pillEl.style.fontSize = '';
+    pillEl.style.letterSpacing = '';
+  }
+  tileEl.removeAttribute('data-tile-state');
+}
+
 async function loadLandingTiles() {
   let data;
   try { data = await api('GET', '/finance/landing'); }
@@ -2169,9 +2304,18 @@ async function loadLandingTiles() {
   if (!grid) return;
   const tile = (id) => grid.querySelector(`[data-tile="${id}"]`);
 
+  // Clear any stale sample-state styling before re-rendering.
+  ['net_worth','cash_flow','credit_cards','bank_accounts','holdings','hsa_lp_fsa']
+    .forEach(k => clearTileSampleState(tile(k)));
+
   // ── Tile 1: Net Worth ────────────────────────────────────────
   const nw = data.net_worth;
-  if (nw) {
+  const nwHasReal = nw && (
+    (nw.assets || 0) > 0 ||
+    (nw.liabilities || 0) > 0 ||
+    (nw.investment_total || 0) > 0
+  );
+  if (nwHasReal) {
     const t = tile('net_worth');
     setTilePart(t, 'hero', FIN_TILE_FMT.$$(nw.total));
     setTilePart(t, 'eyebrow', `Net worth · ${new Date(data.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
@@ -2185,11 +2329,14 @@ async function loadLandingTiles() {
     setTileDot(t, nw.total >= 0 ? 'ok' : 'bad');
     setTilePart(t, 'strip',
       `${FIN_TILE_FMT.$(nw.assets + nw.investment_total)} assets · ${FIN_TILE_FMT.$(nw.liabilities)} liabilities`);
+  } else {
+    applyTileSampleFallback(tile('net_worth'), 'net_worth');
   }
 
   // ── Tile 2: Cash Flow MTD ────────────────────────────────────
   const cf = data.cash_flow;
-  if (cf) {
+  const cfHasReal = cf && (cf.count || 0) > 0;
+  if (cfHasReal) {
     const t = tile('cash_flow');
     const monthName = new Date().toLocaleDateString('en-US', { month: 'short' });
     setTilePart(t, 'eyebrow', `Cash flow · MTD ${monthName}`);
@@ -2221,22 +2368,23 @@ async function loadLandingTiles() {
       }
     }
     setTilePart(t, 'strip', `${cf.count} transactions this month`);
+  } else {
+    applyTileSampleFallback(tile('cash_flow'), 'cash_flow');
   }
 
   // ── Tile 3: Credit Cards ─────────────────────────────────────
   const cc = data.credit_cards;
-  if (cc) {
+  const ccHasReal = cc && (cc.count || 0) > 0;
+  if (ccHasReal) {
     const t = tile('credit_cards');
-    setTilePart(t, 'eyebrow', cc.count > 0 ? `Credit cards · ${cc.count} active` : 'Credit cards');
-    setTilePart(t, 'hero', cc.count ? FIN_TILE_FMT.$$(cc.statement_balance) : '—');
+    setTilePart(t, 'eyebrow', `Credit cards · ${cc.count} active`);
+    setTilePart(t, 'hero', FIN_TILE_FMT.$$(cc.statement_balance));
     if (cc.utilization != null) {
       const pct = cc.utilization * 100;
       const kind = pct < 30 ? 'ok' : pct < 60 ? 'warn' : 'bad';
       setTilePill(t, `${pct.toFixed(0)}% util`, kind);
-    } else if (cc.count > 0) {
-      setTilePill(t, 'no limit set', 'warn');
     } else {
-      setTilePill(t, '', null);
+      setTilePill(t, 'no limit set', 'warn');
     }
     if (cc.soonest_due_date) {
       const dd = daysUntil(cc.soonest_due_date);
@@ -2247,16 +2395,19 @@ async function loadLandingTiles() {
       setTilePart(t, 'strip', `${cc.soonest_due_account || 'next card'} ${dueLabel}${minLine}`);
     } else {
       setTileDot(t, 'ok');
-      setTilePart(t, 'strip', cc.count ? 'no due dates set' : 'no credit accounts');
+      setTilePart(t, 'strip', 'no due dates set');
     }
+  } else {
+    applyTileSampleFallback(tile('credit_cards'), 'credit_cards');
   }
 
   // ── Tile 4: Bank Accounts ────────────────────────────────────
   const ba = data.bank_accounts;
-  if (ba) {
+  const baHasReal = ba && (ba.count || 0) > 0;
+  if (baHasReal) {
     const t = tile('bank_accounts');
-    setTilePart(t, 'eyebrow', ba.count > 0 ? `Banks · ${ba.count} account${ba.count === 1 ? '' : 's'}` : 'Banks');
-    setTilePart(t, 'hero', ba.count ? FIN_TILE_FMT.$$(ba.total) : '—');
+    setTilePart(t, 'eyebrow', `Banks · ${ba.count} account${ba.count === 1 ? '' : 's'}`);
+    setTilePart(t, 'hero', FIN_TILE_FMT.$$(ba.total));
     setTileDot(t, 'ok');
     const rows = t.querySelector('[data-tile-rows]');
     if (rows) {
@@ -2267,42 +2418,289 @@ async function loadLandingTiles() {
         </div>
       `).join('') || '<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">No banking accounts yet</span></div>';
     }
+  } else {
+    applyTileSampleFallback(tile('bank_accounts'), 'bank_accounts');
   }
 
   // ── Tile 5: Holdings ─────────────────────────────────────────
   const h = data.holdings;
-  if (h) {
+  const hHasReal = h && (h.positions || 0) > 0;
+  if (hHasReal) {
     const t = tile('holdings');
-    setTilePart(t, 'eyebrow', h.positions > 0 ? `Holdings · ${h.positions} position${h.positions === 1 ? '' : 's'}` : 'Holdings');
-    setTilePart(t, 'hero', h.positions ? FIN_TILE_FMT.$$(h.market_value) : '—');
+    setTilePart(t, 'eyebrow', `Holdings · ${h.positions} position${h.positions === 1 ? '' : 's'}`);
+    setTilePart(t, 'hero', FIN_TILE_FMT.$$(h.market_value));
     setTileDot(t, 'ok');
-    setTilePart(t, 'strip', h.positions ? 'tap to manage' : 'no holdings imported yet');
+    setTilePart(t, 'strip', 'tap to manage');
+  } else {
+    applyTileSampleFallback(tile('holdings'), 'holdings');
   }
 
   // ── Tile 6: HSA + LP-FSA ─────────────────────────────────────
   const hl = data.hsa_lp_fsa;
-  if (hl) {
+  const hlHasReal = hl && ((hl.hsa_count || 0) > 0 || (hl.lp_fsa_remaining || 0) > 0);
+  if (hlHasReal) {
     const t = tile('hsa_lp_fsa');
     setTilePart(t, 'eyebrow', 'HSA + LP-FSA');
-    setTilePart(t, 'hero', (hl.hsa_count || hl.lp_fsa_remaining)
-      ? FIN_TILE_FMT.$$(hl.combined)
-      : '—');
+    setTilePart(t, 'hero', FIN_TILE_FMT.$$(hl.combined));
     setTileDot(t, 'ok');
     const rows = t.querySelector('[data-tile-rows]');
     if (rows) {
       const items = [];
       if (hl.hsa_count) items.push({ label: 'HSA', amt: hl.hsa_total });
       if (hl.lp_fsa_remaining) items.push({ label: 'LP-FSA', amt: hl.lp_fsa_remaining });
-      rows.innerHTML = items.length
-        ? items.map(i => `
+      rows.innerHTML = items.map(i => `
           <div class="fin-tile-row">
             <span class="fin-tile-row-label">${i.label}</span>
             <span class="fin-tile-row-amt">${FIN_TILE_FMT.$$(i.amt)}</span>
           </div>
-        `).join('')
-        : '<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">No HSA / LP-FSA setup yet</span></div>';
+        `).join('');
     }
+  } else {
+    applyTileSampleFallback(tile('hsa_lp_fsa'), 'hsa_lp_fsa');
   }
+}
+
+// ─────────────────────────────────────────────────────────────
+// All tab (v.157) — unified transaction feed with record_links
+// (subscriptions, medical visits, HSA expenses, EOBs, documents)
+// rendered inline as badges.
+//
+// State: cursor-paginated by date DESC. Each fetch returns up to
+// 100 items + a next_before cursor. "Load older" appends.
+// ─────────────────────────────────────────────────────────────
+
+const FIN_ALL_STATE = {
+  items:        [],
+  next_before:  null,
+  loading:      false,
+};
+
+const LINK_TYPE_ICON = {
+  transaction:    '💰',
+  subscription:   '🔁',
+  medical_visit:  '🩺',
+  hsa_payment:    '💊',
+  eob:            '📋',
+  document:       '📄',
+};
+const LINK_TYPE_LABEL = {
+  transaction:    'transaction',
+  subscription:   'subscription',
+  medical_visit:  'medical visit',
+  hsa_payment:    'HSA',
+  eob:            'EOB',
+  document:       'document',
+};
+
+async function loadFinAll({ reset } = {}) {
+  if (FIN_ALL_STATE.loading) return;
+  if (reset) {
+    FIN_ALL_STATE.items = [];
+    FIN_ALL_STATE.next_before = null;
+  }
+  FIN_ALL_STATE.loading = true;
+
+  const list = $('finAllList');
+  const more = $('finAllMoreBtn');
+  if (more) more.style.display = 'none';
+
+  try {
+    const qs = FIN_ALL_STATE.next_before
+      ? `?before=${encodeURIComponent(FIN_ALL_STATE.next_before)}&limit=100`
+      : `?limit=100`;
+    const data = await api('GET', '/finance/all' + qs);
+    FIN_ALL_STATE.items.push(...(data.items || []));
+    FIN_ALL_STATE.next_before = data.next_before;
+    renderFinAll();
+    if (more && data.next_before && (data.items || []).length === 100) {
+      more.style.display = 'inline-flex';
+    }
+  } catch (e) {
+    if (list) list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--red);font-size:13px">Failed to load: ${esc(e.message || 'error')}</div>`;
+  } finally {
+    FIN_ALL_STATE.loading = false;
+  }
+}
+
+function loadFinAllMore() { loadFinAll({ reset: false }); }
+
+function renderFinAll() {
+  const list = $('finAllList');
+  if (!list) return;
+
+  const items = FIN_ALL_STATE.items;
+  $('finAllSummary').textContent =
+    items.length === 0 ? 'No transactions yet'
+                       : `${items.length} transaction${items.length === 1 ? '' : 's'} loaded`;
+
+  if (!items.length) {
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:var(--text3);font-size:13px">No transactions yet. Import a statement or add one manually.</div>';
+    return;
+  }
+
+  // Group by date for visual separators.
+  const byDate = {};
+  for (const t of items) {
+    if (!byDate[t.date]) byDate[t.date] = [];
+    byDate[t.date].push(t);
+  }
+  const dates = Object.keys(byDate).sort().reverse();
+
+  list.innerHTML = dates.map(d => {
+    const rows = byDate[d];
+    return `
+      <div style="border-bottom:1px solid var(--border);padding:8px 14px;background:var(--bg2);font-family:var(--mono);font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text3)">
+        ${esc(d)}
+      </div>
+      ${rows.map(renderFinAllRow).join('')}
+    `;
+  }).join('');
+}
+
+function renderFinAllRow(t) {
+  const amt = Number(t.amount || 0);
+  const isCredit = amt > 0;
+  const amtClass = isCredit ? 'color:#15803d' : 'color:var(--text1)';
+  const amtStr   = (isCredit ? '+' : '') + '$' + Math.abs(amt).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const acct     = t.account_name ? `<span style="color:var(--text3);font-size:11px;margin-left:6px">${esc(t.account_name)}</span>` : '';
+  const cat      = t.category ? `<span style="display:inline-block;font-size:10px;padding:1px 7px;border-radius:999px;background:rgba(0,0,0,.05);color:var(--text2);margin-left:8px">${esc(t.category)}</span>` : '';
+  const review   = t.needs_review ? `<span style="font-size:10px;color:#b45309;margin-left:8px">⚠ review</span>` : '';
+  const transfer = t.is_transfer ? `<span style="font-size:10px;color:var(--text3);margin-left:8px">↔ transfer</span>` : '';
+
+  const links = (t.links || []).map(l => {
+    const icon = LINK_TYPE_ICON[l.other_type] || '🔗';
+    const label = l.display?.label || `${LINK_TYPE_LABEL[l.other_type] || l.other_type} #${l.other_id}`;
+    const kind = l.link_kind && l.link_kind !== 'manual' ? ` <span style="color:var(--text3);font-size:10px">(${esc(l.link_kind)})</span>` : '';
+    return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border:1px solid var(--border);border-radius:999px;background:var(--bg1);margin-right:6px;margin-top:4px">${icon} ${esc(label)}${kind}</span>`;
+  }).join('');
+  const moreLinks = t.link_count > 3
+    ? `<span style="font-size:11px;color:var(--text3);margin-top:4px">+${t.link_count - 3} more</span>`
+    : '';
+  const linkRow = (t.link_count > 0)
+    ? `<div style="margin-top:6px;display:flex;flex-wrap:wrap;align-items:center;gap:4px">${links}${moreLinks}</div>`
+    : '';
+
+  return `
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--bg1)">
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:2px">
+          <span style="font-weight:500">${esc(t.description || '(no description)')}</span>
+          ${acct}${cat}${review}${transfer}
+        </div>
+        ${linkRow}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div style="font-family:var(--mono);font-size:13px;${amtClass};white-space:nowrap">${amtStr}</div>
+        <button class="btn btn-ghost" style="font-size:11px;padding:2px 8px"
+                onclick="openLinkPicker(${t.id})">+ link</button>
+      </div>
+    </div>
+  `;
+}
+
+// Link picker — opens a small dialog to add a link to the given
+// transaction. Polls the v.157 backend.
+async function openLinkPicker(txnId) {
+  const t = FIN_ALL_STATE.items.find(x => x.id === txnId);
+  const label = t ? `${t.date} · $${Math.abs(Number(t.amount||0)).toFixed(2)} · ${t.description||''}` : `tx #${txnId}`;
+
+  // Existing links list, fetched fresh so deletes round-trip.
+  let existing = [];
+  try {
+    existing = await api('GET', `/finance/links?type=transaction&id=${txnId}`);
+  } catch (e) { /* show empty */ }
+
+  // Use the existing LT.dialog or fall back to native prompt.
+  const html = `
+    <div style="padding:6px 0">
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Transaction</div>
+      <div style="font-family:var(--mono);font-size:12px;padding:6px 8px;background:var(--bg2);border-radius:6px;margin-bottom:14px">${esc(label)}</div>
+
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Existing links</div>
+      <div id="lpExisting" style="margin-bottom:14px">
+        ${existing.length
+            ? existing.map(l => `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:12px">
+                  <span>${LINK_TYPE_ICON[l.other_type] || '🔗'} ${esc(l.display?.label || (l.other_type + ' #' + l.other_id))}</span>
+                  <button class="btn btn-ghost" style="font-size:10px;padding:2px 6px;color:var(--red)" onclick="deleteLink(${l.link_id}, ${txnId})">remove</button>
+                </div>
+              `).join('')
+            : '<div style="color:var(--text3);font-size:12px;padding:4px 0">No links yet.</div>'}
+      </div>
+
+      <div style="font-size:11px;color:var(--text3);margin-bottom:6px">Add a link</div>
+      <div class="form-row" style="gap:8px">
+        <div class="form-group" style="flex:1">
+          <select class="form-input" id="lpType">
+            <option value="subscription">Subscription</option>
+            <option value="medical_visit">Medical visit</option>
+            <option value="hsa_payment">HSA expense</option>
+            <option value="eob">EOB</option>
+            <option value="document">Document</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2">
+          <input class="form-input" id="lpId" type="number" placeholder="record id">
+        </div>
+        <div class="form-group" style="flex:1">
+          <select class="form-input" id="lpKind">
+            <option value="pays_for">pays_for</option>
+            <option value="reimburses">reimburses</option>
+            <option value="attached_to">attached_to</option>
+            <option value="manual" selected>manual</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="margin-top:8px"
+              onclick="submitLinkPicker(${txnId})">Add link</button>
+    </div>
+  `;
+  if (typeof LT !== 'undefined' && LT.dialog) {
+    LT.dialog({ title: 'Link transaction', body: html, width: 540 });
+  } else {
+    // Fallback: minimal overlay
+    const o = document.createElement('div');
+    o.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:9999';
+    o.onclick = (e) => { if (e.target === o) o.remove(); };
+    o.innerHTML = `<div style="background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:18px 22px;max-width:540px;width:90%;max-height:80vh;overflow:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h3 style="margin:0;font-size:15px">Link transaction</h3>
+        <button class="btn btn-ghost" onclick="this.closest('div[style*=fixed]').remove()" style="font-size:18px;padding:0 8px">×</button>
+      </div>
+      ${html}
+    </div>`;
+    document.body.appendChild(o);
+  }
+}
+
+async function submitLinkPicker(txnId) {
+  const type = $('lpType')?.value;
+  const id   = parseInt($('lpId')?.value);
+  const kind = $('lpKind')?.value || 'manual';
+  if (!type || !id) { toast('Type and id required', 'err'); return; }
+  try {
+    await api('POST', '/finance/links', {
+      left_type: 'transaction', left_id: txnId,
+      right_type: type, right_id: id,
+      link_kind: kind,
+    });
+    toast('Linked');
+    // Refresh the All tab to show the new link inline.
+    loadFinAll({ reset: true });
+    // Close overlay if open
+    document.querySelectorAll('div[style*="position:fixed"][style*="inset:0"]').forEach(el => el.remove());
+  } catch (e) { toast(e.message || 'Failed', 'err'); }
+}
+
+async function deleteLink(linkId, txnId) {
+  if (typeof LT !== 'undefined' && LT.confirm && !await LT.confirm('Remove this link?')) return;
+  try {
+    await api('DELETE', `/finance/links/${linkId}`);
+    toast('Removed');
+    loadFinAll({ reset: true });
+    // Re-open picker to show updated state
+    setTimeout(() => openLinkPicker(txnId), 100);
+  } catch (e) { toast(e.message || 'Failed', 'err'); }
 }
 
 // ─────────────────────────────────────────────────────────────

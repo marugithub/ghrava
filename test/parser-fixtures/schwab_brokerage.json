@@ -1,0 +1,10 @@
+{
+  "format": "schwab_brokerage",
+  "min_transactions": 3,
+  "amount_signs": {
+    "Buy": "negative",
+    "Dividend": "positive",
+    "Sell": "positive"
+  },
+  "note": "Schwab Brokerage has Transactions section then optional Positions section. Both parsed."
+}

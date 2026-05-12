@@ -1,0 +1,10 @@
+"Transactions for account XXXX-1234 as of 04/15/2026"
+
+"Date","Action","Symbol","Description","Quantity","Price","Fees & Comm","Amount"
+"04/15/2026","Buy","VTI","VANGUARD TOTAL STK MKT ETF","5","240.00","0.00","-1200.00"
+"04/12/2026","Dividend","VTI","VANGUARD TOTAL STK MKT ETF","","","","42.50"
+"04/05/2026","Sell","AAPL","APPLE INC","10","175.00","0.00","1750.00"
+
+"Symbol","Description","Quantity","Price","Cost Basis Per Share","Market Value"
+"VTI","VANGUARD TOTAL STK MKT ETF","105","240.50","210.00","25252.50"
+"AAPL","APPLE INC","50","175.50","160.00","8775.00"

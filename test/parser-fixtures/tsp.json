@@ -1,0 +1,9 @@
+{
+  "format": "tsp",
+  "min_transactions": 3,
+  "amount_signs": {
+    "Contribution": "positive",
+    "Agency Match": "positive"
+  },
+  "note": "TSP has transactions section followed by Fund balance section. Parser splits the two."
+}

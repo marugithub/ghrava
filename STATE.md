@@ -23,117 +23,90 @@ recent shipped version is **v202604.150**; the deploy zip in
 `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
 session) IS that version.
 
-### What was just shipped (v.156) — needs Al's manual test before next drop
+### What was just shipped (v.158) — needs Al's manual test before next drop
 
-**CROSS-MODULE COMPAT-VIEW REPOINT.** Every code path outside the
-finance module that read finance data through compat views is now
-reading the unified `accounts`/`transactions` tables directly. Plus
-one bug fix: `shared/recurring-transactions.js` was INSERTing into
-the `finance_transactions` view (not insertable since v.151) — that
-write path has been silently failing for every recurring template
-since v.151 deployed; v.156 fixes it.
+**RESCUE DROP + SAMPLE-DATA TILE FALLBACK.**
 
-**Skipped from the original v.156 plan** (rolling forward to v.157):
-- Net-worth snapshot scheduler (auto-snapshot once/day for tile 1
-  MoM delta) — separate concern, doesn't fit the repoint theme.
-- Schwab Checking, Schwab Brokerage, Vanguard, TSP, Wells Fargo
-  parser test fixtures — additive but unrelated to repoint.
+**Critical finding from Al's uploaded DB (2026-05-12):** mig 126
+never actually ran in production. There was a pre-existing
+`accounts` table from an older module (beneficiaries/TOD schema)
+that collided with mig 126's `CREATE TABLE accounts`. The migration
+threw, the runner moved on without logging 126 to `_migrations`, and
+later migs 127 + 128 silently ran against the wrong table (128
+ALTERed the pre-existing accounts to add CC columns that did nothing
+useful). v.157's `/finance/all`, `/finance/landing`, and needs-review
+queue all read from the unified `transactions` table that doesn't
+exist → empty UI everywhere.
 
-**Compat views still exist** — this drop only repoints *readers*. The
-views themselves stay in place so any third-party scripts or custom
-DB queries continue to work. A future drop will remove them once
-v.156 is confirmed stable.
+**Migration 130 (rescue)** detects the broken state and:
+1. Renames the pre-existing empty `accounts` table →
+   `accounts_beneficiaries` (preserves its schema for whatever
+   module owned it). REFUSES to proceed if the pre-existing table
+   has rows — manual intervention only.
+2. Clears bogus marker rows in `_migrations_fingerprint_v2_done`,
+   `_migrations_cc_columns_done`, and the runner's `_migrations`
+   row for those filenames.
+3. Runs mig 126 in-process (now that the name is free).
+4. Re-runs mig 127 (fingerprint recompute) and mig 128 (CC columns)
+   against the correct unified tables.
+5. Records 126/127/128 in the `_migrations` runner log so future
+   restarts don't re-attempt them.
+6. Marks itself done in `_migrations_rescue_126_done`.
 
-**Files repointed:**
-- **`app/shared/recurring-transactions.js`** — INSERT path switched
-  from `finance_transactions` view (broken since v.151) to unified
-  `transactions` with `source='manual'`. Adds fingerprint computation
-  via shared helper so dedup catches accidental re-runs.
-- **`app/shared/dedupe.js`** — `findTransactionDuplicate()` queries
-  unified `transactions` (covers manual + imported, not just manual).
-- **`app/shared/exportQueries.js`** — `finance_transactions`,
-  `import_batches` queries repointed; `merchant` column dropped
-  (didn't exist on unified schema). Export keys preserved for
-  back-compat.
-- **`app/shared/folder-watcher.js`** — `account_type` lookup uses
-  unified `accounts.type`.
-- **`app/features/search/routes.js`** — global search merges the
-  former dual finance/investments account search into one query
-  split by type. "Finance" group covers Checking/Savings/Credit/
-  Cash/HSA/Loan/Mortgage/Other; "Investments" covers Brokerage/
-  TSP/Retirement.
-- **`app/features/subscriptions/routes.js`** — JOIN onto `accounts`
-  with `COALESCE(alias, name)` for display.
-- **`app/features/dashboard/routes.js`** — net-worth aggregation
-  switched to `accounts`. Needs-review tables list updated:
-  removed `finance_accounts`/`financial_accounts`, added unified
-  `accounts` and `transactions`.
-- **`app/features/data/routes.js`** — three sheets repointed:
-  Finance Accounts (writes now target unified `accounts`),
-  Transactions (unified `transactions`), Import Batches (unified
-  `import_batches` with shape-preserving column synthesis).
-- **`app/features/backup/routes.js`** — JSON export and CSV export
-  routes repointed. Export keys (`finance_accounts`,
-  `finance_transactions`) preserved for restore-format compat.
-  Added `finance_import_batches` and `finance_holdings` keys to
-  the backup so the unified schema is fully captured.
-- **`app/features/settings/routes.js`** — review-summary integrity
-  checks, tag-suggest MODULE_TABLE map, and both CASCADE maps
-  (rename + usage-count) repointed. Type-vocab cascade now writes
-  to `accounts.type`; transaction-category cascade writes to
-  `transactions.category`.
-- **`app/features/system/routes.js`** — diagnostic _diag_-prefix
-  cleanup repointed to `accounts.name`.
-- **`app/server.js`** — health-check stats and module-counts page
-  repointed. Response key `finance_transactions` kept stable.
+All wrapped in a single transaction — if any step fails, the whole
+thing rolls back and the broken state is unchanged. **Smoke-tested
+manually against Al's uploaded broken DB**: pre-existing `accounts`
+(0 rows) successfully renamed; finance_accounts (2 rows) +
+financial_accounts (1 row) + finance_transactions (76 rows) all
+preserved and ready for unification.
 
-**No new migrations.** No schema changes. Compat views still exist
-as fallback. **Backup before deploy is still recommended** since
-this touches the recurring-transactions write path that was
-broken — the fix will start producing rows on the first 2 AM cron
-or on container restart (10s delay).
+**Sample-data tile fallback** — every Overview tile now checks
+whether `/finance/landing` returned real backing data:
+- Tile has real data → render real values (unchanged).
+- Tile has no data → render v.150-style sample numbers with a
+  visible "SAMPLE" badge in the corner and a slight opacity dim
+  on the hero number, so it's obviously illustrative not real.
 
-Carried from v.155 (still suspect):
-- Parser sign-convention test fixtures + runner (7/7 banks)
-- Categorization rule editor in Settings (rail item + sub-panel)
-- Missing-statement → todos auto-feed (`syncAutoTodos` item 11)
+Detection rules per tile:
+- net_worth: assets + liabilities + investment > 0
+- cash_flow: count of MTD transactions > 0
+- credit_cards: count > 0
+- bank_accounts: count > 0
+- holdings: positions > 0
+- hsa_lp_fsa: HSA count > 0 OR LP-FSA balance > 0
 
-Carried from v.154 (still suspect):
-- Mig 128 — additive credit-card columns
-- `GET /finance/landing` aggregator
-- Account form CC fields
-- Overview tiles wired to real data
+`clearTileSampleState()` runs before re-render so the transition
+from sample → real (after first import) is clean.
 
-Carried from v.153 (still suspect):
-- Shared `tx-fingerprint.js`
-- Mig 127 — fingerprint v2 + dup detection
-- 5-day window dedup
+**Schema-touching drop** — back up `data/ghrava.db` BEFORE
+`docker restart ghrava`. **Manual backup is non-negotiable here**:
+mig 130 will run on first boot and rename the `accounts` table.
+The smoke test confirms it works on the uploaded DB, but every
+production DB may have minor schema variations.
 
-Carried from v.152 (still suspect):
-- Account form parity
-- Needs-review queue + endpoints
+Carried from v.157 (still suspect):
+- Net-worth auto-snapshot scheduler
+- 5 more parser fixtures (12/12 banks)
+- `tx_record_links` + All tab + auto-linker
 
-Carried from v.151 (still suspect):
-- Mig 126 — unified accounts + transactions
+Carried from v.156 (still suspect):
+- Cross-module compat-view repoint
+- recurring-transactions.js bug fix
 
-Older carry-overs unchanged.
+Carried from v.155–v.151 (all still suspect, bundled in this zip).
 
 ### Next-drop work is queued
 
-**Now safe-ish to do (after v.156 stable):**
-- Drop `_legacy_*` tables — schema-touching mig 129. Hold until Al
-  confirms v.156 working AND the cross-module repoint hasn't
-  surfaced any unexpected query failures.
-- Net-worth snapshot scheduler — auto-snapshot once/day for tile 1
-  MoM delta. Small change to `app/server.js` boot path.
-- Schwab Checking, Schwab Brokerage, Vanguard, TSP, Wells Fargo
-  parser test fixtures — extends v.155 test runner coverage.
+**After v.158 confirmed working:**
+- Drop `_legacy_*` tables (mig 131 candidate) — cleanup capstone.
+- `accounts_beneficiaries` cleanup: decide if a beneficiaries
+  module is coming back. If not, drop it. If yes, give it back
+  its own properly-named table.
+- Tile-2 budget target — needs design conversation.
 
-**P3 still open:**
-- `tx_record_links` cross-module link table + finance "All" tab
-- Drop compat views themselves (after legacy tables go)
-
-**Tile-2 budget target** still needs design conversation before code.
+**Outside finance** (separate concerns, not in queue here):
+- Today page, drafts pages, per-device family filter,
+  known bugs in todos/reports, v140 loose ends, security audit.
 
 **Don't pick a top item and start coding.** Al chats first, then builds.
 
@@ -182,78 +155,70 @@ zip if needed.
 
 ## Current version
 
-**v202604.156** — packaged. Cross-module compat-view repoint +
-recurring-transactions write-path bug fix. Bundled with v.151–v.155
-because none have deployed yet.
+**v202604.158** — packaged. **Rescue drop**: detects and repairs the
+failed-mig-126 production state revealed by Al's uploaded DB. Also
+adds sample-data fallback to Overview tiles. Bundled with v.151–v.157.
 
-### v.156 changes
+### v.158 changes
 
-- **`recurring-transactions.js` bug fix** — INSERT path was writing
-  to `finance_transactions` view (not insertable since v.151 mig 126
-  made it a plain view); the recurring-transaction generator has
-  been silently failing for every template since v.151 deployed.
-  Now writes to unified `transactions` with `source='manual'` and
-  computes a fingerprint via the shared helper.
-- **Cross-module readers repointed** off compat views onto unified
-  tables: `shared/dedupe.js`, `shared/exportQueries.js`,
-  `shared/folder-watcher.js`, `features/search/routes.js`,
-  `features/subscriptions/routes.js`, `features/dashboard/routes.js`,
-  `features/data/routes.js`, `features/backup/routes.js`,
-  `features/settings/routes.js` (4 places), `features/system/routes.js`,
-  `app/server.js` (2 places).
-- **Search** merges former dual finance/investments account search
-  into one query split by type vocab.
-- **Dashboard needs-review** drops `finance_accounts`/
-  `financial_accounts` from review-tables list, adds unified
-  `accounts` and `transactions`.
-- **Dropdown cascade** for `finance_account_type` now writes to
-  `accounts.type`; `transaction_category` writes to
-  `transactions.category`.
-- **Backup** export keys (`finance_accounts`, `finance_transactions`)
-  preserved for restore-format compat. Adds `finance_import_batches`
-  and `finance_holdings` keys to fully capture unified schema.
-- **Compat views still exist.** Removing them is a future drop
-  contingent on v.156 stability.
+- **Migration 130 — rescue 126.** Detects when mig 126 never
+  successfully ran (no `_migrations_finance_unify_done` marker,
+  `accounts` table is the pre-existing beneficiaries shape, real
+  finance data still in `finance_accounts`+`financial_accounts`).
+  Renames pre-existing empty `accounts` → `accounts_beneficiaries`,
+  clears bogus markers from migs 127/128, runs 126/127/128
+  in-process against the now-clean schema, logs 126/127/128 in
+  the runner's `_migrations` table so future restarts don't retry.
+  All wrapped in one transaction — failure = full rollback.
+- **Sample-data tile fallback.** Each of the 6 Overview tiles now
+  checks whether `/finance/landing` returned real backing data;
+  if not, renders illustrative sample values with a "SAMPLE"
+  badge in the corner. Distinguishes fresh-install / pre-import
+  state from real-data state visually.
 
-### v.155 carryovers (bundled in this zip)
+### v.157 changes (carryover)
 
-- Parser sign-convention tests + runner (7/7)
+- Net-worth auto-snapshot scheduler
+- 5 more parser fixtures (12/12 banks)
+- Mig 129 + record_links + All tab + auto-linker
+
+### v.156 changes (carryover)
+
+- `recurring-transactions.js` write-path bug fix
+- 12 cross-module readers repointed off compat views
+
+### v.155 changes (carryover)
+
+- Parser sign-convention tests + runner
 - Categorization rule editor in Settings
 - Missing-statement → todos auto-feed
 
-### v.154 carryovers (bundled in this zip)
+### v.154 changes (carryover)
 
 - Migration 128 — additive credit-card columns
-- `GET /api/v1/finance/landing` aggregator
-- Account form CC fields
+- `GET /finance/landing` aggregator
 - Overview tiles wired to real data
 
-### v.153 carryovers (bundled in this zip)
+### v.153 changes (carryover)
 
 - `app/shared/tx-fingerprint.js` shared helper
-- Migration 127 — recompute fingerprints, flag dups
+- Migration 127 — fingerprint v2 + dup detection
 - 5-day window dedup
 
-### v.152 carryovers (bundled in this zip)
+### v.152 changes (carryover)
 
 - Account form parity, single-fetch reads
 - Needs-review queue + endpoints
 
-### v.151 carryovers (bundled in this zip)
+### v.151 changes (carryover)
 
 - Migration 126 — unified `accounts` + `transactions`
-- Compat views, type vocab lock, no-CASCADE, no-DELETE
 
-Carry-over from v.150 (still shipped, unchanged):
-- 6-tile Overview grid markup (now wired)
-
-Carry-over from v.149 (still shipped, unchanged):
-- Medical "All" tab landing, mobile swipe, SE/Self fix
-- Visit ↔ condition junction (mig 125)
+Carry-overs from v.150 / v.149 unchanged.
 
 ---
 
-## ✋ DON'T TRUST WITHOUT RETEST (v202604.156)
+## ✋ DON'T TRUST WITHOUT RETEST (v202604.158)
 
 **This list survives across chats.** Anything below is *touched* this
 drop but NOT confirmed working by Al. Treat as suspect until Al says
@@ -261,30 +226,34 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 | File | Change | Risk |
 |---|---|---|
-| `app/shared/recurring-transactions.js` | v.156: INSERT path switched off the broken `finance_transactions` view onto unified `transactions` (source='manual'). Computes fingerprint via shared helper. | **HIGH** — this code path was silently broken since v.151. **The fix will start producing rows on the first 2 AM cron OR 10s after container restart.** If you have many `recurring_transactions` rows with `next_date` in the past, expect a backlog of inserts on first restart. Test: check `transactions` table row count delta; spot-check a few generated rows for correct date/amount/description. |
-| `app/shared/dedupe.js` | v.156: `findTransactionDuplicate` reads unified `transactions`; covers both manual and imported. | Medium — if a manual entry now collides with an imported row, dedup returns the existing id. |
-| `app/shared/exportQueries.js` | v.156: queries repointed; `merchant` column dropped. | Low — affects export download only. |
-| `app/shared/folder-watcher.js` | v.156: `account_type` lookup uses `accounts.type`. | Medium — folder-watcher importStatement broke if it was running pre-v.151. |
-| `app/features/search/routes.js` | v.156: dual finance/investments account search merged into one query split by type vocab. Transactions search reads unified table. | Medium — global search results may show slightly different counts (one row per account vs two). |
-| `app/features/subscriptions/routes.js` | v.156: JOIN `accounts` with `COALESCE(alias, name)`. | Low — sub list display only. |
-| `app/features/dashboard/routes.js` | v.156: nw stats query repointed; needs-review tables list updated to unified `accounts`+`transactions`. | Medium — dashboard counts may shift. |
-| `app/features/data/routes.js` | v.156: 3 sheets repointed (Finance Accounts, Transactions, Import Batches). Writes from imports now target unified tables. | **HIGH** — affects upload/import via the data sheet UI. Test: download a Finance Accounts sheet, edit, re-upload → should upsert into unified `accounts`. |
-| `app/features/backup/routes.js` | v.156: JSON + CSV export queries repointed. Export keys preserved for restore-format compat. Added finance_import_batches and finance_holdings keys. | Medium — backup file shape adds two keys. Restore path that reads only the original keys is unaffected. |
-| `app/features/settings/routes.js` | v.156: review checks, tag-suggest map, both CASCADE maps repointed. Type vocab cascade writes to `accounts.type`; transaction-category cascade writes to `transactions.category`. | Medium — affects dropdown rename cascade. Test: rename a finance_account_type dropdown value → existing accounts get updated. |
-| `app/features/system/routes.js` | v.156: diagnostic _diag_-prefix cleanup now DELETEs from `accounts.name` instead of `financial_accounts.nickname`. | Low — diagnostic test cleanup only. |
-| `app/server.js` | v.156: finance stats and module-counts page repointed. | Low — health-check display only. |
-| `test/run-parser-tests.js` | NEW (v.155). Parser sign-convention test runner. | None at runtime. |
-| `test/parser-fixtures/*` | NEW (v.155). 14 fixture files. | None at runtime. |
-| `app/shared/autoTodos.js` | v.155: new "missing_statement" auto-todo block (item 11). | Medium. |
-| `app/features/import/routes.js` | v.155: `detectMissingStatements()` reusable export. v.153 + v.151 carryovers. | **HIGH** — every file-import path touched. |
-| `app/public/settings.html` | v.155: rail item + sub-panel + JS for finrules. | Medium. |
-| `app/db/migrations/128_cc_columns.js` | NEW (v.154). | Low — additive only. |
-| `app/features/finance/routes.js` | v.154 + v.153 + v.152 + v.151 carryovers. | **HIGH** — every finance route added to or rewritten. |
-| `app/public/finance.html` | v.154 + v.152 carryovers. | **HIGH**. |
-| `app/shared/tx-fingerprint.js` | NEW (v.153). | Low — pure helper. |
-| `app/db/migrations/127_fingerprint_v2.js` | NEW (v.153). | **HIGH** — touches every row in `transactions`. |
-| `app/db/migrations/126_finance_unify.js` | NEW (v.151). | **HIGH** — schema change. |
-| `app/version.txt` | `202604.156` | None. |
+| `app/db/migrations/130_rescue_126.js` | NEW (v.158). Rescue migration for production installs where mig 126 silently failed (pre-existing `accounts` table collision). | **CRITICAL** — runs on first restart, performs schema surgery (renames `accounts` → `accounts_beneficiaries`, runs 126/127/128 in-process). Smoke-tested against Al's uploaded broken DB. **MANDATORY backup of `data/ghrava.db` before restart.** Test: after restart, `SELECT * FROM _migrations_rescue_126_done` should show a row with notes describing what was done; `SELECT name FROM sqlite_master WHERE name='transactions'` should return 1 row; finance.html Accounts tab should list the 2 finance_accounts + 1 financial_accounts merged. |
+| `app/public/finance.html` | v.158: sample-data tile fallback on Overview when /finance/landing returns zero data per tile. v.157 All tab + link picker. v.154 tiles + CC form. v.152 form rebuild + needs-review. | **HIGH** — Overview tile rendering changed. Test: open Overview before any imports → see sample numbers with SAMPLE badge in pill slot; after first import / account creation → tiles transition to real data without SAMPLE badge. |
+| `app/db/migrations/129_record_links.js` | NEW (v.157). Polymorphic junction table for cross-module record links. Idempotent. Additive only. | Low — additive only. Test: open Finance → All tab → "+ link" button on any transaction → confirm picker opens. |
+| `app/shared/networth-scheduler.js` | NEW (v.157). Daily auto-snapshot of net worth. Wired into server.js boot path. | Medium — runs 30s after first restart, then hourly. Test: 30s after deploy, check `net_worth_snapshots` for a today-dated row with `notes='[auto-snapshot]'`. Tile 1 MoM pill should populate after the next day's snapshot. |
+| `app/shared/auto-link-subscriptions.js` | NEW (v.157). Auto-creates `pays_for` links between imported transactions and matching active subscriptions. | Medium — only runs at import time, only creates links (no other side-effects). Test: import a statement that includes a subscription charge → check All tab → that row should have the subscription badge inline. |
+| `test/parser-fixtures/schwab_*, vanguard, tsp, wells_fargo` | NEW (v.157). 5 more banks added. **12/12 pass.** | None at runtime. |
+| `app/features/finance/routes.js` | v.157: link CRUD endpoints, `GET /all` aggregator, auto-link hooked into import-file path. v.154 + v.153 + v.152 + v.151 carryovers. | **HIGH** — every finance route added to or rewritten. Test the All tab end-to-end. |
+| `app/features/import/routes.js` | v.157: auto-link hooked into /import/confirm. v.155 + v.153 + v.151 carryovers. | **HIGH** — every file-import path touched. |
+| `app/server.js` | v.157: registers `networth-scheduler.startScheduler()`. v.156 health-check repointing. | Low — additive scheduler registration. |
+| `app/shared/recurring-transactions.js` | v.156 bug fix carryover. | **HIGH** — will start producing rows on first restart. |
+| `app/shared/dedupe.js` | v.156 carryover. | Medium. |
+| `app/shared/exportQueries.js` | v.156 carryover. | Low. |
+| `app/shared/folder-watcher.js` | v.156 carryover. | Medium. |
+| `app/features/search/routes.js` | v.156 carryover. | Medium. |
+| `app/features/subscriptions/routes.js` | v.156 carryover. | Low. |
+| `app/features/dashboard/routes.js` | v.156 carryover. | Medium. |
+| `app/features/data/routes.js` | v.156 carryover. | **HIGH**. |
+| `app/features/backup/routes.js` | v.156 carryover. | Medium. |
+| `app/features/settings/routes.js` | v.156 carryover. | Medium. |
+| `app/features/system/routes.js` | v.156 carryover. | Low. |
+| `test/run-parser-tests.js` | NEW (v.155). | None at runtime. |
+| `app/shared/autoTodos.js` | v.155 carryover. | Medium. |
+| `app/public/settings.html` | v.155 carryover. | Medium. |
+| `app/db/migrations/128_cc_columns.js` | NEW (v.154). | Low. |
+| `app/shared/tx-fingerprint.js` | NEW (v.153). | Low. |
+| `app/db/migrations/127_fingerprint_v2.js` | NEW (v.153). | **HIGH**. |
+| `app/db/migrations/126_finance_unify.js` | NEW (v.151). | **HIGH**. |
+| `app/version.txt` | `202604.157` | None. |
 
 ### Carryover from v.150 — still untested
 
@@ -299,7 +268,126 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 ---
 
-## ✅ SHIPPED THIS DROP (v202604.156)
+## ✅ SHIPPED THIS DROP (v202604.158)
+
+### Rescue migration 130 (v.158)
+
+- **Problem discovered**: Al uploaded a production DB (2026-05-12).
+  Inspection showed `_migrations_cc_columns_done` marked v.154 as
+  applied, but `transactions` table didn't exist and the `accounts`
+  table had a pre-existing schema (beneficiaries/TOD module from a
+  much older mig) instead of the unified one.
+- **Diagnosis**: mig 126's `CREATE TABLE accounts` collided with
+  the pre-existing table; the JS migration threw; the runner
+  didn't log it to `_migrations`; mig 127's defensive
+  "no transactions table → skip" branch fired and marked itself
+  done; mig 128 added CC columns to the wrong (beneficiaries)
+  `accounts` table. The unified schema never came into being.
+- **Migration 130** detects the broken state (specifically: no
+  `_migrations_finance_unify_done` row, finance_accounts has
+  rows, pre-existing `accounts` lacks the `alias` column). If
+  detected, performs (in one transaction):
+  1. Rename pre-existing empty `accounts` → `accounts_beneficiaries`.
+     **Refuses to proceed if the pre-existing table has rows** —
+     safety check; manual intervention required.
+  2. DELETE bogus marker rows from `_migrations_fingerprint_v2_done`,
+     `_migrations_cc_columns_done`, and the runner's `_migrations`
+     entries for `127_fingerprint_v2.js` and `128_cc_columns.js`.
+  3. Run mig 126 in-process (now that the name is free) — it's
+     idempotent, creates the unified schema, copies rows.
+  4. Re-run mig 127 (recompute fingerprints on the now-populated
+     `transactions` table) and mig 128 (CC columns on the
+     unified accounts).
+  5. INSERT OR IGNORE 126/127/128 into `_migrations` so future
+     restarts skip them cleanly.
+  6. Mark `_migrations_rescue_126_done` so this rescue itself
+     never re-runs.
+- **Smoke-tested manually** against Al's uploaded DB: pre-existing
+  `accounts` (0 rows) renamed cleanly; finance_accounts (2 rows)
+  + financial_accounts (1 row) + finance_transactions (76 rows)
+  + imported_transactions (0 rows) preserved and ready for unify.
+
+### Sample-data tile fallback (v.158)
+
+- Every Overview tile now has explicit "has real data?" predicate:
+  - net_worth: assets + liabilities + investment_total > 0
+  - cash_flow: count of MTD transactions > 0
+  - credit_cards: count > 0
+  - bank_accounts: count > 0
+  - holdings: positions > 0
+  - hsa_lp_fsa: HSA count > 0 OR LP-FSA balance > 0
+- Tiles without real data render hardcoded v.150-style sample
+  numbers + a "SAMPLE" badge in the pill slot (monospace,
+  letter-spaced, neutral background — visually distinct from
+  status pills).
+- Hero number gets 65% opacity in sample state so it reads as a
+  preview.
+- `clearTileSampleState()` runs on every re-render so transitions
+  from sample → real (after first import) are clean.
+
+### Net-worth auto-snapshot scheduler (carried from v.157)
+
+- `app/shared/networth-scheduler.js` — daily snapshot of net worth.
+  One per calendar date, idempotent (UPDATE-by-date). Tagged
+  `notes='[auto-snapshot]'` so manual snapshots stay distinguishable.
+- Wired into `app/server.js` next to the recurring-transactions
+  scheduler. Boots 30s after server start, then hourly checks
+  whether today's snapshot exists.
+- Tile 1's MoM delta pill now populates organically.
+
+### Five more parser test fixtures (v.157)
+
+- Added Schwab Checking, Schwab Brokerage, Vanguard, TSP, Wells
+  Fargo. Detector quirks worked out per bank:
+  - Vanguard description = Transaction Description column (not
+    Investment Name).
+  - Wells Fargo needs 5+ column header without "description" or
+    "post"; CSV-parse collapses duplicate `*` column names, so
+    placeholders are `Col3`/`Col4`.
+- **All 12/12 banks now pass.**
+
+### tx_record_links cross-module link table + "All" tab (v.157)
+
+- **Migration 129** — additive `record_links` polymorphic junction
+  table. UNIQUE on `(left_type, left_id, right_type, right_id,
+  link_kind)`. Two indexes for bidirectional lookup. No FK
+  constraints (polymorphic by design).
+- **Type vocab LOCKED:** `transaction`, `subscription`,
+  `medical_visit`, `hsa_payment`, `eob`, `document`. Adding a new
+  type is one line on backend (LINK_TYPES set) + one line on
+  frontend (LINK_TYPE_ICON/LABEL maps).
+- **Backend endpoints** in finance routes:
+  - `GET /api/v1/finance/links?type=<t>&id=<id>` — bidirectional
+    lookup, hydrates other-side `{label, sub, href}` so the UI
+    doesn't need to know each module's display rules.
+  - `POST /api/v1/finance/links` (auth) — canonicalizes by sorting
+    (type, id) tuple so symmetric pairs never duplicate. Returns
+    existing id if UNIQUE constraint hits (idempotent).
+  - `DELETE /api/v1/finance/links/:id` (auth).
+- **`GET /api/v1/finance/all`** — paginated unified feed. `?limit=N`
+  (max 500), `?before=YYYY-MM-DD` cursor. Returns transactions
+  with `link_count` and `links[]` (top 3 by recency) inline.
+  Bulk link fetch = one query per page, then group-by JS.
+- **Auto-linker** (`shared/auto-link-subscriptions.js`):
+  - Match rule: active subscription, `|txn.amount|` within ±5% of
+    `monthly_amount`, name token (≥3 chars) appears in normalized
+    description, debit not transfer.
+  - Creates `'pays_for'` links on insert, silently. 60s cache on
+    active subscriptions.
+  - Hooked into both import paths (`/api/v1/finance/transactions/
+    import-file` and `/api/v1/import/confirm`). Failure is logged
+    and skipped — never blocks the import.
+- **"All" tab on /finance.html:**
+  - New tab between Overview and HSA.
+  - Date-grouped feed; each row shows description / account /
+    category / review flag / transfer flag / amount.
+  - Link badges with type icon + display label inline below
+    description. "+N more" badge when link_count > 3.
+  - "+ link" button per row opens a picker dialog: existing links
+    (with remove buttons) + add-new form (type dropdown, record
+    id input, link_kind dropdown).
+  - "Load older transactions" button cursor-paginates via
+    `next_before` from the previous response.
 
 ### Cross-module compat-view repoint (v.156)
 

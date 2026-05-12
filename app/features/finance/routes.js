@@ -965,6 +965,7 @@ function applyCategoryRules(description) {
 const multerFinance = require('multer')({ storage: require('multer').memoryStorage() });
 const { parseFile: parseFinanceFile } = require('../import/parsers');
 const { fingerprint, normalizeDescription } = require('../../shared/tx-fingerprint');
+const { autoLinkTransaction } = require('../../shared/auto-link-subscriptions');
 
 router.post('/transactions/import-file', multerFinance.single('file'), (req, res) => {
   try {
@@ -1029,7 +1030,7 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,'imported',?)
     `);
 
-    let imported = 0, skipped = 0, flagged = 0;
+    let imported = 0, skipped = 0, flagged = 0, autoLinked = 0;
     const doImport = db.transaction(() => {
       for (const t of txns) {
         if (!t.date || t.amount === null || t.amount === undefined) { skipped++; continue; }
@@ -1047,7 +1048,7 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
         const isFlag = candidates.some(c => normalizeDescription(c.description) === targetNorm) ? 1 : 0;
 
         const cat = t.category || applyCategoryRules(t.description) || null;
-        insert.run(
+        const result = insert.run(
           account_id, batchId, t.date, t.postDate || null,
           t.description, parseFloat(t.amount) || 0, t.balance || null,
           cat, t.type || 'transaction',
@@ -1057,11 +1058,22 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
         );
         if (isFlag) flagged++;
         imported++;
+
+        // Auto-link to matching subscription (v.157). Best-effort,
+        // inside the same transaction so a link failure rolls back
+        // alongside its parent import (rare, but consistent).
+        try {
+          autoLinked += autoLinkTransaction(result.lastInsertRowid, {
+            amount: t.amount,
+            description: t.description,
+            is_transfer: t.is_transfer,
+          });
+        } catch (e) { /* logged inside helper */ }
       }
     });
     doImport();
 
-    res.json({ ok: true, imported, skipped, flagged, format: parsed.format, total: txns.length, batch_id: batchId });
+    res.json({ ok: true, imported, skipped, flagged, auto_linked: autoLinked, format: parsed.format, total: txns.length, batch_id: batchId });
   } catch (e) { serverError(res, e); }
 });
 
@@ -1223,6 +1235,272 @@ router.get('/portfolio/performance', (req, res) => {
 
 router.post('/portfolio/snapshot', requireAuth, (req, res) => {
   try { res.json(takePortfolioSnapshot()); } catch(e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// RECORD LINKS (v202604.157, mig 129)
+// ══════════════════════════════════════════════════════════════
+//
+// Polymorphic link table. Used by the "All" tab on finance to show
+// per-transaction context (subscriptions paid, EOBs reimbursed,
+// medical visits attached, etc.).
+//
+// Type vocabulary (locked v.157):
+//   'transaction'     finance.transactions
+//   'subscription'    subscriptions
+//   'medical_visit'   med_visit_notes
+//   'hsa_payment'     hsa_payments
+//   'eob'             eobs
+//   'document'        documents
+//
+// Adding a new type is a one-line addition to LINK_TYPES on
+// frontend + backend; no schema change required.
+
+const LINK_TYPES = new Set([
+  'transaction','subscription','medical_visit','hsa_payment','eob','document'
+]);
+
+// Display-name resolver for each type. Returns {label, sub, href}.
+// Falls back gracefully if a table is missing on older installs.
+function resolveLinkLabel(type, id) {
+  try {
+    switch (type) {
+      case 'transaction': {
+        const r = db.prepare(`
+          SELECT date, description, amount FROM transactions WHERE id=?
+        `).get(id);
+        return r ? {
+          label: r.description || '(no description)',
+          sub: `${r.date} · $${Number(r.amount||0).toFixed(2)}`,
+          href: `/finance.html#transactions`,
+        } : null;
+      }
+      case 'subscription': {
+        const r = db.prepare(`
+          SELECT name, monthly_amount FROM subscriptions WHERE id=?
+        `).get(id);
+        return r ? {
+          label: r.name,
+          sub: r.monthly_amount != null ? `$${Number(r.monthly_amount).toFixed(2)}/mo` : null,
+          href: `/subscriptions.html`,
+        } : null;
+      }
+      case 'medical_visit': {
+        const r = db.prepare(`
+          SELECT visit_date, patient, provider FROM med_visit_notes WHERE id=?
+        `).get(id);
+        return r ? {
+          label: `${r.patient || ''} — ${r.provider || ''}`.trim(),
+          sub: r.visit_date,
+          href: `/medical.html`,
+        } : null;
+      }
+      case 'hsa_payment': {
+        const r = db.prepare(`
+          SELECT date, provider, amount FROM hsa_payments WHERE id=?
+        `).get(id);
+        return r ? {
+          label: r.provider || '(HSA expense)',
+          sub: `${r.date} · $${Number(r.amount||0).toFixed(2)}`,
+          href: `/hsa.html`,
+        } : null;
+      }
+      case 'eob': {
+        const r = db.prepare(`SELECT * FROM eobs WHERE id=?`).get(id);
+        if (!r) return null;
+        return {
+          label: r.provider || r.member_name || '(EOB)',
+          sub: r.service_date || r.received_date,
+          href: `/medical.html`,
+        };
+      }
+      case 'document': {
+        const r = db.prepare(`SELECT title, category FROM documents WHERE id=?`).get(id);
+        return r ? {
+          label: r.title,
+          sub: r.category,
+          href: `/documents.html`,
+        } : null;
+      }
+      default: return null;
+    }
+  } catch (e) { return null; }
+}
+
+// GET /api/v1/finance/links?type=transaction&id=42
+// Returns all links touching a record, regardless of which side it's
+// stored on. Hydrates the other side's display info.
+router.get('/links', (req, res) => {
+  try {
+    const type = String(req.query.type || '');
+    const id   = parseInt(req.query.id);
+    if (!LINK_TYPES.has(type) || !id) return badRequest(res, 'type + id required');
+
+    // Bidirectional lookup. Two queries because UNION ALL with
+    // CASE columns is ugly here.
+    const fromLeft = db.prepare(`
+      SELECT id, right_type AS other_type, right_id AS other_id,
+             link_kind, notes, created_at
+      FROM record_links WHERE left_type=? AND left_id=?
+    `).all(type, id);
+    const fromRight = db.prepare(`
+      SELECT id, left_type AS other_type, left_id AS other_id,
+             link_kind, notes, created_at
+      FROM record_links WHERE right_type=? AND right_id=?
+    `).all(type, id);
+
+    const rows = [...fromLeft, ...fromRight]
+      .map(r => ({
+        link_id:    r.id,
+        other_type: r.other_type,
+        other_id:   r.other_id,
+        link_kind:  r.link_kind,
+        notes:      r.notes,
+        created_at: r.created_at,
+        display:    resolveLinkLabel(r.other_type, r.other_id),
+      }))
+      .filter(r => r.display);  // drop orphans (deleted records)
+
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+// POST /api/v1/finance/links  (auth)
+// Body: { left_type, left_id, right_type, right_id, link_kind?, notes? }
+router.post('/links', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    if (!LINK_TYPES.has(d.left_type) || !LINK_TYPES.has(d.right_type))
+      return badRequest(res, 'invalid type');
+    const lid = parseInt(d.left_id), rid = parseInt(d.right_id);
+    if (!lid || !rid) return badRequest(res, 'left_id + right_id required');
+    if (d.left_type === d.right_type && lid === rid)
+      return badRequest(res, 'cannot link a record to itself');
+
+    // Canonicalize: sort by (type, id) so symmetric links don't dup.
+    // We compare as composite tuples by type then id, so type sort
+    // is alphabetical; ties broken by id.
+    let lt = d.left_type, li = lid, rt = d.right_type, ri = rid;
+    if (lt > rt || (lt === rt && li > ri)) {
+      [lt, rt] = [rt, lt]; [li, ri] = [ri, li];
+    }
+
+    const kind = d.link_kind || 'manual';
+    try {
+      const r = db.prepare(`
+        INSERT INTO record_links (left_type, left_id, right_type, right_id, link_kind, notes)
+        VALUES (?,?,?,?,?,?)
+      `).run(lt, li, rt, ri, kind, d.notes || null);
+      res.status(201).json({ id: r.lastInsertRowid });
+    } catch (e) {
+      // UNIQUE constraint: link already exists. Treat as success
+      // (idempotent semantics for manual linking via UI).
+      if (/UNIQUE constraint/i.test(e.message)) {
+        const ex = db.prepare(`
+          SELECT id FROM record_links
+          WHERE left_type=? AND left_id=? AND right_type=? AND right_id=? AND link_kind=?
+        `).get(lt, li, rt, ri, kind);
+        return res.status(200).json({ id: ex?.id, already_exists: true });
+      }
+      throw e;
+    }
+  } catch (e) { serverError(res, e); }
+});
+
+router.delete('/links/:id', requireAuth, (req, res) => {
+  try {
+    const r = db.prepare(`DELETE FROM record_links WHERE id=?`).run(req.params.id);
+    if (r.changes === 0) return notFound(res, 'Link');
+    res.json({ ok: true });
+  } catch (e) { serverError(res, e); }
+});
+
+// ══════════════════════════════════════════════════════════════
+// /api/v1/finance/all — unified feed for the "All" tab
+// ══════════════════════════════════════════════════════════════
+//
+// Returns recent transactions with their record_links inline (count
+// + thumbnails of up to 3 linked records). The feed is paged by
+// date DESC; the frontend asks for `?before=YYYY-MM-DD&limit=100`.
+//
+// This is read-only and intentionally not filtered by source/type —
+// the "All" view is the place where everything financial shows up.
+//
+// Each row carries `link_count` and `links[]` (top 3 by recency).
+// The UI shows the count as a badge; expanding the row hits
+// GET /links for the full list.
+router.get('/all', (req, res) => {
+  try {
+    const limit  = Math.min(parseInt(req.query.limit) || 100, 500);
+    const before = req.query.before || null;
+
+    const txns = before
+      ? db.prepare(`
+          SELECT t.id, t.date, t.description, t.amount, t.category,
+                 t.source, t.is_transfer, t.needs_review,
+                 t.account_id,
+                 COALESCE(a.alias, a.name) AS account_name
+          FROM transactions t
+          LEFT JOIN accounts a ON a.id = t.account_id
+          WHERE t.date < ?
+          ORDER BY t.date DESC, t.id DESC LIMIT ?
+        `).all(before, limit)
+      : db.prepare(`
+          SELECT t.id, t.date, t.description, t.amount, t.category,
+                 t.source, t.is_transfer, t.needs_review,
+                 t.account_id,
+                 COALESCE(a.alias, a.name) AS account_name
+          FROM transactions t
+          LEFT JOIN accounts a ON a.id = t.account_id
+          ORDER BY t.date DESC, t.id DESC LIMIT ?
+        `).all(limit);
+
+    if (!txns.length) return res.json({ items: [], next_before: null });
+
+    // Bulk link fetch — one query for all transactions in the page.
+    const ids = txns.map(t => t.id);
+    const placeholders = ids.map(() => '?').join(',');
+    const links = db.prepare(`
+      SELECT id, left_type, left_id, right_type, right_id, link_kind, created_at
+      FROM record_links
+      WHERE (left_type='transaction'  AND left_id  IN (${placeholders}))
+         OR (right_type='transaction' AND right_id IN (${placeholders}))
+      ORDER BY created_at DESC
+    `).all(...ids, ...ids);
+
+    // Group by txn id.
+    const byTxn = new Map();
+    for (const l of links) {
+      const txnId    = l.left_type  === 'transaction' ? l.left_id    : l.right_id;
+      const otherTy  = l.left_type  === 'transaction' ? l.right_type : l.left_type;
+      const otherId  = l.left_type  === 'transaction' ? l.right_id   : l.left_id;
+      if (!byTxn.has(txnId)) byTxn.set(txnId, []);
+      byTxn.get(txnId).push({
+        link_id:    l.id,
+        other_type: otherTy,
+        other_id:   otherId,
+        link_kind:  l.link_kind,
+        // resolveLinkLabel is N+1 but capped by `limit * 3` worst case
+        // — at 500 transactions × 3 links = 1500 hits, ms-scale.
+        display:    resolveLinkLabel(otherTy, otherId),
+      });
+    }
+
+    const items = txns.map(t => {
+      const all = (byTxn.get(t.id) || []).filter(l => l.display);
+      return {
+        ...t,
+        link_count: all.length,
+        links:      all.slice(0, 3),
+      };
+    });
+
+    const last = txns[txns.length - 1];
+    res.json({
+      items,
+      next_before: last ? last.date : null,
+    });
+  } catch (e) { serverError(res, e); }
 });
 
 module.exports = router;

@@ -34,6 +34,7 @@ const db       = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { parseFile }   = require('./parsers');
 const { fingerprint, normalizeDescription } = require('../../shared/tx-fingerprint');
+const { autoLinkTransaction } = require('../../shared/auto-link-subscriptions');
 
 let XLSX;
 try { XLSX = require('xlsx'); } catch { XLSX = null; }
@@ -244,7 +245,7 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
         }
       }
 
-      db.prepare(`
+      const result = db.prepare(`
         INSERT INTO transactions
           (account_id, batch_id, date, post_date, description, amount, balance,
            category, txn_type, is_transfer, memo, fingerprint, flagged,
@@ -260,6 +261,15 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
 
       if (probable) flagged++;
       inserted++;
+
+      // v.157 auto-link to matching subscription (best-effort).
+      try {
+        autoLinkTransaction(result.lastInsertRowid, {
+          amount: t.amount,
+          description: t.description,
+          is_transfer: isTransfer,
+        });
+      } catch (e) { /* logged inside helper */ }
     }
 
     // Upsert holdings

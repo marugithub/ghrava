@@ -1,0 +1,11 @@
+{
+  "format": "wells_fargo",
+  "min_transactions": 4,
+  "amount_signs": {
+    "SAFEWAY": "negative",
+    "DIRECT DEPOSIT": "positive",
+    "MORTGAGE": "negative",
+    "STARBUCKS": "negative"
+  },
+  "note": "Wells Fargo CSV is positional: date, amount (signed), blanks, description. Detector triggers on 5+ col file with 'date' in header and no 'description' or 'post'."
+}

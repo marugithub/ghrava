@@ -1,0 +1,10 @@
+{
+  "format": "vanguard_brokerage",
+  "min_transactions": 3,
+  "amount_signs": {
+    "Purchase shares": "negative",
+    "Quarterly dividend": "positive",
+    "Reinvested dividend": "negative"
+  },
+  "note": "Vanguard prefixes file with account info rows; parser skips to header line containing 'Trade Date' and 'Transaction Type'. Description = Transaction Description column. Both transactions and positions emitted."
+}
