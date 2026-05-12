@@ -2198,67 +2198,15 @@ function daysUntil(dateStr) {
   return Math.round((d - today) / 86400000);
 }
 
-// Sample data shown when a tile has no real backing values. Each
-// tile decides whether it has "real" data via tileHasRealData()
-// and falls back to these placeholders with a visible SAMPLE pill.
-// Keeps the page looking populated for fresh installs while making
-// it obvious that the numbers aren't real.
-const FIN_TILE_SAMPLE = {
-  net_worth: {
-    hero:    '$487,300',
-    eyebrow: 'Net worth · May 8',
-    pill:    '+$3.2k MoM',
-    pillKind:'ok',
-    strip:   '$521k assets · $34k liabilities',
-  },
-  cash_flow: {
-    hero:    '+$1,420',
-    eyebrow: 'Cash flow · MTD May',
-    pill:    'on track',
-    pillKind:'ok',
-    strip:   'in $9,840 · out $8,420',
-  },
-  credit_cards: {
-    hero:    '$3,420',
-    eyebrow: 'Credit cards · 4 active',
-    pill:    '12% util',
-    pillKind:'ok',
-    strip:   'next due in 7 days · $340 min',
-  },
-  bank_accounts: {
-    hero:    '$28,540',
-    eyebrow: 'Banks · 5 accounts',
-    pill:    null,
-    strip:   'Checking $12k · Savings $16k',
-  },
-  holdings: {
-    hero:    '$184,300',
-    eyebrow: 'Holdings · 28 positions',
-    pill:    '+8.4% YTD',
-    pillKind:'ok',
-    strip:   'sample data — import a brokerage CSV to see real',
-  },
-  hsa_lp_fsa: {
-    hero:    '$5,650',
-    eyebrow: 'HSA + LP-FSA',
-    pill:    'FSA in 47d',
-    pillKind:'warn',
-    strip:   'HSA $4,820 · LP-FSA $830',
-  },
-};
+// Sample-data state for tiles that don't yet have real backing data.
+// Per Al's direction (v.160): no invented numbers. Just mark the
+// tile with a small SAMPLE badge in the pill slot and leave the
+// existing tile content alone (it'll show its em-dash placeholders
+// from the static HTML). Once /finance/landing returns real data,
+// clearTileSampleState() removes the badge.
 
-// Renders sample placeholder values into a tile and shows the
-// SAMPLE badge. Used when /finance/landing returns zero data for a
-// tile (fresh install, no accounts yet, etc).
 function applyTileSampleFallback(tileEl, key) {
-  const s = FIN_TILE_SAMPLE[key];
-  if (!tileEl || !s) return;
-  setTilePart(tileEl, 'hero',    s.hero);
-  setTilePart(tileEl, 'eyebrow', s.eyebrow);
-  setTilePart(tileEl, 'strip',   s.strip);
-  setTileDot(tileEl, 'ok');
-  // SAMPLE badge takes over the pill slot. Distinct neutral styling
-  // so it doesn't look like a status indicator (warn/ok).
+  if (!tileEl) return;
   const pillEl = tileEl.querySelector('[data-tile-pill]');
   if (pillEl) {
     pillEl.classList.remove('fin-tile-pill--ok','fin-tile-pill--warn','fin-tile-pill--bad');
@@ -2270,20 +2218,11 @@ function applyTileSampleFallback(tileEl, key) {
     pillEl.textContent = 'SAMPLE';
     pillEl.style.display = '';
   }
-  // Subtle visual hint that this tile is illustrative — slight
-  // opacity dim on the hero so it reads as "preview" not "real".
-  const heroEl = tileEl.querySelector('[data-tile-hero]');
-  if (heroEl) heroEl.style.opacity = '0.65';
   tileEl.setAttribute('data-tile-state', 'sample');
 }
 
-// Resets the sample-state styling when real data arrives. Called
-// at the start of every render so a re-fetch after an account
-// gets added cleanly transitions to real data.
 function clearTileSampleState(tileEl) {
   if (!tileEl) return;
-  const heroEl = tileEl.querySelector('[data-tile-hero]');
-  if (heroEl) heroEl.style.opacity = '';
   const pillEl = tileEl.querySelector('[data-tile-pill]');
   if (pillEl) {
     pillEl.style.background = '';
