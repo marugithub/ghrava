@@ -23,90 +23,68 @@ recent shipped version is **v202604.150**; the deploy zip in
 `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
 session) IS that version.
 
-### What was just shipped (v.158) — needs Al's manual test before next drop
+### What was just shipped (v.159) — needs Al's manual test before next drop
 
-**RESCUE DROP + SAMPLE-DATA TILE FALLBACK.**
+**RESCUE v2.** v.158's rescue mig failed on the production DB with
+two errors:
+  1. `no such column: is_active` — mig 126's `CREATE INDEX ON
+     accounts(is_active)` fired against the pre-existing
+     beneficiaries `accounts` table (CREATE TABLE IF NOT EXISTS was
+     a no-op because the name was taken).
+  2. `use DROP TABLE to delete table fin_import_batches` — mig 126's
+     compat-view DDL uses `DROP VIEW IF EXISTS fin_import_batches`,
+     but on this DB `fin_import_batches` is a TABLE.
 
-**Critical finding from Al's uploaded DB (2026-05-12):** mig 126
-never actually ran in production. There was a pre-existing
-`accounts` table from an older module (beneficiaries/TOD schema)
-that collided with mig 126's `CREATE TABLE accounts`. The migration
-threw, the runner moved on without logging 126 to `_migrations`, and
-later migs 127 + 128 silently ran against the wrong table (128
-ALTERed the pre-existing accounts to add CC columns that did nothing
-useful). v.157's `/finance/all`, `/finance/landing`, and needs-review
-queue all read from the unified `transactions` table that doesn't
-exist → empty UI everywhere.
+**v.159 mig 130 is rewritten as fully self-contained.** It does
+NOT call mig 126 in-process; the unification logic is replicated
+inline with both fixes. **Smoke-tested against the actual broken
+production DB** uploaded by Al:
+- Pre-existing empty `accounts` (beneficiaries schema) renamed →
+  `accounts_beneficiaries`
+- All 7 source tables/views renamed to `_legacy_*`
+- 3 accounts unified (2 from finance_accounts + 1 from
+  financial_accounts, no dups)
+- **76 transactions migrated** with v.153 fingerprints recomputed
+- 5 compat views created over unified tables
+- 126/127/128 logged in `_migrations` runner table so they stop
+  retrying
+- Marker rows seeded in `_migrations_finance_unify_done`,
+  `_migrations_fingerprint_v2_done`, `_migrations_cc_columns_done`
+- Idempotent: second run = no-op
+- Rolls back fully on any failure
 
-**Migration 130 (rescue)** detects the broken state and:
-1. Renames the pre-existing empty `accounts` table →
-   `accounts_beneficiaries` (preserves its schema for whatever
-   module owned it). REFUSES to proceed if the pre-existing table
-   has rows — manual intervention only.
-2. Clears bogus marker rows in `_migrations_fingerprint_v2_done`,
-   `_migrations_cc_columns_done`, and the runner's `_migrations`
-   row for those filenames.
-3. Runs mig 126 in-process (now that the name is free).
-4. Re-runs mig 127 (fingerprint recompute) and mig 128 (CC columns)
-   against the correct unified tables.
-5. Records 126/127/128 in the `_migrations` runner log so future
-   restarts don't re-attempt them.
-6. Marks itself done in `_migrations_rescue_126_done`.
+**Also fixed:** `detectMissingStatements()` in
+`app/features/import/routes.js` now checks `accounts` schema before
+querying — returns `[]` if the unified columns aren't present
+(prevents the `no such column: name` log spam seen in v.158 on the
+broken state).
 
-All wrapped in a single transaction — if any step fails, the whole
-thing rolls back and the broken state is unchanged. **Smoke-tested
-manually against Al's uploaded broken DB**: pre-existing `accounts`
-(0 rows) successfully renamed; finance_accounts (2 rows) +
-financial_accounts (1 row) + finance_transactions (76 rows) all
-preserved and ready for unification.
+**Schema-touching, transaction-wrapped.** Back up `data/ghrava.db`
+before `docker restart ghrava`. If anything goes wrong, the rescue
+rolls back and writes `RESCUE FAILED: <error>` into
+`_migrations_rescue_126_done`.
 
-**Sample-data tile fallback** — every Overview tile now checks
-whether `/finance/landing` returned real backing data:
-- Tile has real data → render real values (unchanged).
-- Tile has no data → render v.150-style sample numbers with a
-  visible "SAMPLE" badge in the corner and a slight opacity dim
-  on the hero number, so it's obviously illustrative not real.
+Carried from v.158:
+- Sample-data tile fallback on Overview (will start showing real
+  data after rescue completes, since accounts + transactions will
+  populate)
 
-Detection rules per tile:
-- net_worth: assets + liabilities + investment > 0
-- cash_flow: count of MTD transactions > 0
-- credit_cards: count > 0
-- bank_accounts: count > 0
-- holdings: positions > 0
-- hsa_lp_fsa: HSA count > 0 OR LP-FSA balance > 0
-
-`clearTileSampleState()` runs before re-render so the transition
-from sample → real (after first import) is clean.
-
-**Schema-touching drop** — back up `data/ghrava.db` BEFORE
-`docker restart ghrava`. **Manual backup is non-negotiable here**:
-mig 130 will run on first boot and rename the `accounts` table.
-The smoke test confirms it works on the uploaded DB, but every
-production DB may have minor schema variations.
-
-Carried from v.157 (still suspect):
+Carried from v.157:
 - Net-worth auto-snapshot scheduler
 - 5 more parser fixtures (12/12 banks)
-- `tx_record_links` + All tab + auto-linker
+- record_links + All tab + auto-linker
 
-Carried from v.156 (still suspect):
-- Cross-module compat-view repoint
-- recurring-transactions.js bug fix
-
-Carried from v.155–v.151 (all still suspect, bundled in this zip).
+Carried from v.156 through v.151 (all bundled).
 
 ### Next-drop work is queued
 
-**After v.158 confirmed working:**
-- Drop `_legacy_*` tables (mig 131 candidate) — cleanup capstone.
-- `accounts_beneficiaries` cleanup: decide if a beneficiaries
-  module is coming back. If not, drop it. If yes, give it back
-  its own properly-named table.
-- Tile-2 budget target — needs design conversation.
+**After v.159 confirmed working:**
+- Drop `_legacy_*` tables — cleanup capstone (separate small drop).
+- `accounts_beneficiaries` decision — drop or revive.
+- Tile-2 budget target — design conversation pending.
 
-**Outside finance** (separate concerns, not in queue here):
-- Today page, drafts pages, per-device family filter,
-  known bugs in todos/reports, v140 loose ends, security audit.
+**Outside finance:** Today page, drafts pages, todos/reports
+render bugs, v140 loose ends, security audit.
 
 **Don't pick a top item and start coding.** Al chats first, then builds.
 
@@ -155,26 +133,40 @@ zip if needed.
 
 ## Current version
 
-**v202604.158** — packaged. **Rescue drop**: detects and repairs the
-failed-mig-126 production state revealed by Al's uploaded DB. Also
-adds sample-data fallback to Overview tiles. Bundled with v.151–v.157.
+**v202604.159** — packaged. **Rescue v2.** v.158's rescue failed
+on the actual production DB; this is the corrected, self-contained
+rewrite. Bundled with v.151–v.158.
 
-### v.158 changes
+### v.159 changes
 
-- **Migration 130 — rescue 126.** Detects when mig 126 never
-  successfully ran (no `_migrations_finance_unify_done` marker,
-  `accounts` table is the pre-existing beneficiaries shape, real
-  finance data still in `finance_accounts`+`financial_accounts`).
-  Renames pre-existing empty `accounts` → `accounts_beneficiaries`,
-  clears bogus markers from migs 127/128, runs 126/127/128
-  in-process against the now-clean schema, logs 126/127/128 in
-  the runner's `_migrations` table so future restarts don't retry.
-  All wrapped in one transaction — failure = full rollback.
-- **Sample-data tile fallback.** Each of the 6 Overview tiles now
-  checks whether `/finance/landing` returned real backing data;
-  if not, renders illustrative sample values with a "SAMPLE"
-  badge in the corner. Distinguishes fresh-install / pre-import
-  state from real-data state visually.
+- **Migration 130 rewritten as self-contained.** Does NOT call mig
+  126 in-process. Replicates unification logic inline with two
+  critical fixes:
+  - `CREATE INDEX ... ON accounts(is_active)` no longer fires
+    against the wrong pre-existing accounts table — we move that
+    table out of the way before any DDL touches `accounts`.
+  - Source tables (`finance_accounts`, `finance_transactions`,
+    `fin_import_batches`, etc.) get renamed to `_legacy_*` BEFORE
+    creating compat views of the same names — no more
+    "DROP VIEW IF EXISTS" against a table.
+- **Defensive: drops index name collisions** (`idx_accounts_*`,
+  `idx_tx_*`, `idx_holdings_*`, `idx_import_batches_*`) before
+  creating new ones, since the renamed beneficiaries table may
+  have brought a colliding index with it.
+- **Smoke-tested on Al's actual production DB:** 2 + 1 accounts
+  unified (no dups), 76 transactions migrated with fingerprints
+  recomputed, 5 compat views created, `accounts_beneficiaries`
+  preserved (empty), 7 `_legacy_*` tables retained as backup.
+  Idempotent on retry.
+- **`detectMissingStatements()` defensive guard.** Checks `accounts`
+  schema before querying. Returns `[]` if unified columns aren't
+  present. Fixes the `[todos] missing_statement: no such column:
+  name` log spam from v.158.
+
+### v.158 changes (carryover)
+
+- Sample-data tile fallback on Overview (renders illustrative
+  values with "SAMPLE" badge when /finance/landing returns no data)
 
 ### v.157 changes (carryover)
 
@@ -218,7 +210,7 @@ Carry-overs from v.150 / v.149 unchanged.
 
 ---
 
-## ✋ DON'T TRUST WITHOUT RETEST (v202604.158)
+## ✋ DON'T TRUST WITHOUT RETEST (v202604.159)
 
 **This list survives across chats.** Anything below is *touched* this
 drop but NOT confirmed working by Al. Treat as suspect until Al says
@@ -226,14 +218,14 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 | File | Change | Risk |
 |---|---|---|
-| `app/db/migrations/130_rescue_126.js` | NEW (v.158). Rescue migration for production installs where mig 126 silently failed (pre-existing `accounts` table collision). | **CRITICAL** — runs on first restart, performs schema surgery (renames `accounts` → `accounts_beneficiaries`, runs 126/127/128 in-process). Smoke-tested against Al's uploaded broken DB. **MANDATORY backup of `data/ghrava.db` before restart.** Test: after restart, `SELECT * FROM _migrations_rescue_126_done` should show a row with notes describing what was done; `SELECT name FROM sqlite_master WHERE name='transactions'` should return 1 row; finance.html Accounts tab should list the 2 finance_accounts + 1 financial_accounts merged. |
+| `app/db/migrations/130_rescue_126.js` | **REWRITTEN v.159.** v.158's first version failed with `no such column: is_active` and `use DROP TABLE`. v.159 is self-contained — does NOT call mig 126 in-process; replicates unification logic inline with both fixes. Smoke-tested against Al's actual broken DB: 2+1 accounts unified (no dups), 76 transactions migrated. | **CRITICAL** — runs on first restart, performs schema surgery. **MANDATORY backup of `data/ghrava.db` before restart.** After restart, expect: `SELECT * FROM _migrations_rescue_126_done` shows one row with detailed notes (NOT starting with "RESCUE FAILED"); `SELECT COUNT(*) FROM transactions` returns 76; `SELECT name FROM sqlite_master WHERE name LIKE '_legacy_%'` shows 7 backup tables; finance.html Overview tiles show real data without SAMPLE badges. |
+| `app/features/import/routes.js` | v.159: `detectMissingStatements()` defensive guard — returns [] if `accounts` lacks unified columns. Stops the `[todos] missing_statement: no such column: name` log spam on broken state. v.157 auto-link hook. v.155 + v.153 + v.151 carryovers. | **HIGH** — every file-import path touched. |
 | `app/public/finance.html` | v.158: sample-data tile fallback on Overview when /finance/landing returns zero data per tile. v.157 All tab + link picker. v.154 tiles + CC form. v.152 form rebuild + needs-review. | **HIGH** — Overview tile rendering changed. Test: open Overview before any imports → see sample numbers with SAMPLE badge in pill slot; after first import / account creation → tiles transition to real data without SAMPLE badge. |
 | `app/db/migrations/129_record_links.js` | NEW (v.157). Polymorphic junction table for cross-module record links. Idempotent. Additive only. | Low — additive only. Test: open Finance → All tab → "+ link" button on any transaction → confirm picker opens. |
 | `app/shared/networth-scheduler.js` | NEW (v.157). Daily auto-snapshot of net worth. Wired into server.js boot path. | Medium — runs 30s after first restart, then hourly. Test: 30s after deploy, check `net_worth_snapshots` for a today-dated row with `notes='[auto-snapshot]'`. Tile 1 MoM pill should populate after the next day's snapshot. |
 | `app/shared/auto-link-subscriptions.js` | NEW (v.157). Auto-creates `pays_for` links between imported transactions and matching active subscriptions. | Medium — only runs at import time, only creates links (no other side-effects). Test: import a statement that includes a subscription charge → check All tab → that row should have the subscription badge inline. |
 | `test/parser-fixtures/schwab_*, vanguard, tsp, wells_fargo` | NEW (v.157). 5 more banks added. **12/12 pass.** | None at runtime. |
 | `app/features/finance/routes.js` | v.157: link CRUD endpoints, `GET /all` aggregator, auto-link hooked into import-file path. v.154 + v.153 + v.152 + v.151 carryovers. | **HIGH** — every finance route added to or rewritten. Test the All tab end-to-end. |
-| `app/features/import/routes.js` | v.157: auto-link hooked into /import/confirm. v.155 + v.153 + v.151 carryovers. | **HIGH** — every file-import path touched. |
 | `app/server.js` | v.157: registers `networth-scheduler.startScheduler()`. v.156 health-check repointing. | Low — additive scheduler registration. |
 | `app/shared/recurring-transactions.js` | v.156 bug fix carryover. | **HIGH** — will start producing rows on first restart. |
 | `app/shared/dedupe.js` | v.156 carryover. | Medium. |
@@ -253,7 +245,7 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 | `app/shared/tx-fingerprint.js` | NEW (v.153). | Low. |
 | `app/db/migrations/127_fingerprint_v2.js` | NEW (v.153). | **HIGH**. |
 | `app/db/migrations/126_finance_unify.js` | NEW (v.151). | **HIGH**. |
-| `app/version.txt` | `202604.157` | None. |
+| `app/version.txt` | `202604.159` | None. |
 
 ### Carryover from v.150 — still untested
 
@@ -268,48 +260,70 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 
 ---
 
-## ✅ SHIPPED THIS DROP (v202604.158)
+## ✅ SHIPPED THIS DROP (v202604.159)
 
-### Rescue migration 130 (v.158)
+### Rescue migration 130 — rewritten (v.159)
 
-- **Problem discovered**: Al uploaded a production DB (2026-05-12).
-  Inspection showed `_migrations_cc_columns_done` marked v.154 as
-  applied, but `transactions` table didn't exist and the `accounts`
-  table had a pre-existing schema (beneficiaries/TOD module from a
-  much older mig) instead of the unified one.
-- **Diagnosis**: mig 126's `CREATE TABLE accounts` collided with
-  the pre-existing table; the JS migration threw; the runner
-  didn't log it to `_migrations`; mig 127's defensive
-  "no transactions table → skip" branch fired and marked itself
-  done; mig 128 added CC columns to the wrong (beneficiaries)
-  `accounts` table. The unified schema never came into being.
-- **Migration 130** detects the broken state (specifically: no
-  `_migrations_finance_unify_done` row, finance_accounts has
-  rows, pre-existing `accounts` lacks the `alias` column). If
-  detected, performs (in one transaction):
-  1. Rename pre-existing empty `accounts` → `accounts_beneficiaries`.
-     **Refuses to proceed if the pre-existing table has rows** —
-     safety check; manual intervention required.
-  2. DELETE bogus marker rows from `_migrations_fingerprint_v2_done`,
-     `_migrations_cc_columns_done`, and the runner's `_migrations`
-     entries for `127_fingerprint_v2.js` and `128_cc_columns.js`.
-  3. Run mig 126 in-process (now that the name is free) — it's
-     idempotent, creates the unified schema, copies rows.
-  4. Re-run mig 127 (recompute fingerprints on the now-populated
-     `transactions` table) and mig 128 (CC columns on the
-     unified accounts).
-  5. INSERT OR IGNORE 126/127/128 into `_migrations` so future
-     restarts skip them cleanly.
-  6. Mark `_migrations_rescue_126_done` so this rescue itself
-     never re-runs.
-- **Smoke-tested manually** against Al's uploaded DB: pre-existing
-  `accounts` (0 rows) renamed cleanly; finance_accounts (2 rows)
-  + financial_accounts (1 row) + finance_transactions (76 rows)
-  + imported_transactions (0 rows) preserved and ready for unify.
+- **v.158 attempt failed in production** with two errors logged on
+  restart:
+  - `FAILED 126_finance_unify.js: no such column: is_active`
+  - `FAILED 130_rescue_126.js: use DROP TABLE to delete table fin_import_batches`
+- **Root causes:**
+  - v.158's mig 130 called mig 126 in-process via `require()`. Mig
+    126 starts with `CREATE TABLE IF NOT EXISTS accounts`, which is
+    a no-op on an install where `accounts` already exists (the
+    beneficiaries table). The next line, `CREATE INDEX ... ON
+    accounts(is_active)`, then fires against the wrong table.
+  - Even if step 1 were fixed, mig 126's compat-view DDL does
+    `DROP VIEW IF EXISTS fin_import_batches` — but on this DB
+    `fin_import_batches` is a TABLE. DROP VIEW can't touch tables.
+- **v.159 mig 130 is fully self-contained.** Does not call mig 126.
+  Replicates the unification logic inline with both fixes baked in:
+  1. Detects schema state (already-unified / empty / broken).
+  2. Renames pre-existing empty `accounts` → `accounts_beneficiaries`.
+  3. Drops index name collisions defensively.
+  4. Renames `finance_*`/`financial_*`/`fin_import_batches`/etc. to
+     `_legacy_*` (using ALTER TABLE for tables, DROP for views).
+  5. Creates unified `accounts`/`transactions`/`import_batches`/
+     `holdings` tables fresh.
+  6. Copies rows with type normalization + (institution, last4)
+     dedup logic.
+  7. Recomputes fingerprints with v.153 normalizer inline.
+  8. Creates 5 compat views over the unified tables.
+  9. Seeds `_migrations_finance_unify_done`,
+     `_migrations_fingerprint_v2_done`, `_migrations_cc_columns_done`.
+  10. `INSERT OR IGNORE` 126/127/128 into `_migrations` runner log
+      so they stop being retried on every restart.
+  11. Marks `_migrations_rescue_126_done`.
+- **All in one transaction.** Failure → ROLLBACK, broken state
+  preserved, and a `RESCUE FAILED: <message>` row written to
+  `_migrations_rescue_126_done` for diagnosis.
+- **Smoke-tested manually against Al's actual production DB** using
+  Node 22's `node:sqlite`:
+  - 2 accounts copied from `finance_accounts` → unified `accounts`.
+  - 1 account copied from `financial_accounts` → no dups (different
+    institution/last4), so it became a third row.
+  - 76 transactions migrated with fingerprints recomputed.
+  - 0 imported transactions / 0 batches / 0 holdings (none on this
+    DB).
+  - 5 compat views created.
+  - 7 `_legacy_*` tables preserved.
+  - Second run is a clean no-op (idempotent check passes).
+  - `/finance/all` query simulated end-to-end — returns transactions
+    joined to accounts correctly.
 
-### Sample-data tile fallback (v.158)
+### `detectMissingStatements()` defensive guard (v.159)
 
-- Every Overview tile now has explicit "has real data?" predicate:
+- `app/features/import/routes.js` checks `accounts` schema before
+  querying. If the unified columns (`name`, `alias`, `is_active`,
+  `track_statements`, `institution`) aren't all present, returns
+  `[]` instead of throwing.
+- Fixes the `[todos] missing_statement: no such column: name` log
+  spam observed on v.158's broken-state production install.
+
+### Sample-data tile fallback (carried from v.158)
+
+- Every Overview tile has explicit "has real data?" predicate:
   - net_worth: assets + liabilities + investment_total > 0
   - cash_flow: count of MTD transactions > 0
   - credit_cards: count > 0

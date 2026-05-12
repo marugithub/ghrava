@@ -509,6 +509,19 @@ router.get('/spending', (req, res) => {
 // months (default 3).
 
 function detectMissingStatements(monthsBack = 3) {
+  // Defensive: on installs where mig 126 hasn't successfully run yet,
+  // `accounts` may be the pre-existing beneficiaries shape without
+  // `name`/`alias`/`is_active`/`track_statements`. Return empty
+  // instead of throwing — autoTodos calls this in a hot loop and a
+  // throw spams the log.
+  try {
+    const cols = db.prepare(`PRAGMA table_info(accounts)`).all().map(c => c.name);
+    const required = ['name','alias','is_active','track_statements','institution'];
+    if (!required.every(c => cols.includes(c))) {
+      return [];
+    }
+  } catch { return []; }
+
   const accounts = db.prepare(`
     SELECT id, name, alias, institution
     FROM accounts WHERE is_active = 1 AND track_statements = 1
