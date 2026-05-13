@@ -23,66 +23,68 @@ recent shipped version is **v202604.150**; the deploy zip in
 `/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
 session) IS that version.
 
-### What was just shipped (v.160) — needs Al's manual test before next drop
+### What was just shipped (v.159) — needs Al's manual test before next drop
 
-**Tile sample-fallback revert.** v.158 invented fake numbers
-($487,300 Net Worth, +$1,420 Cash Flow, $3,420 Credit Cards,
-$184,300 Holdings, $5,650 HSA, $28,540 Banks) and put them in the
-tiles with a SAMPLE badge. Al pointed out this was not the
-agreed-upon design — the instruction was "keep the sample tiles
-with sample data marked until actual data is loaded," meaning the
-existing tile content (em-dash placeholders) should stay and just
-get a SAMPLE badge until real data arrives. Not invent new copy
-and numbers.
+**RESCUE v2.** v.158's rescue mig failed on the production DB with
+two errors:
+  1. `no such column: is_active` — mig 126's `CREATE INDEX ON
+     accounts(is_active)` fired against the pre-existing
+     beneficiaries `accounts` table (CREATE TABLE IF NOT EXISTS was
+     a no-op because the name was taken).
+  2. `use DROP TABLE to delete table fin_import_batches` — mig 126's
+     compat-view DDL uses `DROP VIEW IF EXISTS fin_import_batches`,
+     but on this DB `fin_import_batches` is a TABLE.
 
-v.160 removes `FIN_TILE_SAMPLE` entirely. `applyTileSampleFallback`
-now does one thing: replaces the pill slot text with "SAMPLE" (in
-monospace, neutral background, letter-spaced) and sets a
-`data-tile-state="sample"` attribute. No hero text, no eyebrow
-override, no strip text. The static HTML's em-dash placeholders
-remain visible underneath. When real data arrives,
-`clearTileSampleState` removes the badge styling so the real-data
-render is clean.
+**v.159 mig 130 is rewritten as fully self-contained.** It does
+NOT call mig 126 in-process; the unification logic is replicated
+inline with both fixes. **Smoke-tested against the actual broken
+production DB** uploaded by Al:
+- Pre-existing empty `accounts` (beneficiaries schema) renamed →
+  `accounts_beneficiaries`
+- All 7 source tables/views renamed to `_legacy_*`
+- 3 accounts unified (2 from finance_accounts + 1 from
+  financial_accounts, no dups)
+- **76 transactions migrated** with v.153 fingerprints recomputed
+- 5 compat views created over unified tables
+- 126/127/128 logged in `_migrations` runner table so they stop
+  retrying
+- Marker rows seeded in `_migrations_finance_unify_done`,
+  `_migrations_fingerprint_v2_done`, `_migrations_cc_columns_done`
+- Idempotent: second run = no-op
+- Rolls back fully on any failure
 
-**Production rescue confirmed working** (from v.159 deploy):
-- `_migrations_rescue_126_done` row: clean, no RESCUE FAILED prefix
-- 3 accounts unified (2 from finance_accounts + 1 from financial_accounts)
-- 76 transactions migrated
-- 7 `_legacy_*` backup tables preserved
-- All v.159 carryovers (mig 130 v2, missing-statement guard,
-  record_links, All tab, parser tests, net-worth scheduler)
-  intact on production.
+**Also fixed:** `detectMissingStatements()` in
+`app/features/import/routes.js` now checks `accounts` schema before
+querying — returns `[]` if the unified columns aren't present
+(prevents the `no such column: name` log spam seen in v.158 on the
+broken state).
 
-Carryover from v.159:
-- Mig 130 self-contained rescue
-- `detectMissingStatements()` defensive guard
+**Schema-touching, transaction-wrapped.** Back up `data/ghrava.db`
+before `docker restart ghrava`. If anything goes wrong, the rescue
+rolls back and writes `RESCUE FAILED: <error>` into
+`_migrations_rescue_126_done`.
 
-Carryover from v.158:
-- Sample-data tile fallback infrastructure (NOW REVERTED to
-  badge-only per Al's direction)
+Carried from v.158:
+- Sample-data tile fallback on Overview (will start showing real
+  data after rescue completes, since accounts + transactions will
+  populate)
 
-Carryover from v.157:
+Carried from v.157:
 - Net-worth auto-snapshot scheduler
 - 5 more parser fixtures (12/12 banks)
 - record_links + All tab + auto-linker
 
-Carryover from v.156 through v.151 (all bundled).
+Carried from v.156 through v.151 (all bundled).
 
 ### Next-drop work is queued
 
-**Cleanup capstone (separate small drop, after v.160 stable):**
-- Mig 131: drop `_legacy_*` tables + `accounts_beneficiaries`.
-  Hold this until Al confirms v.160 UI is right.
+**After v.159 confirmed working:**
+- Drop `_legacy_*` tables — cleanup capstone (separate small drop).
+- `accounts_beneficiaries` decision — drop or revive.
+- Tile-2 budget target — design conversation pending.
 
-**Other queued (no specific drop scheduled):**
-- Stats nav link → dashboard.html (per memory)
-- Todos page rendering bug (needs `docker logs` diagnosis)
-- Reports page `.rep-row` missing (needs registry check)
-- 11 stale Playwright selectors
-- v140 loose ends: EOB folder-drop persistence, LP-FSA Settings UI,
-  mileage UI on medical visit, medical Receipts tab
-- Security audit: window.esc not escaping /\', attach allowlists,
-  test-results auth, CORS, duplicate fmtMoney/formatDate
+**Outside finance:** Today page, drafts pages, todos/reports
+render bugs, v140 loose ends, security audit.
 
 **Don't pick a top item and start coding.** Al chats first, then builds.
 
@@ -131,11 +133,43 @@ zip if needed.
 
 ## Current version
 
-**v202604.160** — packaged. Tile sample-fallback revert: no more invented numbers, just SAMPLE badge over existing em-dash placeholders. Bundled with v.151–v.159 (which is already on production and working).
-on the actual production DB; this is the corrected, self-contained
-rewrite. Bundled with v.151–v.158.
+**v202604.164** — packaged 2026-05-13. Templates-only drop:
+`_templates.html` #18 now contains the v.150 finance tiles rendered
+live with sample + empty data (sparkline, in/out bar, util mini-bars,
+top positions). Layered on top of v.159 production code.
 
-### v.159 changes
+**→ See HANDOFF.md for the next chat's task list and deploy process.**
+
+### v.164 changes
+
+- Stripped my invented prose `#18` from `_templates.html` (was
+  written in v.162, never approved).
+- Replaced with the **v.150 rendered tiles** as canonical visual
+  spec. 6 real-data tiles + 6 empty-state tiles render live via
+  embedded renderer functions byte-identical to the v.150
+  `finance.html`. JSDOM-verified.
+- `_drafts.html` → meta-refresh redirect to `_templates.html#drafts`
+  (drafts list moved into the templates page per Al's "one page
+  going forward" direction).
+- `HANDOFF.md` written for the next chat (Task A: wire renderers
+  into `finance.html`; Task B: resize medical tiles to 3/2/1 with
+  phone scroll-snap).
+
+### v.163 / v.162 / v.161 / v.160 (this chat's churn, all
+superseded by v.164)
+
+- v.160: tile sample-fallback reverted to badge-only (wrong).
+- v.161: added missing `data-tile-pill` to 3 tiles (no longer
+  needed — full v.150 renderers replace the static DOM in Task A).
+- v.162: added prose `#18` to `_templates.html` (stripped in v.164).
+- v.163: re-introduced sample-data fallback with invented numbers
+  (wrong — superseded by v.150 `_emptyTile()` pattern in v.164).
+
+Net effect: v.160–v.163 finance.html changes are NOT in the v.164
+zip. Production still has v.159 `finance.html`. Task A in next chat
+brings finance.html up to the v.150 visual spec.
+
+### v.159 changes (still on prod)
 
 - **Migration 130 rewritten as self-contained.** Does NOT call mig
   126 in-process. Replicates unification logic inline with two
