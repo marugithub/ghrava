@@ -1816,34 +1816,43 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════
-       #18 FINANCE OVERVIEW TILES — locked v.150, wired v.154
-       Source of truth for the 6 tiles on /finance.html Overview tab.
-       Same fin-tile CSS as production; sample DOM only — no live data.
-       Numbering: #18.1 Net Worth, #18.2 Cash Flow MTD, #18.3 Credit
-       Cards, #18.4 Banks, #18.5 Holdings, #18.6 HSA + LP-FSA.
-       Anything that deviates from this is a redesign — requires Al's
-       explicit go-ahead, not an iteration.
+       #18 FINANCE OVERVIEW TILES — locked v.150 design (v.164)
+       The 6 tiles from /finance.html Overview tab, rendered live here
+       with sample data so the design is visible without hitting the
+       backend. Renderers are byte-identical to finance.html so this
+       page IS the source of truth — if it renders, finance renders.
+
+       #18.1 Net Worth     — sparkline + assets/liab strip
+       #18.2 Cash Flow     — in/out bar + prior month + YTD strip
+       #18.3 Credit Cards  — per-card util mini-bars + due strip
+       #18.4 Bank Accounts — Checking/Savings rows + stale strip
+       #18.5 Holdings      — top positions with gain% + cost basis
+       #18.6 HSA + LP-FSA  — HSA/LP-FSA rows + Medical→Receipts strip
+
+       Rules: empty data → _emptyTile() shows "$0 / empty / hint".
+       No SAMPLE pill. No fake numbers swapped in.
   ════════════════════════════════════════════════════════════════ -->
   <div class="section" id="finance-tiles">
     <div class="section-head">
       <h2>#18 Finance Overview Tiles</h2>
       <span class="lock">LOCKED v.150</span>
       <span class="desc">
-        6 tiles on /finance.html Overview tab. Locked composition, order, hero
-        metrics. Same <code>fin-tile</code> CSS as production. Tiles render
-        em-dash placeholders until <code>/api/v1/finance/landing</code> resolves.
-        Reference doc — replaces draft #22 prose version.
+        6 tiles on <code>/finance.html</code> Overview tab. Locked composition,
+        order, hero metrics, sub-visualizations. Each tile renders from
+        <code>GET /api/v1/finance/landing</code>. Empty data → placeholder
+        (<code>$0</code> / "empty" / hint), not invented sample numbers.
       </span>
     </div>
 
     <style>
-      /* fin-tile CSS — copied verbatim from app/public/finance.html so this
-         page renders identically. If finance.html CSS changes, mirror here. */
+      /* Tile CSS — copied verbatim from app/public/finance.html. Single
+         source: change here OR there and mirror to the other. */
       .fin-tiles-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:14px; font-family:'Inter','Helvetica Neue',sans-serif }
+      @media (max-width:700px) { .fin-tiles-grid { grid-template-columns:1fr } }
       .fin-tile { background:#fbf6e9; border:1px solid #d8cba8; border-radius:12px; padding:14px 16px; min-height:220px; display:flex; flex-direction:column }
       .fin-tile-eyebrow { display:flex;align-items:center;gap:8px;font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;color:#888780;text-transform:uppercase }
       .fin-tile-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0 }
-      .fin-tile-dot--ok { background:#15803d } .fin-tile-dot--warn { background:#b45309 } .fin-tile-dot--bad { background:#b91c1c }
+      .fin-tile-dot--ok { background:#15803d } .fin-tile-dot--warn { background:#b45309 } .fin-tile-dot--bad { background:#b91c1c } .fin-tile-dot--mute { background:#bdb9ae }
       .fin-tile-hero-row { margin-top:12px;display:flex;align-items:flex-start;justify-content:space-between;gap:10px }
       .fin-tile-hero-label { font-family:'DM Mono',monospace;font-size:11px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:#888780;margin-bottom:2px;line-height:1.2 }
       .fin-tile-hero { font-family:'Newsreader','Fraunces',Georgia,serif;font-style:italic;font-size:40px;font-weight:500;color:#1a1a1a;line-height:1 }
@@ -1851,12 +1860,20 @@
       .fin-tile-pill--ok { background:rgba(21,128,61,0.12); color:#15803d }
       .fin-tile-pill--warn { background:rgba(180,83,9,0.10); color:#b45309 }
       .fin-tile-pill--bad { background:rgba(185,28,28,0.12); color:#b91c1c }
+      .fin-tile-pill--mute { background:rgba(0,0,0,0.04); color:#888780 }
       .fin-tile-rows { margin-top:12px;display:flex;flex-direction:column;gap:5px;font-family:'DM Mono',monospace;font-size:12px }
       .fin-tile-row { display:flex;align-items:center;gap:8px }
+      .fin-tile-row--muted { color:#888780 }
       .fin-tile-row-label { flex:1;color:#2C2C2A;overflow:hidden;text-overflow:ellipsis;white-space:nowrap }
+      .fin-tile-row-bar { width:50px;height:4px;background:rgba(0,0,0,0.05);border-radius:999px;overflow:hidden;flex-shrink:0 }
+      .fin-tile-row-bar > i { display:block;height:100%;background:#c0392b }
       .fin-tile-row-amt { color:#1a1a1a;font-weight:500;min-width:54px;text-align:right }
+      .fin-tile-row-amt--pos { color:#15803d }
       .fin-tile-strip { margin-top:auto;padding-top:12px;font-family:'DM Mono',monospace;font-size:11px;color:#5F5E5A;border-top:1px solid rgba(216,203,168,0.5) }
       .fin-tile-strip-line { margin-top:8px }
+      .fin-tile-strip-line--alert { color:#b91c1c }
+      .fin-tile-spark { margin-top:14px;display:flex;align-items:flex-end;gap:2px;height:26px }
+      .fin-tile-spark > i { display:block;flex:1;background:#c0392b;border-radius:1px }
       .fin-tile-cf-bar { display:flex;gap:4px;height:8px;margin-top:14px;border-radius:2px;overflow:hidden }
       .fin-tile-cf-bar > .in  { background:#15803d;opacity:.55 }
       .fin-tile-cf-bar > .out { background:#c0392b;opacity:.55 }
@@ -1865,230 +1882,264 @@
       .fin-tile-sublabel:first-of-type { margin-top:0 }
     </style>
 
-    <div class="fin-tile-sublabel">#18 — Real-data state (all 6 tiles populated)</div>
+    <div class="fin-tile-sublabel">Real-data render — what tiles look like when populated</div>
+    <div class="fin-tiles-grid" id="t18_real"></div>
 
-    <div class="fin-tiles-grid">
+    <div class="fin-tile-sublabel">Empty-state render — what tiles look like with no data</div>
+    <div class="fin-tiles-grid" id="t18_empty"></div>
 
-      <!-- #18.1 Net Worth — real-data state -->
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow">
-          <span class="fin-tile-dot fin-tile-dot--ok"></span>
-          <span>Net worth · May 8</span>
-        </div>
-        <div class="fin-tile-hero-row">
-          <div>
-            <div class="fin-tile-hero-label">Total</div>
-            <div class="fin-tile-hero">$487,300</div>
-          </div>
-          <span class="fin-tile-pill fin-tile-pill--ok">+$3.2k MoM</span>
-        </div>
-        <div class="fin-tile-strip">
-          <div class="fin-tile-strip-line">$521,300 assets · $34,000 liabilities</div>
-        </div>
-      </div>
-
-      <!-- #18.2 Cash Flow MTD — real-data state -->
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow">
-          <span class="fin-tile-dot fin-tile-dot--ok"></span>
-          <span>Cash flow · MTD May</span>
-        </div>
-        <div class="fin-tile-hero-row">
-          <div>
-            <div class="fin-tile-hero-label">Net</div>
-            <div class="fin-tile-hero">+$1,420</div>
-          </div>
-          <span class="fin-tile-pill fin-tile-pill--ok">vs last mo +$340</span>
-        </div>
-        <div class="fin-tile-cf-bar">
-          <div class="in" style="flex:54"></div>
-          <div class="out" style="flex:46"></div>
-        </div>
-        <div class="fin-tile-cf-labels">
-          <span>in $9,840</span>
-          <span>out $8,420</span>
-        </div>
-        <div class="fin-tile-strip">
-          <div class="fin-tile-strip-line">47 transactions this month</div>
-        </div>
-      </div>
-
-      <!-- #18.3 Credit Cards — real-data, healthy state -->
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow">
-          <span class="fin-tile-dot fin-tile-dot--ok"></span>
-          <span>Credit cards · 4 active</span>
-        </div>
-        <div class="fin-tile-hero-row">
-          <div>
-            <div class="fin-tile-hero-label">Owed</div>
-            <div class="fin-tile-hero">$3,420</div>
-          </div>
-          <span class="fin-tile-pill fin-tile-pill--ok">12% util</span>
-        </div>
-        <div class="fin-tile-strip">
-          <div class="fin-tile-strip-line">Apple Card due in 14d · $40 min</div>
-        </div>
-      </div>
-
-      <!-- #18.4 Bank Accounts — real-data state -->
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow">
-          <span class="fin-tile-dot fin-tile-dot--ok"></span>
-          <span>Banks · 5 accounts</span>
-        </div>
-        <div class="fin-tile-hero-row">
-          <div>
-            <div class="fin-tile-hero-label">Liquid</div>
-            <div class="fin-tile-hero">$28,540</div>
-          </div>
-        </div>
-        <div class="fin-tile-rows">
-          <div class="fin-tile-row"><span class="fin-tile-row-label">Checking</span><span class="fin-tile-row-amt">$12,300</span></div>
-          <div class="fin-tile-row"><span class="fin-tile-row-label">Savings</span><span class="fin-tile-row-amt">$16,000</span></div>
-          <div class="fin-tile-row"><span class="fin-tile-row-label">Cash</span><span class="fin-tile-row-amt">$240</span></div>
-        </div>
-      </div>
-
-      <!-- #18.5 Holdings — real-data state -->
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow">
-          <span class="fin-tile-dot fin-tile-dot--ok"></span>
-          <span>Holdings · 28 positions</span>
-        </div>
-        <div class="fin-tile-hero-row">
-          <div>
-            <div class="fin-tile-hero-label">Market value</div>
-            <div class="fin-tile-hero">$184,300</div>
-          </div>
-        </div>
-        <div class="fin-tile-strip">
-          <div class="fin-tile-strip-line">tap to manage</div>
-        </div>
-      </div>
-
-      <!-- #18.6 HSA + LP-FSA — real-data state -->
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow">
-          <span class="fin-tile-dot fin-tile-dot--ok"></span>
-          <span>HSA + LP-FSA</span>
-        </div>
-        <div class="fin-tile-hero-row">
-          <div>
-            <div class="fin-tile-hero-label">Pool</div>
-            <div class="fin-tile-hero">$5,650</div>
-          </div>
-        </div>
-        <div class="fin-tile-rows">
-          <div class="fin-tile-row"><span class="fin-tile-row-label">HSA</span><span class="fin-tile-row-amt">$4,820</span></div>
-          <div class="fin-tile-row"><span class="fin-tile-row-label">LP-FSA</span><span class="fin-tile-row-amt">$830</span></div>
-        </div>
-      </div>
-
+    <div style="margin-top:20px;padding:14px 16px;background:#f8f7f3;border-radius:8px;border:1px solid #e5e2d8;font-size:12px;line-height:1.6;color:#444">
+      <strong>Locked spec — STATE.md lines 644–708</strong>
+      <ul style="margin:8px 0 0 0;padding-left:20px">
+        <li>6 tiles, locked order: Net Worth → Cash Flow → Credit Cards → Banks → Holdings → HSA+LP-FSA</li>
+        <li>Sub-visualizations per tile are locked (sparkline / in-out bar / util mini-bars / position rows)</li>
+        <li>Backend: <code>GET /api/v1/finance/landing</code></li>
+        <li>Empty state: <code>$0</code> with "empty" pill, no fake numbers</li>
+        <li>Add/rename/reorder a tile → redesign discussion required (Al's call)</li>
+      </ul>
     </div>
-
-    <div class="fin-tile-sublabel">Empty state — same 6 tiles before any data is loaded</div>
-
-    <div class="fin-tiles-grid">
-
-      <!-- All 6 tiles in their no-data render: em-dash placeholders -->
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow"><span class="fin-tile-dot fin-tile-dot--ok"></span><span>Net worth</span></div>
-        <div class="fin-tile-hero-row">
-          <div><div class="fin-tile-hero-label">Total</div><div class="fin-tile-hero">—</div></div>
-        </div>
-        <div class="fin-tile-strip"><div class="fin-tile-strip-line">—</div></div>
-      </div>
-
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow"><span class="fin-tile-dot fin-tile-dot--ok"></span><span>Cash flow · MTD</span></div>
-        <div class="fin-tile-hero-row">
-          <div><div class="fin-tile-hero-label">Net</div><div class="fin-tile-hero">—</div></div>
-        </div>
-        <div class="fin-tile-strip"><div class="fin-tile-strip-line">—</div></div>
-      </div>
-
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow"><span class="fin-tile-dot fin-tile-dot--ok"></span><span>Credit cards</span></div>
-        <div class="fin-tile-hero-row">
-          <div><div class="fin-tile-hero-label">Owed</div><div class="fin-tile-hero">—</div></div>
-        </div>
-        <div class="fin-tile-strip"><div class="fin-tile-strip-line">—</div></div>
-      </div>
-
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow"><span class="fin-tile-dot fin-tile-dot--ok"></span><span>Banks</span></div>
-        <div class="fin-tile-hero-row">
-          <div><div class="fin-tile-hero-label">Liquid</div><div class="fin-tile-hero">—</div></div>
-        </div>
-        <div class="fin-tile-rows"></div>
-      </div>
-
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow"><span class="fin-tile-dot fin-tile-dot--ok"></span><span>Holdings</span></div>
-        <div class="fin-tile-hero-row">
-          <div><div class="fin-tile-hero-label">Market value</div><div class="fin-tile-hero">—</div></div>
-        </div>
-        <div class="fin-tile-strip"><div class="fin-tile-strip-line">—</div></div>
-      </div>
-
-      <div class="fin-tile">
-        <div class="fin-tile-eyebrow"><span class="fin-tile-dot fin-tile-dot--ok"></span><span>HSA + LP-FSA</span></div>
-        <div class="fin-tile-hero-row">
-          <div><div class="fin-tile-hero-label">Pool</div><div class="fin-tile-hero">—</div></div>
-        </div>
-        <div class="fin-tile-rows"></div>
-      </div>
-
-    </div>
-
-    <!-- Locked-spec text ── identifying intentions, contract, do-not-touch rules -->
-    <div style="margin-top:24px;padding:16px;background:#f8f7f3;border-radius:8px;border:1px solid #e5e2d8">
-      <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#666;margin-bottom:10px">Locked spec — STATE.md lines 644–708</div>
-
-      <table style="border-collapse:collapse;width:100%;font-size:12px">
-        <thead>
-          <tr style="background:#efece2">
-            <th style="text-align:left;padding:5px 8px">#</th>
-            <th style="text-align:left;padding:5px 8px">Name</th>
-            <th style="text-align:left;padding:5px 8px">Hero metric</th>
-            <th style="text-align:left;padding:5px 8px">Pill</th>
-            <th style="text-align:left;padding:5px 8px">Click target</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr><td style="padding:5px 8px"><strong>18.1</strong></td><td style="padding:5px 8px">Net Worth</td><td style="padding:5px 8px">Total $ (assets − liab + investments)</td><td style="padding:5px 8px">MoM delta</td><td style="padding:5px 8px">→ networth tab</td></tr>
-          <tr><td style="padding:5px 8px"><strong>18.2</strong></td><td style="padding:5px 8px">Cash Flow MTD</td><td style="padding:5px 8px">Net signed (+/−)</td><td style="padding:5px 8px">vs last mo</td><td style="padding:5px 8px">→ transactions tab</td></tr>
-          <tr><td style="padding:5px 8px"><strong>18.3</strong></td><td style="padding:5px 8px">Credit Cards</td><td style="padding:5px 8px">Total statement balance</td><td style="padding:5px 8px">Utilization %</td><td style="padding:5px 8px">→ accounts tab</td></tr>
-          <tr><td style="padding:5px 8px"><strong>18.4</strong></td><td style="padding:5px 8px">Bank Accounts</td><td style="padding:5px 8px">Total liquid</td><td style="padding:5px 8px">(reserved)</td><td style="padding:5px 8px">→ accounts tab</td></tr>
-          <tr><td style="padding:5px 8px"><strong>18.5</strong></td><td style="padding:5px 8px">Holdings</td><td style="padding:5px 8px">Market value</td><td style="padding:5px 8px">(reserved)</td><td style="padding:5px 8px">→ holdings tab</td></tr>
-          <tr><td style="padding:5px 8px"><strong>18.6</strong></td><td style="padding:5px 8px">HSA + LP-FSA</td><td style="padding:5px 8px">Combined unreimbursed pool</td><td style="padding:5px 8px">(reserved)</td><td style="padding:5px 8px">→ hsa tab</td></tr>
-        </tbody>
-      </table>
-
-      <div style="margin-top:12px;font-size:12px;line-height:1.6;color:#444">
-        <strong>Visual rules:</strong> 5-zone template (eyebrow / hero / pill / strip / entities). Status dot in eyebrow.
-        Status pill on right of hero. Hero: Newsreader italic 40px desktop, 36px mobile. Mini rows: DM Mono 12px, right-aligned $
-        with min-width:54px. Strip line mono 11px, red on alert. Mobile: 1-column grid below 700px viewport.
-        <br><br>
-        <strong>Not in the set</strong> (asked, decided no): Subscriptions (already in nav), Budgets (Al said skip),
-        Gift cards (low signal), Trade terminal (own page), Property (own page).
-        <br><br>
-        <strong>Rules of change:</strong> add / rename / reorder a tile or change a hero metric → redesign discussion required.
-        Styling tweaks → Al's call.
-        <br><br>
-        <strong>Backend contract:</strong> <code>GET /api/v1/finance/landing</code> returns
-        <code>{ generated_at, net_worth, cash_flow, credit_cards, bank_accounts, holdings, hsa_lp_fsa }</code>
-        — each tile pulls from its named key.
-      </div>
-    </div>
-
   </div>
+
+  <script>
+  (function() {
+    // ── Formatters (verbatim from finance.html v.150) ──
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+    function _finK(n) {
+      if (n == null || isNaN(n)) return '—';
+      if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+      if (Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(1) + 'k';
+      return '$' + Math.round(n).toLocaleString('en-US');
+    }
+    function _finM(n) { if (n==null||isNaN(n)) return '—'; return '$' + Math.round(n).toLocaleString('en-US'); }
+    function _finC(n) { if (n==null||isNaN(n)) return '—'; return '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+    function _finPct(n) { if (n==null||isNaN(n)) return '—'; return (n>=0?'+':'') + n.toFixed(1) + '%'; }
+    function _finDot(level) { return '<span class="fin-tile-dot fin-tile-dot--'+level+'"></span>'; }
+    function _finPill(level, text) { return '<span class="fin-tile-pill fin-tile-pill--'+level+'">'+esc(text)+'</span>'; }
+
+    // ── Tile renderers (verbatim from finance.html v.150) ──
+    function _finTileNetWorth(nw) {
+      if (!nw) return '';
+      const dot = (nw.mom_delta == null) ? 'ok' : (nw.mom_delta >= 0 ? 'ok' : 'warn');
+      const momText = (nw.mom_delta == null) ? 'no prior snapshot' : (nw.mom_delta >= 0 ? '+' : '−') + _finK(Math.abs(nw.mom_delta)) + ' MoM';
+      const momPill = (nw.mom_delta == null) ? 'mute' : (nw.mom_delta >= 0 ? 'ok' : 'warn');
+      const arr = Array.isArray(nw.sparkline) ? nw.sparkline.slice(-12) : [];
+      const max = Math.max(...arr, nw.total || 0); const min = Math.min(...arr, 0);
+      const range = max - min || 1;
+      const bars = arr.length ? arr.map((v,i) => {
+        const h = Math.max(8, Math.round(((v-min)/range)*100));
+        const isLast = i === arr.length-1;
+        return '<i style="height:'+h+'%;opacity:'+(isLast?1:(0.4+i*0.05))+'"></i>';
+      }).join('') : '';
+      return `
+        <div class="fin-tile">
+          <div class="fin-tile-eyebrow">${_finDot(dot)}<span>Net worth</span></div>
+          <div class="fin-tile-hero-row">
+            <div><div class="fin-tile-hero-label">Total</div><div class="fin-tile-hero">${_finM(nw.total)}</div></div>
+            ${_finPill(momPill, momText)}
+          </div>
+          ${bars ? `<div class="fin-tile-spark">${bars}</div>` : '<div style="margin-top:14px;font-family:monospace;font-size:11px;color:#888780">No history yet — hit "Snapshot" on Net Worth tab to start tracking</div>'}
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">${_finK(nw.total_assets)} assets · ${_finK(nw.total_liabilities)} liabilities</div>
+          </div>
+        </div>`;
+    }
+    function _finTileCashFlow(cf) {
+      if (!cf) return '';
+      const dot = cf.mtd_net >= 0 ? 'ok' : 'warn';
+      const pill = cf.mtd_net >= 0 ? 'ok' : 'warn';
+      const sign = cf.mtd_net >= 0 ? '+' : '−';
+      const inAmt = cf.mtd_in || 0; const outAmt = cf.mtd_out || 0;
+      return `
+        <div class="fin-tile">
+          <div class="fin-tile-eyebrow">${_finDot(dot)}<span>Cash flow · MTD</span></div>
+          <div class="fin-tile-hero-row">
+            <div><div class="fin-tile-hero-label">Net</div><div class="fin-tile-hero">${sign}${_finM(Math.abs(cf.mtd_net))}</div></div>
+            ${_finPill(pill, cf.mtd_net >= 0 ? 'on track' : 'overspending')}
+          </div>
+          <div class="fin-tile-cf-bar">
+            <div class="in"  style="flex:${Math.round(inAmt)}"></div>
+            <div class="out" style="flex:${Math.round(outAmt)}"></div>
+          </div>
+          <div class="fin-tile-cf-labels"><span>in ${_finK(inAmt)}</span><span>out ${_finK(outAmt)}</span></div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">prior ${cf.prior_month_net>=0?'+':'−'}${_finK(Math.abs(cf.prior_month_net))} · YTD ${cf.ytd_net>=0?'+':'−'}${_finK(Math.abs(cf.ytd_net))}</div>
+          </div>
+        </div>`;
+    }
+    function _finTileCreditCards(cc) {
+      if (!cc || cc.count === 0) return _emptyTile('Credit cards', 'No credit cards added');
+      const utilDot = cc.util_pct == null ? 'ok' : (cc.util_pct < 30 ? 'ok' : cc.util_pct < 50 ? 'warn' : 'bad');
+      const utilPill = cc.util_pct == null ? 'mute' : (cc.util_pct < 30 ? 'ok' : cc.util_pct < 50 ? 'warn' : 'bad');
+      const utilTxt = cc.util_pct == null ? 'no limit set' : cc.util_pct + '% util';
+      const dueLine = cc.next_due
+        ? `next due ${cc.next_due.days>=0?'in '+cc.next_due.days+'d':Math.abs(cc.next_due.days)+'d ago'}${cc.next_due.min_payment?' · '+_finC(cc.next_due.min_payment)+' min':''}`
+        : 'no due dates set';
+      const dueAlert = cc.next_due && cc.next_due.days != null && cc.next_due.days <= 7;
+      return `
+        <div class="fin-tile">
+          <div class="fin-tile-eyebrow">${_finDot(utilDot)}<span>Credit cards · ${cc.count} active</span></div>
+          <div class="fin-tile-hero-row">
+            <div><div class="fin-tile-hero-label">Owed</div><div class="fin-tile-hero">${_finM(cc.total_owed)}</div></div>
+            ${_finPill(utilPill, utilTxt)}
+          </div>
+          <div class="fin-tile-rows">
+            ${(cc.top||[]).map(c => {
+              const limPct = c.util != null ? Math.min(c.util, 100) : 0;
+              return `<div class="fin-tile-row">
+                <span class="fin-tile-row-label">${esc(c.label)}</span>
+                ${c.util != null ? `<span class="fin-tile-row-bar"><i style="width:${limPct}%;opacity:${limPct<30?0.5:limPct<50?0.7:1}"></i></span>` : ''}
+                <span class="fin-tile-row-amt">${_finK(c.owed)}</span>
+              </div>`;
+            }).join('')}
+            ${cc.others_count > 0 ? `<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">+${cc.others_count} more</span><span class="fin-tile-row-amt">${_finK(cc.others_owed)}</span></div>` : ''}
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line${dueAlert?' fin-tile-strip-line--alert':''}">${esc(dueLine)}</div>
+          </div>
+        </div>`;
+    }
+    function _finTileBankAccounts(ba) {
+      if (!ba || ba.count === 0) return _emptyTile('Banks', 'No bank accounts yet');
+      const dot = ba.stale_count > 0 ? 'warn' : 'ok';
+      const pill = ba.stale_count > 0 ? 'warn' : 'ok';
+      const stalePill = ba.stale_count > 0 ? ba.stale_count + ' stale' : 'all current';
+      return `
+        <div class="fin-tile">
+          <div class="fin-tile-eyebrow">${_finDot(dot)}<span>Banks · ${ba.count} accounts</span></div>
+          <div class="fin-tile-hero-row">
+            <div><div class="fin-tile-hero-label">Liquid</div><div class="fin-tile-hero">${_finM(ba.liquid_total)}</div></div>
+            ${_finPill(pill, stalePill)}
+          </div>
+          <div class="fin-tile-rows">
+            ${ba.checking_total ? `<div class="fin-tile-row"><span class="fin-tile-row-label">Checking</span><span class="fin-tile-row-amt">${_finK(ba.checking_total)}</span></div>` : ''}
+            ${ba.savings_total  ? `<div class="fin-tile-row"><span class="fin-tile-row-label">Savings</span><span class="fin-tile-row-amt">${_finK(ba.savings_total)}</span></div>` : ''}
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">${ba.stale_oldest_days != null ? esc(ba.stale_label||'Stale account') + ' not reconciled in ' + ba.stale_oldest_days + ' days' : 'all accounts reconciled within 14 days'}</div>
+          </div>
+        </div>`;
+    }
+    function _finTileHoldings(h) {
+      if (!h || h.count === 0) return _emptyTile('Holdings', 'No investment positions yet');
+      const pill = (h.gain_pct != null && h.gain_pct >= 0) ? 'ok' : (h.gain_pct == null ? 'mute' : 'warn');
+      const pillTxt = h.gain_pct != null ? _finPct(h.gain_pct) + ' total' : 'no cost basis';
+      return `
+        <div class="fin-tile">
+          <div class="fin-tile-eyebrow">${_finDot('ok')}<span>Holdings · ${h.count} positions</span></div>
+          <div class="fin-tile-hero-row">
+            <div><div class="fin-tile-hero-label">Market value</div><div class="fin-tile-hero">${_finM(h.market_value)}</div></div>
+            ${_finPill(pill, pillTxt)}
+          </div>
+          <div class="fin-tile-rows">
+            ${(h.top||[]).map(t => `<div class="fin-tile-row">
+              <span class="fin-tile-row-label">${esc(t.symbol)}</span>
+              ${t.gain_pct != null ? `<span class="fin-tile-row-amt fin-tile-row-amt--pos">${_finPct(t.gain_pct)}</span>` : ''}
+              <span class="fin-tile-row-amt">${_finK(t.market_value)}</span>
+            </div>`).join('')}
+            ${h.others_count > 0 ? `<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">+${h.others_count} more</span><span class="fin-tile-row-amt">${_finK(h.others_value)}</span></div>` : ''}
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">cost basis ${_finK(h.cost_basis)}</div>
+          </div>
+        </div>`;
+    }
+    function _finTileHsaLpfsa(p) {
+      if (!p || (p.hsa_count === 0 && p.lpfsa_count === 0)) return _emptyTile('HSA + LP-FSA', 'No unreimbursed receipts');
+      const deadlineSoon = p.lpfsa_deadline_days != null && p.lpfsa_deadline_days <= 60;
+      const dot = deadlineSoon ? 'warn' : 'ok';
+      const pillTxt = p.lpfsa_deadline_days != null ? 'FSA in ' + p.lpfsa_deadline_days + 'd' : ((p.hsa_count||0)+(p.lpfsa_count||0)) + ' receipts';
+      const pill = deadlineSoon ? 'warn' : 'ok';
+      return `
+        <div class="fin-tile">
+          <div class="fin-tile-eyebrow">${_finDot(dot)}<span>HSA + LP-FSA · unreimbursed</span></div>
+          <div class="fin-tile-hero-row">
+            <div><div class="fin-tile-hero-label">Pool</div><div class="fin-tile-hero">${_finM(p.total_pool)}</div></div>
+            ${_finPill(pill, pillTxt)}
+          </div>
+          <div class="fin-tile-rows">
+            ${p.hsa_count > 0 ? `<div class="fin-tile-row"><span class="fin-tile-row-label">HSA</span><span style="color:#888780;font-size:11px">${p.hsa_count} receipts</span><span class="fin-tile-row-amt">${_finK(p.hsa_pool)}</span></div>` : ''}
+            ${p.lpfsa_count > 0 ? `<div class="fin-tile-row"><span class="fin-tile-row-label">LP-FSA</span><span style="color:#888780;font-size:11px">${p.lpfsa_count} receipts</span><span class="fin-tile-row-amt">${_finK(p.lpfsa_pool)}</span></div>` : ''}
+          </div>
+          <div class="fin-tile-strip">
+            <div class="fin-tile-strip-line">manage in Medical → Receipts</div>
+          </div>
+        </div>`;
+    }
+    function _emptyTile(label, hint) {
+      return `
+        <div class="fin-tile">
+          <div class="fin-tile-eyebrow">${_finDot('mute')}<span>${esc(label)}</span></div>
+          <div class="fin-tile-hero-row">
+            <div><div class="fin-tile-hero-label">—</div><div class="fin-tile-hero" style="color:#888780">$0</div></div>
+            <span class="fin-tile-pill fin-tile-pill--mute">empty</span>
+          </div>
+          <div class="fin-tile-strip"><div class="fin-tile-strip-line">${esc(hint)}</div></div>
+        </div>`;
+    }
+
+    // ── Sample data for the live render on this template page ──
+    const SAMPLE = {
+      net_worth: {
+        total: 487300, total_assets: 521300, total_liabilities: 34000,
+        mom_delta: 3200,
+        sparkline: [442000, 451000, 458000, 463000, 468000, 471000, 475000, 478000, 481000, 484000, 484100, 487300],
+      },
+      cash_flow: { mtd_net: 1420, mtd_in: 9840, mtd_out: 8420, prior_month_net: 1080, ytd_net: 6840 },
+      credit_cards: {
+        count: 4, total_owed: 3420, util_pct: 12,
+        top: [
+          { label: 'Apple Card',   owed: 1840, util: 22 },
+          { label: 'Chase Sapphire', owed: 920, util: 18 },
+          { label: 'Amex Gold',    owed: 460, util: null },
+        ],
+        others_count: 1, others_owed: 200,
+        next_due: { days: 7, min_payment: 40 },
+      },
+      bank_accounts: {
+        count: 5, liquid_total: 28540,
+        checking_total: 12300, savings_total: 16000,
+        stale_count: 1, stale_label: 'Cash account', stale_oldest_days: 22,
+      },
+      holdings: {
+        count: 28, market_value: 184300, cost_basis: 156400, gain_pct: 17.8,
+        top: [
+          { symbol: 'VTI',  market_value: 42100, gain_pct: 22.4 },
+          { symbol: 'AAPL', market_value: 18400, gain_pct: 8.2 },
+          { symbol: 'NVDA', market_value: 14800, gain_pct: 142.1 },
+        ],
+        others_count: 25, others_value: 109000,
+      },
+      hsa_lpfsa: {
+        total_pool: 5650, hsa_count: 8, hsa_pool: 4820, lpfsa_count: 3, lpfsa_pool: 830,
+        lpfsa_deadline_days: 47,
+      },
+    };
+    const EMPTY = {
+      net_worth: { total: 0, total_assets: 0, total_liabilities: 0, mom_delta: null, sparkline: [] },
+      cash_flow: { mtd_net: 0, mtd_in: 0, mtd_out: 0, prior_month_net: 0, ytd_net: 0 },
+      credit_cards: { count: 0 },
+      bank_accounts: { count: 0 },
+      holdings: { count: 0 },
+      hsa_lpfsa: { hsa_count: 0, lpfsa_count: 0 },
+    };
+
+    function render(slot, d) {
+      slot.innerHTML =
+        _finTileNetWorth(d.net_worth) +
+        _finTileCashFlow(d.cash_flow) +
+        _finTileCreditCards(d.credit_cards) +
+        _finTileBankAccounts(d.bank_accounts) +
+        _finTileHoldings(d.holdings) +
+        _finTileHsaLpfsa(d.hsa_lpfsa);
+    }
+    render(document.getElementById('t18_real'),  SAMPLE);
+    render(document.getElementById('t18_empty'), EMPTY);
+  })();
+  </script>
 
   <!-- ════════════════════════════════════════════════════════════════
        DRAFTS — in-progress design work
        Combined into _templates.html per Al's direction (v.162).
-       Each draft is close-to-final spec. Read the page, build from it.
        Anything visual goes UP TOP as a numbered template (#1, #18 etc).
        This drafts list = text-only working items; click for detail page.
   ════════════════════════════════════════════════════════════════ -->
