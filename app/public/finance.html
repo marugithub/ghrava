@@ -222,6 +222,8 @@
 .fin-tile-pill--ok { background:rgba(21,128,61,0.12); color:#15803d }
 .fin-tile-pill--warn { background:rgba(180,83,9,0.10); color:#b45309 }
 .fin-tile-pill--bad { background:rgba(185,28,28,0.12); color:#b91c1c }
+.fin-tile-pill--mute { background:rgba(0,0,0,0.04); color:#888780 }
+.fin-tile-dot--mute { background:#bdb9ae }
 .fin-tile-rows { margin-top:12px;display:flex;flex-direction:column;gap:5px;font-family:var(--mono);font-size:12px }
 .fin-tile-row { display:flex;align-items:center;gap:8px }
 .fin-tile-row--muted { color:#888780 }
@@ -307,119 +309,9 @@
       </div>
 
       <div class="fin-tiles-grid" id="finTilesGrid">
-
-        <!-- Tile 1: Net Worth -->
-        <div class="fin-tile" data-tile="net_worth" onclick="gotoFinTab('networth')" role="button" tabindex="0">
-          <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
-            <span data-tile-eyebrow>Net worth</span>
-          </div>
-          <div class="fin-tile-hero-row">
-            <div>
-              <div class="fin-tile-hero-label">Total</div>
-              <div class="fin-tile-hero" data-tile-hero>—</div>
-            </div>
-            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
-          </div>
-          <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line" data-tile-strip>—</div>
-          </div>
-        </div>
-
-        <!-- Tile 2: Cash Flow MTD -->
-        <div class="fin-tile" data-tile="cash_flow" onclick="gotoFinTab('transactions')" role="button" tabindex="0">
-          <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
-            <span data-tile-eyebrow>Cash flow · MTD</span>
-          </div>
-          <div class="fin-tile-hero-row">
-            <div>
-              <div class="fin-tile-hero-label">Net</div>
-              <div class="fin-tile-hero" data-tile-hero>—</div>
-            </div>
-            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
-          </div>
-          <div class="fin-tile-cf-bar" data-tile-cfbar style="display:none">
-            <div class="in" data-cfbar-in></div>
-            <div class="out" data-cfbar-out></div>
-          </div>
-          <div class="fin-tile-cf-labels" data-tile-cflabels style="display:none">
-            <span data-cf-in>in $0</span>
-            <span data-cf-out>out $0</span>
-          </div>
-          <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line" data-tile-strip>—</div>
-          </div>
-        </div>
-
-        <!-- Tile 3: Credit Cards -->
-        <div class="fin-tile" data-tile="credit_cards" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
-          <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
-            <span data-tile-eyebrow>Credit cards</span>
-          </div>
-          <div class="fin-tile-hero-row">
-            <div>
-              <div class="fin-tile-hero-label">Owed</div>
-              <div class="fin-tile-hero" data-tile-hero>—</div>
-            </div>
-            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
-          </div>
-          <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line" data-tile-strip>—</div>
-          </div>
-        </div>
-
-        <!-- Tile 4: Bank Accounts -->
-        <div class="fin-tile" data-tile="bank_accounts" onclick="gotoFinTab('accounts')" role="button" tabindex="0">
-          <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
-            <span data-tile-eyebrow>Banks</span>
-          </div>
-          <div class="fin-tile-hero-row">
-            <div>
-              <div class="fin-tile-hero-label">Liquid</div>
-              <div class="fin-tile-hero" data-tile-hero>—</div>
-            </div>
-            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
-          </div>
-          <div class="fin-tile-rows" data-tile-rows></div>
-        </div>
-
-        <!-- Tile 5: Holdings -->
-        <div class="fin-tile" data-tile="holdings" onclick="gotoFinTab('holdings')" role="button" tabindex="0">
-          <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
-            <span data-tile-eyebrow>Holdings</span>
-          </div>
-          <div class="fin-tile-hero-row">
-            <div>
-              <div class="fin-tile-hero-label">Market value</div>
-              <div class="fin-tile-hero" data-tile-hero>—</div>
-            </div>
-            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
-          </div>
-          <div class="fin-tile-strip">
-            <div class="fin-tile-strip-line" data-tile-strip>—</div>
-          </div>
-        </div>
-
-        <!-- Tile 6: HSA + LP-FSA -->
-        <div class="fin-tile" data-tile="hsa_lp_fsa" onclick="gotoFinTab('hsa')" role="button" tabindex="0">
-          <div class="fin-tile-eyebrow">
-            <span class="fin-tile-dot fin-tile-dot--ok" data-tile-dot></span>
-            <span data-tile-eyebrow>HSA + LP-FSA</span>
-          </div>
-          <div class="fin-tile-hero-row">
-            <div>
-              <div class="fin-tile-hero-label">Pool</div>
-              <div class="fin-tile-hero" data-tile-hero>—</div>
-            </div>
-            <span class="fin-tile-pill" data-tile-pill style="display:none"></span>
-          </div>
-          <div class="fin-tile-rows" data-tile-rows></div>
-        </div>
-
+        <!-- Tiles rendered by loadLandingTiles() from /api/v1/finance/landing.
+             Layout / visual spec is byte-identical to /_templates.html #18
+             (LOCKED v.150). Empty data → _emptyTile() placeholder. -->
       </div>
     </div>
   </div>
@@ -2136,369 +2028,223 @@ async function clearReviewTxn(id) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Overview tiles (v.154) — real data from /api/v1/finance/landing.
+// Overview tiles (v202604.165) — wired to /api/v1/finance/landing.
+// Renderers are byte-identical to /_templates.html #18 (LOCKED v.150).
+// Empty data → _emptyTile() placeholder ($0 / "empty" pill / hint).
+// No invented sample numbers — that pattern (FIN_TILE_SAMPLE +
+// applyTileSampleFallback) was removed in this drop.
 //
-// Each tile has a stable `data-tile` attribute on its outer div
-// and `data-tile-*` attributes on its parts (eyebrow, hero, pill,
-// strip, rows). The renderer fills those in. No inline sample
-// values remain on the markup.
+// Tab navigation: rendered tiles get onclick attached post-render by
+// matching position to TAB_TARGETS, so the renderers stay byte-
+// identical to the template page (which omits onclick).
 // ─────────────────────────────────────────────────────────────
 
-const FIN_TILE_FMT = {
-  // Compact dollars. $12,345 / $1.2k / $1.2M based on size.
-  $: (v) => {
-    const n = v == null ? 0 : v;
-    const abs = Math.abs(n);
-    const sign = n < 0 ? '-' : '';
-    if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-    if (abs >= 10_000)    return `${sign}$${Math.round(abs / 1000)}k`;
-    if (abs >= 1_000)     return `${sign}$${(abs / 1000).toFixed(1)}k`;
-    return `${sign}$${abs.toFixed(0)}`;
-  },
-  // Full dollars with cents — for hero values where precision matters.
-  $$: (v) => {
-    const n = v == null ? 0 : v;
-    return (n < 0 ? '-' : '') + '$' +
-      Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-  },
-  // Signed dollars: leading +/- sign.
-  $signed: (v) => (v >= 0 ? '+' : '-') +
-    '$' + Math.abs(v || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
-  // Percent.
-  pct: (v, digits = 0) => `${(v || 0).toFixed(digits)}%`,
-};
-
-function setTilePart(tileEl, attr, value) {
-  const el = tileEl.querySelector(`[data-tile-${attr}]`);
-  if (el) el.textContent = value;
-  return el;
+// ── Formatters (verbatim from _templates.html #18 / v.150) ──
+function _finK(n) {
+  if (n == null || isNaN(n)) return '—';
+  if (Math.abs(n) >= 1e6) return '$' + (n/1e6).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1e3) return '$' + (n/1e3).toFixed(1) + 'k';
+  return '$' + Math.round(n).toLocaleString('en-US');
 }
-function setTilePill(tileEl, text, kind /* 'ok'|'warn'|'bad'|null */) {
-  const el = tileEl.querySelector('[data-tile-pill]');
-  if (!el) return;
-  el.classList.remove('fin-tile-pill--ok', 'fin-tile-pill--warn', 'fin-tile-pill--bad');
-  if (kind) el.classList.add(`fin-tile-pill--${kind}`);
-  if (text) {
-    el.textContent = text;
-    el.style.display = '';
-  } else {
-    el.style.display = 'none';
-  }
+function _finM(n) { if (n==null||isNaN(n)) return '—'; return '$' + Math.round(n).toLocaleString('en-US'); }
+function _finC(n) { if (n==null||isNaN(n)) return '—'; return '$' + Math.abs(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function _finPct(n) { if (n==null||isNaN(n)) return '—'; return (n>=0?'+':'') + n.toFixed(1) + '%'; }
+function _finDot(level) { return '<span class="fin-tile-dot fin-tile-dot--'+level+'"></span>'; }
+function _finPill(level, text) { return '<span class="fin-tile-pill fin-tile-pill--'+level+'">'+esc(text)+'</span>'; }
+
+// ── Tile renderers (verbatim from _templates.html #18 / v.150) ──
+function _finTileNetWorth(nw) {
+  if (!nw) return '';
+  const dot = (nw.mom_delta == null) ? 'ok' : (nw.mom_delta >= 0 ? 'ok' : 'warn');
+  const momText = (nw.mom_delta == null) ? 'no prior snapshot' : (nw.mom_delta >= 0 ? '+' : '−') + _finK(Math.abs(nw.mom_delta)) + ' MoM';
+  const momPill = (nw.mom_delta == null) ? 'mute' : (nw.mom_delta >= 0 ? 'ok' : 'warn');
+  const arr = Array.isArray(nw.sparkline) ? nw.sparkline.slice(-12) : [];
+  const max = Math.max(...arr, nw.total || 0); const min = Math.min(...arr, 0);
+  const range = max - min || 1;
+  const bars = arr.length ? arr.map((v,i) => {
+    const h = Math.max(8, Math.round(((v-min)/range)*100));
+    const isLast = i === arr.length-1;
+    return '<i style="height:'+h+'%;opacity:'+(isLast?1:(0.4+i*0.05))+'"></i>';
+  }).join('') : '';
+  return `
+    <div class="fin-tile">
+      <div class="fin-tile-eyebrow">${_finDot(dot)}<span>Net worth</span></div>
+      <div class="fin-tile-hero-row">
+        <div><div class="fin-tile-hero-label">Total</div><div class="fin-tile-hero">${_finM(nw.total)}</div></div>
+        ${_finPill(momPill, momText)}
+      </div>
+      ${bars ? `<div class="fin-tile-spark">${bars}</div>` : '<div style="margin-top:14px;font-family:monospace;font-size:11px;color:#888780">No history yet — hit "Snapshot" on Net Worth tab to start tracking</div>'}
+      <div class="fin-tile-strip">
+        <div class="fin-tile-strip-line">${_finK(nw.total_assets)} assets · ${_finK(nw.total_liabilities)} liabilities</div>
+      </div>
+    </div>`;
 }
-function setTileDot(tileEl, kind /* 'ok'|'warn'|'bad' */) {
-  const el = tileEl.querySelector('[data-tile-dot]');
-  if (!el) return;
-  el.classList.remove('fin-tile-dot--ok', 'fin-tile-dot--warn', 'fin-tile-dot--bad');
-  el.classList.add(`fin-tile-dot--${kind || 'ok'}`);
+function _finTileCashFlow(cf) {
+  if (!cf) return '';
+  const dot = cf.mtd_net >= 0 ? 'ok' : 'warn';
+  const pill = cf.mtd_net >= 0 ? 'ok' : 'warn';
+  const sign = cf.mtd_net >= 0 ? '+' : '−';
+  const inAmt = cf.mtd_in || 0; const outAmt = cf.mtd_out || 0;
+  return `
+    <div class="fin-tile">
+      <div class="fin-tile-eyebrow">${_finDot(dot)}<span>Cash flow · MTD</span></div>
+      <div class="fin-tile-hero-row">
+        <div><div class="fin-tile-hero-label">Net</div><div class="fin-tile-hero">${sign}${_finM(Math.abs(cf.mtd_net))}</div></div>
+        ${_finPill(pill, cf.mtd_net >= 0 ? 'on track' : 'overspending')}
+      </div>
+      <div class="fin-tile-cf-bar">
+        <div class="in"  style="flex:${Math.round(inAmt)}"></div>
+        <div class="out" style="flex:${Math.round(outAmt)}"></div>
+      </div>
+      <div class="fin-tile-cf-labels"><span>in ${_finK(inAmt)}</span><span>out ${_finK(outAmt)}</span></div>
+      <div class="fin-tile-strip">
+        <div class="fin-tile-strip-line">prior ${cf.prior_month_net>=0?'+':'−'}${_finK(Math.abs(cf.prior_month_net))} · YTD ${cf.ytd_net>=0?'+':'−'}${_finK(Math.abs(cf.ytd_net))}</div>
+      </div>
+    </div>`;
+}
+function _finTileCreditCards(cc) {
+  if (!cc || cc.count === 0) return _emptyTile('Credit cards', 'No credit cards added');
+  const utilDot = cc.util_pct == null ? 'ok' : (cc.util_pct < 30 ? 'ok' : cc.util_pct < 50 ? 'warn' : 'bad');
+  const utilPill = cc.util_pct == null ? 'mute' : (cc.util_pct < 30 ? 'ok' : cc.util_pct < 50 ? 'warn' : 'bad');
+  const utilTxt = cc.util_pct == null ? 'no limit set' : cc.util_pct + '% util';
+  const dueLine = cc.next_due
+    ? `next due ${cc.next_due.days>=0?'in '+cc.next_due.days+'d':Math.abs(cc.next_due.days)+'d ago'}${cc.next_due.min_payment?' · '+_finC(cc.next_due.min_payment)+' min':''}`
+    : 'no due dates set';
+  const dueAlert = cc.next_due && cc.next_due.days != null && cc.next_due.days <= 7;
+  return `
+    <div class="fin-tile">
+      <div class="fin-tile-eyebrow">${_finDot(utilDot)}<span>Credit cards · ${cc.count} active</span></div>
+      <div class="fin-tile-hero-row">
+        <div><div class="fin-tile-hero-label">Owed</div><div class="fin-tile-hero">${_finM(cc.total_owed)}</div></div>
+        ${_finPill(utilPill, utilTxt)}
+      </div>
+      <div class="fin-tile-rows">
+        ${(cc.top||[]).map(c => {
+          const limPct = c.util != null ? Math.min(c.util, 100) : 0;
+          return `<div class="fin-tile-row">
+            <span class="fin-tile-row-label">${esc(c.label)}</span>
+            ${c.util != null ? `<span class="fin-tile-row-bar"><i style="width:${limPct}%;opacity:${limPct<30?0.5:limPct<50?0.7:1}"></i></span>` : ''}
+            <span class="fin-tile-row-amt">${_finK(c.owed)}</span>
+          </div>`;
+        }).join('')}
+        ${cc.others_count > 0 ? `<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">+${cc.others_count} more</span><span class="fin-tile-row-amt">${_finK(cc.others_owed)}</span></div>` : ''}
+      </div>
+      <div class="fin-tile-strip">
+        <div class="fin-tile-strip-line${dueAlert?' fin-tile-strip-line--alert':''}">${esc(dueLine)}</div>
+      </div>
+    </div>`;
+}
+function _finTileBankAccounts(ba) {
+  if (!ba || ba.count === 0) return _emptyTile('Banks', 'No bank accounts yet');
+  const dot = ba.stale_count > 0 ? 'warn' : 'ok';
+  const pill = ba.stale_count > 0 ? 'warn' : 'ok';
+  const stalePill = ba.stale_count > 0 ? ba.stale_count + ' stale' : 'all current';
+  return `
+    <div class="fin-tile">
+      <div class="fin-tile-eyebrow">${_finDot(dot)}<span>Banks · ${ba.count} accounts</span></div>
+      <div class="fin-tile-hero-row">
+        <div><div class="fin-tile-hero-label">Liquid</div><div class="fin-tile-hero">${_finM(ba.liquid_total)}</div></div>
+        ${_finPill(pill, stalePill)}
+      </div>
+      <div class="fin-tile-rows">
+        ${ba.checking_total ? `<div class="fin-tile-row"><span class="fin-tile-row-label">Checking</span><span class="fin-tile-row-amt">${_finK(ba.checking_total)}</span></div>` : ''}
+        ${ba.savings_total  ? `<div class="fin-tile-row"><span class="fin-tile-row-label">Savings</span><span class="fin-tile-row-amt">${_finK(ba.savings_total)}</span></div>` : ''}
+      </div>
+      <div class="fin-tile-strip">
+        <div class="fin-tile-strip-line">${ba.stale_oldest_days != null ? esc(ba.stale_label||'Stale account') + ' not reconciled in ' + ba.stale_oldest_days + ' days' : 'all accounts reconciled within 14 days'}</div>
+      </div>
+    </div>`;
+}
+function _finTileHoldings(h) {
+  if (!h || h.count === 0) return _emptyTile('Holdings', 'No investment positions yet');
+  const pill = (h.gain_pct != null && h.gain_pct >= 0) ? 'ok' : (h.gain_pct == null ? 'mute' : 'warn');
+  const pillTxt = h.gain_pct != null ? _finPct(h.gain_pct) + ' total' : 'no cost basis';
+  return `
+    <div class="fin-tile">
+      <div class="fin-tile-eyebrow">${_finDot('ok')}<span>Holdings · ${h.count} positions</span></div>
+      <div class="fin-tile-hero-row">
+        <div><div class="fin-tile-hero-label">Market value</div><div class="fin-tile-hero">${_finM(h.market_value)}</div></div>
+        ${_finPill(pill, pillTxt)}
+      </div>
+      <div class="fin-tile-rows">
+        ${(h.top||[]).map(t => `<div class="fin-tile-row">
+          <span class="fin-tile-row-label">${esc(t.symbol)}</span>
+          ${t.gain_pct != null ? `<span class="fin-tile-row-amt fin-tile-row-amt--pos">${_finPct(t.gain_pct)}</span>` : ''}
+          <span class="fin-tile-row-amt">${_finK(t.market_value)}</span>
+        </div>`).join('')}
+        ${h.others_count > 0 ? `<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">+${h.others_count} more</span><span class="fin-tile-row-amt">${_finK(h.others_value)}</span></div>` : ''}
+      </div>
+      <div class="fin-tile-strip">
+        <div class="fin-tile-strip-line">cost basis ${_finK(h.cost_basis)}</div>
+      </div>
+    </div>`;
+}
+function _finTileHsaLpfsa(p) {
+  if (!p || (p.hsa_count === 0 && p.lpfsa_count === 0)) return _emptyTile('HSA + LP-FSA', 'No unreimbursed receipts');
+  const deadlineSoon = p.lpfsa_deadline_days != null && p.lpfsa_deadline_days <= 60;
+  const dot = deadlineSoon ? 'warn' : 'ok';
+  const pillTxt = p.lpfsa_deadline_days != null ? 'FSA in ' + p.lpfsa_deadline_days + 'd' : ((p.hsa_count||0)+(p.lpfsa_count||0)) + ' receipts';
+  const pill = deadlineSoon ? 'warn' : 'ok';
+  return `
+    <div class="fin-tile">
+      <div class="fin-tile-eyebrow">${_finDot(dot)}<span>HSA + LP-FSA · unreimbursed</span></div>
+      <div class="fin-tile-hero-row">
+        <div><div class="fin-tile-hero-label">Pool</div><div class="fin-tile-hero">${_finM(p.total_pool)}</div></div>
+        ${_finPill(pill, pillTxt)}
+      </div>
+      <div class="fin-tile-rows">
+        ${p.hsa_count > 0 ? `<div class="fin-tile-row"><span class="fin-tile-row-label">HSA</span><span style="color:#888780;font-size:11px">${p.hsa_count} receipts</span><span class="fin-tile-row-amt">${_finK(p.hsa_pool)}</span></div>` : ''}
+        ${p.lpfsa_count > 0 ? `<div class="fin-tile-row"><span class="fin-tile-row-label">LP-FSA</span><span style="color:#888780;font-size:11px">${p.lpfsa_count} receipts</span><span class="fin-tile-row-amt">${_finK(p.lpfsa_pool)}</span></div>` : ''}
+      </div>
+      <div class="fin-tile-strip">
+        <div class="fin-tile-strip-line">manage in Medical → Receipts</div>
+      </div>
+    </div>`;
+}
+function _emptyTile(label, hint) {
+  return `
+    <div class="fin-tile">
+      <div class="fin-tile-eyebrow">${_finDot('mute')}<span>${esc(label)}</span></div>
+      <div class="fin-tile-hero-row">
+        <div><div class="fin-tile-hero-label">—</div><div class="fin-tile-hero" style="color:#888780">$0</div></div>
+        <span class="fin-tile-pill fin-tile-pill--mute">empty</span>
+      </div>
+      <div class="fin-tile-strip"><div class="fin-tile-strip-line">${esc(hint)}</div></div>
+    </div>`;
 }
 
-function daysUntil(dateStr) {
-  if (!dateStr) return null;
-  const d = new Date(dateStr + 'T00:00:00');
-  if (isNaN(d)) return null;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((d - today) / 86400000);
-}
-
-// Sample data shown when a tile has no real backing values. Each
-// tile decides whether it has "real" data via has-real-data
-// predicate and falls back to these placeholders with a visible
-// SAMPLE pill. Keeps the page looking populated for fresh installs
-// while making it obvious that the numbers aren't real.
-//
-// THE NUMBERS HERE MUST STAY IN SYNC WITH /_templates.html #18.1–#18.6
-// (the locked visual reference). If you change one, change both.
-const FIN_TILE_SAMPLE = {
-  net_worth: {
-    eyebrow: 'Net worth · May 8',
-    hero:    '$487,300',
-    strip:   '$521,300 assets · $34,000 liabilities',
-  },
-  cash_flow: {
-    eyebrow: 'Cash flow · MTD May',
-    hero:    '+$1,420',
-    strip:   '47 transactions this month',
-    // Cash-flow tile also has a bar + bar labels — applied separately
-    bar:     { inFlex: 54, outFlex: 46, inLabel: 'in $9,840', outLabel: 'out $8,420' },
-  },
-  credit_cards: {
-    eyebrow: 'Credit cards · 4 active',
-    hero:    '$3,420',
-    strip:   'Apple Card due in 14d · $40 min',
-  },
-  bank_accounts: {
-    eyebrow: 'Banks · 5 accounts',
-    hero:    '$28,540',
-    rows: [
-      { label: 'Checking', amt: '$12,300' },
-      { label: 'Savings',  amt: '$16,000' },
-      { label: 'Cash',     amt: '$240'    },
-    ],
-  },
-  holdings: {
-    eyebrow: 'Holdings · 28 positions',
-    hero:    '$184,300',
-    strip:   'tap to manage',
-  },
-  hsa_lp_fsa: {
-    eyebrow: 'HSA + LP-FSA',
-    hero:    '$5,650',
-    rows: [
-      { label: 'HSA',    amt: '$4,820' },
-      { label: 'LP-FSA', amt: '$830'   },
-    ],
-  },
-};
-
-// Render the sample-data placeholder values into a tile, plus a
-// SAMPLE badge in the pill slot so it's unmistakably illustrative.
-// Called when /finance/landing returns zero/empty data for a tile.
-function applyTileSampleFallback(tileEl, key) {
-  const s = FIN_TILE_SAMPLE[key];
-  if (!tileEl || !s) return;
-
-  // Apply hero, eyebrow, strip
-  if (s.hero    !== undefined) setTilePart(tileEl, 'hero',    s.hero);
-  if (s.eyebrow !== undefined) setTilePart(tileEl, 'eyebrow', s.eyebrow);
-  if (s.strip   !== undefined) setTilePart(tileEl, 'strip',   s.strip);
-  setTileDot(tileEl, 'ok');
-
-  // Bank-style rows
-  if (s.rows && Array.isArray(s.rows)) {
-    const rowsEl = tileEl.querySelector('[data-tile-rows]');
-    if (rowsEl) {
-      rowsEl.innerHTML = s.rows.map(r => `
-        <div class="fin-tile-row">
-          <span class="fin-tile-row-label">${esc(r.label)}</span>
-          <span class="fin-tile-row-amt">${esc(r.amt)}</span>
-        </div>
-      `).join('');
-    }
-  }
-
-  // Cash-flow bar
-  if (s.bar) {
-    const bar = tileEl.querySelector('[data-tile-cfbar]');
-    const labels = tileEl.querySelector('[data-tile-cflabels]');
-    if (bar) {
-      bar.style.display = '';
-      const inEl  = tileEl.querySelector('[data-cfbar-in]');
-      const outEl = tileEl.querySelector('[data-cfbar-out]');
-      if (inEl)  inEl.style.flex  = s.bar.inFlex;
-      if (outEl) outEl.style.flex = s.bar.outFlex;
-    }
-    if (labels) {
-      labels.style.display = '';
-      const inLab  = tileEl.querySelector('[data-cf-in]');
-      const outLab = tileEl.querySelector('[data-cf-out]');
-      if (inLab)  inLab.textContent  = s.bar.inLabel;
-      if (outLab) outLab.textContent = s.bar.outLabel;
-    }
-  }
-
-  // SAMPLE badge — replaces whatever pill content was there.
-  // Neutral styling so it doesn't look like a status pill.
-  const pillEl = tileEl.querySelector('[data-tile-pill]');
-  if (pillEl) {
-    pillEl.classList.remove('fin-tile-pill--ok','fin-tile-pill--warn','fin-tile-pill--bad');
-    pillEl.style.background = 'rgba(0,0,0,.08)';
-    pillEl.style.color = '#666';
-    pillEl.style.fontFamily = "'DM Mono','SF Mono',monospace";
-    pillEl.style.fontSize = '10px';
-    pillEl.style.fontWeight = '600';
-    pillEl.style.letterSpacing = '.08em';
-    pillEl.textContent = 'SAMPLE';
-    pillEl.style.display = '';
-  }
-  tileEl.setAttribute('data-tile-state', 'sample');
-}
-
-// Resets the sample-state styling when real data arrives. Called
-// at the start of every render so a re-fetch after an account
-// gets added cleanly transitions to real data.
-function clearTileSampleState(tileEl) {
-  if (!tileEl) return;
-  const pillEl = tileEl.querySelector('[data-tile-pill]');
-  if (pillEl) {
-    pillEl.style.background = '';
-    pillEl.style.color = '';
-    pillEl.style.fontFamily = '';
-    pillEl.style.fontSize = '';
-    pillEl.style.fontWeight = '';
-    pillEl.style.letterSpacing = '';
-  }
-  // Hide cash-flow bar if it was shown in sample state — real-data
-  // branch will re-show it when totals warrant.
-  const bar = tileEl.querySelector('[data-tile-cfbar]');
-  if (bar && tileEl.getAttribute('data-tile-state') === 'sample') bar.style.display = 'none';
-  const labels = tileEl.querySelector('[data-tile-cflabels]');
-  if (labels && tileEl.getAttribute('data-tile-state') === 'sample') labels.style.display = 'none';
-  tileEl.removeAttribute('data-tile-state');
-}
+// Tile → tab mapping. Matches the 6 renderers' output order so we
+// can wire click → tab navigation without parameterizing each renderer.
+const FIN_TILE_TAB_TARGETS = ['networth','transactions','accounts','accounts','holdings','hsa'];
 
 async function loadLandingTiles() {
-  let data;
-  try { data = await api('GET', '/finance/landing'); }
-  catch (e) { console.warn('landing fetch failed', e); return; }
+  const slot = $('finTilesGrid');
+  if (!slot) return;
+  try {
+    const d = await api('GET', '/finance/landing');
+    slot.innerHTML =
+      _finTileNetWorth(d.net_worth) +
+      _finTileCashFlow(d.cash_flow) +
+      _finTileCreditCards(d.credit_cards) +
+      _finTileBankAccounts(d.bank_accounts) +
+      _finTileHoldings(d.holdings) +
+      _finTileHsaLpfsa(d.hsa_lpfsa);
 
-  const grid = $('finTilesGrid');
-  if (!grid) return;
-  const tile = (id) => grid.querySelector(`[data-tile="${id}"]`);
-
-  // Clear any stale sample-state styling before re-rendering.
-  ['net_worth','cash_flow','credit_cards','bank_accounts','holdings','hsa_lp_fsa']
-    .forEach(k => clearTileSampleState(tile(k)));
-
-  // ── Tile 1: Net Worth ────────────────────────────────────────
-  const nw = data.net_worth;
-  const nwHasReal = nw && (
-    (nw.assets || 0) > 0 ||
-    (nw.liabilities || 0) > 0 ||
-    (nw.investment_total || 0) > 0
-  );
-  if (nwHasReal) {
-    const t = tile('net_worth');
-    setTilePart(t, 'hero', FIN_TILE_FMT.$$(nw.total));
-    setTilePart(t, 'eyebrow', `Net worth · ${new Date(data.generated_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`);
-    if (nw.mom_delta != null) {
-      setTilePill(t,
-        `${FIN_TILE_FMT.$signed(nw.mom_delta)} MoM`,
-        nw.mom_delta >= 0 ? 'ok' : 'bad');
-    } else {
-      setTilePill(t, 'first month', 'warn');
-    }
-    setTileDot(t, nw.total >= 0 ? 'ok' : 'bad');
-    setTilePart(t, 'strip',
-      `${FIN_TILE_FMT.$(nw.assets + nw.investment_total)} assets · ${FIN_TILE_FMT.$(nw.liabilities)} liabilities`);
-  } else {
-    applyTileSampleFallback(tile('net_worth'), 'net_worth');
-  }
-
-  // ── Tile 2: Cash Flow MTD ────────────────────────────────────
-  const cf = data.cash_flow;
-  const cfHasReal = cf && (cf.count || 0) > 0;
-  if (cfHasReal) {
-    const t = tile('cash_flow');
-    const monthName = new Date().toLocaleDateString('en-US', { month: 'short' });
-    setTilePart(t, 'eyebrow', `Cash flow · MTD ${monthName}`);
-    setTilePart(t, 'hero', FIN_TILE_FMT.$signed(cf.net));
-    // Pace pill: compare current MTD net to same-day-last-month MTD net.
-    if (cf.count > 0 && cf.prior_mtd_net !== 0) {
-      const delta = cf.net - cf.prior_mtd_net;
-      const pct = cf.prior_mtd_net !== 0 ? Math.abs(delta / cf.prior_mtd_net) * 100 : 0;
-      const kind = cf.net >= cf.prior_mtd_net ? 'ok' : 'warn';
-      setTilePill(t, `vs last mo ${FIN_TILE_FMT.$signed(delta)}`, kind);
-    } else if (cf.count === 0) {
-      setTilePill(t, 'no data yet', 'warn');
-    } else {
-      setTilePill(t, '', null);
-    }
-    setTileDot(t, cf.net >= 0 ? 'ok' : 'warn');
-    // Bar
-    const totalAbs = Math.abs(cf.credits) + Math.abs(cf.debits);
-    if (totalAbs > 0) {
-      const inFlex  = Math.max(1, Math.round((cf.credits / totalAbs) * 100));
-      const outFlex = Math.max(1, Math.round((Math.abs(cf.debits) / totalAbs) * 100));
-      const bar = t.querySelector('[data-tile-cfbar]');
-      const labels = t.querySelector('[data-tile-cflabels]');
-      if (bar) { bar.style.display = ''; t.querySelector('[data-cfbar-in]').style.flex = inFlex; t.querySelector('[data-cfbar-out]').style.flex = outFlex; }
-      if (labels) {
-        labels.style.display = '';
-        t.querySelector('[data-cf-in]').textContent  = `in ${FIN_TILE_FMT.$$(cf.credits)}`;
-        t.querySelector('[data-cf-out]').textContent = `out ${FIN_TILE_FMT.$$(Math.abs(cf.debits))}`;
-      }
-    }
-    setTilePart(t, 'strip', `${cf.count} transactions this month`);
-  } else {
-    applyTileSampleFallback(tile('cash_flow'), 'cash_flow');
-  }
-
-  // ── Tile 3: Credit Cards ─────────────────────────────────────
-  const cc = data.credit_cards;
-  const ccHasReal = cc && (cc.count || 0) > 0;
-  if (ccHasReal) {
-    const t = tile('credit_cards');
-    setTilePart(t, 'eyebrow', `Credit cards · ${cc.count} active`);
-    setTilePart(t, 'hero', FIN_TILE_FMT.$$(cc.statement_balance));
-    if (cc.utilization != null) {
-      const pct = cc.utilization * 100;
-      const kind = pct < 30 ? 'ok' : pct < 60 ? 'warn' : 'bad';
-      setTilePill(t, `${pct.toFixed(0)}% util`, kind);
-    } else {
-      setTilePill(t, 'no limit set', 'warn');
-    }
-    if (cc.soonest_due_date) {
-      const dd = daysUntil(cc.soonest_due_date);
-      const dotKind = dd != null && dd <= 3 ? 'bad' : dd != null && dd <= 7 ? 'warn' : 'ok';
-      setTileDot(t, dotKind);
-      const minLine = cc.min_payment > 0 ? ` · ${FIN_TILE_FMT.$$(cc.min_payment)} min` : '';
-      const dueLabel = dd == null ? cc.soonest_due_date : (dd < 0 ? `overdue ${Math.abs(dd)}d` : (dd === 0 ? 'due today' : `due in ${dd}d`));
-      setTilePart(t, 'strip', `${cc.soonest_due_account || 'next card'} ${dueLabel}${minLine}`);
-    } else {
-      setTileDot(t, 'ok');
-      setTilePart(t, 'strip', 'no due dates set');
-    }
-  } else {
-    applyTileSampleFallback(tile('credit_cards'), 'credit_cards');
-  }
-
-  // ── Tile 4: Bank Accounts ────────────────────────────────────
-  const ba = data.bank_accounts;
-  const baHasReal = ba && (ba.count || 0) > 0;
-  if (baHasReal) {
-    const t = tile('bank_accounts');
-    setTilePart(t, 'eyebrow', `Banks · ${ba.count} account${ba.count === 1 ? '' : 's'}`);
-    setTilePart(t, 'hero', FIN_TILE_FMT.$$(ba.total));
-    setTileDot(t, 'ok');
-    const rows = t.querySelector('[data-tile-rows]');
-    if (rows) {
-      rows.innerHTML = (ba.by_type || []).map(r => `
-        <div class="fin-tile-row">
-          <span class="fin-tile-row-label">${esc(r.type)}</span>
-          <span class="fin-tile-row-amt">${FIN_TILE_FMT.$$(r.total)}</span>
-        </div>
-      `).join('') || '<div class="fin-tile-row fin-tile-row--muted"><span class="fin-tile-row-label">No banking accounts yet</span></div>';
-    }
-  } else {
-    applyTileSampleFallback(tile('bank_accounts'), 'bank_accounts');
-  }
-
-  // ── Tile 5: Holdings ─────────────────────────────────────────
-  const h = data.holdings;
-  const hHasReal = h && (h.positions || 0) > 0;
-  if (hHasReal) {
-    const t = tile('holdings');
-    setTilePart(t, 'eyebrow', `Holdings · ${h.positions} position${h.positions === 1 ? '' : 's'}`);
-    setTilePart(t, 'hero', FIN_TILE_FMT.$$(h.market_value));
-    setTileDot(t, 'ok');
-    setTilePart(t, 'strip', 'tap to manage');
-  } else {
-    applyTileSampleFallback(tile('holdings'), 'holdings');
-  }
-
-  // ── Tile 6: HSA + LP-FSA ─────────────────────────────────────
-  const hl = data.hsa_lp_fsa;
-  const hlHasReal = hl && ((hl.hsa_count || 0) > 0 || (hl.lp_fsa_remaining || 0) > 0);
-  if (hlHasReal) {
-    const t = tile('hsa_lp_fsa');
-    setTilePart(t, 'eyebrow', 'HSA + LP-FSA');
-    setTilePart(t, 'hero', FIN_TILE_FMT.$$(hl.combined));
-    setTileDot(t, 'ok');
-    const rows = t.querySelector('[data-tile-rows]');
-    if (rows) {
-      const items = [];
-      if (hl.hsa_count) items.push({ label: 'HSA', amt: hl.hsa_total });
-      if (hl.lp_fsa_remaining) items.push({ label: 'LP-FSA', amt: hl.lp_fsa_remaining });
-      rows.innerHTML = items.map(i => `
-          <div class="fin-tile-row">
-            <span class="fin-tile-row-label">${i.label}</span>
-            <span class="fin-tile-row-amt">${FIN_TILE_FMT.$$(i.amt)}</span>
-          </div>
-        `).join('');
-    }
-  } else {
-    applyTileSampleFallback(tile('hsa_lp_fsa'), 'hsa_lp_fsa');
+    // Attach onclick/role/tabindex post-render. Renderers stay byte-
+    // identical to _templates.html #18; navigation is wired here.
+    slot.querySelectorAll('.fin-tile').forEach((el, i) => {
+      const target = FIN_TILE_TAB_TARGETS[i];
+      if (!target) return;
+      el.setAttribute('role', 'button');
+      el.setAttribute('tabindex', '0');
+      el.style.cursor = 'pointer';
+      el.addEventListener('click', () => gotoFinTab(target));
+      el.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); gotoFinTab(target); }
+      });
+    });
+  } catch (e) {
+    slot.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px;color:#b91c1c;font-family:'DM Mono','SF Mono',monospace;font-size:12px">Couldn't load overview: ${esc(e.message || String(e))}</div>`;
   }
 }
 

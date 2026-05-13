@@ -200,17 +200,33 @@ function createExpiryTodo(gcId, retailer, expiryDate, balance) {
 
 router.get('/landing', (req, res) => {
   try {
+    // ──────────────────────────────────────────────────────────────
+    // /landing — payload shape contract (v202604.165, locked v.150)
+    //
+    // The 6 keys (net_worth, cash_flow, credit_cards, bank_accounts,
+    // holdings, hsa_lpfsa) and their inner fields are consumed by the
+    // tile renderers in app/public/finance.html which were copied
+    // byte-identical from app/public/_templates.html #18. Changing
+    // either side requires mirroring on the other.
+    //
+    // See _templates.html #18 (LOCKED v.150) for the visual spec and
+    // empty-state behavior. Missing fields → renderer falls through
+    // _emptyTile() with $0 + "empty" pill.
+    // ──────────────────────────────────────────────────────────────
+
     // ── Tile 1: Net Worth ───────────────────────────────────────
-    // Reuse the same logic as /net-worth/current but inlined to avoid
-    // an internal HTTP roundtrip and to compute MoM delta.
+    // total_assets = positive balances + investments; total_liabilities
+    // = abs(negatives). mom_delta computed against the most recent
+    // snapshot ≥ ~25 days old. Sparkline = last value per calendar
+    // month from net_worth_snapshots for the last 12 months, ascending.
     const accountsForNw = db.prepare(`
       SELECT id, type, current_balance, include_net_worth
       FROM accounts WHERE is_active=1 AND include_net_worth=1
     `).all();
-    const totalAssets = accountsForNw
+    const positiveAssets = accountsForNw
       .filter(a => a.current_balance > 0)
       .reduce((s, a) => s + a.current_balance, 0);
-    const totalLiab  = accountsForNw
+    const totalLiabilities = accountsForNw
       .filter(a => a.current_balance < 0)
       .reduce((s, a) => s + Math.abs(a.current_balance), 0);
     let investmentTotal = 0;
@@ -218,8 +234,9 @@ router.get('/landing', (req, res) => {
       const r = db.prepare(`SELECT COALESCE(SUM(market_value),0) AS v FROM holdings`).get();
       investmentTotal = r?.v || 0;
     } catch {}
-    const netWorth = totalAssets - totalLiab + investmentTotal;
-    // MoM delta: most recent snapshot at least ~30 days old.
+    const totalAssets = positiveAssets + investmentTotal;
+    const netWorth    = totalAssets - totalLiabilities;
+
     let momDelta = null;
     try {
       const prior = db.prepare(`
@@ -230,138 +247,248 @@ router.get('/landing', (req, res) => {
       if (prior?.net_worth != null) momDelta = netWorth - prior.net_worth;
     } catch {}
 
-    // ── Tile 2: Cash Flow MTD ──────────────────────────────────
-    const cf = db.prepare(`
+    // Sparkline: last value of each of the trailing 12 months.
+    // Months with no snapshot are simply absent (no zero-padding —
+    // the renderer scales bars from the actual min/max).
+    let sparkline = [];
+    try {
+      const rows = db.prepare(`
+        SELECT net_worth FROM (
+          SELECT net_worth, snapshot_date,
+                 ROW_NUMBER() OVER (
+                   PARTITION BY strftime('%Y-%m', snapshot_date)
+                   ORDER BY snapshot_date DESC
+                 ) AS rn
+          FROM net_worth_snapshots
+          WHERE snapshot_date >= date('now','start of month','-11 months')
+        )
+        WHERE rn = 1
+        ORDER BY snapshot_date ASC
+      `).all();
+      sparkline = rows.map(r => r.net_worth).filter(v => v != null);
+    } catch {}
+
+    // ── Tile 2: Cash Flow ──────────────────────────────────────
+    // mtd_in / mtd_out / mtd_net for current calendar month.
+    // prior_month_net = full prior month (NOT same-day MTD). ytd_net
+    // = year-to-date. Cash-flow accounts only (Checking/Savings/Cash/
+    // Credit), excluding transfers.
+    const cfMtd = db.prepare(`
       SELECT
         COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS credits,
         COALESCE(SUM(CASE WHEN amount < 0 THEN amount ELSE 0 END), 0) AS debits,
-        COALESCE(SUM(amount), 0) AS net,
-        COUNT(*) AS count
+        COALESCE(SUM(amount), 0) AS net
       FROM transactions t
       JOIN accounts a ON a.id = t.account_id
       WHERE a.is_active = 1 AND a.type IN ('Checking','Savings','Cash','Credit')
         AND t.is_transfer = 0
         AND strftime('%Y-%m', t.date) = strftime('%Y-%m','now')
     `).get();
-    // Comparable last-month-MTD: same day count of last month.
-    const cfPrior = db.prepare(`
+    const cfPriorMonth = db.prepare(`
       SELECT COALESCE(SUM(amount), 0) AS net
       FROM transactions t
       JOIN accounts a ON a.id = t.account_id
       WHERE a.is_active = 1 AND a.type IN ('Checking','Savings','Cash','Credit')
         AND t.is_transfer = 0
         AND strftime('%Y-%m', t.date) = strftime('%Y-%m', date('now','start of month','-1 day'))
-        AND CAST(strftime('%d', t.date) AS INTEGER) <= CAST(strftime('%d','now') AS INTEGER)
+    `).get();
+    const cfYtd = db.prepare(`
+      SELECT COALESCE(SUM(amount), 0) AS net
+      FROM transactions t
+      JOIN accounts a ON a.id = t.account_id
+      WHERE a.is_active = 1 AND a.type IN ('Checking','Savings','Cash','Credit')
+        AND t.is_transfer = 0
+        AND strftime('%Y', t.date) = strftime('%Y','now')
     `).get();
 
     // ── Tile 3: Credit Cards ───────────────────────────────────
+    // Top 3 by owed (statement_balance ?? abs(current_balance)),
+    // others rolled up. util_pct = whole-percent integer (renderer
+    // expects 0–100, not 0–1). next_due = soonest payment_due_date.
     const ccs = db.prepare(`
       SELECT id, name, alias, statement_balance, minimum_payment,
              payment_due_date, credit_limit, current_balance
       FROM accounts
       WHERE is_active = 1 AND type = 'Credit'
-      ORDER BY payment_due_date ASC NULLS LAST
     `).all();
-    const ccCount   = ccs.length;
-    const ccBalance = ccs.reduce((s, a) =>
-      s + (a.statement_balance != null
-            ? a.statement_balance
-            : Math.abs(a.current_balance || 0)), 0);
-    const ccMinPay  = ccs.reduce((s, a) => s + (a.minimum_payment || 0), 0);
-    const ccUtil    = (() => {
-      const totalLimit = ccs.reduce((s, a) => s + (a.credit_limit || 0), 0);
-      return totalLimit > 0 ? (ccBalance / totalLimit) : null;
-    })();
-    const ccSoonest = ccs.find(a => a.payment_due_date) || null;
+    const ccRows = ccs.map(a => ({
+      label:        a.alias || a.name,
+      owed:         a.statement_balance != null ? a.statement_balance : Math.abs(a.current_balance || 0),
+      credit_limit: a.credit_limit || null,
+      min_payment:  a.minimum_payment || 0,
+      due:          a.payment_due_date || null,
+    })).map(r => ({
+      ...r,
+      util: (r.credit_limit > 0) ? Math.round((r.owed / r.credit_limit) * 100) : null,
+    })).sort((a, b) => b.owed - a.owed);
+    const ccCount     = ccRows.length;
+    const ccTotalOwed = ccRows.reduce((s, r) => s + r.owed, 0);
+    const ccTotalLimit = ccRows.reduce((s, r) => s + (r.credit_limit || 0), 0);
+    const ccUtilPct   = ccTotalLimit > 0 ? Math.round((ccTotalOwed / ccTotalLimit) * 100) : null;
+    const ccTop       = ccRows.slice(0, 3).map(r => ({ label: r.label, owed: r.owed, util: r.util }));
+    const ccOthers    = ccRows.slice(3);
+    const ccSoonest   = ccRows
+      .filter(r => r.due)
+      .sort((a, b) => new Date(a.due) - new Date(b.due))[0] || null;
+    let ccNextDue = null;
+    if (ccSoonest) {
+      const due  = new Date(ccSoonest.due + 'T00:00:00');
+      const now  = new Date(); now.setHours(0,0,0,0);
+      const days = Math.round((due - now) / 86400000);
+      ccNextDue  = { days, min_payment: ccSoonest.min_payment || 0 };
+    }
 
-    // ── Tile 4: Bank Accounts (Checking + Savings + Cash) ──────
-    const bank = db.prepare(`
-      SELECT type,
-             COUNT(*) AS n,
-             COALESCE(SUM(current_balance), 0) AS total
+    // ── Tile 4: Bank Accounts ──────────────────────────────────
+    // liquid_total = Checking + Savings + Cash. checking_total /
+    // savings_total broken out for rows. Stale = balance_as_of older
+    // than 14 days (or NULL). stale_oldest_days = days since the
+    // oldest stale account's balance_as_of (null if none stale).
+    const STALE_DAYS = 14;
+    const banks = db.prepare(`
+      SELECT id, name, alias, type, current_balance, balance_as_of
       FROM accounts
       WHERE is_active = 1 AND type IN ('Checking','Savings','Cash')
-      GROUP BY type
     `).all();
-    const bankTotal = bank.reduce((s, r) => s + r.total, 0);
-    const bankCount = bank.reduce((s, r) => s + r.n, 0);
+    const bankCount    = banks.length;
+    const liquidTotal  = banks.reduce((s, a) => s + (a.current_balance || 0), 0);
+    const checkingTotal = banks.filter(a => a.type === 'Checking').reduce((s, a) => s + (a.current_balance || 0), 0);
+    const savingsTotal  = banks.filter(a => a.type === 'Savings').reduce((s, a) => s + (a.current_balance || 0), 0);
+    const todayMs = (() => { const d = new Date(); d.setHours(0,0,0,0); return d.getTime(); })();
+    const banksWithStale = banks.map(a => {
+      if (!a.balance_as_of) return { ...a, _staleDays: null };
+      const t = new Date(a.balance_as_of + 'T00:00:00').getTime();
+      return { ...a, _staleDays: Math.round((todayMs - t) / 86400000) };
+    });
+    const staleAccts = banksWithStale
+      .filter(a => a._staleDays != null && a._staleDays > STALE_DAYS)
+      .sort((a, b) => b._staleDays - a._staleDays);
+    const staleCount  = staleAccts.length;
+    const staleOldest = staleAccts[0] || null;
 
     // ── Tile 5: Holdings ───────────────────────────────────────
-    let holdingsTotal = 0, holdingsCount = 0;
+    // Top 3 positions by market_value. gain_pct per position uses
+    // gain_loss_pct if stored, else computes from cost_basis. Roll
+    // overall gain_pct from totals (mv − cb) / cb × 100.
+    let holdingsRows = [];
     try {
-      const r = db.prepare(`
-        SELECT COUNT(*) AS n, COALESCE(SUM(market_value), 0) AS v
+      holdingsRows = db.prepare(`
+        SELECT h.symbol, h.market_value, h.total_cost_basis, h.cost_basis,
+               h.shares, h.gain_loss_pct
         FROM holdings h
         JOIN accounts a ON a.id = h.account_id
         WHERE a.is_active = 1
-      `).get();
-      holdingsCount = r?.n || 0;
-      holdingsTotal = r?.v || 0;
+      `).all();
     } catch {}
+    const holdingsCount     = holdingsRows.length;
+    const holdingsMarketVal = holdingsRows.reduce((s, h) => s + (h.market_value || 0), 0);
+    const holdingsCostBasis = holdingsRows.reduce((s, h) => {
+      if (h.total_cost_basis != null) return s + h.total_cost_basis;
+      if (h.cost_basis != null && h.shares != null) return s + (h.cost_basis * h.shares);
+      return s;
+    }, 0);
+    const holdingsGainPct = holdingsCostBasis > 0
+      ? ((holdingsMarketVal - holdingsCostBasis) / holdingsCostBasis) * 100
+      : null;
+    const holdingsSorted = holdingsRows.slice().sort((a, b) => (b.market_value || 0) - (a.market_value || 0));
+    const holdingsTop = holdingsSorted.slice(0, 3).map(h => {
+      let gp = h.gain_loss_pct;
+      if (gp == null && h.total_cost_basis > 0 && h.market_value != null) {
+        gp = ((h.market_value - h.total_cost_basis) / h.total_cost_basis) * 100;
+      }
+      return { symbol: h.symbol, market_value: h.market_value || 0, gain_pct: gp != null ? +gp.toFixed(1) : null };
+    });
+    const holdingsOthers = holdingsSorted.slice(3);
+    const holdingsOthersValue = holdingsOthers.reduce((s, h) => s + (h.market_value || 0), 0);
 
-    // ── Tile 6: HSA + LP-FSA ───────────────────────────────────
-    // HSA accounts are type='HSA' in the unified table.
-    // LP-FSA balance lives in the existing hsa_plan rows (not
-    // accounts), so query that separately. If the table doesn't
-    // exist (legacy installs), gracefully return zero.
-    let hsaTotal = 0, hsaCount = 0, lpFsaBalance = 0;
+    // ── Tile 6: HSA + LP-FSA (UNREIMBURSED RECEIPT POOL) ────────
+    // This is the tax-free withdrawal pool, NOT the HSA account
+    // balance. Counts and sums unreimbursed hsa_payments and
+    // fsa_payments. lpfsa_deadline_days computed from current-year
+    // fsa_plan_info.deadline_date.
+    let hsaPool = 0, hsaCount = 0, lpfsaPool = 0, lpfsaCount = 0, lpfsaDeadlineDays = null;
     try {
       const r = db.prepare(`
-        SELECT COUNT(*) AS n, COALESCE(SUM(current_balance), 0) AS v
-        FROM accounts WHERE is_active = 1 AND type = 'HSA'
+        SELECT COUNT(*) AS n, COALESCE(SUM(you_paid),0) AS v
+        FROM hsa_payments
+        WHERE hsa_eligible = 1 AND (reimbursed IS NULL OR reimbursed = 0)
       `).get();
       hsaCount = r?.n || 0;
-      hsaTotal = r?.v || 0;
+      hsaPool  = r?.v || 0;
     } catch {}
     try {
-      // hsa_plans may store annual_lpfsa_election with running balance
-      // tracked separately; if the schema differs, just zero out.
+      const r = db.prepare(`
+        SELECT COUNT(*) AS n, COALESCE(SUM(amount),0) AS v
+        FROM fsa_payments
+        WHERE (reimbursed IS NULL OR reimbursed = 0)
+      `).get();
+      lpfsaCount = r?.n || 0;
+      lpfsaPool  = r?.v || 0;
+    } catch {}
+    try {
       const yr = new Date().getFullYear();
       const r = db.prepare(`
-        SELECT lp_fsa_remaining FROM hsa_plans WHERE plan_year = ?
+        SELECT deadline_date FROM fsa_plan_info
+        WHERE year = ? AND (active IS NULL OR active = 1)
         ORDER BY id DESC LIMIT 1
       `).get(yr);
-      lpFsaBalance = r?.lp_fsa_remaining || 0;
+      if (r?.deadline_date) {
+        const deadline = new Date(r.deadline_date + 'T00:00:00');
+        const now = new Date(); now.setHours(0,0,0,0);
+        const d = Math.round((deadline - now) / 86400000);
+        if (d >= 0) lpfsaDeadlineDays = d;
+      }
     } catch {}
 
     res.json({
       generated_at: new Date().toISOString(),
       net_worth: {
-        total:             netWorth,
-        assets:            totalAssets,
-        liabilities:       totalLiab,
-        investment_total:  investmentTotal,
-        mom_delta:         momDelta,        // null if no prior snapshot
+        total:              netWorth,
+        total_assets:       totalAssets,
+        total_liabilities:  totalLiabilities,
+        mom_delta:          momDelta,
+        sparkline:          sparkline,
       },
       cash_flow: {
-        credits:           cf.credits,
-        debits:            cf.debits,
-        net:               cf.net,
-        count:             cf.count,
-        prior_mtd_net:     cfPrior.net,     // for compare bar; never null (could be 0)
+        mtd_net:            cfMtd.net,
+        mtd_in:             cfMtd.credits,
+        mtd_out:            Math.abs(cfMtd.debits),
+        prior_month_net:    cfPriorMonth.net,
+        ytd_net:            cfYtd.net,
       },
       credit_cards: {
-        count:                  ccCount,
-        statement_balance:      ccBalance,
-        min_payment:            ccMinPay,
-        utilization:            ccUtil,    // null if no credit_limit set
-        soonest_due_date:       ccSoonest?.payment_due_date || null,
-        soonest_due_account:    ccSoonest ? (ccSoonest.alias || ccSoonest.name) : null,
+        count:              ccCount,
+        total_owed:         ccTotalOwed,
+        util_pct:           ccUtilPct,
+        top:                ccTop,
+        others_count:       ccOthers.length,
+        others_owed:        ccOthers.reduce((s, r) => s + r.owed, 0),
+        next_due:           ccNextDue,
       },
       bank_accounts: {
-        count:                  bankCount,
-        total:                  bankTotal,
-        by_type:                bank,       // [{type, n, total}, …]
+        count:              bankCount,
+        liquid_total:       liquidTotal,
+        checking_total:     checkingTotal,
+        savings_total:      savingsTotal,
+        stale_count:        staleCount,
+        stale_label:        staleOldest ? (staleOldest.alias || staleOldest.name) : null,
+        stale_oldest_days:  staleOldest ? staleOldest._staleDays : null,
       },
       holdings: {
-        positions:              holdingsCount,
-        market_value:           holdingsTotal,
+        count:              holdingsCount,
+        market_value:       holdingsMarketVal,
+        cost_basis:         holdingsCostBasis,
+        gain_pct:           holdingsGainPct != null ? +holdingsGainPct.toFixed(1) : null,
+        top:                holdingsTop,
+        others_count:       holdingsOthers.length,
+        others_value:       holdingsOthersValue,
       },
-      hsa_lp_fsa: {
-        hsa_count:              hsaCount,
-        hsa_total:              hsaTotal,
-        lp_fsa_remaining:       lpFsaBalance,
-        combined:               hsaTotal + lpFsaBalance,
+      hsa_lpfsa: {
+        total_pool:         hsaPool + lpfsaPool,
+        hsa_count:          hsaCount,
+        hsa_pool:           hsaPool,
+        lpfsa_count:        lpfsaCount,
+        lpfsa_pool:         lpfsaPool,
+        lpfsa_deadline_days: lpfsaDeadlineDays,
       },
     });
   } catch (e) { serverError(res, e); }

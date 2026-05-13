@@ -3,173 +3,126 @@
 Read this first. The only doc the next chat needs to be productive
 without Al re-explaining anything.
 
-Last updated: v202604.164 packaged 2026-05-13.
+Last updated: v202604.165 staged 2026-05-13. **Not yet packaged or
+deployed.** Awaiting Al's "package" + manual smoke on prod.
 
 ---
 
 ## 0. WHAT'S ON PROD RIGHT NOW
 
-NAS is running **v202604.159 code** + **v202604.164 templates** layered
-on top. Specifically:
+NAS is running **v202604.159 code + v202604.164 templates**. If
+`cat /share/Docker/home-core/ghrava/app/version.txt` shows `.164`,
+prod is current with what was last shipped.
 
-- v.159 code (rescue mig 130 v2 ran cleanly — 3 accounts unified, 76
-  transactions migrated, 5 compat views, 7 `_legacy_*` backup tables,
-  mig 126/127/128 logged as applied)
-- v.164 templates (just `_templates.html` + `_drafts.html` redirect —
-  non-code, hot-swappable, no docker restart needed)
-
-If `cat /share/Docker/home-core/ghrava/app/version.txt` shows `.164`,
-prod is current.
+**v202604.165 is staged in sandbox only** — it ships the work the
+previous `HANDOFF.md` queued as Task A + Task B.
 
 ---
 
-## 1. PENDING WORK — THE NEXT CHAT'S JOB
+## 1. WHAT v.165 SHIPS
 
-Two locked items. Both designed; ran out of bandwidth before clean
-build. The visual design IS already in `_templates.html` #18 — that
-page is the spec.
+Three files + version bump. The two Task A/B items from the previous
+handoff are done; everything else from the v.164 handoff queue is
+unchanged.
 
-### Task A: Wire v.150 finance tile renderers into `finance.html`
+### Task A (done): v.150 finance tiles wired into `finance.html`
 
-**Why:** Overview tab on `/finance.html` currently renders basic tiles
-(eyebrow + hero + pill + maybe rows + strip — no sparkline, no in/out
-bar, no util mini-bars, no top-position rows). Must be upgraded to the
-v.150 design that's already live in `/_templates.html#finance-tiles`.
+- **Backend `/api/v1/finance/landing` rewritten** to the v.150
+  payload shape. New fields:
+  - `net_worth.total_assets / .total_liabilities / .sparkline[]`
+    (last value per month from `net_worth_snapshots`, trailing 12).
+  - `cash_flow.mtd_net / mtd_in / mtd_out / prior_month_net /
+    ytd_net` — full prior-month net, not same-day MTD.
+  - `credit_cards.top[]` (3 by owed), per-card `util` (whole percent),
+    aggregate `util_pct`, `next_due: {days, min_payment}`,
+    `others_count / others_owed`.
+  - `bank_accounts.liquid_total / checking_total / savings_total /
+    stale_count / stale_label / stale_oldest_days` (stale =
+    `balance_as_of` older than 14 days).
+  - `holdings.top[]` (3 by market_value) + `others_count /
+    others_value`, total `cost_basis` + `gain_pct`.
+  - `hsa_lpfsa` semantics: **unreimbursed receipt pool**, not HSA
+    account balance. Counts & sums `hsa_payments` and `fsa_payments`
+    where `reimbursed = 0`. `lpfsa_deadline_days` from current-year
+    `fsa_plan_info.deadline_date`.
+- **`app/public/finance.html`**:
+  - 6 static `<div class="fin-tile" data-tile="…">` blocks replaced
+    with single `<div id="finTilesGrid" class="fin-tiles-grid">`.
+  - Sample-fallback machinery removed (`FIN_TILE_SAMPLE`,
+    `applyTileSampleFallback`, `clearTileSampleState`, `FIN_TILE_FMT`,
+    `setTilePart / setTilePill / setTileDot`, `daysUntil`, and the
+    branching v.158 `loadLandingTiles`). ~14.5 kb dead code gone.
+  - v.150 renderers copied **byte-identical** from `_templates.html`
+    #18 (`_finK / _finM / _finC / _finPct / _finDot / _finPill /
+    _finTileNetWorth / _finTileCashFlow / _finTileCreditCards /
+    _finTileBankAccounts / _finTileHoldings / _finTileHsaLpfsa /
+    _emptyTile`).
+  - New 30-line `loadLandingTiles()` fetches `/finance/landing` and
+    concatenates the 6 renderer outputs.
+  - Onclick + `role="button"` + `tabindex="0"` + Enter/Space keyboard
+    navigation attached post-render via
+    `FIN_TILE_TAB_TARGETS = ['networth','transactions','accounts',
+    'accounts','holdings','hsa']`.
+  - Error path renders an inline red monospace message in the grid.
+- **CSS additions:** `.fin-tile-pill--mute` and `.fin-tile-dot--mute`
+  (used by `_emptyTile()` and the no-prior-snapshot pill).
 
-**How:**
+### Task B (done): medical tiles 3/2/1 with phone scroll-snap
 
-1. Open `app/public/_templates.html`. Find the section
-   `<div class="section" id="finance-tiles">`. Inside it is a
-   `<script>(function() { … })();</script>` block (~250 lines)
-   containing 6 formatters (`_finK`, `_finM`, `_finC`, `_finPct`,
-   `_finDot`, `_finPill`), 6 tile renderers (`_finTileNetWorth`,
-   `_finTileCashFlow`, `_finTileCreditCards`, `_finTileBankAccounts`,
-   `_finTileHoldings`, `_finTileHsaLpfsa`), and `_emptyTile(label, hint)`.
+- **`app/public/medical.html`** `.medv5-grid` upgraded:
+  - Desktop: `grid-template-columns: repeat(auto-fit, minmax(380px,
+    1fr))` — 3-up wide / 2-up mid / 1-up narrow above the phone
+    breakpoint.
+  - Phone (≤700px): flex + `scroll-snap-type: x mandatory` for a
+    one-card-per-viewport pager. Matches the existing
+    `.medv5-grid--all` All-tab pattern.
 
-2. Copy those 13 functions verbatim into `app/public/finance.html`
-   (existing script section near the top, alongside the other tile
-   helpers).
+### Version
 
-3. Replace the existing tile code in `finance.html`:
-   - Delete the `FIN_TILE_SAMPLE` map (~lines 2206–2248)
-   - Delete `applyTileSampleFallback` and `clearTileSampleState`
-     (~lines 2253–2296)
-   - Replace `async function loadLandingTiles()` (~lines 2298–2461)
-     with:
-     ```js
-     async function loadLandingTiles() {
-       const slot = $('finTilesGrid');
-       if (!slot) return;
-       try {
-         const d = await api('GET', '/finance/landing');
-         slot.innerHTML =
-           _finTileNetWorth(d.net_worth) +
-           _finTileCashFlow(d.cash_flow) +
-           _finTileCreditCards(d.credit_cards) +
-           _finTileBankAccounts(d.bank_accounts) +
-           _finTileHoldings(d.holdings) +
-           _finTileHsaLpfsa(d.hsa_lpfsa);
-       } catch (e) {
-         slot.innerHTML = `<div style="text-align:center;padding:32px;
-           color:#b91c1c;font-family:var(--mono);font-size:12px">
-           Couldn't load overview: ${esc(e.message || String(e))}</div>`;
-       }
-     }
-     ```
-
-4. Replace the 6 static `<div class="fin-tile" data-tile="…">` blocks
-   (lines ~310–420) with a single empty container:
-   ```html
-   <div id="finTilesGrid" class="fin-tiles-grid"></div>
-   ```
-   Renderers build full DOM dynamically — no static HTML needed.
-
-5. Add missing CSS to `finance.html`:
-   ```css
-   .fin-tile-pill--mute { background:rgba(0,0,0,0.04); color:#888780 }
-   ```
-
-6. Verify `gotoFinTab()` accepts these tab names (the renderers call
-   it): `networth`, `transactions`, `accounts`, `holdings`, `hsa`.
-   Grep `finance.html` for `gotoFinTab` to confirm.
-
-   **NOTE:** Wrapping the rendered tile div with `onclick=
-   "gotoFinTab('xyz')"` is in the v.150 renderers — check the
-   `_templates.html` version omits the onclick (it's a non-functional
-   spec page). You'll need to add `onclick="gotoFinTab('networth')"`
-   etc. on each tile in the `finance.html` copy. See the original
-   v.150 zip (`/home/claude/v150_review/app/public/finance.html` lines
-   1179, 1206, 1243, 1282, 1310, 1347) for the exact onclick wrapping.
-
-7. Confirm `/finance/landing` backend returns the v.150 shape. Keys:
-   `net_worth: { total, total_assets, total_liabilities, mom_delta,
-   sparkline: [12 numbers] }`,
-   `cash_flow: { mtd_net, mtd_in, mtd_out, prior_month_net, ytd_net }`,
-   `credit_cards: { count, total_owed, util_pct, top: [{label, owed,
-   util}], others_count, others_owed, next_due: {days, min_payment} }`,
-   `bank_accounts: { count, liquid_total, checking_total, savings_total,
-   stale_count, stale_label, stale_oldest_days }`,
-   `holdings: { count, market_value, cost_basis, gain_pct, top:
-   [{symbol, market_value, gain_pct}], others_count, others_value }`,
-   `hsa_lpfsa: { total_pool, hsa_count, hsa_pool, lpfsa_count,
-   lpfsa_pool, lpfsa_deadline_days }` — **note `hsa_lpfsa` not
-   `hsa_lp_fsa`**.
-
-   Inspect `app/features/finance/routes.js` route `/landing` and align
-   if there's a mismatch. Don't change the renderers; align the
-   backend.
-
-8. **Locked rules:** empty data → `_emptyTile()` shows `$0` / "empty"
-   pill / hint. NO SAMPLE badge. NO fake numbers. Tile structure stays
-   stable; only values change.
-
-### Task B: Resize medical tiles
-
-**What:** Match the finance grid breakpoints — 3-across wide, 2-across
-medium, 1-across with CSS scroll-snap on phone.
-
-**How — CSS only:**
-
-In `app/public/medical.html`, find the existing tile grid CSS (likely
-`.med-tile-grid` or similar). Update to:
-
-```css
-.med-tile-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 14px;
-}
-
-/* Phone: native horizontal scroll-snap, one tile per screen */
-@media (max-width: 700px) {
-  .med-tile-grid {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    gap: 14px;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-  .med-tile-grid::-webkit-scrollbar { display: none; }
-  .med-tile-grid > * {
-    scroll-snap-align: start;
-    flex: 0 0 calc(100vw - 32px);
-  }
-}
-```
-
-No JS. No carousel library. Resize browser 1200 → 700 → 400. Should
-go 3 → 2 → 1-with-snap. On a real phone, swipe should feel like
-native iOS/Android pager.
+- `app/version.txt` → `202604.165`.
 
 ---
 
-## 2. DEPLOY PROCESS
+## 2. v.165 VERIFICATION DONE IN SANDBOX
+
+- **`node --check`** on `app/features/finance/routes.js` — clean.
+- **Inline `<script>` syntax check** on every `<script>` block in
+  `finance.html` (5 blocks) and `medical.html` (4 blocks) — clean.
+- **Integration smoke**: spun up an express router against an in-
+  memory SQLite DB matching the unified schema + a representative
+  seed dataset (3 banks, 4 credit cards, 4 holdings, 6 transactions,
+  11 monthly snapshots, 3 HSA receipts, 2 FSA receipts, current-year
+  FSA plan). Hit `/api/v1/finance/landing`, asserted 22 shape
+  predicates. All pass; numbers match `_templates.html` #18 sample
+  numbers (e.g. cc.next_due.days = 7, holdings.others_count = 1,
+  lpfsa_deadline_days = 47).
+- **JSDOM smoke**: extracted the renderer block from `finance.html`,
+  rendered against both the real-data payload AND an all-empty
+  payload. Verified:
+  - 6 `.fin-tile` elements in each mode
+  - Net worth: 12 sparkline bars
+  - Cash flow: `.fin-tile-cf-bar` present
+  - Credit cards: 2 util mini-bars (3rd card has no `credit_limit`)
+  - Holdings: 3 positive-gain spans
+  - Empty: 4 `_emptyTile()` mute-dot tiles + net_worth/cash_flow
+    show $0 hero through their own renderers
+
+**Not yet verified:** behavior against Al's actual production DB.
+Migration risk = none (no schema changes). Behavior risk = backend
+shape change → frontend renderer expects the new shape. If anything
+goes wrong, the tiles will render with `$0` / "empty" pills, not
+crash.
+
+---
+
+## 3. DEPLOY PROCESS
 
 ### Al's flow (Windows PC → NAS → Docker)
 
-1. Claude packages `Ghrava_DEPLOY.zip` and uses `present_files`.
-2. Al downloads the zip to Windows Downloads.
+1. Claude packages `Ghrava_DEPLOY.zip` (top-level layout — `app/`,
+   `docker-compose.yml`, etc. — **no `ghrava/` wrapper**) and uses
+   `present_files`.
+2. Al downloads to `~/Downloads`.
 3. Al runs `ghrava_deploy.ps1` in PowerShell — finds the zip,
    extracts, robocopies to `Z:\ghrava\`, detects whether
    `package.json` changed, prints the right next command.
@@ -179,6 +132,9 @@ native iOS/Android pager.
      changed
 5. **Static-only changes** (HTML/CSS/JS in `app/public/`) need no
    docker restart — just hard-refresh browser (Ctrl+Shift+R).
+
+For v.165, code paths changed (`features/finance/routes.js`), so
+`docker restart ghrava` is required.
 
 ### Paths
 
@@ -206,20 +162,80 @@ docker logs ghrava --tail 50
 docker logs ghrava 2>&1 | grep -E 'FAILED|RESCUE|running on port' | tail -20
 ```
 
-### Backups before DB-touching deploys
+### v.165 smoke after deploy
 
-Always before a zip containing a migration:
-```sh
-cp /share/Docker/home-core/ghrava/data/lifetracker.db \
-   /share/Docker/home-core/ghrava/backups/manual_v<NEXT>.db
-```
-Auto-backup runs at startup and 02:00 America/Chicago daily.
+1. Open `/finance.html`. Overview tab is default. Expect 6 tiles
+   rendering real numbers from the live data (3 accounts unified +
+   76 transactions from the v.159 rescue).
+2. Click any tile — should switch to the corresponding tab.
+3. Open `/medical.html` on a phone (or resize to ≤700px). Cards
+   should pager-scroll horizontally one-at-a-time. Resize to ~900px
+   → 2 columns. Resize to ~1300px → 3 columns.
+
+If a tile shows "empty" with $0 / mute pill — the backend returned
+no rows for that tile's category. That's expected behavior (e.g.
+holdings tile may be empty if no positions yet).
+
+If a tile crashes / shows the red error line — capture `docker logs
+ghrava --tail 50` and the JSON from `curl http://localhost:3001/
+api/v1/finance/landing` before theorizing.
 
 ---
 
-## 3. WORKING RULES (override all other instincts)
+## 4. NEXT-DROP PRIORITIES (after v.165 confirmed)
 
-These came up explicitly this chat. Burn them in.
+### Finance module cleanup capstone
+
+- Drop the 7 `_legacy_*` tables from mig 130 rescue.
+- Drop `accounts_beneficiaries` (empty, pre-existing table moved
+  aside by mig 130).
+- Single migration #131. Wait for explicit Al go.
+
+### Finance module Tile-2 budget target
+
+- Tile 2 (Cash Flow) currently shows "on track" / "overspending"
+  based on `mtd_net` sign alone. The locked design idea was to add
+  a monthly budget target — design discussion deferred.
+- Needs: budget UI in Settings or Finance, schema for monthly
+  budgets, comparison in tile renderer.
+
+### Outside finance
+
+Same backlog as v.164's handoff — none touched in v.165:
+
+- Today page (Now/Soon/30-day pipeline) — locked design, not built.
+- Drafts pages still need readability pass + status board.
+- Reports `.rep-row` not found bug.
+- Reports panels open as center modals (sub-panel CSS leak).
+- Todos page renders neither `.todo-item` nor `.empty-state`.
+- Multi-kid bug (kids table vs family_members not auto-syncing).
+- 11 stale Playwright selectors.
+
+### v140 loose ends
+
+- EOB folder-drop persistence (`importEob` counts but doesn't save).
+- LP-FSA plan info Settings UI (only API exists).
+- Mileage UI on medical visit form (backend ready, frontend
+  doesn't expose `round_trip_miles`).
+- Medical "Receipts" tab to host v140 inbox/vault.
+- Documents / insurance / subscriptions don't use `attach-lifecycle`.
+
+### Security audit (separate small drop)
+
+- `window.esc` doesn't escape `/\'`.
+- Attach route should allowlist `entityType`.
+- `/file/:id` and `/thumb/:id` missing path-allowlist.
+- `/api/v1/app/test-results` unauthenticated.
+- CORS wide open.
+- `fmtMoney` / `formatDate` redefined across pages despite `lt-core`.
+- `global-search.js` has own `esc()`.
+- `migrate.js` parser splits on `;` before stripping `--` comments.
+
+---
+
+## 5. WORKING RULES (override all other instincts)
+
+These came up explicitly in recent chats. Burn them in.
 
 ### Build mode default
 
@@ -240,12 +256,16 @@ These came up explicitly this chat. Burn them in.
   "empty" pill / hint) fine. **Invented numbers not fine.**
 - Visual design lives in `_templates.html` as numbered patterns
   (#1, #18, #18.1). Drafts page is text-only.
+- "Cards" and "tiles" are interchangeable in Al's vocabulary. Both
+  refer to the rendered components.
 
 ### Don't package without "package"
 
 - Even after a complete fix, wait for Al to say "package."
 - Exception: explicit "package now" during a build.
-- Bundle multiple fixes into one drop where possible.
+- **Don't package for small things to save tokens.** Bundle multiple
+  fixes into one drop where possible.
+- Bigger builds preferred.
 
 ### DB safety
 
@@ -263,8 +283,9 @@ Before any deploy zip:
 1. Node syntax check all route files
 2. HTML inline script syntax check
 3. Script dependency check (pages using `GH_REFS` need `lt-refs.js`)
-4. Migration simulation against live DB (savepoints, rollback)
-5. Parser tests (12/12 banks pass)
+4. Migration simulation against live DB (savepoints, rollback) —
+   skip if no migration in drop
+5. Parser tests (12/12 banks pass) — skip if no parser change
 
 ### Files Claude consults before editing
 
@@ -279,7 +300,7 @@ Before any deploy zip:
 
 ---
 
-## 4. KEY ARCHITECTURE FACTS (locked, do not re-litigate)
+## 6. KEY ARCHITECTURE FACTS (locked, do not re-litigate)
 
 ### Schema
 
@@ -297,6 +318,26 @@ Before any deploy zip:
 - `med_physicians` dropped. Contacts are flat 8-type table.
 - `record_links` is the universal cross-module link table (mig 129).
   Symmetric junction; application layer chooses left/right.
+
+### Finance landing route shape (v.165)
+
+`GET /api/v1/finance/landing` returns:
+
+```
+{
+  generated_at,
+  net_worth:     { total, total_assets, total_liabilities, mom_delta, sparkline[] },
+  cash_flow:     { mtd_net, mtd_in, mtd_out, prior_month_net, ytd_net },
+  credit_cards:  { count, total_owed, util_pct, top[], others_count, others_owed, next_due:{days,min_payment} },
+  bank_accounts: { count, liquid_total, checking_total, savings_total, stale_count, stale_label, stale_oldest_days },
+  holdings:      { count, market_value, cost_basis, gain_pct, top[], others_count, others_value },
+  hsa_lpfsa:     { total_pool, hsa_count, hsa_pool, lpfsa_count, lpfsa_pool, lpfsa_deadline_days }
+}
+```
+
+Renderers in `finance.html` mirror those in `_templates.html` #18
+byte-identically. **Changing either side requires mirroring on the
+other.**
 
 ### Migration runner
 
@@ -319,7 +360,7 @@ Before any deploy zip:
 ### Shared utilities
 
 - `app/public/js/lt-core.js` — `GH_VIEW`, `GH_FAMILY`, `GH_TAGS`,
-  `GH_SELECT`, `window.api`
+  `GH_SELECT`, `window.api`, `window.esc`
 - `app/public/js/lt-refs.js` — `GH_REFS` (contact pickers, must be
   loaded on every page using it)
 - `app/shared/autoTodos.js` — `syncAutoTodos()`,
@@ -329,51 +370,7 @@ Before any deploy zip:
 
 ---
 
-## 5. KNOWN BUGS (logged, not bundled with Task A/B)
-
-### UI
-
-- Todos page renders neither `.todo-item` nor `.empty-state` (v128
-  family filter may hide everything). Need `docker logs` first.
-- Reports page `.rep-row` not found (registry empty in renderer).
-- Reports panels open as center modals (sub-panel CSS leak from
-  `settings.html`).
-- Multi-kid bug: kids list pulls from `kids` table; `family_members`
-  not auto-syncing despite handoff claim.
-- 11 stale Playwright selectors.
-
-### v140 loose ends
-
-- EOB folder-drop persistence (`importEob` counts but doesn't save).
-- LP-FSA plan info Settings UI (only API exists).
-- Mileage UI on medical visit form (backend ready, frontend doesn't
-  expose `round_trip_miles`).
-- Medical "Receipts" tab to host v140 inbox/vault — design discussion
-  deferred.
-- Documents / insurance / subscriptions don't use `attach-lifecycle`.
-
-### Security audit (separate small drop, not bundled)
-
-- `window.esc` doesn't escape `/\'`.
-- Attach route should allowlist `entityType`.
-- `/file/:id` and `/thumb/:id` missing path-allowlist.
-- `/api/v1/app/test-results` unauthenticated.
-- CORS wide open.
-- `fmtMoney` redefined in 3 pages; `formatDate` redefined despite
-  `lt-core`.
-- `global-search.js` has own `esc()`.
-- `migrate.js` parser splits on `;` before stripping `--` comments.
-
-### Cleanup capstone (small drop after Task A/B)
-
-- Drop `_legacy_*` tables (7 of them from mig 130 rescue).
-- Drop `accounts_beneficiaries` (empty, pre-existing table moved
-  aside by mig 130).
-- Wait for explicit Al go.
-
----
-
-## 6. `_templates.html` SECTIONS
+## 7. `_templates.html` SECTIONS
 
 Source of truth for visual design.
 
@@ -387,13 +384,14 @@ Source of truth for visual design.
   #17.2 Reimbursement vault
 - **#18 Finance Overview Tiles** (LOCKED v.150, added v.164) — the 6
   finance tiles, real-data + empty state, both rendered live. THE SPEC.
+  **Now byte-identical to `finance.html` renderers (v.165).**
 
 Drafts list (text-only) below the templates. `/_drafts.html` is a
 redirect to `/_templates.html#drafts`. One page going forward.
 
 ---
 
-## 7. THE "I MESSED UP" PATTERN
+## 8. THE "I MESSED UP" PATTERN
 
 If Al points out Claude invented something not in the agreed design:
 
@@ -408,9 +406,8 @@ Don't tell Al to re-deploy from the wrong zip.
 
 ---
 
-## 8. ONE-LINE STATUS
+## 9. ONE-LINE STATUS
 
-**v.164 packaged. v.150 finance tiles rendered live in
-`_templates.html` #18. Next: copy renderers into `finance.html`,
-resize medical tiles 3/2/1 with phone scroll-snap. Build mode. No
-invented design. Empty data → `_emptyTile()` placeholder.**
+**v.165 staged. Task A (finance tiles wired to v.150 spec) + Task B
+(medical 3/2/1 scroll-snap) done. 22 shape assertions + JSDOM
+renderer smoke pass. Not yet packaged — awaiting "package".**

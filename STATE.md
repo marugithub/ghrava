@@ -18,67 +18,42 @@ need to know is in this file.
 
 Al runs **Ghrava** — a self-hosted household OS on a QNAP NAS, accessible
 at `http://192.168.4.62:3001`. Stack: Node.js/Express + SQLite
-(better-sqlite3) + vanilla JS. Single user, single developer. The most
-recent shipped version is **v202604.150**; the deploy zip in
-`/mnt/user-data/outputs/Ghrava_DEPLOY.zip` (if still present from last
-session) IS that version.
+(better-sqlite3) + vanilla JS. Single user, single developer. Most
+recent **packaged** version on prod is **v202604.159 code + v202604.164
+templates**. **v202604.165 is staged in sandbox, not yet packaged** —
+awaiting Al's "package" command.
 
-### What was just shipped (v.159) — needs Al's manual test before next drop
+### What's in the v.165 sandbox
 
-**RESCUE v2.** v.158's rescue mig failed on the production DB with
-two errors:
-  1. `no such column: is_active` — mig 126's `CREATE INDEX ON
-     accounts(is_active)` fired against the pre-existing
-     beneficiaries `accounts` table (CREATE TABLE IF NOT EXISTS was
-     a no-op because the name was taken).
-  2. `use DROP TABLE to delete table fin_import_batches` — mig 126's
-     compat-view DDL uses `DROP VIEW IF EXISTS fin_import_batches`,
-     but on this DB `fin_import_batches` is a TABLE.
+Three files changed; full diff in `## ✅ SHIPPED THIS DROP` below.
 
-**v.159 mig 130 is rewritten as fully self-contained.** It does
-NOT call mig 126 in-process; the unification logic is replicated
-inline with both fixes. **Smoke-tested against the actual broken
-production DB** uploaded by Al:
-- Pre-existing empty `accounts` (beneficiaries schema) renamed →
-  `accounts_beneficiaries`
-- All 7 source tables/views renamed to `_legacy_*`
-- 3 accounts unified (2 from finance_accounts + 1 from
-  financial_accounts, no dups)
-- **76 transactions migrated** with v.153 fingerprints recomputed
-- 5 compat views created over unified tables
-- 126/127/128 logged in `_migrations` runner table so they stop
-  retrying
-- Marker rows seeded in `_migrations_finance_unify_done`,
-  `_migrations_fingerprint_v2_done`, `_migrations_cc_columns_done`
-- Idempotent: second run = no-op
-- Rolls back fully on any failure
+1. **`app/features/finance/routes.js`** — `/landing` rewritten to v.150
+   payload shape (sparkline, top-3 cards/holdings, stale-days, prior-
+   month/YTD cash flow, unreimbursed HSA/LP-FSA pool).
+2. **`app/public/finance.html`** — sample-fallback machinery deleted;
+   v.150 renderers from `_templates.html` #18 inserted byte-identical;
+   `<div id="finTilesGrid">` replaces the 6 static tile divs; onclick
+   wiring attached post-render.
+3. **`app/public/medical.html`** — `.medv5-grid` upgraded to 3-up
+   `auto-fit minmax(380px, 1fr)` with phone scroll-snap pager <700px.
 
-**Also fixed:** `detectMissingStatements()` in
-`app/features/import/routes.js` now checks `accounts` schema before
-querying — returns `[]` if the unified columns aren't present
-(prevents the `no such column: name` log spam seen in v.158 on the
-broken state).
+Plus `app/version.txt` bumped to `202604.165`.
 
-**Schema-touching, transaction-wrapped.** Back up `data/ghrava.db`
-before `docker restart ghrava`. If anything goes wrong, the rescue
-rolls back and writes `RESCUE FAILED: <error>` into
-`_migrations_rescue_126_done`.
+### How v.165 was verified
 
-Carried from v.158:
-- Sample-data tile fallback on Overview (will start showing real
-  data after rescue completes, since accounts + transactions will
-  populate)
-
-Carried from v.157:
-- Net-worth auto-snapshot scheduler
-- 5 more parser fixtures (12/12 banks)
-- record_links + All tab + auto-linker
-
-Carried from v.156 through v.151 (all bundled).
+- `node --check` on `routes.js` → clean.
+- Inline `<script>` syntax check on finance.html + medical.html → clean.
+- Integration smoke: in-memory SQLite + seeded dataset hit through
+  the actual express router. 22 shape assertions on `/landing`
+  payload → all pass.
+- JSDOM smoke: renderer block extracted from finance.html, rendered
+  against real-data + all-empty payloads. 6 tiles each mode, 12
+  sparkline bars, cash-flow bar, util mini-bars, positive-gain
+  styling, `_emptyTile()` mute styling all verified.
 
 ### Next-drop work is queued
 
-**After v.159 confirmed working:**
+**After v.165 confirmed working on prod:**
 - Drop `_legacy_*` tables — cleanup capstone (separate small drop).
 - `accounts_beneficiaries` decision — drop or revive.
 - Tile-2 budget target — design conversation pending.
@@ -108,9 +83,14 @@ render bugs, v140 loose ends, security audit.
 3. Al runs `ghrava_deploy.ps1` on Windows — it auto-finds the zip,
    robocopies to `Z:\ghrava` (NAS-mapped), deletes the zip, prints
    either "docker restart ghrava" or "docker compose up --build -d"
-   depending on whether `package.json` changed
-4. Al SSHs to NAS and runs that command
-5. Al hits refresh on the page
+   depending on whether `package.json` changed.
+4. Al SSHs to NAS and runs that command.
+5. Al hits refresh on the page.
+
+**Important:** the deploy zip must extract files at the top level
+(`app/`, `docker-compose.yml`, etc.) — NOT inside a `ghrava/` wrapper.
+`Ghrava_Share.ps1` (sandbox export) does add a `ghrava/` wrapper; the
+deploy zip does not.
 
 Full ps1 details: `## 🚦 DEPLOY WORKFLOW`.
 
@@ -125,51 +105,99 @@ Full ps1 details: `## 🚦 DEPLOY WORKFLOW`.
 
 ### Your sandbox staging directory
 
-Last session staged all v.149 changes in `/home/claude/drop/`. That
-directory is gone now. To resume staging, recreate it from Al's share
-zip if needed.
+This session staged all v.165 changes in `/home/claude/work/ghrava_drop/`.
+That directory is wiped at chat-end. To resume staging, recreate it
+from Al's share zip if needed.
 
 ---
 
 ## Current version
 
-**v202604.164** — packaged 2026-05-13. Templates-only drop:
-`_templates.html` #18 now contains the v.150 finance tiles rendered
-live with sample + empty data (sparkline, in/out bar, util mini-bars,
-top positions). Layered on top of v.159 production code.
+**v202604.165** — finance Overview wired to v.150 renderers + medical
+tile grid resized 3/2/1 with phone scroll-snap. Sandboxed; **not yet
+packaged**, awaiting Al's go.
 
 **→ See HANDOFF.md for the next chat's task list and deploy process.**
 
-### v.164 changes
+### v.165 changes
 
-- Stripped my invented prose `#18` from `_templates.html` (was
-  written in v.162, never approved).
-- Replaced with the **v.150 rendered tiles** as canonical visual
-  spec. 6 real-data tiles + 6 empty-state tiles render live via
-  embedded renderer functions byte-identical to the v.150
-  `finance.html`. JSDOM-verified.
-- `_drafts.html` → meta-refresh redirect to `_templates.html#drafts`
-  (drafts list moved into the templates page per Al's "one page
-  going forward" direction).
-- `HANDOFF.md` written for the next chat (Task A: wire renderers
-  into `finance.html`; Task B: resize medical tiles to 3/2/1 with
-  phone scroll-snap).
+- **Backend: `GET /api/v1/finance/landing` rewritten to the v.150
+  payload shape** so the template renderers can consume it directly:
+  - `net_worth.total_assets / .total_liabilities / .sparkline` (last
+    value per month from `net_worth_snapshots`, trailing 12 months).
+  - `cash_flow.mtd_net / mtd_in / mtd_out / prior_month_net / ytd_net`
+    (full prior-month net, not same-day MTD).
+  - `credit_cards.top[]` (3 by owed) + `others_count` / `others_owed`,
+    per-card `util` (whole percent), aggregate `util_pct`, `next_due:
+    {days, min_payment}`.
+  - `bank_accounts.liquid_total / checking_total / savings_total /
+    stale_count / stale_label / stale_oldest_days` (stale = `balance_
+    as_of` older than 14 days).
+  - `holdings.top[]` (3 by market_value) + `others_count` /
+    `others_value`, total `cost_basis` + `gain_pct`.
+  - `hsa_lpfsa` semantics flipped from "HSA account balance" to
+    **unreimbursed receipt pool** (counts & sums on `hsa_payments`
+    and `fsa_payments` where `reimbursed = 0`), plus `lpfsa_
+    deadline_days` from current-year `fsa_plan_info.deadline_date`.
+- **Frontend: `app/public/finance.html`**:
+  - 6 static `<div class="fin-tile" data-tile="…">` blocks replaced
+    with a single `<div id="finTilesGrid" class="fin-tiles-grid">`.
+  - Sample-fallback machinery deleted: `FIN_TILE_SAMPLE` (~45 lines),
+    `applyTileSampleFallback` (~60 lines), `clearTileSampleState`
+    (~20 lines), `FIN_TILE_FMT` formatters (~25 lines), `setTilePart
+    / setTilePill / setTileDot` helpers (~25 lines), `daysUntil`
+    helper, and the 165-line `loadLandingTiles` that branched on
+    per-tile "has real data?" predicates. Net delta: ~14.5kb of dead
+    code removed.
+  - v.150 renderers inserted **byte-identical to `_templates.html` #18**:
+    `_finK / _finM / _finC / _finPct / _finDot / _finPill / _finTile-
+    NetWorth / _finTileCashFlow / _finTileCreditCards / _finTile-
+    BankAccounts / _finTileHoldings / _finTileHsaLpfsa / _emptyTile`.
+  - New 30-line `loadLandingTiles()` calls `/finance/landing` and
+    concatenates the 6 renderer outputs into `#finTilesGrid`. Onclick
+    + `role="button"` + `tabindex="0"` + Enter/Space keyboard nav
+    attached post-render via `FIN_TILE_TAB_TARGETS = ['networth',
+    'transactions','accounts','accounts','holdings','hsa']`. Error
+    path renders an inline red message in monospace.
+  - CSS additions: `.fin-tile-pill--mute` and `.fin-tile-dot--mute`
+    (used by `_emptyTile()` and net-worth's "no prior snapshot"
+    pill).
+- **Frontend: `app/public/medical.html`** — `.medv5-grid` upgraded
+  from the v.147 hard-locked-2-columns layout to:
+  - Desktop: `grid-template-columns: repeat(auto-fit, minmax(380px,
+    1fr))` — 3-up on wide screens, 2-up on mid, 1-up on narrow above
+    the phone breakpoint.
+  - Phone (≤700px): flex + `scroll-snap-type: x mandatory` for a
+    native one-card-per-viewport pager. Cards sized `flex: 0 0
+    calc(100vw - 28px)`. Matches the existing `.medv5-grid--all` All-
+    tab pattern.
+- **Verified:**
+  - `node --check` on `app/features/finance/routes.js` → clean.
+  - Inline `<script>` syntax check on `finance.html` (5 blocks) and
+    `medical.html` (4 blocks) → clean.
+  - Integration smoke: spun up the express router against an in-
+    memory SQLite DB matching the unified schema, seeded a
+    representative dataset, hit `/api/v1/finance/landing`, asserted
+    22 shape predicates. All pass.
+  - JSDOM smoke: extracted the renderer block from `finance.html`,
+    rendered against both the real-data payload and an all-empty
+    payload, asserted DOM well-formedness:
+    - 6 `.fin-tile` elements in both modes
+    - 12 sparkline bars on net worth tile
+    - cash-flow `.fin-tile-cf-bar` present
+    - 2 credit-card util mini-bars (3rd card has no limit → null util)
+    - 3 positive-gain spans on holdings
+    - Empty payload: 4 `_emptyTile()` mute dots, all heroes show $0
+- **Not done in this drop:** _legacy_* cleanup capstone (deferred),
+  Tile-2 budget target (design discussion deferred), no other modules
+  touched.
 
-### v.163 / v.162 / v.161 / v.160 (this chat's churn, all
-superseded by v.164)
+### v.164 changes (carryover)
 
-- v.160: tile sample-fallback reverted to badge-only (wrong).
-- v.161: added missing `data-tile-pill` to 3 tiles (no longer
-  needed — full v.150 renderers replace the static DOM in Task A).
-- v.162: added prose `#18` to `_templates.html` (stripped in v.164).
-- v.163: re-introduced sample-data fallback with invented numbers
-  (wrong — superseded by v.150 `_emptyTile()` pattern in v.164).
+- `_templates.html` #18 finance tiles (locked v.150 visual spec).
+- `_drafts.html` → meta-refresh redirect to `_templates.html#drafts`.
 
-Net effect: v.160–v.163 finance.html changes are NOT in the v.164
-zip. Production still has v.159 `finance.html`. Task A in next chat
-brings finance.html up to the v.150 visual spec.
-
-### v.159 changes (still on prod)
+### v.159 changes (still on prod, untouched)
 
 - **Migration 130 rewritten as self-contained.** Does NOT call mig
   126 in-process. Replicates unification logic inline with two

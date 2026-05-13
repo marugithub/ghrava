@@ -575,18 +575,39 @@ body.v2 * { min-width: 0; }
    the tokens above. Variants for state: refill / overdue / discont
    recolor the eyebrow dot + status pill only.
    ──────────────────────────────────────────── */
-/* v202604.147 — locked to max 2 columns at any width to match the
-   static preview cards above. Single column on phones (<700px). */
+/* v202604.165 — 3-up wide / 2-up mid / horizontal scroll-snap on phone.
+   Matches the finance overview grid breakpoints (auto-fit + minmax).
+   Phone gets a single-card-per-viewport pager via flex + scroll-snap. */
 .medv5-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: 14px;
   padding: 4px 18px 100px;
   max-width: 1320px;
   margin: 0 auto;
 }
 @media (max-width: 700px) {
-  .medv5-grid { grid-template-columns: 1fr; }
+  .medv5-grid {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding: 4px 12px 100px;
+    gap: 12px;
+    /* hide scrollbar — swipe is the gesture, not visible track */
+    scrollbar-width: none;
+  }
+  .medv5-grid::-webkit-scrollbar { display: none; }
+  .medv5-grid > .cardv5,
+  .medv5-grid > .medv5-card {
+    flex: 0 0 calc(100vw - 28px);
+    max-width: calc(100vw - 28px);
+    scroll-snap-align: center;
+    scroll-snap-stop: always;
+  }
 }
 
 /* v202604.149 — All-tab specific: on mobile, switch from a single-column
