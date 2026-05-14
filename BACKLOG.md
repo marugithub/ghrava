@@ -37,7 +37,7 @@ These block other work. Resolve first.
 
 1. **Auto-link txn → hsa_payment** (#27.1) — `app/shared/auto-link-hsa.js`. HIGH: account_type='HSA' OR name LIKE '%HSA%'. Creates hsa_payment row. Runs on import-confirm + category-change-to-medical.
 2. **Auto-link txn → medical_visit** (#27.2) — `app/shared/auto-link-medical-visit.js`. HIGH: vendor exact-match (case-insensitive trim) `contacts.name` WHERE type='medical_provider' AND visit ±7d.
-3. **EOB → hsa_payment auto-match** (#27.3) — `app/features/medical/eob-hsa-matcher.js`. HIGH: same patient (required) + amount ±$0.50 + date ±14d. Provider match is bonus, not required. Otherwise → needs_review flag.
+3. **EOB → hsa_payment auto-match** (#27.3) — `app/features/medical/eob-hsa-matcher.js`. HIGH: same patient (required) + amount ±$0.50 + date ±14d. Provider match is bonus, not required. Otherwise → needs_review flag. **Auto-triggered (v.167.1):** runs in EOB import loop + on every new hsa_payment POST. Manual backfill endpoint still available for initial pass.
 4. **Subscription auto-categorization** (#27.4) — extend `auto-link-subscriptions.js`: copy subscription's category to txn IF txn.category IS NULL. Retroactive button: last 90 days only.
 5. **LP-FSA Settings UI** — mirror FSA form. Fields: `annual_limit`, `plan_year`, `deadline_date`, `plan_name`. Backend `lpfsa_plan_info` table already exists.
 6. **Transaction attachments (simple)** — wire `attach-lifecycle.js` on the txn drawer. Does NOT use Universal Attachments yet (that's v.168). One-attachment-per-txn for now.

@@ -268,6 +268,26 @@ router.post('/payments', (req, res) => {
     );
     saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
     if (d.tags?.length) saveTagsByName(info.lastInsertRowid, 'hsa_payment', d.tags);
+
+    // v202604.167 — reverse EOB↔HSA matching (#27.3). When a new HSA
+    // payment lands, scan unlinked EOB claims for matches and create
+    // record_links rows. Same matcher as the EOB-import path. Best-
+    // effort: failures logged but never block the create.
+    try {
+      const matcher = require('../medical/eob-hsa-matcher');
+      const newPmt = db.prepare('SELECT * FROM hsa_payments WHERE id=?').get(info.lastInsertRowid);
+      // Find unlinked claims for the same patient within ±30d / ±$2
+      const claims = db.prepare(`
+        SELECT * FROM med_eob_claims
+        WHERE patient = ?
+          AND ABS(julianday(COALESCE(send_date, received_date)) - julianday(?)) <= 30
+          AND ABS(your_share - ?) <= 2.00
+      `).all(newPmt.patient || 'Self', newPmt.date, newPmt.you_paid || 0);
+      for (const c of claims) matcher.processEobClaim(c);
+    } catch (matchErr) {
+      console.warn('[hsa/payments POST] reverse matcher failed:', matchErr.message);
+    }
+
     res.status(201).json({ id: info.lastInsertRowid });
   } catch (e) { serverError(res, e); }
 });

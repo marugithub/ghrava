@@ -67,6 +67,13 @@
 
 11. **BACKLOG.md** — added v.167 LOCKED SCOPE block (with build sequence + out-of-scope items) and v.168 QUEUED SCOPE block (Universal Attachments). Old items consolidated under labeled sections.
 
+12. **EOB↔HSA matcher auto-triggers** (NEW in hotfix, v.167.1) — earlier I shipped the matcher as a one-shot CLI/curl. Now wired into the import paths so it runs automatically:
+   - `medical/routes.js` EOB import loop: after each `med_eob_claims` insert, calls `eob-hsa-matcher.processEobClaim(claim)` — creates record_links rows for HIGH-confidence matches, flags MEDIUM matches with needs_review=1.
+   - `hsa/routes.js` POST /payments: when a new HSA payment lands, scans existing unlinked claims for matches (same patient, ±30d, ±$2) and runs the matcher on each.
+   - Manual one-shot backfill (`POST /api/v1/links/run/eob-hsa-matcher`) still available for the initial pass; after that, the triggers handle every new EOB and every new HSA payment automatically.
+
+13. **Schema validator** (NEW in hotfix) — `scripts/validate-schema.py`. Builds a prod-mirror DB by replaying every migration, then validates every `db.prepare(\`SQL\`)` parses against the real schema. Catches the exact class of bug that crashed v.167 twice. Now mandatory predeploy gate. Documented in Help → Commands.
+
 ### What's deliberately NOT in v.167
 
 - Universal Attachments code (designed in #28, built in v.168)

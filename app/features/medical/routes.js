@@ -1387,6 +1387,23 @@ router.post('/eob/import', requireAuth, uploadEob.single('file'), async (req, re
             console.warn('[eob/import] auto-link failed:', linkErr.message);
           }
 
+          // v202604.167 — also run the new record_links-based matcher
+          // (#27.3). This sits alongside the legacy eob_claim_id auto-
+          // link above: legacy writes one column on hsa_payments; the
+          // new matcher writes a record_links row that the review-pill
+          // surface watches. HIGH-confidence matches link silently;
+          // MEDIUM matches surface in the floating "Needs review" pill.
+          // See _templates.html #27 for the locked pattern.
+          try {
+            const eobHsaMatcher = require('./eob-hsa-matcher');
+            // Load the just-inserted claim row with all columns the
+            // matcher expects (service_date OR statement_date fallback).
+            const claimRow = db.prepare('SELECT * FROM med_eob_claims WHERE id=?').get(claimId);
+            if (claimRow) eobHsaMatcher.processEobClaim(claimRow);
+          } catch (matcherErr) {
+            console.warn('[eob/import] new matcher failed:', matcherErr.message);
+          }
+
           // Insert service lines
           for (const sv of (c.services || [])) {
             db.prepare(`
