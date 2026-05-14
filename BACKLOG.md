@@ -66,7 +66,71 @@ These block other work. Resolve first.
 
 ---
 
-## 🔜 v.168 QUEUED SCOPE — Universal Attachments
+## 🚧 v.168 IN PROGRESS — HSA plan info merge
+
+> Documenting BEFORE shipping. Single drop, no feature work — just merges HSA plan_info into the unified fsa_plan_info table.
+
+**Problem:** Two parallel plan-info tables (`hsa_plan_info` from mig 002, `fsa_plan_info` from mig 118). Settings panel I built in v.167 only read `fsa_plan_info`, hiding Al's existing HSA plan data. Single-source-of-truth violation.
+
+**Solution:** Merge into `fsa_plan_info`, deprecate `hsa_plan_info` by renaming.
+
+### Builds (v.168):
+
+1. **Mig 133** — extend `fsa_plan_info` with 8 HSA-specific columns: `insurance_carrier, individual_deductible, family_deductible, individual_oop_max, family_oop_max, irs_limit_self_only, irs_limit_family, plan_effective_date`. Additive only.
+
+2. **Mig 134** — `INSERT OR IGNORE INTO fsa_plan_info SELECT ... FROM hsa_plan_info`. Copies all existing HSA rows with `plan_type='hsa'`. Idempotent via `UNIQUE(year, plan_type)`.
+
+3. **Mig 135** — `ALTER TABLE hsa_plan_info RENAME TO hsa_plan_info_DEPRECATED_v167`. Data preserved as untouched backup. Old name gone so no future code can accidentally read it.
+
+4. **`hsa/routes.js` rewrite** — all 5 SQL touchpoints (`buildSummary`, `GET /plan`, `GET /plan/:year`, `POST /plan`, `PUT /plan/:id`) point to `fsa_plan_info WHERE plan_type='hsa'` with column aliases preserving the legacy API contract. Frontend (`finance.html`) unchanged.
+
+5. **`reports/emergency.js`** — single query updated to read `fsa_plan_info WHERE plan_type='hsa'`.
+
+6. **Schema validator gate** — every modified prepared statement passes against the post-migration prod schema. Verified end-to-end via Python sqlite3 simulation.
+
+### Verified preserved (no data loss):
+
+All 13 user fields kept:
+- plan_year → year
+- plan_name → plan_name
+- insurance_carrier → insurance_carrier (new col)
+- individual_deductible → individual_deductible (new col)
+- family_deductible → family_deductible (new col)
+- individual_oop_max → individual_oop_max (new col)
+- family_oop_max → family_oop_max (new col)
+- hsa_contribution_self → contributions
+- hsa_contribution_employer → employer_contribution
+- irs_limit_self_only → irs_limit_self_only (new col)
+- irs_limit_family → irs_limit_family (new col)
+- plan_effective_date → plan_effective_date (new col)
+- notes → notes
+
+### Caller audit (every code site touching hsa_plan_info — all updated):
+
+- `hsa/routes.js:34` buildSummary ✓
+- `hsa/routes.js:106` GET /plan ✓
+- `hsa/routes.js:113` GET /plan/:year ✓
+- `hsa/routes.js:125` POST /plan ✓
+- `hsa/routes.js:148` PUT /plan/:id ✓
+- `reports/emergency.js:85` insurance summary ✓
+- `app/public/finance.html` (frontend) — no change needed, API contract preserved via column aliases
+
+### Rollback safety:
+
+Old `hsa_plan_info_DEPRECATED_v167` table preserved untouched. To drop manually after confidence:
+```
+docker exec ghrava node -e "require('/app/db/db').exec('DROP TABLE hsa_plan_info_DEPRECATED_v167')"
+```
+
+### What v.168 does NOT do (per locked scope):
+
+- Universal Attachments build — still queued for v.169
+- 31 pre-existing schema bugs — still queued for v.168.1
+- Reports live data wiring — still queued
+
+---
+
+
 
 > Standalone build drop. Touches 14 modules. Locked design in `_templates.html #28`.
 
@@ -228,6 +292,71 @@ Al wants to slice clinical + financial data both vertically (one metric over yea
 - Default time windows per metric type (BP = 30d, A1C = 1yr, cholesterol = 6mo).
 - Plot types per metric type (line for BP, bar for spend, etc.).
 - Export to PDF for doctor visits.
+
+---
+
+## 🐛 Schema audit — 31 pre-existing bugs caught by validator (v.167.1)
+
+Found 2026-05-14 by `validate-schema.js` against live prod schema. These don't crash today because they're on edge paths (no one's hit them yet) but they will crash the moment that code runs. Tracked here so they get fixed in batches, not forgotten.
+
+### Daily Log
+- `app/features/dailylog/routes.js:300` — INSERT uses `entry_date` but column is something else. Check schema.
+
+### Dashboard
+- `app/features/dashboard/routes.js:163` — `documents.doc_type` doesn't exist
+- `app/features/dashboard/routes.js:287` — `hsa_payments.receipt_path` doesn't exist
+- `app/features/dashboard/routes.js:301` — `certifications.name` doesn't exist
+- `app/features/dashboard/routes.js:313` — same `certifications.name` bug
+- `app/features/dashboard/routes.js:518` — `career_certifications.cert_name` doesn't exist
+
+### Family snapshot
+- `app/features/family-snapshot/routes.js:64` — `kids.school_name` doesn't exist
+- `app/features/family-snapshot/routes.js:92` — `perfumes.family_member_id` doesn't exist
+- `app/features/family-snapshot/routes.js:121` — `books.family_member_id` doesn't exist
+
+### Finance
+- `app/features/finance/routes.js:1340` — `import_category_rules.updated_at` doesn't exist
+- `app/features/finance/routes.js:1419` — `subscriptions.monthly_amount` doesn't exist (column is `cost`)
+- `app/features/finance/routes.js:1429` — `med_visit_notes.provider` doesn't exist (use physician_contact_id join)
+- `app/features/finance/routes.js:1439` — `hsa_payments.amount` doesn't exist (column is `you_paid`)
+- `app/features/finance/routes.js:1449` — `eobs` table doesn't exist (table is `med_eob_statements`)
+
+### Google integration
+- `app/features/google/routes.js:145` — `todos.google_tasklist_id` doesn't exist
+- `app/features/google/routes.js:153` — `todos.google_task_id` doesn't exist
+- `app/features/google/routes.js:234` — `contacts.google_id` doesn't exist (column is `google_contact_id`)
+- `app/features/google/routes.js:240` — same `contacts.google_id` bug
+
+### HSA
+- `app/features/hsa/routes.js:708` — JOIN references `a.file_name` but column doesn't exist
+- `app/features/hsa/routes.js:729` — same `a.file_name` bug + `p.amount` bug
+- `app/features/hsa/routes.js:897` — `attachments.file_path` doesn't exist
+- `app/features/hsa/routes.js:911` — `attachments.attachment_type` doesn't exist
+- `app/features/hsa/routes.js:1058` — same `a.file_path` bug
+
+### Import
+- `app/features/import/routes.js:283` — `holdings.as_of_date` doesn't exist
+- `app/features/import/routes.js:303` — same `holdings.as_of_date` bug
+
+### Shared
+- `app/shared/attachments.js:21` — `attachments.attachment_type` doesn't exist
+- `app/shared/attachments.js:33` — same bug
+- `app/shared/auto-link-subscriptions.js:43` — `subscriptions.monthly_amount` doesn't exist
+- `app/shared/folder-watcher.js:319` — `attachments.file_path` doesn't exist
+- `app/shared/folder-watcher.js:343` — `attachments.attachment_type` doesn't exist
+- `app/shared/folder-watcher.js:353` — `hsa_payments.amount` doesn't exist
+
+### Cleanup plan
+Group by table for efficient fixing:
+
+1. **`attachments` table** — 6 bugs reference fictional columns (`attachment_type`, `file_path`, `file_name`). Either renamed in a missed migration, or writes have always been broken. Inspect SCHEMA.md → attachments and fix all 6 in one pass.
+2. **`subscriptions.monthly_amount`** — 2 bugs. Column is `cost`.
+3. **`hsa_payments.amount`** — 2 bugs. Column is `you_paid`.
+4. **Google sync columns** — 4 bugs. Whole code path may be broken since launch.
+5. **Per-family-member columns** (`perfumes.family_member_id`, `books.family_member_id`) — 2 bugs.
+6. **Misc one-offs** — daily_log, dashboard certifications, finance routes 1340/1419/1429/1439/1449, holdings, kids.school_name.
+
+**Suggested drop:** v.168.1 — single-purpose plumbing fix. Walk SCHEMA.md, fix each query against real column names, validator with --strict. No new features. Effort: medium (~2 hours focused).
 
 ---
 

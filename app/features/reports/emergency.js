@@ -78,13 +78,23 @@ function getEmergencyData() {
   const allergies = [...kidAllergies, ...familyAllergies];
 
   // Insurance (current year)
+  // v202604.168 — read from fsa_plan_info with plan_type='hsa'. Columns
+  // aliased to the legacy names the rest of this function and downstream
+  // emergency-card UI use.
   const insurance = db.prepare(`
-    SELECT plan_year, plan_name, insurance_carrier,
-           plan_effective_date, individual_deductible, family_deductible,
-           individual_oop_max, family_oop_max
-    FROM hsa_plan_info
-    WHERE plan_year = CAST(strftime('%Y', 'now') AS INTEGER)
-    ORDER BY plan_year DESC LIMIT 1
+    SELECT
+      year                  AS plan_year,
+      plan_name,
+      insurance_carrier,
+      plan_effective_date,
+      individual_deductible,
+      family_deductible,
+      individual_oop_max,
+      family_oop_max
+    FROM fsa_plan_info
+    WHERE plan_type = 'hsa'
+      AND year = CAST(strftime('%Y', 'now') AS INTEGER)
+    ORDER BY year DESC LIMIT 1
   `).get();
 
   // Primary physician (emergency-flagged Medical contact, or first Medical)

@@ -22,7 +22,27 @@
 
 ---
 
-## 🚨 NEW CHAT? READ THIS FIRST — v.167 IN PROGRESS
+## 🚨 NEW CHAT? READ THIS FIRST — v.168 IN PROGRESS
+
+**Most recent packaged on prod:** v202604.167.1 (auto-linker triggers wired)
+**v202604.168 staged, NOT yet packaged** — awaiting Al's "package" command.
+
+### What's in v.168:
+**HSA plan info merged into unified fsa_plan_info table.** Fixes the "where did my 2026 HSA plan with $2,400 employer contribution go?" problem from the Settings panel.
+
+- Mig 133: extend `fsa_plan_info` with 8 HSA-specific columns
+- Mig 134: copy `hsa_plan_info` rows → `fsa_plan_info` with `plan_type='hsa'`
+- Mig 135: rename old `hsa_plan_info` → `hsa_plan_info_DEPRECATED_v167` (data preserved, name gone so nothing reads from it)
+- `hsa/routes.js`: 5 endpoints rewritten to use `fsa_plan_info WHERE plan_type='hsa'` with column aliases. API contract unchanged so `finance.html` doesn't need updating.
+- `reports/emergency.js`: insurance summary query updated.
+
+**No new features.** Pure plumbing fix done via the new schema-safety skill gate. Every prepared statement validated against the post-migration schema before package.
+
+---
+
+## 🚨 v.167 — packaged + deployed
+
+
 
 **Most recent packaged version on prod:** v202604.166 (drafts→templates, medical Overview, mig 131, bulk-seed endpoint, kids auto-sync, lens for new fields, BACKLOG.md, Help → Commands).
 

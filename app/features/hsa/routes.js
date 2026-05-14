@@ -31,7 +31,32 @@ function currentYear() {
 
 /** Full calculated HSA summary for a plan year */
 function buildSummary(year) {
-  const plan = db.prepare('SELECT * FROM hsa_plan_info WHERE plan_year = ?').get(year) || {};
+  // v202604.168 — plan_info unified into fsa_plan_info (mig 134). HSA rows
+  // are identified by plan_type='hsa'. Columns aliased back to legacy names
+  // so the rest of buildSummary stays unchanged.
+  const planRow = db.prepare(`
+    SELECT
+      id,
+      year                  AS plan_year,
+      plan_name,
+      insurance_carrier,
+      individual_deductible,
+      family_deductible,
+      individual_oop_max,
+      family_oop_max,
+      contributions         AS hsa_contribution_self,
+      employer_contribution AS hsa_contribution_employer,
+      irs_limit_self_only,
+      irs_limit_family,
+      plan_effective_date,
+      custodian,
+      active,
+      notes
+    FROM fsa_plan_info
+    WHERE year = ? AND plan_type = 'hsa'
+    LIMIT 1
+  `).get(year);
+  const plan = planRow || {};
 
   // Payments: split deductible-applicable (Out of Pocket) from total out-of-pocket
   const payRow = db.prepare(`
@@ -103,14 +128,60 @@ router.use(requireAuth);
 
 router.get('/plan', (req, res) => {
   try {
-    res.json(db.prepare('SELECT * FROM hsa_plan_info ORDER BY plan_year DESC').all());
+    // v202604.168 — read from fsa_plan_info filtered to plan_type='hsa'.
+    // Aliased back to legacy column names so the frontend (finance.html
+    // plan drawer) keeps working without changes.
+    res.json(db.prepare(`
+      SELECT
+        id,
+        year AS plan_year,
+        plan_name,
+        insurance_carrier,
+        individual_deductible,
+        family_deductible,
+        individual_oop_max,
+        family_oop_max,
+        contributions AS hsa_contribution_self,
+        employer_contribution AS hsa_contribution_employer,
+        irs_limit_self_only,
+        irs_limit_family,
+        plan_effective_date,
+        custodian,
+        active,
+        notes,
+        created_at
+      FROM fsa_plan_info
+      WHERE plan_type = 'hsa'
+      ORDER BY year DESC
+    `).all());
   } catch (e) { serverError(res, e); }
 });
 
 // GET /api/v1/hsa/plan/:year
 router.get('/plan/:year', (req, res) => {
   try {
-    const row = db.prepare('SELECT * FROM hsa_plan_info WHERE plan_year = ?').get(req.params.year);
+    const row = db.prepare(`
+      SELECT
+        id,
+        year AS plan_year,
+        plan_name,
+        insurance_carrier,
+        individual_deductible,
+        family_deductible,
+        individual_oop_max,
+        family_oop_max,
+        contributions AS hsa_contribution_self,
+        employer_contribution AS hsa_contribution_employer,
+        irs_limit_self_only,
+        irs_limit_family,
+        plan_effective_date,
+        custodian,
+        active,
+        notes,
+        created_at
+      FROM fsa_plan_info
+      WHERE plan_type = 'hsa' AND year = ?
+    `).get(req.params.year);
     if (!row) return notFound(res, 'Plan year not found');
     res.json(row);
   } catch (e) { serverError(res, e); }
@@ -121,19 +192,27 @@ router.post('/plan', (req, res) => {
   try {
     const d = req.body;
     if (!d.plan_year) return badRequest(res, 'plan_year required');
+    // v202604.168 — write to fsa_plan_info with plan_type='hsa'. The
+    // UNIQUE(year, plan_type) constraint prevents accidental duplicates.
+    // annual_limit is set to whichever IRS limit is provided (family > self).
+    const irsLimit = d.irs_limit_family || d.irs_limit_self_only || 0;
     const info = db.prepare(`
-      INSERT INTO hsa_plan_info
-        (plan_year, plan_name, insurance_carrier, individual_deductible, family_deductible,
-         individual_oop_max, family_oop_max, hsa_contribution_self, hsa_contribution_employer,
-         irs_limit_self_only, irs_limit_family, plan_effective_date, notes)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+      INSERT INTO fsa_plan_info
+        (year, plan_type, plan_name, custodian, insurance_carrier,
+         individual_deductible, family_deductible, individual_oop_max, family_oop_max,
+         contributions, employer_contribution,
+         irs_limit_self_only, irs_limit_family, plan_effective_date,
+         annual_limit, active, notes)
+      VALUES (?, 'hsa', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
     `).run(
-      d.plan_year, d.plan_name||null, d.insurance_carrier||null,
+      d.plan_year,
+      d.plan_name||null, d.custodian||null, d.insurance_carrier||null,
       d.individual_deductible||0, d.family_deductible||0,
       d.individual_oop_max||0,    d.family_oop_max||0,
       d.hsa_contribution_self||0, d.hsa_contribution_employer||0,
       d.irs_limit_self_only||0,   d.irs_limit_family||0,
-      d.plan_effective_date||null, d.notes||null
+      d.plan_effective_date||null, irsLimit,
+      d.notes||null
     );
     saveFamilyMembers(info.lastInsertRowid, 'hsa_payment', d.family_member_ids || []);
     res.status(201).json({ id: info.lastInsertRowid });
@@ -144,22 +223,25 @@ router.post('/plan', (req, res) => {
 router.put('/plan/:id', (req, res) => {
   try {
     const d = req.body;
+    // v202604.168 — id is the fsa_plan_info row id. Updates HSA fields only.
+    const irsLimit = d.irs_limit_family || d.irs_limit_self_only || 0;
     db.prepare(`
-      UPDATE hsa_plan_info SET
-        plan_year=?, plan_name=?, insurance_carrier=?,
+      UPDATE fsa_plan_info SET
+        year=?, plan_name=?, custodian=?, insurance_carrier=?,
         individual_deductible=?, family_deductible=?,
         individual_oop_max=?, family_oop_max=?,
-        hsa_contribution_self=?, hsa_contribution_employer=?,
+        contributions=?, employer_contribution=?,
         irs_limit_self_only=?, irs_limit_family=?,
-        plan_effective_date=?, notes=?, updated_at=CURRENT_TIMESTAMP
-      WHERE id=?
+        plan_effective_date=?, annual_limit=?, notes=?
+      WHERE id=? AND plan_type='hsa'
     `).run(
-      d.plan_year, d.plan_name||null, d.insurance_carrier||null,
+      d.plan_year, d.plan_name||null, d.custodian||null, d.insurance_carrier||null,
       d.individual_deductible||0, d.family_deductible||0,
       d.individual_oop_max||0,    d.family_oop_max||0,
       d.hsa_contribution_self||0, d.hsa_contribution_employer||0,
       d.irs_limit_self_only||0,   d.irs_limit_family||0,
-      d.plan_effective_date||null, d.notes||null, req.params.id
+      d.plan_effective_date||null, irsLimit,
+      d.notes||null, req.params.id
     );
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
@@ -271,12 +353,10 @@ router.post('/payments', (req, res) => {
 
     // v202604.167 — reverse EOB↔HSA matching (#27.3). When a new HSA
     // payment lands, scan unlinked EOB claims for matches and create
-    // record_links rows. Same matcher as the EOB-import path. Best-
-    // effort: failures logged but never block the create.
+    // record_links rows. Best-effort: failures logged but never block.
     try {
       const matcher = require('../medical/eob-hsa-matcher');
       const newPmt = db.prepare('SELECT * FROM hsa_payments WHERE id=?').get(info.lastInsertRowid);
-      // Find unlinked claims for the same patient within ±30d / ±$2
       const claims = db.prepare(`
         SELECT * FROM med_eob_claims
         WHERE patient = ?
