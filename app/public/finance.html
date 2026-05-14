@@ -477,7 +477,7 @@
   </div>
 
   <!-- ══════════════════════════════════════════════════════
-       BUDGETS TAB (wireframe — build next session)
+       BUDGETS TAB (v.169 — full UI + forecast)
        ══════════════════════════════════════════════════════ -->
   <div class="view-panel" id="panel-budgets">
     <div style="padding:12px 16px 0;display:flex;align-items:center;justify-content:space-between">
@@ -504,7 +504,13 @@
       </div>
     </div>
 
-    <div id="budgetList" style="padding:4px 16px 0">
+    <!-- Monthly trend strip (v.169) — 12 mini bars of spent vs limit -->
+    <div id="budTrendSection" style="padding:8px 16px 0;display:none">
+      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 0">Monthly trend · <span id="budTrendYear"></span></div>
+      <div id="budTrendBars" style="display:flex;gap:4px;height:48px;align-items:flex-end;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:8px"></div>
+    </div>
+
+    <div id="budgetList" style="padding:12px 16px 0">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
 
@@ -512,6 +518,59 @@
     <div id="unbudgetedSection" style="padding:0 16px;display:none">
       <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:12px 0 6px">Unbudgeted Spending</div>
       <div id="unbudgetedList"></div>
+    </div>
+
+    <!-- ── Cash-flow forecast (v.169) ───────────────────────────
+         Reads /api/v1/finance/forecast?days=N. Reflects active rows
+         in recurring_transactions starting today. Reset days via
+         the chip buttons. -->
+    <div id="forecastSection" style="padding:18px 16px 80px">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0">
+        <div>
+          <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3)">Cash-flow forecast</div>
+          <div style="font-size:11px;color:var(--text3);margin-top:2px">Projected from recurring transactions · liquid accounts only</div>
+        </div>
+        <div style="display:flex;gap:2px">
+          <button class="chip-btn active" data-fcd="30" onclick="setForecastDays(30,this)">30d</button>
+          <button class="chip-btn"        data-fcd="60" onclick="setForecastDays(60,this)">60d</button>
+          <button class="chip-btn"        data-fcd="90" onclick="setForecastDays(90,this)">90d</button>
+        </div>
+      </div>
+
+      <!-- Summary strip -->
+      <div style="display:flex;gap:8px;padding:8px 0 4px">
+        <div class="hsa-card" style="flex:1;text-align:center">
+          <div class="hsa-card-label">Starting</div>
+          <div id="fcStarting" class="hsa-card-value">—</div>
+        </div>
+        <div class="hsa-card" style="flex:1;text-align:center">
+          <div class="hsa-card-label">Income</div>
+          <div id="fcIncome" class="hsa-card-value" style="color:var(--green)">—</div>
+        </div>
+        <div class="hsa-card" style="flex:1;text-align:center">
+          <div class="hsa-card-label">Expenses</div>
+          <div id="fcExpenses" class="hsa-card-value" style="color:var(--red)">—</div>
+        </div>
+        <div class="hsa-card" style="flex:1;text-align:center">
+          <div class="hsa-card-label">Ending</div>
+          <div id="fcEnding" class="hsa-card-value">—</div>
+        </div>
+      </div>
+
+      <!-- Lowest-balance alert -->
+      <div id="fcLowAlert" style="display:none;background:#fffbeb;border:1px solid #fbbf24;border-radius:var(--r);padding:8px 12px;margin:6px 0;font-size:12px;color:var(--text2)"></div>
+
+      <!-- Running-balance bar chart -->
+      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:10px;margin-top:6px">
+        <div id="fcChart" style="display:flex;gap:1px;height:80px;align-items:flex-end"></div>
+        <div id="fcChartLabels" style="display:flex;justify-content:space-between;padding-top:4px;font-family:var(--mono);font-size:9px;color:var(--text3)"></div>
+      </div>
+
+      <!-- Upcoming items list -->
+      <div style="margin-top:14px">
+        <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);padding:6px 0">Upcoming items</div>
+        <div id="fcItems"><div class="spinner"><div class="spin"></div>Loading…</div></div>
+      </div>
     </div>
   </div>
 
@@ -3813,6 +3872,136 @@ async function deleteGc() {
     toast('Removed');
     document.getElementById('budgetDrawer').classList.remove('open');
     loadBudgets();
+  };
+
+  // ─── Monthly trend strip (v.169) ─────────────────────────────
+  async function loadBudgetTrend() {
+    const sec = document.getElementById('budTrendSection');
+    const bars = document.getElementById('budTrendBars');
+    if (!sec || !bars) return;
+    const year = document.getElementById('budgetYearSel')?.value || new Date().getFullYear();
+    try {
+      const data = await api('GET', `/finance/budgets/history?year=${year}`);
+      if (!data.monthly_limit) { sec.style.display = 'none'; return; }
+      sec.style.display = 'block';
+      document.getElementById('budTrendYear').textContent = data.year;
+      const today = new Date();
+      const curMonth = today.getFullYear() === Number(data.year) ? today.getMonth() + 1 : 13;
+      bars.innerHTML = data.months.map(m => {
+        const pct = Math.min(100, m.pct);
+        const future = m.month > curMonth;
+        const color = future ? 'var(--bg4)' : (m.pct >= 100 ? '#ef4444' : m.pct >= 80 ? '#f59e0b' : '#22c55e');
+        const label = ['J','F','M','A','M','J','J','A','S','O','N','D'][m.month-1];
+        const tip = `${label} ${data.year}: ${fmt$(m.spent)} of ${fmt$(m.limit)} (${m.pct}%)`;
+        return `<div title="${tip}" style="flex:1;display:flex;flex-direction:column;align-items:center;height:100%">
+          <div style="flex:1;width:100%;display:flex;align-items:flex-end">
+            <div style="width:100%;height:${pct}%;background:${color};border-radius:2px;opacity:${future?0.3:1};transition:height .3s"></div>
+          </div>
+          <div style="font-family:var(--mono);font-size:9px;color:var(--text3);margin-top:4px">${label}</div>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      sec.style.display = 'none';
+    }
+  }
+
+  // ─── Cash-flow forecast (v.169) ──────────────────────────────
+  let _fcDays = 30;
+  window.setForecastDays = function(days, btn) {
+    _fcDays = days;
+    document.querySelectorAll('[data-fcd]').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
+    loadForecast();
+  };
+
+  async function loadForecast() {
+    const items = document.getElementById('fcItems');
+    const chart = document.getElementById('fcChart');
+    if (!items || !chart) return;
+    items.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+    try {
+      const d = await api('GET', `/finance/forecast?days=${_fcDays}`);
+      const s = d.summary;
+
+      // Summary strip
+      document.getElementById('fcStarting').textContent = fmt$(s.starting_balance);
+      document.getElementById('fcIncome').textContent   = fmt$(s.total_income);
+      document.getElementById('fcExpenses').textContent = fmt$(s.total_expenses);
+      const endEl = document.getElementById('fcEnding');
+      endEl.textContent = fmt$(s.ending_balance);
+      endEl.style.color = s.ending_balance >= s.starting_balance ? 'var(--green)' : 'var(--red)';
+
+      // Lowest-balance alert
+      const alertEl = document.getElementById('fcLowAlert');
+      if (s.projected_lowest < s.starting_balance && s.projected_lowest < 1000) {
+        alertEl.style.display = 'block';
+        alertEl.innerHTML = `⚠️ Projected low of <strong>${fmt$(s.projected_lowest)}</strong> on ${esc(s.projected_lowest_date)}`;
+      } else {
+        alertEl.style.display = 'none';
+      }
+
+      // Bar chart — running balance per day
+      if (!d.daily.length) {
+        chart.innerHTML = '<div style="margin:auto;color:var(--text3);font-size:12px">No projections in this window.</div>';
+        document.getElementById('fcChartLabels').innerHTML = '';
+      } else {
+        const bals = d.daily.map(x => x.running_balance);
+        const max = Math.max(...bals, s.starting_balance);
+        const min = Math.min(...bals, 0, s.starting_balance);
+        const range = (max - min) || 1;
+        chart.innerHTML = d.daily.map(day => {
+          const h = Math.max(3, Math.round(((day.running_balance - min) / range) * 100));
+          const hasActivity = day.items.length > 0;
+          const isNeg = day.running_balance < 0;
+          const color = isNeg ? '#ef4444' : (hasActivity ? '#22c55e' : 'var(--bg4)');
+          const tip = `${day.date}: ${fmt$(day.running_balance)}${hasActivity ? ' · ' + day.items.length + ' item' + (day.items.length===1?'':'s') : ''}`;
+          return `<div title="${tip}" style="flex:1;height:${h}%;background:${color};border-radius:1px;min-height:2px;opacity:${hasActivity?1:0.5}"></div>`;
+        }).join('');
+        const labels = document.getElementById('fcChartLabels');
+        const first = d.daily[0]?.date || '';
+        const mid = d.daily[Math.floor(d.daily.length/2)]?.date || '';
+        const last = d.daily[d.daily.length-1]?.date || '';
+        labels.innerHTML = `<span>${first.slice(5)}</span><span>${mid.slice(5)}</span><span>${last.slice(5)}</span>`;
+      }
+
+      // Item list (events only — days with activity)
+      const events = d.daily.filter(x => x.items.length > 0);
+      if (!events.length) {
+        items.innerHTML = `<div style="text-align:center;color:var(--text3);padding:24px 16px;font-size:13px">No recurring transactions scheduled in the next ${_fcDays} days.<br><span style="color:var(--text3);font-size:11px">Add recurring bills/income via the <a href="#" onclick="gotoFinTab('transactions');return false" style="color:var(--accent)">Transactions tab</a>.</span></div>`;
+      } else {
+        items.innerHTML = events.map(day => {
+          return `<div style="margin-bottom:10px">
+            <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--text3);padding:4px 0;border-bottom:1px solid var(--border)">
+              <span>${esc(day.date)}</span>
+              <span>${day.net>=0?'+':'−'}${fmt$(Math.abs(day.net))} · ending ${fmt$(day.running_balance)}</span>
+            </div>
+            ${day.items.map(it => {
+              const amt = it.amount;
+              const sign = amt >= 0 ? '+' : '−';
+              const col = amt >= 0 ? 'var(--green)' : 'var(--red)';
+              return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:13px;color:var(--text)">${esc(it.description)}</div>
+                  <div style="font-size:11px;color:var(--text3)">${esc(it.account_name||'(no account)')}${it.category?' · '+esc(it.category):''}${it.frequency?' · '+esc(it.frequency):''}</div>
+                </div>
+                <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:${col};white-space:nowrap;margin-left:8px">${sign}${fmt$(Math.abs(amt))}</div>
+              </div>`;
+            }).join('')}
+          </div>`;
+        }).join('');
+      }
+    } catch (e) {
+      items.innerHTML = `<div style="color:var(--red);padding:12px;font-size:12px">${esc(e.message || 'Forecast failed')}</div>`;
+      chart.innerHTML = '';
+    }
+  }
+
+  // Wrap loadBudgets to also fire trend + forecast on each refresh
+  const _origLoadBudgets = window.loadBudgets;
+  window.loadBudgets = async function() {
+    if (_origLoadBudgets) await _origLoadBudgets();
+    loadBudgetTrend();
+    loadForecast();
   };
 
   // Hook into switchFinTab — call loadBudgets when switching to budgets tab

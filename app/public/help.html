@@ -175,6 +175,30 @@ const FAQ = [
 // MUST append an entry here. See STATE.md / BACKLOG.md.
 const COMMANDS = [
   {
+    title: 'Cash-flow forecast — 30 days',
+    cmd: 'curl -s http://localhost:3001/api/v1/finance/forecast?days=30 | python3 -m json.tool',
+    desc: 'Project the next 30 days of cash flow from active recurring transactions. Returns starting/ending balance, total income/expenses, projected lowest balance, and a per-day breakdown with itemized events. Swap days=30 for 60 or 90.',
+    tags: ['v.169', 'finance', 'forecast'],
+  },
+  {
+    title: 'Cash-flow forecast — what-if balance',
+    cmd: 'curl -s "http://localhost:3001/api/v1/finance/forecast?days=90&starting_balance=5000" | python3 -m json.tool',
+    desc: 'Run the 90-day forecast with a hypothetical starting balance instead of the auto-summed liquid-account total. Useful for "what if I pull $X out for a one-time purchase" scenarios.',
+    tags: ['v.169', 'finance', 'forecast'],
+  },
+  {
+    title: 'Budget summary (lightweight)',
+    cmd: 'curl -s "http://localhost:3001/api/v1/finance/budgets/summary?year=2026&month=5" | python3 -m json.tool',
+    desc: 'Totals only: limit, spent, remaining, over/near counts. Faster than the full /budgets endpoint when you just need the headline. Used by any tile that wants the budget pulse without the per-category breakout.',
+    tags: ['v.169', 'finance', 'budget'],
+  },
+  {
+    title: 'Budget monthly history',
+    cmd: 'curl -s "http://localhost:3001/api/v1/finance/budgets/history?year=2026" | python3 -m json.tool',
+    desc: '12 months of total-spent vs total-limit for the given year. Powers the trend strip on the Budgets tab. Future months render at 0% but stay in the array so the chart shape is stable across the year.',
+    tags: ['v.169', 'finance', 'budget'],
+  },
+  {
     title: 'Import medical seed — dry run',
     cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json --dry-run',
     desc: 'Preview the medical seed mapping (which family member, how many records per section) WITHOUT writing to the DB. Always run this first to verify the family_member resolution.',

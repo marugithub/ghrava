@@ -22,7 +22,89 @@
 
 ---
 
-## 🚨 NEW CHAT? READ THIS FIRST — v.168 IN PROGRESS
+## 🚨 NEW CHAT? READ THIS FIRST — v.169 IN PROGRESS
+
+**Most recent packaged on prod:** v202604.168.2 (HSA plan info merge + patches)
+**v202604.169 staged, NOT yet packaged** — awaiting Al's "package" command.
+
+### What's in v.169 — Finance Finalization (PM-led drop)
+
+Single coordinated drop to close out the finance module. Three groups of work, all green through `node --check` + schema validator + JSDOM/integration smoke.
+
+**1. Five schema bugs fixed in `finance/routes.js`** (from BACKLOG.md v.167.1 audit)
+- L1340 — `import_category_rules.updated_at` removed (column doesn't exist)
+- L1419 — `subscriptions.monthly_amount` → `cost` (canonical column per mig 109b)
+- L1429 — `med_visit_notes.provider` → LEFT JOIN `contacts` ON `physician_contact_id`
+- L1439 — `hsa_payments.amount` → `you_paid`
+- L1449 — `eobs` table → `med_eob_statements` (with correct column list)
+
+**Bonus 6th fix** (same module, found by validator): `import_batches.row_count` → `rows_total` at L1133 — was crashing every file-import in the path that used this branch. Same-module 1-line cleanup; left a `schema: ...` comment per skill convention.
+
+**2. Budget UI — finalized**
+- `features/finance/budgets.js` rewritten end-to-end:
+  - Reads unified `transactions` table directly (no more `finance_transactions` / `imported_transactions` compat views in the spending query — cleaner, future-proof when compat views are dropped).
+  - All SQL annotated with `schema:` comments per skill convention.
+  - New `GET /summary?year=&month=` — lightweight totals + over/near counts.
+  - New `GET /history?year=` — 12 months of total spent vs total limit, powers the trend strip.
+- `finance.html` Budgets tab:
+  - Existing list + drawer kept (already wired in v.165, just had a stale wireframe comment).
+  - **New monthly trend strip** — 12 mini bars colored green/amber/red by pct used, current+past months at full opacity, future at 30%.
+  - **New Cash-flow forecast section** below the unbudgeted list — full feature, see (3).
+
+**3. Cash-flow forecast — new feature**
+- `features/finance/forecast.js` — new sub-router mounted at `/api/v1/finance/forecast`.
+- `GET /?days=30|60|90` — projects active rows from `recurring_transactions` forward across the window.
+- Returns:
+  - `summary.{starting_balance, ending_balance, total_income, total_expenses, net, projected_lowest, projected_lowest_date, count}`
+  - `daily[]` of per-day `{date, income, expenses, net, running_balance, items:[{description, amount, account_name, category, frequency}]}`
+- Starting balance = sum of liquid accounts (Checking/Savings/Cash/HSA only — Credit/Loan/Mortgage excluded since they're not cash).
+- Override starting balance with `?starting_balance=N` for what-if scenarios.
+- Hard cap of 365 days on the input window.
+- Forecast renderer on the Budgets tab:
+  - 30d/60d/90d chip selector.
+  - 4-card summary strip (Starting / Income / Expenses / Ending).
+  - Amber low-balance alert when `projected_lowest < starting AND < $1000`.
+  - Running-balance bar chart (one bar per day, green if activity, red if negative, dim if no activity).
+  - Event list grouped by date with per-item description / account / category / frequency / amount.
+- Locked-design note: this satisfies `_templates.html #26.1.5` (Cash-flow forecast chart from the Reports group). Wired into Budgets first because forecast complements budgeting; the Reports tab will reuse the same endpoint.
+
+### What v.169 does NOT do (explicitly out of scope)
+
+- Universal Attachments (#28) — still queued for v.170
+- 28 remaining pre-existing schema bugs from the v.167.1 audit (in dashboard/family-snapshot/google/hsa/import/shared paths) — separate plumbing drop
+- Reports tab live wiring (forecast endpoint is here but the chart on /reports.html still uses the v.167 mockup)
+- Tile-2 budget target (deferred per Al)
+
+### Files touched (v.169)
+
+| File | Change |
+|---|---|
+| `app/features/finance/routes.js` | 5 schema bugs in `resolveLinkLabel` + L1133 import_batches.row_count→rows_total + LINK_TYPES comment + mount `/forecast` |
+| `app/features/finance/budgets.js` | Rewritten — unified `transactions`, +`/summary`, +`/history`, schema comments |
+| `app/features/finance/forecast.js` | NEW — 235 lines, cash-flow projection endpoint |
+| `app/public/finance.html` | Budgets tab: trend strip + forecast section + JS (`loadBudgetTrend`, `loadForecast`, `setForecastDays`) |
+| `app/public/js/lens-config.js` | +`budgets` lens entry (category/year/status dimensions) |
+| `app/public/help.html` | +4 commands (forecast 30d, forecast what-if, budget summary, budget history) |
+| `app/version.txt` | `202604.169` |
+| `STATE.md`, `HANDOFF.md`, `BACKLOG.md`, `SCHEMA.md`, `app/SCHEMA.md` | updated |
+
+### Verification
+
+- `node --check` on all 3 finance JS files + lens-config.js → clean.
+- HTML inline-script syntax check on `finance.html` (5 blocks) → clean.
+- Schema validator (`validate-schema.py --strict`) — **0 failures in finance/* after my changes**. 28 pre-existing failures elsewhere are documented in BACKLOG and out of scope.
+- Integration smoke (in-memory SQLite + real express router):
+  - 5 resolveLinkLabel paths return non-null with correct keys ✓
+  - `GET /budgets`: 2 budgets, Groceries spent=$205 from 2 transactions, Dining pct=43% ✓
+  - `GET /budgets/summary`: total_limit=$550, total_spent=$270, over_count=0 ✓
+  - `GET /budgets/history`: 12 months, monthly_limit=$550 ✓
+  - `GET /forecast?days=30`: 30 daily entries, starting=$17800 (Credit excluded), 3 event days from the seeded recurrences ✓
+  - `?starting_balance=10000` override honored ✓
+  - `?days=90` returns 90 entries ✓
+
+---
+
+## ⏪ v.168 — superseded by v.169 (kept for reference)
 
 **Most recent packaged on prod:** v202604.167.1 (auto-linker triggers wired)
 **v202604.168 staged, NOT yet packaged** — awaiting Al's "package" command.

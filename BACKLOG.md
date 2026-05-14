@@ -1,3 +1,28 @@
+## ✅ v.169 SHIPPED — Finance Finalization (PM drop, 2026-05-14)
+
+**Single coordinated drop closing out the finance module.** No migrations. Additive only. Schema validator clean on finance/* paths.
+
+### Fixed
+- ✅ All 5 finance schema bugs from the v.167.1 audit (routes.js lines 1340/1419/1429/1439/1449 — see "Finance" subsection below; entries crossed out)
+- ✅ Bonus: routes.js:1133 `import_batches.row_count` → `rows_total` (was crashing every file-import; same module, 1-line)
+
+### Built
+- ✅ **Budget UI** finalized — `budgets.js` rewritten using unified `transactions` table; new `/summary` + `/history` endpoints; monthly trend strip in `finance.html` Budgets tab.
+- ✅ **Cash-flow forecast** new feature — `features/finance/forecast.js`, `GET /api/v1/finance/forecast?days=30|60|90`, with `?starting_balance=N` what-if. Surfaced in Budgets tab: chip selector, 4-card summary strip, low-balance alert, running-balance bar chart, event list. Satisfies `_templates.html #26.1.5` from a backend standpoint (Reports chart can now consume it).
+
+### Doc updates
+- ✅ `lens-config.js` — `budgets` lens entry added (category/year/status).
+- ✅ `help.html` — 4 commands added (forecast 30d, forecast what-if, budgets summary, budgets history).
+- ✅ `SCHEMA.md` regenerated.
+
+### What v.169 deliberately does NOT do
+- Universal Attachments (#28) — still queued for v.170.
+- 28 remaining pre-existing schema bugs in non-finance paths (attachments, google, hsa, dashboard, family-snapshot) — queued for v.169.1 plumbing drop.
+- Reports tab live data wiring — endpoint is ready, chart still mockup.
+- Tile-2 budget target — deferred per Al.
+
+---
+
 # BACKLOG.md — Ghrava deferred work
 
 > **Required reading per chat. STATE.md points here.**
@@ -220,17 +245,15 @@ docker exec ghrava node -e "require('/app/db/db').exec('DROP TABLE hsa_plan_info
 - **Why:** mobile = Al only, desktop = whole household. Today scope is shared across all devices.
 - **Effort:** medium (~150 lines). New `_templates/family-filter.html` design exists.
 
-### Cash-flow forecast (Finance)
-- **What:** project next 30/60/90 days starting today using `finance_recurring` (bills + income). Line chart. Click any future date → which bills/income land that day.
+### Cash-flow forecast (Finance) — ✅ SHIPPED v.169
+- **What:** project next 30/60/90 days starting today using `recurring_transactions` (bills + income). Per-day running balance, low-balance alert, event list. Click any future date → which bills/income land that day.
 - **Why:** Reports today are past-only. Forward visibility is the missing half.
-- **Effort:** medium (~200 lines). New endpoint `/api/v1/finance/forecast?days=90`. Chart in #26 Reports Group 1 as #26.1.5.
-- **Depends on:** Reports engine build (v.167.1+).
+- **Shipped in:** `app/features/finance/forecast.js` (new sub-router), `/api/v1/finance/forecast?days=N`. Surfaced in Budgets tab.
+- **Still TODO:** wire into `_templates.html #26.1.5 Cash-flow forecast` chart on the Reports tab (endpoint is ready, chart still mockup).
 
-### Budget UI (Finance)
-- **What:** monthly budget limits per category. Progress bars. Alert when over.
-- **Why:** `budgets.js` backend exists, no surface.
-- **Effort:** medium. New `/budget.html` page or Finance tab.
-- **Status:** Al deferred to backlog (v.167 discussion).
+### Budget UI (Finance) — ✅ SHIPPED v.169
+- **Shipped in:** `app/features/finance/budgets.js` rewritten with unified `transactions` table; new `/summary` + `/history` endpoints. `finance.html` Budgets tab adds monthly trend strip.
+- **Still TODO:** Tile-2 budget target (deferred per Al).
 
 ### EOB folder-drop persistence (Finance/Medical)
 - **What:** `importEob` in watcher counts files but doesn't save records. Manual upload via Medical works fine.
@@ -315,11 +338,12 @@ Found 2026-05-14 by `validate-schema.js` against live prod schema. These don't c
 - `app/features/family-snapshot/routes.js:121` — `books.family_member_id` doesn't exist
 
 ### Finance
-- `app/features/finance/routes.js:1340` — `import_category_rules.updated_at` doesn't exist
-- `app/features/finance/routes.js:1419` — `subscriptions.monthly_amount` doesn't exist (column is `cost`)
-- `app/features/finance/routes.js:1429` — `med_visit_notes.provider` doesn't exist (use physician_contact_id join)
-- `app/features/finance/routes.js:1439` — `hsa_payments.amount` doesn't exist (column is `you_paid`)
-- `app/features/finance/routes.js:1449` — `eobs` table doesn't exist (table is `med_eob_statements`)
+- ✅ **FIXED v.169** — `app/features/finance/routes.js:1340` `import_category_rules.updated_at` removed
+- ✅ **FIXED v.169** — `app/features/finance/routes.js:1419` `subscriptions.monthly_amount` → `cost`
+- ✅ **FIXED v.169** — `app/features/finance/routes.js:1429` `med_visit_notes.provider` → `physician_contact_id` JOIN `contacts`
+- ✅ **FIXED v.169** — `app/features/finance/routes.js:1439` `hsa_payments.amount` → `you_paid`
+- ✅ **FIXED v.169** — `app/features/finance/routes.js:1449` `eobs` table → `med_eob_statements`
+- ✅ **FIXED v.169** (bonus) — `app/features/finance/routes.js:1133` `import_batches.row_count` → `rows_total`
 
 ### Google integration
 - `app/features/google/routes.js:145` — `todos.google_tasklist_id` doesn't exist

@@ -1130,8 +1130,10 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
     }
 
     // Create batch row in unified import_batches (no CASCADE)
+    // schema: import_batches.{account_id, filename, format, rows_total}
+    // v.169: was `row_count` — column is `rows_total` per mig 032
     const batch = db.prepare(`
-      INSERT INTO import_batches (account_id, filename, format, row_count)
+      INSERT INTO import_batches (account_id, filename, format, rows_total)
       VALUES (?, ?, ?, ?)
     `).run(account_id, req.file.originalname || 'upload', parsed.format || 'unknown', txns.length);
     const batchId = batch.lastInsertRowid;
@@ -1283,6 +1285,9 @@ router.use('/budgets', require('./budgets'));
 // Reports subrouter
 router.use('/reports', require('./reports'));
 
+// Forecast subrouter (v.169) — cash-flow projection from recurring_transactions
+router.use('/forecast', require('./forecast'));
+
 
 
 // ── Recurring Transactions ────────────────────────────────────
@@ -1337,7 +1342,8 @@ router.put('/category-rules/:id', requireAuth, (req, res) => {
   try {
     const { pattern, category, priority } = req.body;
     if (!pattern || !category) return badRequest(res, 'pattern and category required');
-    db.prepare(`UPDATE import_category_rules SET pattern=?, category=?, priority=COALESCE(?,priority), updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+    // schema: import_category_rules.pattern, .category, .priority (no updated_at column)
+    db.prepare(`UPDATE import_category_rules SET pattern=?, category=?, priority=COALESCE(?,priority) WHERE id=?`)
       .run(pattern.toUpperCase(), category, priority, req.params.id);
     res.json(db.prepare('SELECT * FROM import_category_rules WHERE id=?').get(req.params.id));
   } catch(e) { serverError(res, e); }
@@ -1385,12 +1391,12 @@ router.post('/portfolio/snapshot', requireAuth, (req, res) => {
 // per-transaction context (subscriptions paid, EOBs reimbursed,
 // medical visits attached, etc.).
 //
-// Type vocabulary (locked v.157):
-//   'transaction'     finance.transactions
+// Type vocabulary (locked v.157; eob table corrected v.169):
+//   'transaction'     transactions
 //   'subscription'    subscriptions
 //   'medical_visit'   med_visit_notes
 //   'hsa_payment'     hsa_payments
-//   'eob'             eobs
+//   'eob'             med_eob_statements
 //   'document'        documents
 //
 // Adding a new type is a one-line addition to LINK_TYPES on
@@ -1416,41 +1422,56 @@ function resolveLinkLabel(type, id) {
         } : null;
       }
       case 'subscription': {
+        // schema: subscriptions.name, .cost (canonical per mig 109b — also `monthly_cost` on prod)
         const r = db.prepare(`
-          SELECT name, monthly_amount FROM subscriptions WHERE id=?
+          SELECT name, cost FROM subscriptions WHERE id=?
         `).get(id);
         return r ? {
           label: r.name,
-          sub: r.monthly_amount != null ? `$${Number(r.monthly_amount).toFixed(2)}/mo` : null,
+          sub: r.cost != null ? `$${Number(r.cost).toFixed(2)}/mo` : null,
           href: `/subscriptions.html`,
         } : null;
       }
       case 'medical_visit': {
+        // schema: med_visit_notes.visit_date, .patient, .physician_contact_id (no `provider` col)
+        // join to contacts.name when physician_contact_id is set, else fall back to visit_type/reason
         const r = db.prepare(`
-          SELECT visit_date, patient, provider FROM med_visit_notes WHERE id=?
+          SELECT v.visit_date, v.patient, v.visit_type, v.reason,
+                 c.name AS provider_name
+          FROM med_visit_notes v
+          LEFT JOIN contacts c ON c.id = v.physician_contact_id
+          WHERE v.id=?
         `).get(id);
-        return r ? {
-          label: `${r.patient || ''} — ${r.provider || ''}`.trim(),
+        if (!r) return null;
+        const provider = r.provider_name || r.visit_type || r.reason || '';
+        return {
+          label: `${r.patient || ''}${provider ? ' — ' + provider : ''}`.trim(),
           sub: r.visit_date,
           href: `/medical.html`,
-        } : null;
+        };
       }
       case 'hsa_payment': {
+        // schema: hsa_payments.date, .provider, .you_paid (no `amount` col)
         const r = db.prepare(`
-          SELECT date, provider, amount FROM hsa_payments WHERE id=?
+          SELECT date, provider, you_paid FROM hsa_payments WHERE id=?
         `).get(id);
         return r ? {
           label: r.provider || '(HSA expense)',
-          sub: `${r.date} · $${Number(r.amount||0).toFixed(2)}`,
+          sub: `${r.date} · $${Number(r.you_paid||0).toFixed(2)}`,
           href: `/hsa.html`,
         } : null;
       }
       case 'eob': {
-        const r = db.prepare(`SELECT * FROM eobs WHERE id=?`).get(id);
+        // schema: table is `med_eob_statements` (no `eobs` table).
+        // Columns: insurer, plan_name, member_name, statement_date, period_start, period_end, your_share_total
+        const r = db.prepare(`
+          SELECT insurer, plan_name, member_name, statement_date, period_start, period_end
+          FROM med_eob_statements WHERE id=?
+        `).get(id);
         if (!r) return null;
         return {
-          label: r.provider || r.member_name || '(EOB)',
-          sub: r.service_date || r.received_date,
+          label: r.insurer || r.plan_name || r.member_name || '(EOB)',
+          sub: r.statement_date || r.period_start || r.period_end,
           href: `/medical.html`,
         };
       }

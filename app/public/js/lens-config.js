@@ -65,6 +65,19 @@
       },
     },
 
+    // v.169 — Budgets lens (Finance → Budgets tab)
+    budgets: {
+      label: 'Budgets',
+      plural: 'budgets',
+      dimensions: {
+        category: { type: 'text', verb: 'for', field: 'category' },
+        year:     { type: 'select', verb: 'in', field: 'year',
+          values: ['2026','2025','2024','2023'] },
+        status:   { type: 'select', verb: 'that are', field: 'is_active',
+          values: ['1','0'] },
+      },
+    },
+
     books: {
       label: 'Books',
       plural: 'books',
