@@ -30,7 +30,7 @@ const findTxnStmt = db.prepare(`
 const findContactStmt = db.prepare(`
   SELECT id, name FROM contacts
   WHERE LOWER(TRIM(name)) = ?
-    AND type = 'medical_provider'
+    AND contact_type = 'Medical'
   LIMIT 1
 `);
 

@@ -62,18 +62,23 @@ function resolveFamilyMember(seed) {
 function importCareTeam(rows, fmId) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
+  // contacts schema (verified against mig 001 + mig 010 + mig 131):
+  //   contact_type (NOT 'type'), name, company (NOT 'practice_name'),
+  //   phone_primary (NOT 'phone'), email, address, specialty,
+  //   credentials, manages, is_primary_pcp, portal_url, fax, npi
+  // Medical providers use contact_type='Medical' (capitalized).
   const findContact = db.prepare(`
     SELECT id FROM contacts
     WHERE LOWER(name) = LOWER(?)
-      AND COALESCE(LOWER(practice_name), '') = COALESCE(LOWER(?), '')
+      AND COALESCE(LOWER(company), '') = COALESCE(LOWER(?), '')
     LIMIT 1
   `);
   const insertContact = db.prepare(`
     INSERT INTO contacts (
-      name, type, specialty, practice_name, address, phone, fax,
+      name, contact_type, specialty, company, address, phone_primary, fax,
       credentials, manages, is_primary_pcp, portal_url, npi,
       created_at, updated_at
-    ) VALUES (?, 'medical_provider', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    ) VALUES (?, 'Medical', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `);
   for (const r of rows) {
     if (!r || !r.name) { skipped++; continue; }

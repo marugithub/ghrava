@@ -253,6 +253,12 @@ const COMMANDS = [
     desc: 'List every auto-link flagged for Al to review. Same data the floating "Needs review" pill surfaces in the UI.',
     tags: ['v.167', 'debug'],
   },
+  {
+    title: 'Schema validator (predeploy gate)',
+    cmd: 'python3 scripts/validate-schema.py',
+    desc: 'Builds a prod-mirror SQLite DB from every migration, then validates every db.prepare(`SQL`) in the codebase parses against the real schema. Run before every package to catch "column does not exist" bugs that would crash the container at startup. The bug that broke v.167 hotfix (referenced a.account_type when the column is a.type) would have been caught by this.',
+    tags: ['v.167', 'predeploy', 'debug'],
+  },
 ];
 
 document.getElementById('modulesList').innerHTML = MODULES.map(m => `

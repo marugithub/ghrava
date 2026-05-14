@@ -41,29 +41,33 @@ function enrichKid(kid) {
   return kid;
 }
 
-// Auto-sync helper (v202604.166): for every active family_member whose
+// Auto-sync helper (v202604.166): for every family_member whose
 // relationship is in the child set, ensure a `kids` row exists. Avoids
 // the multi-kid bug where Risha (in family_members) doesn't appear on
 // the Kids page because nobody manually created a kids row for her.
 // Idempotent — only INSERTs when no row with that family_member_id
 // already exists.
+//
+// NOTE: family_members does NOT have an is_active column (verified
+// against live schema). All rows are considered active unless excluded
+// by the relationship filter below.
 const KID_RELATIONSHIPS = ['Son','Daughter','Child','Stepson','Stepdaughter','Stepchild'];
 function syncKidsFromFamilyMembers() {
   try {
     const ks = "(" + KID_RELATIONSHIPS.map(() => '?').join(',') + ")";
     const children = db.prepare(`
-      SELECT id, display_name, date_of_birth, photo_url
+      SELECT id, display_name, date_of_birth
       FROM family_members
-      WHERE is_active = 1 AND relationship IN ${ks}
+      WHERE relationship IN ${ks}
     `).all(...KID_RELATIONSHIPS);
     const exists = db.prepare(`SELECT 1 FROM kids WHERE family_member_id = ? AND is_active = 1`);
     const insertKid = db.prepare(`
-      INSERT INTO kids (display_name, date_of_birth, family_member_id, photo_url, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      INSERT INTO kids (display_name, date_of_birth, family_member_id, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `);
     for (const m of children) {
       if (exists.get(m.id)) continue;
-      insertKid.run(m.display_name, m.date_of_birth || null, m.id, m.photo_url || null);
+      insertKid.run(m.display_name, m.date_of_birth || null, m.id);
     }
   } catch (e) {
     // Don't block the list endpoint if sync fails (schema drift, etc.)
