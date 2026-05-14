@@ -61,6 +61,27 @@ The Node version is more accurate because it uses the actual prod DB. The Python
 
 Both build a prod-equivalent schema, walk every `db.prepare(\`SQL\`)` in `app/`, and run `EXPLAIN` against it. Real schema errors (missing column, missing table) cause a non-zero exit code with `--strict`.
 
+### Step 5 — Downstream wiring audit (REQUIRED when migration moves/renames data)
+
+When a migration changes column/table structure OR moves data between tables (rename, merge, deprecate), validating SQL parsing is NOT enough. You must also verify every downstream surface still works:
+
+```bash
+# Find every reader of the affected table/column:
+grep -rn "<old_table_name>" app/features/ app/shared/ app/public/
+grep -rn "<old_column_name>" app/features/ app/shared/ app/public/
+```
+
+For each match:
+- **Route/feature file** — update SQL to use new table/column
+- **Tile / card** — verify it still queries correct source and renders the data
+- **Report** — verify the new column path produces the same numbers
+- **Settings panel** — verify it shows the data (this is the obvious one)
+- **Frontend HTML** — if API contract changed, update fetch + render
+
+After deploy, **open each affected page in the browser** and confirm numbers/values render. Don't claim a drop is done until this is done.
+
+Past failure (v.168): HSA `plan_info` data merged from `hsa_plan_info` → `fsa_plan_info`. New Settings panel worked, but the existing `finance.html` HSA tile rendered nothing because nobody verified it post-migration. The user had to flag it.
+
 **If this fails, you do NOT package.** Fix the bug. Re-run. Only when it returns clean can you proceed to `present_files` on the zip.
 
 ### Packaging gate

@@ -445,6 +445,14 @@ These came up repeatedly and got locked but should not be relitigated:
 - **Visual design lives in `_templates.html`** as numbered patterns (#1, #18, etc.). NEVER invent design.
 - **Required reading per chat (locked v.166):** STATE.md → HANDOFF.md → BACKLOG.md → _templates.html.
 - **Lens config is mandatory for new fields** (Al, v.166): every schema column added MUST appear in `app/public/js/lens-config.js` so the global lens/advanced filter can search on it.
+- **Help → Commands is mandatory for new CLIs** (Al, v.166): every drop that adds a `docker exec` / CLI / one-time operational command MUST append an entry to `app/public/help.html → COMMANDS` array.
+- **Downstream wiring is part of every DB change** (Al, v.168.1): when a migration changes table/column structure OR moves data between tables, the drop is NOT done until every consuming surface is verified. Required checks before package:
+  1. `grep -rn "<old_table>\|<old_column>" app/features/ app/shared/ app/public/` — find every reader
+  2. Update each one (routes, tiles, reports, settings panels, frontend pages)
+  3. Open each affected page in the browser AFTER deploy — confirm numbers/data render
+  4. Document the audit in BACKLOG + STATE under the version block
+
+  Past failure (v.168): HSA data moved tables, Settings panel was new and worked, but I forgot to verify the existing HSA tile in finance.html still rendered. Al had to flag it.
 - **Help → Commands is mandatory for new CLIs** (Al, v.166): every drop that adds a `docker exec` / CLI / one-time operational command MUST append an entry to `app/public/help.html → COMMANDS` array (title, cmd, desc, tags). User reaches it via Help → Commands quick card. Each entry is click-to-copy.
 
 ---
