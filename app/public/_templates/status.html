@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  GHRAVA — STATUS BOARD
+  ════════════════════════════════════════════════════════════════════
+  Backlog, risks, issues, rough % of work done.
+
+  This is the second handoff page (first is /_templates.html).
+  Plain-readable. No fancy UI. Read once, know where you stand.
+
+  RULE: every claim in the % done table needs a source pointer
+  (file path, draft #, or chat URL). No vague status.
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghrava — Status</title>
+<link rel="stylesheet" href="/_templates/_templates.css">
+</head>
+<body>
+
+<div class="breadcrumb"><a href="/_templates.html">← Templates index</a></div>
+
+<h1>Status board</h1>
+
+<p class="meta">
+  Where each piece of the app stands. Every row points to a file,
+  a draft, or a chat URL. No vague "in progress" — concrete %
+  with what's left.
+</p>
+
+<hr>
+
+<h2>Active vertical slice</h2>
+
+<p class="meta">
+  Approach locked 2026-05-06: <strong>module at a time, vertical slice, ship before moving on.</strong>
+  Reason: 22 drafts, 1 wired card. Design-first wasn't shipping.
+  Reports stay deferred until at least one module surface is wired
+  with real cross-module data.
+</p>
+
+<p class="meta">
+  <strong>Module 1: Medical.</strong> Card #1 (Medication) is locked.
+  Tile #17.1 designed. Condition card #6 drafted. Most "home system"
+  interconnection (HSA YTD on a med card, multi-condition chips, family
+  member avatar) lives here.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Slice</th><th>Status</th><th>Drop</th><th>What's in it</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1A — Medications schema + API</td>
+      <td><strong>shipped + fixed</strong></td>
+      <td>v202604.141 / .143</td>
+      <td>Migration 119: 7 new med columns + 3 new tables (multi-condition junction, polymorphic HSA payment links, fill history). Hotfix in 1B replaced <code>p.amount</code> → <code>p.you_paid</code>. Same fix in HSA <code>/inbox</code> shipped in .143.</td>
+    </tr>
+    <tr>
+      <td>1B — Medications UI rebuild</td>
+      <td><strong>shipped + fixed</strong></td>
+      <td>v202604.142</td>
+      <td>Card #1 v5 layout, Lens above tabs, center modal pattern, refill action, link-receipt picker. Ate a <code>&lt;/style&gt;</code> close tag in the first build — fixed in re-package same version.</td>
+    </tr>
+    <tr>
+      <td>2 — Conditions Card #6</td>
+      <td><strong>shipped this drop</strong></td>
+      <td>v202604.143</td>
+      <td>Migration 120 adds 4 columns to <code>med_conditions</code>: body_system, goal, tracked_metric, condition_state. Routes enriched with active-meds count from junction, hsa_ytd from payment_links, latest tracked-metric reading + small series for sparkline. New Card #6 render: status dot reflecting clinical state · system chip with brand color/icon · "On" med chips column · cross-module strip with metric+sparkline+visits/HSA YTD · linked entity circles. Click card → center modal (re-uses meds modal infra).</td>
+    </tr>
+    <tr>
+      <td>2.5 — Migration runner fix</td>
+      <td><strong>shipped this drop</strong></td>
+      <td>v202604.143</td>
+      <td>The <code>migrate.js</code> SQL splitter used to split on <code>;</code> first, then strip <code>--</code> comments. That broke when a comment contained <code>;</code> (e.g. "unchanged; we just record"). Migration 117 had been silently failing on every restart since it shipped. Now strips comments first (state-machine that respects string literals). On next deploy, 117 finally applies — daily-log promote feature gets its <code>promoted_to_type</code> + <code>promoted_to_id</code> columns and starts working.</td>
+    </tr>
+    <tr>
+      <td>3 — Visits + Tile #17.1</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Visits tab → Card with timeline link to seeded daily-log entry. Tile #17.1 = compact medical summary tile.</td>
+    </tr>
+    <tr>
+      <td>3 — Visits + Tile #17.1</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Visits list + year-at-a-glance tile.</td>
+    </tr>
+    <tr>
+      <td>4 — Labs / vitals</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Sparkline trends on the family profile profile card.</td>
+    </tr>
+    <tr>
+      <td>5 — HSA fold-in</td>
+      <td>queued</td>
+      <td>—</td>
+      <td>Resolves the <code>/hsa.html</code> orphan. HSA becomes a tab inside Medical. Receipt linker UI lives here.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Slice 1 — locked design decisions (this chat)</h3>
+
+<ul class="locked-list">
+  <li>Multi-condition: junction table <code>med_medication_conditions</code> (singular <code>condition_id</code> column kept, not dropped — additive only).</li>
+  <li>HSA ↔ entity link: polymorphic <code>hsa_payment_links</code> (entity_type + entity_id, allowlist enforced server-side).</li>
+  <li>Fill history: new <code>med_medication_fills</code> table.</li>
+  <li>New <code>med_medications</code> columns: <code>brand_name</code>, <code>generic_name</code>, <code>form</code>, <code>drug_class</code>, <code>take_with_food</code>, <code>time_of_day</code>, <code>interaction_warning</code>.</li>
+  <li>Hero on the card = whatever was prescribed. Subtitle shows the OTHER name ("generic version of Lipitor" if generic was prescribed).</li>
+  <li>Drug class column added but hidden from display when empty. Auto-lookup via RxClass API deferred to a later slice.</li>
+  <li>Pill imagery: user-uploaded photo via attach-lifecycle wins → falls back to Phosphor icon by <code>form</code> field, status-tinted. Procedural pill render dropped.</li>
+  <li>HSA receipt linking is bidirectional — link from med card and from HSA receipt. Plain language, no jargon.</li>
+  <li><code>family_member_id</code> backfilled from <code>patient</code> text on case-insensitive match. <code>patient</code> column kept alive (no destructive deletes per project rules).</li>
+</ul>
+
+<h3>Slice 1B verification checklist (after deploy)</h3>
+
+<ul>
+  <li>Open <code>http://192.168.4.62:3001/medical.html</code> — Lens search bar now sits <strong>above</strong> the Meds/Conditions/Visits tabs.</li>
+  <li>Add a medication via the <code>+ Add Record</code> FAB. New fields appear in the drawer: form, generic name, brand name, drug class, take with food, time of day, interaction warning.</li>
+  <li>Saved med renders as Card #1 v5: status dot, condition chips (if linked), drug class, pill icon hero by form, dose, generic-name subtitle, schedule, instruction icons, cross-module strip showing $0 HSA YTD / last filled / refills, linked entity circles, "Link receipt" button.</li>
+  <li>Click anywhere on the card body → center modal opens with the same card view + Edit / Record refill / Link receipt / Close.</li>
+  <li>"Record refill" → small modal with date / days supply / cost / pharmacy / notes. Saves a row in <code>med_medication_fills</code>. Card re-renders with new <code>last_filled</code> and <code>refills_remaining - 1</code>.</li>
+  <li>"Link receipt" → modal listing HSA receipts for current year. Click one to link. After linking, that med's HSA YTD updates on the next render.</li>
+  <li>Existing meds without slice-1 fields render fine (form falls back to pill icon, no instruction chips, etc).</li>
+  <li>Conditions and Visits tabs unchanged — still use the GH_CARD generic render.</li>
+</ul>
+
+<h3>Slice 1A verification checklist (after deploy)</h3>
+
+<ul>
+  <li>New migration 119 logged in <code>_migrations</code> table. <code>docker logs ghrava | grep "apply 119"</code> should appear once.</li>
+  <li><code>PRAGMA table_info(med_medications)</code> shows the 7 new columns.</li>
+  <li>Tables exist: <code>med_medication_conditions</code>, <code>hsa_payment_links</code>, <code>med_medication_fills</code>.</li>
+  <li>Existing <code>medical.html</code> page renders identically — no visual regressions.</li>
+  <li><code>GET /api/v1/medical/medications</code> still returns the same shape as before, plus three new fields per row: <code>conditions</code>, <code>last_filled</code>, <code>hsa_ytd</code>.</li>
+  <li><code>GET /api/v1/medical/medications/:id/fills</code> returns <code>[]</code> for any med (no fills recorded yet).</li>
+  <li><code>POST /api/v1/hsa/payments/:id/links</code> with body <code>{entity_type:"medication", entity_id:X}</code> creates a link.</li>
+  <li><code>GET /api/v1/hsa/links/by-entity?entity_type=medication&amp;entity_id=X</code> returns the linked payment(s).</li>
+</ul>
+
+<hr>
+
+<h2>Rough % done by area</h2>
+
+<table>
+  <thead>
+    <tr><th>Area</th><th>%</th><th>What's left</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Core data + APIs</td>
+      <td>~85%</td>
+      <td>Most modules functional. v140 added HSA inbox/vault/EOB/IRS report. See <code>app/features/*</code>.</td>
+    </tr>
+    <tr>
+      <td>Card system rollout</td>
+      <td>~20%</td>
+      <td>4 designs in <a href="/_templates.html">_templates.html</a>, 0 modules using shared component yet.</td>
+    </tr>
+    <tr>
+      <td>Display layer modernization</td>
+      <td>~25%</td>
+      <td>Lens on 8 of ~25 pages. 4-zone cards on 0 pages.</td>
+    </tr>
+    <tr>
+      <td>Center modals (<a href="/_templates/center-modals.html">draft #1</a>)</td>
+      <td>0%</td>
+      <td>Option B locked. Awaiting user go.</td>
+    </tr>
+    <tr>
+      <td>Notifications wiring (<a href="/_templates/notifications.html">draft #3</a>)</td>
+      <td>~10%</td>
+      <td>Table + bell icon exist. No UI build, no triggers wired to delivery. 4 open decisions.</td>
+    </tr>
+    <tr>
+      <td>Reports module split (<a href="/_templates/reports-split.html">draft #2</a>)</td>
+      <td>~30%</td>
+      <td>Page exists, registry exists. Family-snapshot endpoint doesn't.</td>
+    </tr>
+    <tr>
+      <td>v140 HSA inbox</td>
+      <td>~85%</td>
+      <td>Data layer done. Display orphaned (lives in /hsa.html, not reachable from nav). EOB folder-drop incomplete.</td>
+    </tr>
+    <tr>
+      <td>Security audit fixes</td>
+      <td>0%</td>
+      <td>9 findings logged below, none fixed.</td>
+    </tr>
+    <tr>
+      <td>Tests / Playwright reliability</td>
+      <td>~60%</td>
+      <td>47/47 last green run. ~11 stale selectors lurking.</td>
+    </tr>
+    <tr>
+      <td>Mobile UX</td>
+      <td>~30%</td>
+      <td>Hamburger + sidebar collapse shipped. Phone-first capture, full-screen modals, drag-drop wardrobe — all open.</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Backlog — drafts to add as skeleton pages</h2>
+
+<p class="meta">Each becomes a draft page with HTML comment block + 1-line body. Filled in over time.</p>
+
+<table>
+  <thead>
+    <tr><th>#</th><th>Title</th><th>Notes</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>#5</td><td>Mobile UX</td><td>Phone-first capture flow, full-screen modals on small screens.</td></tr>
+    <tr><td>#6</td><td>Per-device family filter</td><td>First-time prompt "who is this?", localStorage, scope indicator near nav avatar. Partially started v128.</td></tr>
+    <tr><td>#7</td><td>Documents module redesign</td><td>High-volume potential. Scoping conversation needed.</td></tr>
+    <tr><td>#8</td><td>Photo-first wardrobe</td><td>Drag/drop creates draft, fill details later.</td></tr>
+    <tr><td>#9</td><td>Tag display fixes</td><td>Remove <code>#</code>, wider input, color-coded pills matching Settings.</td></tr>
+    <tr><td>#10</td><td>Data quality / completeness checker</td><td>Different from Orphan Check (structural). Records with missing important fields.</td></tr>
+    <tr><td>#11</td><td>Card config triage</td><td>7 orphan configs: career_jobs, finance_accounts, daily_log_entries, calendar_events, hsa_accounts, maintenance, trade_positions. Wire / delete / redesign each.</td></tr>
+    <tr><td>#12</td><td>Today / index page (Now / Soon)</td><td>Currently shows widgets. Locked design: Now (red, due today/overdue) + Soon (amber, next 7d) + 30-day footer pipeline.</td></tr>
+    <tr><td>#13</td><td>Global search across modules</td><td>One search bar, hits all entity types.</td></tr>
+    <tr><td>#14</td><td>Tailscale debug</td><td>Partially working, blocks "snap-photo-at-store-upload-now" flow.</td></tr>
+    <tr><td>#15</td><td>Google Calendar sync testing</td><td>Code present, untested.</td></tr>
+    <tr><td>#16</td><td>Email-to-inbox ingestion</td><td>Forward CVS receipt → HSA inbox.</td></tr>
+    <tr><td>#17</td><td>Card #6 — Summary Tile</td><td>For finance landing + dashboard widgets. Big number / label / sparkline / arrow.</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Real bugs — diagnose before fixing</h2>
+
+<p class="meta">Rule: get <code>docker logs ghrava --tail 50</code> first. Never guess.</p>
+
+<ul>
+  <li><strong>Todos page</strong> renders neither <code>.todo-item</code> nor <code>.empty-state</code>. v128 family filter may be hiding everything.</li>
+  <li><strong>Reports</strong> <code>.rep-row</code> not found. Registry may be empty in renderer.</li>
+  <li><strong>11 stale Playwright selectors</strong> from v088 module overhauls.</li>
+  <li><strong>Reports panels open as center modals</strong> (sub-panel CSS leak from settings.html).</li>
+  <li><strong>Multi-kid bug</strong> — kids list pulls from <code>kids</code> table; <code>family_members</code> not auto-syncing despite handoff claim.</li>
+  <li><strong>v140 HSA orphan</strong> — built into <code>/hsa.html</code> but page not in nav. Receipt entry currently unreachable.</li>
+</ul>
+
+<hr>
+
+<h2>Security &amp; code audit — logged, not fixed</h2>
+
+<ul>
+  <li><code>window.esc</code> doesn't escape <code>"</code> or <code>'</code>.</li>
+  <li><code>attach</code> route should allowlist <code>entityType</code>.</li>
+  <li><code>/file/:id</code> and <code>/thumb/:id</code> missing path-allowlist (helper <code>isUnderAttachmentsRoot</code> exists in <code>attach-lifecycle.js</code>).</li>
+  <li><code>/api/v1/app/test-results</code> unauthenticated.</li>
+  <li>CORS wide open.</li>
+  <li><code>fmtMoney</code> redefined in 3 pages — should be in lt-core.</li>
+  <li><code>formatDate</code> redefined in 2 pages despite existing in lt-core.</li>
+  <li><code>global-search.js</code> has its own <code>esc()</code> instead of <code>window.esc</code>.</li>
+  <li><code>migrate.js</code> parser splits on <code>;</code> before stripping <code>--</code> comments. Bit me writing migration 118.</li>
+</ul>
+
+<hr>
+
+<h2>v140 loose ends (~15% remaining)</h2>
+
+<ul>
+  <li>EOB folder-drop persistence — <code>importEob</code> counts but doesn't save.</li>
+  <li>LP-FSA plan info Settings UI — only API exists.</li>
+  <li>Mileage UI on medical visit form — backend ready, frontend doesn't expose <code>round_trip_miles</code>.</li>
+  <li>Medical "Receipts" tab to host v140 inbox/vault — design discussion deferred.</li>
+  <li>Documents/insurance/subscriptions don't use <code>attach-lifecycle</code> yet.</li>
+</ul>
+
+<hr>
+
+<h2>Risks — what could go wrong</h2>
+
+<ul>
+  <li><strong>Migration runner parser bug</strong> — semicolons inside SQL comments break parsing. Worked around in 118; needs proper fix in <code>migrate.js</code>.</li>
+  <li><strong>Card system rollout</strong> — once we start applying the 4-zone card to real modules, regressions are likely. Recommend one module at a time, smoke-test each.</li>
+  <li><strong>Center modals sweep</strong> — touches every page implicitly. Any module overriding <code>.gh-drawer</code> CSS locally will behave differently. Need audit before ship.</li>
+  <li><strong>v140 display layer</strong> — currently shipping data without UI. If a power user opens API directly, they'll see empty tables. Low risk but worth noting.</li>
+  <li><strong>Notifications</strong> — node-cron inside container loses in-flight ticks on restart. Acceptable trade-off but worth noting.</li>
+</ul>
+
+<hr>
+
+<h2>Working rules — do not violate</h2>
+
+<ul class="locked-list">
+  <li>No deploys without explicit user approval.</li>
+  <li>Read the active page top-to-bottom before designing any feature for an existing module.</li>
+  <li>Every module discussion → in-system draft page (HTML comment block + visible content).</li>
+  <li>No more handoff docs.</li>
+  <li>Verbatim quotes in comments. Future-Claude reads the page once and builds.</li>
+  <li>Plain readable formatting. No gradients, shadows, color-pill backgrounds.</li>
+  <li>Number cards in templates page (#1.1, #1.2) for easy reference.</li>
+</ul>
+
+<hr>
+
+<h2>Free-text fields that should be FK references (chat 7 audit)</h2>
+
+<p class="meta">Each is a data-quality risk. When fixing a module, convert the field.</p>
+
+<table>
+  <thead><tr><th>Module</th><th>Field</th><th>Should reference</th></tr></thead>
+  <tbody>
+    <tr><td>EOB / Medical</td><td>patient</td><td>family_members</td></tr>
+    <tr><td>Property</td><td>lender, insurance</td><td>contacts</td></tr>
+    <tr><td>Books</td><td>publisher, year, language, pages</td><td>structured columns (data dropped during ISBN scan)</td></tr>
+    <tr><td>Inventory</td><td>UPC size</td><td>structured column (currently in notes)</td></tr>
+    <tr><td>Career</td><td>company, institution</td><td>contacts</td></tr>
+    <tr><td>Property</td><td>vehicle_service.shop</td><td>contacts</td></tr>
+    <tr><td>Kids</td><td>teacher_name</td><td>contacts (when kids attendance lands)</td></tr>
+    <tr><td>Documents</td><td>family_member (TEXT)</td><td>family_members (junction table partly built)</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Audit log coverage gap (chat 7)</h2>
+
+<p>
+  Only <code>inventory</code> writes to <code>item_events</code>. No other module
+  has any audit trail for edits or deletes. When something changes mysteriously
+  in finance/medical/etc., theres no record of who did what when. Consider:
+  one shared <code>module_events</code> table or per-module mirror of inventory pattern.
+</p>
+
+<hr>
+
+<h2>Holdings UI gap (chat 7)</h2>
+
+<p>
+  Backend captures 7 columns the UI doesnt show. Quick fix: surface in detail
+  view, no schema change needed. File: <code>finance/holdings</code> tab.
+</p>
+
+<hr>
+
+<h2>Free-API integrations to consider (chat 8)</h2>
+
+<p class="meta">Tracking only. Wire when needed; not building speculatively.</p>
+
+<table>
+  <thead><tr><th>API</th><th>Use case</th><th>Free tier</th></tr></thead>
+  <tbody>
+    <tr><td>OpenWeatherMap</td><td>Weather</td><td>1000 calls/day</td></tr>
+    <tr><td>NHTSA</td><td>Vehicle recalls / safety by VIN</td><td>Unlimited</td></tr>
+    <tr><td>USPS / Smarty</td><td>Address validation</td><td>Free tier</td></tr>
+    <tr><td>IRS e-file calendar</td><td>Tax deadline reminders</td><td>Public</td></tr>
+    <tr><td>Zillow / Rentcast</td><td>Property value estimates</td><td>Limited free</td></tr>
+    <tr><td>Barcode Lookup, UPC Item DB</td><td>Inventory barcode → product</td><td>Free tier</td></tr>
+    <tr><td>Nutritionix</td><td>Food / nutrition for pantry</td><td>Free tier</td></tr>
+    <tr><td>Exchangerate-API</td><td>Currency for travel</td><td>Free tier</td></tr>
+    <tr><td>AviationStack</td><td>Flight tracking for travel</td><td>Free tier</td></tr>
+    <tr><td>Gemini Flash</td><td>AI suggestions (clothing, perfume)</td><td>Generous free tier</td></tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Smaller items to land when touching adjacent code</h2>
+
+<ul>
+  <li>Tags filter UI in Daily Log + Property — tags exist, no filter UI.</li>
+  <li>Custom fields system — definitions exist, values never written. Decide kill or wire.</li>
+  <li>Property maintenance UI — backend done (migration 035), UI not built.</li>
+  <li>Medical patient filter — persistent Arnav/Risha/Self/All tab at top of Medical.</li>
+  <li>Books cover thumbnails — verify rendering after ISBN scan.</li>
+  <li>GH_VIEW grid/list rollout to Books, Documents, Resources.</li>
+  <li>Step-up auth — designed, not built.</li>
+  <li>Session timeout config in Settings — backlog.</li>
+  <li>CouchDB/PouchDB offline sync — REJECTED (chat 8). Use service worker if needed.</li>
+  <li>Service worker for offline mode — chat 8 recommendation, not built.</li>
+</ul>
+
+<hr>
+
+<h2>Modules deferred for later (not draft pages yet)</h2>
+
+<table>
+  <thead><tr><th>Module</th><th>Source</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Pets</td><td>chat 8</td><td>Vet records, vaccinations, meds, microchip, insurance.</td></tr>
+    <tr><td>Travel</td><td>chat 8</td><td>Passport, TSA precheck, loyalty programs, trip history.</td></tr>
+    <tr><td>Gift tracker</td><td>chat 8</td><td>Who gave what, birthdays, what you gave them, budget.</td></tr>
+    <tr><td>Recipes / Meal planning</td><td>chat 8</td><td>Ties to pantry inventory, shopping lists.</td></tr>
+    <tr><td>Education</td><td>chat 8</td><td>School records, transcripts, certs, student loans. Distinct from career certs.</td></tr>
+    <tr><td>Emergency</td><td>chat 8</td><td>Emergency contacts, evacuation plan, utility shutoffs, generator info.</td></tr>
+    <tr><td>Trading dashboard redesign</td><td>chat 8</td><td>Deferred, no design.</td></tr>
+  </tbody>
+</table>
+
+</body>
+</html>

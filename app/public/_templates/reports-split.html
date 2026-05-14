@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #2 — REPORTS PAGE SPLIT FROM DASHBOARD
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    IN-DISCUSSION (boundary locked, polling open)
+  CREATED:   2026-05-04
+  PRIORITY:  High — decision was made (chats 5, 4) but design TBD
+
+  WHAT THIS IS
+    Defines the boundary between Dashboard (today/now/urgency) and
+    Reports (analysis/completeness/history). Reports already exists
+    at /reports.html with REPORT_REGISTRY. Move analysis widgets out
+    of dashboard and into reports.
+
+  WHERE IT LIVES (when shipped)
+    - app/public/index.html       — dashboard, KEEP today-only
+    - app/public/reports.html     — reports, ADD analysis widgets
+    - features/reports/routes.js  — endpoints exist, may need new
+
+  STATED REQUIREMENTS (verbatim)
+    Chat 5  https://claude.ai/chat/071bad83-2a2d-4c11-b03e-7c960d265c60
+      "I dont want to lose focus on other modules first but also not
+       bury our discussion in chat or documentation"
+      Claude proposed: "Dashboard is well-built. Don't change its
+       purpose. Reports is a genuinely separate thing — analysis
+       and completeness, not urgency."
+      User: "works?" → Approved.
+
+    Chat 4  https://claude.ai/chat/76ab457d-6604-46b2-8fcf-6fcd234e5ec8
+      Logged: "Everything About Risha — Reports page not Kids page —
+       decision made"
+
+    Chat 15 handoff
+      "Reports gets its own page with new-tab + 30-second polling
+       for live record fixing. Everything About a Family Member
+       report goes here, not in Kids."
+
+  AGREEMENTS — LOCKED
+    ✅ Dashboard = today/now/urgency. No analysis widgets.
+    ✅ Reports = cross-module analysis, completeness, history.
+    ✅ "Everything About a Family Member" lives in Reports.
+    ✅ Reports keeps existing card-grid registry pattern (not tabs).
+
+  AGREEMENTS — OPEN
+    ❓ New-tab + 30s polling for "live record fixing" — exact use
+       case TBD, probably the data-completeness fix flow.
+    ❓ Which dashboard widgets demote — proposal in body.
+
+  DATA SOURCES
+    Existing: emergency.js, expiry.js, hsa-fsa-irs.js
+    New endpoints needed:
+      /api/v1/reports/family-snapshot/:id
+      /api/v1/reports/data-quality
+      /api/v1/reports/inventory-breakdown
+      /api/v1/reports/networth-history
+
+  BUILD SEQUENCE
+    1. Audit dashboard widgets, classify each as today vs analysis.
+    2. Demote analysis widgets to thin links.
+    3. Add new Reports card configs.
+    4. Build "Everything About a Family Member" backend endpoint.
+    5. Decide and implement 30s-polling pattern (separate sub-task).
+
+  OUT OF SCOPE
+    - Notifications — separate draft #3
+    - Cron-driven scheduled reports
+    - Email-the-report
+    - PDF export (XLSX exists, sufficient)
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft #2 — Reports / Dashboard split</title>
+<link rel="stylesheet" href="/_templates/_templates.css">
+</head>
+<body>
+
+<div class="breadcrumb"><a href="/_templates.html">← Templates index</a></div>
+
+<h1>#2 — Reports page split from Dashboard</h1>
+
+<p class="status-line">
+  <span class="label">Status:</span> in discussion ·
+  <span class="label">Locked:</span> Boundary ·
+  <span class="label">Created:</span> 2026-05-04 ·
+  <span class="label">Scope:</span> No schema, 4 new endpoints
+</p>
+
+<p>
+  Dashboard = today/now/urgency. Reports = cross-module analysis &amp; history.
+  "Everything About a Family Member" lives in Reports, not Kids. This draft
+  assigns each existing dashboard widget to one side or the other.
+</p>
+
+<h2>The boundary</h2>
+
+<div class="compare">
+  <div>
+    <h4>Dashboard — today / now / urgency</h4>
+    <ul>
+      <li>Inventory expiring alerts</li>
+      <li>Todos due today / overdue</li>
+      <li>HSA missing receipts count</li>
+      <li>Career certs expiring soon</li>
+      <li>Calendar upcoming events</li>
+      <li>Daily log latest entry</li>
+      <li>Subscriptions renewing this week</li>
+      <li>Bell-icon notifications badge</li>
+    </ul>
+  </div>
+  <div>
+    <h4>Reports — analysis / completeness / history</h4>
+    <ul>
+      <li>Net worth snapshot &amp; history</li>
+      <li>Inventory breakdown by room/category</li>
+      <li>Medical history &amp; medication summary</li>
+      <li>Property estimated value &amp; trend</li>
+      <li>HSA / FSA IRS reimbursement (added v140)</li>
+      <li>Document expiry timeline</li>
+      <li>Data quality / completeness scorecard</li>
+      <li><strong>Everything About a Family Member</strong></li>
+    </ul>
+  </div>
+</div>
+
+<h2>Reports card grid (uses existing pattern)</h2>
+
+<p>
+  Reports keeps the existing 2-zone card-grid pattern. Each card = one report.
+  Click → opens that report. NOT the 4-zone medication card.
+</p>
+
+<table>
+  <thead>
+    <tr><th>Icon</th><th>Title</th><th>Description</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>👤</td><td>Family Snapshot</td><td>Everything about one person</td></tr>
+    <tr><td>💰</td><td>Net Worth</td><td>Accounts + holdings + property</td></tr>
+    <tr><td>🧾</td><td>HSA / FSA IRS</td><td>Audit-ready expense list</td></tr>
+    <tr><td>📊</td><td>Data Quality</td><td>Records missing fields</td></tr>
+    <tr><td>📅</td><td>Document Expiry</td><td>Upcoming expirations</td></tr>
+    <tr><td>📦</td><td>Inventory Breakdown</td><td>By room, by category</td></tr>
+  </tbody>
+</table>
+
+<h2>Stated requirements (verbatim)</h2>
+
+<div class="quote">
+  <div class="src">Chat 5 · 2026-03-24</div>
+  <div class="text">Claude: "Dashboard is well-built. Don't change its purpose. Reports is a genuinely separate thing — analysis and completeness, not urgency."</div>
+  <div class="text">User: "works?" → Approved.</div>
+</div>
+
+<div class="quote">
+  <div class="src">Chat 4 · 2026-03-25</div>
+  <div class="text">"Everything About Risha — Reports page not Kids page — decision made"</div>
+</div>
+
+<div class="quote">
+  <div class="src">Chat 15 handoff</div>
+  <div class="text">"Reports page split from Dashboard — design-first. Reports gets its own page with new-tab + 30-second polling for live record fixing. Everything About a Family Member report goes here, not in Kids."</div>
+</div>
+
+<h2>Open questions</h2>
+
+<div class="open">
+  <div class="label">30-second polling for "live record fixing"</div>
+  <div class="lean">User mentioned new-tab + 30s polling so reports refresh while you fix records in other tabs. Use case still TBD.</div>
+</div>
+
+<div class="open">
+  <div class="label">Which widgets stay vs move (boundary above is proposed)</div>
+  <div class="lean">Net worth — does a small "Net worth: $X" snapshot stay on dashboard with a "View report →" link, or fully move?</div>
+</div>
+
+<h2>Build sequence</h2>
+
+<ol>
+  <li>Audit existing index.html widgets. Classify each.</li>
+  <li>Demote analysis widgets — keep small snapshot on dashboard, move detail to Reports.</li>
+  <li>Add 4 new Reports card configs to <code>REPORT_REGISTRY</code>.</li>
+  <li>Build "Everything About a Family Member" backend endpoint <code>/api/v1/reports/family-snapshot/:id</code>.</li>
+  <li>Build report renderer using existing reports.html pattern.</li>
+  <li>(Separately) decide and implement 30s-polling pattern.</li>
+</ol>
+
+<h2>Backend changes</h2>
+
+<p>Four new GET endpoints (read-only, no schema):</p>
+<ul>
+  <li><code>/api/v1/reports/family-snapshot/:id</code> — nested family-member view</li>
+  <li><code>/api/v1/reports/data-quality</code> — completeness scorecard</li>
+  <li><code>/api/v1/reports/inventory-breakdown</code> — by room, by category</li>
+  <li><code>/api/v1/reports/networth-history</code> — point-in-time net worth series</li>
+</ul>
+
+<h2>Out of scope</h2>
+
+<ul>
+  <li>Notifications — separate draft #3</li>
+  <li>Cron-driven scheduled reports</li>
+  <li>Email-the-report</li>
+  <li>PDF export (XLSX exists, sufficient)</li>
+</ul>
+
+<hr>
+
+<h2>Two types of reports — pattern from chat 5</h2>
+
+<p>
+  Source: <a href="https://claude.ai/chat/071bad83-2a2d-4c11-b03e-7c960d265c60">chat 5</a>.
+  Reports are working tools, not pretty views. Two shapes; both belong here.
+</p>
+
+<h3>Live / interactive reports</h3>
+
+<ul>
+  <li><strong>View mode</strong> — click a record, opens in new tab, breadcrumb back to report.</li>
+  <li><strong>Data entry mode</strong> — report surfaces incomplete records, you fill the missing field inline or open the record and return.</li>
+  <li>Page polls every 30 seconds so the report updates as you fix things in other tabs.</li>
+  <li>Data Quality (<a href="/_templates/data-quality.html">#10</a>) feeds into this — its job is producing the "needs entry" list.</li>
+</ul>
+
+<h3>Printable / exportable reports</h3>
+
+<ul>
+  <li>Static snapshot for record-keeping or physical use.</li>
+  <li>Print-friendly HTML or PDF.</li>
+  <li>Output must include enough identifying info (names, dates, ref numbers) that a printout can be searched back to the live record in the app.</li>
+  <li>Optional: QR code on each row deep-links back to that record.</li>
+</ul>
+
+<h3>Locked from chat 5</h3>
+
+<ul class="locked-list">
+  <li>Reports cards link to records. Fix actions open the record in a new tab.</li>
+  <li>Reports page polls every 30 seconds to update counts after fixes.</li>
+  <li>Centralized Reports page with module filters, NOT per-module reports pages.</li>
+  <li>Printable templates fixed per module v1; field-picker deferred.</li>
+</ul>
+
+</body>
+</html>

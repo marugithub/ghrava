@@ -1,0 +1,109 @@
+{
+  "meta": {
+    "version": "1.0",
+    "exported_at": "2026-04-28",
+    "note": "Seed import for Ghrava health module. POST each array to its respective endpoint."
+  },
+  "patient": {
+    "name": "Algir Soni", "dob": "1978-04-09", "gender": "Male",
+    "height_in": 67, "weight_lbs": 189, "bmi": 29.6,
+    "insurance_name": "Aetna", "insurance_member_id": "W291942558",
+    "insurance_group": "028562901000004", "insurance_phone": "800-752-0513",
+    "patient_id_ext": "1443440", "phone": "312-725-4479",
+    "email": "sal141@gmail.com", "address": "3817 Bent River Rd, Hoover, AL 35216",
+    "pharmacy_name": "CVS #4889", "pharmacy_phone": "205-987-7286",
+    "pharmacy_address": "1881 Chace Drive, Hoover, AL 35244",
+    "language": "English", "race": "Asian", "ethnicity": "Not Hispanic or Latino",
+    "marital_status": "Married"
+  },
+  "care_team": [
+    {"name":"Munish K. Goyal","credentials":"MD","role":"Cardiologist / Internal Medicine","practice":"Ascension Alabama","phone":"205-939-7100","address":"2700 10th Ave S #305, Birmingham AL 35205","manages":"Hypertension, Cholesterol, Coronary Artery Disease","is_primary":0,"is_active":1},
+    {"name":"John Earl Reaves Jr.","credentials":"MD","role":"Primary Care Physician","practice":"Ascension Alabama","manages":"Preventive care, Memory, Diabetes screening, Fatigue","is_primary":1,"is_active":1},
+    {"name":"Michael E. Brewer","credentials":"MD","role":"Urologist","practice":"Urology Centers of Alabama","phone":"205-930-0920","address":"3485 Independence Drive, Homewood AL 35209","manages":"Overactive bladder — Mirabegron + Methocarbamol","is_primary":0,"is_active":1},
+    {"name":"Robert Parsa","credentials":"MD","role":"Specialist (TBD)","practice":"Birmingham AL","phone":"205-822-2748","is_primary":0,"is_active":1},
+    {"name":"Stacie M. Bullock","credentials":"CRNP","role":"Nurse Practitioner","practice":"Urology Centers of Alabama","phone":"205-930-0920","is_primary":0,"is_active":1},
+    {"name":"Caroline O. Dyess","credentials":"PA-C","role":"Physician Assistant","practice":"Urology Centers of Alabama","phone":"205-930-0920","is_primary":0,"is_active":1}
+  ],
+  "conditions": [
+    {"name":"Coronary arteriosclerosis","status":"Active","first_noted":"2024-01-26","notes":"Family hx cardiac disorder; on statin + aspirin 81mg"},
+    {"name":"Essential hypertension","status":"Active","first_noted":"2024-01-26","notes":"Olmesartan 20mg; BP well controlled"},
+    {"name":"Mixed hyperlipidemia","status":"Active","first_noted":"2024-01-26","notes":"LDL controlled; triglycerides persistently HIGH"},
+    {"name":"Tachycardia","status":"Active","first_noted":"2024-09-27","notes":"HR 63-90 range; EKGs done Jan & Sep 2024"},
+    {"name":"Increased frequency of urination","status":"Active","first_noted":"2025-03-28","notes":"Mirabegron + Methocarbamol tuned regimen"},
+    {"name":"Memory loss","status":"Active","first_noted":"2025-10-01","notes":"Active diagnosis; MagMind supplement; TSH borderline"},
+    {"name":"Amnesia","status":"Active","first_noted":"2025-12-08","notes":"Active diagnosis per Dr. Reaves"},
+    {"name":"Hyperglycemia","status":"Active","first_noted":"2025-10-01","notes":"A1C 6.1% prediabetic range"},
+    {"name":"Cobalamin (B12) deficiency","status":"Active","first_noted":"2025-10-01","notes":"B12 665 Oct 2025 — may be resolved; recheck"},
+    {"name":"Vitamin D deficiency","status":"Active","first_noted":"2025-10-01","notes":"Level 33.3 ng/mL — borderline"},
+    {"name":"Fatigue","status":"Active","first_noted":"2024-09-30","notes":"May relate to TSH, testosterone, prediabetes"},
+    {"name":"Seborrheic dermatitis of scalp","status":"Active","first_noted":"2025-01-16","notes":"On clobetasol 0.05% scalp solution"},
+    {"name":"Dizziness","status":"Historical","first_noted":"2024-03-14","notes":"Confirm if still ongoing"},
+    {"name":"Dyspnea","status":"Historical","first_noted":"2024-01-26","notes":"Was active Jan 2024; confirm current status"}
+  ],
+  "medications": [
+    {"name":"Rosuvastatin Calcium","generic_name":"Rosuvastatin","brand_name":"Crestor","dose":"10","dose_unit":"mg","frequency":"Once daily","directions":"Take 1 tablet by mouth every day","category":"rx","status":"active","rx_date":"2024-01-01","purpose":"Cholesterol management (statin)","notes":"LDL controlled; triglycerides still elevated. CYP interaction with turmeric."},
+    {"name":"Olmesartan Medoxomil","generic_name":"Olmesartan","brand_name":"Benicar","dose":"20","dose_unit":"mg","frequency":"Once daily","directions":"Take 1 tablet by mouth every day","category":"rx","status":"active","rx_date":"2024-01-01","purpose":"Hypertension (ARB)","notes":"BP well controlled. Monitor with Mirabegron which can raise BP."},
+    {"name":"Mirabegron ER","generic_name":"Mirabegron","brand_name":"Myrbetriq","dose":"50","dose_unit":"mg","frequency":"Once daily","directions":"Take 1 tablet by mouth every day. Swallow whole — do not crush.","category":"rx","status":"active","rx_date":"2025-01-26","purpose":"Overactive bladder (primary)","notes":"Part of tuned OAB regimen. Inhibits CYP2D6."},
+    {"name":"Methocarbamol","generic_name":"Methocarbamol","brand_name":"Robaxin","dose":"500","dose_unit":"mg","frequency":"Once daily (per Rx) — verify vs bottle label","directions":"1 tablet daily for 90 days","category":"rx","status":"active","rx_date":"2026-02-16","quantity":"90","refills":3,"mail_order":1,"purpose":"Pelvic/bladder muscle spasm (OAB adjunct)","notes":"DOSING DISCREPANCY: Rx says 1x daily; bottle label says twice daily as needed. Confirm with Dr. Brewer."},
+    {"name":"Clobetasol Propionate Scalp Solution","generic_name":"Clobetasol","brand_name":"Temovate","dose":"0.05","dose_unit":"%","frequency":"Per label","directions":"Apply to affected scalp area as directed","category":"rx","status":"active","rx_date":"2025-01-16","purpose":"Seborrheic dermatitis of scalp"},
+    {"name":"Aspirin","generic_name":"Aspirin","brand_name":"Kirkland Signature","dose":"81","dose_unit":"mg","frequency":"Once daily","directions":"Take 1 enteric-coated tablet daily","category":"otc","status":"active","rx_date":"2024-01-26","purpose":"Cardiovascular / pain (NSAID)","notes":"Daily ongoing since Jan 2024. Confirm CV indication (secondary prevention). Consider PPI for GI protection."},
+    {"name":"Turmeric with Black Pepper","dose":"1000","dose_unit":"mg","brand_name":"Kirkland Signature","frequency":"Once daily","category":"supplement","status":"active","purpose":"Anti-inflammatory / antioxidant","notes":"CYP3A4 inhibitor — may affect rosuvastatin plasma levels. ALT trending up — monitor."},
+    {"name":"Milk Thistle (Siliphos)","dose":"160","dose_unit":"mg","brand_name":"Trunature","frequency":"Once daily","category":"supplement","status":"active","purpose":"Liver support","notes":"ALT mildly elevated (44 IU/L). Silymarin may help reduce liver enzyme elevation."},
+    {"name":"Magnesium L-Threonate","dose":"1","dose_unit":"g Magtein","brand_name":"Jarrow MagMind","frequency":"Per label","category":"supplement","status":"active","purpose":"Cognitive support / mental alertness","notes":"Relevant given active memory loss diagnosis. MagMind = cognitive-specific magnesium form."},
+    {"name":"Organic Multivitamin","dose":"1","dose_unit":"serving","brand_name":"Kirkland Signature","frequency":"Once daily","category":"supplement","status":"active","purpose":"General nutrition","notes":"Whole food sourced, non-GMO, no synthetic vitamins."},
+    {"name":"Oxybutynin Chloride ER","dose":"10","dose_unit":"mg","frequency":"Once daily","category":"prior","status":"stopped","rx_date":"2024-09-30","notes":"Prior OAB medication — replaced by Mirabegron ER 50mg"},
+    {"name":"Tramadol ER","dose":"100","dose_unit":"mg","frequency":"Once daily","category":"prior","status":"stopped","rx_date":"2025-03-28","notes":"Pain management — discontinued after Mar 2025"},
+    {"name":"Tadalafil","dose":"5","dose_unit":"mg","frequency":"Once daily","category":"prior","status":"stopped","rx_date":"2024-03-10","notes":"OAB / ED — discontinued after Mar 2024"},
+    {"name":"Lisinopril","dose":"20","dose_unit":"mg","frequency":"Once daily","category":"prior","status":"stopped","rx_date":"2024-01-26","notes":"Prior hypertension med — replaced by Olmesartan 20mg"}
+  ],
+  "labs": [
+    {"panel_name":"Lipid Panel","test_name":"Total Cholesterol","value":"146","value_numeric":146,"unit":"mg/dL","reference_high":200,"flag":"normal","test_date":"2026-04-04"},
+    {"panel_name":"Lipid Panel","test_name":"LDL Cholesterol","value":"77","value_numeric":77,"unit":"mg/dL","reference_high":100,"flag":"normal","test_date":"2026-04-04"},
+    {"panel_name":"Lipid Panel","test_name":"HDL Cholesterol","value":"38","value_numeric":38,"unit":"mg/dL","reference_low":40,"flag":"L","test_date":"2026-04-04"},
+    {"panel_name":"Lipid Panel","test_name":"Triglycerides","value":"212","value_numeric":212,"unit":"mg/dL","reference_high":150,"flag":"H","test_date":"2026-04-04"},
+    {"panel_name":"Lipid Panel","test_name":"VLDL Cholesterol","value":"31","value_numeric":31,"unit":"mg/dL","reference_high":30,"flag":"H","test_date":"2026-04-04"},
+    {"panel_name":"Lipid Panel","test_name":"Total Cholesterol","value":"131","value_numeric":131,"unit":"mg/dL","flag":"normal","test_date":"2025-10-02"},
+    {"panel_name":"Lipid Panel","test_name":"LDL Cholesterol","value":"52","value_numeric":52,"unit":"mg/dL","flag":"normal","test_date":"2025-10-02"},
+    {"panel_name":"Lipid Panel","test_name":"HDL Cholesterol","value":"34","value_numeric":34,"unit":"mg/dL","reference_low":40,"flag":"L","test_date":"2025-10-02"},
+    {"panel_name":"Lipid Panel","test_name":"Triglycerides","value":"292","value_numeric":292,"unit":"mg/dL","reference_high":150,"flag":"H","test_date":"2025-10-02"},
+    {"panel_name":"Lipid Panel","test_name":"Total Cholesterol","value":"138","value_numeric":138,"unit":"mg/dL","flag":"normal","test_date":"2024-09-28"},
+    {"panel_name":"Lipid Panel","test_name":"LDL Cholesterol","value":"70","value_numeric":70,"unit":"mg/dL","flag":"normal","test_date":"2024-09-28"},
+    {"panel_name":"Lipid Panel","test_name":"HDL Cholesterol","value":"39","value_numeric":39,"unit":"mg/dL","reference_low":40,"flag":"L","test_date":"2024-09-28"},
+    {"panel_name":"Lipid Panel","test_name":"Triglycerides","value":"169","value_numeric":169,"unit":"mg/dL","reference_high":150,"flag":"H","test_date":"2024-09-28"},
+    {"panel_name":"Diabetes","test_name":"Hemoglobin A1C","value":"6.1","value_numeric":6.1,"unit":"%","reference_high":5.7,"flag":"H","test_date":"2025-10-02"},
+    {"panel_name":"Diabetes","test_name":"Hemoglobin A1C","value":"5.7","value_numeric":5.7,"unit":"%","reference_high":5.7,"flag":"H","test_date":"2024-09-30"},
+    {"panel_name":"CMP","test_name":"Glucose","value":"151","value_numeric":151,"unit":"mg/dL","reference_high":100,"flag":"H","test_date":"2025-10-02"},
+    {"panel_name":"CMP","test_name":"Glucose","value":"94","value_numeric":94,"unit":"mg/dL","flag":"normal","test_date":"2024-09-28"},
+    {"panel_name":"Thyroid","test_name":"TSH","value":"4.23","value_numeric":4.23,"unit":"uIU/mL","reference_low":0.4,"reference_high":4.0,"flag":"H","test_date":"2025-10-02"},
+    {"panel_name":"Thyroid","test_name":"Free T4","value":"1.09","value_numeric":1.09,"unit":"ng/dL","reference_low":0.8,"reference_high":1.8,"flag":"normal","test_date":"2025-10-02"},
+    {"panel_name":"LFT","test_name":"ALT (SGPT)","value":"44","value_numeric":44,"unit":"IU/L","reference_high":40,"flag":"H","test_date":"2025-10-02"},
+    {"panel_name":"LFT","test_name":"ALT (SGPT)","value":"33","value_numeric":33,"unit":"IU/L","reference_high":40,"flag":"normal","test_date":"2024-09-28"},
+    {"panel_name":"LFT","test_name":"AST (SGOT)","value":"34","value_numeric":34,"unit":"IU/L","reference_high":40,"flag":"normal","test_date":"2025-10-02"},
+    {"panel_name":"Other","test_name":"Vitamin D (25-OH)","value":"33.3","value_numeric":33.3,"unit":"ng/mL","reference_low":40,"flag":"L","test_date":"2025-10-02"},
+    {"panel_name":"Other","test_name":"Vitamin B12","value":"665","value_numeric":665,"unit":"pg/mL","reference_low":200,"reference_high":900,"flag":"normal","test_date":"2025-10-02"},
+    {"panel_name":"Other","test_name":"Testosterone (Total)","value":"325","value_numeric":325,"unit":"ng/dL","reference_low":300,"reference_high":1000,"flag":"L","test_date":"2024-10-01","notes":"Low-normal for age 47; optimal 400-700"},
+    {"panel_name":"Other","test_name":"Lipoprotein (A)","value":"22.9","value_numeric":22.9,"unit":"nmol/L","reference_high":75,"flag":"normal","test_date":"2024-01-30"}
+  ],
+  "vitals": [
+    {"measure_date":"2026-04-03","systolic_bp":117,"diastolic_bp":80,"heart_rate":87,"weight_lbs":189,"bmi":29.6,"o2_sat":98,"source_system":"Ascension Alabama"},
+    {"measure_date":"2025-10-03","systolic_bp":123,"diastolic_bp":78,"heart_rate":86,"weight_lbs":189,"bmi":29.6,"o2_sat":98,"source_system":"Ascension Alabama"},
+    {"measure_date":"2025-10-01","systolic_bp":117,"diastolic_bp":77,"heart_rate":90,"weight_lbs":190,"bmi":29.8,"o2_sat":98,"temperature_f":98.1,"source_system":"Ascension Alabama"},
+    {"measure_date":"2025-03-28","systolic_bp":128,"diastolic_bp":85,"heart_rate":81,"weight_lbs":190,"bmi":29.8,"o2_sat":98,"source_system":"Ascension Alabama"},
+    {"measure_date":"2024-09-30","systolic_bp":108,"diastolic_bp":69,"heart_rate":63,"weight_lbs":188,"bmi":29.4,"o2_sat":99,"temperature_f":98.1,"source_system":"Ascension Alabama"},
+    {"measure_date":"2024-09-27","systolic_bp":131,"diastolic_bp":85,"heart_rate":75,"weight_lbs":190,"bmi":29.8,"o2_sat":97,"source_system":"Ascension Alabama"},
+    {"measure_date":"2024-03-22","systolic_bp":132,"diastolic_bp":78,"heart_rate":80,"weight_lbs":185.9,"bmi":29.1,"o2_sat":96,"source_system":"Ascension Alabama"},
+    {"measure_date":"2024-01-26","systolic_bp":116,"diastolic_bp":79,"heart_rate":72,"weight_lbs":183.9,"bmi":28.8,"o2_sat":99,"source_system":"Ascension Alabama"}
+  ],
+  "diagnostics": [
+    {"test_name":"Routine EKG (12-lead)","test_type":"cardiac","test_date":"2024-09-27","status":"pending","notes":"Tachycardia noted at visit. Full interpretation report not yet obtained."},
+    {"test_name":"Routine EKG (12-lead)","test_type":"cardiac","test_date":"2024-01-26","status":"pending","notes":"Dyspnea + hypertension noted. Full interpretation report not yet obtained."},
+    {"test_name":"Nuclear Stress Test","test_type":"cardiac","status":"pending","notes":"Unknown if performed. Ask Dr. Goyal given coronary arteriosclerosis diagnosis."},
+    {"test_name":"Cardiac MRI / CT","test_type":"cardiac","status":"pending","notes":"No record in current data. Request from Dr. Goyal."},
+    {"test_name":"Post-Void Residual (PVR) Ultrasound","test_type":"urologic","status":"pending","notes":"Not yet performed. Recommended given dual bladder-relaxing regimen. Request from Dr. Brewer."},
+    {"test_name":"Free T3 Thyroid Test","test_type":"lab","status":"pending","notes":"Not yet ordered. Request with next TSH recheck."},
+    {"test_name":"Free Testosterone + LH + FSH","test_type":"lab","status":"pending","notes":"Not yet ordered. Request with next testosterone panel."}
+  ],
+  "allergies": [
+    {"allergen":"No Known Drug Allergy","status":"Active","noted_date":"2024-01-26","source_system":"Ascension Alabama"}
+  ]
+}

@@ -129,6 +129,7 @@
     <a href="#condition">#6 Condition</a>
     <a href="#summary-tile">#17 Summary Tile</a>
     <a href="#finance-tiles">#18 Finance Overview Tiles</a>
+    <a href="#medical-tiles">#25 Medical Overview Tiles</a>
     <a href="#drafts">Drafts</a>
   </div>
 
@@ -2138,6 +2139,108 @@
   </script>
 
   <!-- ════════════════════════════════════════════════════════════════
+       #25 MEDICAL OVERVIEW TILES — landed v.166 (LOCKED design)
+
+       Six tiles on the Medical → Overview tab (default landing). Same
+       visual primitive as #18 Finance: eyebrow + hero + pill + rows +
+       strip. Each tile reads its own GET endpoint; no aggregator yet.
+
+       #25.1 Active Conditions   — count + top 3 + severity pill
+       #25.2 Active Medications  — count + refills-due warning
+       #25.3 Upcoming Visits     — next 30d + next 3 scheduled
+       #25.4 EOB Your-Share      — total + latest 3 statements
+       #25.5 Recent Vitals       — latest BP/HR/weight/O2
+       #25.6 Family Snapshot     — per-member condition+med counts
+
+       LOCKED RULES:
+       1. Empty state preserves tile structure — values go 0/—/mute pill,
+          rows stay. NEVER replace with a "no data" placeholder card.
+       2. Clicking a tile switches to the relevant detail tab.
+       3. Tile width: 320px min on desktop (auto-fit grid), full-width
+          scroll-snap on mobile (<700px).
+       4. Family-scope (window._medFilters.person) is honored when set.
+       5. Source-of-truth implementation lives in medical.html →
+          renderMedicalOverview() — copy from there if rebuilding.
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="medical-tiles">
+    <div class="section-head">
+      <h2>#25 Medical Overview Tiles</h2>
+      <span class="lock">Locked v.166</span>
+      <span class="desc">Roll-up tiles for the Medical Overview tab. Reads existing endpoints; data shape per migration 131.</span>
+    </div>
+
+    <p style="font-size:13px;color:#444;line-height:1.6;max-width:780px;margin:8px 0 16px">
+      Six tiles, same 5-zone primitive as #18 Finance: <b>eyebrow</b> (icon dot + label + tile number),
+      <b>hero</b> (big number/value with hero-label kicker), <b>pill</b> (state badge — ok/warn/bad/mute),
+      <b>rows</b> (3 detail rows), <b>strip</b> (one line of cross-module context).
+      Empty state preserves rows; values go to 0/—/mute pill.
+    </p>
+
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:14px 0">
+      <thead>
+        <tr style="background:#f3efe5">
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Tile</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Hero</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Reads endpoint</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Click → tab</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Empty pill text</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td style="padding:8px;border:1px solid #d8cba8"><b>#25.1</b> Active Conditions</td>
+          <td style="padding:8px;border:1px solid #d8cba8">count(active+chronic)</td>
+          <td style="padding:8px;border:1px solid #d8cba8"><code>GET /api/v1/medical/conditions</code></td>
+          <td style="padding:8px;border:1px solid #d8cba8">conditions</td>
+          <td style="padding:8px;border:1px solid #d8cba8">"none"</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;border:1px solid #d8cba8"><b>#25.2</b> Active Medications</td>
+          <td style="padding:8px;border:1px solid #d8cba8">count(active+prn)</td>
+          <td style="padding:8px;border:1px solid #d8cba8"><code>GET /api/v1/medical/medications</code></td>
+          <td style="padding:8px;border:1px solid #d8cba8">medications</td>
+          <td style="padding:8px;border:1px solid #d8cba8">"none" or "N refill due" (warn pill if refills_remaining ≤ 1)</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;border:1px solid #d8cba8"><b>#25.3</b> Upcoming Visits</td>
+          <td style="padding:8px;border:1px solid #d8cba8">count(next 30d)</td>
+          <td style="padding:8px;border:1px solid #d8cba8"><code>GET /api/v1/medical/notes</code></td>
+          <td style="padding:8px;border:1px solid #d8cba8">notes</td>
+          <td style="padding:8px;border:1px solid #d8cba8">"none"</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;border:1px solid #d8cba8"><b>#25.4</b> EOB Your-Share</td>
+          <td style="padding:8px;border:1px solid #d8cba8">$round(sum your_share_total)</td>
+          <td style="padding:8px;border:1px solid #d8cba8"><code>GET /api/v1/medical/eob</code></td>
+          <td style="padding:8px;border:1px solid #d8cba8">eob</td>
+          <td style="padding:8px;border:1px solid #d8cba8">"0 EOBs"</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;border:1px solid #d8cba8"><b>#25.5</b> Recent Vitals</td>
+          <td style="padding:8px;border:1px solid #d8cba8">latest "systolic/diastolic"</td>
+          <td style="padding:8px;border:1px solid #d8cba8"><code>GET /api/v1/medical/vitals</code> (v.166 NEW)</td>
+          <td style="padding:8px;border:1px solid #d8cba8">hw</td>
+          <td style="padding:8px;border:1px solid #d8cba8">"no data"</td>
+        </tr>
+        <tr>
+          <td style="padding:8px;border:1px solid #d8cba8"><b>#25.6</b> Family Snapshot</td>
+          <td style="padding:8px;border:1px solid #d8cba8">count(active family_members)</td>
+          <td style="padding:8px;border:1px solid #d8cba8">window.familyMembers + cross-tab counts</td>
+          <td style="padding:8px;border:1px solid #d8cba8">all_medical</td>
+          <td style="padding:8px;border:1px solid #d8cba8">"tracked"</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="font-size:12px;color:#666;font-style:italic;margin-top:12px">
+      Source: <code>app/public/medical.html → renderMedicalOverview()</code>. CSS:
+      <code>.med-tile*</code> namespace, same grammar as <code>.fin-tile*</code> from #18.
+      Schema source: migration 131. To extend (e.g. add Immunizations tile #25.7), follow this same
+      pattern — endpoint + renderer in medical.html + lens-config registration.
+    </p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
        DRAFTS — in-progress design work
        Combined into _templates.html per Al's direction (v.162).
        Anything visual goes UP TOP as a numbered template (#1, #18 etc).
@@ -2155,48 +2258,48 @@
     </div>
 
     <p style="font-size:13px;color:#666;margin-top:4px">
-      See also: <a href="/_drafts/status.html">backlog &amp; status board</a>
+      See also: <a href="/_templates/status.html">backlog &amp; status board</a>
       (% done, real bugs, security audit, risks, working rules).
     </p>
 
     <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#888;margin:18px 0 8px">High priority</div>
     <ul style="list-style:none;padding:0;margin:0;font-size:13px;line-height:1.7">
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#1</span> <a href="/_drafts/center-modals.html">Center modals sweep</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Replace all <code>.gh-drawer</code> right-side slide-ins with centered modals across 25 modules. User asked 3×.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#2</span> <a href="/_drafts/reports-split.html">Reports page split from Dashboard</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Dashboard = today/now. Reports = analysis.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#3</span> <a href="/_drafts/notifications.html">Notifications design</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Bell icon in nav. Open: SMTP, failure behavior, cron, quiet hours.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#18</span> <a href="/_drafts/env-secrets.html">.env.secrets migration</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Move secrets out of <code>app_config</code> into Docker-mounted file. User asked 3×.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#21</span> <a href="/_drafts/hsa-page-resolution.html">HSA page resolution</a> <span style="font-size:11px;color:#b91c1c">decision needed</span> — Path A (wire to nav) vs Path B (merge into Medical).</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#1</span> <a href="/_templates/center-modals.html">Center modals sweep</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Replace all <code>.gh-drawer</code> right-side slide-ins with centered modals across 25 modules. User asked 3×.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#2</span> <a href="/_templates/reports-split.html">Reports page split from Dashboard</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Dashboard = today/now. Reports = analysis.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#3</span> <a href="/_templates/notifications.html">Notifications design</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Bell icon in nav. Open: SMTP, failure behavior, cron, quiet hours.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#18</span> <a href="/_templates/env-secrets.html">.env.secrets migration</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Move secrets out of <code>app_config</code> into Docker-mounted file. User asked 3×.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#21</span> <a href="/_templates/hsa-page-resolution.html">HSA page resolution</a> <span style="font-size:11px;color:#b91c1c">decision needed</span> — Path A (wire to nav) vs Path B (merge into Medical).</li>
     </ul>
 
     <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#888;margin:18px 0 8px">Module-level</div>
     <ul style="list-style:none;padding:0;margin:0;font-size:13px;line-height:1.7">
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#4</span> <a href="/_drafts/finance-dashboard.html">Finance dashboard landing</a> <span style="font-size:11px;color:#999">deferred</span> — Card-grid landing. Deferred until other work stabilizes.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#4</span> <a href="/_templates/finance-dashboard.html">Finance dashboard landing</a> <span style="font-size:11px;color:#999">deferred</span> — Card-grid landing. Deferred until other work stabilizes.</li>
       <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#5</span> <a href="/kids.html">Kids attendance scratchpad</a> <span style="font-size:11px;color:#b45309">in discussion</span> — Lives inside <code>kids.html</code>. Grade-driven rule switch.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#10</span> <a href="/_drafts/data-quality.html">Data quality / completeness checker</a> <span style="font-size:11px;color:#15803d">spec ready</span> — Different from Orphan Check. Feeds Reports module.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#19</span> <a href="/_drafts/vehicles.html">Vehicles module</a> <span style="font-size:11px;color:#15803d">spec ready</span> — Per-vehicle profile + maintenance log + insurance + registration + documents.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#20</span> <a href="/_drafts/insurance-pattern.html">Insurance / historical-tracking pattern</a> <span style="font-size:11px;color:#15803d">spec ready</span> — Generic policy-chain pattern. Reusable across insurance, utility rates, mortgage, HOA, property tax.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#10</span> <a href="/_templates/data-quality.html">Data quality / completeness checker</a> <span style="font-size:11px;color:#15803d">spec ready</span> — Different from Orphan Check. Feeds Reports module.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#19</span> <a href="/_templates/vehicles.html">Vehicles module</a> <span style="font-size:11px;color:#15803d">spec ready</span> — Per-vehicle profile + maintenance log + insurance + registration + documents.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#20</span> <a href="/_templates/insurance-pattern.html">Insurance / historical-tracking pattern</a> <span style="font-size:11px;color:#15803d">spec ready</span> — Generic policy-chain pattern. Reusable across insurance, utility rates, mortgage, HOA, property tax.</li>
     </ul>
 
     <div style="font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#888;margin:18px 0 8px">Skeleton (placeholders for future fill-in)</div>
     <ul style="list-style:none;padding:0;margin:0;font-size:13px;line-height:1.7">
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#5</span> <a href="/_drafts/mobile-ux.html">Mobile UX</a> <span style="font-size:11px;color:#999">skeleton</span> — Phone-first capture flow. Full-screen modals on small screens.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#6</span> <a href="/_drafts/family-filter.html">Per-device family filter</a> <span style="font-size:11px;color:#999">skeleton</span> — First-time prompt "who is this?". localStorage scope.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#7</span> <a href="/_drafts/documents-redesign.html">Documents module</a> <span style="font-size:11px;color:#999">skeleton</span> — High-volume potential. Scoping conversation needed.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#8</span> <a href="/_drafts/wardrobe-photos.html">Photo-first wardrobe</a> <span style="font-size:11px;color:#999">skeleton</span> — Drag/drop creates draft.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#9</span> <a href="/_drafts/tag-fixes.html">Tag display fixes</a> <span style="font-size:11px;color:#999">skeleton</span> — Remove <code>#</code>, wider input, color-coded pills.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#11</span> <a href="/_drafts/card-orphans.html">Card config triage</a> <span style="font-size:11px;color:#999">skeleton</span> — 7 orphan card configs.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#12</span> <a href="/_drafts/today-page.html">Today / index page</a> <span style="font-size:11px;color:#999">skeleton</span> — Now/Soon/30-day pipeline. Locked design.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#13</span> <a href="/_drafts/global-search.html">Global search</a> <span style="font-size:11px;color:#999">skeleton</span> — One search bar, all entity types.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#14</span> <a href="/_drafts/tailscale.html">Tailscale debug</a> <span style="font-size:11px;color:#999">skeleton</span> — Partially working. Blocks snap-photo-at-store flow.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#15</span> <a href="/_drafts/gcal-sync.html">Google Calendar sync</a> <span style="font-size:11px;color:#999">skeleton</span> — Code present, untested.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#16</span> <a href="/_drafts/email-to-inbox.html">Email-to-inbox ingestion</a> <span style="font-size:11px;color:#999">skeleton</span> — Forward CVS receipt → HSA inbox. Regex parsing, no AI.</li>
-      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#17</span> <a href="/_drafts/summary-tile-card.html">Card #6 — Summary Tile</a> <span style="font-size:11px;color:#999">skeleton</span> — Now superseded by #17 Summary Tile + #18 Finance Tiles above.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#5</span> <a href="/_templates/mobile-ux.html">Mobile UX</a> <span style="font-size:11px;color:#999">skeleton</span> — Phone-first capture flow. Full-screen modals on small screens.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#6</span> <a href="/_templates/family-filter.html">Per-device family filter</a> <span style="font-size:11px;color:#999">skeleton</span> — First-time prompt "who is this?". localStorage scope.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#7</span> <a href="/_templates/documents-redesign.html">Documents module</a> <span style="font-size:11px;color:#999">skeleton</span> — High-volume potential. Scoping conversation needed.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#8</span> <a href="/_templates/wardrobe-photos.html">Photo-first wardrobe</a> <span style="font-size:11px;color:#999">skeleton</span> — Drag/drop creates draft.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#9</span> <a href="/_templates/tag-fixes.html">Tag display fixes</a> <span style="font-size:11px;color:#999">skeleton</span> — Remove <code>#</code>, wider input, color-coded pills.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#11</span> <a href="/_templates/card-orphans.html">Card config triage</a> <span style="font-size:11px;color:#999">skeleton</span> — 7 orphan card configs.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#12</span> <a href="/_templates/today-page.html">Today / index page</a> <span style="font-size:11px;color:#999">skeleton</span> — Now/Soon/30-day pipeline. Locked design.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#13</span> <a href="/_templates/global-search.html">Global search</a> <span style="font-size:11px;color:#999">skeleton</span> — One search bar, all entity types.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#14</span> <a href="/_templates/tailscale.html">Tailscale debug</a> <span style="font-size:11px;color:#999">skeleton</span> — Partially working. Blocks snap-photo-at-store flow.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#15</span> <a href="/_templates/gcal-sync.html">Google Calendar sync</a> <span style="font-size:11px;color:#999">skeleton</span> — Code present, untested.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#16</span> <a href="/_templates/email-to-inbox.html">Email-to-inbox ingestion</a> <span style="font-size:11px;color:#999">skeleton</span> — Forward CVS receipt → HSA inbox. Regex parsing, no AI.</li>
+      <li style="padding:6px 0;border-bottom:1px solid #eee"><span style="display:inline-block;width:40px;font-family:'DM Mono',monospace;font-weight:600;color:#999">#17</span> <a href="/_templates/summary-tile-card.html">Card #6 — Summary Tile</a> <span style="font-size:11px;color:#999">skeleton</span> — Now superseded by #17 Summary Tile + #18 Finance Tiles above.</li>
     </ul>
 
     <p style="margin-top:24px;font-size:12px;color:#666;font-style:italic">
       <strong>Going forward (v.162):</strong> all visual design work goes into the templates above as numbered patterns
       (#1–#18 etc., with <code>#X.Y</code> subdivisions). The drafts list here is text-only working items only.
-      <code>/_drafts.html</code> redirects to this page.
+      <code>/_templates.html</code> redirects to this page.
     </p>
 
   </div>

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #4 — FINANCE DASHBOARD LANDING
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    DEFERRED (per user — finance work waits)
+  CREATED:   2026-05-04
+  PRIORITY:  Low — explicitly deferred by user
+
+  WHAT THIS IS
+    /finance.html stops dropping users into the HSA tab. Becomes a
+    card-grid landing showing summaries from HSA, accounts, holdings,
+    subscriptions, etc. Each card click → opens that area's existing
+    page. Pulls $ data from across the app (medical receipts via v140).
+
+  WHERE IT LIVES (when shipped)
+    - app/public/finance.html — replace tab-switching landing with
+      card grid. Keep tabs as deeper nav once you click a card.
+
+  STATED REQUIREMENTS (verbatim)
+    Chat 15 (this session, 2026-05-04):
+      "for finance I think cards, reports and basically display of $
+       data from medical. Just like display of $ from home and
+       other things down the road"
+      "finance we are deferring since you have been messing up work
+       and by the time you do anything I have to move to another
+       chat so the cycle starts again."
+
+    Earlier chat 5:
+      "finance landing page - don't do anything let's chat"
+
+    Earlier chat:
+      "we can have a dashboard on finance page (we need to talk like
+       I said before) that can have some fsa, hsa metrics but the
+       majority of work is medical related"
+
+  AGREEMENTS — LOCKED
+    ✅ Finance landing = card grid. Not tab-switch.
+    ✅ HSA receipt entry stays in MEDICAL (per v140 redesign).
+       Finance shows the $ summary from medical's data.
+    ✅ Read-only summaries. Edits in source modules.
+    ✅ Cards drill into existing finance tabs.
+    ✅ Work is DEFERRED. Don't build until user says go.
+
+  AGREEMENTS — OPEN
+    ❓ Which cards specifically? (proposal in body)
+    ❓ Trading & Subscriptions: separate sidebar or fold in?
+       Lean: keep separate, Finance landing just shows summaries.
+    ❓ "Summary Tile" card pattern needs to be added to
+       _templates.html as #6. Different from 4-zone medication card.
+       Big number / label / sparkline / click-arrow.
+
+  DATA SOURCES (all existing)
+    - financial_accounts (balances)
+    - finance_transactions (recent)
+    - hsa_payments / fsa_payments (v140)
+    - subscriptions (monthly recurring)
+    - investments / holdings
+    - property (estimated values)
+    No new tables.
+
+  INTEGRATION POINTS
+    - HSA vault total from /api/v1/hsa/vault?pot=hsa (v140)
+    - Net worth aggregates all the above
+    - Each card opens the existing detail page
+
+  CARDS USED
+    NOT the 4-zone medication card. New "Summary Tile" pattern
+    needed in _templates.html (#6, when designed).
+
+  BUILD SEQUENCE (DEFERRED — when user says go)
+    1. Design "Summary Tile" card pattern in _templates.html.
+    2. Build /api/v1/finance/landing aggregator endpoint.
+    3. Replace finance.html landing with card grid.
+    4. Each card → existing tab/page.
+
+  BACKEND CHANGES
+    One new endpoint: GET /api/v1/finance/landing
+    No schema changes.
+
+  OUT OF SCOPE
+    - Trading dashboard redesign — separate work
+    - Investment performance charts
+    - Budget vs actual — separate backlog item
+    - OFX/QFX import UI — separate backlog item
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft #4 — Finance landing</title>
+<link rel="stylesheet" href="/_templates/_templates.css">
+</head>
+<body>
+
+<div class="breadcrumb"><a href="/_templates.html">← Templates index</a></div>
+
+<h1>#4 — Finance dashboard landing</h1>
+
+<p class="status-line">
+  <span class="label">Status:</span> deferred ·
+  <span class="label">Locked:</span> Card grid pattern ·
+  <span class="label">Created:</span> 2026-05-04
+</p>
+
+<div class="stop">
+  <span class="label">⛔ DEFERRED — Do not build.</span>
+  User explicitly said: "finance we are deferring since you have been messing up work
+  and by the time you do anything I have to move to another chat so the cycle starts again."
+  This page exists so when finance work resumes, the design context is already captured.
+</div>
+
+<h2>Wireframe — proposed card grid</h2>
+
+<table>
+  <thead>
+    <tr><th>Tile</th><th>Number</th><th>Sub</th><th>Click →</th></tr>
+  </thead>
+  <tbody>
+    <tr><td>Net worth</td><td>$487,300</td><td>+$3,200 this month</td><td>View accounts</td></tr>
+    <tr><td>HSA vault</td><td>$4,820</td><td>14 unreimbursed receipts</td><td>View HSA</td></tr>
+    <tr><td>LP-FSA</td><td>$830</td><td>⚠ deadline 47 days</td><td>View FSA</td></tr>
+    <tr><td>Cash flow MTD</td><td>+$1,420</td><td>Income $9,840 · Spent $8,420</td><td>View transactions</td></tr>
+    <tr><td>Subscriptions</td><td>$340/mo</td><td>2 renewing this week</td><td>View subscriptions</td></tr>
+    <tr><td>Holdings YTD</td><td>+8.4%</td><td>vs S&amp;P 6.1%</td><td>View holdings</td></tr>
+  </tbody>
+</table>
+
+<h2>Stated requirements (verbatim)</h2>
+
+<div class="quote">
+  <div class="src">Chat 15 · 2026-05-04 (this session)</div>
+  <div class="text">"for finance I think cards, reports and basically display of $ data from medical. Just like display of $ from home and other things down the road"</div>
+  <div class="text">"finance we are deferring since you have been messing up work…"</div>
+</div>
+
+<div class="quote">
+  <div class="src">Chat 5</div>
+  <div class="text">"finance landing page - don't do anything let's chat" — design-first</div>
+</div>
+
+<div class="quote">
+  <div class="src">Earlier session</div>
+  <div class="text">"we can have a dashboard on finance page (we need to talk like I said before) that can have some fsa, hsa metrics but the majority of work is medical related"</div>
+</div>
+
+<h2>Locked agreements</h2>
+
+<ul class="locked-list">
+  <li>Card grid landing pattern, not tab-switch.</li>
+  <li>HSA receipts stay in Medical. Finance shows $ summary only.</li>
+  <li>Read-only summaries. Edits in source modules.</li>
+  <li>Cards drill into existing tabs.</li>
+  <li>Work is DEFERRED. Don't build.</li>
+</ul>
+
+<h2>Open questions (when work resumes)</h2>
+
+<div class="open">
+  <div class="label">Which cards specifically?</div>
+  <div class="lean">Proposal in comments at top of file.</div>
+</div>
+
+<div class="open">
+  <div class="label">Trading &amp; Subscriptions — separate sidebar or folded into Finance?</div>
+  <div class="lean">Lean: stay separate, Finance landing just shows their summaries.</div>
+</div>
+
+<div class="open">
+  <div class="label">"Summary Tile" card pattern needs to be added to _templates.html as #6.</div>
+  <div class="lean">Different from 4-zone medication card. Big number / label / sparkline / click-arrow.</div>
+</div>
+
+<h2>Backend changes (when work resumes)</h2>
+
+<ul>
+  <li>One new endpoint: <code>GET /api/v1/finance/landing</code> → aggregated summaries</li>
+  <li>No schema changes. All data exists.</li>
+</ul>
+
+</body>
+</html>

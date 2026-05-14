@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #22 — FINANCE OVERVIEW TILES (LOCKED)
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    LOCKED — implemented v.150, wired v.154, do not change
+                       without Al's explicit redesign go-ahead
+  CREATED:   2026-05-12
+  PRIORITY:  Reference doc — captures what was agreed so future drops
+             don't drift away from it
+
+  WHY THIS EXISTS
+    Al pointed out v.158 introduced tile values + copy that weren't in
+    the agreed design. The agreed design was lost across chats. This
+    file captures the LOCKED v.150 tile spec from STATE.md (lines
+    644–708) so it's never re-litigated. Anything that deviates from
+    this is a redesign, not an iteration.
+
+  WHAT'S LOCKED
+    - Exactly 6 tiles (count locked; 5 was discussed, 6 won)
+    - Names, order, hero metric, pill, strip, click target — all locked
+    - 5-zone template: eyebrow / hero / pill / strip / entities
+    - Tiles render `—` placeholders until /finance/landing fetch returns
+    - No invented sample numbers shown to user (v.158 mistake)
+
+  THE 6 TILES (locked order, v.150)
+
+    T1  NET WORTH
+        Hero:    Total $ (assets - liabilities, includes investments)
+        Eyebrow: "Net worth · <generated_at date>"
+        Pill:    MoM delta (+$X / -$X) or "first month" if no prior snapshot
+        Dot:     green if total ≥ 0, red if negative
+        Strip:   "$X assets · $Y liabilities"
+        Click:   → networth tab
+
+    T2  CASH FLOW MTD
+        Hero:    Net (signed: +$ or -$) for current month-to-date
+        Eyebrow: "Cash flow · MTD <Month>"
+        Pill:    "vs last mo +/-$X" or "no data yet" if zero MTD activity
+        Dot:     green if net ≥ 0, amber otherwise
+        Bar:     in (credits) vs out (debits) horizontal split bar
+        Labels:  "in $X" / "out $Y" below the bar
+        Strip:   "<N> transactions this month"
+        Click:   → transactions tab
+
+    T3  CREDIT CARDS
+        Hero:    Total statement balance owed across all active credit accounts
+        Eyebrow: "Credit cards · <N> active"
+        Pill:    Utilization % (green <30, amber <60, red ≥60) or "no limit set"
+        Dot:     red if soonest due ≤3d, amber if ≤7d, green otherwise
+        Strip:   "<account> due in Nd · $M min" or "overdue Nd"
+        Click:   → accounts tab
+
+    T4  BANK ACCOUNTS
+        Hero:    Total liquid balance (sum of Checking + Savings + Cash)
+        Eyebrow: "Banks · <N> account(s)"
+        Pill:    (none in v.150 spec — reserved for stale-count badge later)
+        Dot:     green
+        Rows:    by_type breakdown — Checking $X, Savings $Y, Cash $Z
+        Click:   → accounts tab
+
+    T5  HOLDINGS
+        Hero:    Total market value across all positions
+        Eyebrow: "Holdings · <N> position(s)"
+        Pill:    (none in v.150 — reserved for YTD % badge later)
+        Dot:     green
+        Strip:   "tap to manage" or "no holdings imported yet"
+        Click:   → holdings tab
+
+    T6  HSA + LP-FSA  (combined into one tile — locked)
+        Hero:    Combined unreimbursed pool ($ HSA + $ LP-FSA remaining)
+        Eyebrow: "HSA + LP-FSA"
+        Pill:    (none in v.150 — reserved for FSA deadline badge later)
+        Dot:     green
+        Rows:    HSA $X, LP-FSA $Y (only show rows for pots that exist)
+        Click:   → hsa tab (will redirect to /medical.html#receipts when Path B ships)
+
+  WHAT'S NOT IN THE TILE SET (logged so it doesn't get re-asked)
+    - Subscriptions      — already in main nav, duplicate signal
+    - Budgets            — Al said skip; add later if used
+    - Gift cards         — low signal as a tile
+    - Trade terminal     — its own page
+    - Property           — its own page
+
+  VISUAL RULES (locked v.150)
+    - Status dot in eyebrow, semantic colors (green / amber / red)
+    - Status pill on right of hero, same color family as the dot
+    - Hero number: Newsreader/Fraunces italic 40px desktop, 36px mobile
+    - Mini rows: DM Mono 12px, flex:1 label, right-aligned $ with min-width:54px
+    - Strip line at bottom: mono 11px, red when alert
+    - Entities row at bottom (when applicable): family avatars, never overlap
+    - Mobile: 1-column grid below 700px viewport
+
+  SAMPLE-DATA HANDLING (after v.160/161 cleanup)
+    - No invented numbers anywhere. Ever.
+    - Tile renders `—` placeholders until /finance/landing returns
+    - If a tile has no real backing data (e.g. count=0), it stays at `—`
+    - A SAMPLE pill badge is OPTIONAL (currently in v.161) — Al has the
+      call on whether to keep or remove. Default lean: remove. The
+      em-dash is sufficient signal that the tile has no data yet.
+
+  CONTRACT WITH /api/v1/finance/landing
+    Backend aggregator returns one JSON object with these keys:
+      generated_at   ISO timestamp
+      net_worth      { total, assets, liabilities, investment_total, mom_delta }
+      cash_flow      { net, credits, debits, count, prior_mtd_net }
+      credit_cards   { count, statement_balance, utilization,
+                        soonest_due_date, soonest_due_account, min_payment }
+      bank_accounts  { count, total, by_type: [{type, total}] }
+      holdings       { positions, market_value }
+      hsa_lp_fsa     { hsa_count, hsa_total, lp_fsa_remaining, combined }
+
+  RULES OF CHANGE
+    - Add a tile?           → redesign discussion required (Al's call)
+    - Rename a tile?        → redesign discussion required
+    - Reorder the tiles?    → redesign discussion required
+    - Change a hero metric? → redesign discussion required
+    - Styling tweaks?       → Al's call, but check 5-zone template first
+
+  SOURCE: STATE.md lines 644–708 (locked v.150 design notes)
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft #22 — Finance Overview tiles (locked)</title>
+<link rel="stylesheet" href="/_templates/_templates.css">
+</head>
+<body>
+
+<div class="breadcrumb"><a href="/_templates.html">← Templates index</a></div>
+
+<h1>#22 — Finance Overview tiles (locked)</h1>
+
+<p class="status-line">
+  <span class="label">Status:</span> <strong>locked</strong> ·
+  <span class="label">Locked at:</span> v.150 ·
+  <span class="label">Wired at:</span> v.154 ·
+  <span class="label">Source:</span> STATE.md lines 644–708
+</p>
+
+<p>
+  Reference doc — captures the agreed Finance Overview tile design so
+  future drops don't drift. Anything that deviates from this is a
+  <em>redesign</em> requiring Al's explicit go-ahead, not an iteration.
+</p>
+
+<hr>
+
+<h2>The 6 tiles (locked order)</h2>
+
+<table style="border-collapse:collapse;width:100%;font-size:13px">
+  <thead>
+    <tr style="background:#f5f3ee">
+      <th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">#</th>
+      <th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">Name</th>
+      <th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">Hero metric</th>
+      <th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">Pill</th>
+      <th style="text-align:left;padding:6px;border-bottom:1px solid #ddd">Click target</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td style="padding:6px;border-bottom:1px solid #eee"><strong>T1</strong></td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Net Worth</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Total $ (assets − liab + investments)</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">MoM delta</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">networth tab</td>
+    </tr>
+    <tr>
+      <td style="padding:6px;border-bottom:1px solid #eee"><strong>T2</strong></td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Cash Flow MTD</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Net signed (+/− $)</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">vs last mo</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">transactions tab</td>
+    </tr>
+    <tr>
+      <td style="padding:6px;border-bottom:1px solid #eee"><strong>T3</strong></td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Credit Cards</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Total owed (statement balance)</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Utilization %</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">accounts tab</td>
+    </tr>
+    <tr>
+      <td style="padding:6px;border-bottom:1px solid #eee"><strong>T4</strong></td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Bank Accounts</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Total liquid</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">(reserved — stale count)</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">accounts tab</td>
+    </tr>
+    <tr>
+      <td style="padding:6px;border-bottom:1px solid #eee"><strong>T5</strong></td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Holdings</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Market value</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">(reserved — YTD %)</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">holdings tab</td>
+    </tr>
+    <tr>
+      <td style="padding:6px;border-bottom:1px solid #eee"><strong>T6</strong></td>
+      <td style="padding:6px;border-bottom:1px solid #eee">HSA + LP-FSA</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">Combined unreimbursed pool</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">(reserved — FSA deadline)</td>
+      <td style="padding:6px;border-bottom:1px solid #eee">hsa tab</td>
+    </tr>
+  </tbody>
+</table>
+
+<hr>
+
+<h2>Per-tile spec</h2>
+
+<h3>T1 — Net Worth</h3>
+<ul>
+  <li>Hero: Total $ (assets − liabilities, includes investments)</li>
+  <li>Eyebrow: "Net worth · &lt;generated_at date&gt;"</li>
+  <li>Pill: MoM delta or "first month" if no prior snapshot</li>
+  <li>Dot: green if total ≥ 0, red if negative</li>
+  <li>Strip: "$X assets · $Y liabilities"</li>
+  <li>Click: → networth tab</li>
+</ul>
+
+<h3>T2 — Cash Flow MTD</h3>
+<ul>
+  <li>Hero: Net signed (+$ / −$) for current MTD</li>
+  <li>Eyebrow: "Cash flow · MTD &lt;Month&gt;"</li>
+  <li>Pill: "vs last mo +/−$X" or "no data yet" if zero MTD activity</li>
+  <li>Dot: green if net ≥ 0, amber otherwise</li>
+  <li>Bar: in (credits) vs out (debits) horizontal split</li>
+  <li>Bar labels: "in $X" / "out $Y"</li>
+  <li>Strip: "&lt;N&gt; transactions this month"</li>
+  <li>Click: → transactions tab</li>
+</ul>
+
+<h3>T3 — Credit Cards</h3>
+<ul>
+  <li>Hero: Total statement balance owed across active credit accounts</li>
+  <li>Eyebrow: "Credit cards · &lt;N&gt; active"</li>
+  <li>Pill: Utilization % — green &lt;30, amber &lt;60, red ≥60</li>
+  <li>Dot: red if next due ≤3d, amber if ≤7d, green otherwise</li>
+  <li>Strip: "&lt;account&gt; due in Nd · $M min" or "overdue Nd"</li>
+  <li>Click: → accounts tab</li>
+  <li>Earliest-due rule: min payment_due_date where balance &gt; 0; tiebreak by larger min payment</li>
+</ul>
+
+<h3>T4 — Bank Accounts</h3>
+<ul>
+  <li>Hero: Total liquid (Checking + Savings + Cash)</li>
+  <li>Eyebrow: "Banks · &lt;N&gt; account(s)"</li>
+  <li>Pill: (none in v.150 — reserved for stale-count later)</li>
+  <li>Dot: green</li>
+  <li>Rows: by_type breakdown — Checking $X, Savings $Y, Cash $Z</li>
+  <li>Click: → accounts tab</li>
+</ul>
+
+<h3>T5 — Holdings</h3>
+<ul>
+  <li>Hero: Total market value across all positions</li>
+  <li>Eyebrow: "Holdings · &lt;N&gt; position(s)"</li>
+  <li>Pill: (none in v.150 — reserved for YTD % later)</li>
+  <li>Dot: green</li>
+  <li>Strip: "tap to manage" or "no holdings imported yet"</li>
+  <li>Click: → holdings tab</li>
+</ul>
+
+<h3>T6 — HSA + LP-FSA</h3>
+<ul>
+  <li><strong>Combined into one tile — locked</strong></li>
+  <li>Hero: Combined unreimbursed pool</li>
+  <li>Eyebrow: "HSA + LP-FSA"</li>
+  <li>Pill: (none in v.150 — reserved for FSA deadline later)</li>
+  <li>Dot: green</li>
+  <li>Rows: HSA $X, LP-FSA $Y (only render rows for pots that exist)</li>
+  <li>Click: → hsa tab (becomes /medical.html#receipts when Path B ships)</li>
+</ul>
+
+<hr>
+
+<h2>What's NOT in the tile set (logged)</h2>
+<ul>
+  <li><strong>Subscriptions</strong> — already in main nav, duplicate signal</li>
+  <li><strong>Budgets</strong> — Al said skip; add later if used</li>
+  <li><strong>Gift cards</strong> — low signal as a tile</li>
+  <li><strong>Trade terminal</strong> — its own page</li>
+  <li><strong>Property</strong> — its own page</li>
+</ul>
+
+<hr>
+
+<h2>Visual rules (locked)</h2>
+<ul>
+  <li>5-zone template: <code>eyebrow / hero / pill / strip / entities</code></li>
+  <li>Status dot in eyebrow, semantic colors (green / amber / red)</li>
+  <li>Status pill on right of hero, same color family as the dot</li>
+  <li>Hero number: Newsreader/Fraunces italic, 40px desktop / 36px mobile</li>
+  <li>Mini rows: DM Mono 12px; <code>flex:1</code> label; right-aligned $ with <code>min-width:54px</code></li>
+  <li>Strip line at bottom: mono 11px; red when alert</li>
+  <li>Mobile: 1-column grid below 700px viewport</li>
+</ul>
+
+<hr>
+
+<h2>Sample-data handling (post v.160/161)</h2>
+<ul>
+  <li>No invented numbers anywhere. Ever.</li>
+  <li>Tile renders <code>—</code> placeholders until <code>/finance/landing</code> returns</li>
+  <li>If a tile has no real backing data, it stays at <code>—</code></li>
+  <li>SAMPLE pill badge is OPTIONAL (currently in v.161) — Al has the
+      call on whether to keep or remove. Default lean: remove.</li>
+</ul>
+
+<hr>
+
+<h2>Backend contract — <code>GET /api/v1/finance/landing</code></h2>
+<pre style="background:#f5f3ee;padding:12px;border-radius:6px;font-size:12px;line-height:1.5">{
+  "generated_at":  "&lt;ISO timestamp&gt;",
+  "net_worth":     { "total", "assets", "liabilities", "investment_total", "mom_delta" },
+  "cash_flow":     { "net", "credits", "debits", "count", "prior_mtd_net" },
+  "credit_cards":  { "count", "statement_balance", "utilization",
+                     "soonest_due_date", "soonest_due_account", "min_payment" },
+  "bank_accounts": { "count", "total", "by_type": [{ "type", "total" }] },
+  "holdings":      { "positions", "market_value" },
+  "hsa_lp_fsa":    { "hsa_count", "hsa_total", "lp_fsa_remaining", "combined" }
+}</pre>
+
+<hr>
+
+<h2>Rules of change</h2>
+<ul>
+  <li>Add a tile → redesign discussion required (Al's call)</li>
+  <li>Rename a tile → redesign discussion required</li>
+  <li>Reorder the tiles → redesign discussion required</li>
+  <li>Change a hero metric → redesign discussion required</li>
+  <li>Styling tweaks → Al's call, but check 5-zone template first</li>
+</ul>
+
+</body>
+</html>

@@ -5,6 +5,119 @@
 >
 > If you're a new Claude chat reading this: scan all sections, then ask
 > Al "ready?" before building. Do not re-litigate locked decisions.
+>
+> ## 📚 Required reading per chat (locked v.166), in order:
+> 1. **`STATE.md`** (this file) — current state
+> 2. **`HANDOFF.md`** — next chat's task list + deploy process
+> 3. **`BACKLOG.md`** — every deferred idea, gap, decision; cross-chat persistent memory
+> 4. **`app/public/_templates.html`** — numbered visual design specs (#1, #18, M1–M6, etc.)
+
+---
+
+## 🚨 NEW CHAT? READ THIS FIRST — v.166 IN PROGRESS
+
+Al runs **Ghrava** — self-hosted household OS on QNAP NAS at `192.168.4.62:3001`.
+Node.js/Express + SQLite (better-sqlite3) + vanilla JS + Docker.
+
+**Most recent packaged version on prod:** v202604.165 (finance tiles wired).
+**v202604.166 staged in sandbox, NOT yet packaged** — awaiting Al's "package" command.
+
+### What's in the v.166 sandbox
+
+1. **Drafts → Templates migration (DONE)**
+   - `_drafts/*.html` (24 subpages + `_drafts.css`) → `app/public/_templates/*.html`
+   - `_drafts.css` → `_templates.css`
+   - `_drafts.html` redirect shim deleted; `_drafts/` directory removed
+   - All `/_drafts/` refs + `← Drafts index` breadcrumbs updated to `_templates`
+   - `nav.js` link renamed Drafts → Templates, href `/_templates.html`, `data-drafts-link` → `data-templates-link`
+
+2. **Medical Overview tab restored (DONE)**
+   - New "Overview" tab in `medical.html`, default landing (was "All")
+   - 6 tiles M1–M6 with `.med-tile*` CSS namespace (locked design from #18 Finance tiles)
+   - M1 Active conditions · M2 Active meds + refills due · M3 Upcoming visits · M4 EOB your-share · M5 Recent vitals · M6 Family snapshot
+   - **Empty state rule** (Al locked v.166): tile structure ALWAYS renders. Values go to 0 / — / mute pill; rows preserved.
+   - 3-up desktop grid `repeat(auto-fit, minmax(320px, 1fr))`, phone scroll-snap <700px
+
+3. **Migration 131 — medical schema expansion (DONE, simulated PASS)**
+   - `contacts` +6 cols: credentials, manages, is_primary_pcp, portal_url, fax, npi
+   - `med_conditions` +3 cols: icd10_code, severity, source_system
+   - `med_medications` +7 cols: dose_unit, route, ndc, mail_order, quantity_total_prescribed, rx_date, source_system
+   - `med_eob_claims` +7 cols: provider_npi, diagnosis_codes (JSON), place_of_service, claim_status, denial_reason_codes, prior_auth_ref, appeal_deadline
+   - `med_eob_services` +2 cols: cpt_modifiers (JSON), hsa_eligible
+   - NEW TABLE `med_lab_results` (panel_name, test_name, test_date, value_numeric, value_text, unit, reference_low/high/text, flag, source_visit_id, dedup_hash)
+   - NEW TABLE `med_diagnostics` (test_name, test_type, test_date NULL, status, impression, ordering_contact_id, performing_contact_id, facility, dedup_hash) — `test_date` nullable so `status='pending'` rows (recommended-but-not-yet-performed tests) are allowed
+   - NEW TABLE `med_allergies` (allergen, allergen_type, reaction, severity, status, noted_date, dedup_hash)
+   - NEW TABLE `med_vitals_readings` (measure_date, measure_time, systolic_bp, diastolic_bp, heart_rate, weight_lbs, height_in, bmi, temperature_f, o2_sat, respiratory_rate, blood_glucose, source_system, source_visit_id, dedup_hash)
+   - Idempotent: re-runs are no-ops. Marker table `_migrations_medical_expansion_done`.
+
+4. **Bulk seed endpoint (DONE)**
+   - `POST /api/v1/medical/bulk-seed` in `app/features/medical/seed-routes.js`
+   - Accepts the `health_seed.json` shape from the medical-conversion chat
+   - Maps to existing `med_*` tables (NOT to spec's parallel `health_*` tables)
+   - Resolves family member by explicit `family_member_id` OR `patient.name` match OR first-word match
+   - Idempotent via dedup_hash per section
+   - Supports `?dry_run=1` for safety preview
+   - Mounted alongside `medical/routes.js` in server.js
+
+5. **Seed CLI tool (DONE)** — `app/scripts/seed-medical.js`
+   - Usage: `docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json [--dry-run]`
+   - Reads JSON, POSTs to bulk-seed endpoint, prints per-section counts
+
+6. **Algir's seed bundled (DONE)** — `app/seeds/medical_algir.json` (15 KB)
+   - 1 patient · 6 care_team · 14 conditions · 14 medications · 26 labs · 8 vitals · 7 diagnostics · 1 allergy
+   - Originated from `medical_module_-_ghrava_upload.zip` (Apr 2026)
+   - **Simulation verified:** all 76 records insert cleanly against the mig-131 expanded schema
+
+7. **Kids ↔ family_members auto-sync (DONE)** — fixes Risha-not-showing bug
+   - `kids/routes.js` GET / now calls `syncKidsFromFamilyMembers()` first
+   - For every `family_members` row with `relationship IN ('Son','Daughter','Child','Stepson','Stepdaughter','Stepchild') AND is_active=1` that has no matching `kids` row, INSERT one
+   - Wrapped in try/catch so a sync error doesn't break the list endpoint
+
+8. **Lens config for new fields (DONE)** — `app/public/js/lens-config.js`
+   - Extended existing `medical_medications` lens with: route, mail_order, ndc, source
+   - Extended `medical_conditions` with: icd10, severity, source
+   - Extended `medical_eob` with: claim_status, place, diagnosis, npi
+   - NEW lens entries: `medical_labs`, `medical_diagnostics`, `medical_allergies`, `medical_vitals`
+   - All new fields searchable via the global lens (per Al's locked v.166 rule: every new field MUST be in lens-config.js)
+
+9. **GET endpoints for new tables (DONE)** — appended to `medical/routes.js`
+   - `GET /api/v1/medical/labs` (filter `?family_member_id`, `?limit`)
+   - `GET /api/v1/medical/diagnostics`
+   - `GET /api/v1/medical/allergies`
+   - `GET /api/v1/medical/vitals`
+
+10. **BACKLOG.md created (DONE)** — persistent cross-chat memory
+    - Top open decisions, cross-module wiring TODO, schema gaps, reports engine design, known bugs, security audit, v140 loose ends, draft pages map, workflow rules
+    - Old April-2026 backlog archived as `BACKLOG_OLD_apr2026.md`
+
+### How v.166 was verified (predeploy)
+
+- `node --check` on all 8 changed JS files → clean
+- Inline `<script>` syntax check on medical.html (4 blocks) → clean
+- Migration simulation against shape-mirror DB → 25 new columns + 4 new tables all present
+- Idempotent re-run → OK
+- End-to-end seed import against simulated schema → all 76 seed rows inserted cleanly
+
+### Deploy steps for Al (when ready to package)
+
+1. Say "package" → Claude builds `Ghrava_DEPLOY.zip` with top-level layout (no `ghrava/` wrapper)
+2. Download to `~/Downloads`, run `ghrava_deploy.ps1` → extracts to `Z:\ghrava\`
+3. SSH NAS: `docker restart ghrava` (~2s) — applies mig 131 automatically (additive, idempotent, transaction-wrapped)
+4. Verify: visit `https://ghrava.home/medical.html` → Overview tab is default, 6 tiles render with current (mostly empty) data
+5. **Run seed (optional but recommended):** `docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json --dry-run` then without `--dry-run` to import 76 records
+6. Verify: visit Medical → Overview again. M1 shows 14 conditions, M2 shows 14 meds, M5 shows BP from latest vital
+7. Verify: visit Kids → Risha appears (auto-synced from family_members)
+
+### What's NEXT after deploy
+
+See **`BACKLOG.md`** for the full prioritized list. Top items:
+
+1. Reports engine design — `metric_index` view, canonical metric vocabulary, cross-module slicing
+2. Medical "Receipts" tab (v140 deferred) — single-flow PDF upload routes file to Documents + creates medical record + auto-links
+3. Auto-link transactions → medical_visit / hsa_payment (cross-module wiring)
+4. EOB → HSA payment auto-match
+5. Other family members' seed JSONs (Zarna, Arnav, Risha)
+6. Immunizations / procedures / referrals tables (Medical schema gaps)
 
 ---
 

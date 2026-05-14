@@ -195,6 +195,13 @@
           values: ['CII', 'CIII', 'CIV', 'CV'] },
         generic: { type: 'select', verb: 'is', field: 'is_generic',
           values: ['generic', 'brand'] },
+        // v202604.166 — mig 131 additions
+        route:   { type: 'select', verb: 'route', field: 'route',
+          values: ['oral','topical','IM','IV','subQ','inhaled','nasal','ophthalmic','other'] },
+        mail_order: { type: 'select', verb: 'fulfillment', field: 'mail_order',
+          values: ['mail order','pickup'] },
+        ndc:     { type: 'text', verb: 'NDC', field: 'ndc' },
+        source:  { type: 'text', verb: 'from system', field: 'source_system' },
         time:    { verb: 'started', field: 'start_date' },
         tag:     { verb: 'tagged', field: 'tags' },
       },
@@ -215,6 +222,11 @@
                    'Neurological','Digestive','Renal','Mental health','Other'] },
         state:  { type: 'select', verb: 'state', field: 'condition_state',
           values: ['controlled','monitoring','out_of_range','acute'] },
+        // v202604.166 — mig 131 additions
+        icd10:    { type: 'text', verb: 'ICD-10', field: 'icd10_code' },
+        severity: { type: 'select', verb: 'severity', field: 'severity',
+          values: ['Mild', 'Moderate', 'Severe'] },
+        source:   { type: 'text', verb: 'from system', field: 'source_system' },
         time:   { verb: 'diagnosed', field: 'start_date' },
         tag:    { verb: 'tagged', field: 'tags' },
       },
@@ -249,9 +261,87 @@
         claim:    { type: 'text', verb: 'claim#', field: 'claim_id' },
         status:   { type: 'select', verb: 'status', field: 'eob_status',
           values: ['paid', 'owed', 'processing', 'review'] },
+        // v202604.166 — mig 131 additions for non-display matching/appeal use
+        claim_status: { type: 'select', verb: 'claim state', field: 'claim_status',
+          values: ['paid', 'denied', 'pending', 'appealed', 'partial'] },
+        place:    { type: 'select', verb: 'POS', field: 'place_of_service',
+          values: ['11 (office)', '22 (hospital)', '81 (lab)', '23 (ER)', 'other'] },
+        diagnosis: { type: 'text', verb: 'ICD-10', field: 'diagnosis_codes' },
+        npi:      { type: 'text', verb: 'provider NPI', field: 'provider_npi' },
         amount:   { type: 'select', verb: 'amount', field: 'your_share',
           values: ['> $100', '> $500', '< $50'] },
         time:     { verb: 'dated', field: 'statement_date' },
+      },
+    },
+
+    // v202604.166 — Lab results (new — mig 131)
+    medical_labs: {
+      label: 'Lab results',
+      plural: 'labs',
+      personPrimary: true,
+      dimensions: {
+        person:   { verb: 'for', field: 'family_member_id' },
+        test:     { type: 'text', verb: 'test', field: 'test_name' },
+        panel:    { type: 'text', verb: 'panel', field: 'panel_name' },
+        flag:     { type: 'select', verb: 'flag', field: 'flag',
+          values: ['normal', 'low', 'high', 'critical', 'abnormal'] },
+        unit:     { type: 'text', verb: 'unit', field: 'unit' },
+        source:   { type: 'text', verb: 'from system', field: 'source_system' },
+        time:     { verb: 'on', field: 'test_date' },
+        tag:      { verb: 'tagged', field: 'tags' },
+      },
+    },
+
+    // v202604.166 — Diagnostics (new — mig 131)
+    medical_diagnostics: {
+      label: 'Diagnostics',
+      plural: 'diagnostics',
+      personPrimary: true,
+      dimensions: {
+        person:    { verb: 'for', field: 'family_member_id' },
+        test:      { type: 'text', verb: 'test', field: 'test_name' },
+        test_type: { type: 'select', verb: 'type', field: 'test_type',
+          values: ['cardiac', 'imaging', 'endoscopy', 'pulmonary', 'other'] },
+        status:    { type: 'select', verb: 'status', field: 'status',
+          values: ['pending', 'preliminary', 'final', 'amended'] },
+        facility:  { type: 'text', verb: 'at', field: 'facility' },
+        source:    { type: 'text', verb: 'from system', field: 'source_system' },
+        time:      { verb: 'on', field: 'test_date' },
+      },
+    },
+
+    // v202604.166 — Allergies (new — mig 131)
+    medical_allergies: {
+      label: 'Allergies',
+      plural: 'allergies',
+      personPrimary: true,
+      dimensions: {
+        person:        { verb: 'for', field: 'family_member_id' },
+        allergen:      { type: 'text', verb: 'to', field: 'allergen' },
+        allergen_type: { type: 'select', verb: 'kind', field: 'allergen_type',
+          values: ['drug', 'food', 'environmental', 'other'] },
+        severity:      { type: 'select', verb: 'severity', field: 'severity',
+          values: ['mild', 'moderate', 'severe', 'life-threatening'] },
+        status:        { type: 'select', verb: 'state', field: 'status',
+          values: ['Active', 'Resolved', 'Historical'] },
+        time:          { verb: 'noted', field: 'noted_date' },
+      },
+    },
+
+    // v202604.166 — Vitals readings (new — mig 131)
+    medical_vitals: {
+      label: 'Vitals',
+      plural: 'readings',
+      personPrimary: true,
+      dimensions: {
+        person:        { verb: 'for', field: 'family_member_id' },
+        source:        { type: 'text', verb: 'from system', field: 'source_system' },
+        // Per-measure shortcuts so reports/lens can find "BP high" etc.
+        bp:            { type: 'select', verb: 'BP', field: 'bp_state',
+          values: ['normal', 'elevated', 'stage 1', 'stage 2', 'crisis'] },
+        weight_state:  { type: 'select', verb: 'weight', field: 'weight_state',
+          values: ['under', 'normal', 'over', 'obese'] },
+        time:          { verb: 'on', field: 'measure_date' },
       },
     },
 

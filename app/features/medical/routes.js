@@ -1112,6 +1112,65 @@ router.get('/interactions/:familyMemberId', async (req, res) => {
   } catch(e) { res.json({ interactions: [], count: 0, error: e.message }); }
 });
 
+// ════════════════════════════════════════════════════════════════════
+// v202604.166 — Read endpoints for new tables from migration 131:
+//   med_lab_results / med_diagnostics / med_allergies / med_vitals_readings
+//
+// All public GETs (consistent with rest of module). Each accepts an
+// optional ?family_member_id filter. Sorted newest-first. Limit param
+// caps result size at 500 by default.
+// ════════════════════════════════════════════════════════════════════
+
+function _filterByFm(req) {
+  const fmId = req.query.family_member_id;
+  if (!fmId) return { sql: '', params: [] };
+  return { sql: ' WHERE family_member_id = ?', params: [Number(fmId)] };
+}
+
+router.get('/labs', (req, res) => {
+  try {
+    const { sql, params } = _filterByFm(req);
+    const limit = Math.min(500, parseInt(req.query.limit || '500', 10));
+    const rows = db.prepare(
+      `SELECT * FROM med_lab_results${sql} ORDER BY test_date DESC, id DESC LIMIT ${limit}`
+    ).all(...params);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+router.get('/diagnostics', (req, res) => {
+  try {
+    const { sql, params } = _filterByFm(req);
+    const limit = Math.min(500, parseInt(req.query.limit || '500', 10));
+    const rows = db.prepare(
+      `SELECT * FROM med_diagnostics${sql} ORDER BY test_date DESC, id DESC LIMIT ${limit}`
+    ).all(...params);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+router.get('/allergies', (req, res) => {
+  try {
+    const { sql, params } = _filterByFm(req);
+    const limit = Math.min(500, parseInt(req.query.limit || '500', 10));
+    const rows = db.prepare(
+      `SELECT * FROM med_allergies${sql} ORDER BY status = 'Active' DESC, noted_date DESC, id DESC LIMIT ${limit}`
+    ).all(...params);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+router.get('/vitals', (req, res) => {
+  try {
+    const { sql, params } = _filterByFm(req);
+    const limit = Math.min(500, parseInt(req.query.limit || '500', 10));
+    const rows = db.prepare(
+      `SELECT * FROM med_vitals_readings${sql} ORDER BY measure_date DESC, id DESC LIMIT ${limit}`
+    ).all(...params);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
 module.exports = router;
 
 // ══════════════════════════════════════════════════════════════

@@ -238,14 +238,14 @@
       <div class="side-nav-spacer"></div>
       <div class="side-nav-bottom">
         <!--
-          v202604.140 — Drafts link.
-          Hideable: remove this <a> or hide via CSS [data-drafts-link]
+          v202604.166 — Templates link (was Drafts in v.140–v.165).
+          Hideable: remove this <a> or hide via CSS [data-templates-link]
           when ready to ship to users. URL-only is acceptable too —
-          /_drafts.html works regardless.
+          /_templates.html works regardless.
         -->
-        <a class="side-nav-item" data-drafts-link href="/_drafts.html" title="Design drafts (internal)" style="text-decoration:none;color:inherit">
+        <a class="side-nav-item" data-templates-link href="/_templates.html" title="Design templates + drafts (internal)" style="text-decoration:none;color:inherit">
           <span class="side-nav-icon" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px">📐</span>
-          <span class="side-nav-item-label" style="font-size:12px">Drafts</span>
+          <span class="side-nav-item-label" style="font-size:12px">Templates</span>
         </a>
         <button class="side-nav-item side-nav-collapse-btn-inline" onclick="GH_NAV.toggleCollapse()" data-label="Toggle sidebar" title="Toggle sidebar">
           <span class="side-nav-icon" style="width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0" id="collapseIcon">${SVG.sidebar}</span>

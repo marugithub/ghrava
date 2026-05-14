@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #10 — DATA QUALITY / COMPLETENESS CHECKER
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    SPEC READY (patterns from chat 3, scope from chat 5)
+  CREATED:   2026-05-05 (was skeleton, now filled)
+  PRIORITY:  Medium — feeds Reports module #2
+
+  Sources:
+    Chat 3 https://claude.ai/chat/e5998aff-133e-4df4-ae2a-deee3f937044
+      Locked: needs_review + review_flagged_at + review_reason columns
+      Locked: CSV import flagging — every imported record with mapping
+      issue, blank required field, or fuzzy category match → flagged
+      with reason like "CSV import: category 'Health & Beauty' not matched"
+      Locked: dashboard shows "what" + "why each record was flagged"
+    Chat 5 https://claude.ai/chat/071bad83-2a2d-4c11-b03e-7c960d265c60
+      Backlog item 13: "Different from Orphan Check (which is structural
+      integrity). This is about completeness."
+
+  WHAT IT DOES (one line)
+    Surfaces records with missing important fields. Different from Orphan
+    Check (which is structural FK integrity). This is field-level.
+
+  TWO INPUT STREAMS
+    1. Migration restructures — set needs_review=1, reason="System
+       redesign: …" on affected rows
+    2. CSV imports — set needs_review=1 on every row with mapping issue,
+       blank required field, or fuzzy category match
+
+  ENTITIES (already partially built)
+    Existing on every taggable table:
+      needs_review      INTEGER NOT NULL DEFAULT 0
+      review_flagged_at DATETIME
+      review_reason     TEXT
+    Audit needed: which tables have these columns, which dont. Add to
+    missing tables in one migration.
+
+    flagRecord() helper — chat 7 audit found it exists in shared but is
+    NEVER called by any route. Wire it.
+
+  ACTIONS (verb · owner · sequence)
+    1. Audit which tables have needs_review trio. Document gap.    → Claude
+    2. Migration to add columns to gap tables.                     → Claude
+    3. Wire flagRecord() into CSV import flow per module.          → Claude
+    4. Wire flagRecord() into migration scripts going forward
+       (template).                                                  → Claude
+    5. Build /reports/data-quality endpoint — returns per-module
+       count + first 50 rows with reason.                           → Claude
+    6. Build Reports card "Data Quality" calling that endpoint.    → Claude
+    7. Per-row "Fix" action opens the record drawer in new tab.    → Claude
+    8. Per-row "Mark reviewed" clears the flag without editing.    → Claude
+    9. Bulk "Mark all reviewed" per module section.                 → Claude
+
+  LOCKED (from chats 3 + 5)
+    ✓ Three columns: needs_review, review_flagged_at, review_reason
+    ✓ Reason format: "CSV import: …" or "System redesign: …" or "Bulk update: …"
+    ✓ Old data NEVER overwritten when flagged — value preserved
+    ✓ flagRecord() helper is the single entry point — no inline updates
+    ✓ Lives inside Reports module (chat 5 decision), NOT Settings
+    ✓ Per-row Fix opens record in new tab; report polls 30s for updates
+
+  OPEN
+    ❓ "Important fields" definition per module — needs per-module list:
+       Inventory: location, category. Contacts: phone or email. Medications:
+       dosage, patient. Decisions deferred to per-module pass.
+    ❓ Auto-clear flag when missing field is filled vs require manual
+       "Mark reviewed"? Lean: auto-clear (less friction).
+
+  RISK
+    - flagRecord() exists but unused — wiring it across all modules
+      surfaces a backlog of rows that should have been flagged historically
+      but werent. First scan may show hundreds of items. Acceptable;
+      thats reality.
+
+  OUT OF SCOPE
+    - Auto-fixing (e.g. inferring missing category from name) — separate AI work
+    - Cross-record validation (e.g. duplicate detection)
+  ════════════════════════════════════════════════════════════════════
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Draft #10 — Data quality checker</title>
+<link rel="stylesheet" href="/_templates/_templates.css">
+</head>
+<body>
+
+<div class="breadcrumb"><a href="/_templates.html">← Templates index</a></div>
+
+<h1>#10 — Data quality / completeness checker</h1>
+
+<p class="status-line">
+  <span class="label">Status:</span> spec ready ·
+  <span class="label">Priority:</span> medium ·
+  <span class="label">Sources:</span>
+  <a href="https://claude.ai/chat/e5998aff-133e-4df4-ae2a-deee3f937044">chat 3</a>,
+  <a href="https://claude.ai/chat/071bad83-2a2d-4c11-b03e-7c960d265c60">chat 5</a>
+</p>
+
+<p>
+  Surfaces records with missing important fields. Different from Orphan Check
+  (which is structural FK integrity). This is field-level. Lives inside Reports
+  module per chat 5 decision.
+</p>
+
+<h2>How records get flagged (two inputs)</h2>
+
+<table>
+  <thead><tr><th>Trigger</th><th>review_reason example</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Migration restructures a field</td>
+      <td><code>"System redesign: location type restructured (2026-03-16)"</code></td>
+    </tr>
+    <tr>
+      <td>CSV import field mismatch</td>
+      <td><code>"CSV import: category 'Health &amp; Beauty' not matched to known value"</code></td>
+    </tr>
+    <tr>
+      <td>CSV import missing required</td>
+      <td><code>"CSV import: location field was blank"</code></td>
+    </tr>
+    <tr>
+      <td>Bulk update / rename</td>
+      <td><code>"Bulk update: inventory category renamed"</code></td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Entities (mostly already built)</h2>
+
+<p>Three columns exist on most taggable tables:</p>
+
+<ul>
+  <li><code>needs_review INTEGER NOT NULL DEFAULT 0</code></li>
+  <li><code>review_flagged_at DATETIME</code></li>
+  <li><code>review_reason TEXT</code></li>
+</ul>
+
+<p>
+  <code>flagRecord()</code> helper exists in shared/ but per chat 7 audit is
+  <strong>never called by any route</strong>. Wire it everywhere.
+</p>
+
+<h2>Actions</h2>
+
+<ol>
+  <li><strong>Audit</strong> which tables have the needs_review trio; document gap. <em>(Claude)</em></li>
+  <li><strong>Migration</strong> to add columns to gap tables. <em>(Claude)</em></li>
+  <li><strong>Wire</strong> <code>flagRecord()</code> into CSV import flow per module. <em>(Claude)</em></li>
+  <li><strong>Wire</strong> <code>flagRecord()</code> into migration script template going forward. <em>(Claude)</em></li>
+  <li><strong>Build</strong> <code>/api/v1/reports/data-quality</code> endpoint — returns per-module count + first 50 rows with reason. <em>(Claude)</em></li>
+  <li><strong>Build</strong> Reports card "Data Quality" calling that endpoint. <em>(Claude)</em></li>
+  <li><strong>Wire</strong> per-row "Fix" action opens record drawer in new tab. <em>(Claude)</em></li>
+  <li><strong>Wire</strong> per-row "Mark reviewed" clears the flag without editing the record. <em>(Claude)</em></li>
+  <li><strong>Wire</strong> bulk "Mark all reviewed" per module section. <em>(Claude)</em></li>
+</ol>
+
+<h2>Locked agreements</h2>
+
+<ul class="locked-list">
+  <li>Three columns: <code>needs_review</code>, <code>review_flagged_at</code>, <code>review_reason</code>.</li>
+  <li>Reason format: prefixed with source — "CSV import:", "System redesign:", "Bulk update:".</li>
+  <li>Old data NEVER overwritten when flagged — value preserved.</li>
+  <li><code>flagRecord()</code> helper is the single entry point — no inline updates.</li>
+  <li>Lives inside Reports module (chat 5 decision), NOT Settings.</li>
+  <li>Per-row Fix opens record in new tab; report polls 30s for updates.</li>
+</ul>
+
+<h2>Open questions</h2>
+
+<div class="open">
+  <div class="label">"Important fields" definition per module</div>
+  <div class="lean">Needs per-module list. Inventory: location, category. Contacts: phone or email. Medications: dosage, patient. Defer per-module decisions.</div>
+</div>
+
+<div class="open">
+  <div class="label">Auto-clear flag when missing field is filled, or require manual "Mark reviewed"?</div>
+  <div class="lean">Lean: auto-clear (less friction).</div>
+</div>
+
+<h2>Risk</h2>
+
+<p>
+  <code>flagRecord()</code> exists but unused. Wiring it across all modules will surface
+  hundreds of rows that should have been flagged historically but werent. Acceptable
+  — thats reality. First-scan number will be high.
+</p>
+
+<h2>Out of scope</h2>
+
+<ul>
+  <li>Auto-fixing (e.g. inferring missing category from name) — separate AI work</li>
+  <li>Cross-record validation (e.g. duplicate detection)</li>
+</ul>
+
+</body>
+</html>

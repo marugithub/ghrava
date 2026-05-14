@@ -640,6 +640,62 @@ body.v2 * { min-width: 0; }
   }
 }
 
+/* ════════════════════════════════════════════════════════════
+   v202604.166 — Medical Overview tiles (M1–M6)
+   Module-agnostic tile primitive shared with Finance #18 spec.
+   Same visual grammar (eyebrow + hero + pill + rows + strip).
+   ════════════════════════════════════════════════════════════ */
+.med-tiles-wrap { padding: 14px 20px 100px; max-width: 1320px; margin: 0 auto }
+.med-tiles-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px }
+@media (max-width: 700px) {
+  .med-tiles-grid {
+    display: flex; flex-direction: row;
+    overflow-x: auto; overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch; scroll-behavior: smooth;
+    gap: 12px; scrollbar-width: none;
+  }
+  .med-tiles-grid::-webkit-scrollbar { display: none; }
+  .med-tiles-grid > .med-tile {
+    flex: 0 0 calc(100vw - 28px); max-width: calc(100vw - 28px);
+    scroll-snap-align: center; scroll-snap-stop: always;
+  }
+}
+.med-tile { background: #fbf6e9; border: 1px solid #d8cba8; border-radius: 12px; padding: 14px 16px; min-height: 220px; display: flex; flex-direction: column; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; font-family: var(--font-body, 'Inter', system-ui, sans-serif); position: relative }
+.med-tile:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(0,0,0,0.06) }
+.med-tile:active { transform: translateY(0); opacity: .92 }
+.med-tile-eyebrow { display: flex; align-items: center; gap: 8px; font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: .08em; color: #888780; text-transform: uppercase }
+.med-tile-eyebrow-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.med-tile-num { font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: .12em; color: #888780; background: rgba(0,0,0,0.04); padding: 1px 6px; border-radius: 4px; flex-shrink: 0 }
+.med-tile-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0 }
+.med-tile-dot--ok   { background: #15803d }
+.med-tile-dot--warn { background: #b45309 }
+.med-tile-dot--bad  { background: #b91c1c }
+.med-tile-dot--mute { background: #bdb9ae }
+.med-tile-hero-row { margin-top: 12px; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px }
+.med-tile-hero-label { font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500; letter-spacing: .16em; text-transform: uppercase; color: #888780; margin-bottom: 2px; line-height: 1.2 }
+.med-tile-hero { font-family: 'Newsreader','Fraunces',Georgia,serif; font-style: italic; font-size: 40px; font-weight: 500; color: #1a1a1a; line-height: 1 }
+.med-tile-hero--mute { color: #888780 }
+.med-tile-pill { font-size: 11px; padding: 3px 10px; border-radius: 999px; flex-shrink: 0; margin-top: 4px; white-space: nowrap }
+.med-tile-pill--ok   { background: rgba(21,128,61,0.12); color: #15803d }
+.med-tile-pill--warn { background: rgba(180,83,9,0.10); color: #b45309 }
+.med-tile-pill--bad  { background: rgba(185,28,28,0.12); color: #b91c1c }
+.med-tile-pill--mute { background: rgba(0,0,0,0.04); color: #888780 }
+.med-tile-rows { margin-top: 12px; display: flex; flex-direction: column; gap: 5px; font-family: 'DM Mono', monospace; font-size: 12px }
+.med-tile-row { display: flex; align-items: center; gap: 8px }
+.med-tile-row--muted { color: #888780 }
+.med-tile-row-label { flex: 1; color: #2C2C2A; overflow: hidden; text-overflow: ellipsis; white-space: nowrap }
+.med-tile-row-amt { color: #1a1a1a; font-weight: 500; min-width: 54px; text-align: right }
+.med-tile-strip { margin-top: auto; padding-top: 12px; font-family: 'DM Mono', monospace; font-size: 11px; color: #5F5E5A; border-top: 1px solid rgba(216,203,168,0.5) }
+.med-tile-strip-line { margin-top: 8px }
+.med-tile-strip-line--alert { color: #b91c1c }
+.med-tile-avatars { display: flex; gap: 4px; margin-top: 10px }
+.med-tile-avatar { width: 22px; height: 22px; border-radius: 50%; color: #fff; font-family: 'Newsreader','Fraunces',Georgia,serif; font-style: italic; font-size: 11px; display: flex; align-items: center; justify-content: center }
+.med-tile-avatar--A { background: #c0392b }
+.med-tile-avatar--Z { background: #b91c1c }
+.med-tile-avatar--N { background: #6b3410 }
+.med-tile-avatar--R { background: #4a5568 }
+
 .medv5-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1525,7 +1581,8 @@ body.v2 {
   <!-- Segmented tabs (replaces old .view-tabs) -->
   <div style="padding:0 20px 12px">
     <div class="v2-tabs">
-      <button class="v2-tab active view-tab" onclick="switchView('all_medical',this)" title="Everything at once: meds, conditions, visits, EOBs">All</button>
+      <button class="v2-tab active view-tab" onclick="switchView('overview',this)" title="Roll-up tiles: conditions, meds, visits, EOB, vitals, family">Overview</button>
+      <button class="v2-tab view-tab" onclick="switchView('all_medical',this)" title="Every record across meds, conditions, visits, EOBs">All</button>
       <button class="v2-tab view-tab" onclick="switchView('medications',this)">Meds</button>
       <button class="v2-tab view-tab" onclick="switchView('conditions',this)">Conditions</button>
       <button class="v2-tab view-tab" onclick="switchView('notes',this)">Visits</button>
@@ -2254,7 +2311,7 @@ function formatDate(d) {
 // v202604.149 — default to All on every page load. The cross-card
 // view is the natural landing for a household OS; per-domain tabs
 // are still one click away.
-let currentView = 'all_medical';
+let currentView = 'overview';
 let _medSearch = '';
 let currentPatient = '';
 let editingId = null;
@@ -2266,7 +2323,7 @@ function switchView(view, btn) {
   document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   const strip = $id('patientStrip');
-  strip.style.display = (view === 'summary' || view === 'eob' || view === 'all_medical') ? 'none' : 'flex';
+  strip.style.display = (view === 'summary' || view === 'eob' || view === 'all_medical' || view === 'overview') ? 'none' : 'flex';
   AttachmentManager.injectStyles();
   // v202604.148 — re-init lens so dimensions match the new subview
   if (typeof initMedLensForView === 'function') initMedLensForView(view);
@@ -2296,6 +2353,7 @@ async function renderCurrentView() {
     else if (currentView === 'hw')      await renderHW();
     else if (currentView === 'eob')     await renderEob();
     else if (currentView === 'all_medical') await renderAllMedical();
+    else if (currentView === 'overview')    await renderMedicalOverview();
   }
 }
 
@@ -5093,6 +5151,274 @@ async function renderAllMedical() {
       ? errorState(err.message || String(err), '')
       : `<div style="color:var(--red);padding:20px">${esc(err.message || String(err))}</div>`;
   }
+}
+
+// ════════════════════════════════════════════════════════════════════
+// v202604.166 — Medical Overview tab (6 tiles, M1–M6)
+//
+// Empty-state rule (locked): tiles always render the full structure.
+// If data is zero/missing, show 0 / "—" / mute pill — never a placeholder
+// card. Al's locked rule: "values should be lacking or 0 or something
+// but keep other items there so I know how it will look."
+//
+// Data shape: pulls from existing endpoints (no new aggregate endpoint
+// added in v.166 — the bulk-seed wiring is enough for now). Each tile
+// runs its own GET and computes its own roll-up. Future: a single
+// /api/v1/medical/overview endpoint when the queries get heavier.
+//
+// Tiles (per design):
+//   M1 Active conditions        — count + top 3
+//   M2 Active medications       — count + refills due ≤14d pill
+//   M3 Upcoming visits          — next visit + count next 30d
+//   M4 EOB outstanding          — your_share total + claims pending
+//   M5 Recent vitals            — latest reading + trend
+//   M6 Family snapshot          — per-member counts
+// ════════════════════════════════════════════════════════════════════
+
+const MED_TILE_TAB_TARGETS = ['conditions','medications','notes','eob','overview','overview'];
+
+function _medTileAvatarClass(name) {
+  if (!name) return 'A';
+  const c = String(name).trim()[0].toUpperCase();
+  return ['A','Z','N','R'].includes(c) ? c : 'A';
+}
+
+async function renderMedicalOverview() {
+  const area = $id('listArea');
+  if (!area) return;
+  area.innerHTML = '<div class="med-tiles-wrap"><div class="spinner"><div class="spin"></div>Loading overview…</div></div>';
+
+  // Fetch in parallel; each is independent, all are GETs (no auth).
+  // Family scope honored: pass the active member as a filter when present.
+  const personFilter = (window._medFilters && window._medFilters.person != null)
+    ? `?family_member_id=${encodeURIComponent(window._medFilters.person)}` : '';
+  let conds=[], meds=[], visits=[], eobs=[], vitals=[];
+  try {
+    const [r1,r2,r3,r4,r5] = await Promise.all([
+      fetch('/api/v1/medical/conditions' + personFilter).then(r => r.json()).catch(() => []),
+      fetch('/api/v1/medical/medications' + personFilter).then(r => r.json()).catch(() => []),
+      fetch('/api/v1/medical/notes' + personFilter).then(r => r.json()).catch(() => []),
+      fetch('/api/v1/medical/eob' + personFilter).then(r => r.json()).catch(() => []),
+      fetch('/api/v1/medical/vitals' + personFilter).then(r => r.json()).catch(() => []),
+    ]);
+    conds  = Array.isArray(r1) ? r1 : (r1.data || []);
+    meds   = Array.isArray(r2) ? r2 : (r2.data || []);
+    visits = Array.isArray(r3) ? r3 : (r3.data || []);
+    eobs   = Array.isArray(r4) ? r4 : (r4.data || []);
+    vitals = Array.isArray(r5) ? r5 : (r5.data || []);
+  } catch (e) {
+    // Any single endpoint failure is recoverable — render tiles with what we have
+  }
+
+  const today = new Date();
+  const ymd   = (d) => d.toISOString().slice(0,10);
+  const daysBetween = (a, b) => Math.round((new Date(b) - new Date(a)) / 86400000);
+
+  // ── M1: Active conditions ─────────────────────────────────────
+  const activeConds = conds.filter(c => (c.status || 'Active') === 'Active' || (c.status || '') === 'Chronic');
+  const condTop = activeConds.slice(0, 3);
+  const m1 = `
+    <div class="med-tile" data-tile="m1" onclick="switchView('conditions', document.querySelector('[onclick*=conditions]'))">
+      <div class="med-tile-eyebrow">
+        <span class="med-tile-dot med-tile-dot--${activeConds.length ? 'ok' : 'mute'}"></span>
+        <span class="med-tile-eyebrow-text">Active conditions</span>
+        <span class="med-tile-num">M1</span>
+      </div>
+      <div class="med-tile-hero-row">
+        <div>
+          <div class="med-tile-hero-label">Tracking</div>
+          <div class="med-tile-hero ${activeConds.length ? '' : 'med-tile-hero--mute'}">${activeConds.length || 0}</div>
+        </div>
+        <span class="med-tile-pill med-tile-pill--${activeConds.length ? 'ok' : 'mute'}">${activeConds.length ? 'managed' : 'none'}</span>
+      </div>
+      <div class="med-tile-rows">
+        ${condTop.length
+          ? condTop.map(c => `
+            <div class="med-tile-row">
+              <span class="med-tile-row-label">${esc(c.condition_name || c.name || '—')}</span>
+              <span class="med-tile-row-amt">${esc(c.severity || c.status || '')}</span>
+            </div>`).join('')
+          : `<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">No active conditions</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>`}
+      </div>
+      <div class="med-tile-strip">
+        <div class="med-tile-strip-line">${conds.length - activeConds.length} resolved · ${conds.length} total</div>
+      </div>
+    </div>`;
+
+  // ── M2: Active medications + refills due ──────────────────────
+  const activeMeds = meds.filter(m => (m.status || 'Active') === 'Active' || (m.status || '') === 'As Needed');
+  const refillsDueSoon = activeMeds.filter(m => {
+    const r = Number(m.refills_remaining);
+    return Number.isFinite(r) && r <= 1;
+  });
+  const medTop = activeMeds.slice(0, 3);
+  const m2 = `
+    <div class="med-tile" data-tile="m2" onclick="switchView('medications', document.querySelector('[onclick*=medications]'))">
+      <div class="med-tile-eyebrow">
+        <span class="med-tile-dot med-tile-dot--${refillsDueSoon.length ? 'warn' : (activeMeds.length ? 'ok' : 'mute')}"></span>
+        <span class="med-tile-eyebrow-text">Active medications</span>
+        <span class="med-tile-num">M2</span>
+      </div>
+      <div class="med-tile-hero-row">
+        <div>
+          <div class="med-tile-hero-label">On regimen</div>
+          <div class="med-tile-hero ${activeMeds.length ? '' : 'med-tile-hero--mute'}">${activeMeds.length || 0}</div>
+        </div>
+        <span class="med-tile-pill med-tile-pill--${refillsDueSoon.length ? 'warn' : (activeMeds.length ? 'ok' : 'mute')}">${refillsDueSoon.length ? `${refillsDueSoon.length} refill due` : (activeMeds.length ? 'in supply' : 'none')}</span>
+      </div>
+      <div class="med-tile-rows">
+        ${medTop.length
+          ? medTop.map(m => `
+            <div class="med-tile-row">
+              <span class="med-tile-row-label">${esc(m.name || '—')}</span>
+              <span class="med-tile-row-amt">${esc(m.dosage || m.dose || '')}</span>
+            </div>`).join('')
+          : `<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">No active medications</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>`}
+      </div>
+      <div class="med-tile-strip">
+        <div class="med-tile-strip-line${refillsDueSoon.length ? ' med-tile-strip-line--alert' : ''}">${refillsDueSoon.length ? `${refillsDueSoon.length} refill${refillsDueSoon.length===1?'':'s'} ≤1 left` : 'All refills sufficient'}</div>
+      </div>
+    </div>`;
+
+  // ── M3: Upcoming visits ───────────────────────────────────────
+  const futureVisits = visits.filter(v => v.visit_date && v.visit_date >= ymd(today)).sort((a,b) => a.visit_date.localeCompare(b.visit_date));
+  const next30 = futureVisits.filter(v => daysBetween(ymd(today), v.visit_date) <= 30);
+  const next = futureVisits[0] || null;
+  const m3 = `
+    <div class="med-tile" data-tile="m3" onclick="switchView('notes', document.querySelector('[onclick*=notes]'))">
+      <div class="med-tile-eyebrow">
+        <span class="med-tile-dot med-tile-dot--${next ? 'ok' : 'mute'}"></span>
+        <span class="med-tile-eyebrow-text">Upcoming visits</span>
+        <span class="med-tile-num">M3</span>
+      </div>
+      <div class="med-tile-hero-row">
+        <div>
+          <div class="med-tile-hero-label">Next 30 days</div>
+          <div class="med-tile-hero ${next30.length ? '' : 'med-tile-hero--mute'}">${next30.length || 0}</div>
+        </div>
+        <span class="med-tile-pill med-tile-pill--${next ? 'ok' : 'mute'}">${next ? 'scheduled' : 'none'}</span>
+      </div>
+      <div class="med-tile-rows">
+        ${next
+          ? `<div class="med-tile-row"><span class="med-tile-row-label">${esc(next.physician_name || next.provider || 'Visit')}</span><span class="med-tile-row-amt">${esc(next.visit_date)}</span></div>
+             ${(futureVisits[1] ? `<div class="med-tile-row"><span class="med-tile-row-label">${esc(futureVisits[1].physician_name || futureVisits[1].provider || 'Visit')}</span><span class="med-tile-row-amt">${esc(futureVisits[1].visit_date)}</span></div>` : '<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>')}
+             ${(futureVisits[2] ? `<div class="med-tile-row"><span class="med-tile-row-label">${esc(futureVisits[2].physician_name || futureVisits[2].provider || 'Visit')}</span><span class="med-tile-row-amt">${esc(futureVisits[2].visit_date)}</span></div>` : '<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>')}`
+          : `<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">No upcoming visits</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>`}
+      </div>
+      <div class="med-tile-strip">
+        <div class="med-tile-strip-line">${visits.length} visit${visits.length===1?'':'s'} on record</div>
+      </div>
+    </div>`;
+
+  // ── M4: EOB outstanding ───────────────────────────────────────
+  const eobsArr = Array.isArray(eobs) ? eobs : [];
+  let yourShareTotal = 0;
+  eobsArr.forEach(e => { yourShareTotal += Number(e.your_share_total || e.your_share || 0); });
+  const eobLatest = [...eobsArr].sort((a,b) => (b.statement_date || '').localeCompare(a.statement_date || '')).slice(0, 3);
+  const m4 = `
+    <div class="med-tile" data-tile="m4" onclick="switchView('eob', document.querySelector('[onclick*=eob]'))">
+      <div class="med-tile-eyebrow">
+        <span class="med-tile-dot med-tile-dot--${yourShareTotal > 0 ? 'warn' : 'mute'}"></span>
+        <span class="med-tile-eyebrow-text">EOB your share</span>
+        <span class="med-tile-num">M4</span>
+      </div>
+      <div class="med-tile-hero-row">
+        <div>
+          <div class="med-tile-hero-label">Total billed</div>
+          <div class="med-tile-hero ${yourShareTotal > 0 ? '' : 'med-tile-hero--mute'}">$${Math.round(yourShareTotal).toLocaleString()}</div>
+        </div>
+        <span class="med-tile-pill med-tile-pill--${yourShareTotal > 0 ? 'warn' : 'mute'}">${eobsArr.length || 0} EOB${eobsArr.length===1?'':'s'}</span>
+      </div>
+      <div class="med-tile-rows">
+        ${eobLatest.length
+          ? eobLatest.map(e => `
+            <div class="med-tile-row">
+              <span class="med-tile-row-label">${esc(e.insurer || 'EOB')}</span>
+              <span class="med-tile-row-amt">${esc(e.statement_date || '')}</span>
+            </div>`).join('')
+          : `<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">No EOBs on record</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">—</span></div>`}
+      </div>
+      <div class="med-tile-strip">
+        <div class="med-tile-strip-line">Aetna MHBP · most recent first</div>
+      </div>
+    </div>`;
+
+  // ── M5: Recent vitals ─────────────────────────────────────────
+  const vitalsArr = Array.isArray(vitals) ? vitals : [];
+  const latestVital = [...vitalsArr].sort((a,b) => (b.measure_date || '').localeCompare(a.measure_date || ''))[0] || null;
+  const bp = latestVital ? `${latestVital.systolic_bp || '—'}/${latestVital.diastolic_bp || '—'}` : '—/—';
+  const m5 = `
+    <div class="med-tile" data-tile="m5" onclick="switchView('hw', document.querySelector('[onclick*=hw]'))">
+      <div class="med-tile-eyebrow">
+        <span class="med-tile-dot med-tile-dot--${latestVital ? 'ok' : 'mute'}"></span>
+        <span class="med-tile-eyebrow-text">Recent vitals</span>
+        <span class="med-tile-num">M5</span>
+      </div>
+      <div class="med-tile-hero-row">
+        <div>
+          <div class="med-tile-hero-label">Last BP</div>
+          <div class="med-tile-hero ${latestVital ? '' : 'med-tile-hero--mute'}">${bp}</div>
+        </div>
+        <span class="med-tile-pill med-tile-pill--${latestVital ? 'ok' : 'mute'}">${latestVital ? esc(latestVital.measure_date) : 'no data'}</span>
+      </div>
+      <div class="med-tile-rows">
+        ${latestVital
+          ? `<div class="med-tile-row"><span class="med-tile-row-label">Heart rate</span><span class="med-tile-row-amt">${latestVital.heart_rate || '—'} bpm</span></div>
+             <div class="med-tile-row"><span class="med-tile-row-label">Weight</span><span class="med-tile-row-amt">${latestVital.weight_lbs || '—'} lb</span></div>
+             <div class="med-tile-row"><span class="med-tile-row-label">O2 sat</span><span class="med-tile-row-amt">${latestVital.o2_sat || '—'}%</span></div>`
+          : `<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">Heart rate</span><span class="med-tile-row-amt">—</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">Weight</span><span class="med-tile-row-amt">—</span></div>
+             <div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">O2 sat</span><span class="med-tile-row-amt">—</span></div>`}
+      </div>
+      <div class="med-tile-strip">
+        <div class="med-tile-strip-line">${vitalsArr.length} reading${vitalsArr.length===1?'':'s'} captured</div>
+      </div>
+    </div>`;
+
+  // ── M6: Family snapshot ───────────────────────────────────────
+  const family = (window.familyMembers || []).filter(m => m.is_active);
+  const perMember = family.map(m => ({
+    member: m,
+    conds:   conds.filter(c => c.family_member_id === m.id && ((c.status || 'Active') === 'Active' || c.status === 'Chronic')).length,
+    meds:    meds.filter(x => x.family_member_id === m.id && (x.status === 'Active' || x.status === 'As Needed')).length,
+  }));
+  const m6 = `
+    <div class="med-tile" data-tile="m6" onclick="switchView('all_medical', document.querySelector('[onclick*=all_medical]'))">
+      <div class="med-tile-eyebrow">
+        <span class="med-tile-dot med-tile-dot--${family.length ? 'ok' : 'mute'}"></span>
+        <span class="med-tile-eyebrow-text">Family snapshot</span>
+        <span class="med-tile-num">M6</span>
+      </div>
+      <div class="med-tile-hero-row">
+        <div>
+          <div class="med-tile-hero-label">Members</div>
+          <div class="med-tile-hero ${family.length ? '' : 'med-tile-hero--mute'}">${family.length || 0}</div>
+        </div>
+        <span class="med-tile-pill med-tile-pill--${family.length ? 'ok' : 'mute'}">tracked</span>
+      </div>
+      <div class="med-tile-rows">
+        ${perMember.length
+          ? perMember.slice(0, 3).map(p => `
+            <div class="med-tile-row">
+              <span class="med-tile-row-label">${esc(p.member.display_name)}</span>
+              <span class="med-tile-row-amt">${p.conds} cond · ${p.meds} med</span>
+            </div>`).join('')
+          : `<div class="med-tile-row med-tile-row--muted"><span class="med-tile-row-label">No family members</span></div>`}
+      </div>
+      <div class="med-tile-avatars">
+        ${family.slice(0,4).map(m => `<div class="med-tile-avatar med-tile-avatar--${_medTileAvatarClass(m.display_name)}">${esc((m.display_name || '?')[0])}</div>`).join('')}
+      </div>
+    </div>`;
+
+  area.innerHTML = `<div class="med-tiles-wrap"><div class="med-tiles-grid">${m1}${m2}${m3}${m4}${m5}${m6}</div></div>`;
 }
 
 // ── Device family scope wiring (v202604.148) ─────────────────────

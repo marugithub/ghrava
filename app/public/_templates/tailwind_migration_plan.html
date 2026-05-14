@@ -1,0 +1,84 @@
+<!doctype html>
+<title>Tailwind migration — internal plan</title>
+<style>body{font-family:system-ui;max-width:900px;margin:24px auto;padding:0 16px;line-height:1.5;color:#222}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13px}
+th,td{padding:6px 10px;border-bottom:0.5px solid #ddd;text-align:left;vertical-align:top}
+th{background:#f8f8f8}
+code{background:#f0f0f0;padding:1px 5px;border-radius:3px;font-size:12px}
+h1{font-size:22px} h2{font-size:16px;margin-top:28px} h3{font-size:14px}
+.note{background:#fff8e6;border-left:3px solid #f59e0b;padding:8px 12px;margin:12px 0;font-size:13px}
+.scope-pill{display:inline-block;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:#fff;padding:2px 8px;border-radius:999px;background:#475569}
+.scope-pill.now{background:#0d9488}
+.scope-pill.next{background:#4f46e5}
+.scope-pill.later{background:#94a3b8}
+</style>
+
+<h1>Tailwind migration — internal plan</h1>
+<p class="note">Internal working doc. Tracks every page's migration cost so I don't lose track.
+Do not link from the user-facing nav.</p>
+
+<h2>Strategy</h2>
+<p>Opportunistic. New pages built in Tailwind from day one. Existing pages stay vanilla until I'm rebuilding them anyway. Tailwind via CDN during prototyping, switch to CLI compile step when it lands in production.</p>
+
+<h2>Global setup</h2>
+<table>
+<tr><th>Item</th><th>What</th><th>When</th></tr>
+<tr><td>Tailwind CDN</td><td>Add <code>&lt;script src="https://cdn.tailwindcss.com"&gt;</code> to v2 pages only initially. Gives JIT in browser.</td><td>v2 pages</td></tr>
+<tr><td>Tailwind CLI</td><td>Add <code>tailwindcss</code> to <code>package.json</code>, build to <code>/public/dist/tailwind.css</code> on deploy. Replace CDN.</td><td>When v2 ships to prod</td></tr>
+<tr><td><code>tailwind.config.js</code></td><td>Map Ghrava's CSS vars (<code>--accent</code>, <code>--bg2</code>, <code>--text2</code>, etc.) to Tailwind's color names. Spacing scale = Tailwind defaults (4px, 8px, 16px, 24px, 32px). Type scale = 12/13/14/16/18/24px.</td><td>Day one</td></tr>
+<tr><td>Dark mode</td><td><code>darkMode:'class'</code> — body gets <code>.dark</code> when user picks dark theme. v2 pages dark by default since reference is dark.</td><td>Day one</td></tr>
+</table>
+
+<h2>Per-page migration scope</h2>
+<table>
+<tr><th>Page</th><th>Scope</th><th>Risk</th><th>Notes</th></tr>
+<tr><td>medical_v2.html</td><td><span class="scope-pill now">NOW</span></td><td>Low</td><td>First Tailwind page. Original medical.html stays serving. Card #1 v5 + Card #6 styles redefined under <code>body.v2</code> scope so JS render functions don't change.</td></tr>
+<tr><td>today_v2.html</td><td><span class="scope-pill next">NEXT</span></td><td>Low</td><td>Brand new page (per locked Today page spec). Greenfield Tailwind.</td></tr>
+<tr><td>appearance.html</td><td><span class="scope-pill next">NEXT</span></td><td>Low</td><td>Brand new page. The customizer that drives Tailwind tokens.</td></tr>
+<tr><td>dashboard.html</td><td><span class="scope-pill later">LATER</span></td><td>Medium</td><td>Renamed from index when Today ships. Migrate at that time.</td></tr>
+<tr><td>finance, hsa, kids, books, career, etc.</td><td><span class="scope-pill later">LATER</span></td><td>Low–Medium</td><td>30 pages. Each = ~1hr translation. Done as we touch them for features.</td></tr>
+<tr><td>settings.html</td><td><span class="scope-pill later">LATER</span></td><td>Medium</td><td>Touch when adding the appearance customizer integration.</td></tr>
+<tr><td>login, offline, help</td><td><span class="scope-pill later">LATER</span></td><td>Low</td><td>Trivial pages, do last.</td></tr>
+</table>
+
+<h2>Component reuse strategy</h2>
+<p>Shared components I rebuild once in Tailwind, every page benefits as it migrates:</p>
+<ul>
+<li><b>Drawer</b> — replace <code>.drawer-overlay/.drawer</code> with Tailwind center-modal. Reusable.</li>
+<li><b>FAB</b> — replace <code>.fab/.fab-pill</code>. Smaller scale (44px not 54px).</li>
+<li><b>Form fields</b> — Tailwind utility classes wrapped in <code>.gh-input</code>, <code>.gh-select</code> via plugin or @apply.</li>
+<li><b>Buttons</b> — primary / ghost / icon. Tailwind utility classes.</li>
+<li><b>Tabs / segmented control</b> — pattern from reference design.</li>
+<li><b>Cards</b> — Card #1 v5 (med), Card #6 (cond), card patterns rebuilt as Tailwind component classes.</li>
+<li><b>Lens</b> — integrated in nav.js. Will need its own pass.</li>
+</ul>
+
+<h2>What stays vanilla forever</h2>
+<ul>
+<li><b>shared.css base tokens</b> — color vars, font vars. Tailwind config reads these.</li>
+<li><b>theme.js</b> — light/dark/accent attribute switcher. Tailwind reads attributes.</li>
+<li><b>nav.js</b> — header/sidebar injection. Migrates to Tailwind classes during own pass.</li>
+<li><b>JS render functions</b> — they emit HTML strings with class names. Class definitions move to Tailwind/component layer; class names stay so JS doesn't change.</li>
+</ul>
+
+<h2>Risk register</h2>
+<table>
+<tr><th>Risk</th><th>Probability</th><th>Mitigation</th></tr>
+<tr><td>Class collision (my <code>.flex</code> vs Tailwind's)</td><td>Low</td><td>None of Ghrava's existing utility classes overlap with Tailwind's. Verified.</td></tr>
+<tr><td>JIT in browser slow on mobile</td><td>Medium during dev</td><td>Switch to CLI compile before declaring v2 production.</td></tr>
+<tr><td>Inline render functions emit classes that don't exist on v2 page</td><td>High initially</td><td>Scoped <code>body.v2</code> CSS overrides redefine those classes. Rewrite JS classes only when migrating page itself.</td></tr>
+<tr><td>Forgetting to compile Tailwind on deploy</td><td>Medium</td><td>Add to <code>Deploy-Patch.ps1</code> or Docker entrypoint. Document.</td></tr>
+<tr><td>Multi-page consistency drift</td><td>Medium</td><td>Component layer (<code>.gh-card</code>, <code>.gh-fab</code>, etc. as Tailwind component classes) so all pages share one source.</td></tr>
+</table>
+
+<h2>v202604.144 token alignment</h2>
+<p>The form/drawer tokens shipped in .144 already started this. Tailwind config will absorb them so the new utilities snap to the same values:</p>
+<ul>
+<li><code>--fs-input</code> 14px → Tailwind <code>text-sm</code> (14px) ✓</li>
+<li><code>--field-pad-y</code> 8px → Tailwind <code>py-2</code> ✓</li>
+<li><code>--field-pad-x</code> 12px → Tailwind <code>px-3</code> ✓</li>
+<li><code>--form-group-mb</code> 10px → custom Tailwind spacing token</li>
+<li><code>--label-color</code> var(--text2) → Tailwind <code>text-on-surface-variant</code></li>
+</ul>
+
+<p style="margin-top:32px;font-size:11px;color:#999">Internal plan. Updated as migration progresses.</p>

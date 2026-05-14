@@ -41,9 +41,41 @@ function enrichKid(kid) {
   return kid;
 }
 
+// Auto-sync helper (v202604.166): for every active family_member whose
+// relationship is in the child set, ensure a `kids` row exists. Avoids
+// the multi-kid bug where Risha (in family_members) doesn't appear on
+// the Kids page because nobody manually created a kids row for her.
+// Idempotent — only INSERTs when no row with that family_member_id
+// already exists.
+const KID_RELATIONSHIPS = ['Son','Daughter','Child','Stepson','Stepdaughter','Stepchild'];
+function syncKidsFromFamilyMembers() {
+  try {
+    const ks = "(" + KID_RELATIONSHIPS.map(() => '?').join(',') + ")";
+    const children = db.prepare(`
+      SELECT id, display_name, date_of_birth, photo_url
+      FROM family_members
+      WHERE is_active = 1 AND relationship IN ${ks}
+    `).all(...KID_RELATIONSHIPS);
+    const exists = db.prepare(`SELECT 1 FROM kids WHERE family_member_id = ? AND is_active = 1`);
+    const insertKid = db.prepare(`
+      INSERT INTO kids (display_name, date_of_birth, family_member_id, photo_url, is_active, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    `);
+    for (const m of children) {
+      if (exists.get(m.id)) continue;
+      insertKid.run(m.display_name, m.date_of_birth || null, m.id, m.photo_url || null);
+    }
+  } catch (e) {
+    // Don't block the list endpoint if sync fails (schema drift, etc.)
+    // The known-bug case (Risha not appearing) is the worst outcome.
+    console.warn('[kids] auto-sync failed:', e.message);
+  }
+}
+
 // ── Kids CRUD ─────────────────────────────────────────────────
 router.get('/', (req, res) => {
   try {
+    syncKidsFromFamilyMembers();
     const kids = db.prepare(`
       SELECT k.*, c.name AS school_name,
         (SELECT COUNT(*) FROM kid_activities WHERE kid_id=k.id AND is_active=1) AS activity_count,
