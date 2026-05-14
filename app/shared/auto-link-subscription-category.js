@@ -17,7 +17,7 @@
 const db = require('../db/db');
 
 const findSubByLinkStmt = db.prepare(`
-  SELECT s.id AS subscription_id, s.category, s.merchant
+  SELECT s.id AS subscription_id, s.category, s.name AS merchant
   FROM subscriptions s
   JOIN record_links rl
     ON rl.right_type = 'subscription' AND rl.right_id = s.id
@@ -50,7 +50,7 @@ function applyOne(txnId) {
 function runRetroactive(days = 90) {
   const cutoff = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
   const rows = db.prepare(`
-    SELECT t.id AS txn_id, s.category AS sub_category, s.merchant
+    SELECT t.id AS txn_id, s.category AS sub_category, s.name AS merchant
     FROM transactions t
     JOIN record_links rl ON rl.left_type='transaction' AND rl.left_id=t.id AND rl.right_type='subscription'
     JOIN subscriptions s ON s.id = rl.right_id

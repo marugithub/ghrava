@@ -18,13 +18,15 @@ const { createLink, findLink } = require('./auto-link');
 
 function isHsaAccount(account) {
   if (!account) return false;
-  const t = String(account.account_type || '').toLowerCase();
-  const n = String(account.name || account.nickname || '').toLowerCase();
+  // accounts.type is the column name (not account_type). v.130 unified
+  // accounts table. Values: 'banking' | 'investment' | 'HSA' | 'Other' etc.
+  const t = String(account.type || '').toLowerCase();
+  const n = String(account.name || account.alias || '').toLowerCase();
   return t === 'hsa' || /\bhsa\b/.test(n);
 }
 
 const findTxnStmt = db.prepare(`
-  SELECT t.*, a.name AS account_name, a.account_type
+  SELECT t.*, a.name AS account_name, a.type AS type, a.alias AS account_alias
   FROM transactions t
   LEFT JOIN accounts a ON a.id = t.account_id
   WHERE t.id = ?
@@ -33,17 +35,17 @@ const findTxnStmt = db.prepare(`
 const findExistingHsaStmt = db.prepare(`
   SELECT id FROM hsa_payments
   WHERE family_member_id IS ?
-    AND payment_date = ?
+    AND date = ?
     AND ABS(you_paid - ?) < 0.005
-    AND vendor IS ?
+    AND provider IS ?
   LIMIT 1
 `);
 
 const insertHsaStmt = db.prepare(`
   INSERT INTO hsa_payments (
-    family_member_id, payment_date, vendor, you_paid, expense_type, notes,
+    family_member_id, date, patient, provider, you_paid, category, notes,
     created_at, updated_at
-  ) VALUES (?, ?, ?, ?, 'medical', ?, datetime('now'), datetime('now'))
+  ) VALUES (?, ?, 'Self', ?, ?, 'Medical Care', ?, datetime('now'), datetime('now'))
 `);
 
 /**
@@ -54,19 +56,22 @@ function processTransaction(txnId, opts = {}) {
   const txn = findTxnStmt.get(txnId);
   if (!txn) return { skipped: true, reason: 'txn not found' };
   if (!isHsaAccount(txn)) return { skipped: true, reason: 'not HSA account' };
-  // Skip income / positive amounts unless explicitly category=medical
+  // Skip income / positive amounts
   const amt = Math.abs(Number(txn.amount || 0));
   if (amt < 0.01) return { skipped: true, reason: 'zero amount' };
 
-  const fmId = txn.family_member_id || null;
-  const vendor = txn.merchant || txn.description || null;
+  // transactions has no family_member_id column — leave null. EOB-HSA
+  // matcher (#27.3) still works via patient + amount + date.
+  const fmId = null;
+  // transactions.description is the vendor (no merchant column).
+  const provider = txn.description || null;
 
   // Already an hsa_payment for this txn? Find by exact match shape.
-  let existing = findExistingHsaStmt.get(fmId, txn.date, amt, vendor);
+  let existing = findExistingHsaStmt.get(fmId, txn.date, amt, provider);
   if (!existing) {
     const result = insertHsaStmt.run(
-      fmId, txn.date, vendor, amt,
-      `Auto-created from transaction ${txnId} (${vendor || 'unknown vendor'})`
+      fmId, txn.date, provider, amt,
+      `Auto-created from transaction ${txnId} (${provider || 'unknown vendor'})`
     );
     existing = { id: result.lastInsertRowid };
   }
@@ -80,7 +85,7 @@ function processTransaction(txnId, opts = {}) {
     kind:      'auto_hsa',
     confidence: 'high',
     source:    'auto-link-hsa',
-    notes:     `txn ${vendor || ''} $${amt} on ${txn.date}`,
+    notes:     `txn ${provider || ''} $${amt} on ${txn.date}`,
   });
 
   return { linked: existing.id, confidence: 'high' };

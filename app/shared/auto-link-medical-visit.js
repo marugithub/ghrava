@@ -34,13 +34,13 @@ const findContactStmt = db.prepare(`
   LIMIT 1
 `);
 
-// Find visits matching this contact name (via physician_contact_id) for the family member,
-// then pick the closest by date.
+// Find visits matching this contact (via physician_contact_id) — no
+// family_member filter since transactions don't carry one. Returns
+// candidate visits ordered newest-first; we pick the closest by date.
 const findVisitsStmt = db.prepare(`
   SELECT v.id, v.visit_date, v.family_member_id, v.physician_contact_id
   FROM med_visit_notes v
   WHERE v.physician_contact_id = ?
-    AND (? IS NULL OR v.family_member_id = ?)
   ORDER BY v.visit_date DESC
   LIMIT 50
 `);
@@ -54,14 +54,14 @@ function daysBetween(a, b) {
 function processTransaction(txnId) {
   const txn = findTxnStmt.get(txnId);
   if (!txn) return { skipped: true, reason: 'txn not found' };
-  const vendor = norm(txn.merchant || txn.description);
+  // transactions.description is the vendor (no merchant column).
+  const vendor = norm(txn.description);
   if (!vendor) return { skipped: true, reason: 'no vendor' };
 
   const contact = findContactStmt.get(vendor);
   if (!contact) return { skipped: true, reason: 'no care-team match' };
 
-  const fmId = txn.family_member_id || null;
-  const visits = findVisitsStmt.all(contact.id, fmId, fmId);
+  const visits = findVisitsStmt.all(contact.id);
   if (visits.length === 0) return { skipped: true, reason: 'no visits with this provider' };
 
   // Find closest visit by date

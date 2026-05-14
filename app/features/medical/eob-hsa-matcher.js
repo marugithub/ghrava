@@ -28,14 +28,15 @@ function daysBetween(a, b) {
 }
 
 // Find candidate hsa_payments for a given EOB claim.
+// hsa_payments columns: date, patient, provider, you_paid, family_member_id (mig 083)
 // We search ±30 days from claim.service_date (or statement_date as fallback).
 const findCandidatesStmt = db.prepare(`
-  SELECT id, payment_date, vendor, you_paid, family_member_id
+  SELECT id, date AS payment_date, provider AS vendor, you_paid, family_member_id
   FROM hsa_payments
   WHERE family_member_id IS ?
-    AND ABS(julianday(payment_date) - julianday(?)) <= 30
+    AND ABS(julianday(date) - julianday(?)) <= 30
     AND ABS(you_paid - ?) <= 2.00
-  ORDER BY ABS(julianday(payment_date) - julianday(?)) ASC
+  ORDER BY ABS(julianday(date) - julianday(?)) ASC
   LIMIT 10
 `);
 
