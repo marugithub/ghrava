@@ -1130,10 +1130,10 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
     }
 
     // Create batch row in unified import_batches (no CASCADE)
-    // schema: import_batches.{account_id, filename, format, rows_total}
-    // v.169: was `row_count` — column is `rows_total` per mig 032
+    // schema: import_batches.{account_id, filename, format, row_count}
+    // v.170.1: reverted from rows_total — prod column is `row_count`
     const batch = db.prepare(`
-      INSERT INTO import_batches (account_id, filename, format, rows_total)
+      INSERT INTO import_batches (account_id, filename, format, row_count)
       VALUES (?, ?, ?, ?)
     `).run(account_id, req.file.originalname || 'upload', parsed.format || 'unknown', txns.length);
     const batchId = batch.lastInsertRowid;

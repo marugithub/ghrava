@@ -1,8 +1,8 @@
 # SCHEMA.md — Ghrava database reference
 
 > **Auto-generated** by `.claude/skills/ghrava-schema-safety/scripts/gen-schema-doc.py`
-> Last generated: `2026-05-14T21:31:56.157078Z`
-> Source: 135 migration files in `app/db/migrations/`
+> Last generated: `2026-05-14T22:23:21.358572Z`
+> Source: 136 migration files in `app/db/migrations/`
 >
 > **DO NOT EDIT BY HAND.** This file is regenerated before every package.
 > If a column is missing here, it does not exist on prod.

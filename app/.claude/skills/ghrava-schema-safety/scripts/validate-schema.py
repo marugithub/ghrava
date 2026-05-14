@@ -82,6 +82,24 @@ def unquote(s):
 
 def apply_js_migration(db, path):
     content = open(path).read()
+
+    # Special handling for mig 130 (rescue migration) — it does dynamic
+    # renames via a runtime loop over an array literal. The validator's
+    # regex skips ${...} template substitutions, so the renames never
+    # execute in replay. Apply them here manually based on knowledge of
+    # what mig 130 does on prod.
+    if '130_rescue_126' in path:
+        legacy_renames = [
+            'finance_accounts', 'financial_accounts',
+            'finance_transactions', 'imported_transactions',
+            'import_batches', 'holdings', 'fin_import_batches',
+        ]
+        for src in legacy_renames:
+            try:
+                db.execute(f'ALTER TABLE {src} RENAME TO _legacy_{src}')
+            except Exception:
+                pass
+
     for m in re.finditer(r"db\.exec\(\s*`([^`]+)`\s*\)", content, re.DOTALL):
         sql = m.group(1).strip()
         if '${' in sql:

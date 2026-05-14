@@ -196,10 +196,10 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
 
   const parsed = parseFile(text, req.file?.originalname || 'upload');
 
-  // schema: import_batches.{account_id, filename, statement_date, format, rows_total}
-  // v.170: was `row_count` — canonical column is `rows_total`
+  // schema: import_batches.{account_id, filename, statement_date, format, row_count}
+  // v.170.1: reverted from rows_total — prod column is `row_count`
   const batchId = db.prepare(`
-    INSERT INTO import_batches (account_id, filename, statement_date, format, rows_total)
+    INSERT INTO import_batches (account_id, filename, statement_date, format, row_count)
     VALUES (?, ?, ?, ?, ?)
   `).run(
     accountId, req.file?.originalname || 'upload',
