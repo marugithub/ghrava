@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/x-icon" href="/favicon.ico">
+  <title>Help — Ghrava</title>
+  <link rel="stylesheet" href="/shared.css">
+  <script src="/theme.js"></script>
+  <style>
+    .help-wrap { max-width: 860px; margin: 0 auto; padding: 20px 16px 80px; }
+    .help-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 18px; cursor: pointer; transition: border-color .15s, transform .15s; }
+    .help-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .faq-item { margin-bottom: 8px; }
+    .faq-q { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text); user-select: none; }
+    .faq-q:hover { border-color: var(--accent); }
+    .faq-chevron { color: var(--text3); transition: transform .15s; flex-shrink: 0; }
+    .faq-item.open .faq-chevron { transform: rotate(90deg); }
+    .faq-a { font-size: 13px; color: var(--text2); line-height: 1.6; padding: 10px 14px 14px 30px; display: none; }
+    .faq-item.open .faq-a { display: block; }
+    kbd { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 2px 6px; font-family: var(--mono); font-size: 11px; }
+    .sc-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .sc-row:last-child { border-bottom: none; }
+    .module-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--bg2); border-radius: var(--r); margin-bottom: 8px; }
+    .cmd-row { padding: 12px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 10px; cursor: pointer; transition: border-color .15s; position: relative; }
+    .cmd-row:hover { border-color: var(--accent); }
+    .cmd-row.copied { border-color: var(--green, #15803d); }
+    .cmd-row.copied::after { content: 'copied ✓'; position: absolute; top: 10px; right: 14px; font-family: var(--mono); font-size: 11px; color: var(--green, #15803d); background: var(--bg2); padding: 2px 8px; border-radius: 4px; }
+    .cmd-title { font-weight: 700; color: var(--text); margin-bottom: 4px; font-size: 13px; }
+    .cmd-meta { font-size: 11px; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+    .cmd-meta-tag { display: inline-block; background: var(--bg3); padding: 1px 6px; border-radius: 3px; margin-right: 6px; }
+    .cmd-block { background: var(--bg, #1a1a1a); color: #e8e8e8; padding: 10px 12px; border-radius: 4px; font-family: var(--mono); font-size: 12px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .cmd-desc { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+<script>window.GH_PAGE = { key: 'help', title: 'Help' };</script>
+<script src="/nav.js"></script>
+<script src="/js/lt-core.js"></script>
+
+<div id="app">
+<div class="help-wrap">
+  <div style="margin-bottom:24px">
+    <h1 style="font-size:24px;font-weight:700;color:var(--text);margin-bottom:6px">📚 Help Center</h1>
+    <p style="font-size:14px;color:var(--text2)">Everything you need to use Ghrava</p>
+  </div>
+
+  <input type="text" class="form-input" id="helpSearch" placeholder="🔍 Search help topics…"
+         oninput="filterHelp(this.value)" style="margin-bottom:24px">
+
+  <!-- Quick cards -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-bottom:32px" id="helpCards">
+    <div class="help-card" onclick="scrollTo('shortcuts')">
+      <div style="font-size:28px;margin-bottom:8px">⌨️</div>
+      <div style="font-weight:700;margin-bottom:4px">Keyboard Shortcuts</div>
+      <div style="font-size:12px;color:var(--text3)">Navigate faster with hotkeys</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('modules')">
+      <div style="font-size:28px;margin-bottom:8px">📦</div>
+      <div style="font-weight:700;margin-bottom:4px">Modules Guide</div>
+      <div style="font-size:12px;color:var(--text3)">Inventory, Finance, Medical & more</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('automation')">
+      <div style="font-size:28px;margin-bottom:8px">⚡</div>
+      <div style="font-weight:700;margin-bottom:4px">Automation</div>
+      <div style="font-size:12px;color:var(--text3)">Recurring tasks, folder watcher</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('commands')">
+      <div style="font-size:28px;margin-bottom:8px">⌘</div>
+      <div style="font-weight:700;margin-bottom:4px">Commands</div>
+      <div style="font-size:12px;color:var(--text3)">Docker exec, seeds, diagnostics</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('faq')">
+      <div style="font-size:28px;margin-bottom:8px">❓</div>
+      <div style="font-weight:700;margin-bottom:4px">FAQ</div>
+      <div style="font-size:12px;color:var(--text3)">Common questions</div>
+    </div>
+    <div class="help-card" onclick="window.location='/reports.html'">
+      <div style="font-size:28px;margin-bottom:8px">🧪</div>
+      <div style="font-weight:700;margin-bottom:4px">Run Diagnostics</div>
+      <div style="font-size:12px;color:var(--text3)">Reports → Tools → Run Tests</div>
+    </div>
+    <div class="help-card" onclick="window.location='/settings.html'">
+      <div style="font-size:28px;margin-bottom:8px">⚙️</div>
+      <div style="font-weight:700;margin-bottom:4px">Settings</div>
+      <div style="font-size:12px;color:var(--text3)">Configure your household</div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts -->
+  <div class="help-section" id="shortcuts" style="margin-bottom:32px">
+    <div class="section-hdr">⌨️ Keyboard Shortcuts</div>
+    <div style="padding:12px;background:var(--bg2);border-radius:var(--r)">
+      <div style="margin-bottom:10px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">Navigation</div>
+      <div class="sc-row"><span>Global Search</span><span><kbd>⌘</kbd><kbd>K</kbd></span></div>
+      <div class="sc-row"><span>Go Home</span><span><kbd>⌘</kbd><kbd>H</kbd></span></div>
+      <div class="sc-row"><span>Todos</span><span><kbd>⌘</kbd><kbd>T</kbd></span></div>
+      <div class="sc-row"><span>Inventory</span><span><kbd>⌘</kbd><kbd>I</kbd></span></div>
+      <div class="sc-row"><span>Finance</span><span><kbd>⌘</kbd><kbd>F</kbd></span></div>
+      <div class="sc-row"><span>Medical</span><span><kbd>⌘</kbd><kbd>M</kbd></span></div>
+      <div class="sc-row"><span>Settings</span><span><kbd>⌘</kbd><kbd>S</kbd></span></div>
+      <div style="margin:12px 0 8px;font-size:11px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.05em">General</div>
+      <div class="sc-row"><span>Focus Search</span><span><kbd>/</kbd></span></div>
+      <div class="sc-row"><span>Close Drawer / Modal</span><span><kbd>Esc</kbd></span></div>
+      <div class="sc-row"><span>Show Shortcuts</span><span><kbd>⇧</kbd><kbd>?</kbd></span></div>
+    </div>
+    <p style="font-size:12px;color:var(--text3);margin-top:8px">Press <kbd>⇧?</kbd> anywhere for a popup version of this list.</p>
+  </div>
+
+  <!-- Modules -->
+  <div class="help-section" id="modules" style="margin-bottom:32px">
+    <div class="section-hdr">📦 Modules Guide</div>
+    <div id="modulesList"></div>
+  </div>
+
+  <!-- Automation -->
+  <div class="help-section" id="automation" style="margin-bottom:32px">
+    <div class="section-hdr">⚡ Automation Features</div>
+    <div id="automationList"></div>
+  </div>
+
+  <!-- Commands (v202604.166) -->
+  <div class="help-section" id="commands" style="margin-bottom:32px">
+    <div class="section-hdr">⌘ Operational Commands</div>
+    <p style="font-size:12px;color:var(--text3);margin:6px 0 12px">SSH into the NAS (or open a terminal in Container Station for the <code>ghrava</code> container) and run these as needed. Click any block to copy.</p>
+    <div id="commandsList"></div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="help-section" id="faq" style="margin-bottom:32px">
+    <div class="section-hdr">❓ FAQ</div>
+    <div id="faqList"></div>
+  </div>
+</div>
+</div>
+
+<script>
+const MODULES = [
+  {icon:'📦',name:'Inventory',desc:'Track everything you own. Scan barcodes, add photos, organize by location. Link items to documents for manuals and warranties.'},
+  {icon:'💰',name:'Finance',desc:'Bank accounts, transactions, HSA, investments, and recurring bills. Import statements from CSV/OFX/QFX.'},
+  {icon:'🏥',name:'Medical',desc:'Medications, conditions, doctor visits, EOB imports. Emergency Info Card pulls from here.'},
+  {icon:'✓',name:'To-Do',desc:'Tasks with priorities, due dates, and Google Tasks sync. Apply checklist templates for recurring checklists.'},
+  {icon:'📋',name:'Daily Log',desc:'Journal entries with follow-up tracking and search.'},
+  {icon:'📄',name:'Documents',desc:'Store important documents with expiry tracking. See Reports → Expiry for a timeline view.'},
+  {icon:'🏠',name:'Property',desc:'Homes, vehicles, and maintenance schedules. Unified maintenance hub across property types.'},
+  {icon:'👔',name:'Career',desc:'Jobs, certifications, skills, training, and continuing education records.'},
+  {icon:'👨‍👩‍👧‍👦',name:'Kids',desc:'Children\'s info, schools, activities, and notes. Family member snapshots pull from here.'},
+  {icon:'👤',name:'Contacts',desc:'Household contacts with type classification. Mark emergency contacts for the Emergency Info Card.'},
+];
+
+const AUTOMATION = [
+  {name:'Folder Watcher',desc:'Drop files in NAS folders — they auto-import as EOBs, statements, or documents. Configure rules in Settings.'},
+  {name:'Recurring Transactions',desc:'Set up bills or income that repeat (monthly rent, biweekly paycheck) — they generate automatically.'},
+  {name:'Webhooks',desc:'Trigger external services (IFTTT, Home Assistant, n8n) when events happen like backup completion or document expiry.'},
+  {name:'Smart Categorization',desc:'Rules automatically categorize imported transactions. Priority-based — first match wins.'},
+  {name:'Emergency Info Card',desc:'Auto-generates a printable card from emergency contacts, medications, conditions, and insurance. Reports → Emergency.'},
+  {name:'Insurance Report',desc:'One-click printable inventory report for insurance documentation. Reports → Insurance.'},
+];
+
+const FAQ = [
+  {q:'How do I back up my data?',a:'Settings → Backup & Restore → Backup Now. Backups save to your NAS at /app/data/backups/. Schedule automatic backups in Settings → Infrastructure.'},
+  {q:'How do I access Ghrava from my phone?',a:'Open your NAS IP (e.g. 192.168.4.62:3001) in your phone browser. For a native-like experience, use "Add to Home Screen" in your browser menu.'},
+  {q:'How do I restore something I deleted?',a:'Settings → Recently Deleted. Items stay for 30 days. Documents, todos, inventory items, and books can all be restored.'},
+  {q:'How do I connect Google Tasks?',a:'Settings → Google Services. Enter your OAuth Client ID and Secret from Google Cloud Console. Enable the Tasks API and People API for your project.'},
+  {q:'How do I import bank statements?',a:'Finance → Import tab. Supports CSV, Excel, OFX, and QFX from most banks. Transactions are de-duplicated automatically.'},
+  {q:'What does the Folder Watcher do?',a:'It watches NAS folders you configure and auto-imports files. A PDF dropped in your EOBs folder gets parsed and imported as an EOB. Set up rules in Settings → Folder Watcher.'},
+  {q:'How do I run a diagnostic test?',a:'Reports → Tools → Run All Tests. This checks all APIs, database integrity, and key features.'},
+  {q:'How do I print an Emergency Info Card?',a:'Reports → Emergency → View & Print. The card includes emergency contacts, medications, conditions, allergies, and insurance info.'},
+  {q:'What are webhooks used for?',a:'Webhooks let Ghrava notify external tools when things happen — backup completed, document expiring, HSA pool threshold reached. Set them up in Settings → Webhooks.'},
+  {q:'How do I add recurring bills?',a:'Finance → Transactions tab → Recurring section → + Add. Choose frequency (monthly, biweekly, etc.) and it auto-generates transactions on schedule.'},
+];
+
+// v202604.166 — Operational commands shown in Help → Commands.
+// RULE: every drop that adds a CLI tool / docker exec / one-time op
+// MUST append an entry here. See STATE.md / BACKLOG.md.
+const COMMANDS = [
+  {
+    title: 'Cash-flow forecast — 30 days',
+    cmd: 'curl -s http://localhost:3001/api/v1/finance/forecast?days=30 | python3 -m json.tool',
+    desc: 'Project the next 30 days of cash flow from active recurring transactions. Returns starting/ending balance, total income/expenses, projected lowest balance, and a per-day breakdown with itemized events. Swap days=30 for 60 or 90.',
+    tags: ['v.169', 'finance', 'forecast'],
+  },
+  {
+    title: 'Cash-flow forecast — what-if balance',
+    cmd: 'curl -s "http://localhost:3001/api/v1/finance/forecast?days=90&starting_balance=5000" | python3 -m json.tool',
+    desc: 'Run the 90-day forecast with a hypothetical starting balance instead of the auto-summed liquid-account total. Useful for "what if I pull $X out for a one-time purchase" scenarios.',
+    tags: ['v.169', 'finance', 'forecast'],
+  },
+  {
+    title: 'Budget summary (lightweight)',
+    cmd: 'curl -s "http://localhost:3001/api/v1/finance/budgets/summary?year=2026&month=5" | python3 -m json.tool',
+    desc: 'Totals only: limit, spent, remaining, over/near counts. Faster than the full /budgets endpoint when you just need the headline. Used by any tile that wants the budget pulse without the per-category breakout.',
+    tags: ['v.169', 'finance', 'budget'],
+  },
+  {
+    title: 'Budget monthly history',
+    cmd: 'curl -s "http://localhost:3001/api/v1/finance/budgets/history?year=2026" | python3 -m json.tool',
+    desc: '12 months of total-spent vs total-limit for the given year. Powers the trend strip on the Budgets tab. Future months render at 0% but stay in the array so the chart shape is stable across the year.',
+    tags: ['v.169', 'finance', 'budget'],
+  },
+  {
+    title: 'Import medical seed — dry run',
+    cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json --dry-run',
+    desc: 'Preview the medical seed mapping (which family member, how many records per section) WITHOUT writing to the DB. Always run this first to verify the family_member resolution.',
+    tags: ['v.166', 'medical', 'seed'],
+  },
+  {
+    title: 'Import medical seed — Algir',
+    cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json',
+    desc: 'Import Algir\'s medical history (6 care team + 14 conditions + 14 medications + 26 labs + 8 vitals + 7 diagnostics + 1 allergy) from the bundled JSON seed. Idempotent — re-running is safe (deduped by hash).',
+    tags: ['v.166', 'medical', 'seed'],
+  },
+  {
+    title: 'Import medical seed — other family member',
+    cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_NAME.json',
+    desc: 'Same import for another family member. Drop their seed JSON in /app/seeds/ first (e.g. medical_zarna.json, medical_arnav.json, medical_risha.json). Endpoint matches the patient.name in the JSON to a family_members row.',
+    tags: ['v.166', 'medical', 'seed'],
+  },
+  {
+    title: 'Container restart (apply code changes)',
+    cmd: 'docker restart ghrava',
+    desc: 'Apply Node code changes after a deploy. Takes ~2s. Auto-runs any pending DB migrations. Use this for almost every deploy — only use --build if package.json changed.',
+    tags: ['deploy'],
+  },
+  {
+    title: 'Container rebuild (package.json changed)',
+    cmd: 'cd /share/Docker/home-core/ghrava && docker compose up --build -d',
+    desc: 'Rebuild the image. Use only when package.json (npm dependencies) changed. Takes ~90s.',
+    tags: ['deploy'],
+  },
+  {
+    title: 'Live logs (debug)',
+    cmd: 'docker logs ghrava --tail 50',
+    desc: 'Show the last 50 lines of container output. ALWAYS run this before asking Claude to theorize about a server issue. Add -f to follow live.',
+    tags: ['debug'],
+  },
+  {
+    title: 'Container shell',
+    cmd: 'docker exec -it ghrava sh',
+    desc: 'Drop into a shell inside the container. Useful for inspecting /app, running ad-hoc node scripts, or checking the DB with sqlite3 /app/data/lifetracker.db.',
+    tags: ['debug'],
+  },
+  {
+    title: 'DB shell',
+    cmd: 'docker exec -it ghrava sqlite3 /app/data/lifetracker.db',
+    desc: 'Direct SQLite access. Use .tables to list, .schema TABLE to view structure, PRAGMA table_info(TABLE); for column details. Type .quit to exit.',
+    tags: ['debug', 'db'],
+  },
+  {
+    title: 'Manual DB backup',
+    cmd: 'docker exec -it ghrava sh -c "sqlite3 /app/data/lifetracker.db \\".backup /app/data/backups/manual-$(date +%Y%m%d-%H%M).db\\""',
+    desc: 'One-shot DB backup outside the scheduled cycle. Use before risky migrations or restore operations. Backup lands in /app/data/backups/.',
+    tags: ['backup', 'db'],
+  },
+  {
+    title: 'Verify version',
+    cmd: 'docker exec ghrava cat /app/version.txt',
+    desc: 'Print the running version. Should match the most recent deploy. Format: 202604.NNN.',
+    tags: ['debug'],
+  },
+  // v202604.167 — Auto-linker operational commands
+  {
+    title: 'EOB → HSA matcher — backfill all existing claims',
+    cmd: 'curl -X POST http://localhost:3001/api/v1/links/run/eob-hsa-matcher',
+    desc: 'One-shot: walk every existing EOB claim, look for matching HSA payments (same patient + amount within $0.50 + date within 14 days), and auto-link the high-confidence matches. Medium-confidence matches are linked with needs_review=1 — Al confirms them via the floating "Needs review" pill on any page. Idempotent: re-running creates no duplicates.',
+    tags: ['v.167', 'finance', 'medical', 'auto-link'],
+  },
+  {
+    title: 'Subscription category — retroactive copy (last 90 days)',
+    cmd: 'curl -X POST "http://localhost:3001/api/v1/links/run/subscription-categories?days=90"',
+    desc: 'Walk the last 90 days of transactions linked to subscriptions, copy the subscription category onto any transaction with an empty category. Change `days=90` to set a different window (e.g. days=365 for full year). Idempotent — only updates uncategorized rows.',
+    tags: ['v.167', 'finance', 'auto-link'],
+  },
+  {
+    title: 'Needs-review list (curl)',
+    cmd: 'curl -s http://localhost:3001/api/v1/links/needs-review | python3 -m json.tool',
+    desc: 'List every auto-link flagged for Al to review. Same data the floating "Needs review" pill surfaces in the UI.',
+    tags: ['v.167', 'debug'],
+  },
+  {
+    title: 'Schema validator (predeploy gate)',
+    cmd: 'python3 scripts/validate-schema.py',
+    desc: 'Builds a prod-mirror SQLite DB from every migration, then validates every db.prepare(`SQL`) in the codebase parses against the real schema. Run before every package to catch "column does not exist" bugs that would crash the container at startup. The bug that broke v.167 hotfix (referenced a.account_type when the column is a.type) would have been caught by this.',
+    tags: ['v.167', 'predeploy', 'debug'],
+  },
+];
+
+document.getElementById('modulesList').innerHTML = MODULES.map(m => `
+  <div class="module-row">
+    <span style="font-size:24px;flex-shrink:0">${m.icon}</span>
+    <div><div style="font-weight:700;color:var(--text);margin-bottom:3px">${m.name}</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.5">${m.desc}</div></div>
+  </div>`).join('');
+
+document.getElementById('automationList').innerHTML = AUTOMATION.map(a => `
+  <div style="padding:12px;background:var(--bg2);border-radius:var(--r);margin-bottom:8px">
+    <div style="font-weight:700;color:var(--text);margin-bottom:4px">${a.name}</div>
+    <div style="font-size:13px;color:var(--text2);line-height:1.5">${a.desc}</div>
+  </div>`).join('');
+
+document.getElementById('faqList').innerHTML = FAQ.map(f => `
+  <div class="faq-item" onclick="this.classList.toggle('open')">
+    <div class="faq-q"><span class="faq-chevron">›</span><span>${f.q}</span></div>
+    <div class="faq-a">${f.a}</div>
+  </div>`).join('');
+
+// Escape HTML for safe rendering of command strings
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.getElementById('commandsList').innerHTML = COMMANDS.map((c, i) => `
+  <div class="cmd-row" data-cmd-i="${i}" onclick="copyCommand(${i}, this)">
+    <div class="cmd-title">${esc(c.title)}</div>
+    <div class="cmd-meta">${(c.tags || []).map(t => `<span class="cmd-meta-tag">${esc(t)}</span>`).join('')}</div>
+    <div class="cmd-block">${esc(c.cmd)}</div>
+    <div class="cmd-desc">${esc(c.desc)}</div>
+  </div>`).join('');
+
+function copyCommand(i, el) {
+  const cmd = COMMANDS[i].cmd;
+  const done = () => {
+    el.classList.add('copied');
+    setTimeout(() => el.classList.remove('copied'), 1600);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cmd).then(done).catch(() => {
+      // Fallback for older browsers / non-HTTPS contexts
+      const ta = document.createElement('textarea');
+      ta.value = cmd; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      document.body.removeChild(ta);
+    });
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = cmd; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+}
+
+function scrollTo(id) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
+
+function filterHelp(q) {
+  const lq = q.toLowerCase();
+  document.querySelectorAll('.help-section').forEach(s => {
+    s.style.display = !lq || s.textContent.toLowerCase().includes(lq) ? '' : 'none';
+  });
+  document.querySelectorAll('#helpCards .help-card').forEach(c => {
+    c.style.display = !lq || c.textContent.toLowerCase().includes(lq) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

@@ -3,27 +3,135 @@
 Read this first. The only doc the next chat needs to be productive
 without Al re-explaining anything.
 
-Last updated: v202604.169 staged 2026-05-14. **Not yet packaged or
+Last updated: v202604.170 staged 2026-05-14. **Not yet packaged or
 deployed.** Awaiting Al's "package" + manual smoke on prod.
 
 ---
 
-## 📚 Required reading per chat (locked v.166), in order:
+## 0. NEW CONTRACT (v.170) — read this before anything else
 
-1. **`STATE.md`** — current state, version log, locked decisions
-2. **`HANDOFF.md`** (this file) — next chat's tasks + deploy process
-3. **`BACKLOG.md`** — persistent backlog: every deferred idea with why/effort/deps. **The answer to memory loss across chats.** Updated at the END of every chat.
-4. **`app/public/_templates.html`** — numbered visual design specs
+**v.170 changed how chats work on Ghrava.** The failure mode that
+prompted this — "chat said it read the doc, then ignored the rule" —
+became mechanically impossible because the docs are demoted to
+reference material and the rules are enforced by scripts.
 
-## 🔁 Required documentation updates per drop (locked v.166):
+### Required reading per chat (in order):
 
-Every drop that adds the following MUST also update the corresponding doc:
-- **New CLI / docker exec / one-time operational command** → append to `app/public/help.html` → `COMMANDS` array. User reaches it via Help → Commands.
-- **New schema column or table** → register in `app/public/js/lens-config.js` so the global lens/advanced-filter finds it.
-- **New visual tile / card / page** → add a numbered section in `app/public/_templates.html` (e.g. #25 Medical Tiles).
-- **New deferred decision or known gap** → add a bullet to `BACKLOG.md`.
+1. **`README_FOR_CHAT.md`** — single short ruleset, 9 rules, the
+   ONLY required reading. STATE/HANDOFF/BACKLOG are now reference,
+   not prereading.
+2. **`LOCKED.md`** — enumerable list of every locked design. Reference
+   by ID (#18, M3, etc.), never re-describe in prose.
+3. **`app/.claude/skills/ghrava-schema-safety/SKILL.md`** — mandatory
+   four-step gate for any SQL change.
 
-Each predeploy check should confirm these are in sync with the code shipping.
+### Start-of-chat checklist (paste verbatim):
+
+```
+GHRAVA CHAT START
+[ ] Read README_FOR_CHAT.md — 9 rules
+[ ] Ran `bash gates.sh` — <N> failures (baseline; will not regress)
+[ ] Current version: <from app/version.txt>
+[ ] Today's task: <what Al said>
+[ ] Blocking questions: <list or "none">
+```
+
+### Definition of "done"
+
+`bash gates.sh` shows **8 passed, 0 failed.** Pasted output required.
+Without that, the drop is "claimed done," not done. Al moves to
+"verified" by manual smoke on prod.
+
+---
+
+## 1. WHAT v.170 SHIPS
+
+**Bundle:** v.169 (Finance Finalization) + v.170 (Gates + 28 schema bugs).
+Single drop because v.169 wasn't deployed yet.
+
+### From v.169 (Finance)
+- 5 finance schema bugs fixed in `routes.js` (+ bonus `row_count→rows_total`)
+- `budgets.js` rewritten on unified `transactions` table
+- `forecast.js` new — `/api/v1/finance/forecast?days=30|60|90`
+- Budget UI: monthly trend strip + full forecast section
+- `lens-config.js` +budgets, `help.html` +4 commands
+
+### NEW in v.170 (Gates + Schema Cleanup)
+- `README_FOR_CHAT.md` + `LOCKED.md` at repo root
+- `gates.sh` + 8 sub-gates in `app/scripts/`
+- Schema-safety skill bundled at `app/.claude/skills/`
+- 28 schema bug fixes across 9 files (attachments, hsa, google, property, family-snapshot, dailylog, dashboard, import, shared/auto-link-subscriptions)
+- Mig 137 — idempotent `holdings.as_of_date` ensure
+- `validate-schema.py` enhanced to catch `ALTER TABLE ... RENAME TO` and standalone ALTERs in JS migrations
+- Pre-existing prose violations in STATE/HANDOFF cleaned (16→0)
+
+### Files touched (v.170)
+
+| File | Change |
+|---|---|
+| `README_FOR_CHAT.md` (new) | The 9-rule contract |
+| `LOCKED.md` (new) | Enumerable lock registry |
+| `gates.sh` (new) | Master gate runner |
+| `app/scripts/check-*.sh` (8 new) | Individual gates |
+| `app/scripts/README.md` (new) | Gates documentation |
+| `app/scripts/smoke.sh` (new) | Endpoint health check |
+| `app/.claude/skills/ghrava-schema-safety/` (new) | Skill bundled |
+| `app/db/migrations/137_holdings_as_of_date_ensure.js` (new) | Mig 137 |
+| `app/shared/attachments.js` | attachment_type/file_name/file_path → module/original_filename/stored_path |
+| `app/shared/folder-watcher.js` | same attachments fix + hsa_payments.amount→you_paid |
+| `app/shared/auto-link-subscriptions.js` | monthly_amount→cost, billing_frequency→billing_cycle, is_active→status |
+| `app/features/google/routes.js` | google_id→google_contact_id (3 sites) |
+| `app/features/property/routes.js` | dropped vehicles.insurance_contact_id |
+| `app/features/family-snapshot/routes.js` | kids.school_name→school_id+teacher_name, perfumes.family_member_id→owner_family_member_id, books→record_links join |
+| `app/features/dailylog/routes.js` | entry_date→log_date |
+| `app/features/dashboard/routes.js` | doc_type→category, receipt_path→receipt_location, amount→you_paid, certifications→career_certifications, cert_name→name |
+| `app/features/hsa/routes.js` | attachments columns at 4 sites |
+| `app/features/import/routes.js` | row_count→rows_total |
+| `STATE.md`, `HANDOFF.md`, `BACKLOG.md`, `SCHEMA.md`, `app/SCHEMA.md` | updated |
+| `app/version.txt` | `202604.170` |
+
+---
+
+## 2. TASK FOR THE NEXT CHAT (after Al runs v.170)
+
+### Task A — Smoke test v.170 on prod
+
+After deploy:
+1. SSH NAS, run `bash /share/Docker/home-core/ghrava/gates.sh` — should pass all 8 with smoke now hitting real endpoints.
+2. Open the Finance → Budgets tab — trend strip + forecast section render.
+3. Open Family Snapshot for a member — kids/perfumes/books sections all render (these used the buggy SQL before).
+4. Try the Inbox watcher (drop a PDF in the watch folder) — should create attachment + draft without crash.
+
+### Task B — Pick next direction (Al chooses)
+
+Recommended priorities (Al picks one to scope):
+
+1. **Today page** (highest UX win, locked design, never built) — single
+   landing page that replaces dashboard-as-default. Now/Soon sections,
+   snooze, dense rows. Endpoint already designed as `/api/v1/today`.
+2. **Universal Attachments** (#28, locked design, 14 modules) — but
+   ship as 3 sub-drops: schema first, then Inventory+HSA+Medical,
+   then remaining 11.
+3. **Reports tab live wiring** — forecast endpoint ready, charts still
+   mockup. Wire Money group's 5 charts.
+4. **Security audit cleanup** — path allowlist on `/file/:id` +
+   `/thumb/:id`, entityType allowlist on attach route, `window.esc`
+   escape `/\'`. Small, important.
+
+---
+
+## 3. DEPLOY PROCESS (unchanged from v.169)
+
+1. Build at `/home/claude/<branch>/ghrava/`.
+2. Pre-package: `bash gates.sh` — must show 8 passed, 0 failed.
+3. Zip layout: top-level (no `ghrava/` wrapper).
+4. Include: `app/`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`, `SCHEMA.md`, `README_FOR_CHAT.md`, `LOCKED.md`, `gates.sh`.
+5. Al downloads, runs `ghrava_deploy.ps1`, then `docker restart ghrava` on NAS.
+6. `--build` only when `package.json` changes (it didn't).
+
+---
+
+## ⏪ v.169 history (kept for reference below)
 
 ---
 
@@ -155,7 +263,7 @@ Big drop. PM-style: Al asked to finish Finance. v.167 lands the cross-module aut
 - New rail item in Settings → Imports & rules.
 - Single form: year, plan_type (HSA / LP-FSA / Medical FSA / Dep-Care FSA), plan_name, annual_limit, contributions, employer_contribution, deadline_date, custodian, carryover_amount, active, notes.
 - Backed by existing `fsa_plan_info` table (mig 118 — already supports all plan_types).
-- Edit existing rows inline. Active count appears as rail pill.
+- Edit existing rows inline. Rail pill shows the active count (per locked Settings UI).
 
 ### G. Reports Charts (preview) tab
 - New `/reports.html?tab=charts` tab.

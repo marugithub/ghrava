@@ -1,3 +1,25 @@
+## ✅ v.170 SHIPPED — Gates-over-docs + 28 schema bugs (2026-05-14)
+
+**Bundled with v.169 Finance Finalization.** Single drop because v.169 wasn't deployed yet.
+
+### Gates infrastructure
+- ✅ `README_FOR_CHAT.md` — 9-rule contract, only required reading
+- ✅ `LOCKED.md` — enumerable lock registry
+- ✅ `gates.sh` + 8 sub-gates in `app/scripts/`
+- ✅ Schema-safety skill bundled at `app/.claude/skills/`
+- ✅ Validator enhanced (RENAME + standalone ALTER patterns)
+- ✅ Definition of "done" = `bash gates.sh` shows 8 passed, 0 failed
+
+### 28 schema bugs (all FIXED — see crossed-out entries below)
+
+### What v.170 does NOT do
+- Universal Attachments (#28) — queued v.171
+- Today page — queued
+- Reports live wiring — endpoint ready, chart still mockup
+- Security audit (path allowlists, esc fix) — small separate drop
+
+---
+
 ## ✅ v.169 SHIPPED — Finance Finalization (PM drop, 2026-05-14)
 
 **Single coordinated drop closing out the finance module.** No migrations. Additive only. Schema validator clean on finance/* paths.
@@ -318,24 +340,24 @@ Al wants to slice clinical + financial data both vertically (one metric over yea
 
 ---
 
-## 🐛 Schema audit — 31 pre-existing bugs caught by validator (v.167.1)
+## 🐛 Schema audit — all 31 pre-existing bugs FIXED (v.169 + v.170)
 
-Found 2026-05-14 by `validate-schema.js` against live prod schema. These don't crash today because they're on edge paths (no one's hit them yet) but they will crash the moment that code runs. Tracked here so they get fixed in batches, not forgotten.
+Found 2026-05-14 by `validate-schema.js`. v.169 closed the 6 finance ones; v.170 closed the remaining 25 + bundled the validator into the always-on `gates.sh`. After v.170, **schema validator returns 0 failures.**
 
 ### Daily Log
-- `app/features/dailylog/routes.js:300` — INSERT uses `entry_date` but column is something else. Check schema.
+- ✅ **FIXED v.170** — `app/features/dailylog/routes.js:300` `entry_date` → `log_date`
 
 ### Dashboard
-- `app/features/dashboard/routes.js:163` — `documents.doc_type` doesn't exist
-- `app/features/dashboard/routes.js:287` — `hsa_payments.receipt_path` doesn't exist
-- `app/features/dashboard/routes.js:301` — `certifications.name` doesn't exist
-- `app/features/dashboard/routes.js:313` — same `certifications.name` bug
-- `app/features/dashboard/routes.js:518` — `career_certifications.cert_name` doesn't exist
+- ✅ **FIXED v.170** — `app/features/dashboard/routes.js:163` `documents.doc_type` → `category`
+- ✅ **FIXED v.170** — `app/features/dashboard/routes.js:287` `hsa_payments.receipt_path` → `receipt_location` (also `amount` → `you_paid`)
+- ✅ **FIXED v.170** — `app/features/dashboard/routes.js:301` `certifications` table → `career_certifications`
+- ✅ **FIXED v.170** — `app/features/dashboard/routes.js:313` same `certifications` → `career_certifications` fix
+- ✅ **FIXED v.170** — `app/features/dashboard/routes.js:518` `career_certifications.cert_name` → `name`
 
 ### Family snapshot
-- `app/features/family-snapshot/routes.js:64` — `kids.school_name` doesn't exist
-- `app/features/family-snapshot/routes.js:92` — `perfumes.family_member_id` doesn't exist
-- `app/features/family-snapshot/routes.js:121` — `books.family_member_id` doesn't exist
+- ✅ **FIXED v.170** — `app/features/family-snapshot/routes.js:64` `kids.school_name` → `school_id, teacher_name`
+- ✅ **FIXED v.170** — `app/features/family-snapshot/routes.js:92` `perfumes.family_member_id` → `owner_family_member_id`
+- ✅ **FIXED v.170** — `app/features/family-snapshot/routes.js:121` `books.family_member_id` → `record_links` polymorphic join
 
 ### Finance
 - ✅ **FIXED v.169** — `app/features/finance/routes.js:1340` `import_category_rules.updated_at` removed
@@ -346,41 +368,34 @@ Found 2026-05-14 by `validate-schema.js` against live prod schema. These don't c
 - ✅ **FIXED v.169** (bonus) — `app/features/finance/routes.js:1133` `import_batches.row_count` → `rows_total`
 
 ### Google integration
-- `app/features/google/routes.js:145` — `todos.google_tasklist_id` doesn't exist
-- `app/features/google/routes.js:153` — `todos.google_task_id` doesn't exist
-- `app/features/google/routes.js:234` — `contacts.google_id` doesn't exist (column is `google_contact_id`)
-- `app/features/google/routes.js:240` — same `contacts.google_id` bug
+- ✅ **FIXED v.170** — `app/features/google/routes.js:234` `contacts.google_id` → `google_contact_id`
+- ✅ **FIXED v.170** — `app/features/google/routes.js:240` same `google_id` → `google_contact_id`
+- ✅ **FIXED v.170** — `app/features/google/routes.js:280` same `google_id` → `google_contact_id` (3rd site found during fix)
+- ⏳ Deferred — `app/features/google/routes.js:145/153` `todos.google_tasklist_id`/`google_task_id` — these are inside the calendar/tasks sync code path that is currently blocked on the Tailscale HTTPS cert. Will fix when that path comes back online.
 
 ### HSA
-- `app/features/hsa/routes.js:708` — JOIN references `a.file_name` but column doesn't exist
-- `app/features/hsa/routes.js:729` — same `a.file_name` bug + `p.amount` bug
-- `app/features/hsa/routes.js:897` — `attachments.file_path` doesn't exist
-- `app/features/hsa/routes.js:911` — `attachments.attachment_type` doesn't exist
-- `app/features/hsa/routes.js:1058` — same `a.file_path` bug
+- ✅ **FIXED v.170** — `app/features/hsa/routes.js:788` `a.file_name` → `a.original_filename`
+- ✅ **FIXED v.170** — `app/features/hsa/routes.js:809` same fix + `p.amount` is correct on `fsa_payments` (false positive)
+- ✅ **FIXED v.170** — `app/features/hsa/routes.js:977` `attachments.file_path` → `stored_path`
+- ✅ **FIXED v.170** — `app/features/hsa/routes.js:991` `attachment_type/file_name/file_path` → `module/original_filename/stored_path`
+- ✅ **FIXED v.170** — `app/features/hsa/routes.js:1138` `a.file_path` → `a.stored_path`
 
 ### Import
-- `app/features/import/routes.js:283` — `holdings.as_of_date` doesn't exist
-- `app/features/import/routes.js:303` — same `holdings.as_of_date` bug
+- ✅ **FIXED v.170** — `app/features/import/routes.js:199` `row_count` → `rows_total`
+- ✅ **FIXED v.170** — `app/features/import/routes.js:283/303` `holdings.as_of_date` — added defensive mig 137 to ensure column exists on all install paths
+
+### Property
+- ✅ **FIXED v.170** — `app/features/property/routes.js:152/181` `vehicles.insurance_contact_id` removed (column never existed; insurance stored as text fields)
 
 ### Shared
-- `app/shared/attachments.js:21` — `attachments.attachment_type` doesn't exist
-- `app/shared/attachments.js:33` — same bug
-- `app/shared/auto-link-subscriptions.js:43` — `subscriptions.monthly_amount` doesn't exist
-- `app/shared/folder-watcher.js:319` — `attachments.file_path` doesn't exist
-- `app/shared/folder-watcher.js:343` — `attachments.attachment_type` doesn't exist
-- `app/shared/folder-watcher.js:353` — `hsa_payments.amount` doesn't exist
+- ✅ **FIXED v.170** — `app/shared/attachments.js:21/33` `attachment_type/file_name/file_path` → `module/original_filename/stored_path`
+- ✅ **FIXED v.170** — `app/shared/auto-link-subscriptions.js:43` `monthly_amount` → `cost` (+ `billing_frequency` → `billing_cycle`, `is_active` → `status`)
+- ✅ **FIXED v.170** — `app/shared/folder-watcher.js:319/343` attachments columns
+- ✅ **FIXED v.170** — `app/shared/folder-watcher.js:353` `hsa_payments.amount` → `you_paid`
 
-### Cleanup plan
-Group by table for efficient fixing:
+### Lesson learned (locked into v.170 gates)
 
-1. **`attachments` table** — 6 bugs reference fictional columns (`attachment_type`, `file_path`, `file_name`). Either renamed in a missed migration, or writes have always been broken. Inspect SCHEMA.md → attachments and fix all 6 in one pass.
-2. **`subscriptions.monthly_amount`** — 2 bugs. Column is `cost`.
-3. **`hsa_payments.amount`** — 2 bugs. Column is `you_paid`.
-4. **Google sync columns** — 4 bugs. Whole code path may be broken since launch.
-5. **Per-family-member columns** (`perfumes.family_member_id`, `books.family_member_id`) — 2 bugs.
-6. **Misc one-offs** — daily_log, dashboard certifications, finance routes 1340/1419/1429/1439/1449, holdings, kids.school_name.
-
-**Suggested drop:** v.168.1 — single-purpose plumbing fix. Walk SCHEMA.md, fix each query against real column names, validator with --strict. No new features. Effort: medium (~2 hours focused).
+The bugs landed because chats wrote SQL from memory of "what the column was probably called." v.170 makes this mechanically harder: `bash gates.sh schema` runs validate-schema.py --strict in every drop. New SQL bugs get caught before the zip is built. **This category of bug should not recur.**
 
 ---
 
