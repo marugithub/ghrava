@@ -15,6 +15,16 @@ deployed.** Awaiting Al's "package" + manual smoke on prod.
 3. **`BACKLOG.md`** — persistent backlog: every deferred idea with why/effort/deps. **The answer to memory loss across chats.** Updated at the END of every chat.
 4. **`app/public/_templates.html`** — numbered visual design specs
 
+## 🔁 Required documentation updates per drop (locked v.166):
+
+Every drop that adds the following MUST also update the corresponding doc:
+- **New CLI / docker exec / one-time operational command** → append to `app/public/help.html` → `COMMANDS` array. User reaches it via Help → Commands.
+- **New schema column or table** → register in `app/public/js/lens-config.js` so the global lens/advanced-filter finds it.
+- **New visual tile / card / page** → add a numbered section in `app/public/_templates.html` (e.g. #25 Medical Tiles).
+- **New deferred decision or known gap** → add a bullet to `BACKLOG.md`.
+
+Each predeploy check should confirm these are in sync with the code shipping.
+
 ---
 
 ## 0. WHAT'S ON PROD RIGHT NOW

@@ -221,13 +221,14 @@ These came up repeatedly and got locked but should not be relitigated:
 - **Visual design lives in `_templates.html`** as numbered patterns (#1, #18, etc.). NEVER invent design.
 - **Required reading per chat (locked v.166):** STATE.md → HANDOFF.md → BACKLOG.md → _templates.html.
 - **Lens config is mandatory for new fields** (Al, v.166): every schema column added MUST appear in `app/public/js/lens-config.js` so the global lens/advanced filter can search on it.
+- **Help → Commands is mandatory for new CLIs** (Al, v.166): every drop that adds a `docker exec` / CLI / one-time operational command MUST append an entry to `app/public/help.html → COMMANDS` array (title, cmd, desc, tags). User reaches it via Help → Commands quick card. Each entry is click-to-copy.
 
 ---
 
 ## 📦 Version log highlights (for context)
 
 - **v.165** — finance landing tiles wired (F1–F6), HSA pool reads hsa_payments + fsa_payments.
-- **v.166** (IN PROGRESS, this drop) — drafts→templates rename + dir move, medical Overview tab (M1–M6), mig 131 schema expansion (4 new tables + 23 new columns), bulk-seed endpoint + CLI, kids auto-sync, lens config for new fields, BACKLOG.md created.
+- **v.166** (IN PROGRESS, this drop) — drafts→templates rename + dir move, medical Overview tab (M1–M6), mig 131 schema expansion (4 new tables + 23 new columns), bulk-seed endpoint + CLI, kids auto-sync, lens config for new fields, BACKLOG.md created, **Help → Commands section added** (operational CLI documentation with click-to-copy).
 
 ---
 

@@ -11,6 +11,14 @@
 > 2. **`HANDOFF.md`** — next chat's task list + deploy process
 > 3. **`BACKLOG.md`** — every deferred idea, gap, decision; cross-chat persistent memory
 > 4. **`app/public/_templates.html`** — numbered visual design specs (#1, #18, M1–M6, etc.)
+>
+> ## 🔁 Required documentation updates per drop (locked v.166):
+> Every drop that adds the following MUST also update the corresponding doc:
+> - **New CLI / docker exec / one-time operational command** → append to `app/public/help.html` → `COMMANDS` array. User reaches it via Help → Commands.
+> - **New schema column or table** → register in `app/public/js/lens-config.js` so the global lens/advanced-filter finds it.
+> - **New visual tile / card / page** → add a numbered section in `app/public/_templates.html` (e.g. #25 Medical Tiles).
+> - **New deferred decision or known gap** → add a bullet to `BACKLOG.md`.
+> Each predeploy check should confirm these are in sync with the code shipping.
 
 ---
 

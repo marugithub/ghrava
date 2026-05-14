@@ -22,6 +22,15 @@
     .sc-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
     .sc-row:last-child { border-bottom: none; }
     .module-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px; background: var(--bg2); border-radius: var(--r); margin-bottom: 8px; }
+    .cmd-row { padding: 12px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r); margin-bottom: 10px; cursor: pointer; transition: border-color .15s; position: relative; }
+    .cmd-row:hover { border-color: var(--accent); }
+    .cmd-row.copied { border-color: var(--green, #15803d); }
+    .cmd-row.copied::after { content: 'copied ✓'; position: absolute; top: 10px; right: 14px; font-family: var(--mono); font-size: 11px; color: var(--green, #15803d); background: var(--bg2); padding: 2px 8px; border-radius: 4px; }
+    .cmd-title { font-weight: 700; color: var(--text); margin-bottom: 4px; font-size: 13px; }
+    .cmd-meta { font-size: 11px; color: var(--text3); margin-bottom: 8px; font-family: var(--mono); }
+    .cmd-meta-tag { display: inline-block; background: var(--bg3); padding: 1px 6px; border-radius: 3px; margin-right: 6px; }
+    .cmd-block { background: var(--bg, #1a1a1a); color: #e8e8e8; padding: 10px 12px; border-radius: 4px; font-family: var(--mono); font-size: 12px; line-height: 1.5; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+    .cmd-desc { font-size: 12px; color: var(--text2); margin-top: 8px; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -55,6 +64,11 @@
       <div style="font-size:28px;margin-bottom:8px">⚡</div>
       <div style="font-weight:700;margin-bottom:4px">Automation</div>
       <div style="font-size:12px;color:var(--text3)">Recurring tasks, folder watcher</div>
+    </div>
+    <div class="help-card" onclick="scrollTo('commands')">
+      <div style="font-size:28px;margin-bottom:8px">⌘</div>
+      <div style="font-weight:700;margin-bottom:4px">Commands</div>
+      <div style="font-size:12px;color:var(--text3)">Docker exec, seeds, diagnostics</div>
     </div>
     <div class="help-card" onclick="scrollTo('faq')">
       <div style="font-size:28px;margin-bottom:8px">❓</div>
@@ -105,6 +119,13 @@
     <div id="automationList"></div>
   </div>
 
+  <!-- Commands (v202604.166) -->
+  <div class="help-section" id="commands" style="margin-bottom:32px">
+    <div class="section-hdr">⌘ Operational Commands</div>
+    <p style="font-size:12px;color:var(--text3);margin:6px 0 12px">SSH into the NAS (or open a terminal in Container Station for the <code>ghrava</code> container) and run these as needed. Click any block to copy.</p>
+    <div id="commandsList"></div>
+  </div>
+
   <!-- FAQ -->
   <div class="help-section" id="faq" style="margin-bottom:32px">
     <div class="section-hdr">❓ FAQ</div>
@@ -149,6 +170,72 @@ const FAQ = [
   {q:'How do I add recurring bills?',a:'Finance → Transactions tab → Recurring section → + Add. Choose frequency (monthly, biweekly, etc.) and it auto-generates transactions on schedule.'},
 ];
 
+// v202604.166 — Operational commands shown in Help → Commands.
+// RULE: every drop that adds a CLI tool / docker exec / one-time op
+// MUST append an entry here. See STATE.md / BACKLOG.md.
+const COMMANDS = [
+  {
+    title: 'Import medical seed — dry run',
+    cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json --dry-run',
+    desc: 'Preview the medical seed mapping (which family member, how many records per section) WITHOUT writing to the DB. Always run this first to verify the family_member resolution.',
+    tags: ['v.166', 'medical', 'seed'],
+  },
+  {
+    title: 'Import medical seed — Algir',
+    cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json',
+    desc: 'Import Algir\'s medical history (6 care team + 14 conditions + 14 medications + 26 labs + 8 vitals + 7 diagnostics + 1 allergy) from the bundled JSON seed. Idempotent — re-running is safe (deduped by hash).',
+    tags: ['v.166', 'medical', 'seed'],
+  },
+  {
+    title: 'Import medical seed — other family member',
+    cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_NAME.json',
+    desc: 'Same import for another family member. Drop their seed JSON in /app/seeds/ first (e.g. medical_zarna.json, medical_arnav.json, medical_risha.json). Endpoint matches the patient.name in the JSON to a family_members row.',
+    tags: ['v.166', 'medical', 'seed'],
+  },
+  {
+    title: 'Container restart (apply code changes)',
+    cmd: 'docker restart ghrava',
+    desc: 'Apply Node code changes after a deploy. Takes ~2s. Auto-runs any pending DB migrations. Use this for almost every deploy — only use --build if package.json changed.',
+    tags: ['deploy'],
+  },
+  {
+    title: 'Container rebuild (package.json changed)',
+    cmd: 'cd /share/Docker/home-core/ghrava && docker compose up --build -d',
+    desc: 'Rebuild the image. Use only when package.json (npm dependencies) changed. Takes ~90s.',
+    tags: ['deploy'],
+  },
+  {
+    title: 'Live logs (debug)',
+    cmd: 'docker logs ghrava --tail 50',
+    desc: 'Show the last 50 lines of container output. ALWAYS run this before asking Claude to theorize about a server issue. Add -f to follow live.',
+    tags: ['debug'],
+  },
+  {
+    title: 'Container shell',
+    cmd: 'docker exec -it ghrava sh',
+    desc: 'Drop into a shell inside the container. Useful for inspecting /app, running ad-hoc node scripts, or checking the DB with sqlite3 /app/data/lifetracker.db.',
+    tags: ['debug'],
+  },
+  {
+    title: 'DB shell',
+    cmd: 'docker exec -it ghrava sqlite3 /app/data/lifetracker.db',
+    desc: 'Direct SQLite access. Use .tables to list, .schema TABLE to view structure, PRAGMA table_info(TABLE); for column details. Type .quit to exit.',
+    tags: ['debug', 'db'],
+  },
+  {
+    title: 'Manual DB backup',
+    cmd: 'docker exec -it ghrava sh -c "sqlite3 /app/data/lifetracker.db \\".backup /app/data/backups/manual-$(date +%Y%m%d-%H%M).db\\""',
+    desc: 'One-shot DB backup outside the scheduled cycle. Use before risky migrations or restore operations. Backup lands in /app/data/backups/.',
+    tags: ['backup', 'db'],
+  },
+  {
+    title: 'Verify version',
+    cmd: 'docker exec ghrava cat /app/version.txt',
+    desc: 'Print the running version. Should match the most recent deploy. Format: 202604.NNN.',
+    tags: ['debug'],
+  },
+];
+
 document.getElementById('modulesList').innerHTML = MODULES.map(m => `
   <div class="module-row">
     <span style="font-size:24px;flex-shrink:0">${m.icon}</span>
@@ -167,6 +254,39 @@ document.getElementById('faqList').innerHTML = FAQ.map(f => `
     <div class="faq-q"><span class="faq-chevron">›</span><span>${f.q}</span></div>
     <div class="faq-a">${f.a}</div>
   </div>`).join('');
+
+// Escape HTML for safe rendering of command strings
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.getElementById('commandsList').innerHTML = COMMANDS.map((c, i) => `
+  <div class="cmd-row" data-cmd-i="${i}" onclick="copyCommand(${i}, this)">
+    <div class="cmd-title">${esc(c.title)}</div>
+    <div class="cmd-meta">${(c.tags || []).map(t => `<span class="cmd-meta-tag">${esc(t)}</span>`).join('')}</div>
+    <div class="cmd-block">${esc(c.cmd)}</div>
+    <div class="cmd-desc">${esc(c.desc)}</div>
+  </div>`).join('');
+
+function copyCommand(i, el) {
+  const cmd = COMMANDS[i].cmd;
+  const done = () => {
+    el.classList.add('copied');
+    setTimeout(() => el.classList.remove('copied'), 1600);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cmd).then(done).catch(() => {
+      // Fallback for older browsers / non-HTTPS contexts
+      const ta = document.createElement('textarea');
+      ta.value = cmd; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) {}
+      document.body.removeChild(ta);
+    });
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = cmd; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); done(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+}
 
 function scrollTo(id) { document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' }); }
 
