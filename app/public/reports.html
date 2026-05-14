@@ -16,6 +16,33 @@
     /* ── Page shell ──────────────────────────────────────── */
     .reports-container{padding:16px;max-width:none}
 
+    /* ── v202604.167 — Charts (preview) tab styles ────────── */
+    .ch-wrap { padding: 6px 4px 60px; max-width: 1280px; }
+    .ch-banner { background: linear-gradient(90deg, rgba(245,158,11,.10), rgba(245,158,11,.04)); border: 1px solid rgba(245,158,11,.25); border-radius: var(--r-lg); padding: 12px 16px; font-size: 13px; color: var(--text2); margin-bottom: 20px; line-height: 1.5; }
+    .ch-banner b { color: var(--text); }
+    .ch-group { margin-bottom: 28px; }
+    .ch-group-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+    .ch-group-num { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: .08em; }
+    .ch-group-title { font-size: 17px; font-weight: 700; color: var(--text); letter-spacing: -.01em; }
+    .ch-group-sub { font-size: 12px; color: var(--text3); margin-left: auto; }
+    .ch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 14px; }
+    @media (max-width: 760px) { .ch-grid { grid-template-columns: 1fr; } }
+    .ch-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; min-height: 240px; display: flex; flex-direction: column; transition: border-color .15s; }
+    .ch-card.live:hover { border-color: var(--accent); cursor: pointer; }
+    .ch-card-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+    .ch-card-sub { font-size: 12px; color: var(--text3); margin-bottom: 10px; line-height: 1.4; }
+    .ch-card-canvas { flex: 1; min-height: 140px; display: flex; align-items: center; justify-content: center; background: var(--bg); border-radius: var(--r); border: 1px dashed var(--border2); position: relative; overflow: hidden; }
+    .ch-card-canvas svg { width: 100%; height: 100%; }
+    .ch-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+    .ch-card-status { font-family: var(--mono); font-size: 11px; color: var(--text3); }
+    .ch-card-status.live { color: var(--green, #15803d); }
+    .ch-card-status.mock { color: var(--amber, #b45309); }
+    .ch-card-cta { font-size: 12px; color: var(--accent); }
+    .ch-drilldown-hint { font-size: 11px; color: var(--text3); font-style: italic; margin-top: 8px; }
+    .ch-legend { display: flex; gap: 12px; font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 6px; flex-wrap: wrap; }
+    .ch-legend-item { display: flex; align-items: center; gap: 4px; }
+    .ch-legend-sw { width: 10px; height: 10px; border-radius: 2px; }
+
     /* ── Tab bar ────────────────────────────────────────── */
     .reports-tabs{display:flex;gap:2px;border-bottom:1px solid var(--border);margin-bottom:16px;overflow-x:auto;-webkit-overflow-scrolling:touch}
     .reports-tab{flex-shrink:0;padding:10px 16px;background:none;border:none;border-bottom:2px solid transparent;color:var(--text2);cursor:pointer;font-size:14px;font-weight:500;font-family:inherit;transition:color .15s,border-color .15s}
@@ -87,6 +114,7 @@
   <div class="reports-container">
     <div class="reports-tabs" id="reportsTabs">
       <button class="reports-tab active" data-tab="overview"    onclick="switchTab('overview',this)">Overview</button>
+      <button class="reports-tab"        data-tab="charts"      onclick="switchTab('charts',this)" title="Visual reports — preview design">📊 Charts <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px">preview</span></button>
       <button class="reports-tab"        data-tab="family"      onclick="switchTab('family',this)">Family</button>
       <button class="reports-tab"        data-tab="money"       onclick="switchTab('money',this)">Money</button>
       <button class="reports-tab"        data-tab="maintenance" onclick="switchTab('maintenance',this)">Maintenance</button>
@@ -134,6 +162,11 @@ const TABS = {
   overview: {
     label: 'Overview',
     reports: ['summary'],
+  },
+  // v202604.167 — Charts preview (design lock #26 in _templates.html)
+  charts: {
+    label: 'Charts (preview)',
+    reports: [],
   },
   family: {
     label: 'Family',
@@ -195,6 +228,13 @@ function renderTabContent(tabId) {
     return;
   }
 
+  // v202604.167 — Charts preview tab: Settings-style grouped sections + chart mockups
+  if (tabId === 'charts') {
+    left.innerHTML = renderChartsPreview();
+    setTimeout(() => renderMockCharts(), 50);
+    return;
+  }
+
   // Family tab: avatars row at top
   if (tab.showFamilyAvatars) {
     html += '<div class="fam-avatars" id="famAvatars"><div class="spinner"><div class="spin"></div>Loading family…</div></div>';
@@ -226,6 +266,190 @@ function switchTab(tabId, btn) {
   history.replaceState(null, '', `?tab=${tabId}`);
 }
 window.switchTab = switchTab;
+
+// ── v202604.167 — Charts (preview) tab ─────────────────────────
+// Renders the design lock from _templates.html #26: Settings-style
+// grouped sections, plain-English titles, click-to-drilldown stubs.
+// Two of the cards (#26.1.1 Sankey + #26.2.1 BP line) render real SVG
+// mockups so Al can pick visual direction. The rest are stubs with
+// "Coming in v.167.1 / v.168".
+
+function renderChartsPreview() {
+  const groups = [
+    {
+      num: '#26.1',
+      title: 'Money & spending',
+      sub: 'Where money came from, where it went, what is coming up',
+      cards: [
+        { id: 'c111', num: '#26.1.1', title: 'Where money goes each month',     sub: 'Income → category ribbons. Click a ribbon to see the transactions.',    chart: 'sankey',     status: 'mock' },
+        { id: 'c112', num: '#26.1.2', title: 'Busiest spending days',           sub: 'Calendar heatmap. Click a day for all transactions.',                  chart: 'stub',       status: 'mock', stubLabel: 'Calendar heatmap mockup pending' },
+        { id: 'c113', num: '#26.1.3', title: 'Where you shop most',             sub: 'Treemap of vendors by annual spend. Click a tile for vendor history.', chart: 'stub',       status: 'mock', stubLabel: 'Treemap mockup pending' },
+        { id: 'c114', num: '#26.1.4', title: 'What you spend on, month by month', sub: 'Small-multiples: one mini line chart per category, side by side.',   chart: 'stub',       status: 'mock', stubLabel: 'Small-multiples mockup pending' },
+        { id: 'c115', num: '#26.1.5', title: 'What is coming in the next 90 days', sub: 'Forecast line based on recurring bills and income.',                 chart: 'stub',       status: 'mock', stubLabel: 'Forecast line mockup pending — needs /finance/forecast endpoint' },
+      ],
+    },
+    {
+      num: '#26.2',
+      title: 'Health & care',
+      sub: 'What is tracked, what is trending, what is overdue',
+      cards: [
+        { id: 'c221', num: '#26.2.1', title: 'Blood pressure over time',        sub: 'Systolic + diastolic line. Healthy zone shaded green. Click a point for visit details.', chart: 'bpline', status: 'mock' },
+        { id: 'c222', num: '#26.2.2', title: 'Lab results, all in one view',    sub: 'Mini chart per test (cholesterol, A1c, etc.) colored by normal/abnormal.',           chart: 'stub',  status: 'mock', stubLabel: 'Small-multiples mockup pending' },
+        { id: 'c223', num: '#26.2.3', title: 'Medical costs by quarter',        sub: 'Stacked bar: HSA / LP-FSA / out-of-pocket / pending EOB.',                            chart: 'stub',  status: 'mock', stubLabel: 'Stacked bar mockup pending' },
+        { id: 'c224', num: '#26.2.4', title: 'Who is overdue for what',         sub: 'Per-person bullet chart: last visit, next due, overdue items.',                       chart: 'stub',  status: 'mock', stubLabel: 'Bullet chart mockup pending' },
+      ],
+    },
+    {
+      num: '#26.3',
+      title: 'Household & assets',
+      sub: 'Vehicles, property, documents, inventory roll-ups',
+      cards: [
+        { id: 'c331', num: '#26.3.1', title: 'What you own, by category',      sub: 'Inventory treemap sized by estimated value.',          chart: 'stub', status: 'mock', stubLabel: 'Treemap mockup pending' },
+        { id: 'c332', num: '#26.3.2', title: 'What is expiring soon',         sub: 'Horizontal timeline: documents, insurance, certifications next 12mo.', chart: 'stub', status: 'mock', stubLabel: 'Timeline mockup pending' },
+        { id: 'c333', num: '#26.3.3', title: 'Vehicle maintenance schedule', sub: 'Service log timeline with next-due markers per vehicle.', chart: 'stub', status: 'mock', stubLabel: 'Service log mockup pending' },
+        { id: 'c334', num: '#26.3.4', title: 'Cost of owning each thing',     sub: 'Per-asset bar of linked transactions over time.',         chart: 'stub', status: 'mock', stubLabel: 'Per-asset bar mockup pending — needs Universal Attachments (v.168)' },
+      ],
+    },
+  ];
+
+  let html = `
+    <div class="ch-wrap">
+      <div class="ch-banner">
+        <b>Preview — Charts design lock (#26)</b>. Every chart below has the same shape: plain-English title,
+        one-line subtitle, and a click-through drill-down (filters + table inside a slide-over). The two charts
+        with real visuals are mockups for visual direction; the rest are stubs. Build sequence:
+        v.167.1 wires Group 1, v.169 wires Group 2, v.170 wires Group 3. Spec is locked in
+        <code>_templates.html → #26 Reports Design</code>.
+      </div>
+  `;
+  for (const g of groups) {
+    html += `
+      <div class="ch-group">
+        <div class="ch-group-head">
+          <span class="ch-group-num">${g.num}</span>
+          <span class="ch-group-title">${esc(g.title)}</span>
+          <span class="ch-group-sub">${esc(g.sub)}</span>
+        </div>
+        <div class="ch-grid">
+          ${g.cards.map(c => `
+            <div class="ch-card" data-chart="${c.id}" data-kind="${c.chart}">
+              <div class="ch-card-title">${esc(c.title)}</div>
+              <div class="ch-card-sub">${esc(c.sub)}</div>
+              <div class="ch-card-canvas" id="canvas-${c.id}">
+                ${c.chart === 'stub'
+                  ? `<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">${esc(c.stubLabel || 'Mockup pending')}</div>`
+                  : ''}
+              </div>
+              <div class="ch-card-footer">
+                <span class="ch-card-status mock">${c.num} · mockup</span>
+                <span class="ch-card-cta">Show details →</span>
+              </div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+function renderMockCharts() {
+  // Mockup #1: Sankey (income → categories) — static demo data
+  const sankey = document.getElementById('canvas-c111');
+  if (sankey) sankey.innerHTML = mockSankeySvg();
+
+  // Mockup #2: BP line over time with healthy zone shaded
+  const bp = document.getElementById('canvas-c221');
+  if (bp) bp.innerHTML = mockBpLineSvg();
+}
+
+function mockSankeySvg() {
+  // Simple two-column sankey approximation: income on left, categories on right
+  return `
+    <svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <!-- left node: paycheck -->
+      <rect x="20" y="20" width="14" height="140" fill="#5c72fa" rx="2"/>
+      <text x="42" y="36" font-size="10" font-family="monospace" fill="#666">Paycheck</text>
+      <text x="42" y="48" font-size="9" font-family="monospace" fill="#999">$6,400 / mo</text>
+
+      <!-- right nodes: categories -->
+      <rect x="350" y="14"  width="14" height="32" fill="#15803d" rx="2"/>
+      <text x="304" y="32" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Rent · $1,800</text>
+
+      <rect x="350" y="52"  width="14" height="26" fill="#b45309" rx="2"/>
+      <text x="304" y="68" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Groceries · $720</text>
+
+      <rect x="350" y="84"  width="14" height="22" fill="#7c3aed" rx="2"/>
+      <text x="304" y="100" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Subscriptions · $310</text>
+
+      <rect x="350" y="112" width="14" height="20" fill="#ec4899" rx="2"/>
+      <text x="304" y="128" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Medical · $260</text>
+
+      <rect x="350" y="138" width="14" height="14" fill="#0891b2" rx="2"/>
+      <text x="304" y="152" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Other · $180</text>
+
+      <!-- flow ribbons (cubic bezier paths) -->
+      <path d="M 34 30 C 180 30 200 30 350 30 L 350 46 C 200 46 180 90 34 90 Z" fill="#15803d" opacity="0.18"/>
+      <path d="M 34 90 C 180 90 200 65 350 65 L 350 78 C 200 78 180 110 34 110 Z" fill="#b45309" opacity="0.18"/>
+      <path d="M 34 110 C 180 110 200 95 350 95 L 350 106 C 200 106 180 130 34 130 Z" fill="#7c3aed" opacity="0.18"/>
+      <path d="M 34 130 C 180 130 200 123 350 123 L 350 132 C 200 132 180 148 34 148 Z" fill="#ec4899" opacity="0.18"/>
+      <path d="M 34 148 C 180 148 200 145 350 145 L 350 152 C 200 152 180 158 34 158 Z" fill="#0891b2" opacity="0.18"/>
+
+      <text x="200" y="172" font-size="9" font-family="monospace" fill="#bbb" text-anchor="middle">click a ribbon → transactions in that category</text>
+    </svg>`;
+}
+
+function mockBpLineSvg() {
+  // Sample data: 12 BP readings, systolic + diastolic
+  const sys = [134, 138, 132, 128, 130, 136, 142, 138, 134, 128, 130, 126];
+  const dia = [86,  88,  84,  82,  84,  86,  90,  88,  86,  82,  84,  80];
+  const pad = { l: 32, r: 12, t: 14, b: 22 };
+  const W = 400, H = 180;
+  const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
+  const minY = 60, maxY = 160;
+  const x = i => pad.l + (i / (sys.length - 1)) * innerW;
+  const y = v => pad.t + ((maxY - v) / (maxY - minY)) * innerH;
+  const path = arr => arr.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+
+  // Healthy zone: systolic <120, diastolic <80 — show as green band
+  const greenTop = y(120), greenBot = y(80);
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <!-- healthy zone shading -->
+      <rect x="${pad.l}" y="${greenTop}" width="${innerW}" height="${greenBot - greenTop}" fill="#15803d" opacity="0.07"/>
+      <text x="${W - pad.r - 4}" y="${greenTop + 12}" font-size="9" font-family="monospace" fill="#15803d" text-anchor="end">healthy zone</text>
+
+      <!-- y-axis labels -->
+      <text x="${pad.l - 4}" y="${y(140) + 3}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">140</text>
+      <text x="${pad.l - 4}" y="${y(120) + 3}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">120</text>
+      <text x="${pad.l - 4}" y="${y(100) + 3}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">100</text>
+      <text x="${pad.l - 4}" y="${y( 80) + 3}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">80</text>
+
+      <!-- x-axis -->
+      <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" stroke="#ddd" stroke-width="1"/>
+
+      <!-- systolic line -->
+      <path d="${path(sys)}" fill="none" stroke="#b91c1c" stroke-width="2"/>
+      ${sys.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="#b91c1c"/>`).join('')}
+
+      <!-- diastolic line -->
+      <path d="${path(dia)}" fill="none" stroke="#5c72fa" stroke-width="2"/>
+      ${dia.map((v, i) => `<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="2.5" fill="#5c72fa"/>`).join('')}
+
+      <!-- x-axis labels -->
+      <text x="${pad.l}" y="${H - 6}" font-size="9" font-family="monospace" fill="#999">Jan</text>
+      <text x="${W / 2}" y="${H - 6}" font-size="9" font-family="monospace" fill="#999" text-anchor="middle">Jun</text>
+      <text x="${W - pad.r}" y="${H - 6}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">Dec</text>
+
+      <!-- legend -->
+      <g transform="translate(${pad.l}, 4)">
+        <circle cx="4" cy="4" r="3" fill="#b91c1c"/>
+        <text x="12" y="7" font-size="9" font-family="monospace" fill="#666">Systolic</text>
+        <circle cx="64" cy="4" r="3" fill="#5c72fa"/>
+        <text x="72" y="7" font-size="9" font-family="monospace" fill="#666">Diastolic</text>
+      </g>
+    </svg>`;
+}
 
 // ── Overview tile load ────────────────────────────────────────
 async function loadOverviewTiles() {

@@ -234,6 +234,25 @@ const COMMANDS = [
     desc: 'Print the running version. Should match the most recent deploy. Format: 202604.NNN.',
     tags: ['debug'],
   },
+  // v202604.167 — Auto-linker operational commands
+  {
+    title: 'EOB → HSA matcher — backfill all existing claims',
+    cmd: 'curl -X POST http://localhost:3001/api/v1/links/run/eob-hsa-matcher',
+    desc: 'One-shot: walk every existing EOB claim, look for matching HSA payments (same patient + amount within $0.50 + date within 14 days), and auto-link the high-confidence matches. Medium-confidence matches are linked with needs_review=1 — Al confirms them via the floating "Needs review" pill on any page. Idempotent: re-running creates no duplicates.',
+    tags: ['v.167', 'finance', 'medical', 'auto-link'],
+  },
+  {
+    title: 'Subscription category — retroactive copy (last 90 days)',
+    cmd: 'curl -X POST "http://localhost:3001/api/v1/links/run/subscription-categories?days=90"',
+    desc: 'Walk the last 90 days of transactions linked to subscriptions, copy the subscription category onto any transaction with an empty category. Change `days=90` to set a different window (e.g. days=365 for full year). Idempotent — only updates uncategorized rows.',
+    tags: ['v.167', 'finance', 'auto-link'],
+  },
+  {
+    title: 'Needs-review list (curl)',
+    cmd: 'curl -s http://localhost:3001/api/v1/links/needs-review | python3 -m json.tool',
+    desc: 'List every auto-link flagged for Al to review. Same data the floating "Needs review" pill surfaces in the UI.',
+    tags: ['v.167', 'debug'],
+  },
 ];
 
 document.getElementById('modulesList').innerHTML = MODULES.map(m => `

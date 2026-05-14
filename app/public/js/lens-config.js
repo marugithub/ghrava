@@ -345,6 +345,28 @@
       },
     },
 
+    // v202604.167 — Cross-module record_links (auto-linker outputs).
+    // Lens lets Al filter the "Needs review" surface by confidence,
+    // source linker, or kind.
+    record_links: {
+      label: 'Record links',
+      plural: 'links',
+      dimensions: {
+        confidence:   { type: 'select', verb: 'confidence', field: 'confidence',
+          values: ['high', 'medium', 'low'] },
+        needs_review: { type: 'select', verb: 'state', field: 'needs_review',
+          values: ['needs review', 'confirmed'] },
+        source:       { type: 'text',   verb: 'from linker', field: 'source' },
+        kind:         { type: 'select', verb: 'kind',     field: 'link_kind',
+          values: ['auto_hsa', 'auto_visit', 'auto_eob_hsa', 'auto_sub', 'manual', 'legacy_migrated'] },
+        left_type:    { type: 'select', verb: 'left side', field: 'left_type',
+          values: ['transaction', 'subscription', 'medical_visit', 'hsa_payment', 'eob', 'document'] },
+        right_type:   { type: 'select', verb: 'right side', field: 'right_type',
+          values: ['transaction', 'subscription', 'medical_visit', 'hsa_payment', 'eob', 'document'] },
+        time:         { verb: 'created', field: 'created_at' },
+      },
+    },
+
     // v202604.148 — cross-card "All" lens. Spans medications + conditions
     // + visits + EOBs. Only common dimensions are exposed; per-domain
     // niceties (form, refill, claim#) live on their dedicated tabs.

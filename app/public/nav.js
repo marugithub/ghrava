@@ -16,6 +16,17 @@
     document.head.appendChild(s);
   }
 
+  // v202604.167 — load the review-pill widget on every page. Surfaces
+  // auto-linker outputs with confidence='medium' so Al can confirm or
+  // unlink. See _templates.html #27 Auto-Linkers Pattern.
+  if (!document.querySelector('script[data-gh-review]') && !window.__reviewPillLoaded) {
+    const r = document.createElement('script');
+    r.src = '/js/review-pill.js';
+    r.dataset.ghReview = '1';
+    r.defer = true;
+    document.head.appendChild(r);
+  }
+
   // ── SVG icon library — thin-stroke outlined style ────────────
   const SVG = {
     home:      `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`,

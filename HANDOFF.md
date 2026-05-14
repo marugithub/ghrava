@@ -3,7 +3,7 @@
 Read this first. The only doc the next chat needs to be productive
 without Al re-explaining anything.
 
-Last updated: v202604.166 staged 2026-05-13. **Not yet packaged or
+Last updated: v202604.167 staged 2026-05-14. **Not yet packaged or
 deployed.** Awaiting Al's "package" + manual smoke on prod.
 
 ---
@@ -24,6 +24,133 @@ Every drop that adds the following MUST also update the corresponding doc:
 - **New deferred decision or known gap** → add a bullet to `BACKLOG.md`.
 
 Each predeploy check should confirm these are in sync with the code shipping.
+
+---
+
+## 0. WHAT'S ON PROD RIGHT NOW
+
+NAS is running **v202604.166** (most likely; verify with `cat /share/Docker/home-core/ghrava/app/version.txt`). If `.165` then v.166 hasn't been deployed yet.
+
+**v202604.167 is staged in sandbox only** — awaiting "package" + deploy.
+
+---
+
+## 1. WHAT v.167 SHIPS
+
+Big drop. PM-style: Al asked to finish Finance. v.167 lands the cross-module auto-linker scaffolding that everything else depends on, plus LP-FSA UI, plus Reports design lock + 2 mockups.
+
+### A. Template design locks (`_templates.html` 3 new sections)
+- **#26 Reports Design** — Settings-style grouping, plain-English titles, mandatory drill-down. 3 groups × 4-5 charts each = 13 charts spec'd.
+- **#27 Auto-Linkers Pattern** — 4-step shape: match → confidence → review surface → manual override. Shared infrastructure spec.
+- **#28 Universal Attachments** — design locked; BUILD in v.168. One file + many record_links, refcount-based file lifecycle, ~14 modules affected.
+
+### B. Migration 132 — `record_links` +4 cols (confidence, needs_review, source, reviewed_at) + partial index on needs_review
+
+### C. Auto-linkers (locked per #27)
+- **#27.1 txn → hsa_payment** (`shared/auto-link-hsa.js`) — HIGH: account_type='HSA' OR account_name LIKE '%HSA%'
+- **#27.2 txn → medical_visit** (`shared/auto-link-medical-visit.js`) — HIGH: vendor exact match contact AND visit ±7d; MEDIUM if further
+- **#27.3 EOB → hsa_payment** (`features/medical/eob-hsa-matcher.js`) — HIGH: same patient (required) + amount ±$0.50 + date ±14d. Provider/Dr match is BONUS only. MEDIUM: ±$2 or ±30d
+- **#27.4 subscription category copy** (`shared/auto-link-subscription-category.js`) — `applyOne(txnId)` ongoing + `runRetroactive(days=90)` for the manual button
+- Shared helper: `shared/auto-link.js`
+
+### D. Cross-module endpoints (`features/links/routes.js`)
+- `GET /api/v1/links/needs-review`
+- `POST /api/v1/links` (manual link)
+- `POST /api/v1/links/:id/confirm`
+- `DELETE /api/v1/links/:id`
+- `GET /api/v1/links/for/:type/:id`
+- `POST /api/v1/links/run/eob-hsa-matcher` (backfill button)
+- `POST /api/v1/links/run/subscription-categories?days=90` (retroactive button)
+
+### E. Finance import wiring
+- `finance/routes.js` import-confirm fires all 3 txn-side linkers in best-effort try/catch after each row insert (subscription, hsa, visit, sub-category).
+
+### F. HSA & LP-FSA Plans Settings panel
+- New rail item in Settings → Imports & rules.
+- Single form: year, plan_type (HSA / LP-FSA / Medical FSA / Dep-Care FSA), plan_name, annual_limit, contributions, employer_contribution, deadline_date, custodian, carryover_amount, active, notes.
+- Backed by existing `fsa_plan_info` table (mig 118 — already supports all plan_types).
+- Edit existing rows inline. Active count appears as rail pill.
+
+### G. Reports Charts (preview) tab
+- New `/reports.html?tab=charts` tab.
+- Renders #26 design: 3 groups (Money, Health, Household) × 4-5 cards each.
+- 2 cards have working SVG mockups: Sankey income→categories (Money group), BP line with healthy zone shaded (Health group).
+- Remaining 11 are stubs with "Mockup pending" + target-version labels.
+
+### H. Review surface — floating pill widget
+- `app/public/js/review-pill.js` loaded by `nav.js` on every page.
+- Bottom-right pill, hidden when count=0.
+- Click → slide-over drawer listing each needs_review link with Confirm / Unlink buttons.
+- Polls every 60s.
+
+### I. Doc updates (per locked drop rule)
+- `lens-config.js` — new `record_links` lens entry with confidence/needs_review/source/kind dimensions
+- `help.html` COMMANDS — 3 v.167 commands (EOB→HSA matcher backfill, retroactive sub-category, needs-review list)
+- `BACKLOG.md` — v.167 LOCKED SCOPE + v.168 QUEUED SCOPE blocks at top
+- `STATE.md` — v.167 progress block
+- `HANDOFF.md` (this) — v.167 task list
+
+---
+
+## 2. TASK FOR THE NEXT CHAT (after Al runs v.167)
+
+Resolve in order:
+
+### Task A — Smoke test v.167 on prod
+- LP-FSA Settings panel renders + saves
+- Reports → Charts (preview) tab loads, 2 SVG mocks render correctly
+- Import a test transaction on HSA account → confirm hsa_payment created + linked
+- Import a test transaction matching Dr. Goyal's name → confirm visit link or needs_review entry
+- Run EOB→HSA matcher backfill (`curl -X POST .../links/run/eob-hsa-matcher`) → check needs-review pill count
+
+### Task B — Al picks visual direction for charts
+- Confirm or replace #26.1.1 Sankey style + #26.2.1 BP line style.
+- Once locked, v.167.1 builds remaining 11 charts in Group 1 + 2 with real data.
+
+### Task C — Build v.168: Universal Attachments
+- Schema migration (record_links + attachments columns, backfill script)
+- Smart pre-check matcher endpoint
+- Shared upload dialog component `/js/universal-attach.js`
+- Migrate Inventory + HSA + Medical first (highest-value path)
+- Migrate remaining 11 modules
+- Confirm-with-holder-list unlink dialog
+- Settings "Shared attachments" viewer
+- See `_templates.html #28` for full design spec
+
+### Task D — Reports Group 1 live build (v.167.1 or v.168)
+- Once Al picks visual direction (Task B), wire real data:
+  - #26.1.1 Sankey: query `transactions` grouped by month + category
+  - #26.1.2 Calendar heatmap: txns grouped by day
+  - #26.1.3 Vendor treemap: txns grouped by merchant, sized by sum(amount)
+  - #26.1.4 Small-multiples: per-category month-over-month line
+  - #26.1.5 Forecast line: requires new `/finance/forecast?days=90` endpoint reading `finance_recurring`
+
+### Task E — Medical schema gaps
+- Add `med_immunizations`, `med_procedures`, `med_family_history`, `med_referrals` tables (per BACKLOG)
+- High priority given Algir's cardiac arteriosclerosis → cardiac procedures coming
+
+---
+
+## 3. DEPLOY PROCESS (unchanged)
+
+1. Sandbox at `/home/claude/work/ghrava_drop/`
+2. Predeploy gates:
+   - Node syntax check all route files
+   - Inline `<script>` syntax check all HTML
+   - Migration simulation against shape-mirror live DB
+3. Zip layout: top-level (no `ghrava/` wrapper) — `app/`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`
+4. Always include `version.txt`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`
+5. Al downloads to `~/Downloads`, runs `ghrava_deploy.ps1` → extracts to `Z:\ghrava\`
+6. SSH NAS: `docker restart ghrava` (~2s) — applies pending migrations automatically
+7. `--build` only when `package.json` changes (it didn't in v.167)
+
+---
+
+## ⏪ v.166 history (kept for reference)
+
+---
+
+
 
 ---
 

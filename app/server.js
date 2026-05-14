@@ -104,6 +104,7 @@ app.use('/api/v1/settings',      require('./features/settings/routes'));
 app.use('/api/v1/hsa',           require('./features/hsa/routes'));
 app.use('/api/v1/medical',       require('./features/medical/routes'));
 app.use('/api/v1/medical',       require('./features/medical/seed-routes'));
+app.use('/api/v1/links',         require('./features/links/routes'));
 app.use('/api/v1/attachments',   require('./features/attachments/routes'));
 app.use('/api/v1/backup',        require('./features/backup/routes'));
 app.use('/api/v1/finance',         require('./features/finance/routes'));

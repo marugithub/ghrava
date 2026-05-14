@@ -22,7 +22,75 @@
 
 ---
 
-## 🚨 NEW CHAT? READ THIS FIRST — v.166 IN PROGRESS
+## 🚨 NEW CHAT? READ THIS FIRST — v.167 IN PROGRESS
+
+**Most recent packaged version on prod:** v202604.166 (drafts→templates, medical Overview, mig 131, bulk-seed endpoint, kids auto-sync, lens for new fields, BACKLOG.md, Help → Commands).
+
+**v202604.167 staged in sandbox, NOT yet packaged** — awaiting "package" command.
+
+### What's in the v.167 sandbox
+
+1. **`_templates.html` — 3 new locked design sections**
+   - **#26 Reports Design** — Settings-style grouped charts, plain-English titles, mandatory drill-down. 3 groups × 4-5 charts each = 13 charts spec'd. No data dump tables on landing.
+   - **#27 Auto-Linkers Pattern** — 4-step shape (match → confidence → review → manual override). 4 linkers listed (#27.1-4). Shared infrastructure spec.
+   - **#28 Universal Attachments** — one file + many record_links, build in v.168. ~14 modules affected. Refcount-based file lifecycle. Smart pre-check matcher with HIGH/MEDIUM thresholds locked per target module.
+
+2. **Migration 132** — `record_links` +4 cols (`confidence`, `needs_review`, `source`, `reviewed_at`) + partial index on needs_review. Additive, idempotent.
+
+3. **5 cross-module auto-linkers** (all in `app/shared/auto-link-*.js` + `app/features/medical/eob-hsa-matcher.js`):
+   - `auto-link.js` — shared helper, writes to `record_links` with confidence + needs_review.
+   - `auto-link-hsa.js` (#27.1) — txn on HSA account → creates hsa_payment row + links them.
+   - `auto-link-medical-visit.js` (#27.2) — txn vendor matches care-team contact → links to nearest visit (HIGH if ±7d, MEDIUM if further).
+   - `eob-hsa-matcher.js` (#27.3) — EOB claim ↔ existing hsa_payment match: same patient required, amount ±$0.50, date ±14d for HIGH; ±$2 or ±30d for MEDIUM. Provider/Dr match bonus, not required (per Al).
+   - `auto-link-subscription-category.js` (#27.4) — copies linked subscription's category onto matched txn (only if txn category empty). Has `applyOne(txnId)` for ongoing + `runRetroactive(days=90)` for the manual button.
+
+4. **Wired into finance import** — `finance/routes.js` import-confirm path now fires all 3 txn-side linkers (hsa, visit, sub-category) in best-effort try/catch blocks after each row insert.
+
+5. **Review-link endpoints** — new `app/features/links/routes.js`:
+   - `GET    /api/v1/links/needs-review` — list flagged auto-links
+   - `POST   /api/v1/links` — manual link
+   - `POST   /api/v1/links/:id/confirm` — clear needs_review
+   - `DELETE /api/v1/links/:id` — manual unlink
+   - `GET    /api/v1/links/for/:type/:id` — all links touching this entity
+   - `POST   /api/v1/links/run/eob-hsa-matcher` — backfill button
+   - `POST   /api/v1/links/run/subscription-categories?days=90` — retroactive button
+
+6. **HSA & LP-FSA Plans Settings panel** — new rail item in Settings → Imports & rules (after Finance Category Rules). Full UI: plan year, plan type (HSA / LP-FSA / Medical FSA / Dep-Care FSA — all in one form), plan name, annual limit, contributions YTD, employer contribution, deadline date, custodian, carryover, active. Backend already supports all plan_types in `fsa_plan_info`. Edit existing rows inline. Active count appears as a pill on the rail.
+
+7. **Reports Charts (preview) tab** — new tab `/reports.html?tab=charts`. Renders the #26 design lock: 3 groups (Money, Health, Household), 13 cards total. 2 cards have real SVG mockups (Sankey income→categories, BP line with healthy zone shaded) so Al picks visual direction. Rest are stubs with "Mockup pending" + version-target labels. No live data yet (that's v.167.1+).
+
+8. **`review-pill.js`** — floating bottom-right pill on every page (loaded by `nav.js`). Shows count of `needs_review=1` links. Click → slide-over drawer listing each with Confirm / Unlink buttons. Polls every 60s. Hidden when count = 0.
+
+9. **Lens config** — added `record_links` lens entry. Dimensions: confidence (high/medium/low), needs_review state, source linker, kind, left_type, right_type, time. All new auto-linker outputs are searchable via the global lens.
+
+10. **Help → Commands** — added 3 v.167 commands: EOB→HSA matcher backfill (curl), subscription category retroactive (curl with days param), needs-review list (curl + python json.tool).
+
+11. **BACKLOG.md** — added v.167 LOCKED SCOPE block (with build sequence + out-of-scope items) and v.168 QUEUED SCOPE block (Universal Attachments). Old items consolidated under labeled sections.
+
+### What's deliberately NOT in v.167
+
+- Universal Attachments code (designed in #28, built in v.168)
+- Reports live data wiring (mockups only this drop)
+- Budget UI
+- EOB folder-drop persistence (manual upload works)
+- Medical schema gaps (immunizations, procedures, etc.)
+- Transaction attachments wiring (deferred since #28 supersedes it)
+- Review-surface as inline pills on individual list rows (the floating pill widget is the v.167 surface; per-row pills can come in v.168 if you want)
+
+### Deploy steps
+
+1. Say "package" → zip built, top-level layout.
+2. Download → `ghrava_deploy.ps1` → robocopy to `Z:\ghrava\`.
+3. SSH NAS → `docker restart ghrava` (~2s). Mig 132 applies automatically.
+4. After deploy:
+   - Visit Settings → "HSA & LP-FSA plans" → add 2026 LP-FSA row to test.
+   - Visit Reports → Charts (preview). See the 2 mockups + 11 stubs. Pick visual direction.
+   - Optional one-shot: run the EOB→HSA matcher backfill (`curl -X POST http://localhost:3001/api/v1/links/run/eob-hsa-matcher`). See `Help → Commands` for the exact command.
+   - Watch for the "Needs review" floating pill (bottom-right) if any medium-confidence auto-links are created.
+
+---
+
+## ⏪ v.166 — superseded by v.167 (kept for reference)
 
 Al runs **Ghrava** — self-hosted household OS on QNAP NAS at `192.168.4.62:3001`.
 Node.js/Express + SQLite (better-sqlite3) + vanilla JS + Docker.

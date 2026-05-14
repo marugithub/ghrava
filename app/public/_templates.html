@@ -130,6 +130,9 @@
     <a href="#summary-tile">#17 Summary Tile</a>
     <a href="#finance-tiles">#18 Finance Overview Tiles</a>
     <a href="#medical-tiles">#25 Medical Overview Tiles</a>
+    <a href="#reports-design">#26 Reports Design</a>
+    <a href="#auto-linkers">#27 Auto-Linkers Pattern</a>
+    <a href="#universal-attach">#28 Universal Attachments</a>
     <a href="#drafts">Drafts</a>
   </div>
 
@@ -2238,6 +2241,284 @@
       Schema source: migration 131. To extend (e.g. add Immunizations tile #25.7), follow this same
       pattern — endpoint + renderer in medical.html + lens-config registration.
     </p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       #26 REPORTS DESIGN — locked v.167
+
+       Al's rule (v.167): "any person unaware of the system or too
+       financially savvy should be able to view reports and make sense.
+       Reports should be organized, just like we organized settings —
+       grouping by some order visually too."
+
+       So Reports is structured like Settings: collapsible groups with
+       clear headers, every chart has a plain-English title + one-line
+       subtitle, every chart supports drill-down (click → narrow query).
+       NO data dump tables on the landing page — those live inside
+       drill-downs only.
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="reports-design">
+    <div class="section-head">
+      <h2>#26 Reports Design (Finance + Medical)</h2>
+      <span class="lock">Locked v.167 — mockups only, build in v.167.1</span>
+      <span class="desc">Settings-style grouped sections, plain-English labels, every chart has drill-down. Built for non-financial readers.</span>
+    </div>
+
+    <h3 style="margin-top:18px;font-size:15px">Page anatomy</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Three top-level groups, each collapsible (like Settings → Backup / Google Services / etc.):
+    </p>
+    <ol style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><b>Money &amp; spending</b> — where money came from, where it went, what's coming.</li>
+      <li><b>Health &amp; care</b> — what's tracked, what's trending, what's overdue.</li>
+      <li><b>Household &amp; assets</b> — vehicles, property, documents, inventory roll-ups.</li>
+    </ol>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Each group has <b>3–5 chart tiles</b> in a 2-up grid (1-up on phone). Every tile has:
+      <code>title</code> + <code>subtitle</code> + <code>chart</code> + <code>"Show details →"</code> link that opens
+      a drill-down panel with filters and the underlying table.
+    </p>
+
+    <h3 style="margin-top:18px;font-size:15px">Charts in each group (locked candidates)</h3>
+
+    <h4 style="margin-top:14px;font-size:14px;color:#444">Group 1 — Money &amp; spending</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0">
+      <thead>
+        <tr style="background:#f3efe5">
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">#</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Title (plain English)</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Chart</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Drill-down opens</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.1.1</td><td style="padding:8px;border:1px solid #d8cba8">Where money goes each month</td><td style="padding:8px;border:1px solid #d8cba8">Sankey: income → category</td><td style="padding:8px;border:1px solid #d8cba8">click ribbon → txns of that category for the month</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.1.2</td><td style="padding:8px;border:1px solid #d8cba8">Busiest spending days</td><td style="padding:8px;border:1px solid #d8cba8">Calendar heatmap (day × month, color = total spend)</td><td style="padding:8px;border:1px solid #d8cba8">click day → all txns that day</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.1.3</td><td style="padding:8px;border:1px solid #d8cba8">Where you shop most</td><td style="padding:8px;border:1px solid #d8cba8">Treemap (vendor, size = annual spend)</td><td style="padding:8px;border:1px solid #d8cba8">click vendor → vendor history + avg spend</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.1.4</td><td style="padding:8px;border:1px solid #d8cba8">What you spend on, month by month</td><td style="padding:8px;border:1px solid #d8cba8">Small-multiples: 12 mini line charts (one per category)</td><td style="padding:8px;border:1px solid #d8cba8">click mini → full-size line + category txns</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.1.5</td><td style="padding:8px;border:1px solid #d8cba8">What's coming in the next 90 days</td><td style="padding:8px;border:1px solid #d8cba8">Forecast line (today forward, projected from recurring)</td><td style="padding:8px;border:1px solid #d8cba8">click future date → bills/income hitting that day</td></tr>
+      </tbody>
+    </table>
+
+    <h4 style="margin-top:14px;font-size:14px;color:#444">Group 2 — Health &amp; care</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0">
+      <thead>
+        <tr style="background:#f3efe5">
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">#</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Title (plain English)</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Chart</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Drill-down opens</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.2.1</td><td style="padding:8px;border:1px solid #d8cba8">Blood pressure over time</td><td style="padding:8px;border:1px solid #d8cba8">Dual line (systolic + diastolic) with target zones shaded</td><td style="padding:8px;border:1px solid #d8cba8">click point → reading details + visit linked</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.2.2</td><td style="padding:8px;border:1px solid #d8cba8">Lab results, all in one view</td><td style="padding:8px;border:1px solid #d8cba8">Small-multiples: 1 mini line per test_name, colored by flag</td><td style="padding:8px;border:1px solid #d8cba8">click mini → full chart + reference range + visit linked</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.2.3</td><td style="padding:8px;border:1px solid #d8cba8">Medical costs by quarter</td><td style="padding:8px;border:1px solid #d8cba8">Stacked bar (HSA / FSA / out-of-pocket / pending EOB)</td><td style="padding:8px;border:1px solid #d8cba8">click bar → underlying payments + EOB statements</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.2.4</td><td style="padding:8px;border:1px solid #d8cba8">Who's overdue for what</td><td style="padding:8px;border:1px solid #d8cba8">Bullet chart per person (last visit, next due, overdue items)</td><td style="padding:8px;border:1px solid #d8cba8">click person → their full schedule + referrals</td></tr>
+      </tbody>
+    </table>
+
+    <h4 style="margin-top:14px;font-size:14px;color:#444">Group 3 — Household &amp; assets</h4>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0">
+      <thead>
+        <tr style="background:#f3efe5">
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">#</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Title (plain English)</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Chart</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Drill-down opens</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.3.1</td><td style="padding:8px;border:1px solid #d8cba8">What you own, by category</td><td style="padding:8px;border:1px solid #d8cba8">Treemap (category, size = est. value)</td><td style="padding:8px;border:1px solid #d8cba8">click → category item list</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.3.2</td><td style="padding:8px;border:1px solid #d8cba8">What's expiring soon</td><td style="padding:8px;border:1px solid #d8cba8">Horizontal timeline (next 12mo: documents, insurance, certifications)</td><td style="padding:8px;border:1px solid #d8cba8">click marker → entity detail</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.3.3</td><td style="padding:8px;border:1px solid #d8cba8">Vehicle maintenance schedule</td><td style="padding:8px;border:1px solid #d8cba8">Service log timeline + next-due markers</td><td style="padding:8px;border:1px solid #d8cba8">click → service record</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#26.3.4</td><td style="padding:8px;border:1px solid #d8cba8">Cost of owning each thing</td><td style="padding:8px;border:1px solid #d8cba8">Per-asset bar (sum of linked transactions over time)</td><td style="padding:8px;border:1px solid #d8cba8">click asset → linked txns + receipts</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;font-size:15px">Locked design rules</h3>
+    <ol style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><b>Title in plain English.</b> Not "Q1 OOP HSA breakdown" — say "Medical costs by quarter."</li>
+      <li><b>Every chart has a one-line subtitle</b> explaining what's being shown ("Stacked bar: HSA, FSA, out-of-pocket, pending EOBs").</li>
+      <li><b>Every chart has a drill-down</b> ("Show details →"). Clicking opens a slide-over with filters + table + back button.</li>
+      <li><b>No raw data tables on the landing page.</b> Tables only inside drill-downs.</li>
+      <li><b>Color palette is fixed</b> — same 8 colors across all charts so categories are recognizable across views.</li>
+      <li><b>Empty state preserves the chart frame</b> with "No data yet" placeholder (same rule as tiles).</li>
+      <li><b>Mobile:</b> 1-up grid, charts shrink, drill-down becomes full-screen modal.</li>
+    </ol>
+
+    <h3 style="margin-top:18px;font-size:15px">Build sequence</h3>
+    <ol style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><b>v.167:</b> design lock (this template). Mock 2 charts as static SVG so Al picks visual direction.</li>
+      <li><b>v.167.1 / v.168:</b> Group 1 (Money) — 5 charts wired to live data.</li>
+      <li><b>v.169:</b> Group 2 (Health) — needs <code>metric_index</code> view first (BACKLOG: Reports engine).</li>
+      <li><b>v.170:</b> Group 3 (Household) — needs <code>record_links</code> universal attachment data (depends on #28).</li>
+    </ol>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       #27 AUTO-LINKERS PATTERN — locked v.167
+
+       Pattern spec for every cross-module auto-linker (transaction ↔
+       hsa_payment, transaction ↔ medical_visit, EOB ↔ HSA payment,
+       subscription ↔ transaction-category, etc.). Same shape so future
+       linkers don't reinvent the wheel.
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="auto-linkers">
+    <div class="section-head">
+      <h2>#27 Auto-Linkers Pattern</h2>
+      <span class="lock">Locked v.167</span>
+      <span class="desc">Every cross-module auto-link uses this shape: matcher → confidence → link or review-flag. Manual override always allowed.</span>
+    </div>
+
+    <h3 style="margin-top:14px;font-size:15px">The four-step shape</h3>
+    <ol style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><b>Match criteria (per linker)</b> — strict field equality + tolerance windows. No fuzzy text. Documented in <code>auto-link-*.js</code> at top of file.</li>
+      <li><b>Confidence tier:</b>
+        <ul>
+          <li><b>High</b> — all required fields match within tolerance → auto-link silently.</li>
+          <li><b>Medium</b> — most fields match, 1 fails → create link + set <code>needs_review = 1</code>.</li>
+          <li><b>Low / none</b> — no link created.</li>
+        </ul>
+      </li>
+      <li><b>Review surface</b> — "Needs review" pill on the originating module's list view. Click → drawer with side-by-side comparison + "Confirm link / Unlink / Adjust" buttons.</li>
+      <li><b>Manual override always allowed</b> — from any list view, "Link to…" picker lets Al manually create a <code>record_links</code> row.</li>
+    </ol>
+
+    <h3 style="margin-top:14px;font-size:15px">Linkers locked in v.167</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0">
+      <thead>
+        <tr style="background:#f3efe5">
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">#</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Name</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Match criteria (HIGH = auto-link, otherwise review)</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Trigger</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#27.1</td><td style="padding:8px;border:1px solid #d8cba8">txn → hsa_payment</td><td style="padding:8px;border:1px solid #d8cba8">HIGH: account_type='HSA' OR account_name LIKE '%HSA%'. Creates hsa_payment row with you_paid = txn.amount, payment_date = txn.date, vendor = txn.merchant.</td><td style="padding:8px;border:1px solid #d8cba8">On txn import-confirm + on existing-txn category change to "medical"</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#27.2</td><td style="padding:8px;border:1px solid #d8cba8">txn → medical_visit</td><td style="padding:8px;border:1px solid #d8cba8">HIGH: txn.merchant exact-match (case-insensitive trim) contacts.name WHERE type='medical_provider' AND visit_date within ±7d of txn.date.</td><td style="padding:8px;border:1px solid #d8cba8">On txn import-confirm + on visit creation</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#27.3</td><td style="padding:8px;border:1px solid #d8cba8">EOB → hsa_payment</td><td style="padding:8px;border:1px solid #d8cba8">HIGH: same patient (family_member_id required), amount equals your_share (±$0.50), date within ±14d. Provider/Dr match is BONUS but not required.</td><td style="padding:8px;border:1px solid #d8cba8">On EOB parse + on new hsa_payment</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">#27.4</td><td style="padding:8px;border:1px solid #d8cba8">txn → subscription (category)</td><td style="padding:8px;border:1px solid #d8cba8">Subscription auto-match (v.157) already links. THIS adds: copy subscription's category to the txn IF txn.category IS NULL.</td><td style="padding:8px;border:1px solid #d8cba8">Ongoing on every import + retroactive button (last 90d)</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:14px;font-size:15px">Shared infrastructure (one place, used by all linkers)</h3>
+    <ul style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><code>app/shared/auto-link.js</code> — helper module with <code>createLink(leftType, leftId, rightType, rightId, kind, confidence, needsReview)</code>. Writes to <code>record_links</code> table.</li>
+      <li><code>record_links.confidence</code> column (NEW v.167): <code>'high' | 'medium' | 'low'</code>. Default 'high' when manually created.</li>
+      <li><code>record_links.needs_review</code> column (NEW v.167): boolean. UI surfaces as pill on entity list views.</li>
+      <li><code>GET /api/v1/links/needs-review</code> — list endpoint for Today/Inbox surfaces.</li>
+      <li><code>POST /api/v1/links/:id/confirm</code> — clear needs_review.</li>
+      <li><code>DELETE /api/v1/links/:id</code> — manual unlink.</li>
+    </ul>
+
+    <h3 style="margin-top:14px;font-size:15px">UI rule</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Every list view that shows entities with auto-linker outputs (transactions, EOBs, hsa_payments) shows a
+      "needs review" pill on rows where any linked record has <code>needs_review = 1</code>. Pill click opens the
+      review drawer. No silent auto-actions without a visible undo path.
+    </p>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
+       #28 UNIVERSAL ATTACHMENTS — locked design v.167, BUILD v.168
+
+       Al's decision (v.167): single attachment file on disk, many
+       record_links rows pointing at it. Edit attachment metadata once,
+       reflects everywhere. Refcount-based file lifecycle.
+
+       Affects ~14 modules. Standalone build drop (v.168) — not bundled
+       into the v.167 auto-linkers drop to keep test surface small.
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="universal-attach">
+    <div class="section-head">
+      <h2>#28 Universal Attachments</h2>
+      <span class="lock">Design locked v.167 · Build in v.168</span>
+      <span class="desc">One file on disk, many links. Edit once, reflect everywhere. Refcount-based deletion.</span>
+    </div>
+
+    <h3 style="margin-top:14px;font-size:15px">Problem</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Same receipt can apply to multiple modules: a CVS purchase is an inventory item, an HSA payment, AND a
+      transaction. Today each module stores its own attachment row pointing at its own copy of the file. Three
+      copies of the same file means three sources of truth and inevitable drift.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">Solution</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      One canonical attachment row + <code>record_links</code> rows pointing at it from each module. File on
+      disk written once. Metadata (filename, tags, OCR text) edited once. Each link can carry a per-context
+      label (<code>link_kind</code>: receipt/warranty/manual/eob) without changing the file.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">Upload flow (locked)</h3>
+    <ol style="font-size:13px;line-height:1.7;max-width:780px">
+      <li>User clicks "Add attachment" from any module (inventory item, txn, hsa_payment, document, visit, etc.).</li>
+      <li>File uploads → creates ONE row in <code>attachments</code> with the file path.</li>
+      <li>System runs <b>smart pre-check matcher</b> against other modules using the originating context (amount, date, patient, vendor).</li>
+      <li>Modal shows: file preview + originating module pre-linked + <b>"Also relevant to"</b> multi-select with auto-checked HIGH matches and unchecked MEDIUM matches (with "?" badge).</li>
+      <li>User confirms → each checked box creates a <code>record_links</code> row pointing at the attachment.</li>
+    </ol>
+
+    <h3 style="margin-top:14px;font-size:15px">Pre-check thresholds (locked)</h3>
+    <table style="width:100%;border-collapse:collapse;font-size:13px;margin:8px 0">
+      <thead>
+        <tr style="background:#f3efe5">
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">Target module</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">HIGH match (auto-check)</th>
+          <th style="text-align:left;padding:8px;border:1px solid #d8cba8">MEDIUM match (unchecked + ?)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">Transaction</td><td style="padding:8px;border:1px solid #d8cba8">amount equals AND vendor exact AND date ±2d</td><td style="padding:8px;border:1px solid #d8cba8">amount equals AND date ±7d (no vendor match)</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">HSA payment</td><td style="padding:8px;border:1px solid #d8cba8">amount equals AND date ±2d</td><td style="padding:8px;border:1px solid #d8cba8">amount equals AND date ±14d</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">Medical visit</td><td style="padding:8px;border:1px solid #d8cba8">visit_date ±2d AND provider matches a contact in family member's care team</td><td style="padding:8px;border:1px solid #d8cba8">visit_date ±7d</td></tr>
+        <tr><td style="padding:8px;border:1px solid #d8cba8">Inventory item</td><td style="padding:8px;border:1px solid #d8cba8">none auto (need explicit user pick)</td><td style="padding:8px;border:1px solid #d8cba8">item created on same date as upload</td></tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:14px;font-size:15px">Deletion semantics (locked)</h3>
+    <ul style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><b>Module-side delete:</b> "Remove attachment from this item" deletes only the <code>record_links</code> row. File stays.</li>
+      <li><b>Confirm-with-holder-list:</b> if the attachment has 2+ links, the unlink dialog shows: "This file is also linked to: HSA payment $32 (May 13), Transaction CVS $32. Continue removing from inventory only?"</li>
+      <li><b>Refcount drops to 0:</b> attachment moves to soft-deleted (30-day undo window, same as everything else).</li>
+      <li><b>Hard delete (Settings → Recently Deleted):</b> removes file from disk.</li>
+    </ul>
+
+    <h3 style="margin-top:14px;font-size:15px">Schema (v.168 migration)</h3>
+    <ul style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><code>record_links</code> gains: <code>attachment_id INTEGER REFERENCES attachments(id) ON DELETE SET NULL</code> (for attachment-bearing links), <code>link_kind TEXT</code> (receipt/warranty/manual/eob/source_pdf/other).</li>
+      <li><code>attachments</code> gains: <code>refcount INTEGER</code> (denormalized count of record_links rows pointing here; trigger-maintained for safety), <code>soft_deleted_at DATETIME</code> for the 30-day window.</li>
+      <li>Existing <code>attachments(entity_type, entity_id)</code> columns stay populated for backward compat. New uploads write BOTH a record_links row AND the legacy columns until the migration backfill runs.</li>
+      <li>Backfill script: for each existing attachment row, INSERT a record_links row with matching entity_type/entity_id, link_kind='legacy_migrated'. Idempotent.</li>
+    </ul>
+
+    <h3 style="margin-top:14px;font-size:15px">Affected modules (14)</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Inventory, Documents, Medical (visits + meds + conditions), HSA, FSA, Vehicles, Property, Career,
+      Books, Wardrobe, Perfume, Subscriptions, Insurance, Daily Log. Every "Add attachment" UI on these
+      modules switches to the shared upload dialog in v.168.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">New endpoints</h3>
+    <ul style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><code>GET /api/v1/attachments/:id/links</code> — list every entity linked to this file</li>
+      <li><code>POST /api/v1/attachments/:id/links</code> — add a link (body: entity_type, entity_id, link_kind)</li>
+      <li><code>DELETE /api/v1/attachments/:id/links/:linkId</code> — remove a link; if refcount=0 → soft-delete file</li>
+      <li><code>POST /api/v1/attachments/match-suggestions</code> — smart pre-check matcher (body: amount, date, vendor, family_member_id, source_module) → returns suggested HIGH/MEDIUM matches</li>
+    </ul>
+
+    <h3 style="margin-top:14px;font-size:15px">v.168 build sequence</h3>
+    <ol style="font-size:13px;line-height:1.7;max-width:780px">
+      <li>Schema migration (additive to record_links + attachments)</li>
+      <li>New endpoints + matcher</li>
+      <li>Shared upload dialog component (`/js/universal-attach.js`)</li>
+      <li>Migrate Inventory + HSA + Medical first (highest-value path)</li>
+      <li>Migrate remaining 11 modules</li>
+      <li>Backfill script (manual run after deploy)</li>
+      <li>Update help.html with new commands + Settings UI to view "shared attachments"</li>
+    </ol>
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════

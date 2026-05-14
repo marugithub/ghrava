@@ -1093,6 +1093,10 @@ const multerFinance = require('multer')({ storage: require('multer').memoryStora
 const { parseFile: parseFinanceFile } = require('../import/parsers');
 const { fingerprint, normalizeDescription } = require('../../shared/tx-fingerprint');
 const { autoLinkTransaction } = require('../../shared/auto-link-subscriptions');
+// v202604.167 — additional auto-linkers (#27.1, #27.2, #27.4)
+const autoLinkHsa            = require('../../shared/auto-link-hsa');
+const autoLinkMedicalVisit   = require('../../shared/auto-link-medical-visit');
+const autoLinkSubCategory    = require('../../shared/auto-link-subscription-category');
 
 router.post('/transactions/import-file', multerFinance.single('file'), (req, res) => {
   try {
@@ -1196,6 +1200,15 @@ router.post('/transactions/import-file', multerFinance.single('file'), (req, res
             is_transfer: t.is_transfer,
           });
         } catch (e) { /* logged inside helper */ }
+
+        // v202604.167 — additional auto-linkers (#27.1, #27.2, #27.4)
+        // All best-effort, errors logged but never block the import.
+        try { autoLinkHsa.processTransaction(result.lastInsertRowid); }
+        catch (e) { console.warn('[auto-link-hsa]', e.message); }
+        try { autoLinkMedicalVisit.processTransaction(result.lastInsertRowid); }
+        catch (e) { console.warn('[auto-link-visit]', e.message); }
+        try { autoLinkSubCategory.applyOne(result.lastInsertRowid); }
+        catch (e) { console.warn('[auto-link-sub-cat]', e.message); }
       }
     });
     doImport();

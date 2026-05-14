@@ -23,11 +23,74 @@ These block other work. Resolve first.
 
 1. **Other family members' medical seed JSON** — Algir's `health_seed.json` is bundled at `app/seeds/medical_algir.json` (v.166). Zarna / Arnav / Risha need their own JSONs generated from medical records. **Process:** re-engage the medical-conversion chat (it has the binder script `health_binder.py` + PDF→JSON pipeline) and supply each member's PDFs; receive a `medical_<name>.json`; drop into `app/seeds/`; run `node scripts/seed-medical.js --file /app/seeds/medical_<name>.json`. Endpoint dedups by family_member_id + content hash so re-running is safe.
 
-2. **Medical "Receipts" tab design** (v140 deferred) — single-flow upload: drop a PDF in Medical → app stores file in Documents + creates med_visit_notes row + auto-links via record_links. Decision needed: drawer UI vs full-page; auto-extract clinical data via parser vs manual entry on second screen. See v.140 chat for the design that got pushed.
+2. **Medical "Receipts" tab design** (v140 deferred) — superseded by **#28 Universal Attachments** (v.168 build). The Receipts tab becomes a special view of "all attachments linked to medical entities for this family member."
 
-3. **Reports engine design** — Al wants vertical slice (BP over 2yr) AND horizontal slice (all health stats over 6mo). Requires `metric_index` view UNION-ALLing all clinical + financial time-series. Discussion needed before code: which canonical metric names (e.g. `bp_systolic` vs `BP systolic`), how cross-module reports join (record_links?), what default time windows. Reports page currently empty (registry empty in renderer — known bug).
+3. **Reports engine design** — LOCKED in `_templates.html #26`. Settings-style grouping, plain-English titles, every chart has drill-down, no data dump tables on landing page. Build sequence: v.167 (mockup 2 charts) → v.167.1/v.168 Group 1 (Money) → v.169 Group 2 (Health) → v.170 Group 3 (Household).
 
 ---
+
+## 🚧 v.167 LOCKED SCOPE (in progress)
+
+> Documented BEFORE coding per Al's locked workflow rule. Build sequence is captured here so a new chat can pick up exactly where work stopped.
+
+**Builds:**
+
+1. **Auto-link txn → hsa_payment** (#27.1) — `app/shared/auto-link-hsa.js`. HIGH: account_type='HSA' OR name LIKE '%HSA%'. Creates hsa_payment row. Runs on import-confirm + category-change-to-medical.
+2. **Auto-link txn → medical_visit** (#27.2) — `app/shared/auto-link-medical-visit.js`. HIGH: vendor exact-match (case-insensitive trim) `contacts.name` WHERE type='medical_provider' AND visit ±7d.
+3. **EOB → hsa_payment auto-match** (#27.3) — `app/features/medical/eob-hsa-matcher.js`. HIGH: same patient (required) + amount ±$0.50 + date ±14d. Provider match is bonus, not required. Otherwise → needs_review flag.
+4. **Subscription auto-categorization** (#27.4) — extend `auto-link-subscriptions.js`: copy subscription's category to txn IF txn.category IS NULL. Retroactive button: last 90 days only.
+5. **LP-FSA Settings UI** — mirror FSA form. Fields: `annual_limit`, `plan_year`, `deadline_date`, `plan_name`. Backend `lpfsa_plan_info` table already exists.
+6. **Transaction attachments (simple)** — wire `attach-lifecycle.js` on the txn drawer. Does NOT use Universal Attachments yet (that's v.168). One-attachment-per-txn for now.
+7. **Reports mockup** — static SVG mocks of 2 charts in `_templates.html #26` rendered so Al picks visual direction. NO live data wiring this drop.
+8. **`record_links` schema additions** — ADD COLUMN `confidence TEXT DEFAULT 'high'` + `needs_review INTEGER DEFAULT 0`. Required for auto-linker pattern.
+9. **Review surface** — "Needs review" pill on transactions, EOBs, hsa_payments. Click → side-by-side review drawer with Confirm / Unlink / Adjust buttons.
+10. **New endpoints:** `GET /api/v1/links/needs-review`, `POST /api/v1/links/:id/confirm`, `DELETE /api/v1/links/:id`, `POST /api/v1/links` (manual link).
+
+**Doc updates (mandatory per drop rule):**
+
+- `app/public/_templates.html` — #26 Reports Design, #27 Auto-Linkers Pattern, #28 Universal Attachments — **already added in this drop**.
+- `app/public/js/lens-config.js` — register `record_links.confidence` + `needs_review` as filterable fields.
+- `app/public/help.html` COMMANDS — `node /app/scripts/relink-retroactive.js --module subscriptions --days 90` for the retroactive subscription-category button.
+- `STATE.md` v.167 block.
+- `HANDOFF.md` v.167 task list.
+- This file — keep the BACKLOG section.
+
+**Out of scope for v.167** (explicitly deferred):
+
+- Universal Attachments build (locked as #28, code in v.168)
+- Reports live charts (mockup only; live in v.167.1)
+- Budget UI
+- EOB folder-drop persistence
+- Medical Receipts tab (becomes part of v.168 Universal Attach)
+- Items 11-15 from "what's left for finance/medical" list (immunizations table, etc.) — addressed in later drops
+
+---
+
+## 🔜 v.168 QUEUED SCOPE — Universal Attachments
+
+> Standalone build drop. Touches 14 modules. Locked design in `_templates.html #28`.
+
+**Builds:**
+
+1. Schema migration: `record_links` gains `attachment_id`, `link_kind`. `attachments` gains `refcount`, `soft_deleted_at`. Idempotent.
+2. Backfill script — for existing `attachments(entity_type, entity_id)` rows, create matching `record_links` row. Idempotent. Manual run after deploy.
+3. Endpoints: `GET /api/v1/attachments/:id/links`, `POST /api/v1/attachments/:id/links`, `DELETE /api/v1/attachments/:id/links/:linkId`, `POST /api/v1/attachments/match-suggestions`.
+4. Smart pre-check matcher — thresholds per `_templates.html #28`.
+5. Shared upload dialog component — `/js/universal-attach.js`. Used by all 14 modules.
+6. Migrate Inventory + HSA + Medical first (highest-value path).
+7. Migrate remaining 11 modules: Documents, FSA, Vehicles, Property, Career, Books, Wardrobe, Perfume, Subscriptions, Insurance, Daily Log.
+8. Settings UI: "Shared attachments" viewer for orphaned-attachment cleanup.
+9. Confirm-with-holder-list dialog on unlink.
+10. Update help.html with backfill CLI command.
+
+**Risks:**
+- Touches every module's existing attachment UI. High regression surface.
+- Refcount trigger needs careful migration (initial value = count of legacy attachment rows, going forward = COUNT of record_links).
+- Module-specific link_kind labels (warranty vs receipt vs eob) need to be agreed before coding.
+
+---
+
+
 
 ## 🔌 Cross-module wiring — NOT yet built
 
@@ -92,6 +155,38 @@ These block other work. Resolve first.
 - **What:** first-time prompt "who is this?", localStorage only, scope indicator near nav avatar. Different devices can default to different family members.
 - **Why:** mobile = Al only, desktop = whole household. Today scope is shared across all devices.
 - **Effort:** medium (~150 lines). New `_templates/family-filter.html` design exists.
+
+### Cash-flow forecast (Finance)
+- **What:** project next 30/60/90 days starting today using `finance_recurring` (bills + income). Line chart. Click any future date → which bills/income land that day.
+- **Why:** Reports today are past-only. Forward visibility is the missing half.
+- **Effort:** medium (~200 lines). New endpoint `/api/v1/finance/forecast?days=90`. Chart in #26 Reports Group 1 as #26.1.5.
+- **Depends on:** Reports engine build (v.167.1+).
+
+### Budget UI (Finance)
+- **What:** monthly budget limits per category. Progress bars. Alert when over.
+- **Why:** `budgets.js` backend exists, no surface.
+- **Effort:** medium. New `/budget.html` page or Finance tab.
+- **Status:** Al deferred to backlog (v.167 discussion).
+
+### EOB folder-drop persistence (Finance/Medical)
+- **What:** `importEob` in watcher counts files but doesn't save records. Manual upload via Medical works fine.
+- **Effort:** small.
+- **Status:** Al deferred — manual upload is the primary path; folder-drop is low priority.
+
+### Medical → Documents flow REPLACED BY #28
+- Universal Attachments (locked design v.167, build v.168) covers this use case.
+- The single PDF that's an inventory item + HSA payment + transaction example was Al's driver for #28.
+
+### Item-to-inventory + medication-to-medical (cross-module)
+- **What:** when an Amazon order arrives → adds inventory item AND if it's a medication → also creates/updates `med_medications` row.
+- **Why:** the receipt-shared-across-modules pattern is broader than just attachments — the data itself crosses modules. Currently only HSA/FSA receipts cross over.
+- **Effort:** large. Touches: email-receipt-parsing rules, classifier (is it food / med / clothes / electronics), per-category dispatchers.
+- **Depends on:** v.168 Universal Attachments + #11 Inventory medication item link.
+
+### Medical schema gaps (immunizations, procedures, etc.)
+- High-priority items per "what's left" review (v.167): **immunizations** + **procedures** tables. Algir's coronary arteriosclerosis means cardiac procedures coming.
+- See "🩺 Medical schema — gaps not in v.166" section below for full list.
+- **Status:** Al deferred to later drops, after v.167/v.168.
 
 ---
 
