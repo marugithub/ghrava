@@ -27,6 +27,7 @@ isn't locked — it's prose, and prose is drift.
 | #26   | reports  | `app/public/_templates.html#reports-design`       | v.167  | Reports design — 13 charts, 3 groups, drill-down mandatory. |
 | #27   | pattern  | `app/public/_templates.html#auto-linkers`         | v.167  | Auto-linkers pattern — sub-rules #27.1–4 live here. |
 | #28   | pattern  | `app/public/_templates.html#universal-attach`     | v.167  | Universal Attachments — one file, many record_links, refcount lifecycle. |
+| #29   | report   | `app/public/_templates.html#pending-items-report` | v.171  | Pending Items Report — transaction-linking subsystem. List + grid views, three actions per row. |
 
 > Sub-IDs (#18.1, M1, #26.1.5, #27.1, etc.) are NOT separate anchors —
 > they're labeled blocks inside the parent section. Reference the parent
@@ -42,6 +43,8 @@ isn't locked — it's prose, and prose is drift.
 | SHARED-ATT | table   | `app/db/migrations/*attachments*`                 | v.130  | `attachments` is THE universal file table. Polymorphic via `entity_type`/`entity_id`. v.169+: `record_links` integration per #28. |
 | FIN-UNIFY  | table   | `app/db/migrations/130_rescue_126.js`             | v.159  | `accounts` + `transactions` are unified (banking + investment). `finance_accounts`/`financial_accounts`/`finance_transactions` are now VIEWS. Don't write to views. |
 | FIN-FORECAST| route  | `app/features/finance/forecast.js`                | v.169  | `/api/v1/finance/forecast?days=N` is THE cash-flow projection endpoint. Reports #26.1.5 chart reads from this. |
+| TX-RULES    | table   | `app/db/migrations/139_pending_items_subsystem.js` | v.171  | `tx_link_rules` is THE merchant→record auto-apply table. Per-tx ↔ record links go in shared `record_links` (left_type='transaction'). No `tx_record_links` table. |
+| PEND-DISMISS| table   | `app/db/migrations/139_pending_items_subsystem.js` | v.171  | `pending_dismissals` records user "skip 30d" + "not a [module] expense" markers so the Pending Items Report doesn't keep resurfacing the same rows. |
 
 ## Architectural decisions (no anchor — source is the file enforcing)
 
@@ -53,6 +56,9 @@ isn't locked — it's prose, and prose is drift.
 | MIG-ADDITIVE  | `app/db/migrations/UPGRADE_NOTES.md`             | v.140  | Migrations are additive only. Renames documented in UPGRADE_NOTES first. |
 | BUILD-MODE    | `README_FOR_CHAT.md`                             | v.166  | Build mode default: confirm in 1 line, ask blocking Qs only, build, no recap, no package without "package". |
 | CARDS-TILES   | `README_FOR_CHAT.md`                             | v.150  | "Card" and "tile" are interchangeable in Al's vocabulary. Same rendered component. |
+| MULTI-VIEW    | `app/public/js/lt-core.js` (GH_VIEW)             | v.171  | Every listing page wires `GH_VIEW.init()` with at minimum grid+list. Some add a third (`gallery`, `card`). No single-view pages. |
+| PLAIN-ENGLISH | `STATE.md` (Core Principles)                     | v.171  | All user-facing copy AND chat replies in plain English. No internal jargon on screen. Al is non-technical. |
+| DATA-VERBS    | `STATE.md` (Core Principles)                     | v.171  | Ghrava exists to make personal data easy to (1) understand, (2) link together, (3) display. Every feature serves one of these three verbs. |
 | EMPTY-STATE   | (multiple)                                       | v.166  | Tile structure ALWAYS renders. Values go to 0 / — / mute pill. Rows preserved. |
 
 ## How to add a new lock

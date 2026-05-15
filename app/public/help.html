@@ -199,6 +199,30 @@ const COMMANDS = [
     tags: ['v.169', 'finance', 'budget'],
   },
   {
+    title: 'Pending items — list all',
+    cmd: 'curl -s http://localhost:3001/api/v1/pending | python3 -m json.tool',
+    desc: 'Every bank charge waiting to be linked to a record (car / prescription / inventory / subscription / HSA receipt / certification). One row per gap. The Pending tab on /reports.html reads this.',
+    tags: ['v.171', 'pending', 'finance'],
+  },
+  {
+    title: 'Pending items — per-module counts',
+    cmd: 'curl -s http://localhost:3001/api/v1/pending/counts | python3 -m json.tool',
+    desc: 'Lightweight headline: total open + count per module. Used by the tab badge on /reports.html and the filter chip counts.',
+    tags: ['v.171', 'pending'],
+  },
+  {
+    title: 'Pending items — list active merchant rules',
+    cmd: 'curl -s http://localhost:3001/api/v1/pending/rules | python3 -m json.tool',
+    desc: 'Every "remember this merchant → that record" rule the user has saved. Includes match_count and last_matched_at so you can spot stale rules. Delete a rule via DELETE /api/v1/pending/rules/:id.',
+    tags: ['v.171', 'pending', 'rules'],
+  },
+  {
+    title: 'Pending items — asterisk probe for a card',
+    cmd: 'curl -s "http://localhost:3001/api/v1/pending/asterisk?card=vehicle_fuel&record_id=1" | python3 -m json.tool',
+    desc: 'Asks "should this card show a red/amber asterisk?" Returns { color, count, hint }. Cards across the app use this to flag gaps without going stale.',
+    tags: ['v.171', 'pending', 'asterisk'],
+  },
+  {
     title: 'Import medical seed — dry run',
     cmd: 'docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json --dry-run',
     desc: 'Preview the medical seed mapping (which family member, how many records per section) WITHOUT writing to the DB. Always run this first to verify the family_member resolution.',

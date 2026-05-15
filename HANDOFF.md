@@ -1,904 +1,277 @@
 # HANDOFF — for the next chat
 
-Read this first. The only doc the next chat needs to be productive
-without Al re-explaining anything.
-
-Last updated: v202604.170 staged 2026-05-14. **Not yet packaged or
-deployed.** Awaiting Al's "package" + manual smoke on prod.
+Read `START_HERE.md` first (it's short). Then read this once, top to
+bottom. After that, treat it as reference.
 
 ---
 
-## 0. NEW CONTRACT (v.170) — read this before anything else
+## Where things stand (updated 2026-05-15)
 
-**v.170 changed how chats work on Ghrava.** The failure mode that
-prompted this — "chat said it read the doc, then ignored the rule" —
-became mechanically impossible because the docs are demoted to
-reference material and the rules are enforced by scripts.
+Ghrava is a self-hosted household management app Al runs on a QNAP NAS
+at `192.168.4.62:3001`. It's Node.js/Express + SQLite + vanilla JS in
+a Docker container. Al is both the only user and the only developer.
+Claude (you, in past chats) writes all the code. Al directs every
+feature.
 
-### Required reading per chat (in order):
+**Current sandbox version: v202604.171** — packaged this session.
+**Most recent prod: v202604.170.1**.
 
-1. **`README_FOR_CHAT.md`** — single short ruleset, 9 rules, the
-   ONLY required reading. STATE/HANDOFF/BACKLOG are now reference,
-   not prereading.
-2. **`LOCKED.md`** — enumerable list of every locked design. Reference
-   by ID (#18, M3, etc.), never re-describe in prose.
-3. **`app/.claude/skills/ghrava-schema-safety/SKILL.md`** — mandatory
-   four-step gate for any SQL change.
+### v.171 in two sentences
+- Closes out the finance module per Al's PM direction. Built the
+  transaction-linking subsystem (Pending Items Report at
+  `/reports.html?tab=pending`), the red/amber asterisk pattern for
+  derived numbers on any card, monthly budget target rollup on
+  finance Tile-2, and "+ Set target" buttons on the Unbudgeted list.
+- Also added six new Core Principles at the top of STATE.md (data
+  verbs, plain English × 2, package safely, tile=card, multi-view
+  standard) that govern every future drop.
 
-### Start-of-chat checklist (paste verbatim):
+### What's new in v.171 — file map
+- `app/db/migrations/139_pending_items_subsystem.js` — `tx_link_rules`, `pending_dismissals`, budgets index. Additive only.
+- `app/db/migrations/140_v171_schema_alignment.js` — defensive column alignment so fresh-install schema matches prod (closes 4 schema gate failures).
+- `app/features/pending/routes.js` — full Pending Items Report API + `applyRulesToTransaction()` exposed for the import hook.
+- `app/features/import/routes.js` — calls `applyRulesToTransaction()` after each new tx insert (Shell→Honda auto-link).
+- `app/features/finance/routes.js` — Tile-2 cash_flow extended with `budget_target`, `budget_spent`, `budget_pct`.
+- `app/features/data/routes.js` — added `GET /api/v1/data/table?name=<table>` with allowlist for picker dropdowns.
+- `app/server.js` — mounts `/api/v1/pending`.
+- `app/public/reports.html` — Pending tab added, tab badge wired.
+- `app/public/finance.html` — Tile-2 budget target row, "+ Set target" buttons on Unbudgeted list, `openBudgetDrawer(id, prefillCategory)` accepts a prefill.
+- `app/public/js/pending-report.js` — full UI: list + grid via GH_VIEW, per-module pickers, dismiss, skip, asterisk helper (`GhAsterisk.scan()`).
+- `app/public/js/lens-config.js` — added `pending` module.
+- `app/public/_templates.html` — new section `#29 Pending Items Report` locked.
+- `app/public/help.html` — 4 new commands.
+- `LOCKED.md` — added rows: `#29`, `TX-RULES`, `PEND-DISMISS`, `MULTI-VIEW`, `PLAIN-ENGLISH`, `DATA-VERBS`.
+- `STATE.md` — Core Principles block (6 numbered) + v.171 scope section. Plain-English-in-chat rule is now binding.
+- `BACKLOG.md` — Cash-flow forecast chart wiring requeued to v.172 (less urgent per Al). EOB folder-drop dropped (site upload only).
+- `app/version.txt` — `202604.171`.
+- `app/.claude/skills/ghrava-schema-safety/scripts/validate-schema.py` — added to repo (with REPO_ROOT depth fix). Now the schema gate actually runs on a fresh clone. Migrations 137 + 138 reformatted to use backtick `db.exec` so the validator can see their ALTERs.
 
+### Gates (run at packaging time)
 ```
-GHRAVA CHAT START
-[ ] Read README_FOR_CHAT.md — 9 rules
-[ ] Ran `bash gates.sh` — <N> failures (baseline; will not regress)
-[ ] Current version: <from app/version.txt>
-[ ] Today's task: <what Al said>
-[ ] Blocking questions: <list or "none">
-```
-
-### Definition of "done"
-
-`bash gates.sh` shows **8 passed, 0 failed.** Pasted output required.
-Without that, the drop is "claimed done," not done. Al moves to
-"verified" by manual smoke on prod.
-
----
-
-## 1. WHAT v.170 SHIPS
-
-**Bundle:** v.169 (Finance Finalization) + v.170 (Gates + 28 schema bugs).
-Single drop because v.169 wasn't deployed yet.
-
-### From v.169 (Finance)
-- 5 finance schema bugs fixed in `routes.js` (+ bonus `row_count→rows_total`)
-- `budgets.js` rewritten on unified `transactions` table
-- `forecast.js` new — `/api/v1/finance/forecast?days=30|60|90`
-- Budget UI: monthly trend strip + full forecast section
-- `lens-config.js` +budgets, `help.html` +4 commands
-
-### NEW in v.170 (Gates + Schema Cleanup)
-- `README_FOR_CHAT.md` + `LOCKED.md` at repo root
-- `gates.sh` + 8 sub-gates in `app/scripts/`
-- Schema-safety skill bundled at `app/.claude/skills/`
-- 28 schema bug fixes across 9 files (attachments, hsa, google, property, family-snapshot, dailylog, dashboard, import, shared/auto-link-subscriptions)
-- Mig 137 — idempotent `holdings.as_of_date` ensure
-- `validate-schema.py` enhanced to catch `ALTER TABLE ... RENAME TO` and standalone ALTERs in JS migrations
-- Pre-existing prose violations in STATE/HANDOFF cleaned (16→0)
-
-### Files touched (v.170)
-
-| File | Change |
-|---|---|
-| `README_FOR_CHAT.md` (new) | The 9-rule contract |
-| `LOCKED.md` (new) | Enumerable lock registry |
-| `gates.sh` (new) | Master gate runner |
-| `app/scripts/check-*.sh` (8 new) | Individual gates |
-| `app/scripts/README.md` (new) | Gates documentation |
-| `app/scripts/smoke.sh` (new) | Endpoint health check |
-| `app/.claude/skills/ghrava-schema-safety/` (new) | Skill bundled |
-| `app/db/migrations/137_holdings_as_of_date_ensure.js` (new) | Mig 137 |
-| `app/shared/attachments.js` | attachment_type/file_name/file_path → module/original_filename/stored_path |
-| `app/shared/folder-watcher.js` | same attachments fix + hsa_payments.amount→you_paid |
-| `app/shared/auto-link-subscriptions.js` | monthly_amount→cost, billing_frequency→billing_cycle, is_active→status |
-| `app/features/google/routes.js` | google_id→google_contact_id (3 sites) |
-| `app/features/property/routes.js` | dropped vehicles.insurance_contact_id |
-| `app/features/family-snapshot/routes.js` | kids.school_name→school_id+teacher_name, perfumes.family_member_id→owner_family_member_id, books→record_links join |
-| `app/features/dailylog/routes.js` | entry_date→log_date |
-| `app/features/dashboard/routes.js` | doc_type→category, receipt_path→receipt_location, amount→you_paid, certifications→career_certifications, cert_name→name |
-| `app/features/hsa/routes.js` | attachments columns at 4 sites |
-| `app/features/import/routes.js` | row_count→rows_total |
-| `STATE.md`, `HANDOFF.md`, `BACKLOG.md`, `SCHEMA.md`, `app/SCHEMA.md` | updated |
-| `app/version.txt` | `202604.170` |
-
----
-
-## 2. TASK FOR THE NEXT CHAT (after Al runs v.170)
-
-### Task A — Smoke test v.170 on prod
-
-After deploy:
-1. SSH NAS, run `bash /share/Docker/home-core/ghrava/gates.sh` — should pass all 8 with smoke now hitting real endpoints.
-2. Open the Finance → Budgets tab — trend strip + forecast section render.
-3. Open Family Snapshot for a member — kids/perfumes/books sections all render (these used the buggy SQL before).
-4. Try the Inbox watcher (drop a PDF in the watch folder) — should create attachment + draft without crash.
-
-### Task B — Pick next direction (Al chooses)
-
-Recommended priorities (Al picks one to scope):
-
-1. **Today page** (highest UX win, locked design, never built) — single
-   landing page that replaces dashboard-as-default. Now/Soon sections,
-   snooze, dense rows. Endpoint already designed as `/api/v1/today`.
-2. **Universal Attachments** (#28, locked design, 14 modules) — but
-   ship as 3 sub-drops: schema first, then Inventory+HSA+Medical,
-   then remaining 11.
-3. **Reports tab live wiring** — forecast endpoint ready, charts still
-   mockup. Wire Money group's 5 charts.
-4. **Security audit cleanup** — path allowlist on `/file/:id` +
-   `/thumb/:id`, entityType allowlist on attach route, `window.esc`
-   escape `/\'`. Small, important.
-
----
-
-## 3. DEPLOY PROCESS (unchanged from v.169)
-
-1. Build at `/home/claude/<branch>/ghrava/`.
-2. Pre-package: `bash gates.sh` — must show 8 passed, 0 failed.
-3. Zip layout: top-level (no `ghrava/` wrapper).
-4. Include: `app/`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`, `SCHEMA.md`, `README_FOR_CHAT.md`, `LOCKED.md`, `gates.sh`.
-5. Al downloads, runs `ghrava_deploy.ps1`, then `docker restart ghrava` on NAS.
-6. `--build` only when `package.json` changes (it didn't).
-
----
-
-## ⏪ v.169 history (kept for reference below)
-
----
-
-## 0. WHAT'S ON PROD RIGHT NOW
-
-NAS is running **v202604.168.2** (most likely; verify with `cat /share/Docker/home-core/ghrava/app/version.txt`).
-
-**v202604.169 is staged in sandbox only** — awaiting "package" + deploy.
-
----
-
-## 1. WHAT v.169 SHIPS — Finance Finalization
-
-PM drop. Al said "you are PM and tasked to finish finance module." Three locked groups, no migrations, additive only, all green.
-
-### A. Schema bugs in finance/routes.js (6 fixed)
-The 5 from BACKLOG.md v.167.1 audit + one bonus found by the validator while I was in there:
-- L1340 — `import_category_rules.updated_at` removed
-- L1419 — `subscriptions.monthly_amount` → `cost`
-- L1429 — `med_visit_notes.provider` → LEFT JOIN `contacts` ON `physician_contact_id`
-- L1439 — `hsa_payments.amount` → `you_paid`
-- L1449 — `eobs` table → `med_eob_statements`
-- **L1133 (bonus)** — `import_batches.row_count` → `rows_total` (was crashing the import path)
-
-All paths annotated with `// schema: ...` comments per skill convention.
-
-### B. Budget UI finalized
-- `budgets.js` rewritten to read unified `transactions` table directly.
-- New endpoints: `GET /summary` (lightweight totals) and `GET /history?year=` (12-month trend).
-- `finance.html` Budgets tab: new monthly trend strip (12 colored bars) above the budget list.
-
-### C. Cash-flow forecast — new feature
-- New file `features/finance/forecast.js`, mounted at `/api/v1/finance/forecast`.
-- `GET /?days=30|60|90` projects from `recurring_transactions`.
-- Returns `summary` + per-day `daily[]` with running balance + items.
-- `?starting_balance=N` override for what-if.
-- Liquid-only starting balance (Checking/Savings/Cash/HSA).
-- Surfaced in the Budgets tab as a full section: chip selector, 4-card summary, low-balance alert, running-balance bar chart, event list.
-
-### D. Doc updates (per locked drop rule)
-- `lens-config.js` — added `budgets` lens entry (category/year/status dimensions).
-- `help.html` COMMANDS — 4 v.169 commands (forecast 30d, forecast what-if, budgets summary, budgets history).
-- `STATE.md` — v.169 progress block.
-- `HANDOFF.md` (this) — v.169 task list.
-- `BACKLOG.md` — marked the 5 schema bugs FIXED, marked Budget UI and Cash-flow forecast SHIPPED.
-- `SCHEMA.md` (root + app/) — regenerated from migrations.
-
----
-
-## 2. TASK FOR THE NEXT CHAT (after Al runs v.169)
-
-### Task A — Smoke test v.169 on prod
-- Finance → Budgets tab loads, monthly trend strip renders 12 bars.
-- Forecast section shows starting/income/expenses/ending and a chart of daily running balance.
-- 30d/60d/90d chips switch the window.
-- Hit `/api/v1/finance/forecast?days=30` directly — verify summary numbers match.
-- Open a record-link from the "All" tab on a transaction that links to a subscription / EOB / visit / HSA payment — confirm the right side renders (was returning null before v.169 due to the schema bugs).
-- Try a file import on the Import tab — `row_count` → `rows_total` fix should make this succeed instead of crashing.
-
-### Task B — Remaining schema-bug cleanup (v.169.1 plumbing drop)
-The validator still flags 28 pre-existing bugs in non-finance paths. Group by table:
-- `attachments` (attachment_type, file_path, file_name) — 6 bugs across shared/folder-watcher + features/hsa.
-- `subscriptions.monthly_amount` in `auto-link-subscriptions.js:43` — same fix as v.169 finance, missed shared.
-- `hsa_payments.amount` in `folder-watcher.js:353` — same fix as v.169 finance, missed shared.
-- Google sync columns — 4 bugs, whole code path may be broken since launch.
-- Per-family-member columns (`perfumes.family_member_id`, `books.family_member_id`) — 2 bugs.
-- Misc: daily_log, dashboard certifications, vehicles.insurance_contact_id, holdings.as_of_date.
-
-Walk SCHEMA.md, fix each query against real column names, validator with --strict. Effort: medium (~2 hours).
-
-### Task C — Reports tab live wiring
-Forecast endpoint exists now (v.169). Wire it into the Reports `#26.1.5 Cash-flow forecast` chart. Replace the v.167 mockup with the real data.
-
-### Task D — Universal Attachments (#28) v.170
-Locked design in `_templates.html #28`. Schema migration + shared upload component + module-by-module migration. See BACKLOG.
-
----
-
-## 3. DEPLOY PROCESS (unchanged)
-
-1. Sandbox at `/home/claude/work/ghrava_drop/` or `/home/claude/build/ghrava/`
-2. Predeploy gates:
-   - Node syntax check all route files
-   - Inline `<script>` syntax check all HTML
-   - Schema validator (`python3 .../validate-schema.py --strict`) — finance/* must be clean
-3. Zip layout: top-level (no `ghrava/` wrapper) — `app/`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`
-4. Always include `version.txt`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`, `SCHEMA.md`
-5. Al downloads to `~/Downloads`, runs `ghrava_deploy.ps1` → robocopies into `Z:\ghrava\`
-6. SSH NAS: `docker restart ghrava` (~2s)
-7. `--build` only when `package.json` changes (it didn't in v.169)
-
----
-
-## ⏪ v.167 / v.168 history (kept for reference below)
-
----
-
-## 1. WHAT v.167 SHIPS
-
-Big drop. PM-style: Al asked to finish Finance. v.167 lands the cross-module auto-linker scaffolding that everything else depends on, plus LP-FSA UI, plus Reports design lock + 2 mockups.
-
-### A. Template design locks (`_templates.html` 3 new sections)
-- **#26 Reports Design** — Settings-style grouping, plain-English titles, mandatory drill-down. 3 groups × 4-5 charts each = 13 charts spec'd.
-- **#27 Auto-Linkers Pattern** — 4-step shape: match → confidence → review surface → manual override. Shared infrastructure spec.
-- **#28 Universal Attachments** — design locked; BUILD in v.168. One file + many record_links, refcount-based file lifecycle, ~14 modules affected.
-
-### B. Migration 132 — `record_links` +4 cols (confidence, needs_review, source, reviewed_at) + partial index on needs_review
-
-### C. Auto-linkers (locked per #27)
-- **#27.1 txn → hsa_payment** (`shared/auto-link-hsa.js`) — HIGH: account_type='HSA' OR account_name LIKE '%HSA%'
-- **#27.2 txn → medical_visit** (`shared/auto-link-medical-visit.js`) — HIGH: vendor exact match contact AND visit ±7d; MEDIUM if further
-- **#27.3 EOB → hsa_payment** (`features/medical/eob-hsa-matcher.js`) — HIGH: same patient (required) + amount ±$0.50 + date ±14d. Provider/Dr match is BONUS only. MEDIUM: ±$2 or ±30d
-- **#27.4 subscription category copy** (`shared/auto-link-subscription-category.js`) — `applyOne(txnId)` ongoing + `runRetroactive(days=90)` for the manual button
-- Shared helper: `shared/auto-link.js`
-
-### D. Cross-module endpoints (`features/links/routes.js`)
-- `GET /api/v1/links/needs-review`
-- `POST /api/v1/links` (manual link)
-- `POST /api/v1/links/:id/confirm`
-- `DELETE /api/v1/links/:id`
-- `GET /api/v1/links/for/:type/:id`
-- `POST /api/v1/links/run/eob-hsa-matcher` (backfill button)
-- `POST /api/v1/links/run/subscription-categories?days=90` (retroactive button)
-
-### E. Finance import wiring
-- `finance/routes.js` import-confirm fires all 3 txn-side linkers in best-effort try/catch after each row insert (subscription, hsa, visit, sub-category).
-
-### F. HSA & LP-FSA Plans Settings panel
-- New rail item in Settings → Imports & rules.
-- Single form: year, plan_type (HSA / LP-FSA / Medical FSA / Dep-Care FSA), plan_name, annual_limit, contributions, employer_contribution, deadline_date, custodian, carryover_amount, active, notes.
-- Backed by existing `fsa_plan_info` table (mig 118 — already supports all plan_types).
-- Edit existing rows inline. Rail pill shows the active count (per locked Settings UI).
-
-### G. Reports Charts (preview) tab
-- New `/reports.html?tab=charts` tab.
-- Renders #26 design: 3 groups (Money, Health, Household) × 4-5 cards each.
-- 2 cards have working SVG mockups: Sankey income→categories (Money group), BP line with healthy zone shaded (Health group).
-- Remaining 11 are stubs with "Mockup pending" + target-version labels.
-
-### H. Review surface — floating pill widget
-- `app/public/js/review-pill.js` loaded by `nav.js` on every page.
-- Bottom-right pill, hidden when count=0.
-- Click → slide-over drawer listing each needs_review link with Confirm / Unlink buttons.
-- Polls every 60s.
-
-### I. Doc updates (per locked drop rule)
-- `lens-config.js` — new `record_links` lens entry with confidence/needs_review/source/kind dimensions
-- `help.html` COMMANDS — 3 v.167 commands (EOB→HSA matcher backfill, retroactive sub-category, needs-review list)
-- `BACKLOG.md` — v.167 LOCKED SCOPE + v.168 QUEUED SCOPE blocks at top
-- `STATE.md` — v.167 progress block
-- `HANDOFF.md` (this) — v.167 task list
-
----
-
-## 2. TASK FOR THE NEXT CHAT (after Al runs v.167)
-
-Resolve in order:
-
-### Task A — Smoke test v.167 on prod
-- LP-FSA Settings panel renders + saves
-- Reports → Charts (preview) tab loads, 2 SVG mocks render correctly
-- Import a test transaction on HSA account → confirm hsa_payment created + linked
-- Import a test transaction matching Dr. Goyal's name → confirm visit link or needs_review entry
-- Run EOB→HSA matcher backfill (`curl -X POST .../links/run/eob-hsa-matcher`) → check needs-review pill count
-
-### Task B — Al picks visual direction for charts
-- Confirm or replace #26.1.1 Sankey style + #26.2.1 BP line style.
-- Once locked, v.167.1 builds remaining 11 charts in Group 1 + 2 with real data.
-
-### Task C — Build v.168: Universal Attachments
-- Schema migration (record_links + attachments columns, backfill script)
-- Smart pre-check matcher endpoint
-- Shared upload dialog component `/js/universal-attach.js`
-- Migrate Inventory + HSA + Medical first (highest-value path)
-- Migrate remaining 11 modules
-- Confirm-with-holder-list unlink dialog
-- Settings "Shared attachments" viewer
-- See `_templates.html #28` for full design spec
-
-### Task D — Reports Group 1 live build (v.167.1 or v.168)
-- Once Al picks visual direction (Task B), wire real data:
-  - #26.1.1 Sankey: query `transactions` grouped by month + category
-  - #26.1.2 Calendar heatmap: txns grouped by day
-  - #26.1.3 Vendor treemap: txns grouped by merchant, sized by sum(amount)
-  - #26.1.4 Small-multiples: per-category month-over-month line
-  - #26.1.5 Forecast line: requires new `/finance/forecast?days=90` endpoint reading `finance_recurring`
-
-### Task E — Medical schema gaps
-- Add `med_immunizations`, `med_procedures`, `med_family_history`, `med_referrals` tables (per BACKLOG)
-- High priority given Algir's cardiac arteriosclerosis → cardiac procedures coming
-
----
-
-## 3. DEPLOY PROCESS (unchanged)
-
-1. Sandbox at `/home/claude/work/ghrava_drop/`
-2. Predeploy gates:
-   - Node syntax check all route files
-   - Inline `<script>` syntax check all HTML
-   - Migration simulation against shape-mirror live DB
-3. Zip layout: top-level (no `ghrava/` wrapper) — `app/`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`
-4. Always include `version.txt`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`
-5. Al downloads to `~/Downloads`, runs `ghrava_deploy.ps1` → extracts to `Z:\ghrava\`
-6. SSH NAS: `docker restart ghrava` (~2s) — applies pending migrations automatically
-7. `--build` only when `package.json` changes (it didn't in v.167)
-
----
-
-## ⏪ v.166 history (kept for reference)
-
----
-
-
-
----
-
-## 0. WHAT'S ON PROD RIGHT NOW
-
-NAS is running **v202604.165** (most likely; verify with `cat /share/Docker/home-core/ghrava/app/version.txt`).
-
-**v202604.166 is staged in sandbox only** — awaiting "package" + deploy.
-
----
-
-## 1. WHAT v.166 SHIPS
-
-A bigger drop than usual (Al said "bigger builds" is fine). Combines:
-
-### A. Drafts → Templates migration
-- `_drafts/*.html` (24 subpages + `_drafts.css`) moved to `app/public/_templates/*.html`
-- All inner refs updated (`/_drafts/` → `/_templates/`, `_drafts.css` → `_templates.css`, breadcrumb "← Drafts index" → "← Templates index")
-- `_drafts.html` redirect shim deleted; `_drafts/` directory removed
-- `nav.js` link renamed Drafts → Templates, href `/_templates.html`, `data-drafts-link` → `data-templates-link`, version bump in comment
-
-### B. Medical Overview tab (M1–M6 tiles)
-- New tab `medical.html`, default landing (was "All")
-- Pattern: same 5-zone tile primitive as Finance #18 (eyebrow + hero + pill + rows + strip)
-- 6 tiles read existing endpoints (no new aggregator):
-  - M1 Active conditions (count + top 3 + severity pill)
-  - M2 Active medications (count + refill-due warning + top 3)
-  - M3 Upcoming visits (next 30d count + next 3 scheduled)
-  - M4 EOB your-share (total + latest 3 statements)
-  - M5 Recent vitals (latest BP + HR + weight + O2 sat)
-  - M6 Family snapshot (per-member condition + med counts)
-- **Empty state rule locked (Al v.166):** tile structure ALWAYS renders. Values go to 0 / "—" / mute pill; rows preserved. NEVER a "no data" placeholder card.
-- 3-up desktop `repeat(auto-fit, minmax(320px, 1fr))`, phone scroll-snap pager <700px
-- Click → tab in MED_TILE_TAB_TARGETS routes to detailed view
-
-### C. Migration 131 — medical schema expansion
-- Additive only (no DROP, no CASCADE). Idempotent. Transaction-wrapped.
-- 25 new columns across `contacts`, `med_conditions`, `med_medications`, `med_eob_claims`, `med_eob_services`
-- 4 new tables: `med_lab_results`, `med_diagnostics`, `med_allergies`, `med_vitals_readings`
-- `med_diagnostics.test_date` is NULLABLE — pending tests have no date
-- Each new table has dedup_hash with UNIQUE index for idempotent re-import
-- Marker table `_migrations_medical_expansion_done` for verification
-- **Sim verified:** Python sqlite3 against shape-mirror DB — 25 cols + 4 tables present, idempotent re-run OK, 76 seed rows insert cleanly
-
-### D. Bulk-seed endpoint
-- `POST /api/v1/medical/bulk-seed` in `app/features/medical/seed-routes.js`
-- Body: `health_seed.json` shape (patient, care_team, conditions, medications, labs, vitals, diagnostics, allergies)
-- requireAuth (writes)
-- Resolves family member by `family_member_id` OR `patient.name` exact OR first-word match
-- Idempotent: dedup_hash per record (e.g. lab hash = sha256(fm|test_name|test_date|value))
-- Supports `?dry_run=1` to preview counts without writing
-- Maps to EXISTING `med_*` tables (per the architecture rule "use existing tables, never create parallel schemas")
-- Mounted alongside `medical/routes.js` in `server.js`
-
-### E. Seed CLI tool
-- `app/scripts/seed-medical.js` — Node CLI for one-shot seed import
-- Usage: `docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json [--dry-run]`
-- Reads JSON, POSTs to bulk-seed, prints per-section results
-
-### F. Algir's seed bundled
-- `app/seeds/medical_algir.json` (15 KB) — from `medical_module_-_ghrava_upload.zip` (Apr 2026)
-- Contains: 6 care team, 14 conditions, 14 medications, 26 labs, 8 vitals, 7 diagnostics, 1 allergy
-
-### G. Kids ↔ family_members auto-sync
-- `kids/routes.js` GET / now auto-creates `kids` rows for any `family_members` row with relationship in (Son, Daughter, Child, Stepson, Stepdaughter, Stepchild) AND is_active=1 that doesn't have one
-- **Fixes the known Risha-not-showing bug**
-- Wrapped in try/catch so sync failure doesn't break list endpoint
-
-### H. Lens config for new fields
-- `app/public/js/lens-config.js` extended:
-  - `medical_medications` gains: route, mail_order, ndc, source
-  - `medical_conditions` gains: icd10, severity, source
-  - `medical_eob` gains: claim_status, place, diagnosis (ICD-10), npi
-  - NEW: `medical_labs`, `medical_diagnostics`, `medical_allergies`, `medical_vitals`
-- **Locked rule (Al v.166):** every schema column added MUST appear in lens-config.js so the global lens/advanced-filter can search on it. Al's words: "ensure that fields added to a module are available in lens search / advanced filter replacement."
-
-### I. GET endpoints for new tables
-- `GET /api/v1/medical/labs`, `/diagnostics`, `/allergies`, `/vitals` — all support `?family_member_id` filter and `?limit` (default 500, max 500)
-- Public reads (no auth) — consistent with rest of medical module
-
-### J. BACKLOG.md (NEW persistent memory file)
-- Top open decisions, cross-module wiring not-yet-built, schema gaps, reports engine design, known bugs, security audit, v140 loose ends, draft pages map, workflow rules
-- **Bundled in every deploy zip from v.166 forward**
-- Old April-2026 backlog archived as `BACKLOG_OLD_apr2026.md`
-
----
-
-## 2. TASK FOR THE NEXT CHAT (after Al runs v.166)
-
-Resolve in order:
-
-### Task A — Smoke test v.166 on prod
-Al will need to confirm:
-- Medical Overview tab loads, 6 tiles render (likely mostly empty pre-seed)
-- Templates nav link works, points to `/_templates.html`, all `_templates/*.html` subpages load with breadcrumb "← Templates index"
-- Kids page shows Risha (and Arnav)
-- Run dry-run seed: `docker exec -it ghrava node /app/scripts/seed-medical.js --file /app/seeds/medical_algir.json --dry-run` → should show mapped family + counts, no errors
-- Run real seed (drop --dry-run) → Medical Overview should populate
-
-### Task B — IF seed worked: Build #25 Medical Overview Tiles template page
-- Add to `_templates.html` as section #25 with the M1–M6 spec (parallel to #18 Finance)
-- Same numbered breakdown: hero / pill / rows / strip, what each tile reads, click target
-- This locks the design so future chats don't reinvent
-
-### Task C — Reports engine design discussion (BLOCKING for #2 build)
-- Al wants vertical slice (BP 2yr) + horizontal slice (all stats 6mo)
-- See `BACKLOG.md → 🛠 Reports engine — design needed before code` for shape proposal
-- Need from Al: canonical metric_name vocabulary, default time windows per metric, plot types per metric
-- Once designed, build `metric_index` view in a new migration + reports page reads from it
-
-### Task D — Medical "Receipts" tab (v140 deferred, design exists)
-- Single-flow PDF upload: drop in Medical → file routed to Documents + medical record created + auto-linked via record_links
-- Discussed extensively v.7 → v.20. Worth doing next.
-
-### Task E — Other family members' seed JSONs
-- Process: re-engage medical-conversion chat with Zarna/Arnav/Risha PDFs → receive their JSONs → drop into `app/seeds/` → run CLI tool
-- Endpoint dedups by family_member_id + content hash so re-running is safe
-- Risha is now in family_members + kids (after v.166 auto-sync) so her family_member_id is available
-
----
-
-## 3. DEPLOY PROCESS (unchanged)
-
-1. Sandbox at `/home/claude/work/ghrava_drop/`
-2. Predeploy gates (5):
-   - Node syntax check all route files
-   - Inline `<script>` syntax check all HTML
-   - Script dependency check (e.g. lt-refs.js included on pages using GH_REFS)
-   - Migration simulation against shape-mirror live DB
-   - HTML inline syntax extraction
-3. Zip layout: top-level (no `ghrava/` wrapper) — `app/`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`
-4. Always include `version.txt`, `STATE.md`, `HANDOFF.md`, `BACKLOG.md`
-5. Al downloads to `~/Downloads`, runs `ghrava_deploy.ps1` → extracts to `Z:\ghrava\`
-6. SSH NAS: `docker restart ghrava` (~2s) — applies pending migrations automatically
-7. `--build` only when `package.json` changes (it didn't in v.166)
-
----
-
-## 4. KEY ARCHITECTURE FACTS (carry forward)
-
-- **DB:** `data/lifetracker.db` (NOT ghrava.db). `journal_mode = DELETE`, `synchronous = FULL`. No CASCADE going forward.
-- **Auth:** `requireAuth` ONLY in `settings/routes.js` + `watcher/routes.js`. All GETs public.
-- **Family members:** Algir (id=1, self), Zarna (spouse), Arnav (son), Risha (daughter). All in `family_members` table. Kids table auto-syncs from family_members starting v.166.
-- **`finance_accounts` (banking VIEW) ≠ `financial_accounts` (investment VIEW)** — both unified into `accounts` in mig 130.
-- **`med_physicians` dropped** — use `contacts` with `type='medical_provider'`.
-- **`record_links`** (mig 129) — universal polymorphic junction. Vocab: `transaction | subscription | medical_visit | hsa_payment | eob | document`.
-- **EOB:** Aetna MHBP only. Existing mig 054-057 + 124 + 131 schema captures every field needed for matching, audit, appeals — even non-display fields (NPI, diagnosis_codes, denial_reason_codes, etc.).
-
----
-
-## (Below: v.165 history kept for reference)
-
----
-
-## 0. WHAT'S ON PROD RIGHT NOW
-
-NAS is running **v202604.159 code + v202604.164 templates**. If
-`cat /share/Docker/home-core/ghrava/app/version.txt` shows `.164`,
-prod is current with what was last shipped.
-
-**v202604.165 is staged in sandbox only** — it ships the work the
-previous `HANDOFF.md` queued as Task A + Task B.
-
----
-
-## 1. WHAT v.165 SHIPS
-
-Three files + version bump. The two Task A/B items from the previous
-handoff are done; everything else from the v.164 handoff queue is
-unchanged.
-
-### Task A (done): v.150 finance tiles wired into `finance.html`
-
-- **Backend `/api/v1/finance/landing` rewritten** to the v.150
-  payload shape. New fields:
-  - `net_worth.total_assets / .total_liabilities / .sparkline[]`
-    (last value per month from `net_worth_snapshots`, trailing 12).
-  - `cash_flow.mtd_net / mtd_in / mtd_out / prior_month_net /
-    ytd_net` — full prior-month net, not same-day MTD.
-  - `credit_cards.top[]` (3 by owed), per-card `util` (whole percent),
-    aggregate `util_pct`, `next_due: {days, min_payment}`,
-    `others_count / others_owed`.
-  - `bank_accounts.liquid_total / checking_total / savings_total /
-    stale_count / stale_label / stale_oldest_days` (stale =
-    `balance_as_of` older than 14 days).
-  - `holdings.top[]` (3 by market_value) + `others_count /
-    others_value`, total `cost_basis` + `gain_pct`.
-  - `hsa_lpfsa` semantics: **unreimbursed receipt pool**, not HSA
-    account balance. Counts & sums `hsa_payments` and `fsa_payments`
-    where `reimbursed = 0`. `lpfsa_deadline_days` from current-year
-    `fsa_plan_info.deadline_date`.
-- **`app/public/finance.html`**:
-  - 6 static `<div class="fin-tile" data-tile="…">` blocks replaced
-    with single `<div id="finTilesGrid" class="fin-tiles-grid">`.
-  - Sample-fallback machinery removed (`FIN_TILE_SAMPLE`,
-    `applyTileSampleFallback`, `clearTileSampleState`, `FIN_TILE_FMT`,
-    `setTilePart / setTilePill / setTileDot`, `daysUntil`, and the
-    branching v.158 `loadLandingTiles`). ~14.5 kb dead code gone.
-  - v.150 renderers copied **byte-identical** from `_templates.html`
-    #18 (`_finK / _finM / _finC / _finPct / _finDot / _finPill /
-    _finTileNetWorth / _finTileCashFlow / _finTileCreditCards /
-    _finTileBankAccounts / _finTileHoldings / _finTileHsaLpfsa /
-    _emptyTile`).
-  - New 30-line `loadLandingTiles()` fetches `/finance/landing` and
-    concatenates the 6 renderer outputs.
-  - Onclick + `role="button"` + `tabindex="0"` + Enter/Space keyboard
-    navigation attached post-render via
-    `FIN_TILE_TAB_TARGETS = ['networth','transactions','accounts',
-    'accounts','holdings','hsa']`.
-  - Error path renders an inline red monospace message in the grid.
-- **CSS additions:** `.fin-tile-pill--mute` and `.fin-tile-dot--mute`
-  (used by `_emptyTile()` and the no-prior-snapshot pill).
-
-### Task B (done): medical tiles 3/2/1 with phone scroll-snap
-
-- **`app/public/medical.html`** `.medv5-grid` upgraded:
-  - Desktop: `grid-template-columns: repeat(auto-fit, minmax(380px,
-    1fr))` — 3-up wide / 2-up mid / 1-up narrow above the phone
-    breakpoint.
-  - Phone (≤700px): flex + `scroll-snap-type: x mandatory` for a
-    one-card-per-viewport pager. Matches the existing
-    `.medv5-grid--all` All-tab pattern.
-
-### Version
-
-- `app/version.txt` → `202604.165`.
-
----
-
-## 2. v.165 VERIFICATION DONE IN SANDBOX
-
-- **`node --check`** on `app/features/finance/routes.js` — clean.
-- **Inline `<script>` syntax check** on every `<script>` block in
-  `finance.html` (5 blocks) and `medical.html` (4 blocks) — clean.
-- **Integration smoke**: spun up an express router against an in-
-  memory SQLite DB matching the unified schema + a representative
-  seed dataset (3 banks, 4 credit cards, 4 holdings, 6 transactions,
-  11 monthly snapshots, 3 HSA receipts, 2 FSA receipts, current-year
-  FSA plan). Hit `/api/v1/finance/landing`, asserted 22 shape
-  predicates. All pass; numbers match `_templates.html` #18 sample
-  numbers (e.g. cc.next_due.days = 7, holdings.others_count = 1,
-  lpfsa_deadline_days = 47).
-- **JSDOM smoke**: extracted the renderer block from `finance.html`,
-  rendered against both the real-data payload AND an all-empty
-  payload. Verified:
-  - 6 `.fin-tile` elements in each mode
-  - Net worth: 12 sparkline bars
-  - Cash flow: `.fin-tile-cf-bar` present
-  - Credit cards: 2 util mini-bars (3rd card has no `credit_limit`)
-  - Holdings: 3 positive-gain spans
-  - Empty: 4 `_emptyTile()` mute-dot tiles + net_worth/cash_flow
-    show $0 hero through their own renderers
-
-**Not yet verified:** behavior against Al's actual production DB.
-Migration risk = none (no schema changes). Behavior risk = backend
-shape change → frontend renderer expects the new shape. If anything
-goes wrong, the tiles will render with `$0` / "empty" pills, not
-crash.
-
----
-
-## 3. DEPLOY PROCESS
-
-### Al's flow (Windows PC → NAS → Docker)
-
-1. Claude packages `Ghrava_DEPLOY.zip` (top-level layout — `app/`,
-   `docker-compose.yml`, etc. — **no `ghrava/` wrapper**) and uses
-   `present_files`.
-2. Al downloads to `~/Downloads`.
-3. Al runs `ghrava_deploy.ps1` in PowerShell — finds the zip,
-   extracts, robocopies to `Z:\ghrava\`, detects whether
-   `package.json` changed, prints the right next command.
-4. Al SSHes to NAS:
-   - `docker restart ghrava` (~2s) for normal code changes
-   - `docker compose up --build -d` (~90s) only if `package.json`
-     changed
-5. **Static-only changes** (HTML/CSS/JS in `app/public/`) need no
-   docker restart — just hard-refresh browser (Ctrl+Shift+R).
-
-For v.165, code paths changed (`features/finance/routes.js`), so
-`docker restart ghrava` is required.
-
-### Paths
-
-- **NAS path:** `/share/Docker/home-core/ghrava/`
-- **From Al's PC:** `Z:\ghrava\` (mapped share)
-- **Inside container:** `/app/`
-- **DB filename:** `lifetracker.db` (NOT `ghrava.db` — common mistake).
-  Lives at `data/lifetracker.db`.
-- **URL:** `http://192.168.4.62:3001` local · Tailscale also configured.
-
-### Diagnostics
-
-QNAP has no `sqlite3` CLI. Use the container:
-
-```sh
-docker exec ghrava node -e "
-const db = require('better-sqlite3')('/app/data/lifetracker.db');
-console.log(db.prepare('SELECT COUNT(*) AS n FROM accounts').get());
-"
+✓  syntax          pass
+✓  schema          pass
+✓  locked          pass
+✓  lens            pass
+✓  commands        pass
+✓  prose           pass
+✓  shared          pass
+✓  smoke           pass
+✓ 8 gates passed
 ```
 
-Logs:
-```sh
-docker logs ghrava --tail 50
-docker logs ghrava 2>&1 | grep -E 'FAILED|RESCUE|running on port' | tail -20
-```
-
-### v.165 smoke after deploy
-
-1. Open `/finance.html`. Overview tab is default. Expect 6 tiles
-   rendering real numbers from the live data (3 accounts unified +
-   76 transactions from the v.159 rescue).
-2. Click any tile — should switch to the corresponding tab.
-3. Open `/medical.html` on a phone (or resize to ≤700px). Cards
-   should pager-scroll horizontally one-at-a-time. Resize to ~900px
-   → 2 columns. Resize to ~1300px → 3 columns.
-
-If a tile shows "empty" with $0 / mute pill — the backend returned
-no rows for that tile's category. That's expected behavior (e.g.
-holdings tile may be empty if no positions yet).
-
-If a tile crashes / shows the red error line — capture `docker logs
-ghrava --tail 50` and the JSON from `curl http://localhost:3001/
-api/v1/finance/landing` before theorizing.
+### Next chat's task list (in order)
+1. Verify v.171 deployed cleanly: `docker logs ghrava --tail 50` clean, `/reports.html?tab=pending` renders with no JS errors, Pending tab badge count matches `/api/v1/pending/counts`.
+2. **v.172 priority backlog (Al's direction "after finance we go across whole system; fast, functional, clean, user friendly"):**
+   - Wire `_templates.html #26.1.5 Cash-flow forecast` chart to live `/api/v1/finance/forecast` data (originally B in the v.171 scope, deferred).
+   - Audit which existing cards across modules would benefit from the asterisk pattern; wrap with `.gh-pending-target` and call `GhAsterisk.scan()` on page-ready. Candidates: vehicle fuel YTD on `vehicles.html` cards, medication HSA YTD on med cards, HSA tile on `medical.html`.
+   - Pick the next module to harden using the same plain-English/multi-view/link/display lens.
 
 ---
 
-## 4. NEXT-DROP PRIORITIES (after v.165 confirmed)
+## Original handoff context (kept for reference)
 
-### Finance module cleanup capstone
 
-- Drop the 7 `_legacy_*` tables from mig 130 rescue.
-- Drop `accounts_beneficiaries` (empty, pre-existing table moved
-  aside by mig 130).
-- Single migration #131. Wait for explicit Al go.
 
-### Finance module Tile-2 budget target
+The current production version is **v202604.170.1**. It went out
+yesterday after a longer session where two things happened in one drop:
 
-- Tile 2 (Cash Flow) currently shows "on track" / "overspending"
-  based on `mtd_net` sign alone. The locked design idea was to add
-  a monthly budget target — design discussion deferred.
-- Needs: budget UI in Settings or Finance, schema for monthly
-  budgets, comparison in tile renderer.
+1. **Finance finalization** — six schema bugs in the finance routes
+   were fixed, a real Budgets UI was wired up (it had been a stub),
+   and a cash-flow forecast endpoint shipped with a 30/60/90-day
+   chart. That work had been carried over from a previous chat that
+   never packaged.
 
-### Outside finance
+2. **Gates-over-docs** — the real reason the session got long. Past
+   chats kept claiming to have "read STATE.md" and then writing code
+   that ignored the rules in it. Twice, a chat said "saved tile design
+   to templates" and didn't. The fix was to demote the docs from
+   required reading to reference material, and put the rules into
+   scripts that fail the drop if violated. There are now 8 gates
+   (`bash gates.sh`) covering syntax, schema, locked-design integrity,
+   lens-config completeness, command discoverability, prose drift,
+   shared-table parallelism, and endpoint smoke. Definition of "done"
+   is now "8 gates green, output pasted" — claims aren't accepted.
 
-Same backlog as v.164's handoff — none touched in v.165:
-
-- Today page (Now/Soon/30-day pipeline) — locked design, not built.
-- Drafts pages still need readability pass + status board.
-- Reports `.rep-row` not found bug.
-- Reports panels open as center modals (sub-panel CSS leak).
-- Todos page renders neither `.todo-item` nor `.empty-state`.
-- Multi-kid bug (kids table vs family_members not auto-syncing).
-- 11 stale Playwright selectors.
-
-### v140 loose ends
-
-- EOB folder-drop persistence (`importEob` counts but doesn't save).
-- LP-FSA plan info Settings UI (only API exists).
-- Mileage UI on medical visit form (backend ready, frontend
-  doesn't expose `round_trip_miles`).
-- Medical "Receipts" tab to host v140 inbox/vault.
-- Documents / insurance / subscriptions don't use `attach-lifecycle`.
-
-### Security audit (separate small drop)
-
-- `window.esc` doesn't escape `/\'`.
-- Attach route should allowlist `entityType`.
-- `/file/:id` and `/thumb/:id` missing path-allowlist.
-- `/api/v1/app/test-results` unauthenticated.
-- CORS wide open.
-- `fmtMoney` / `formatDate` redefined across pages despite `lt-core`.
-- `global-search.js` has own `esc()`.
-- `migrate.js` parser splits on `;` before stripping `--` comments.
+The combination shipped as v.170. A hotfix v.170.1 followed because
+the validator's migration-replay disagreed with prod on two column
+names (`import_batches.row_count` vs `rows_total`, and `todos`
+missing two Google sync columns). Those were closed by reverting
+the code in one case and adding a defensive migration in the other.
+After the hotfix, prod's live validator returns **0 failures across
+619 prepared statements**.
 
 ---
 
-## 5. WORKING RULES (override all other instincts)
+## What you're inheriting
 
-These came up explicitly in recent chats. Burn them in.
+A working app on v.170.1 with a clean schema and a contract that
+mechanically prevents the failure modes that wasted time before.
+Specifically:
 
-### Build mode default
+**The schema-safety skill** (`app/.claude/skills/ghrava-schema-safety/`)
+contains the validator that catches "no such column" bugs before
+deploy. The 4-step workflow is in the skill's SKILL.md but the short
+version is: read SCHEMA.md, write the SQL with a `// schema:` comment
+naming the columns, run `bash gates.sh schema`. Skip any step and
+you'll ship a container that won't start.
 
-- No explanations, summaries, recaps, or test plans unless asked.
-- Confirm decisions in one line. Ask blocking questions only. Build.
-- No recaps after work.
-- One thing per drop. Don't bundle UI fix with destructive migration.
+**LOCKED.md** is an enumerable list of every locked design — tile
+layouts (#1 through #28), schema rules (SHARED-FAM, SHARED-CON, etc.),
+and architectural locks (AUTH-OPEN-GET, DB-NO-WAL, etc.). When Al
+says "use the agreed X design," your move is to ask "which row in
+LOCKED.md?" If he can't point at one, the design isn't actually
+locked yet — build it into `_templates.html` first, add a row, then
+write code.
 
-### Never invent design
+**STATE.md** is the running version log. It's long. Don't read it
+top to bottom; `grep` for the version you care about. The most
+recent versions (v.170, v.169) are at the top.
 
-- If Al says "the agreed design" — **find it yourself**. Search prior
-  chats with `conversation_search`. Check `STATE.md`, `_templates.html`,
-  uploaded zips. The design exists somewhere. Don't make Al find it.
-- If Al gives an instruction, follow it. Don't reinterpret it as a
-  feature spec to "improve."
-- Invented numbers, copy, or tile structure = Claude failing.
-  Em-dashes fine. Real data fine. `_emptyTile()` pattern ($0 /
-  "empty" pill / hint) fine. **Invented numbers not fine.**
-- Visual design lives in `_templates.html` as numbered patterns
-  (#1, #18, #18.1). Drafts page is text-only.
-- "Cards" and "tiles" are interchangeable in Al's vocabulary. Both
-  refer to the rendered components.
+**BACKLOG.md** lists every deferred idea with effort estimates and
+why it was deferred. The "Next up" section there is your menu.
 
-### Don't package without "package"
-
-- Even after a complete fix, wait for Al to say "package."
-- Exception: explicit "package now" during a build.
-- **Don't package for small things to save tokens.** Bundle multiple
-  fixes into one drop where possible.
-- Bigger builds preferred.
-
-### DB safety
-
-- `journal_mode=DELETE`, `synchronous=FULL`. **Never WAL.**
-- **No `ON DELETE CASCADE` anywhere, ever.**
-- Migrations: additive only. Renames go in `UPGRADE_NOTES.md` first.
-- **Always ask for `docker logs ghrava --tail 50`** before
-  theorizing. Never guess.
-- Verify column names against live DB schema before writing route
-  code.
-
-### Predeploy gates (5)
-
-Before any deploy zip:
-1. Node syntax check all route files
-2. HTML inline script syntax check
-3. Script dependency check (pages using `GH_REFS` need `lt-refs.js`)
-4. Migration simulation against live DB (savepoints, rollback) —
-   skip if no migration in drop
-5. Parser tests (12/12 banks pass) — skip if no parser change
-
-### Files Claude consults before editing
-
-- `STATE.md` — current state, version log, locked decisions
-- `UI_STANDARDS.md` — read before any frontend change. Copy existing
-  patterns; never invent CSS classes.
-- `WIRING.md` — module interconnections
-- `MODULES_DESIGN.md` — per-module data design
-- `BACKLOG.md` — pending work
-- `_templates.html` — visual design source of truth
-- This file (`HANDOFF.md`) — what the prior chat figured out
+**`bootstrap.sh`** is what you run at the start of every chat. It
+prints version, gate status, last 5 versions, top backlog, locks
+count. Paste its output before doing anything else.
 
 ---
 
-## 6. KEY ARCHITECTURE FACTS (locked, do not re-litigate)
+## What you'll probably build next
 
-### Schema
+Al hasn't decided yet. The strongest candidates are:
 
-- `finance_accounts` (banking, was a table, now a VIEW over unified
-  `accounts`) ≠ `financial_accounts` (investment, was a table, now
-  a VIEW). Mig 130 unified both.
-- `accounts` is the unified table. Has columns from both old tables
-  + 12 credit-card fields + an `alias` column.
-- `transactions` is the unified transactions table.
-  `source='manual'|'imported'`. Views `finance_transactions` (manual)
-  and `imported_transactions` (imported) on top.
-- Account type vocab LOCKED: `Checking`, `Savings`, `Credit`, `Cash`,
-  `HSA`, `Brokerage`, `TSP`, `Retirement`, `Loan`, `Mortgage`,
-  `Other`. Unknown → `Other` + `needs_review=1`.
-- `med_physicians` dropped. Contacts are flat 8-type table.
-- `record_links` is the universal cross-module link table (mig 129).
-  Symmetric junction; application layer chooses left/right.
+**Today page** — the highest UX leverage item still pending. Locked
+design exists but was never built. It would replace
+`dashboard.html` as the landing page. Two sections: "Now" (due
+today / overdue, red) and "Soon" (next 7 days, amber). Snooze
+button per row. The endpoint shape is sketched as `/api/v1/today`
+with aggregation from subscriptions, documents, insurance, and
+todos. Estimate: medium drop, ~half a session.
 
-### Finance landing route shape (v.165)
+**Universal Attachments (#28)** — a longstanding refactor where
+every module's file-handling collapses into the shared `attachments`
+table with `record_links` for cross-module references. The design
+is locked in `_templates.html#universal-attach`. The right way to
+ship it is in three sub-drops: schema migration first, then convert
+Inventory + HSA + Medical (the most-used surfaces), then the
+remaining 11 modules. Estimate: 3 sessions, one per sub-drop.
 
-`GET /api/v1/finance/landing` returns:
+**Reports live wiring** — the forecast endpoint shipped in v.169
+but the chart on the Reports tab is still a mockup. Wiring it is a
+small frontend job; the data's already there. Estimate: small drop,
+~hour. The Money group has 5 other charts in the same state.
 
-```
-{
-  generated_at,
-  net_worth:     { total, total_assets, total_liabilities, mom_delta, sparkline[] },
-  cash_flow:     { mtd_net, mtd_in, mtd_out, prior_month_net, ytd_net },
-  credit_cards:  { count, total_owed, util_pct, top[], others_count, others_owed, next_due:{days,min_payment} },
-  bank_accounts: { count, liquid_total, checking_total, savings_total, stale_count, stale_label, stale_oldest_days },
-  holdings:      { count, market_value, cost_basis, gain_pct, top[], others_count, others_value },
-  hsa_lpfsa:     { total_pool, hsa_count, hsa_pool, lpfsa_count, lpfsa_pool, lpfsa_deadline_days }
-}
-```
+**Security cleanup** — small but important. The `/file/:id` and
+`/thumb/:id` routes lack path allowlists (a request with `..` in
+it could escape the attachments dir). The attachments insert route
+should allowlist `entityType` instead of accepting any string.
+`window.esc` in the frontend doesn't escape `/` or `'`. None of
+these are exploitable in practice given Ghrava is single-user
+behind Tailscale, but they're sloppy. Estimate: small drop.
 
-Renderers in `finance.html` mirror those in `_templates.html` #18
-byte-identically. **Changing either side requires mirroring on the
-other.**
-
-### Migration runner
-
-- `app/db/migrate.js` sorts by filename, runs each in own
-  `db.transaction()`. Failure logged but doesn't abort the run.
-- JS migrations require own idempotency check (marker table like
-  `_migrations_<name>_done`).
-- `_migrations` tracks runner-completed files. `_migrations_*_done`
-  markers track which schema blocks actually committed.
-- SQLite indexes are global. `CREATE INDEX` fails if name exists on
-  ANY table. Defensive migs drop name first.
-
-### Auth
-
-- `requireAuth` only in `settings/routes.js` and `watcher/routes.js`.
-  All other routes public — browser `<img>` tags can't send auth
-  headers. Keep public reads public.
-- Password protects Settings changes only.
-
-### Shared utilities
-
-- `app/public/js/lt-core.js` — `GH_VIEW`, `GH_FAMILY`, `GH_TAGS`,
-  `GH_SELECT`, `window.api`, `window.esc`
-- `app/public/js/lt-refs.js` — `GH_REFS` (contact pickers, must be
-  loaded on every page using it)
-- `app/shared/autoTodos.js` — `syncAutoTodos()`,
-  `syncMedRefillTodos()`
-- `app/shared/tx-fingerprint.js` — fingerprint v2 normalizer
-- `app/shared/errors.js` — 500 error logging
+Pick whichever Al wants. They're all independent.
 
 ---
 
-## 7. `_templates.html` SECTIONS
+## Things that are subtle
 
-Source of truth for visual design.
+A few traps worth knowing about before you hit them:
 
-- **#1 Medication** (LOCKED)
-- **#2 Inventory** (LOCKED)
-- **#3 Todo** (LOCKED)
-- **#4 Subscription** (LOCKED)
-- **#5 Certification** (LOCKED)
-- **#6 Condition** (LOCKED)
-- **#17 Summary Tile** (DRAFT, piloted on Medical) — #17.1 Visits/EOBs,
-  #17.2 Reimbursement vault
-- **#18 Finance Overview Tiles** (LOCKED v.150, added v.164) — the 6
-  finance tiles, real-data + empty state, both rendered live. THE SPEC.
-  **Now byte-identical to `finance.html` renderers (v.165).**
+**Migration 126 logs `FAILED` on every restart.** It tries to add
+a column to `finance_accounts`, which is now a view (per the
+FIN-UNIFY lock — the unified `accounts` table is the real table,
+`finance_accounts` is a compatibility view). The migration's
+transaction rolls back cleanly; nothing's broken; subsequent
+migrations apply fine. But it's noise that will eventually mask a
+real failure. A small migration 139 that records 126 as
+applied-and-skipped would silence it. Not urgent.
 
-Drafts list (text-only) below the templates. `/_drafts.html` is a
-redirect to `/_templates.html#drafts`. One page going forward.
+**Tailscale HTTPS cert is blocking Google OAuth.** The Google
+Tasks sync code path references `todos.google_task_id` and
+`todos.google_tasklist_id`. Those columns now exist (v.170.1 mig
+138 added them defensively), but the code path itself is dead
+until OAuth comes back online. When that happens, expect a
+session to test it end-to-end.
+
+**`finance_accounts` is a VIEW, not a table.** Same for
+`financial_accounts` and `finance_transactions`. Any SQL that
+tries to INSERT/UPDATE these will fail. The real tables are
+`accounts` and `transactions`. The validator catches direct
+writes; if you find yourself wanting to write to the legacy
+names, you're doing it wrong.
+
+**`med_physicians` was historically a table.** It got dropped
+during the contacts consolidation. The validator's shared-tables
+gate allowlists `002_hsa_medical.sql` (where it was originally
+created) because that's pre-existing history. Don't try to
+re-create the table — use `contacts` with `contact_type='medical_provider'`.
+
+**Mig 130's dynamic renames confused the validator.** Mig 130
+renames legacy tables via a runtime loop over an array literal.
+The validator's regex skipped that pattern. The v.170.1 patch
+hardcodes mig 130's rename list into the validator's special-case
+handler. If you write a new migration that uses runtime loops to
+do DDL, the validator probably won't follow it — write the DDL
+literally instead.
 
 ---
 
-## 8. THE "I MESSED UP" PATTERN
+## How Al works
 
-If Al points out Claude invented something not in the agreed design:
+Al writes terse messages. "Continue" means "keep building, no recap
+needed." "Package" means "now build the deploy zip." Anything else
+is usually a new task or a question.
 
-1. Don't argue. Don't ask Al to find proof. **Search yourself** —
-   `conversation_search`, prior chats, uploaded zips, the doc files.
-2. If you genuinely can't find it, say so plainly and ask where.
-3. Apologize once, briefly. No long mea-culpa paragraphs.
-4. Revert to the agreed state. Don't try to "improve" it.
+He doesn't want explanations of what you're about to do. He wants
+you to do it. A reply that starts with "Building." and ends with
+gates output is ideal. A reply that lists three options and asks
+which one is a waste of his time unless the options have real
+trade-offs.
 
-If the deploy zip you produced is wrong, package a corrected one.
-Don't tell Al to re-deploy from the wrong zip.
+He'll push back if you drift. The pushback is usually short and
+direct ("not copying whole things but 7 failed - what's on line
+12") and means "stop explaining, look at the actual problem." When
+you see it, look at the actual problem.
+
+He uses "card" and "tile" interchangeably. They're the same
+rendered component.
+
+He prefers bigger drops over many small ones. Bundle fixes.
+
+He keeps the running terminal session open and pastes raw output
+when something goes wrong. Read it carefully — it tells you what's
+actually happening on prod, which is more reliable than what
+SCHEMA.md says (though SCHEMA.md is now generated FROM prod, so
+they should match).
 
 ---
 
-## 9. ONE-LINE STATUS
+## How not to waste his time
 
-**v.165 staged. Task A (finance tiles wired to v.150 spec) + Task B
-(medical 3/2/1 scroll-snap) done. 22 shape assertions + JSDOM
-renderer smoke pass. Not yet packaged — awaiting "package".**
+Things that ate hours in past chats:
+
+- Asking him to explain what Ghrava is, or what a module does, or
+  why a column is named what it's named. The docs and grep have
+  the answer.
+
+- Re-deriving locked decisions. If LOCKED.md says shared tables
+  are universal, don't propose a med_physicians-style parallel
+  table without `--explain`.
+
+- Claiming work is done before running gates. The gates exist
+  precisely so you don't have to make claims.
+
+- Describing visual designs in prose. They go in the template,
+  not in your reply. Reference by ID.
+
+- Packaging on a single fix when more fixes are queued. Wait for
+  "package."
+
+- Treating memory as authoritative. The zip wins.
+
+---
+
+## Your first move, again
+
+`bash bootstrap.sh`, paste output, ask "what would you like me to build?"
+That's it.

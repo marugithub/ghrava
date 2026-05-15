@@ -128,6 +128,7 @@ app.use('/api/v1/reports/hsa-fsa-irs', require('./features/reports/hsa-fsa-irs')
 app.use('/api/v1/receipts',          require('./features/receipts/routes'));
 app.use('/api/v1/search',            require('./features/search/routes'));
 app.use('/api/v1/maintenance',       require('./features/maintenance/routes'));
+app.use('/api/v1/pending',           require('./features/pending/routes'));
 app.use('/api/v1/templates',         require('./features/templates/routes'));
 app.use('/api/v1/family-snapshot',   require('./features/family-snapshot/routes'));
 app.use('/api/v1/watcher',           require('./features/watcher/routes'));

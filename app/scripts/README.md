@@ -38,3 +38,42 @@ bash gates.sh locked
 
 `check-shared-tables.sh --explain="<reason>"` — only path with override.
 Document the reason in STATE.md under the version block.
+
+---
+
+## What gates CANNOT catch
+
+Static analysis catches roughly the bottom 40-60% of "breaks the page" bugs.
+The rest only show up at runtime. Honest list:
+
+| Bug class | Why gates can't see it |
+|---|---|
+| Runtime null refs (`a.b.c` where `b` is undefined) | Needs execution |
+| SQL errors on populated DB (unique violation on real data) | Needs real DB state |
+| Auth / session edge cases | Needs request context |
+| Race conditions, async timing | Needs event loop |
+| CSS / visual breakage | Needs browser render |
+| Browser-specific JS (Safari quirks) | Only node --check happens |
+| Logic bugs (wrong field name in payload, off-by-one in pagination) | Needs runtime data |
+| Cross-origin / CORS issues | Needs network |
+| Migration interactions with real existing data | Needs prod-like DB (mitigated: SCHEMA.md generated from live prod) |
+
+There is no substitute for opening the page and clicking around. Gates make
+the static layer trustworthy; the runtime layer needs human eyes.
+
+## Future test layers (deferred)
+
+Possible additions in priority order. None are in scope yet.
+
+1. **Playwright headless tests** — load every page, check no JS console
+   errors, click each button, verify 2xx responses. Closes most of the
+   "cannot catch" list. (`tests/` already has a Playwright config; not wired.)
+2. **Live server smoke** — boot app with live DB backup, hit every GET,
+   verify 200 + JSON shape. The current `smoke.sh` is a stub of this.
+3. **`req.body` shape audit** — for each POST/PUT handler, list `req.body.X`
+   references; for each client call site, list keys sent; diff. Catches
+   client/server payload drift.
+4. **TypeScript pass on JS** — `tsc --checkJs` flags more than `node --check`.
+5. **End-to-end migration replay** — apply all migrations to blank DB,
+   compare schema to live DB. Catches migration ordering bugs.
+

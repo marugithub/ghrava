@@ -78,6 +78,19 @@
       },
     },
 
+    // v.171 — Pending Items Report. Dimensions match the filter chips
+    // on /reports.html?tab=pending plus a free-text merchant search.
+    pending: {
+      label: 'Pending items',
+      plural: 'pending items',
+      dimensions: {
+        merchant: { type: 'text', verb: 'from', field: 'tx_description' },
+        module:   { type: 'select', verb: 'in', field: 'source_module',
+          values: ['vehicle','medication','subscription','inventory','hsa_payment','certification'] },
+        time:     { verb: 'imported', field: 'tx_date' },
+      },
+    },
+
     books: {
       label: 'Books',
       plural: 'books',

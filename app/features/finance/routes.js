@@ -301,6 +301,39 @@ router.get('/landing', (req, res) => {
         AND strftime('%Y', t.date) = strftime('%Y','now')
     `).get();
 
+    // v.171 — Tile-2 monthly budget target rollup. Sum of all active
+    // per-category budgets for the current year, and total MTD spend
+    // (debits only) in those budgeted categories. The Overview tile
+    // shows a progress line "spent $X of $Y target" so Al sees the
+    // headline at a glance without opening the Budgets tab.
+    //
+    // schema: budgets.{category, monthly_limit, year, is_active}
+    // schema: transactions.{date, amount, category, is_transfer}
+    const monthBudgetRow = db.prepare(`
+      SELECT COALESCE(SUM(monthly_limit), 0) AS total
+      FROM budgets
+      WHERE is_active = 1
+        AND year = CAST(strftime('%Y','now') AS INTEGER)
+    `).get();
+    const monthBudgetTotal = monthBudgetRow.total || 0;
+
+    const budgetedSpentRow = db.prepare(`
+      SELECT COALESCE(SUM(ABS(t.amount)), 0) AS spent
+      FROM transactions t
+      WHERE t.is_transfer = 0
+        AND t.amount < 0
+        AND strftime('%Y-%m', t.date) = strftime('%Y-%m','now')
+        AND t.category IN (
+          SELECT category FROM budgets
+          WHERE is_active = 1
+            AND year = CAST(strftime('%Y','now') AS INTEGER)
+        )
+    `).get();
+    const monthBudgetSpent = budgetedSpentRow.spent || 0;
+    const monthBudgetPct   = monthBudgetTotal > 0
+      ? Math.min(999, Math.round((monthBudgetSpent / monthBudgetTotal) * 100))
+      : 0;
+
     // ── Tile 3: Credit Cards ───────────────────────────────────
     // Top 3 by owed (statement_balance ?? abs(current_balance)),
     // others rolled up. util_pct = whole-percent integer (renderer
@@ -454,6 +487,10 @@ router.get('/landing', (req, res) => {
         mtd_out:            Math.abs(cfMtd.debits),
         prior_month_net:    cfPriorMonth.net,
         ytd_net:            cfYtd.net,
+        // v.171 — monthly budget target rollup (Tile-2)
+        budget_target:      monthBudgetTotal,
+        budget_spent:       monthBudgetSpent,
+        budget_pct:         monthBudgetPct,
       },
       credit_cards: {
         count:              ccCount,

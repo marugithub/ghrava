@@ -15,12 +15,12 @@
 
 module.exports = function(db) {
   try {
-    db.exec('ALTER TABLE todos ADD COLUMN google_task_id TEXT');
+    db.exec(`ALTER TABLE todos ADD COLUMN google_task_id TEXT`);
   } catch (e) {
     // Column already exists, or table doesn't exist on this install
   }
   try {
-    db.exec('ALTER TABLE todos ADD COLUMN google_tasklist_id TEXT');
+    db.exec(`ALTER TABLE todos ADD COLUMN google_tasklist_id TEXT`);
   } catch (e) {
     // Column already exists, or table doesn't exist on this install
   }

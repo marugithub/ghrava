@@ -16,7 +16,7 @@
 
 module.exports = function(db) {
   try {
-    db.exec('ALTER TABLE holdings ADD COLUMN as_of_date DATE');
+    db.exec(`ALTER TABLE holdings ADD COLUMN as_of_date DATE`);
   } catch (e) {
     // Column already exists, or table doesn't exist on this install
   }

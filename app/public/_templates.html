@@ -2522,6 +2522,78 @@
   </div>
 
   <!-- ════════════════════════════════════════════════════════════════
+       #29 PENDING ITEMS REPORT — locked v.171
+       Anchor for the transaction-linking subsystem UI. The page lives
+       at /reports.html?tab=pending. Two views (list + grid) over the
+       same dataset of bank charges awaiting a link to a target record.
+  ════════════════════════════════════════════════════════════════ -->
+  <div class="section" id="pending-items-report">
+    <div class="section-head">
+      <h2>#29 Pending Items Report</h2>
+      <span class="lock">Locked v.171</span>
+      <span class="desc">One report for every bank charge that hasn't been linked yet. Pick once, the rule remembers. Three buttons every row: assign / skip 30d / not a [module] expense.</span>
+    </div>
+
+    <h3 style="margin-top:14px;font-size:15px">Where it lives</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      <code>/reports.html?tab=pending</code> — first tab after Overview. Tab badge shows the open count. Two views (locked):
+    </p>
+    <ul style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><b>List view (default)</b> — dense one-line rows, picker expands inline below the row. Best for processing through many items.</li>
+      <li><b>Grid view</b> — same items as 2–4 column tiles, picker opens in a modal on tap. Best for a quick visual scan.</li>
+    </ul>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      View toggle via the standard <code>GH_VIEW.init('pendingViewToolbar', 'pending', cb, { views: ['grid','list'], defaultView: 'list' })</code>. State persists per device in <code>localStorage</code>.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">Row anatomy (list view)</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Left to right: module icon (28×28, neutral background) · plain-English prompt (e.g. "Which car was this fuel for?") · meta line (merchant · amount · date · suggested record if any) · chevron. Whole row is the click target; tap expands the picker drawer below it.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">Tile anatomy (grid view)</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Card with: head row (28×28 icon, uppercase module eyebrow, date right-aligned), prompt (14px medium), meta (12px secondary, merchant + amount), full-width primary CTA at the bottom. Tap opens the same picker as the list, but in a centered modal.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">Filter chips (locked)</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Above the list: <code>All</code> · <code>Vehicles</code> · <code>Medical</code> · <code>Inventory</code> · <code>Subscriptions</code> · <code>HSA receipts</code> · <code>Career</code>. Each shows its current count (<code>· N</code>). Active chip is filled-dark; inactive chips are pill-bordered.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">Picker drawer (locked)</h3>
+    <ol style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><b>Picker label</b> in plain English per module ("Assign to" / "Which prescription?" / "Link to inventory item" / etc.).</li>
+      <li><b>Option pills</b> — one per candidate record from the relevant module. Suggested record (when backend supplies one) appears first. Selected pill turns accent-colored.</li>
+      <li><b>"Remember rule" checkbox</b> — checked by default; the merchant-token is bolded inline so the user can read what they're agreeing to: <i>"Always send <b>SHELL</b> charges here"</i>.</li>
+      <li><b>Three actions, every row, every module:</b>
+        <ul>
+          <li><b>Primary</b> — plain-English action per module ("Pick a car" / "Enter cost" / "Track it" / "Link to item" / "Upload receipt" / "Link to cert"). Disabled until a pill is selected.</li>
+          <li><b>Skip for now</b> — snoozes 30 days. The row disappears and won't return until the snooze window expires.</li>
+          <li><b>Not a [module] expense</b> — permanent dismiss. Stops the row coming back ever. Confirm dialog before commit.</li>
+        </ul>
+      </li>
+    </ol>
+
+    <h3 style="margin-top:14px;font-size:15px">The asterisk pattern (locked)</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      Any card on any page that shows a derived number wraps it with a <code>.gh-pending-target</code> span containing a <code>.gh-pending-host</code>. On page-ready, <code>GhAsterisk.scan()</code> hits <code>GET /api/v1/pending/asterisk?card=…&amp;record_id=…</code> for each target. Colors: amber (some items pending, number still mostly reliable), red (at least one underlying record missing a required field). Click the asterisk → jumps to the Pending Items tab pre-filtered to that module.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">Empty state (locked)</h3>
+    <p style="font-size:13px;line-height:1.6;max-width:780px">
+      ✨ + "Nothing needs your attention right now." + "New bank charges will appear here after the next import." No marketing copy. No prompts to import.
+    </p>
+
+    <h3 style="margin-top:14px;font-size:15px">API surface</h3>
+    <ul style="font-size:13px;line-height:1.7;max-width:780px">
+      <li><code>GET /api/v1/pending</code> · <code>GET /api/v1/pending/counts</code> · <code>POST /api/v1/pending/link</code> · <code>POST /api/v1/pending/skip</code> · <code>POST /api/v1/pending/dismiss</code> · <code>GET /api/v1/pending/rules</code> · <code>DELETE /api/v1/pending/rules/:id</code> · <code>GET /api/v1/pending/asterisk</code></li>
+      <li>Per-tx ↔ record link goes in shared <code>record_links</code> table (<code>left_type='transaction'</code>). The SHARED-LNK lock is honored.</li>
+      <li>New tables: <code>tx_link_rules</code> (merchant→record auto-apply), <code>pending_dismissals</code> (skip/dismiss markers).</li>
+    </ul>
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════════════
        DRAFTS — in-progress design work
        Combined into _templates.html per Al's direction (v.162).
        Anything visual goes UP TOP as a numbered template (#1, #18 etc).

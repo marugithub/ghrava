@@ -2144,6 +2144,30 @@ function _finTileCashFlow(cf) {
   const pill = cf.mtd_net >= 0 ? 'ok' : 'warn';
   const sign = cf.mtd_net >= 0 ? '+' : '−';
   const inAmt = cf.mtd_in || 0; const outAmt = cf.mtd_out || 0;
+
+  // v.171 — budget target row. Only shown when at least one
+  // budget is set for the current year. Plain English: "Target:
+  // $4,200/mo · spent $2,840 (68%)" with a colored bar.
+  let budgetRow = '';
+  if (cf.budget_target && cf.budget_target > 0) {
+    const pct       = Math.max(0, Math.min(120, cf.budget_pct || 0));
+    const barColor  = pct >= 100 ? '#ef4444' : pct >= 80 ? '#f59e0b' : '#22c55e';
+    const barWidth  = Math.min(100, pct);
+    const targetTxt = pct >= 100
+      ? `${pct - 100}% over · $${(cf.budget_spent - cf.budget_target).toFixed(0)} above target`
+      : `${pct}% used · $${(cf.budget_target - cf.budget_spent).toFixed(0)} left this month`;
+    budgetRow = `
+      <div class="fin-tile-strip" style="margin-top:6px;cursor:pointer" onclick="switchFinTab('budgets', document.querySelector('[onclick*=\\'budgets\\']'))" title="Open Budgets tab">
+        <div class="fin-tile-strip-line" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+          <span>Target $${cf.budget_target.toFixed(0)}/mo</span>
+          <span style="color:${barColor};font-weight:600">${targetTxt}</span>
+        </div>
+        <div style="background:var(--bg3);border-radius:99px;height:5px;margin-top:5px;overflow:hidden">
+          <div style="height:100%;width:${barWidth}%;background:${barColor};border-radius:99px;transition:width .3s"></div>
+        </div>
+      </div>`;
+  }
+
   return `
     <div class="fin-tile">
       <div class="fin-tile-eyebrow">${_finDot(dot)}<span>Cash flow · MTD</span></div>
@@ -2159,6 +2183,7 @@ function _finTileCashFlow(cf) {
       <div class="fin-tile-strip">
         <div class="fin-tile-strip-line">prior ${cf.prior_month_net>=0?'+':'−'}${_finK(Math.abs(cf.prior_month_net))} · YTD ${cf.ytd_net>=0?'+':'−'}${_finK(Math.abs(cf.ytd_net))}</div>
       </div>
+      ${budgetRow}
     </div>`;
 }
 function _finTileCreditCards(cc) {
@@ -3813,10 +3838,14 @@ async function deleteGc() {
       const ubList = document.getElementById('unbudgetedList');
       if (unbudgeted && unbudgeted.length) {
         ubSec.style.display = 'block';
+        // v.171 — each row has a + Set target button so creating a
+        // monthly target for a category Al's already spending in is
+        // one click. The category name is pre-filled in the drawer.
         ubList.innerHTML = unbudgeted.map(u =>
-          `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
-            <span style="font-size:13px;color:var(--text2)">${esc(u.category)}</span>
+          `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="font-size:13px;color:var(--text2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(u.category)}</span>
             <span style="font-size:13px;font-family:var(--mono);color:var(--text)">${fmt$(u.spent)}</span>
+            <button class="btn btn-ghost" style="padding:3px 9px;font-size:11px" onclick="openBudgetDrawer(null,'${esc(u.category).replace(/'/g,'&#39;')}')">+ Set target</button>
           </div>`
         ).join('');
       } else {
@@ -3825,7 +3854,7 @@ async function deleteGc() {
     } catch(e) { el.innerHTML = errorState(e.message, ''); }
   };
 
-  window.openBudgetDrawer = async function(id) {
+  window.openBudgetDrawer = async function(id, prefillCategory) {
     editingBudgetId = id || null;
     let b = {};
     if (id) {
@@ -3835,6 +3864,9 @@ async function deleteGc() {
         const data = await api('GET', `/finance/budgets?year=${year}&month=${month}`);
         b = data.budgets.find(x => x.id === id) || {};
       } catch(e) {}
+    } else if (prefillCategory) {
+      // v.171 — prefilled from the Unbudgeted "+ Set target" button
+      b = { category: prefillCategory };
     }
     document.getElementById('budDrawerTitle').textContent = id ? 'Edit Budget' : 'Add Budget';
     await GH_SELECT.init('budCategory','finance_category',b.category||null,{placeholder:'— select category —',allowAdd:true});

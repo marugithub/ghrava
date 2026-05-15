@@ -109,11 +109,13 @@
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
+<script src="/js/pending-report.js"></script>
 
 <div id="app">
   <div class="reports-container">
     <div class="reports-tabs" id="reportsTabs">
       <button class="reports-tab active" data-tab="overview"    onclick="switchTab('overview',this)">Overview</button>
+      <button class="reports-tab"        data-tab="pending"     onclick="switchTab('pending',this)" title="Bank charges waiting to be linked to the right car, prescription, item, or subscription">Pending <span id="pendingTabCount" style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px"></span></button>
       <button class="reports-tab"        data-tab="charts"      onclick="switchTab('charts',this)" title="Visual reports — preview design">📊 Charts <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px">preview</span></button>
       <button class="reports-tab"        data-tab="family"      onclick="switchTab('family',this)">Family</button>
       <button class="reports-tab"        data-tab="money"       onclick="switchTab('money',this)">Money</button>
@@ -162,6 +164,12 @@ const TABS = {
   overview: {
     label: 'Overview',
     reports: ['summary'],
+  },
+  // v.171 — Pending Items Report. The transaction-linking subsystem.
+  // Renders via app/public/js/pending-report.js (window.PendingReport).
+  pending: {
+    label: 'Pending',
+    reports: [],
   },
   // v202604.167 — Charts preview (design lock #26 in _templates.html)
   charts: {
@@ -232,6 +240,17 @@ function renderTabContent(tabId) {
   if (tabId === 'charts') {
     left.innerHTML = renderChartsPreview();
     setTimeout(() => renderMockCharts(), 50);
+    return;
+  }
+
+  // v.171 — Pending Items Report tab. The transaction-linking subsystem.
+  if (tabId === 'pending') {
+    left.innerHTML = '<div id="pendingRoot"><div class="spinner"><div class="spin"></div>Loading pending items…</div></div>';
+    if (window.PendingReport && typeof window.PendingReport.mount === 'function') {
+      window.PendingReport.mount('pendingRoot');
+    } else {
+      left.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Pending Items module did not load (pending-report.js missing).</div>';
+    }
     return;
   }
 
@@ -1511,6 +1530,16 @@ async function copyEmText() {
       if (row) openReportInPane(openId, row);
     }, 100);
   }
+
+  // v.171 — populate the Pending tab count badge (background load).
+  fetch('/api/v1/pending/counts')
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      if (!j || !j.total) return;
+      const el = document.getElementById('pendingTabCount');
+      if (el) el.textContent = j.total;
+    })
+    .catch(() => {});
 })();
 </script>
 </body>

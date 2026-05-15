@@ -5,7 +5,54 @@
 >
 > If you're a new Claude chat reading this: scan all sections, then ask
 > Al "ready?" before building. Do not re-litigate locked decisions.
->
+
+---
+
+## 🧭 CORE PRINCIPLES (locked 2026-05-15, v.171)
+
+These four sentences govern every design and code decision. When a chat
+proposes something that conflicts with these, the chat is wrong, not the
+principles.
+
+1. **Ghrava exists to make personal data easy to understand, easy to link
+   together, and easy to display.** Every feature serves one of those three
+   verbs — *understand*, *link*, *display*. If a feature doesn't, it
+   doesn't ship.
+
+2. **Plain English everywhere user-facing.** Labels, buttons, tooltips,
+   error messages, report titles, prompts — all written for a smart
+   non-technical reader. "Categorize this fuel charge — which vehicle?"
+   not "Assign tx_id 4821 to vehicle FK". Jargon belongs in code comments,
+   never on screen.
+
+3. **Plain English in chat too.** Al is non-technical. When the chat
+   asks a question, presents an option, or describes a feature, it
+   translates internal terminology to plain English first. The chat
+   asks itself "would Al's neighbor understand this sentence?" before
+   sending. Technical terms appear only when Al uses them first or
+   when explicitly asked.
+
+4. **Package less frequently but safely.** Bigger, fully-tested drops
+   beat tiny frequent ones. No packaging without Al's explicit "package"
+   word. Gates green before any zip is built.
+
+5. **"Tile" and "card" mean the same thing.** Both refer to a bounded
+   visual object that holds multiple data points about one record
+   (status, name, key fields, cross-module strip, attachments, action
+   menu). Reference visual: medication card in `_templates.html` #1.
+   Use either word interchangeably in chat and prose.
+
+6. **Every dataset gets multiple views, never just one.** Any page that
+   lists records (inventory, medical meds, finance transactions, pending
+   items, etc.) wires `GH_VIEW.init()` with at minimum **grid + list**
+   toggles. Some pages add a third view appropriate to the data
+   (`inventory` uses `gallery`, `finance` uses `card`). The grid renders
+   tiles in 2–5 columns. The list renders dense one-line rows. State
+   persists per page in `localStorage`. New listing pages MUST follow
+   this pattern — no single-view pages.
+
+---
+
 > ## 📚 Required reading per chat (locked v.166), in order:
 > 1. **`STATE.md`** (this file) — current state
 > 2. **`HANDOFF.md`** — next chat's task list + deploy process
@@ -22,7 +69,45 @@
 
 ---
 
-## 🚨 NEW CHAT? READ THIS FIRST — v.170 STAGED
+## 🚧 v.171 IN PROGRESS — Finance module finish
+
+**Scope locked 2026-05-15.** Closes out the finance module per Al's PM
+direction: "finish finance module."
+
+### What's in this drop (in order)
+1. **A. Transaction-linking subsystem + Pending Items Report** — the spec
+   in `TRANSACTION_LINKING_SPEC.md` brought to life. One report at
+   `/reports.html?tab=pending` listing every bank charge the app
+   couldn't auto-categorize, with one-tap pickers to assign each charge
+   to the right car, prescription, inventory item, subscription, HSA
+   receipt, or cert renewal. Includes the red/amber asterisk pattern on
+   any card showing a derived number, the merchant-rule auto-apply,
+   and uses the shared `record_links` table (NOT a new `tx_record_links`
+   table — that part of the spec is overridden by SHARED-LNK lock).
+2. **D. Per-category monthly budget targets** — set "groceries: $600/mo"
+   and see how you're tracking. Builds on existing budget UI shipped in
+   v.169. Lands after A is signed off.
+
+### What's deliberately deferred to v.172 (less urgent)
+- **B. Wire the cash-flow forecast chart on Reports tab to live data.**
+  Backend endpoint `/api/v1/finance/forecast` exists since v.169. The
+  Reports chart at `_templates.html #26.1.5` is still a mockup. Important
+  but not blocking — Al deprioritized 2026-05-15.
+
+### What's dropped (no longer scoped)
+- **C. EOB folder-drop persistence.** The watcher-folder path for
+  importing EOB PDFs is dropped per Al 2026-05-15. The site upload at
+  Medical → Receipts is the supported path. `importEob()` in the watcher
+  remains as no-op or is removed. Any docs referencing the watch folder
+  for EOBs are stale.
+
+### Awaiting before code is written
+- Al's sign-off on the Pending Items Report visual mockup shown in chat.
+  Once signed off, the design lands in `_templates.html` as a new
+  numbered section `#29 Pending Items Report` and a row in `LOCKED.md`,
+  THEN the rendering code is built.
+
+---
 
 **Most recent packaged on prod:** v202604.168.2 (HSA plan info merge)
 **v202604.170 staged, NOT yet packaged** — awaiting Al's "package" command.

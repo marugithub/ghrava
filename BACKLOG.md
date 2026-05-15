@@ -17,6 +17,21 @@
 - Today page — queued
 - Reports live wiring — endpoint ready, chart still mockup
 - Security audit (path allowlists, esc fix) — small separate drop
+- Pending Items Report / asterisk subsystem — see entry below
+
+---
+
+## 📋 Pending Items Report + transaction-linking subsystem (spec exists, unbuilt)
+
+Cross-cutting subsystem. Surfaces all data gaps (uncategorized fuel tx → which vehicle, Rx pickup without cost, recurring tx that could be a subscription) in **one** report at `/reports.html`. Adds red/amber asterisk to derived numbers anywhere they roll up incomplete data. Defines vehicle/merchant assignment workflow with `tx_link_rules` for auto-application.
+
+**Spec:** `TRANSACTION_LINKING_SPEC.md` (2026-05-01, "approved patterns, awaiting implementation"). Read in full before building.
+
+**Schema note:** spec proposes a new `tx_record_links` table. This **violates** the SHARED-LNK lock (`record_links` is THE universal cross-module link table). When this gets built, the per-tx link rows must use `record_links` with `left_type='transaction'`. Only `tx_link_rules` (merchant→record auto-apply rules) is genuinely new and needs its own table.
+
+**Effort:** medium-large. Pending Items report itself is ~half a session; asterisk-everywhere is another half (touches every card with a derived number); auto-apply rules engine is a third. Probably 2-3 sub-drops.
+
+**Status:** in spec. Not lock-worthy yet (no rendered template). When it's about to be built, lock the report shape into `_templates.html` first, add a LOCKED.md row, then code.
 
 ---
 
@@ -267,20 +282,19 @@ docker exec ghrava node -e "require('/app/db/db').exec('DROP TABLE hsa_plan_info
 - **Why:** mobile = Al only, desktop = whole household. Today scope is shared across all devices.
 - **Effort:** medium (~150 lines). New `_templates/family-filter.html` design exists.
 
-### Cash-flow forecast (Finance) — ✅ SHIPPED v.169
+### Cash-flow forecast (Finance) — ✅ SHIPPED v.169 · 🔧 chart wiring queued v.172
 - **What:** project next 30/60/90 days starting today using `recurring_transactions` (bills + income). Per-day running balance, low-balance alert, event list. Click any future date → which bills/income land that day.
 - **Why:** Reports today are past-only. Forward visibility is the missing half.
 - **Shipped in:** `app/features/finance/forecast.js` (new sub-router), `/api/v1/finance/forecast?days=N`. Surfaced in Budgets tab.
-- **Still TODO:** wire into `_templates.html #26.1.5 Cash-flow forecast` chart on the Reports tab (endpoint is ready, chart still mockup).
+- **Still TODO (v.172 — less urgent per Al 2026-05-15):** wire into `_templates.html #26.1.5 Cash-flow forecast` chart on the Reports tab. Endpoint ready, chart still a mockup. Deprioritized below v.171 finance finish (linking subsystem + budget targets).
 
 ### Budget UI (Finance) — ✅ SHIPPED v.169
 - **Shipped in:** `app/features/finance/budgets.js` rewritten with unified `transactions` table; new `/summary` + `/history` endpoints. `finance.html` Budgets tab adds monthly trend strip.
 - **Still TODO:** Tile-2 budget target (deferred per Al).
 
-### EOB folder-drop persistence (Finance/Medical)
+### EOB folder-drop persistence (Finance/Medical) — ❌ DROPPED 2026-05-15
 - **What:** `importEob` in watcher counts files but doesn't save records. Manual upload via Medical works fine.
-- **Effort:** small.
-- **Status:** Al deferred — manual upload is the primary path; folder-drop is low priority.
+- **Status:** **Dropped per Al 2026-05-15.** Folder-watcher path for EOB ingestion is no longer scoped. Supported path is site upload at Medical → Receipts. `importEob()` in `app/features/watcher/routes.js` is no-op for now; remove or stub in v.171 cleanup. Any STATE/HANDOFF/help.html references to the EOB watch folder are stale and should be removed when next touched.
 
 ### Medical → Documents flow REPLACED BY #28
 - Universal Attachments (locked design v.167, build v.168) covers this use case.

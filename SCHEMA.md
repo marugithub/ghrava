@@ -1,16 +1,16 @@
 # SCHEMA.md — Ghrava database reference
 
 > **Auto-generated** by `.claude/skills/ghrava-schema-safety/scripts/gen-schema-doc.py`
-> Last generated: `2026-05-14T22:23:21.358572Z`
-> Source: 136 migration files in `app/db/migrations/`
+> Last generated: `2026-05-15T05:22:39.907206Z`
+> Source: 138 migration files in `app/db/migrations/`
 >
 > **DO NOT EDIT BY HAND.** This file is regenerated before every package.
 > If a column is missing here, it does not exist on prod.
 
 ## Summary
 
-- **119 tables**
-- **1640 columns total**
+- **121 tables**
+- **1667 columns total**
 
 ## Tables
 
@@ -839,6 +839,7 @@ _Created in: `032_import_finance.sql`_
 | `raw_payload` | TEXT |  |  |  | `126_capture_and_finance_schema.js` |
 | `source_filename` | TEXT |  |  |  | `126_capture_and_finance_schema.js` |
 | `source_format` | TEXT |  |  |  | `126_capture_and_finance_schema.js` |
+| `as_of_date` | DATE |  |  |  | `—` |
 
 ### `holdings_v2`
 
@@ -1037,6 +1038,7 @@ _Created in: `032_import_finance.sql`_
 | `imported_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
 | `raw_headers` | TEXT |  |  |  | `126_capture_and_finance_schema.js` |
 | `source_format` | TEXT |  |  |  | `126_capture_and_finance_schema.js` |
+| `row_count` | INTEGER |  | `0` |  | `140_v171_schema_alignment.js` |
 
 ### `import_batches_v2`
 
@@ -1922,6 +1924,19 @@ _Created in: `011_notifications.sql`_
 | `created_at` | TEXT | ✓ | `datetime('now')` |  | `—` |
 | `expires_at` | TEXT |  |  |  | `—` |
 
+### `pending_dismissals`
+
+_Created in: `139_pending_items_subsystem.js`_
+
+| Column | Type | NN | Default | PK | Added |
+|---|---|---|---|---|---|
+| `id` | INTEGER |  |  | ✓ | `139_pending_items_subsystem.js` |
+| `transaction_id` | INTEGER | ✓ |  |  | `—` |
+| `reason` | TEXT | ✓ |  |  | `—` |
+| `hint` | TEXT |  |  |  | `—` |
+| `snooze_until` | DATE |  |  |  | `—` |
+| `dismissed_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
+
 ### `perfume_layer_items`
 
 _Created in: `108_perfume.sql`_
@@ -2168,6 +2183,15 @@ _Created in: `109b_subscriptions_repair.js`_
 | `notes` | TEXT |  |  |  | `—` |
 | `created_at` | TEXT |  | `CURRENT_TIMESTAMP` |  | `—` |
 | `updated_at` | TEXT |  | `CURRENT_TIMESTAMP` |  | `—` |
+| `service_name` | TEXT |  |  |  | `140_v171_schema_alignment.js` |
+| `monthly_cost` | REAL |  |  |  | `140_v171_schema_alignment.js` |
+| `annual_cost` | REAL |  |  |  | `140_v171_schema_alignment.js` |
+| `card_id` | INTEGER |  |  |  | `140_v171_schema_alignment.js` |
+| `billing_day` | INTEGER |  |  |  | `140_v171_schema_alignment.js` |
+| `auto_renews` | INTEGER |  | `1` |  | `140_v171_schema_alignment.js` |
+| `cancel_url` | TEXT |  |  |  | `140_v171_schema_alignment.js` |
+| `vendor_id` | INTEGER |  |  |  | `140_v171_schema_alignment.js` |
+| `last_reviewed` | DATE |  |  |  | `140_v171_schema_alignment.js` |
 
 ### `taggables`
 
@@ -2286,6 +2310,23 @@ _Created in: `126_finance_unify.js`_
 | `flagged` | INTEGER | ✓ | `0` |  | `—` |
 | `batch_id` | INTEGER |  |  |  | `—` |
 | `txn_type` | TEXT |  |  |  | `—` |
+| `created_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
+
+### `tx_link_rules`
+
+_Created in: `139_pending_items_subsystem.js`_
+
+| Column | Type | NN | Default | PK | Added |
+|---|---|---|---|---|---|
+| `id` | INTEGER |  |  | ✓ | `139_pending_items_subsystem.js` |
+| `merchant_pattern` | TEXT | ✓ |  |  | `—` |
+| `category` | TEXT |  |  |  | `—` |
+| `right_type` | TEXT | ✓ |  |  | `—` |
+| `right_id` | INTEGER | ✓ |  |  | `—` |
+| `auto_apply` | INTEGER | ✓ | `1` |  | `—` |
+| `is_active` | INTEGER | ✓ | `1` |  | `—` |
+| `match_count` | INTEGER | ✓ | `0` |  | `—` |
+| `last_matched_at` | DATETIME |  |  |  | `—` |
 | `created_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
 
 ### `vehicle_service`

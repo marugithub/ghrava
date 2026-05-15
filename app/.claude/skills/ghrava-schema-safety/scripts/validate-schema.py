@@ -34,8 +34,6 @@ import time
 import argparse
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-# Skill scripts live at <repo>/app/.claude/skills/ghrava-schema-safety/scripts/
-# so REPO_ROOT is 5 levels up (scripts → ghrava-schema-safety → skills → .claude → app → repo).
 REPO_ROOT = os.path.abspath(os.path.join(SCRIPT_DIR, '..', '..', '..', '..', '..'))
 MIG_DIR = os.path.join(REPO_ROOT, 'app', 'db', 'migrations')
 APP_DIR = os.path.join(REPO_ROOT, 'app')
@@ -82,54 +80,12 @@ def unquote(s):
 
 def apply_js_migration(db, path):
     content = open(path).read()
-
-    # Special handling for mig 130 (rescue migration) — it does dynamic
-    # renames via a runtime loop over an array literal. The validator's
-    # regex skips ${...} template substitutions, so the renames never
-    # execute in replay. Apply them here manually based on knowledge of
-    # what mig 130 does on prod.
-    if '130_rescue_126' in path:
-        legacy_renames = [
-            'finance_accounts', 'financial_accounts',
-            'finance_transactions', 'imported_transactions',
-            'import_batches', 'holdings', 'fin_import_batches',
-        ]
-        for src in legacy_renames:
-            try:
-                db.execute(f'ALTER TABLE {src} RENAME TO _legacy_{src}')
-            except Exception:
-                pass
-
     for m in re.finditer(r"db\.exec\(\s*`([^`]+)`\s*\)", content, re.DOTALL):
         sql = m.group(1).strip()
         if '${' in sql:
             continue
         try:
             db.executescript(sql)
-        except Exception:
-            pass
-
-    # Also catch standalone single-line db.exec("ALTER TABLE ...") and db.prepare("ALTER...").run()
-    for m in re.finditer(r"""db\.(?:exec|prepare)\(\s*(['"])((?:ALTER\s+TABLE|CREATE\s+TABLE)[^'"]+)\1\s*\)""", content, re.IGNORECASE):
-        sql = m.group(2).strip()
-        try:
-            db.executescript(sql)
-        except Exception:
-            pass
-
-    # CREATE TABLE inside template literal followed by RENAME — replay any
-    # ALTER TABLE x RENAME TO y patterns found loose in the file.
-    for m in re.finditer(r"ALTER\s+TABLE\s+(\w+)\s+RENAME\s+TO\s+(\w+)", content, re.IGNORECASE):
-        old, new = m.group(1), m.group(2)
-        try:
-            db.execute(f'ALTER TABLE {old} RENAME TO {new}')
-        except Exception:
-            pass
-
-    # ALTER TABLE x ADD COLUMN c TYPE — standalone occurrences (defensive ALTERs)
-    for m in re.finditer(r"ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(\w+)\s+([A-Za-z]+)", content, re.IGNORECASE):
-        try:
-            db.execute(f'ALTER TABLE {m.group(1)} ADD COLUMN {m.group(2)} {m.group(3)}')
         except Exception:
             pass
 

@@ -1,0 +1,3 @@
+﻿# Ghrava cleanup manifest -- 2026-05-14T23-14
+# Files moved from Z:\ghrava to delete_later/2026-05-14T23-14/
+

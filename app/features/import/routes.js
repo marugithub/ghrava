@@ -35,6 +35,10 @@ const { requireAuth } = require('../auth/middleware');
 const { parseFile }   = require('./parsers');
 const { fingerprint, normalizeDescription } = require('../../shared/tx-fingerprint');
 const { autoLinkTransaction } = require('../../shared/auto-link-subscriptions');
+// v.171 — also apply user-defined merchant→record rules from
+// tx_link_rules so future Shell charges land on the right car
+// without a prompt. Best-effort: errors don't fail the import.
+const { applyRulesToTransaction } = require('../pending/routes');
 
 let XLSX;
 try { XLSX = require('xlsx'); } catch { XLSX = null; }
@@ -272,6 +276,11 @@ router.post('/confirm', requireAuth, upload.single('file'), (req, res) => {
           is_transfer: isTransfer,
         });
       } catch (e) { /* logged inside helper */ }
+
+      // v.171 apply tx_link_rules (Shell→Honda, etc.) — best-effort.
+      try {
+        applyRulesToTransaction(result.lastInsertRowid, t.description, autoCategory);
+      } catch (e) { /* best-effort */ }
     }
 
     // Upsert holdings
