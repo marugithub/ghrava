@@ -109,12 +109,22 @@ direction: "finish finance module."
 
 ---
 
-**Most recent packaged on prod:** v202604.168.2 (HSA plan info merge)
-**v202604.170 staged, NOT yet packaged** — awaiting Al's "package" command.
+**Most recent packaged version:** v202604.171 (Finance module finish —
+in progress, see "🚧 v.171 IN PROGRESS" above). `app/version.txt` =
+`202604.171`. Git HEAD `1747515`, 2026-05-15.
+
+> _Status reconciled with git on 2026-05-16._ The lines below were
+> stale (said prod=v.168.2, v.170 unpackaged). Actual git history
+> since v.168.2: **v.169** (Finance Finalization) and **v.170** (Gates
+> + Schema Cleanup) packaged together → **v.170.1** hotfix (defensive
+> mig 138 `todos` Google columns, finance/import route schema fixes,
+> validator tweak) → **v.171** (current). All version-tagged commits
+> are in `main`.
 
 v.169 (Finance Finalization) and v.170 (Gates + Schema Cleanup) were
 bundled because v.169 wasn't deployed yet. v.170 contains everything
-from v.169 plus the new infrastructure below.
+from v.169 plus the new infrastructure below. Both shipped; v.170.1
+followed as a hotfix; v.171 is the current drop.
 
 ### What's NEW in v.170 — Gates-over-docs + 28 schema bugs
 
@@ -630,7 +640,11 @@ from Al's share zip if needed.
 
 ---
 
-## Current version
+## Current version (HISTORICAL — superseded)
+
+> ⚠️ **SUPERSEDED 2026-05-16.** This section reflects v.165 and is kept
+> as archive only. The authoritative current version is at the top of
+> this file: **v202604.171**. Do not treat the line below as current.
 
 **v202604.165** — finance Overview wired to v.150 renderers + medical
 tile grid resized 3/2/1 with phone scroll-snap. Sandboxed; **not yet

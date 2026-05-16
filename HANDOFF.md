@@ -125,7 +125,7 @@ write code.
 
 **STATE.md** is the running version log. It's long. Don't read it
 top to bottom; `grep` for the version you care about. The most
-recent versions (v.170, v.169) are at the top.
+recent version (v.171) is at the top.
 
 **BACKLOG.md** lists every deferred idea with effort estimates and
 why it was deferred. The "Next up" section there is your menu.
@@ -183,8 +183,11 @@ FIN-UNIFY lock — the unified `accounts` table is the real table,
 `finance_accounts` is a compatibility view). The migration's
 transaction rolls back cleanly; nothing's broken; subsequent
 migrations apply fine. But it's noise that will eventually mask a
-real failure. A small migration 139 that records 126 as
-applied-and-skipped would silence it. Not urgent.
+real failure. A small migration that records 126 as
+applied-and-skipped would silence it. Not urgent. (Note: this
+paragraph predates v.171 — migrations 139 and 140 are now taken
+by the pending-items subsystem and the v.171 schema alignment, so
+the next free number is **141**, not 139.)
 
 **Tailscale HTTPS cert is blocking Google OAuth.** The Google
 Tasks sync code path references `todos.google_task_id` and
