@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 // ═════════════════════════════════════════════════════════════════
-// test/run-parser-tests.js  (v202604.155)
+// tests/parser/run-parser-tests.js  (v202604.155, moved v202604.172)
 //
 // Sign-convention regression tests for bank statement parsers.
 // Each fixture pair is `<bank>.csv` + `<bank>.json` in
-// `test/parser-fixtures/`. The `.json` file declares:
+// `tests/parser/parser-fixtures/`. The `.json` file declares:
 //   - format          (expected detected format string)
 //   - min_transactions (lower-bound row count after parse)
 //   - first_transaction (optional spot-check on first row)
@@ -19,7 +19,7 @@
 //   parser change that breaks sign convention fails loudly.
 //
 // To run:
-//   node test/run-parser-tests.js
+//   node tests/parser/run-parser-tests.js
 //
 // The script exits with code 0 on full pass, non-zero on any
 // failure. Add to predeploy gate when ready.
@@ -30,7 +30,7 @@ const fs   = require('fs');
 const path = require('path');
 
 const fixturesDir = path.join(__dirname, 'parser-fixtures');
-const parsersPath = path.resolve(__dirname, '..', 'app', 'features', 'import', 'parsers.js');
+const parsersPath = path.resolve(__dirname, '..', '..', 'app', 'features', 'import', 'parsers.js');
 let parseFile;
 try {
   ({ parseFile } = require(parsersPath));

@@ -817,7 +817,7 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 | `app/db/migrations/129_record_links.js` | NEW (v.157). Polymorphic junction table for cross-module record links. Idempotent. Additive only. | Low — additive only. Test: open Finance → All tab → "+ link" button on any transaction → confirm picker opens. |
 | `app/shared/networth-scheduler.js` | NEW (v.157). Daily auto-snapshot of net worth. Wired into server.js boot path. | Medium — runs 30s after first restart, then hourly. Test: 30s after deploy, check `net_worth_snapshots` for a today-dated row with `notes='[auto-snapshot]'`. Tile 1 MoM pill should populate after the next day's snapshot. |
 | `app/shared/auto-link-subscriptions.js` | NEW (v.157). Auto-creates `pays_for` links between imported transactions and matching active subscriptions. | Medium — only runs at import time, only creates links (no other side-effects). Test: import a statement that includes a subscription charge → check All tab → that row should have the subscription badge inline. |
-| `test/parser-fixtures/schwab_*, vanguard, tsp, wells_fargo` | NEW (v.157). 5 more banks added. **12/12 pass.** | None at runtime. |
+| `tests/parser/parser-fixtures/schwab_*, vanguard, tsp, wells_fargo` | NEW (v.157). 5 more banks added. **12/12 pass.** Path moved from `test/` → `tests/parser/` in v.172. | None at runtime. |
 | `app/features/finance/routes.js` | v.157: link CRUD endpoints, `GET /all` aggregator, auto-link hooked into import-file path. v.154 + v.153 + v.152 + v.151 carryovers. | **HIGH** — every finance route added to or rewritten. Test the All tab end-to-end. |
 | `app/server.js` | v.157: registers `networth-scheduler.startScheduler()`. v.156 health-check repointing. | Low — additive scheduler registration. |
 | `app/shared/recurring-transactions.js` | v.156 bug fix carryover. | **HIGH** — will start producing rows on first restart. |
@@ -831,7 +831,7 @@ drop but NOT confirmed working by Al. Treat as suspect until Al says
 | `app/features/backup/routes.js` | v.156 carryover. | Medium. |
 | `app/features/settings/routes.js` | v.156 carryover. | Medium. |
 | `app/features/system/routes.js` | v.156 carryover. | Low. |
-| `test/run-parser-tests.js` | NEW (v.155). | None at runtime. |
+| `tests/parser/run-parser-tests.js` | NEW (v.155). Moved from `test/` → `tests/parser/` in v.172. | None at runtime. |
 | `app/shared/autoTodos.js` | v.155 carryover. | Medium. |
 | `app/public/settings.html` | v.155 carryover. | Medium. |
 | `app/db/migrations/128_cc_columns.js` | NEW (v.154). | Low. |
@@ -1050,7 +1050,7 @@ until a future drop removes them post-stability.
 
 ### Parser sign-convention tests (v.155)
 
-- **`test/run-parser-tests.js`** — fixture-driven test runner.
+- **`tests/parser/run-parser-tests.js`** — fixture-driven test runner.
   Loads each `<bank>.csv` + `<bank>.json` pair, parses through the
   live `parsers.js`, and asserts:
   - format auto-detection matches expected
@@ -1447,7 +1447,7 @@ No automated test today proves the sign convention is right per
 bank. A future parser change could flip a sign silently and corrupt
 every Chase or Schwab transaction. Add fixture CSV + expected
 output JSON per parser (one file per bank), assert on import. Lives
-in `app/test/parser-fixtures/`. Run via `npm test` or `node test/run-parser-tests.js`.
+in `tests/parser/parser-fixtures/`. Run via `node tests/parser/run-parser-tests.js`.
 
 Banks to start with: Chase, BofA, Navy Fed, Schwab Checking, Schwab
 Brokerage, Vanguard, TSP, Capital One, Discover, Citi, USAA. (One
@@ -2578,8 +2578,8 @@ When: only when there are orphans to clean. Not urgent.
 
 ### Finance parser fixture tests (P4 — the gate that doesn't exist)
 
-Add a `node test/run-parser-tests.js` invocation as a 6th predeploy
-gate. Reads fixtures from `app/test/parser-fixtures/`, runs each
+Add a `node tests/parser/run-parser-tests.js` invocation as a 6th predeploy
+gate. Reads fixtures from `tests/parser/parser-fixtures/`, runs each
 through `parsers.js`, asserts expected JSON output. Catches sign-flip
 regressions silently.
 
