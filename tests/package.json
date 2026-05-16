@@ -6,6 +6,7 @@
   "scripts": {
     "test": "playwright test --config=playwright.config.js",
     "test:ui": "playwright test --config=playwright.config.js --headed",
+    "smoke": "playwright test smoke.spec.js",
     "install-browsers": "playwright install chromium"
   },
   "devDependencies": {
