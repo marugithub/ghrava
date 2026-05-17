@@ -8,6 +8,7 @@
     "test:ui": "playwright test --config=playwright.config.js --headed",
     "smoke": "playwright test smoke.spec.js",
     "pending": "playwright test pending-tab.spec.js",
+    "forecast": "playwright test forecast-chart.spec.js",
     "install-browsers": "playwright install chromium"
   },
   "devDependencies": {
