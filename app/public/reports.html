@@ -304,7 +304,7 @@ function renderChartsPreview() {
         { id: 'c112', num: '#26.1.2', title: 'Busiest spending days',           sub: 'Calendar heatmap. Click a day for all transactions.',                  chart: 'stub',       status: 'mock', stubLabel: 'Calendar heatmap mockup pending' },
         { id: 'c113', num: '#26.1.3', title: 'Where you shop most',             sub: 'Treemap of vendors by annual spend. Click a tile for vendor history.', chart: 'stub',       status: 'mock', stubLabel: 'Treemap mockup pending' },
         { id: 'c114', num: '#26.1.4', title: 'What you spend on, month by month', sub: 'Small-multiples: one mini line chart per category, side by side.',   chart: 'stub',       status: 'mock', stubLabel: 'Small-multiples mockup pending' },
-        { id: 'c115', num: '#26.1.5', title: 'What is coming in the next 90 days', sub: 'Forecast line based on recurring bills and income.',                 chart: 'stub',       status: 'mock', stubLabel: 'Forecast line mockup pending — needs /finance/forecast endpoint' },
+        { id: 'c115', num: '#26.1.5', title: 'What is coming in the next 30 days', sub: 'Projected balance from recurring bills and income.',                  chart: 'forecast',   status: 'live' },
       ],
     },
     {
@@ -360,7 +360,7 @@ function renderChartsPreview() {
                   : ''}
               </div>
               <div class="ch-card-footer">
-                <span class="ch-card-status mock">${c.num} · mockup</span>
+                <span class="ch-card-status ${c.status === 'live' ? 'live' : 'mock'}">${c.num} · ${c.status === 'live' ? 'live' : 'mockup'}</span>
                 <span class="ch-card-cta">Show details →</span>
               </div>
             </div>`).join('')}
@@ -379,6 +379,9 @@ function renderMockCharts() {
   // Mockup #2: BP line over time with healthy zone shaded
   const bp = document.getElementById('canvas-c221');
   if (bp) bp.innerHTML = mockBpLineSvg();
+
+  // v.172 — #26.1.5 is LIVE: real cash-flow forecast (async fetch).
+  renderForecastChart();
 }
 
 function mockSankeySvg() {
@@ -466,6 +469,94 @@ function mockBpLineSvg() {
         <text x="12" y="7" font-size="9" font-family="monospace" fill="#666">Systolic</text>
         <circle cx="64" cy="4" r="3" fill="#5c72fa"/>
         <text x="72" y="7" font-size="9" font-family="monospace" fill="#666">Diastolic</text>
+      </g>
+    </svg>`;
+}
+
+// ── #26.1.5 Cash-flow forecast — LIVE (v.172) ─────────────────
+// Wires the locked #26.1.5 chart to the real /finance/forecast
+// endpoint (shipped v.169). Draws projected running balance for the
+// next 30 days as an SVG line, same visual language as the mock
+// charts above. No redesign — just live data in the locked shape.
+async function renderForecastChart() {
+  const el = document.getElementById('canvas-c115');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px">Loading forecast…</div>';
+  try {
+    const d = await window.api('GET', '/finance/forecast?days=30');
+    const daily = (d && Array.isArray(d.daily)) ? d.daily : [];
+    if (!daily.length) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">No bills or income are expected in the next 30 days.</div>';
+      return;
+    }
+    el.innerHTML = forecastLineSvg(daily, d.summary || {});
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">Could not load the forecast right now.</div>';
+  }
+}
+
+// Builds the running-balance line. Mirrors mockBpLineSvg's layout
+// (same 400×180 viewBox, padding, axis/label style) so it sits
+// identically in the locked card. 0 is always in range so a dip
+// below zero reads correctly; the projected low point is marked.
+function forecastLineSvg(daily, summary) {
+  const vals = daily.map(p => Number(p.running_balance) || 0);
+  const pad = { l: 48, r: 12, t: 14, b: 22 };
+  const W = 400, H = 180;
+  const innerW = W - pad.l - pad.r, innerH = H - pad.t - pad.b;
+  let minY = Math.min(0, ...vals);
+  let maxY = Math.max(0, ...vals);
+  if (minY === maxY) maxY = minY + 1;            // flat line guard
+  const range = maxY - minY;
+  minY -= range * 0.08; maxY += range * 0.08;     // breathing room
+  const n = vals.length;
+  const x = i => pad.l + (n === 1 ? innerW / 2 : (i / (n - 1)) * innerW);
+  const y = v => pad.t + ((maxY - v) / (maxY - minY)) * innerH;
+  const linePath = vals.map((v, i) => `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(' ');
+  const baseY = y(minY).toFixed(1);
+  const areaPath = `${linePath} L ${x(n - 1).toFixed(1)} ${baseY} L ${x(0).toFixed(1)} ${baseY} Z`;
+
+  const zeroVisible = minY < 0 && maxY > 0;
+  const zeroY = y(0).toFixed(1);
+  const endBal = vals[vals.length - 1];
+  const lineColor = endBal < 0 ? '#b91c1c' : '#15803d';
+
+  const lowVal  = (summary && typeof summary.projected_lowest === 'number') ? summary.projected_lowest : Math.min(...vals);
+  const lowDate = summary && summary.projected_lowest_date;
+  let lowIdx = lowDate ? daily.findIndex(p => p.date === lowDate) : -1;
+  if (lowIdx < 0) lowIdx = vals.indexOf(Math.min(...vals));
+  const lowColor = lowVal < 0 ? '#b91c1c' : '#b45309';
+
+  const money = v => (typeof window.fmtMoney === 'function' ? fmtMoney(v) : ('$' + Math.round(v)));
+  const md = s => { const p = String(s).split('-'); return p.length === 3 ? `${+p[1]}/${+p[2]}` : s; };
+  const midIdx = Math.floor((n - 1) / 2);
+
+  return `
+    <svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
+      <!-- projected-balance area + line -->
+      <path d="${areaPath}" fill="${lineColor}" opacity="0.08"/>
+      ${zeroVisible ? `<line x1="${pad.l}" y1="${zeroY}" x2="${W - pad.r}" y2="${zeroY}" stroke="#b91c1c" stroke-width="1" stroke-dasharray="3 3" opacity="0.5"/>
+      <text x="${W - pad.r - 2}" y="${(+zeroY) - 3}" font-size="9" font-family="monospace" fill="#b91c1c" text-anchor="end">$0</text>` : ''}
+      <path d="${linePath}" fill="none" stroke="${lineColor}" stroke-width="2"/>
+
+      <!-- y-axis: start, low, end balances -->
+      <text x="${pad.l - 4}" y="${y(maxY) + 9}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">${money(maxY)}</text>
+      <text x="${pad.l - 4}" y="${y(minY) - 2}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">${money(minY)}</text>
+
+      <!-- x-axis -->
+      <line x1="${pad.l}" y1="${H - pad.b}" x2="${W - pad.r}" y2="${H - pad.b}" stroke="#ddd" stroke-width="1"/>
+      <text x="${pad.l}" y="${H - 6}" font-size="9" font-family="monospace" fill="#999">${md(daily[0].date)}</text>
+      <text x="${W / 2}" y="${H - 6}" font-size="9" font-family="monospace" fill="#999" text-anchor="middle">${md(daily[midIdx].date)}</text>
+      <text x="${W - pad.r}" y="${H - 6}" font-size="9" font-family="monospace" fill="#999" text-anchor="end">${md(daily[n - 1].date)}</text>
+
+      <!-- projected low point -->
+      <circle cx="${x(lowIdx).toFixed(1)}" cy="${y(vals[lowIdx]).toFixed(1)}" r="3" fill="${lowColor}"/>
+      <text x="${x(lowIdx).toFixed(1)}" y="${y(vals[lowIdx]) - 7}" font-size="9" font-family="monospace" fill="${lowColor}" text-anchor="middle">low ${money(lowVal)}</text>
+
+      <!-- legend -->
+      <g transform="translate(${pad.l}, 4)">
+        <circle cx="4" cy="4" r="3" fill="${lineColor}"/>
+        <text x="12" y="7" font-size="9" font-family="monospace" fill="#666">Projected balance · ends ${money(endBal)}</text>
       </g>
     </svg>`;
 }

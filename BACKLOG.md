@@ -282,11 +282,12 @@ docker exec ghrava node -e "require('/app/db/db').exec('DROP TABLE hsa_plan_info
 - **Why:** mobile = Al only, desktop = whole household. Today scope is shared across all devices.
 - **Effort:** medium (~150 lines). New `_templates/family-filter.html` design exists.
 
-### Cash-flow forecast (Finance) — ✅ SHIPPED v.169 · 🔧 chart wiring queued v.172
+### Cash-flow forecast (Finance) — ✅ SHIPPED v.169 (endpoint) · ✅ SHIPPED v.172 (chart)
 - **What:** project next 30/60/90 days starting today using `recurring_transactions` (bills + income). Per-day running balance, low-balance alert, event list. Click any future date → which bills/income land that day.
 - **Why:** Reports today are past-only. Forward visibility is the missing half.
 - **Shipped in:** `app/features/finance/forecast.js` (new sub-router), `/api/v1/finance/forecast?days=N`. Surfaced in Budgets tab.
-- **Still TODO (v.172 — less urgent per Al 2026-05-15):** wire into `_templates.html #26.1.5 Cash-flow forecast` chart on the Reports tab. Endpoint ready, chart still a mockup. Deprioritized below v.171 finance finish (linking subsystem + budget targets).
+- **✅ v.172:** Reports `#26.1.5` card wired live to `/api/v1/finance/forecast?days=30` (was a mockup stub). `reports.html` `c115` now fetches + renders the projected running balance. No design change — locked #26 shape unchanged. Closes the v.171-deferred item.
+- **Possible follow-up (not scoped):** future-date drill-down (click a day → bills/income that land then) is in the endpoint payload (`daily[].items`) but not surfaced on the Reports card. Endpoint already supports it if Al wants it later.
 
 ### Budget UI (Finance) — ✅ SHIPPED v.169
 - **Shipped in:** `app/features/finance/budgets.js` rewritten with unified `transactions` table; new `/summary` + `/history` endpoints. `finance.html` Budgets tab adds monthly trend strip.

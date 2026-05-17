@@ -69,6 +69,48 @@ principles.
 
 ---
 
+## ✅ v.172 SHIPPED — Test consolidation + deploy gates + forecast wiring (2026-05-17)
+
+System-wide hardening drop, no schema changes, additive only.
+
+### What shipped (5 tasks, one commit each)
+1. **Test folders consolidated.** Root `test/` merged into `tests/parser/`
+   (`run-parser-tests.js` + `parser-fixtures/`). Runner's `parsers.js`
+   require path fixed for the new depth. Root `test/` removed. 5 stale
+   `STATE.md` path references corrected.
+2. **Smoke spec added** — `tests/smoke.spec.js`: one Playwright test per
+   critical endpoint (`/health`, `/api/v1/pending/counts`,
+   `/api/v1/finance/landing`, `/api/v1/finance/forecast?days=30`,
+   `/api/v1/medical/summary`, `/api/v1/today`, `/api/v1/data/table` ×2)
+   asserting 200 + non-empty JSON. `playwright.config.js` `testMatch`
+   broadened to an array so new specs are discovered. `npm run smoke`.
+3. **Pending-tab spec added** — `tests/pending-tab.spec.js`: asserts the
+   v.171 Pending Items Report mounts (heading, filter chips, GH_VIEW
+   grid+list toolbar) + conditional row→picker-drawer. `npm run pending`.
+4. **Deploy script committed + gated** — Al's working `ghrava_deploy.ps1`
+   brought into the repo (was never committed). Added Step 7 (hard-gate
+   ~20s smoke against the live NAS — a dead endpoint stops the deploy)
+   and Step 8 (soft-gate full Playwright — prints summary, exits 2, no
+   rollback). Restart transport unchanged (SSH-to-NAS only).
+5. **#26.1.5 forecast wired live.** Reports preview card `c115` flipped
+   from mockup stub to live data from `/api/v1/finance/forecast?days=30`
+   (endpoint shipped v.169, FIN-FORECAST lock). No design change — the
+   locked #26 shape is unchanged; `_templates.html` untouched.
+
+### Verification note
+`bash gates.sh` is Linux/container-only and was **not** run on the
+Windows dev host (normal — it runs at packaging). Local checks used:
+`node -c` / VM-parse on all changed JS, PowerShell `ParseFile` on the
+deploy script, JSON parse on `package.json`, and edge-case simulation
+of the forecast SVG builder. Gate verification is the packaging path.
+
+### Not in v.172
+- No schema/migration changes. No new CLI (no `help.html` change).
+  No new lens fields. No `LOCKED.md` change (no new locked design;
+  #26 shape unchanged).
+
+---
+
 ## 🚧 v.171 IN PROGRESS — Finance module finish
 
 **Scope locked 2026-05-15.** Closes out the finance module per Al's PM
