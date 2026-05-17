@@ -5,7 +5,7 @@ bottom. After that, treat it as reference.
 
 ---
 
-## Where things stand (updated 2026-05-15)
+## Where things stand (updated 2026-05-17)
 
 Ghrava is a self-hosted household management app Al runs on a QNAP NAS
 at `192.168.4.62:3001`. It's Node.js/Express + SQLite + vanilla JS in
@@ -13,8 +13,11 @@ a Docker container. Al is both the only user and the only developer.
 Claude (you, in past chats) writes all the code. Al directs every
 feature.
 
-**Current sandbox version: v202604.171** — packaged this session.
-**Most recent prod: v202604.170.1**.
+**Live on the NAS: v202604.172** — verified 2026-05-17 (container `Up`
+~11h, `app/version.txt` = `202604.172`, logs clean). The NAS jumped
+from prod `170.1` straight to `172`, so **v.171 and v.172 are both
+live**. The previous "sandbox 171 / prod 170.1" note was stale doc
+drift and has been corrected here and in STATE.md.
 
 ### v.171 in two sentences
 - Closes out the finance module per Al's PM direction. Built the
@@ -60,7 +63,7 @@ feature.
 ```
 
 ### Next chat's task list (in order)
-1. Verify v.171 deployed cleanly: `docker logs ghrava --tail 50` clean, `/reports.html?tab=pending` renders with no JS errors, Pending tab badge count matches `/api/v1/pending/counts`.
+1. ~~Verify v.171 deployed cleanly.~~ **DONE 2026-05-17** — NAS is live on v.172 (which includes all of v.171), container stable ~11h, logs clean. No action needed; superseded by the v.172 backlog below.
 2. **v.172 priority backlog (Al's direction "after finance we go across whole system; fast, functional, clean, user friendly"):**
    - Wire `_templates.html #26.1.5 Cash-flow forecast` chart to live `/api/v1/finance/forecast` data (originally B in the v.171 scope, deferred).
    - Audit which existing cards across modules would benefit from the asterisk pattern; wrap with `.gh-pending-target` and call `GhAsterisk.scan()` on page-ready. Candidates: vehicle fuel YTD on `vehicles.html` cards, medication HSA YTD on med cards, HSA tile on `medical.html`.

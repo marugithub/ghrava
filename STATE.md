@@ -71,6 +71,15 @@ principles.
 
 ## ✅ v.172 SHIPPED — Test consolidation + deploy gates + forecast wiring (2026-05-17)
 
+> **LIVE & VERIFIED 2026-05-17.** Confirmed running on the NAS
+> (`192.168.4.62:3001`): container `Up`, in-container
+> `app/version.txt` = `202604.172`, ~11h uptime, logs clean — no
+> crashes, no `SqliteError`, no restart loop. The `401` log lines are
+> normal AUTH-OPEN-GET behavior (unauthenticated POST attempts), not
+> faults. The NAS went straight from prod `170.1` to `172`, so **v.171
+> and v.172 are both live**. (The earlier "171 packaged, prod 170.1"
+> notes were stale doc drift; corrected here and in HANDOFF.md.)
+
 System-wide hardening drop, no schema changes, additive only.
 
 ### What shipped (5 tasks, one commit each)
@@ -111,7 +120,7 @@ of the forecast SVG builder. Gate verification is the packaging path.
 
 ---
 
-## 🚧 v.171 IN PROGRESS — Finance module finish
+## ✅ v.171 SHIPPED — Finance module finish (live on NAS, verified 2026-05-17)
 
 **Scope locked 2026-05-15.** Closes out the finance module per Al's PM
 direction: "finish finance module."

@@ -31,3 +31,9 @@ Thumbs.db
 
 # macOS
 .DS_Store
+
+# Deploy package — generated artifact, not source
+Ghrava_DEPLOY.zip
+
+# Claude Code local/personal settings — per-machine, not shared
+.claude/
