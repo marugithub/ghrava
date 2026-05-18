@@ -1,6 +1,24 @@
-## 🔮 v.174 CANDIDATES
+## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-Spun out of the v.173 drop — each is an independent decision/build:
+### ⭐ TOP PRIORITY — `S.daysFromToday()` UTC off-by-one (real, app-wide)
+**Found v.175. Deferred deliberately, NOT dismissed — review/fix next.**
+`app/public/js/gh-card-shared.js:17` does `new Date('YYYY-MM-DD')`
+(parsed as **UTC** midnight) then compares to **local** midnight. In a
+negative-UTC zone every date-only field reads **one calendar day
+early** — "due tomorrow" shows as "today/now", urgency tiers fire a day
+too soon, schedule lines are off by one. Affects **every GH_CARD
+config's `urgency()`/`scheduleLine()`** (subscriptions, vehicles,
+maintenance, calendar_events, insurance, medical, …) — i.e. user-facing
+on most tiles. v.175 only worked around it test-side (`localCardDate()`
+in `tests/ghrava-e2e.spec.js`); the app bug is untouched.
+- **Fix shape:** parse `YYYY-MM-DD` as **local** midnight (split on
+  `-` and `new Date(y, m-1, d)`), keep datetime strings as-is.
+- **Why it's its own drop:** changes the day-math under every card →
+  high regression surface. Needs the full Card-Renderer E2E block
+  (`ghrava-e2e.spec.js` GH_CARD v5 suite) re-run + a manual eyeball of
+  a few urgency tiers. ~½ session, gated. Detailed entry: Known bugs §3a.
+
+### Carried-forward open items (from the v.173 spin-out — still unresolved)
 - **(a) Build the Vehicles module (DRAFT #19)** then wire its fuel
   asterisk. The `vehicles` GH_CARD config already declares the fuel
   asterisk; v.173 added per-record `vehicle_fuel` math. Both are inert
