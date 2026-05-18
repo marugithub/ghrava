@@ -353,12 +353,17 @@ test.describe('Key UI Elements', () => {
     expect(hasContent || hasEmpty, 'Today page: neither content nor empty state rendered').toBe(true);
   });
 
-  test('Todos page renders todo items or empty state', async ({ page }) => {
+  test('Todos page renders todo cards or empty state', async ({ page }) => {
+    // v202604.175 — todos render through the GH_CARD pipeline (.gh-card in
+    // .gh-card-grid groups), NOT the old .todo-item; the empty state is
+    // .todos-empty. Verified live: the page renders correctly — "known bug
+    // #1" was test/contract drift, not an app bug. (.todo-item kept as a
+    // fallback in case the legacy render path is ever hit.)
     await page.goto(BASE + '/todos.html', { waitUntil: 'load' });
-    await page.waitForSelector('.todo-item, .todos-empty, .todo-section-head', { timeout: 5000 }).catch(() => {});
-    const hasTodos = await page.locator('.todo-item').count() > 0;
-    const hasEmpty = await page.locator('.todos-empty, .empty-state, .empty').count() > 0;
-    expect(hasTodos || hasEmpty, 'Todos page: neither todo items nor empty state found').toBe(true);
+    await page.waitForSelector('#todoList .gh-card, .todos-empty, #todoList .todo-item', { timeout: 6000 }).catch(() => {});
+    const hasTodos = await page.locator('#todoList .gh-card, #todoList .todo-item').count() > 0;
+    const hasEmpty = await page.locator('.todos-empty, .empty-state').count() > 0;
+    expect(hasTodos || hasEmpty, 'Todos page: neither todo cards nor empty state found').toBe(true);
   });
 
   test('Reports page renders report cards from registry', async ({ page }) => {
@@ -1380,33 +1385,34 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       await page.goto(`${BASE}/${wired.page}`, { waitUntil: 'load' });
-      // v202604.175 — these pages call GH_VIEW.init() only AFTER their async
-      // data fetch + list render, which takes longer than a fixed 800ms.
-      // Wait for the card button to actually attach (generous timeout); the
-      // .catch keeps assertions running so a genuine wiring regression still
-      // produces a clear failure rather than a bare timeout.
-      await page.waitForSelector('.gh-view-toolbar button[id$="-vcard"]',
+      // v202604.175 — these pages migrated from GH_VIEW.init() to GH_LENS,
+      // which renders its OWN view toggle: `.gh-lens__views` containing
+      // `.gh-lens__view-btn` buttons titled "Grid/List/Card view" (no ids).
+      // The old `.gh-view-toolbar`/`[id$="-vcard"]` contract no longer
+      // exists. GH_LENS renders after the async data load, so wait for the
+      // toggle to attach (the .catch lets a genuine regression fail with a
+      // clear assertion message rather than a bare timeout).
+      await page.waitForSelector('.gh-lens__views button[title="Card view"]',
         { state: 'attached', timeout: 8000 }).catch(() => {});
-      const globals = await page.evaluate(() => ({
-        ghCard:  !!window.GH_CARD,
-        ghMount: !!window.GH_MOUNT,
-        ghView:  !!window.GH_VIEW,
-        // Look for ANY card button on the page — they're all <button id="X-vcard">
-        cardBtnPresent: !!document.querySelector('[id$="-vcard"]'),
-        // Number of buttons in any visible gh-view-toolbar (should be ≥3 with card)
-        toolbarBtnCount: (() => {
-          const tb = document.querySelector('.gh-view-toolbar');
-          if (!tb) return 0;
-          return tb.querySelectorAll('button[id$="-vgrid"], button[id$="-vlist"], button[id$="-vcard"]').length;
-        })(),
-      }));
+      const globals = await page.evaluate(() => {
+        const lensViews = document.querySelector('.gh-lens__views');
+        return {
+          ghCard:  !!window.GH_CARD,
+          ghMount: !!window.GH_MOUNT,
+          ghLens:  !!window.GH_LENS,
+          // Card view is offered via the GH_LENS toggle
+          cardBtnPresent: !!document.querySelector('.gh-lens__views button[title="Card view"]'),
+          // grid + list + card buttons in the lens toggle
+          toggleBtnCount: lensViews ? lensViews.querySelectorAll('button').length : 0,
+        };
+      });
       expect(globals.ghCard,  `${wired.page}: GH_CARD not loaded`).toBe(true);
       expect(globals.ghMount, `${wired.page}: GH_MOUNT not loaded`).toBe(true);
-      expect(globals.ghView,  `${wired.page}: GH_VIEW not loaded`).toBe(true);
+      expect(globals.ghLens,  `${wired.page}: GH_LENS not loaded`).toBe(true);
       expect(globals.cardBtnPresent,
-        `${wired.page}: card button not in toolbar — check views:['grid','list','card'] is set`).toBe(true);
-      expect(globals.toolbarBtnCount,
-        `${wired.page}: expected 3 view buttons in toolbar, found ${globals.toolbarBtnCount}`).toBe(3);
+        `${wired.page}: card-view button missing from the GH_LENS toggle — check views:['grid','list','card']`).toBe(true);
+      expect(globals.toggleBtnCount,
+        `${wired.page}: expected 3 view buttons in the lens toggle, found ${globals.toggleBtnCount}`).toBe(3);
       const real = errors.filter(e => !e.includes('favicon'));
       expect(real, `${wired.page}: page-load errors: ${real.join('; ')}`).toHaveLength(0);
     });

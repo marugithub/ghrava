@@ -69,10 +69,37 @@ principles.
 
 ---
 
-## 🚧 v.175 BUILT — E2E debt cleared + Todos render bug fixed (2026-05-18)
+## ✅ v.175 DEPLOYED & VERIFIED — E2E debt cleared (2026-05-18)
 
-> Built, not yet packaged/deployed. Al scope: all 15 v.174 E2E failures.
-> No schema, no migrations. 1 frontend app fix + 14 test-side fixes.
+> **DEPLOYED ~12:51, app verified live.** `version 202604.175`,
+> container restarted clean, no log errors, **Smoke HARD 8/8**.
+> No schema, no migrations.
+>
+> **Outcome: all 15 v.174 E2E failures were STALE TESTS, not app bugs.**
+> First deploy: 99 pass / 8 fail (7 of 15 fixed). The last 8 were
+> investigated **live** (Playwright against the NAS, not by guessing):
+> - Todos `:356`: the page renders perfectly — `#todoList` is full of
+>   `.gh-card` (GH_CARD pipeline, zero JS errors). It just no longer
+>   uses `.todo-item`/`.todos-empty`. "Known bug #1" was misdiagnosed
+>   **twice** (BACKLOG: "family filter"; sub-agent: "field mismatch") —
+>   it was always a test/contract drift. Fixed test to assert `.gh-card`.
+> - Page-wiring `:1379` ×7: pages migrated GH_VIEW→**GH_LENS**, which
+>   renders `.gh-lens__views` with `button[title="Card view"]` (no
+>   `.gh-view-toolbar`/`[id$=-vcard]`). Verified live on 4 pages: lens
+>   toggle present, 3 buttons incl. Card, **zero page errors**. Fixed
+>   test to the real GH_LENS contract.
+> - Both fixes **re-run live against the NAS: 8/8 green**. Full suite
+>   is now **107 pass / 0 fail** (99 from the deploy + these 8).
+>
+> **todos.html still got valid hardening** (the `family_member_ids`→
+> `family_members` field fix + empty-state-before-`setCount`): it was a
+> real latent bug — with a Lens person scope active it would have
+> emptied the list — just not the cause of the test failure. Shipped &
+> live; verified no regression (Todos renders fine).
+>
+> Net: **0 real app bugs in the 15. 15 stale tests fixed + 1 latent
+> todos.html bug hardened.** Only the test file + docs changed after
+> the app deploy (test file isn't container-served → no restart).
 
 ### Reclassification from v.174 (investigation findings)
 - **Reports known bug #2 was a MISDIAGNOSIS.** `REPORT_REGISTRY` is a
@@ -90,40 +117,38 @@ principles.
   to BACKLOG, deliberately NOT fixed here (app-wide regression risk,
   out of v.175 scope).**
 
-### The 1 real app bug — Todos renders blank (known bug #1, FIXED)
-`todos.html` filtered on `t.family_member_ids`, but the todos API
-returns `family_members` (array of `{id, display_name, …}` objects).
-With a device family scope set, the auto-injected Lens person pill
-matched nothing → every todo filtered out → `render()` reached
-`GH_LENS.setCount` before the empty-state block and aborted → page
-showed NEITHER items NOR empty state (the v128 "family filter hides
-everything" symptom). Fix: read `t.family_members.map(m=>m.id)` in
-both the active override (`todos.html:585-593`) and the shadowed
-legacy path (`:499-504`); render the `.todos-empty` state BEFORE the
-now best-effort/guarded `setCount` so a zero-match never blanks the
-page. Frontend only, no SQL.
+### todos.html — latent bug hardened (NOT the test-failure cause)
+`todos.html` filtered on `t.family_member_ids`, but the API returns
+`family_members` (array of `{id,…}` objects). With a Lens person scope
+active this would empty the list. Fixed: read
+`t.family_members.map(m=>m.id)` in the active override (`:585-593`) and
+shadowed legacy path (`:499-504`); render `.todos-empty` BEFORE a now
+guarded/best-effort `setCount`. Frontend only, no SQL. **Live check
+proved the page already rendered fine** (full of `.gh-card`) — so this
+is defensive hardening, not the `:356` fix. Shipped & live.
 
-### 14 test-side fixes (`tests/ghrava-e2e.spec.js`, one file)
+### 15 test-side fixes (`tests/ghrava-e2e.spec.js`, one file)
 - `:297` tag chips, `:430` Books CRUD — legacy shelf tabs are
   `legacy-hidden`; create on the default "Currently Reading" shelf,
   drop the invisible `text=Want to Read` click.
-- `:327` Dashboard — `.module-tile` no longer exists; `index.html`
-  is the Today page. Retargeted to `.today-section/.today-grid` or
-  `.today-empty` (renamed test).
-- `:344` Reports — land on `?tab=money` (rows-bearing tab).
-- `:455` Inventory — the All Items/Rooms toggle moved into the Lens
+- `:327` Dashboard — `.module-tile` gone; `index.html` is the Today
+  page. Retargeted to `.today-section/.today-grid`/`.today-empty`.
+- `:344` Reports — land on `?tab=money` (rows-bearing tab; `overview`
+  shows summary tiles by design).
+- `:356` Todos — retargeted to `.gh-card`/`.todos-empty` (GH_CARD
+  pipeline; old `.todo-item`/`.todos-empty` selectors were stale).
+- `:455` Inventory — All Items/Rooms toggle moved into the Lens
   (v.134); removed the dead `text=All Items` click.
-- `:886`/`:1079` — `localCardDate()` local-noon fixtures.
-- `:1354` ×7 page-wiring — replaced the fixed `waitForTimeout(800)`
-  (fired before the pages' async data-load→`GH_VIEW.init`) with an
-  explicit wait for `.gh-view-toolbar button[id$="-vcard"]`. Configs
-  were already correct; GH_VIEW unit tests pass — pure test timing.
-- `:336` Todos — test was already correct; fixed by the app change.
+- `:886`/`:1079` — `localCardDate()` local-noon fixtures (the
+  `daysFromToday` UTC off-by-one is a separate deferred app finding).
+- `:1379` ×7 page-wiring — pages migrated GH_VIEW→GH_LENS; rewrote
+  the assertion to the real GH_LENS contract (`.gh-lens__views`
+  `button[title="Card view"]`, 3 toggle buttons, no page errors).
 
-### Expected post-deploy
-E2E should go **92→~107 pass, 15→~0-2 fail**. Any residual `:1354`
-failure after the explicit wait = a genuine page wiring regression
-(signal preserved by the `.catch`).
+### Verified
+First deploy 99/8. The 8 fixed + re-run **live against the NAS: 8/8
+green** → full suite **107 pass / 0 fail**. App was live & correct
+throughout; only the test file + docs changed post-deploy.
 
 ---
 
