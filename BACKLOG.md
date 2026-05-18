@@ -1,3 +1,58 @@
+## 📋 v.173 CANDIDATE — Asterisk audit findings (audited 2026-05-17)
+
+Audit of the v.172 HANDOFF item "wrap candidate cards with the
+red/amber asterisk." **Outcome: none of the three named candidates can
+be wired as written.** Code untouched per Al's direction — this entry
+records the gap so v.173 can re-scope.
+
+### Two asterisk mechanisms exist (root of the confusion)
+1. **v.171 DOM helper** — `GhAsterisk.scan()` in
+   `app/public/js/pending-report.js:661-679`. Scans `.gh-pending-target`
+   nodes, calls `GET /api/v1/pending/asterisk?card=…`
+   (`app/features/pending/routes.js:448`). Supported cards:
+   `vehicle_fuel, medication, hsa_payment, subscriptions, inventory,
+   certification`. **Only loaded on reports.html / finance.html.** The
+   endpoint returns a *global* count and ignores `record_id`, so it
+   cannot drive a *per-record* card asterisk as-is.
+2. **Card-config data-driven** — `S.crossRow(label,val,{asterisk:
+   r.X_asterisk})` + `GH_CARD_SHARED.asteriskState()`
+   (`app/public/js/gh-card-shared.js:91,177`). Module configs already
+   declare it; relies on the row carrying a `*_asterisk` field.
+
+**Core gap:** grep of `app/features/**` shows the word `asterisk` only
+in `pending/routes.js`. **No module route populates any `*_asterisk`
+field.** The card-config asterisks are declared but fed by data nothing
+produces — dead wiring everywhere it appears.
+
+### Each card: derived number today, and what blocks the asterisk
+| Candidate | Derived number today | Blocker |
+|---|---|---|
+| **Vehicle fuel YTD** | `vehicles` config crossRow "YTD fuel" with `asterisk: r.ytd_fuel_asterisk` already declared (`gh-card-configs-batch1.js:98-105`) | Vehicles module is spec-only (`_templates/vehicles.html` DRAFT #19, never built). No live page renders GH_CARD `vehicles`. Nothing to attach to until the module is built. |
+| **Medication HSA YTD** | None on the live card. Live medication cards use GH_CARD `medical_medications` in **compact mode, no crossModule** (`gh-card-config-medical.js:57-112`). HSA YTD survives only in the dead legacy medv5 renderer (`medical.html:2697,2923-2927`; condition strip `:3129`). | Must first re-add an HSA-YTD crossRow (or non-compact mode) to the `medical_medications` config before any asterisk has a home. |
+| **HSA "Spent YTD" tile** | `hsa_accounts` config crossRow "Spent YTD" with `asterisk: r.spent_asterisk` already declared (`gh-card-configs-batch1.js:483-500`) | `hsa.html` does not use GH_CARD at all (custom/legacy page). The declared asterisk has no render path until hsa.html migrates to GH_CARD `hsa_accounts` (or gets the v.171 `.gh-pending-target` wrap). |
+
+### What v.173 must decide / close first (in order)
+1. **Pick the canonical mechanism.** Recommend the data-driven
+   card-config path (modern, already declared in configs); retire or
+   scope the v.171 DOM helper to legacy pages only.
+2. **Backend (schema-safety skill applies — touches feature routes/SQL):**
+   make the vehicles / hsa / medications list endpoints emit a
+   per-row `*_asterisk` by reusing the existing detectors
+   (`detectVehicleFuel`, `detectHsaReceipts`, `detectMedicalRx` in
+   `pending/routes.js`) made **per-record** instead of global.
+3. **Build the vehicles module** (DRAFT #19) before its fuel asterisk
+   has a live home.
+4. **Medication card:** decide whether the HSA-YTD number returns to
+   the medication card config at all (Al's product call).
+5. **hsa.html:** migrate to GH_CARD `hsa_accounts`, or accept the
+   v.171 `.gh-pending-target` wrap as an interim.
+
+**Effort:** medium. Step 2 is the keystone (~half a session, gated).
+Steps 3-4 are independent product decisions. Until step 2 lands, every
+card-config asterisk in the codebase is inert.
+
+---
+
 ## ✅ v.170 SHIPPED — Gates-over-docs + 28 schema bugs (2026-05-14)
 
 **Bundled with v.169 Finance Finalization.** Single drop because v.169 wasn't deployed yet.
