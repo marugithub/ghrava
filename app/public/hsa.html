@@ -73,6 +73,8 @@
 <script>window.GH_PAGE = { module: 'finance', title: 'HSA' };</script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
+<!-- v.173: GhAsterisk.scan() — the canonical v.171 pending-state probe -->
+<script src="/js/pending-report.js"></script>
 
 <div id="app">
   <div class="gh-page-header"></div>
@@ -113,7 +115,11 @@
     </div>
     <div class="hsa-tile">
       <div class="hsa-tile-label">Eligible Expenses</div>
-      <div class="hsa-tile-value" id="tEligible">—</div>
+      <!-- v.173: red/amber asterisk if medical transactions exist with
+           no receipt logged — this rollup reads low without them.
+           card=hsa_payment, global probe (this page has no per-account
+           record id; it's a pot-level dashboard). -->
+      <div class="hsa-tile-value gh-pending-target" data-card="hsa_payment"><span id="tEligible">—</span><span class="gh-pending-host"></span></div>
       <div class="hsa-tile-sub">payments + OTC</div>
     </div>
     <div class="hsa-tile">
@@ -207,6 +213,10 @@ async function loadHsaDashboard(){
     renderYearOverview(summary);
     renderPool(poolResp?.pool || []);
     renderRecentPayments(Array.isArray(payments) ? payments.slice(0,8) : []);
+
+    // v.173: re-probe the receipt-gap asterisk every time this number
+    // re-renders (covers reloadPage / ghLoadAll / DOMContentLoaded).
+    if (window.GhAsterisk) GhAsterisk.scan();
   } catch (e) {
     const msg = esc(e.message || 'Unknown error');
     document.getElementById('yearOverview').innerHTML = `<div style="font-size:13px;color:var(--red)">Could not load HSA data: ${msg}</div>`;
