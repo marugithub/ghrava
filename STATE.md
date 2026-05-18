@@ -71,10 +71,12 @@ principles.
 
 ## ✅ v.173 SHIPPED — Asterisk subsystem: per-record math + HSA tile (2026-05-17)
 
-> **Built, committed, pushed. NOT yet packaged/deployed** — awaiting
-> Al's "package". Against the live v.172 NAS the new
-> `asterisk-per-record` spec is intentionally red; it goes green once
-> v.173 is deployed.
+> **DEPLOYED & VERIFIED 2026-05-17 (~21:08).** Live on the NAS:
+> `/app/version.txt` = `202604.173`, container restarted clean, logs
+> clean, smoke HARD gate 8/8, and all v.173 tests green against
+> production (`asterisk-per-record` ×3, `forecast-chart`,
+> `pending-tab` ×2). GitHub `main`, the NAS git repo, and the running
+> container all agree on v.173.
 
 Canonical mechanism locked in: the v.171 `/api/v1/pending/asterisk`
 probe + `GhAsterisk.scan()` DOM helper. The card-config asterisk path
@@ -101,10 +103,26 @@ probe + `GhAsterisk.scan()` DOM helper. The card-config asterisk path
   a second mechanism. v.174 decision.
 
 ### Verification note
-`bash gates.sh` is Linux/container-only, not run on the Windows dev
-host (normal — runs at packaging). Local: `node -c` on changed JS +
-the new spec. Live-NAS run: smoke/pending/forecast green,
-asterisk-per-record red (expected pre-deploy).
+Schema-safety gate ran clean on the Windows host: `gen-schema-doc.py`
++ `validate-schema.py --strict` → exit 0, zero failures in
+`pending/routes.js` (the 10 flagged are pre-existing migration-replay
+artifacts in `130_rescue_126.js`/`134_hsa_plan_to_fsa.js`, every prior
+drop has them). Python scripts need `-X utf8` on Windows (cp1252
+crash) — env quirk, not a code issue.
+
+### Packaging / deploy note (read before next package)
+`package.sh` is Linux-only and **cannot run on the Windows host**: no
+`zip` binary, `python3` is the MS-Store stub. For v.173 the zip was
+assembled with PowerShell `Compress-Archive` using package.sh's exact
+manifest (DEFAULT_INCLUDES + changed files), **after** the schema
+validator passed, then deployed via `ghrava_deploy.ps1 -ZipPath`.
+Deploy script Step 4 (git push from the NAS copy) fails when GitHub
+was already pushed manually first — the resulting redundant NAS commit
+was reconciled with `git -C Z:\ghrava reset --hard origin/main` (only
+test-harness files differed; zero app changes). E2E SOFT gate showed
+21 failures — **all pre-existing `401 Authentication required` on
+write endpoints** (the CRUD E2E suite doesn't log in; AUTH-OPEN-GET).
+NOT a v.173 regression; no rollback.
 
 ---
 

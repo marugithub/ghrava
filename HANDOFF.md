@@ -13,19 +13,23 @@ a Docker container. Al is both the only user and the only developer.
 Claude (you, in past chats) writes all the code. Al directs every
 feature.
 
-**Live on the NAS: v202604.172** — verified 2026-05-17 (container `Up`
-~11h, `app/version.txt` = `202604.172`, logs clean). The NAS jumped
-from prod `170.1` straight to `172`, so **v.171 and v.172 are both
-live**. The previous "sandbox 171 / prod 170.1" note was stale doc
-drift and has been corrected here and in STATE.md.
+**Live on the NAS: v202604.173** — DEPLOYED & VERIFIED 2026-05-17
+(~21:08): `app/version.txt` = `202604.173`, container restarted
+clean, logs clean, smoke HARD gate 8/8, all v.173 tests green against
+prod. GitHub `main` + NAS git repo + running container all agree on
+v.173. (v.171→v.172 history: NAS jumped prod `170.1` straight to
+`172`, then `173`; the old "sandbox 171 / prod 170.1" note was stale
+drift, corrected here and in STATE.md.)
 
-**v.173 built + pushed, NOT yet packaged/deployed.** Asterisk
-subsystem: per-record math on `/api/v1/pending/asterisk` (back-compat
-preserved) + HSA Eligible-Expenses tile wired as the canonical
-example. Full scope in **STATE.md → "✅ v.173 SHIPPED"**; deferred
-work in **BACKLOG.md → "🔮 v.174 CANDIDATES"**. Against the live v.172
-NAS the `asterisk-per-record` spec is intentionally red until Al
-packages and deploys v.173.
+**v.173 = asterisk subsystem.** Per-record math on
+`/api/v1/pending/asterisk` (back-compat preserved) + HSA
+Eligible-Expenses tile wired as the canonical example. Full scope and
+the deploy/packaging caveats in **STATE.md → "✅ v.173 SHIPPED"**
+(read the Packaging/deploy note before next package — `package.sh` is
+Linux-only, Windows uses a `Compress-Archive` substitute after the
+validator passes). Deferred work in **BACKLOG.md → "🔮 v.174
+CANDIDATES"**. The deploy E2E soft-gate's 21 failures are pre-existing
+`401` auth-harness noise, NOT a v.173 regression.
 
 ### v.171 in two sentences
 - Closes out the finance module per Al's PM direction. Built the
