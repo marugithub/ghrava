@@ -1,9 +1,29 @@
-## 📋 v.173 CANDIDATE — Asterisk audit findings (audited 2026-05-17)
+## 🔮 v.174 CANDIDATES
 
-Audit of the v.172 HANDOFF item "wrap candidate cards with the
-red/amber asterisk." **Outcome: none of the three named candidates can
-be wired as written.** Code untouched per Al's direction — this entry
-records the gap so v.173 can re-scope.
+Spun out of the v.173 drop — each is an independent decision/build:
+- **(a) Build the Vehicles module (DRAFT #19)** then wire its fuel
+  asterisk. The `vehicles` GH_CARD config already declares the fuel
+  asterisk; v.173 added per-record `vehicle_fuel` math. Both are inert
+  until the module has a live page.
+- **(b) Al's product decision: should the HSA-YTD number return to the
+  medication card?** It was dropped when `medical_medications` went to
+  compact mode. No asterisk has a home there until this is decided.
+- **(c) Card-config asterisk path (`gh-card-shared.js asteriskState`):
+  retire it, or build per-record into it as a deliberate second
+  mechanism.** v.173 chose the v.171 DOM probe as canonical and left
+  this one inert (see LOCKED.md `ASTERISK-MATH`). Decide its fate.
+
+---
+
+## ✅ v.173 SHIPPED — Asterisk subsystem: per-record math + HSA tile (2026-05-17)
+
+Built, committed, pushed (not yet packaged). Per-record math threaded
+through all six pending detectors + `/api/v1/pending/asterisk`
+(back-compat preserved when `record_id` omitted); HSA Eligible Expenses
+tile wired as the canonical example via the v.171 `.gh-pending-target`
+pattern; `ASTERISK-MATH` lock added. Deferred items spun to v.174
+above. **The audit findings below were the spec for this drop — kept
+for context.**
 
 ### Two asterisk mechanisms exist (root of the confusion)
 1. **v.171 DOM helper** — `GhAsterisk.scan()` in

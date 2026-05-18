@@ -69,6 +69,45 @@ principles.
 
 ---
 
+## ✅ v.173 SHIPPED — Asterisk subsystem: per-record math + HSA tile (2026-05-17)
+
+> **Built, committed, pushed. NOT yet packaged/deployed** — awaiting
+> Al's "package". Against the live v.172 NAS the new
+> `asterisk-per-record` spec is intentionally red; it goes green once
+> v.173 is deployed.
+
+Canonical mechanism locked in: the v.171 `/api/v1/pending/asterisk`
+probe + `GhAsterisk.scan()` DOM helper. The card-config asterisk path
+(`gh-card-shared.js`) stays inert pending a v.174 decision.
+
+### What shipped
+1. **Per-record asterisk math** (`app/features/pending/routes.js`). All
+   six detectors take an optional record id; omitting it preserves the
+   v.171 global queries byte-for-byte. `/asterisk` threads `record_id`
+   through. `hsa_payment` gained an amber tier (>5 red, 1-5 amber)
+   mirroring `vehicle_fuel`. No tables, no migrations — read-only query
+   edits. New `tests/asterisk-per-record.spec.js`.
+2. **HSA tile wired** (`app/public/hsa.html`). The Eligible Expenses
+   tile carries the asterisk via the v.171 `.gh-pending-target` pattern
+   (global `hsa_payment` probe — the page is a pot-level dashboard with
+   no per-account id). First real consumer of `GhAsterisk.scan()`.
+3. **`LOCKED.md`** — new `ASTERISK-MATH` architectural row.
+
+### Deferred (not in v.173)
+- Vehicles page + its fuel asterisk — module is still DRAFT #19,
+  unbuilt. v.174 candidate.
+- Medication HSA-YTD return to the card — Al product decision. v.174.
+- Card-config asterisk path: retire it, or build per-record into it as
+  a second mechanism. v.174 decision.
+
+### Verification note
+`bash gates.sh` is Linux/container-only, not run on the Windows dev
+host (normal — runs at packaging). Local: `node -c` on changed JS +
+the new spec. Live-NAS run: smoke/pending/forecast green,
+asterisk-per-record red (expected pre-deploy).
+
+---
+
 ## ✅ v.172 SHIPPED — Test consolidation + deploy gates + forecast wiring (2026-05-17)
 
 > **LIVE & VERIFIED 2026-05-17.** Confirmed running on the NAS

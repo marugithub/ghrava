@@ -60,6 +60,7 @@ isn't locked — it's prose, and prose is drift.
 | PLAIN-ENGLISH | `STATE.md` (Core Principles)                     | v.171  | All user-facing copy AND chat replies in plain English. No internal jargon on screen. Al is non-technical. |
 | DATA-VERBS    | `STATE.md` (Core Principles)                     | v.171  | Ghrava exists to make personal data easy to (1) understand, (2) link together, (3) display. Every feature serves one of these three verbs. |
 | EMPTY-STATE   | (multiple)                                       | v.166  | Tile structure ALWAYS renders. Values go to 0 / — / mute pill. Rows preserved. |
+| ASTERISK-MATH | `app/features/pending/routes.js`                 | v.173  | Per-record asterisk math via `record_id` query param on `/api/v1/pending/asterisk`. THE canonical pending-state probe (+ `GhAsterisk.scan()` DOM helper). Card-config asterisk path (`gh-card-shared.js asteriskState`) is inert until the v.174 decision. Omitting `record_id` preserves the v.171 global probe. |
 
 ## How to add a new lock
 

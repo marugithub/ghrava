@@ -19,6 +19,14 @@ from prod `170.1` straight to `172`, so **v.171 and v.172 are both
 live**. The previous "sandbox 171 / prod 170.1" note was stale doc
 drift and has been corrected here and in STATE.md.
 
+**v.173 built + pushed, NOT yet packaged/deployed.** Asterisk
+subsystem: per-record math on `/api/v1/pending/asterisk` (back-compat
+preserved) + HSA Eligible-Expenses tile wired as the canonical
+example. Full scope in **STATE.md → "✅ v.173 SHIPPED"**; deferred
+work in **BACKLOG.md → "🔮 v.174 CANDIDATES"**. Against the live v.172
+NAS the `asterisk-per-record` spec is intentionally red until Al
+packages and deploys v.173.
+
 ### v.171 in two sentences
 - Closes out the finance module per Al's PM direction. Built the
   transaction-linking subsystem (Pending Items Report at
