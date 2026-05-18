@@ -653,6 +653,20 @@ test.describe('API Contract', () => {
       'foreign origin must not get an ACAO header').not.toBe('http://evil.test');
   });
 
+  // v202604.177 — Kids module showed a child twice (an unlinked legacy
+  // row + the family-linked one). Migration 142 deactivates the orphan
+  // and the sync now heals instead of duplicating. The active kids list
+  // must have unique display_names.
+  test('GET /kids returns no duplicate child names', async ({ request }) => {
+    const r = await request.get(`${API}/kids`);
+    expect(r.status()).toBe(200);
+    const kids = await r.json();
+    expect(Array.isArray(kids), '/kids returns an array').toBe(true);
+    const names = kids.map(k => k.display_name);
+    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+    expect(dupes, `duplicate kid name(s): ${[...new Set(dupes)].join(', ')}`).toHaveLength(0);
+  });
+
   test('GET /finance/transactions/unified returns transactions and summary', async ({ request }) => {
     const r = await request.get(`${API}/finance/transactions/unified`);
     expect(r.ok()).toBe(true);

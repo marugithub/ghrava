@@ -61,12 +61,27 @@ function syncKidsFromFamilyMembers() {
       WHERE relationship IN ${ks}
     `).all(...KID_RELATIONSHIPS);
     const exists = db.prepare(`SELECT 1 FROM kids WHERE family_member_id = ? AND is_active = 1`);
+    // v202604.177 — heal instead of duplicate. If an active row already
+    // exists for this child but UNLINKED (family_member_id IS NULL — a
+    // legacy/seeded row), backfill the link onto it rather than inserting
+    // a second, family-linked row. That second-insert was the root cause
+    // of "Arnav twice" (one unlinked/no-photo + one linked/photo).
+    const findUnlinked = db.prepare(`
+      SELECT id FROM kids
+       WHERE display_name = ? AND family_member_id IS NULL AND is_active = 1
+       LIMIT 1
+    `);
+    const linkRow = db.prepare(`
+      UPDATE kids SET family_member_id = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+    `);
     const insertKid = db.prepare(`
       INSERT INTO kids (display_name, date_of_birth, family_member_id, is_active, created_at, updated_at)
       VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
     `);
     for (const m of children) {
-      if (exists.get(m.id)) continue;
+      if (exists.get(m.id)) continue;                 // already linked + active
+      const unlinked = findUnlinked.get(m.display_name);
+      if (unlinked) { linkRow.run(m.id, unlinked.id); continue; }  // heal, no dup
       insertKid.run(m.display_name, m.date_of_birth || null, m.id);
     }
   } catch (e) {

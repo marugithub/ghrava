@@ -69,11 +69,51 @@ principles.
 
 ---
 
-## 🚧 v.176 BUILT — cross-cutting cleanup (2026-05-18)
+## 🚧 v.177 BUILT — orphan-126 migration + Kids duplicate (2026-05-18)
 
-> Built, committed locally, **not yet packaged/deployed**. Al scope:
-> the orphan cross-cutting issues module-by-module work would never
-> touch. No schema, no migrations. 6 tasks, one commit each.
+> Built, committed locally, **not yet deployed**. Two bugs Al reported.
+> Two new migrations (141, 142) + one route hardening + test + docs.
+> Schema-safety gate applies.
+
+1. **Orphan migration 126 fixed** (`141_mark_126_capture_applied.js`).
+   `126_capture_and_finance_schema.js` was never in `_migrations` →
+   retried + `FAILED` every boot ("Cannot add a column to a view" —
+   mig 130 made finance_accounts/financial_accounts VIEWs). Its intent
+   is fully superseded (record_links → 129, finance unify → 130). 141
+   verifies that superseding schema is present, then `INSERT OR IGNORE`
+   records 126_capture as applied → skipped forever. One last transient
+   `FAILED 126` on the boot that applies 141, then clean. Closes
+   BACKLOG Known-bug #6.
+2. **Kids "Arnav twice" fixed.** Live data: kids id 13 (Arnav,
+   family_member_id NULL — legacy/unlinked, no photo) + id 14 (Arnav,
+   family_member_id 2 — synced, photo) both active → shown twice;
+   id 15 Risha fine.
+   - `142_dedupe_orphan_kids.js`: soft-deactivates active UNLINKED kids
+     rows whose name has an active family-linked twin (id 13 → is_active
+     0). Verified id 13 had 0 activities/0 notes (no data orphaned).
+     GET /kids filters is_active=1 so the dup vanishes immediately.
+   - `kids/routes.js syncKidsFromFamilyMembers`: now backfills
+     family_member_id onto an existing unlinked same-name row instead
+     of inserting a 2nd row — closes the recurrence. Closes Known-bug #5.
+3. **Regression test**: `GET /api/v1/kids` returns no duplicate
+   display_name (ghrava-e2e API Contract).
+
+### Expected post-deploy
+Smoke 8/8. E2E: prior 110 + new kids test, 0 failures. The boot that
+applies 141 logs `FAILED 126` ONE final time; verify `_migrations` now
+records `126_capture_and_finance_schema.js` (→ next boot clean). Kids
+page shows Arnav once (pictured) + Risha.
+
+---
+
+## ✅ v.176 DEPLOYED & VERIFIED — cross-cutting cleanup (2026-05-18)
+
+> **DEPLOYED, smoke 8/8, full E2E 110 pass / 0 fail.** Origin/local/NAS/
+> container aligned (`a8f5d09` → docs `517db9a`). Al scope: the orphan
+> cross-cutting issues module-by-module work would never touch. No
+> schema, no migrations. 6 tasks, one commit each.
+> (The `FAILED 126` line seen verifying this deploy was pre-existing,
+> not v.176 — now fixed in v.177 below.)
 
 1. **`daysFromToday()` + `fmtDateShort()` day-off fix** (`gh-card-shared.js`).
    New `parseLocalDate()`: bare `YYYY-MM-DD` → local midnight; time/Z
