@@ -50,7 +50,7 @@ isn't locked — it's prose, and prose is drift.
 
 | ID            | Source                                            | Locked | Rule                                                                    |
 |---------------|---------------------------------------------------|--------|-------------------------------------------------------------------------|
-| AUTH-OPEN-GET | `app/features/auth/middleware.js`                | v.166  | `requireAuth` passes GET/HEAD always. Only writes check session. `requireAuth` mounted only in `settings/` and `watcher/`. |
+| AUTH-OPEN-GET | `app/features/auth/middleware.js`                | v.166  | `requireAuth` passes GET/HEAD always. Only writes check session. `requireAuth` mounted only in `settings/` and `watcher/`. v.174 clarification: **prod has an app password set** (not "open mode" — that doc claim was stale). Writes need a session; the E2E gate must log in (`-AuthToken`). No step-up auth — one 365-day session only. |
 | DB-NO-WAL     | `app/db/db.js`                                   | v.140  | `journal_mode=DELETE`, `synchronous=FULL`. Never WAL.                  |
 | DB-NO-CASCADE | (migrations)                                     | v.140  | No new `ON DELETE CASCADE`. All data is interconnected; deletes are explicit. |
 | MIG-ADDITIVE  | `app/db/migrations/UPGRADE_NOTES.md`             | v.140  | Migrations are additive only. Renames documented in UPGRADE_NOTES first. |

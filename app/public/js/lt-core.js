@@ -19,7 +19,9 @@
 window.$ = id => document.getElementById(id);
 
 // ── HTML escape ───────────────────────────────────────────────
-window.esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+window.esc = s => String(s ?? '')
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\//g,'&#47;');
 
 // ── Date formatting ───────────────────────────────────────────
 window.formatDate = function(d) {
@@ -61,6 +63,19 @@ window.fmtDate = function(iso) {
   const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${mo[+m - 1]} ${+d}`;
 };
+
+/**
+ * fmtMoney(n) — full dollar amount WITH cents and thousands separators.
+ *   fmtMoney(1234.5)  → "$1,234.50"
+ *   fmtMoney(null)    → "—"
+ * Use fmt$() instead when you want compact, cents-free, absolute values.
+ * NOTE: this is the canonical money formatter. Pages with a *different*
+ * contract (inventory = no $ prefix; reports charts = no cents) keep
+ * their own local fmtMoney deliberately — do not "dedup" those.
+ */
+window.fmtMoney = n => (n == null || n === '')
+  ? '—'
+  : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 // ── Spinner HTML ──────────────────────────────────────────────
 window.spinner = (msg = 'Loading…') =>
@@ -138,13 +153,14 @@ window.ghErrorMsg = function(err) {
 };
 
 // ══════════════════════════════════════════════════════════════
-// window.api — authenticated fetch with 401 intercept + retry
+// window.api — authenticated fetch with 401 intercept
 //
-// On 401: shows inline password prompt (no page reload, no lost work).
-//         After successful re-auth, retries the original request once.
-// On other errors: throws with a friendly message via ghErrorMsg.
+// On 401: redirects to /login.html?next=<current page>. The session
+//         is 365 days so this is rare. (An inline re-auth modal was
+//         prototyped and abandoned — the redirect is the shipped path.)
+// On other errors: throws an Error with .status + .body attached.
 // ══════════════════════════════════════════════════════════════
-window.api = async function(method, path, body, _isRetry) {
+window.api = async function(method, path, body) {
   const start = Date.now();
   const opts = {
     method,
@@ -167,8 +183,8 @@ window.api = async function(method, path, body, _isRetry) {
 
   const ms = Date.now() - start;
 
-  // ── 401: session expired — prompt for password, then retry ──
-  if (res.status === 401 && !_isRetry) {
+  // ── 401: session expired — redirect to login, preserving the page ──
+  if (res.status === 401) {
     GH_LOG.warn(`401 on ${method} ${path} — redirecting to login`);
     location.href = '/login.html?next=' + encodeURIComponent(location.pathname + location.search);
     throw new Error('Not authenticated');
@@ -191,109 +207,8 @@ window.api = async function(method, path, body, _isRetry) {
   return res.json();
 };
 
-// ── Inline re-auth prompt ────────────────────────────────────
-// Returns a Promise that resolves when re-auth succeeds, rejects if dismissed.
-function _reAuthPrompt() {
-  return new Promise((resolve, reject) => {
-    // Remove any existing overlay
-    document.getElementById('gh-reauth-overlay')?.remove();
-
-    const overlay = document.createElement('div');
-    overlay.id = 'gh-reauth-overlay';
-    overlay.style.cssText = [
-      'position:fixed;inset:0;z-index:10000',
-      'background:rgba(0,0,0,0.6);backdrop-filter:blur(6px)',
-      'display:flex;align-items:center;justify-content:center',
-    ].join(';');
-
-    overlay.innerHTML = `
-      <div style="background:var(--bg2);border:1px solid var(--border);border-radius:20px;
-        padding:28px 24px 20px;width:min(340px,90vw);
-        box-shadow:0 24px 64px rgba(0,0,0,.35);">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-          <div style="width:36px;height:36px;background:var(--accent-bg);border-radius:10px;
-            display:flex;align-items:center;justify-content:center;flex-shrink:0">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-              stroke="var(--accent)" stroke-width="2">
-              <rect x="3" y="11" width="18" height="11" rx="2"/>
-              <path d="M7 11V7a5 5 0 0110 0v4"/>
-            </svg>
-          </div>
-          <div>
-            <div style="font-size:16px;font-weight:700;color:var(--text)">Session Expired</div>
-            <div style="font-size:12px;color:var(--text3)">Enter your password to continue — your work is saved</div>
-          </div>
-        </div>
-        <div id="gh-ra-err" style="font-size:12px;color:var(--red);min-height:16px;margin-bottom:8px;display:none"></div>
-        <input id="gh-ra-pw" type="password" placeholder="Password" autocomplete="current-password"
-          style="width:100%;padding:10px 12px;border-radius:var(--r);border:1px solid var(--border2);
-          background:var(--field-bg,var(--bg3));color:var(--text);font-size:15px;font-family:var(--sans);
-          margin-bottom:10px;outline:none;box-sizing:border-box">
-        <div style="display:flex;gap:8px">
-          <button id="gh-ra-cancel" style="flex:1;padding:10px;border-radius:var(--r);border:1px solid var(--border2);
-            background:transparent;color:var(--text2);font-size:14px;cursor:pointer;font-family:var(--sans)">
-            Cancel
-          </button>
-          <button id="gh-ra-btn" style="flex:2;padding:10px;border-radius:var(--r);border:none;
-            background:var(--accent);color:#fff;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--sans)">
-            Unlock
-          </button>
-        </div>
-      </div>`;
-
-    document.body.appendChild(overlay);
-
-    const pw     = overlay.querySelector('#gh-ra-pw');
-    const btn    = overlay.querySelector('#gh-ra-btn');
-    const cancel = overlay.querySelector('#gh-ra-cancel');
-    const err    = overlay.querySelector('#gh-ra-err');
-
-    setTimeout(() => pw.focus(), 80);
-
-    function showErr(msg) {
-      err.textContent = msg;
-      err.style.display = 'block';
-      pw.style.borderColor = 'var(--red)';
-    }
-
-    async function attempt() {
-      const password = pw.value.trim();
-      if (!password) { showErr('Enter your password'); return; }
-      btn.textContent = 'Unlocking…';
-      btn.disabled = true;
-      try {
-        const r = await fetch('/api/v1/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ password })
-        });
-        const d = await r.json();
-        if (!r.ok) {
-          showErr(d.error || 'Incorrect password');
-          btn.textContent = 'Unlock';
-          btn.disabled = false;
-          pw.select();
-          return;
-        }
-        LT.authToken = d.token;
-        localStorage.setItem('lt_token', d.token);
-        GH_LOG.info('Re-auth successful');
-        overlay.remove();
-        resolve();
-      } catch(e) {
-        showErr('Connection error');
-        btn.textContent = 'Unlock';
-        btn.disabled = false;
-      }
-    }
-
-    btn.addEventListener('click', attempt);
-    pw.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
-    pw.addEventListener('input', () => { err.style.display = 'none'; pw.style.borderColor = ''; });
-    cancel.addEventListener('click', () => { overlay.remove(); reject(new Error('cancelled')); });
-    overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); reject(new Error('dismissed')); } });
-  });
-}
+// (Inline re-auth modal removed v.174 — it was never wired into api().
+//  The shipped 401 path is the redirect to /login.html above.)
 
 // Convenience wrappers
 window.apiGet    = (path)        => api('GET',    path);
@@ -315,15 +230,12 @@ window.apiDelete = (path)        => api('DELETE', path);
  *   await api('DELETE', `/certifications/${id}`);
  *
  * This is the ONLY api() factory. All pages must use this instead of
- * hand-rolling fetch() calls. Gives: auth header, JSON body, 401 retry,
+ * hand-rolling fetch() calls. Gives: auth header, JSON body, 401 redirect,
  * error logging — all inherited from window.api.
  */
 window.makeApi = function(prefix) {
   return (method, path, body) => window.api(method, prefix + path, body);
 };
-
-// Expose re-auth prompt so raw fetch() callers can also trigger it on 401
-window.reAuthPrompt = _reAuthPrompt;
 
 // ── Spinner HTML helper ────────────────────────────────────────
 window.spinnerHtml = function(msg = 'Loading…') {
@@ -973,8 +885,8 @@ window.GH_TAGS = (function() {
 })();
 
 // Auth gate removed — pages load freely without any password prompt.
-// All reads are public. Writes go through api() which shows _reAuthPrompt
-// on 401 automatically. Session lifetime is 365 days so re-prompts are rare.
+// All reads are public. Writes go through api(); on 401 it redirects to
+// /login.html?next=<page>. Session lifetime is 365 days so this is rare.
 // To set or change the password, use Settings → Change Password.
 
 // ══════════════════════════════════════════════════════════════

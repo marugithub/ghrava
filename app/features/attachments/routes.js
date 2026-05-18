@@ -22,6 +22,7 @@ const path    = require('path');
 const fs      = require('fs');
 const multer  = require('multer');
 const { requireAuth }  = require('../auth/middleware');
+const { isUnderAttachmentsRoot } = require('../../shared/attach-lifecycle');
 const { notFound, badRequest, serverError } = require('../../shared/errors');
 
 // ── Optional sharp for thumbnail generation ───────────────────
@@ -178,6 +179,8 @@ router.get('/thumb/:id', (req, res) => {
       ? a.thumb_path
       : (fs.existsSync(a.stored_path) ? a.stored_path : null);
     if (!src) return res.status(410).json({ error: 'File not found' });
+    // Defense-in-depth: never serve a path that escapes the attachments root
+    if (!isUnderAttachmentsRoot(src)) return res.status(403).json({ error: 'Forbidden' });
     res.setHeader('Content-Type', a.mime_type || 'image/jpeg');
     res.sendFile(src, { root: '/' });
   } catch (e) { serverError(res, e); }
@@ -194,6 +197,8 @@ router.get('/file/:id', (req, res) => {
     if (!fs.existsSync(a.stored_path)) {
       return res.status(410).json({ error: 'File no longer exists on NAS', unc_path: a.unc_path });
     }
+    // Defense-in-depth: never serve a path that escapes the attachments root
+    if (!isUnderAttachmentsRoot(a.stored_path)) return res.status(403).json({ error: 'Forbidden' });
     res.setHeader('Content-Disposition', `inline; filename="${a.original_filename}"`);
     res.setHeader('Content-Type', a.mime_type || 'application/octet-stream');
     res.sendFile(a.stored_path, { root: '/' });

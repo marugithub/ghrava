@@ -19,6 +19,9 @@ app/backups/
 .env.secrets
 app/.env
 
+# App password for the deploy E2E gate — per-machine secret, never commit
+tests/.ghrava-auth
+
 # Logs
 logs/
 app/logs/

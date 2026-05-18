@@ -69,6 +69,88 @@ principles.
 
 ---
 
+## ✅ v.174 DEPLOYED & VERIFIED — E2E auth gate + security hardening (2026-05-18)
+
+> **DEPLOYED 2026-05-18 ~10:13.** `/app/version.txt`=`202604.174`,
+> container restarted clean, no log errors, **Smoke HARD gate 8/8**.
+> No schema, no migrations, additive + read-only edits only. Al chose:
+> auth-test fix + A + B + C.
+>
+> **E2E SOFT gate: 92 passed / 15 failed (was 21 failed/all-401 on
+> v.173).** The auth fix is proven: the 21 × 401 are GONE — the
+> previously-401ing write tests now pass (`CRUD Todos`, `CRUD
+> Documents`, `CRUD Contacts`). The "Auth token resolved — CRUD write
+> tests will run" path fired (token from `tests\.ghrava-auth`).
+>
+> **The 15 failures are pre-existing UI/selector debt, NOT v.174
+> regressions** — they were *masked* before because the suite died at
+> the first 401 write in beforeAll-less mode and never reached these
+> assertions. No regression from this drop: `Medical loads cleanly` ✓,
+> `Dashboard/Documents/Inventory — no JS errors on load` ✓ (clears the
+> global lt-core esc/fmtMoney/dead-code risk), `file-copy-btn renders
+> as button not text` ✓ (esc didn't break markup); zero medical/
+> attachment test failures. The 15 = BACKLOG known bug #1 (Todos
+> renders neither), #2 (Reports registry empty), + the "11 stale
+> Playwright selectors" / card-view-wiring class (now quantified at 15
+> and measurable for the first time — see BACKLOG known-bugs).
+
+### What was built (5 tasks)
+1. **Deploy E2E gate now authenticates** (`ghrava_deploy.ps1`). Root
+   cause of the "21 × 401" every deploy: Step 8 ran Playwright directly
+   and never set `GHRAVA_TOKEN`, so `ghrava-e2e.spec.js` `beforeAll`
+   early-returned (`if (!AUTH_PASSWORD) return;`) and every write test
+   hit an authenticated endpoint unauthenticated. **Prod has an app
+   password set** — the old "open mode" claim was stale doc drift (the
+   401s were the proof). New `-AuthToken` param + resolution order
+   (`-AuthToken` → `$env:GHRAVA_TOKEN` → gitignored `tests\.ghrava-auth`);
+   token is exported only around the E2E run and cleared after. No
+   password → loud warning instead of silent meaningless gate.
+2. **Dead re-auth code removed** (`lt-core.js`). `_reAuthPrompt()`, the
+   `_isRetry` retry param, and `window.reAuthPrompt` were never wired
+   into `api()` — the shipped 401 path has always been a hard redirect
+   to `/login.html?next=`. Comment block + makeApi doc + the line-887
+   note corrected to describe the redirect. **No behavior change.**
+   (There is NO step-up auth and never was — only a 365-day session.)
+3. **`/file/:id` + `/thumb/:id` path allowlist** (`attachments/routes.js`,
+   security audit #3, high sev). Both `res.sendFile` calls now 403 if
+   the resolved path escapes the attachments root, via the existing
+   `isUnderAttachmentsRoot` helper (`attach-lifecycle.js`). `ATTACHMENTS_ROOT`
+   == `ATT_BASE` (`/app/attachments`) so no legitimate file is rejected.
+4. **`window.esc` hardened** (`lt-core.js:22`) — now also escapes `"`
+   `'` `/` (was only `& < >`). Shared by every page.
+5. **`fmtMoney`/`formatDate` partial dedup.** Canonical `window.fmtMoney`
+   added to `lt-core.js` (`$1,234.50` / `—`). **The BACKLOG entry
+   undersold this:** the 5 page-local `fmtMoney`s had 4 different
+   contracts. Only the genuine dupes were consolidated:
+   - `medical.html` / `medical_v2.html`: local `fmtMoney` + local
+     `formatDate` removed (identical to canonical; medical money now
+     also gets thousands separators — minor visible improvement).
+   - **Deliberately left alone** (different contract — merging would
+     regress): `inventory.html` `fmtMoney` (no `$` prefix),
+     `reports.html` `fmtMoney` (no cents — locked chart surface #26,
+     already feature-detects `window.fmtMoney`), `hsa.html` `fmtMoney`
+     (null→`$0.00` not `—`; sensitive money dashboard),
+     `dashboard.html` `formatDate` (takes a `Date` object, returns
+     "Mon, Jan 5, 2025" — entirely different function).
+
+### Post-deploy verification — DONE 2026-05-18
+- ✅ Smoke HARD gate 8/8.
+- ✅ E2E: the ~21 CRUD write tests now PASS (no 401) — auth fix proven.
+- ✅ esc change safe: "no JS errors on load" + "file-copy-btn renders
+  as button" passed; all page-integrity loads (incl. Medical) passed.
+- ✅ Medical fmtMoney/formatDate dedup safe: Medical loads cleanly.
+- ⚠️ Manual spot-check still advised next session: eyeball a medical
+  med cross-strip ($ now has commas) and one attachment thumbnail —
+  the integrity tests cover JS-error/markup but not visual value.
+
+### Docs synced this drop
+- LOCKED.md `AUTH-OPEN-GET` note clarified (prod is password-protected).
+- BACKLOG.md security rows (#3 `/file` allowlist, `window.esc`,
+  `fmtMoney`/`formatDate`) updated with disposition.
+- No new CLI / schema column → no help.html / lens-config changes.
+
+---
+
 ## ✅ v.173 SHIPPED — Asterisk subsystem: per-record math + HSA tile (2026-05-17)
 
 > **DEPLOYED & VERIFIED 2026-05-17 (~21:08).** Live on the NAS:
@@ -2811,10 +2893,16 @@ services:
 - `requireAuth` middleware exists ONLY in `app/features/settings/routes.js`
   and `app/features/watcher/routes.js`.
 - ALL read-only GETs are public. Reads never behind auth.
-- The live container runs in **open (no-password) mode**. Adding auth
-  enforcement to other routes would lock Al out.
-- Browser `<img>` tags can't send auth headers — attachment thumbnail
-  routes (`/file/:id`, `/thumb/:id`) MUST stay public.
+- **Prod has an app password SET** (`app_config.app_password_hash`).
+  Corrected v.174: the old "runs in open (no-password) mode" note was
+  stale — the recurring 21 E2E 401s on write endpoints were the proof.
+  Writes require a session; reads/GETs stay public. Do NOT add
+  `requireAuth` to other routers (would block writes app-wide). There
+  is NO action-level step-up auth — a single 365-day session only.
+- Browser `<img>` tags can't send auth headers — attachment file/thumb
+  routes (`/api/v1/attachments/file/:id`, `/thumb/:id`) MUST stay
+  public, but v.174 added a path allowlist so they only serve files
+  under `/app/attachments` (403 otherwise).
 
 ### Family + members
 

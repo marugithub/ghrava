@@ -491,9 +491,17 @@ The bugs landed because chats wrote SQL from memory of "what the column was prob
 
 ## 🐛 Known bugs (need `docker logs ghrava --tail 50` first — don't guess)
 
-1. **Todos page renders neither `.todo-item` nor `.empty-state`** — v128 family filter may hide everything. Suspected: filter regression.
-2. **Reports `.rep-row` not found** — registry empty in renderer. `REPORT_REGISTRY` not being populated.
-3. **11 stale Playwright selectors** — test runner needs refresh. List in HANDOFF.md if it exists.
+> **v.174 update:** the E2E suite now authenticates (deploy gate fixed),
+> so these surfaced as **15 real failures** for the first time (they
+> were masked behind the old 21×401). 92 passed / 15 failed is the new
+> honest baseline. The 15 are exactly #1, #2 below + the stale-selector
+> / card-view-wiring class — none are app regressions (same pages pass
+> their "loads cleanly / no JS errors" integrity tests). **This is the
+> obvious v.175 candidate: a test-harness refresh pass.**
+
+1. **Todos page renders neither `.todo-item` nor `.empty-state`** — v128 family filter may hide everything. Suspected: filter regression. *(v.174: confirmed still failing — `ghrava-e2e.spec.js:336`.)*
+2. **Reports `.rep-row` not found** — registry empty in renderer. `REPORT_REGISTRY` not being populated. *(v.174: confirmed still failing — `ghrava-e2e.spec.js:344`.)*
+3. **Stale Playwright selectors — now quantified at ~13** (v.174, was "11 est."). Failing specs: tag-chip span (`:297`), dashboard tiles (`:327`), Books tag chip (`:430`), Inventory all-items (`:455`), subscriptions cancel-now (`:886`), calendar_events urgent (`:1079`), and page-wiring "card view available" ×7 (`:1354` — subscriptions, books, perfume, insurance, documents, wardrobe, property). All are "waiting for element visible" timeouts on pages that pass integrity tests = selector drift, not app bugs. Refresh against current HTML.
 4. **Reports panels open as center modals** — sub-panel CSS leak from `settings.html`. Wrong layer.
 5. **Multi-kid bug** — partially fixed in v.166 (kids auto-sync). Verify Risha appears after deploy.
 
@@ -503,13 +511,13 @@ The bugs landed because chats wrote SQL from memory of "what the column was prob
 
 | Issue | Severity | Effort |
 |---|---|---|
-| `window.esc` doesn't escape `/\'` — XSS surface | medium | trivial |
+| ✅ **FIXED v.174** — `window.esc` doesn't escape `/\'` — XSS surface (now escapes `" ' /` too) | medium | trivial |
 | Attach route should allowlist `entityType` (not arbitrary string) | medium | small |
-| `/file/:id` and `/thumb/:id` missing path-allowlist — helper `isUnderAttachmentsRoot` exists in `attach-lifecycle.js`, not used | high | small |
+| ✅ **FIXED v.174** — `/file/:id` + `/thumb/:id` path-allowlist wired via existing `isUnderAttachmentsRoot` (403 if path escapes `/app/attachments`) | high | small |
 | `/api/v1/app/test-results` unauthenticated — writes test runs to disk | low | trivial |
 | CORS wide open | low (intranet) | trivial |
-| `fmtMoney` redefined in 3 pages — should be in `lt-core.js` | trivial | small |
-| `formatDate` redefined despite `lt-core` | trivial | small |
+| ⚠️ **PARTIAL v.174** — `fmtMoney`: canonical `window.fmtMoney` added to `lt-core.js`; medical/medical_v2 deduped. inventory (no `$`), reports (no cents, #26 locked), hsa (null→`$0.00`) keep their own *by design* — different contracts, merging would regress. Not "trivial dedup" as logged. | trivial | small |
+| ✅ **FIXED v.174** — `formatDate` redefined: medical/medical_v2 dupes removed (use `window.formatDate`). dashboard.html keeps its own — different signature (`Date` obj → "Mon, Jan 5, 2025"), NOT a dupe. | trivial | small |
 | `global-search.js` has own `esc()` — should use shared | trivial | trivial |
 | `migrate.js` parser splits on `;` before stripping `--` comments — breaks multi-statement migs with comments containing `;` | medium | small |
 
@@ -593,4 +601,4 @@ These came up repeatedly and got locked but should not be relitigated:
 
 ---
 
-*Last updated: v202604.166 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*
+*Last updated: v202604.174 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*

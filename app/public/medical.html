@@ -2300,12 +2300,7 @@ function showToast(msg, type='ok') {
 function esc(s) {
   return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
-function formatDate(d) {
-  if (!d) return '';
-  const [y,m,day] = d.split('-');
-  const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  return `${mo[parseInt(m)-1]} ${parseInt(day)}, ${y}`;
-}
+// formatDate: use canonical window.formatDate from lt-core.js ("Jan 5, 2025")
 
 // ── State ──────────────────────────────────────────────────────
 // v202604.149 — default to All on every page load. The cross-card
@@ -2693,7 +2688,7 @@ function renderMedCard(r) {
   // Cross-module strip — values: HSA YTD, Last filled, Doses left, Last cost.
   // Doses-left meter visualizes pills/mL/etc remaining. Individual missing
   // values render as "—" so the layout doesn't reflow per row.
-  const fmtMoney = v => (v == null) ? '—' : `$${Number(v).toFixed(2)}`;
+  // fmtMoney: canonical window.fmtMoney from lt-core.js ($1,234.50 / "—")
   const hsaYtd     = fmtMoney(r.hsa_ytd);
   const lastFilled = r.last_filled ? formatDate(r.last_filled) : '—';
   const lastCost   = fmtMoney(r.last_fill_cost);

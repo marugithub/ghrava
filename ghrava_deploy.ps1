@@ -34,6 +34,7 @@ param(
     [string]$DockerPath  = "/share/CACHEDEV4_DATA/.qpkg/container-station/bin/docker",
     [string]$Container   = "ghrava",
     [string]$GhUrl       = "",
+    [string]$AuthToken   = "",
     [switch]$SkipGit,
     [switch]$SkipRestart,
     [switch]$SkipTests
@@ -41,6 +42,19 @@ param(
 
 # Live app URL the smoke + E2E suites hit. Defaults from $NasHost.
 if ($GhUrl -eq "") { $GhUrl = "http://${NasHost}:3001" }
+
+# ── App password for the E2E gate ────────────────────────────────────────────
+# The full E2E suite exercises write endpoints, which require a session. The
+# suite's beforeAll exchanges this password for a token (POST /auth/login).
+# Without it, ~21 CRUD tests 401 every deploy and the soft gate is meaningless.
+# Resolution order (no secret is ever committed):
+#   1. -AuthToken arg   2. $env:GHRAVA_TOKEN   3. tests\.ghrava-auth file (gitignored)
+if ($AuthToken -eq "") {
+    if     ($env:GHRAVA_TOKEN)                     { $AuthToken = $env:GHRAVA_TOKEN }
+    elseif (Test-Path "$PSScriptRoot\tests\.ghrava-auth") {
+        $AuthToken = (Get-Content "$PSScriptRoot\tests\.ghrava-auth" -Raw).Trim()
+    }
+}
 
 $ErrorActionPreference = "Continue"
 
@@ -307,10 +321,24 @@ if ($SkipTests) {
 } else {
     $env:GHRAVA_URL = $GhUrl
     $env:PW_TEST_HTML_REPORT_OPEN = 'never'
+    # Hand the suite the app password so beforeAll logs in and the write
+    # tests actually run. No password → CRUD tests 401 (the old silent bug).
+    if ($AuthToken) {
+        $env:GHRAVA_TOKEN = $AuthToken
+        Info "Auth token resolved — CRUD write tests will run"
+    } else {
+        Remove-Item Env:\GHRAVA_TOKEN -ErrorAction SilentlyContinue
+        Warn "No app password (-AuthToken / `$env:GHRAVA_TOKEN / tests\.ghrava-auth)"
+        Warn "  → ~21 CRUD write tests will 401. E2E soft gate is not meaningful."
+    }
     Push-Location $TestsDir
     try {
         $e2eOut = & $Pw test --config="$TestsDir\playwright.config.js" 2>&1
-    } finally { Pop-Location }
+    } finally {
+        Pop-Location
+        # Don't leave the password in the shell session env after the run.
+        Remove-Item Env:\GHRAVA_TOKEN -ErrorAction SilentlyContinue
+    }
     $e2eExit = $LASTEXITCODE
     $e2eOut | ForEach-Object { Info "  $_" }
 
