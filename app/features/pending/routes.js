@@ -91,7 +91,26 @@ function notYetHandledClause() {
 // Vehicle fuel: any tx with category 'Fuel' or merchant containing
 // known gas-station names that doesn't yet have a vehicle link.
 // schema: transactions.{id, description, amount, date, category, is_transfer}
-function detectVehicleFuel() {
+// v.173: optional vehicleId. When supplied, narrow to unhandled fuel
+// charges whose description matches an active tx_link_rules row that
+// points at THIS vehicle (linked txns are never pending, so the
+// rule-match path is the only meaningful per-record signal — see
+// TX-RULES lock). Omitting the id preserves the v.171 global behavior.
+// schema: tx_link_rules.{merchant_pattern, right_type, right_id, is_active}
+function detectVehicleFuel(vehicleId) {
+  const params = [];
+  let perRecord = '';
+  if (vehicleId) {
+    perRecord = `
+      AND EXISTS (
+        SELECT 1 FROM tx_link_rules r
+        WHERE r.is_active = 1
+          AND r.right_type = 'vehicle'
+          AND r.right_id = ?
+          AND UPPER(t.description) LIKE '%' || UPPER(REPLACE(r.merchant_pattern,'%','')) || '%'
+      )`;
+    params.push(vehicleId);
+  }
   return db.prepare(`
     SELECT
       'vehicle'              AS source_module,
@@ -120,14 +139,31 @@ function detectVehicleFuel() {
         OR LOWER(t.description) LIKE '%wawa%'
       )
       ${notYetHandledClause()}
+      ${perRecord}
     ORDER BY t.date DESC
-  `).all();
+  `).all(...params);
 }
 
 // Pharmacy / Rx pickup with no per-Rx cost entered yet. We surface
 // pharmacy charges that don't have a medication link.
 // schema: transactions.{id,description,amount,date,category,is_transfer}
-function detectMedicalRx() {
+// v.173: optional medicationId — same per-record shape as fuel above
+// (tx_link_rules match for right_type='medication'). Global when omitted.
+// schema: tx_link_rules.{merchant_pattern, right_type, right_id, is_active}
+function detectMedicalRx(medicationId) {
+  const params = [];
+  let perRecord = '';
+  if (medicationId) {
+    perRecord = `
+      AND EXISTS (
+        SELECT 1 FROM tx_link_rules r
+        WHERE r.is_active = 1
+          AND r.right_type = 'medication'
+          AND r.right_id = ?
+          AND UPPER(t.description) LIKE '%' || UPPER(REPLACE(r.merchant_pattern,'%','')) || '%'
+      )`;
+    params.push(medicationId);
+  }
   return db.prepare(`
     SELECT
       'medication'           AS source_module,
@@ -149,15 +185,33 @@ function detectMedicalRx() {
         OR LOWER(COALESCE(t.category,'')) IN ('pharmacy','prescriptions','rx')
       )
       ${notYetHandledClause()}
+      ${perRecord}
     ORDER BY t.date DESC
-  `).all();
+  `).all(...params);
 }
 
 // Recurring-tx → subscription suggestion. Same description seen 3+
 // times in the last 6 months at roughly the same amount, with no
 // link to an existing subscription.
 // schema: transactions.{id,description,amount,date,is_transfer}
-function detectSubscriptions() {
+// v.173: optional subscriptionId — restricts candidates to those whose
+// sample description matches an active tx_link_rules row for that
+// subscription. Not UI-wired this drop; endpoint-level correctness only.
+// schema: tx_link_rules.{merchant_pattern, right_type, right_id, is_active}
+function detectSubscriptions(subscriptionId) {
+  const params = [];
+  let perRecord = '';
+  if (subscriptionId) {
+    perRecord = `
+      AND EXISTS (
+        SELECT 1 FROM tx_link_rules r
+        WHERE r.is_active = 1
+          AND r.right_type = 'subscription'
+          AND r.right_id = ?
+          AND UPPER(c.sample_desc) LIKE '%' || UPPER(REPLACE(r.merchant_pattern,'%','')) || '%'
+      )`;
+    params.push(subscriptionId);
+  }
   return db.prepare(`
     WITH candidates AS (
       SELECT
@@ -201,14 +255,20 @@ function detectSubscriptions() {
         SELECT 1 FROM subscriptions s
         WHERE LOWER(COALESCE(s.name, '')) LIKE '%' || c.norm_desc || '%'
       )
+      ${perRecord}
     ORDER BY c.latest_date DESC
-  `).all();
+  `).all(...params);
 }
 
 // Inventory match: a transaction with a price matching an existing
 // item's purchase_price within $1 and within 7 days of purchase_date.
 // schema: transactions.{id,description,amount,date,is_transfer}, items.{id,name,purchase_price,purchase_date}
-function detectInventoryMatches() {
+// v.173: optional itemId — narrows the JOIN to a single inventory item.
+// Not UI-wired this drop; endpoint-level correctness only.
+function detectInventoryMatches(itemId) {
+  const params = [];
+  let perRecord = '';
+  if (itemId) { perRecord = ` AND i.id = ?`; params.push(itemId); }
   return db.prepare(`
     SELECT
       'inventory'                                        AS source_module,
@@ -228,14 +288,28 @@ function detectInventoryMatches() {
       AND i.purchase_price IS NOT NULL
       AND i.purchase_price > 0
       ${notYetHandledClause()}
+      ${perRecord}
     ORDER BY t.date DESC
-  `).all();
+  `).all(...params);
 }
 
 // HSA: a transaction marked as medical/HSA category with no link to
 // an hsa_payment AND no receipt entry.
-// schema: transactions.{id,description,amount,date,category,is_transfer}, hsa_payments.{date, you_paid}
-function detectHsaReceipts() {
+// v.173: optional hsaAccountId. Global (v.171) behavior is byte-for-byte
+// preserved (exact-date receipt match). Per-record scopes to
+// transactions.account_id and widens the receipt match to a ±14-day
+// window. "Same patient" from the spec is dropped — neither
+// transactions nor hsa_payments carries a patient column (not in schema).
+// schema: transactions.{id,account_id,description,amount,date,category,is_transfer}, hsa_payments.{date, you_paid}
+function detectHsaReceipts(hsaAccountId) {
+  const params = [];
+  let accountClause = '';
+  let hpDateCond = 'hp.date = t.date';
+  if (hsaAccountId) {
+    accountClause = ` AND t.account_id = ?`;
+    params.push(hsaAccountId);
+    hpDateCond = 'ABS(julianday(hp.date) - julianday(t.date)) <= 14';
+  }
   return db.prepare(`
     SELECT
       'hsa_payment'                                AS source_module,
@@ -250,19 +324,25 @@ function detectHsaReceipts() {
     WHERE t.is_transfer = 0
       AND t.amount < 0
       AND LOWER(COALESCE(t.category,'')) IN ('medical','health','healthcare','hsa','dental','vision')
+      ${accountClause}
       AND NOT EXISTS (
         SELECT 1 FROM hsa_payments hp
-        WHERE hp.date = t.date
+        WHERE ${hpDateCond}
           AND ABS(hp.you_paid - ABS(t.amount)) < 0.50
       )
       ${notYetHandledClause()}
     ORDER BY t.date DESC
-  `).all();
+  `).all(...params);
 }
 
 // Career: cert renewal fee — tx amount matches a cert.renewal_fee.
 // schema: transactions.{id,description,amount,date,is_transfer}, certifications.{id,cert_name,renewal_fee}
-function detectCertRenewals() {
+// v.173: optional certId — narrows the JOIN to a single certification.
+// Not UI-wired this drop; endpoint-level correctness only.
+function detectCertRenewals(certId) {
+  const params = [];
+  let perRecord = '';
+  if (certId) { perRecord = ` AND c.id = ?`; params.push(certId); }
   return db.prepare(`
     SELECT
       'certification'                                       AS source_module,
@@ -280,8 +360,9 @@ function detectCertRenewals() {
     WHERE t.is_transfer = 0
       AND t.amount < 0
       ${notYetHandledClause()}
+      ${perRecord}
     ORDER BY t.date DESC
-  `).all();
+  `).all(...params);
 }
 
 // ─── aggregate ─────────────────────────────────────────────────────
@@ -441,8 +522,15 @@ router.delete('/rules/:id', requireAuth, (req, res) => {
 //                                       still tentative.
 //   ?card=medication&record_id=N      → med N: red if any pickup tx
 //                                       lacks a cost.
-//   ?card=hsa_payment                 → red if any medical-cat tx
-//                                       lacks a receipt link.
+//   ?card=hsa_payment&record_id=N     → HSA account N: medical-cat tx
+//                                       on that account with no logged
+//                                       receipt (±14d). Omit record_id
+//                                       for the global probe. red >5,
+//                                       amber 1-5.
+//
+// v.173: record_id is honored for every card. Omitting it preserves
+// the v.171 global count (back-compat). Response shape unchanged:
+// { card, record_id, color, count, hint }.
 //
 // schema: see detector queries above
 router.get('/asterisk', (req, res) => {
@@ -454,29 +542,34 @@ router.get('/asterisk', (req, res) => {
     let color = null;
     let hint  = '';
 
+    // v.173: recordId is threaded into each detector. When null the
+    // detector runs its v.171 global query unchanged (back-compat).
     if (card === 'vehicle_fuel') {
-      count = detectVehicleFuel().length;
+      count = detectVehicleFuel(recordId).length;
       hint  = count + ' fuel charge' + (count === 1 ? '' : 's') + ' still need a car assigned';
       if (count > 5) color = 'red';
       else if (count > 0) color = 'amber';
     } else if (card === 'medication') {
-      count = detectMedicalRx().length;
+      count = detectMedicalRx(recordId).length;
       hint  = count + ' pharmacy charge' + (count === 1 ? '' : 's') + ' missing cost';
       if (count > 0) color = 'red';
     } else if (card === 'hsa_payment') {
-      count = detectHsaReceipts().length;
+      count = detectHsaReceipts(recordId).length;
       hint  = count + ' medical expense' + (count === 1 ? '' : 's') + ' missing receipt';
-      if (count > 0) color = 'red';
+      // v.173: mirror the vehicle_fuel tiering — a large backlog is a
+      // real gap (red); a handful is just catch-up (amber).
+      if (count > 5) color = 'red';
+      else if (count > 0) color = 'amber';
     } else if (card === 'subscriptions') {
-      count = detectSubscriptions().length;
+      count = detectSubscriptions(recordId).length;
       hint  = count + ' recurring charge' + (count === 1 ? '' : 's') + ' might be a subscription';
       if (count > 0) color = 'amber';
     } else if (card === 'inventory') {
-      count = detectInventoryMatches().length;
+      count = detectInventoryMatches(recordId).length;
       hint  = count + ' purchase' + (count === 1 ? '' : 's') + ' could be linked to an inventory item';
       if (count > 0) color = 'amber';
     } else if (card === 'certification') {
-      count = detectCertRenewals().length;
+      count = detectCertRenewals(recordId).length;
       hint  = count + ' renewal fee' + (count === 1 ? '' : 's') + ' could be linked to a cert';
       if (count > 0) color = 'amber';
     } else {
