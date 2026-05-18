@@ -618,6 +618,41 @@ test.describe('API Contract', () => {
     }
   });
 
+  // v202604.176 task 2 — the test-results POST now requires a session;
+  // the GETs stay public (Reports → Testing reads them with no login).
+  test('test-results POST requires auth; GETs stay public', async ({ request }) => {
+    const validBody = { started_at: '2099-01-01T00:00:00Z', passed: 0, failed: 0, total: 0 };
+    const noAuth = await request.post(`${API}/app/test-results`, {
+      data: validBody, headers: { 'Content-Type': 'application/json' },
+    });
+    if (AUTH_PASSWORD) {
+      expect(noAuth.status(), 'unauth POST must be blocked (401)').toBe(401);
+      // Authed empty body → passes auth, fails validation (400). Proves
+      // auth lets a session through, and writes no run file.
+      const authed = await request.post(`${API}/app/test-results`, {
+        data: {}, headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
+      });
+      expect(authed.status(), 'authed empty body → 400 validation, not 401').toBe(400);
+    } else {
+      // Open mode (no password on instance) — write allowed.
+      expect([201, 400]).toContain(noAuth.status());
+    }
+    const list = await request.get(`${API}/app/test-results`);
+    expect(list.status(), 'GET list stays public').toBe(200);
+  });
+
+  // v202604.176 task 3 — CORS restricted to the LAN/Tailscale allowlist.
+  test('CORS — allowed origin echoed, foreign origin denied', async ({ request }) => {
+    const ok = await request.get(`${BASE}/health`, { headers: { Origin: BASE } });
+    expect(ok.status()).toBe(200);
+    expect(ok.headers()['access-control-allow-origin'], 'allowed origin echoed').toBe(BASE);
+    const bad = await request.get(`${BASE}/health`, { headers: { Origin: 'http://evil.test' } });
+    // Request is still served (no hard block) but carries no ACAO for the
+    // foreign origin, so a browser would refuse the cross-origin read.
+    expect(bad.headers()['access-control-allow-origin'] || '',
+      'foreign origin must not get an ACAO header').not.toBe('http://evil.test');
+  });
+
   test('GET /finance/transactions/unified returns transactions and summary', async ({ request }) => {
     const r = await request.get(`${API}/finance/transactions/unified`);
     expect(r.ok()).toBe(true);
@@ -1255,6 +1290,43 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
     expect(result.acme, 'unknown brand: first letters of words').toBe('AB');
     expect(result.single, 'unknown single word: first 3 chars').toBe('WES');
     expect(result.empty, 'empty returns ?').toBe('?');
+  });
+
+  // v202604.176 — regression pin for the UTC day-off bug. A bare
+  // "YYYY-MM-DD" must be treated as LOCAL midnight (not UTC), so
+  // today/tomorrow/yesterday resolve to 0/+1/-1 in ANY timezone. Before
+  // the fix this failed in negative-UTC zones (bare date parsed as UTC,
+  // shifted a calendar day → urgency/schedule lines one day early).
+  test('GH_CARD_SHARED.daysFromToday/fmtDateShort — bare dates parse as LOCAL (no off-by-one)', async ({ page }) => {
+    await loadCardSystem(page);
+    const r = await page.evaluate(() => {
+      const p = (n) => String(n).padStart(2, '0');
+      const ymd = (off) => {
+        const d = new Date();
+        d.setDate(d.getDate() + off);
+        return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+      };
+      const S = window.GH_CARD_SHARED;
+      const today = new Date();
+      const expShort = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return {
+        today:    S.daysFromToday(ymd(0)),
+        tomorrow: S.daysFromToday(ymd(1)),
+        yest:     S.daysFromToday(ymd(-1)),
+        far:      S.daysFromToday(ymd(7)),
+        nul:      S.daysFromToday(null),
+        garbage:  S.daysFromToday('not-a-date'),
+        shortToday: S.fmtDateShort(ymd(0)),
+        expShort,
+      };
+    });
+    expect(r.today,    'bare today → 0').toBe(0);
+    expect(r.tomorrow, 'bare tomorrow → +1 (was 0 pre-fix in -UTC)').toBe(1);
+    expect(r.yest,     'bare yesterday → -1').toBe(-1);
+    expect(r.far,      'bare +7 → 7').toBe(7);
+    expect(r.nul,      'null → null').toBeNull();
+    expect(r.garbage,  'garbage → null').toBeNull();
+    expect(r.shortToday, 'fmtDateShort(today) matches local short date').toBe(r.expShort);
   });
 
   // ─────────────────────────────────────────────────────────────

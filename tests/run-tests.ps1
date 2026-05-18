@@ -242,10 +242,35 @@ if (Test-Path $ReportDir -PathType Container) {
 # diagnostic info (received_keys, content_type) when validation fails -
 # show it instead of swallowing into a generic error.
 if ($RunData) {
+    # v202604.176 — POST /api/v1/app/test-results now requires a session.
+    # Resolve the app password the same way ghrava_deploy.ps1 does
+    # (-AuthToken -> $env:GHRAVA_TOKEN -> gitignored tests\.ghrava-auth),
+    # exchange it for a session token, and send it as a Bearer header.
+    # No password -> warn and skip the POST (results are still saved
+    # locally + to the report dir; don't fail the run over telemetry).
+    $pw = $AuthToken
+    if (-not $pw) {
+        if     ($env:GHRAVA_TOKEN)                       { $pw = $env:GHRAVA_TOKEN }
+        elseif (Test-Path "$PSScriptRoot\.ghrava-auth")  { $pw = (Get-Content "$PSScriptRoot\.ghrava-auth" -Raw).Trim() }
+    }
+    $authHeaders = @{}
+    if ($pw) {
+        try {
+            $login = Invoke-RestMethod -Uri "$GhUrl/api/v1/auth/login" -Method POST `
+                -Body (@{ password = $pw } | ConvertTo-Json) -ContentType "application/json" -TimeoutSec 10
+            if ($login.token) { $authHeaders = @{ Authorization = "Bearer $($login.token)" } }
+        } catch {
+            Write-Host "Warning: auth/login failed - results POST will likely 401 - $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "No app password (-AuthToken / `$env:GHRAVA_TOKEN / tests\.ghrava-auth) - skipping results POST" -ForegroundColor DarkYellow
+    }
+
+    if ($pw) {
     try {
         $body = $RunData | ConvertTo-Json -Depth 10 -Compress
         $posted = Invoke-RestMethod -Uri "$GhUrl/api/v1/app/test-results" `
-            -Method POST -Body $body -ContentType "application/json" -TimeoutSec 10
+            -Method POST -Body $body -ContentType "application/json" -Headers $authHeaders -TimeoutSec 10
         Write-Host "Results posted to Ghrava: $($posted.filename)" -ForegroundColor Green
     } catch {
         $errMsg = $_.Exception.Message
@@ -269,6 +294,7 @@ if ($RunData) {
             Write-Host "         Payload saved to: $PayloadFile" -ForegroundColor DarkGray
         } catch {}
         Write-Host "         Results are still in $ResultsJson" -ForegroundColor Yellow
+    }
     }
 }
 

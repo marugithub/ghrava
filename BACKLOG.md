@@ -1,22 +1,23 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### ⭐ TOP PRIORITY — `S.daysFromToday()` UTC off-by-one (real, app-wide)
-**Found v.175. Deferred deliberately, NOT dismissed — review/fix next.**
-`app/public/js/gh-card-shared.js:17` does `new Date('YYYY-MM-DD')`
-(parsed as **UTC** midnight) then compares to **local** midnight. In a
-negative-UTC zone every date-only field reads **one calendar day
-early** — "due tomorrow" shows as "today/now", urgency tiers fire a day
-too soon, schedule lines are off by one. Affects **every GH_CARD
-config's `urgency()`/`scheduleLine()`** (subscriptions, vehicles,
-maintenance, calendar_events, insurance, medical, …) — i.e. user-facing
-on most tiles. v.175 only worked around it test-side (`localCardDate()`
-in `tests/ghrava-e2e.spec.js`); the app bug is untouched.
-- **Fix shape:** parse `YYYY-MM-DD` as **local** midnight (split on
-  `-` and `new Date(y, m-1, d)`), keep datetime strings as-is.
-- **Why it's its own drop:** changes the day-math under every card →
-  high regression surface. Needs the full Card-Renderer E2E block
-  (`ghrava-e2e.spec.js` GH_CARD v5 suite) re-run + a manual eyeball of
-  a few urgency tiers. ~½ session, gated. Detailed entry: Known bugs §3a.
+### ✅ CLEARED in v.176 — the cross-cutting cleanup bundle
+The TOP-PRIORITY `daysFromToday()` day-off bug **and** the small orphan
+security/hygiene items were all fixed in v202604.176 (one bundled drop):
+- ✅ `daysFromToday()` + `fmtDateShort()` now parse bare `YYYY-MM-DD` as
+  **local** midnight (`gh-card-shared.js parseLocalDate()`); datetime/Z
+  strings unchanged. Regression test pins it (`ghrava-e2e.spec.js`
+  GH_CARD v5 block). See Known bugs §3a (now resolved).
+- ✅ `/api/v1/app/test-results` POST requires a session; `run-tests.ps1`
+  authenticates (reuses the v.174 password plumbing).
+- ✅ CORS restricted to a LAN/Tailscale allowlist (was wide open).
+- ✅ `global-search.js` uses shared `window.esc` + event listeners
+  (closed the interpolated-onclick XSS path).
+- ✅ `migrate.js` comment-parser — **was already fixed in v202604.142**
+  (`stripSqlComments()` runs before the `;` split); audit row was stale.
+  No work needed; marked resolved (Security/code audit table below).
+
+Nothing outstanding here now — next session: pick from the
+carried-forward items or the main backlog sections below.
 
 ### Carried-forward open items (from the v.173 spin-out — still unresolved)
 - **(a) Build the Vehicles module (DRAFT #19)** then wire its fuel
@@ -515,7 +516,7 @@ The bugs landed because chats wrote SQL from memory of "what the column was prob
 1. ✅ **RESOLVED v.175 — NOT an app bug; was a stale test (misdiagnosed twice).** Verified live (Playwright vs NAS): the Todos page renders perfectly — `#todoList` is full of `.gh-card` (GH_CARD pipeline, zero JS errors). It simply no longer uses `.todo-item`/`.todos-empty`; the test asserted a dead DOM contract. Both prior diagnoses were wrong (this file's old "v128 family filter"; a sub-agent's "field-name mismatch + setCount abort"). Fixed test → assert `.gh-card`/`.todos-empty`. Separately, the real `family_member_ids`→`family_members` latent bug in `todos.html` (would empty the list under an active Lens person scope) WAS hardened + shipped — just not the failure cause.
 2. ✅ **FIXED v.175 (was a MISDIAGNOSIS) — Reports `.rep-row` not found.** `REPORT_REGISTRY` is NOT empty (fully-populated static array). The landing `overview` tab renders summary tiles by design (locked Reports #26); `.rep-row` only exists on money/family/maintenance/system tabs. App is correct; the test was stale. Fixed test-side (`reports.html?tab=money`).
 3. ✅ **FIXED v.175 — all 15 stale Playwright tests (final: 107 pass / 0 fail, verified live).** `:297`+`:430` (legacy-hidden shelf tabs → default shelf), `:327` (`.module-tile` gone; Today page → retargeted), `:344` (Reports `overview` shows tiles by design → `?tab=money`), `:356` (Todos → `.gh-card`), `:455` (All-Items toggle in Lens v.134 → dead click removed), `:886`+`:1079` (test TZ bug — see 3a), `:1379` ×7 (pages migrated GH_VIEW→GH_LENS → assert `.gh-lens__views button[title="Card view"]`). One file: `tests/ghrava-e2e.spec.js`. The app was correct throughout — every one of the 15 was test/contract drift, none an app regression.
-3a. ⏳ **NEW (deferred) — `S.daysFromToday()` UTC parse off-by-one.** `gh-card-shared.js:17` does `new Date('YYYY-MM-DD')` (UTC midnight) then compares to LOCAL midnight → in a negative-UTC zone, date-only fields read one calendar day early (e.g. "due tomorrow" shows as "today"/"now"). App-wide latent bug affecting every card's urgency/schedule line. v.175 worked around it test-side only (`localCardDate()` helper). Real fix = make `daysFromToday` parse `YYYY-MM-DD` as local; **deferred — touches every card config's urgency, high regression surface, needs its own focused drop + full card-renderer E2E pass.**
+3a. ✅ **FIXED v.176 — `S.daysFromToday()` (+ `fmtDateShort()`) UTC parse off-by-one.** `gh-card-shared.js` now has `parseLocalDate()`: bare `YYYY-MM-DD` → `new Date(y,m-1,d)` (local midnight); strings with a time/Z keep the native parse (v.175 `localCardDate()` fixtures unaffected). One function added, 28 call sites unchanged. TZ-independent regression test in `ghrava-e2e.spec.js` GH_CARD v5 block (today/tomorrow/yesterday = 0/+1/-1). Full card-renderer E2E re-run gated the drop.
 4. **Reports panels open as center modals** — sub-panel CSS leak from `settings.html`. Wrong layer.
 5. **Multi-kid bug** — partially fixed in v.166 (kids auto-sync). Verify Risha appears after deploy.
 
@@ -528,12 +529,12 @@ The bugs landed because chats wrote SQL from memory of "what the column was prob
 | ✅ **FIXED v.174** — `window.esc` doesn't escape `/\'` — XSS surface (now escapes `" ' /` too) | medium | trivial |
 | Attach route should allowlist `entityType` (not arbitrary string) | medium | small |
 | ✅ **FIXED v.174** — `/file/:id` + `/thumb/:id` path-allowlist wired via existing `isUnderAttachmentsRoot` (403 if path escapes `/app/attachments`) | high | small |
-| `/api/v1/app/test-results` unauthenticated — writes test runs to disk | low | trivial |
-| CORS wide open | low (intranet) | trivial |
+| ✅ **FIXED v.176** — `/api/v1/app/test-results` POST now requires a session (`requireAuth`); GETs stay public. `run-tests.ps1` authenticates via the v.174 password plumbing. | low | trivial |
+| ✅ **FIXED v.176** — CORS restricted to a LAN/Tailscale origin allowlist (no-Origin requests still allowed so curl/APK/PWA can't be locked out). | low (intranet) | trivial |
 | ⚠️ **PARTIAL v.174** — `fmtMoney`: canonical `window.fmtMoney` added to `lt-core.js`; medical/medical_v2 deduped. inventory (no `$`), reports (no cents, #26 locked), hsa (null→`$0.00`) keep their own *by design* — different contracts, merging would regress. Not "trivial dedup" as logged. | trivial | small |
 | ✅ **FIXED v.174** — `formatDate` redefined: medical/medical_v2 dupes removed (use `window.formatDate`). dashboard.html keeps its own — different signature (`Date` obj → "Mon, Jan 5, 2025"), NOT a dupe. | trivial | small |
-| `global-search.js` has own `esc()` — should use shared | trivial | trivial |
-| `migrate.js` parser splits on `;` before stripping `--` comments — breaks multi-statement migs with comments containing `;` | medium | small |
+| ✅ **FIXED v.176** — `global-search.js` now uses shared `window.esc` + replaced the 2 interpolated `onclick` attrs with a delegated listener (closed the real XSS path, not just the dedup). | trivial | trivial |
+| ✅ **RESOLVED (already fixed v202604.142)** — `migrate.js` `;`/`--` parser. `stripSqlComments()` strips comments (string-literal aware) **before** the `;` split. The audit row was stale; verified during v.176. No work done. | medium | small |
 
 ---
 
@@ -615,4 +616,4 @@ These came up repeatedly and got locked but should not be relitigated:
 
 ---
 
-*Last updated: v202604.175 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*
+*Last updated: v202604.176 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*

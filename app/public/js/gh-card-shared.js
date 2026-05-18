@@ -14,10 +14,22 @@
   'use strict';
 
   // ── Date helpers ───────────────────────────────────────────────
+  // v202604.176 — a bare "YYYY-MM-DD" passed to `new Date()` parses as
+  // UTC midnight; comparing/formatting against LOCAL time then shifts it
+  // a calendar day in negative-UTC zones (every card's urgency/schedule
+  // line read one day early). Parse date-only strings as LOCAL midnight
+  // (same pattern as lt-core.js formatDate). Strings carrying a time or
+  // 'Z' keep the native parse — only the ambiguous bare-date case changes.
+  function parseLocalDate(s) {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s).trim());
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    return new Date(s);
+  }
+
   function daysFromToday(dateStr) {
     if (!dateStr) return null;
     try {
-      const d = new Date(dateStr);
+      const d = parseLocalDate(dateStr);
       if (isNaN(d.getTime())) return null;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -30,7 +42,7 @@
   function fmtDateShort(s) {
     if (!s) return '';
     try {
-      const d = new Date(s);
+      const d = parseLocalDate(s);
       if (isNaN(d.getTime())) return s;
       return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     } catch { return s; }

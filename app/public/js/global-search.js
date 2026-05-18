@@ -83,6 +83,22 @@
     _input    = document.getElementById('ghSearchInput');
     _results  = document.getElementById('ghSearchResults');
     _empty    = document.getElementById('ghSearchEmpty');
+    // v202604.176 — one delegated click listener on the stable results
+    // container (bound once; survives innerHTML rebuilds). Replaces the
+    // per-row interpolated onclick attributes. Header → scope filter;
+    // result row → navigate via data-href.
+    _results.addEventListener('click', (e) => {
+      const header = e.target.closest('[data-scope-name]');
+      if (header && _results.contains(header)) {
+        window.GH_Search._scopeFromHeader(header.dataset.scopeName);
+        return;
+      }
+      const row = e.target.closest('[data-href]');
+      if (row && _results.contains(row)) {
+        const href = row.dataset.href;
+        if (href) { window.location.href = href; close(); }
+      }
+    });
     _input.addEventListener('input', () => { clearTimeout(_debounce); _debounce = setTimeout(doSearch, 180); });
     _input.addEventListener('keydown', onKey);
     _input.addEventListener('focus', () => {
@@ -160,7 +176,13 @@
     }
   }
 
-  function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+  // v202604.176 — use the shared window.esc (lt-core.js): it also escapes
+  // ' and / which the old local copy missed. Defensive fallback only if
+  // lt-core somehow hasn't loaded yet (render() runs post-load, so the
+  // shared one is normally present).
+  const esc = (s) => (window.esc
+    ? window.esc(s)
+    : String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;').replace(/\//g,'&#47;'));
 
   function render(data) {
     if (!_results || !data) return;
@@ -176,8 +198,9 @@
       const count = items.length;
       // Section header is the filter affordance. Subtle — just slightly bolder
       // text + count badge; clickable. Hover hint via opacity.
+      // v202604.176 — no inline onclick; a delegated listener (wired in
+      // init) reads data-scope-name. Removes the interpolated-JS XSS path.
       html += `<button type="button" data-scope-name="${esc(mod)}"
-        onclick="window.GH_Search._scopeFromHeader('${esc(mod)}')"
         style="display:flex;align-items:center;gap:8px;width:100%;padding:14px 20px 6px;background:none;border:none;cursor:pointer;font-family:inherit;text-align:left;color:var(--text3);transition:color .15s"
         onmouseover="this.style.color='var(--text2)'" onmouseout="this.style.color='var(--text3)'">
         <span style="font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase">${esc(mod)}</span>
@@ -186,11 +209,12 @@
       </button>`;
       for (const item of items) {
         const active = idx === _selected;
-        html += `<div data-idx="${idx}"
+        // v202604.176 — href in data-href; delegated listener navigates.
+        // No interpolated JS in an attribute (XSS path removed).
+        html += `<div data-idx="${idx}" data-href="${esc(item.href)}"
           style="display:flex;align-items:center;gap:14px;padding:12px 20px;cursor:pointer;background:${active?'var(--bg3)':'transparent'};transition:background .1s"
           onmouseover="this.style.background='var(--bg3)'"
-          onmouseout="this.style.background='${active?'var(--bg3)':'transparent'}'"
-          onclick="window.location.href='${esc(item.href)}';window.GH_Search.close()">
+          onmouseout="this.style.background='${active?'var(--bg3)':'transparent'}'">
           <span style="font-size:20px;flex-shrink:0;width:24px;text-align:center">${esc(item.icon)}</span>
           <div style="flex:1;min-width:0">
             <div style="font-size:15px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-0.01em">${esc(item.label)}</div>

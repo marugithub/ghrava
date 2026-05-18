@@ -69,6 +69,54 @@ principles.
 
 ---
 
+## 🚧 v.176 BUILT — cross-cutting cleanup (2026-05-18)
+
+> Built, committed locally, **not yet packaged/deployed**. Al scope:
+> the orphan cross-cutting issues module-by-module work would never
+> touch. No schema, no migrations. 6 tasks, one commit each.
+
+1. **`daysFromToday()` + `fmtDateShort()` day-off fix** (`gh-card-shared.js`).
+   New `parseLocalDate()`: bare `YYYY-MM-DD` → local midnight; time/Z
+   strings keep native parse (v.175 `localCardDate()` fixtures
+   unaffected). One function; 28 call sites unchanged. Closes BACKLOG
+   TOP-PRIORITY / Known-bug §3a. **Keystone — full GH_CARD v5 E2E block
+   is the gate.**
+2. **test-results POST auth** (`server.js` + `tests/run-tests.ps1`).
+   POST `requireAuth` (inline require, per-router pattern); GETs stay
+   public. `run-tests.ps1` resolves the password (-AuthToken →
+   `$env:GHRAVA_TOKEN` → gitignored `tests\.ghrava-auth`), logs in,
+   sends Bearer; no password → warn + skip POST (never fails the run).
+   `ghrava_deploy.ps1` does not post results — unchanged.
+3. **CORS LAN allowlist** (`server.js`). Was `cors()` wide open → origin
+   allowlist (192.168.4.62:3001, ghrava.home http+https,
+   localhost/127.0.0.1:3001, Tailscale host). No-Origin requests always
+   allowed (curl/APK WebView/PWA can't be locked out; disallowed origin
+   just gets no ACAO, not a hard error). Verified no Capacitor/Cordova/
+   TWA origin exists — only a thin WebView at the real network origin.
+4. **global-search.js** — shared `window.esc` (with inline fallback) +
+   removed the 2 *interpolated* `onclick` attrs (the real XSS path);
+   one delegated click listener on `#ghSearchResults` (header → scope,
+   row → data-href nav). Static `_clearScope()` onclick left (no
+   interpolation, out of scope).
+5. **Regression + contract tests** (`ghrava-e2e.spec.js`, not smoke —
+   keeps smoke endpoint-only/20s): TZ-independent `daysFromToday`
+   0/+1/-1 pin in the GH_CARD v5 block; test-results auth contract;
+   CORS contract. All three are red on the old build, green after v.176.
+6. **Docs/version** — this block, BACKLOG (TOP-PRIORITY cleared,
+   §3a + 3 security rows resolved, **migrate.js marked
+   already-fixed-v142, no work done**), `version.txt` → 202604.176.
+
+**migrate.js dropped from the bundle:** investigation found
+`stripSqlComments()` already strips comments before the `;` split
+(v202604.142). The audit row was stale — marked resolved, zero code.
+
+### Expected post-deploy
+Smoke HARD 8/8. Full E2E: prior baseline + 3 new tests, **0 failures**.
+The GH_CARD v5 block is the real check for Task 1 — any card
+urgency/schedule regression there stops the drop (per Al's rule).
+
+---
+
 ## ✅ v.175 DEPLOYED & VERIFIED — E2E debt cleared (2026-05-18)
 
 > **DEPLOYED ~12:51, app verified live.** `version 202604.175`,

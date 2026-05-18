@@ -77,7 +77,26 @@ app.use((req, res, next) => {
 });
 
 
-app.use(cors());
+// v202604.176 — was wide-open cors(). Ghrava is a single-household LAN
+// app; restrict cross-origin browser requests to the known serving
+// origins. Requests with NO Origin header (same-origin browser nav,
+// curl, the APK WebView, server-to-server) are always allowed — the
+// APK is a thin WebView at the real network origin, and an installed
+// PWA runs at its served origin, so neither needs a special entry.
+// A disallowed origin just gets no ACAO header (not a hard error), so
+// this can't lock anyone out.
+const CORS_ALLOWED = [
+  'http://192.168.4.62:3001',
+  'http://ghrava.home', 'https://ghrava.home',
+  'http://localhost:3001', 'http://127.0.0.1:3001',
+  'https://qnap-nas-36.tail73fb11.ts.net',
+];
+app.use(cors({
+  origin(origin, cb) {
+    if (!origin || CORS_ALLOWED.includes(origin)) return cb(null, true);
+    return cb(null, false);
+  },
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public'), {
@@ -426,13 +445,18 @@ app.get('/health', (req, res) => {
 // POST /api/v1/app/test-results  — called by the external Playwright runner after a run
 // GET  /api/v1/app/test-results  — list runs (newest first, last 30)
 // GET  /api/v1/app/test-results/:id — single run details
+// v202604.176 — the POST writes a file to disk; it now requires a session
+// (run-tests.ps1 authenticates with the app password, same plumbing as
+// the v.174 E2E gate). The GETs stay public — read-only, intranet, and
+// the Reports → Testing UI reads them without a login.
 const TEST_REPORT_DIR = '/app/data/test-reports';
 (function() {
   if (!fs.existsSync(TEST_REPORT_DIR)) {
     try { fs.mkdirSync(TEST_REPORT_DIR, { recursive: true }); } catch {}
   }
 
-  app.post('/api/v1/app/test-results', (req, res) => {
+  const { requireAuth } = require('./features/auth/middleware');
+  app.post('/api/v1/app/test-results', requireAuth, (req, res) => {
     try {
       const run = req.body;
       if (!run || !run.started_at) {
