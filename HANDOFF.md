@@ -65,8 +65,8 @@ drift and has been corrected here and in STATE.md.
 ### Next chat's task list (in order)
 1. ~~Verify v.171 deployed cleanly.~~ **DONE 2026-05-17** — NAS is live on v.172 (which includes all of v.171), container stable ~11h, logs clean. No action needed; superseded by the v.172 backlog below.
 2. **v.172 priority backlog (Al's direction "after finance we go across whole system; fast, functional, clean, user friendly"):**
-   - Wire `_templates.html #26.1.5 Cash-flow forecast` chart to live `/api/v1/finance/forecast` data (originally B in the v.171 scope, deferred).
-   - Audit which existing cards across modules would benefit from the asterisk pattern; wrap with `.gh-pending-target` and call `GhAsterisk.scan()` on page-ready. Candidates: vehicle fuel YTD on `vehicles.html` cards, medication HSA YTD on med cards, HSA tile on `medical.html`.
+   - ~~Wire `_templates.html #26.1.5 Cash-flow forecast` chart to live data.~~ **SHIPPED in v.172** (commits `3ee0ddc` + `2f184a8`, live on NAS).
+   - ~~Audit cards for the asterisk pattern and wrap with `.gh-pending-target` / `GhAsterisk.scan()`.~~ **AUDITED 2026-05-17 — do NOT wire as originally written.** The audit found none of the three named cards (vehicle fuel YTD, medication HSA YTD, HSA spent-YTD tile) can be wired as-is, and that two asterisk mechanisms exist with no backend feeding either. Full findings, per-card blockers, and the ordered close-first list are in **`BACKLOG.md` → "📋 v.173 CANDIDATE — Asterisk audit findings"** (top of file). Treat that backlog entry as the spec for any future asterisk work; do not re-derive it.
    - Pick the next module to harden using the same plain-English/multi-view/link/display lens.
 
 ---
