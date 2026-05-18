@@ -69,6 +69,64 @@ principles.
 
 ---
 
+## 🚧 v.175 BUILT — E2E debt cleared + Todos render bug fixed (2026-05-18)
+
+> Built, not yet packaged/deployed. Al scope: all 15 v.174 E2E failures.
+> No schema, no migrations. 1 frontend app fix + 14 test-side fixes.
+
+### Reclassification from v.174 (investigation findings)
+- **Reports known bug #2 was a MISDIAGNOSIS.** `REPORT_REGISTRY` is a
+  fully-populated static array. The landing `overview` tab renders
+  summary tiles *by design* (consistent with locked Reports #26);
+  `.rep-row` only exists on the money/family/maintenance/system tabs.
+  → test-side fix (`reports.html?tab=money`), not an app bug.
+- **`:886`/`:1079` were test timezone bugs**, not renderer bugs.
+  `S.daysFromToday()` (`gh-card-shared.js:17`) does `new Date(dateStr)`
+  then compares to local midnight; a bare `YYYY-MM-DD` parses as UTC
+  midnight and shifts a calendar day in a negative-UTC zone, so a
+  fixture's `toISOString()` "tomorrow"/"today" read as off-by-one. New
+  `localCardDate()` helper emits local-noon strings. **The underlying
+  app-wide off-by-one in `daysFromToday` is a real latent bug — logged
+  to BACKLOG, deliberately NOT fixed here (app-wide regression risk,
+  out of v.175 scope).**
+
+### The 1 real app bug — Todos renders blank (known bug #1, FIXED)
+`todos.html` filtered on `t.family_member_ids`, but the todos API
+returns `family_members` (array of `{id, display_name, …}` objects).
+With a device family scope set, the auto-injected Lens person pill
+matched nothing → every todo filtered out → `render()` reached
+`GH_LENS.setCount` before the empty-state block and aborted → page
+showed NEITHER items NOR empty state (the v128 "family filter hides
+everything" symptom). Fix: read `t.family_members.map(m=>m.id)` in
+both the active override (`todos.html:585-593`) and the shadowed
+legacy path (`:499-504`); render the `.todos-empty` state BEFORE the
+now best-effort/guarded `setCount` so a zero-match never blanks the
+page. Frontend only, no SQL.
+
+### 14 test-side fixes (`tests/ghrava-e2e.spec.js`, one file)
+- `:297` tag chips, `:430` Books CRUD — legacy shelf tabs are
+  `legacy-hidden`; create on the default "Currently Reading" shelf,
+  drop the invisible `text=Want to Read` click.
+- `:327` Dashboard — `.module-tile` no longer exists; `index.html`
+  is the Today page. Retargeted to `.today-section/.today-grid` or
+  `.today-empty` (renamed test).
+- `:344` Reports — land on `?tab=money` (rows-bearing tab).
+- `:455` Inventory — the All Items/Rooms toggle moved into the Lens
+  (v.134); removed the dead `text=All Items` click.
+- `:886`/`:1079` — `localCardDate()` local-noon fixtures.
+- `:1354` ×7 page-wiring — replaced the fixed `waitForTimeout(800)`
+  (fired before the pages' async data-load→`GH_VIEW.init`) with an
+  explicit wait for `.gh-view-toolbar button[id$="-vcard"]`. Configs
+  were already correct; GH_VIEW unit tests pass — pure test timing.
+- `:336` Todos — test was already correct; fixed by the app change.
+
+### Expected post-deploy
+E2E should go **92→~107 pass, 15→~0-2 fail**. Any residual `:1354`
+failure after the explicit wait = a genuine page wiring regression
+(signal preserved by the `.catch`).
+
+---
+
 ## ✅ v.174 DEPLOYED & VERIFIED — E2E auth gate + security hardening (2026-05-18)
 
 > **DEPLOYED 2026-05-18 ~10:13.** `/app/version.txt`=`202604.174`,

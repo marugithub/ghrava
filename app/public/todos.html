@@ -497,8 +497,9 @@ function render() {
   // Lens-derived filters (v202604.124). Priority/category were dropped
   // when the GH_VIEW filter drawer was unwired in favor of the Lens.
   if (_todoFilters.person != null) {
+    // v202604.175 — API returns `family_members` objects, not `family_member_ids`
     displayTodos = displayTodos.filter(t => {
-      const ids = Array.isArray(t.family_member_ids) ? t.family_member_ids : [];
+      const ids = Array.isArray(t.family_members) ? t.family_members.map(m => m.id) : [];
       return ids.map(String).includes(String(_todoFilters.person));
     });
   }
@@ -582,9 +583,13 @@ function render() {
       : todos.slice();
 
     // Lens-derived filters (set by GH_LENS onChange via lensToTodoFilters)
+    // v202604.175 — the todos API returns `family_members` (array of
+    // {id, display_name, ...} objects), NOT `family_member_ids`. The old
+    // field name silently matched nothing, so any active person scope
+    // emptied the list. Read the real shape.
     if (_todoFilters.person != null) {
       displayTodos = displayTodos.filter(t => {
-        const ids = Array.isArray(t.family_member_ids) ? t.family_member_ids : [];
+        const ids = Array.isArray(t.family_members) ? t.family_members.map(m => m.id) : [];
         return ids.map(String).includes(String(_todoFilters.person));
       });
     }
@@ -610,9 +615,15 @@ function render() {
       displayTodos = displayTodos.filter(t => String(t.category||'').toLowerCase() === String(_todoFilters.category).toLowerCase());
     }
 
-    if (window.GH_LENS && typeof GH_LENS.setCount === 'function') {
-      GH_LENS.setCount(displayTodos.length);
-    }
+    // v202604.175 — render the empty state BEFORE touching GH_LENS.setCount.
+    // Previously setCount ran first; if it threw, render() aborted and the
+    // page showed NEITHER todo items NOR the empty state (blank page bug).
+    // setCount is now best-effort and never blocks the empty state.
+    const _setLensCount = (n) => {
+      try {
+        if (window.GH_LENS && typeof GH_LENS.setCount === 'function') GH_LENS.setCount(n);
+      } catch (e) { console.warn('[todos] GH_LENS.setCount failed', e); }
+    };
 
     if (!displayTodos.length) {
       list.innerHTML = `<div class="todos-empty">
@@ -620,8 +631,10 @@ function render() {
         <div class="todos-empty-title">${filterMode === 'done' ? 'Nothing completed yet' : 'All clear'}</div>
         <div class="todos-empty-sub">${filterMode === 'done' ? 'Completed items from the last 7 days show here.' : ('No open to-dos' + (filterCat ? ' in ' + filterCat : '') + '. Tap + to add one.')}</div>
       </div>`;
+      _setLensCount(0);
       return;
     }
+    _setLensCount(displayTodos.length);
 
     list.innerHTML = '';
     list.className = '';

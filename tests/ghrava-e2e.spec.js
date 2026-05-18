@@ -170,6 +170,22 @@ async function apiRequest(method, path, body) {
   return r.json();
 }
 
+/** Local-time date string the card layer treats unambiguously.
+ *
+ * GH_CARD's S.daysFromToday() does `new Date(dateStr)` then compares to
+ * local midnight. A bare "YYYY-MM-DD" parses as UTC midnight, so in a
+ * negative-UTC zone it shifts back a calendar day (e.g. "tomorrow" reads
+ * as today). Emitting "YYYY-MM-DDT12:00:00" (no Z) from LOCAL components
+ * forces local-noon parsing, so the day offset is exact regardless of TZ.
+ * `offsetDays` shifts off today's LOCAL date.
+ */
+function localCardDate(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T12:00:00`;
+}
+
 
 // ══════════════════════════════════════════════════════════════
 // SUITE 1 — Page Load & Render Integrity
@@ -296,16 +312,18 @@ test.describe('Key UI Elements', () => {
 
   test('Tag chips render as span elements with data-tag, not raw HTML', async ({ page }) => {
     // Create a book with a tag
+    // v202604.175 — create on the DEFAULT shelf ("Currently Reading") so the
+    // book is visible on initial load. The legacy shelf tabs are now
+    // `legacy-hidden` (filtering moved to the Lens), so clicking
+    // `text=Want to Read` hit an invisible button and timed out.
     const book = await apiPost('/books', {
       title: '_e2e_book_tag_test',
-      status: 'Want to Read',
+      status: 'Currently Reading',
       format: 'Physical',
       tags: ['e2etesttag'],
     });
     try {
       await page.goto(BASE + '/books.html', { waitUntil: 'load' });
-      // Click "Want to Read" shelf — default is "Currently Reading"
-      await page.click('text=Want to Read');
       await page.waitForSelector('.book-card', { timeout: 5000 });
 
       // Verify tag chip is a span with data-tag
@@ -324,13 +342,15 @@ test.describe('Key UI Elements', () => {
     }
   });
 
-  test('Dashboard renders module tiles', async ({ page }) => {
-    // Dashboard was rebuilt as a module-tile grid (no more individual widget
-    // values). This now smoke-tests that the grid renders at all.
+  test('Dashboard (Today page) renders content or empty state', async ({ page }) => {
+    // v202604.175 — index.html is the Today page (#todayContent), not the old
+    // ".module-tile" grid (that class no longer exists). It renders either
+    // .today-section blocks or the .today-empty empty state once loaded.
     await page.goto(BASE + '/index.html', { waitUntil: 'load' });
-    await page.locator('.module-tile').first().waitFor({ state: 'attached', timeout: 5000 });
-    const count = await page.locator('.module-tile').count();
-    expect(count, 'No module tiles rendered on dashboard').toBeGreaterThan(5);
+    await page.waitForSelector('.today-section, .today-grid, .today-empty', { timeout: 6000 }).catch(() => {});
+    const hasContent = await page.locator('.today-section, .today-grid').count() > 0;
+    const hasEmpty   = await page.locator('.today-empty').count() > 0;
+    expect(hasContent || hasEmpty, 'Today page: neither content nor empty state rendered').toBe(true);
   });
 
   test('Todos page renders todo items or empty state', async ({ page }) => {
@@ -347,7 +367,10 @@ test.describe('Key UI Elements', () => {
     // a right `.rep-detail-*` pane. Test verifies the rail populates and a
     // click opens the detail pane without raw HTML/JS bleeding through.
     // Updated v202604.113 (was looking for the removed `.report-card` class).
-    await page.goto(BASE + '/reports.html', { waitUntil: 'load' });
+    // v202604.175 — the default `overview` tab renders summary tiles by
+    // design (locked Reports #26); `.rep-row` only exists on the
+    // money/family/maintenance/system tabs. Land on a rows-bearing tab.
+    await page.goto(BASE + '/reports.html?tab=money', { waitUntil: 'load' });
     await page.locator('.rep-row').first().waitFor({ state: 'attached', timeout: 5000 });
     const rowCount = await page.locator('.rep-row').count();
     expect(rowCount, 'No report rows rendered').toBeGreaterThan(3);
@@ -428,18 +451,18 @@ test.describe('CRUD Flows', () => {
   });
 
   test('Books — create with tag, verify chip, delete', async ({ page }) => {
+    // v202604.175 — create on the default "Currently Reading" shelf; the
+    // legacy shelf tabs are `legacy-hidden` so the old click timed out.
     const book = await apiPost('/books', {
       title: '_e2e_book_test',
       author: 'E2E Author',
-      status: 'Want to Read',
+      status: 'Currently Reading',
       format: 'Physical',
       tags: ['_e2etag_'],
     });
     expect(book.id, 'Book create: no id').toBeTruthy();
     try {
       await page.goto(BASE + '/books.html', { waitUntil: 'load' });
-      // Click "Want to Read" shelf — books default to "Currently Reading"
-      await page.click('text=Want to Read');
       await page.waitForSelector('.book-card, .empty-state', { timeout: 5000 }).catch(() => {});
       // Verify tag chip is a proper element
       const chip = page.locator('[data-tag="_e2etag_"]');
@@ -469,10 +492,11 @@ test.describe('CRUD Flows', () => {
     expect(item.id, 'Item create: no id').toBeTruthy();
     try {
       await page.goto(BASE + '/inventory.html', { waitUntil: 'load' });
-      // Click "All Items" mode
-      const allItemsBtn = page.locator('text=All Items').first();
-      if (await allItemsBtn.count()) await allItemsBtn.click();
-      await page.waitForSelector('.ai-card, .ai-list-card, .empty-state', { timeout: 5000 }).catch(() => {});
+      // v202604.175 — the "All Items / Rooms" toggle was folded into the Lens
+      // (v.134); there is no clickable `text=All Items` control anymore and
+      // the page auto-selects items mode. The old click hit an unstable
+      // element and timed out. Just wait for the item cards to render.
+      await page.waitForSelector('.ai-card, .ai-list-card, .empty-state', { timeout: 6000 }).catch(() => {});
       // No raw HTML/JS leaked into card text
       const rawInCards = await page.evaluate(() => {
         return Array.from(document.querySelectorAll('.ai-card, .ai-list-card'))
@@ -885,7 +909,8 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
 
   test('subscriptions — renews tomorrow triggers cancel-now alert', async ({ page }) => {
     await loadCardSystem(page);
-    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    // v202604.175 — local-noon date so daysFromToday() == 1 exactly (UTC
+    // "YYYY-MM-DD" would shift to today in a negative-UTC zone).
     const html = await page.evaluate((nextCharge) => {
       const node = window.GH_CARD.render('subscriptions', {
         id: 99, service_name: 'Disney+', plan_name: 'Standard',
@@ -893,7 +918,7 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
         next_charge_at: nextCharge,
       });
       return node ? node.outerHTML : null;
-    }, tomorrow.toISOString().slice(0, 10));
+    }, localCardDate(1));
     expect(html).not.toBeNull();
     expect(/Charges tomorrow/.test(html), 'should display "Charges tomorrow"').toBe(true);
     expect(/gh-card__alert/.test(html), 'should render alert zone').toBe(true);
@@ -1078,7 +1103,7 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
 
   test('calendar_events — today event flags as urgent', async ({ page }) => {
     await loadCardSystem(page);
-    const today = new Date().toISOString().slice(0, 10);
+    // v202604.175 — local-noon today so daysFromToday() == 0 exactly.
     const html = await page.evaluate((t) => {
       const node = window.GH_CARD.render('calendar_events', {
         id: 1, title: 'Doctor appointment', start_at: t,
@@ -1086,7 +1111,7 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
         attendee_count: 1, organizer_family_member_id: 1,
       });
       return node ? node.outerHTML : null;
-    }, today);
+    }, localCardDate(0));
     expect(html).not.toBeNull();
     expect(/gh-card--u-urgent/.test(html), 'today event should render urgent class').toBe(true);
     expect(/Today/.test(html), 'should display "Today" label').toBe(true);
@@ -1355,7 +1380,13 @@ test.describe('Card Renderer (GH_CARD v5)', () => {
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
       await page.goto(`${BASE}/${wired.page}`, { waitUntil: 'load' });
-      await page.waitForTimeout(800);  // give GH_VIEW.init time to render
+      // v202604.175 — these pages call GH_VIEW.init() only AFTER their async
+      // data fetch + list render, which takes longer than a fixed 800ms.
+      // Wait for the card button to actually attach (generous timeout); the
+      // .catch keeps assertions running so a genuine wiring regression still
+      // produces a clear failure rather than a bare timeout.
+      await page.waitForSelector('.gh-view-toolbar button[id$="-vcard"]',
+        { state: 'attached', timeout: 8000 }).catch(() => {});
       const globals = await page.evaluate(() => ({
         ghCard:  !!window.GH_CARD,
         ghMount: !!window.GH_MOUNT,

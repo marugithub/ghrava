@@ -491,17 +491,13 @@ The bugs landed because chats wrote SQL from memory of "what the column was prob
 
 ## 🐛 Known bugs (need `docker logs ghrava --tail 50` first — don't guess)
 
-> **v.174 update:** the E2E suite now authenticates (deploy gate fixed),
-> so these surfaced as **15 real failures** for the first time (they
-> were masked behind the old 21×401). 92 passed / 15 failed is the new
-> honest baseline. The 15 are exactly #1, #2 below + the stale-selector
-> / card-view-wiring class — none are app regressions (same pages pass
-> their "loads cleanly / no JS errors" integrity tests). **This is the
-> obvious v.175 candidate: a test-harness refresh pass.**
+> **v.174 → v.175:** the v.174 auth fix surfaced 15 real failures
+> (92/15 baseline). v.175 addressed all 15 (Al scope = everything).
 
-1. **Todos page renders neither `.todo-item` nor `.empty-state`** — v128 family filter may hide everything. Suspected: filter regression. *(v.174: confirmed still failing — `ghrava-e2e.spec.js:336`.)*
-2. **Reports `.rep-row` not found** — registry empty in renderer. `REPORT_REGISTRY` not being populated. *(v.174: confirmed still failing — `ghrava-e2e.spec.js:344`.)*
-3. **Stale Playwright selectors — now quantified at ~13** (v.174, was "11 est."). Failing specs: tag-chip span (`:297`), dashboard tiles (`:327`), Books tag chip (`:430`), Inventory all-items (`:455`), subscriptions cancel-now (`:886`), calendar_events urgent (`:1079`), and page-wiring "card view available" ×7 (`:1354` — subscriptions, books, perfume, insurance, documents, wardrobe, property). All are "waiting for element visible" timeouts on pages that pass integrity tests = selector drift, not app bugs. Refresh against current HTML.
+1. ✅ **FIXED v.175 — Todos renders neither items nor empty state.** Root cause was NOT a generic "family filter": `todos.html` filtered on `t.family_member_ids` but the API returns `family_members` (object array). An auto-injected Lens person scope (v128) emptied the list, then `render()` aborted on `GH_LENS.setCount` before the empty-state block → blank page. Fixed: correct field name (active `:585-593` + shadowed `:499-504`) + render empty state before guarded `setCount`.
+2. ✅ **FIXED v.175 (was a MISDIAGNOSIS) — Reports `.rep-row` not found.** `REPORT_REGISTRY` is NOT empty (fully-populated static array). The landing `overview` tab renders summary tiles by design (locked Reports #26); `.rep-row` only exists on money/family/maintenance/system tabs. App is correct; the test was stale. Fixed test-side (`reports.html?tab=money`).
+3. ✅ **FIXED v.175 — all ~13 stale Playwright tests.** tag-chip/`:297` + Books CRUD/`:430` (legacy-hidden shelf tabs → use default shelf), dashboard/`:327` (`.module-tile` gone; index.html is the Today page → retargeted), Inventory/`:455` (All-Items toggle moved into Lens v.134 → removed dead click), subs/`:886` + calendar/`:1079` (test TZ bug — see new finding below), page-wiring ×7/`:1354` (fixed-800ms wait fired before async data-load→GH_VIEW.init → explicit wait). One file: `tests/ghrava-e2e.spec.js`. Configs/app were already correct.
+3a. ⏳ **NEW (deferred) — `S.daysFromToday()` UTC parse off-by-one.** `gh-card-shared.js:17` does `new Date('YYYY-MM-DD')` (UTC midnight) then compares to LOCAL midnight → in a negative-UTC zone, date-only fields read one calendar day early (e.g. "due tomorrow" shows as "today"/"now"). App-wide latent bug affecting every card's urgency/schedule line. v.175 worked around it test-side only (`localCardDate()` helper). Real fix = make `daysFromToday` parse `YYYY-MM-DD` as local; **deferred — touches every card config's urgency, high regression surface, needs its own focused drop + full card-renderer E2E pass.**
 4. **Reports panels open as center modals** — sub-panel CSS leak from `settings.html`. Wrong layer.
 5. **Multi-kid bug** — partially fixed in v.166 (kids auto-sync). Verify Risha appears after deploy.
 
@@ -601,4 +597,4 @@ These came up repeatedly and got locked but should not be relitigated:
 
 ---
 
-*Last updated: v202604.174 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*
+*Last updated: v202604.175 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*
