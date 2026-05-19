@@ -1,8 +1,8 @@
 # SCHEMA.md — Ghrava database reference
 
 > **Auto-generated** by `.claude/skills/ghrava-schema-safety/scripts/gen-schema-doc.py`
-> Last generated: `2026-05-18T21:30:47.319596Z`
-> Source: 140 migration files in `app/db/migrations/`
+> Last generated: `2026-05-19T02:45:39.752140Z`
+> Source: 141 migration files in `app/db/migrations/`
 >
 > **DO NOT EDIT BY HAND.** This file is regenerated before every package.
 > If a column is missing here, it does not exist on prod.
@@ -10,7 +10,7 @@
 ## Summary
 
 - **121 tables**
-- **1667 columns total**
+- **1668 columns total**
 
 ## Tables
 
@@ -577,6 +577,7 @@ _Created in: `001_initial.sql`_
 | `review_reason` | TEXT |  |  |  | `039_needs_review.sql` |
 | `emergency_notes` | TEXT |  |  |  | `097_emergency_contact.sql` |
 | `avatar_attachment_id` | INTEGER |  |  |  | `115_family_member_avatar.sql` |
+| `gender` | TEXT |  |  |  | `—` |
 
 ### `field_templates`
 

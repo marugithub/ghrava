@@ -460,25 +460,27 @@ router.get('/family/:id/report', (req, res) => {
 
 router.post('/family', (req, res) => {
   try {
-    const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, is_primary_user, notes } = req.body;
+    const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, is_primary_user, notes, gender } = req.body;
     if (!display_name) return badRequest(res, 'display_name is required');
+    // schema: family_members.gender TEXT (mig 143)
     const r = db.prepare(`INSERT INTO family_members
-      (display_name,full_legal_name,relationship,date_of_birth,ssn_last4,is_primary_user,notes,emergency_notes)
-      VALUES (?,?,?,?,?,?,?,?)`)
+      (display_name,full_legal_name,relationship,date_of_birth,ssn_last4,is_primary_user,notes,emergency_notes,gender)
+      VALUES (?,?,?,?,?,?,?,?,?)`)
       .run(display_name, full_legal_name||null, relationship||null, date_of_birth||null,
-           ssn_last4||null, is_primary_user?1:0, notes||null, req.body.emergency_notes||null);
+           ssn_last4||null, is_primary_user?1:0, notes||null, req.body.emergency_notes||null, gender||null);
     res.status(201).json(db.prepare('SELECT * FROM family_members WHERE id=?').get(r.lastInsertRowid));
   } catch (err) { serverError(res, err); }
 });
 
 router.put('/family/:id', (req, res) => {
   try {
-    const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, notes, emergency_notes } = req.body;
+    const { display_name, full_legal_name, relationship, date_of_birth, ssn_last4, notes, emergency_notes, gender } = req.body;
     if (!display_name) return badRequest(res, 'display_name is required');
+    // schema: family_members.gender TEXT (mig 143)
     db.prepare(`UPDATE family_members SET display_name=?,full_legal_name=?,relationship=?,
-      date_of_birth=?,ssn_last4=?,notes=?,emergency_notes=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
+      date_of_birth=?,ssn_last4=?,notes=?,emergency_notes=?,gender=?,updated_at=CURRENT_TIMESTAMP WHERE id=?`)
       .run(display_name, full_legal_name||null, relationship||null,
-           date_of_birth||null, ssn_last4||null, notes||null, emergency_notes||null, req.params.id);
+           date_of_birth||null, ssn_last4||null, notes||null, emergency_notes||null, gender||null, req.params.id);
     const m = db.prepare('SELECT * FROM family_members WHERE id=?').get(req.params.id);
     if (!m) return notFound(res, 'Family member');
     res.json(m);

@@ -1583,6 +1583,12 @@
     </div>
     <div class="form-row">
       <div class="form-group">
+        <label class="form-label">Gender</label>
+        <input class="form-input" id="fm_gender" placeholder="e.g. Male, Female, Nonbinary">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
         <label class="form-label">SSN Last 4</label>
         <input class="form-input" id="fm_ssn4" maxlength="4" placeholder="0000">
       </div>
@@ -3102,6 +3108,7 @@ async function openFamilyDrawer(member=null) {
   $('fm_legal_name').value   = member?.full_legal_name || '';
   await GH_SELECT.init('fm_relationship', 'family_relationship', member?.relationship||'', { allowAdd: false, placeholder: '— select —' });
   $('fm_dob').value          = member?.date_of_birth || '';
+  $('fm_gender').value       = member?.gender || '';
   $('fm_ssn4').value         = member?.ssn_last4 || '';
   $('fm_primary').checked    = !!member?.is_primary_user;
   $('fm_notes').value        = member?.notes || '';
@@ -3209,6 +3216,7 @@ $('familySave').addEventListener('click', async () => {
       full_legal_name:$('fm_legal_name').value.trim()||null,
       relationship:$('fm_relationship').value||null,
       date_of_birth:$('fm_dob').value||null,
+      gender:$('fm_gender').value.trim()||null,
       ssn_last4:$('fm_ssn4').value||null,
       is_primary_user:$('fm_primary').checked,
       notes:$('fm_notes').value.trim()||null,
