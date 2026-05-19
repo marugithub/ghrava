@@ -795,10 +795,27 @@ async function openKidDrawer(kid){
 }
 
 function editCurrentKid(){openKidDrawer(_currentKid);}
-// Pencil affordance → reuse the canonical Settings family-member editor
-// (no duplicated drawer). Full-page deep link; returning to Kids reloads
-// fresh so the avatar row + age summary pick up any edits.
-function editKidProfile(fmId){ window.location.href = `/settings.html?editFamily=${fmId}`; }
+// Pencil affordance → reuse the canonical Settings family-member editor,
+// popped as an overlay ON TOP of the Kids page (the shared GH_REFS
+// iframe sheet, same form Contacts uses). On Save the overlay closes,
+// the user stays on Kids, and the avatar row + age summary refresh in
+// place. No full-page navigation, no nav.js rebuild → instant.
+async function editKidProfile(fmId){
+  if (window.GH_REFS && GH_REFS.openFamilyDrawer) {
+    GH_REFS.openFamilyDrawer({
+      editId: fmId,
+      onSave: async () => {
+        try { if (window.GH_AVATAR) await GH_AVATAR.refresh(); } catch(_){}
+        const keep = _currentKid && _currentKid.id;
+        await loadKids();                  // re-fetch kids + re-render strip
+        if (keep) openKidDetail(keep);     // restore the kid just edited
+      },
+    });
+    return;
+  }
+  // Defensive fallback only — GH_REFS ships on this page.
+  window.location.href = `/settings.html?drawer=family&id=${fmId}`;
+}
 
 $('kidCancel').addEventListener('click',()=>$('kidDrawer').classList.remove('open'));
 $('kidDelete').addEventListener('click',async()=>{
