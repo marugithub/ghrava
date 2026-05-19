@@ -2410,21 +2410,13 @@ async function syncGoogleContactsNow() {
       }
     }, 400);
   } else if (drawerParam === 'family') {
+    // ?drawer=family            → Add form (GH_REFS "+ add" flows)
+    // ?drawer=family&id=<id>    → Edit that member (Kids avatar pencil)
+    const fid = parseInt(params.get('id'), 10);
     setTimeout(() => {
       loadFamily();
-      $('familyDrawer').classList.add('open');
-    }, 400);
-  }
-
-  // ── Edit a specific family member via ?editFamily=<id> ──
-  // Full-page deep link used by the Kids page avatar pencil. Unlike
-  // ?drawer=family this keeps the full settings chrome so closing the
-  // drawer returns to the family list, not a blank iframe shell.
-  const editFamilyId = parseInt(params.get('editFamily'), 10);
-  if (editFamilyId) {
-    setTimeout(() => {
-      try { openPanel('family'); } catch(e){}
-      setTimeout(() => { try { editFamily(editFamilyId); } catch(e){} }, 300);
+      if (fid) { editFamily(fid); }            // editFamily fetches on cache miss
+      else     { $('familyDrawer').classList.add('open'); }
     }, 400);
   }
 })();
@@ -3202,7 +3194,14 @@ function editFamily(id) {
   window.api('GET', `/settings/family/${id}`).then(openFamilyDrawer).catch(err => toast('Could not load member: ' + err.message, 'err'));
 }
 
-$('familyCancel').addEventListener('click', () => $('familyDrawer').classList.remove('open'));
+$('familyCancel').addEventListener('click', () => {
+  $('familyDrawer').classList.remove('open');
+  // In the GH_REFS iframe overlay: tell the parent to close so backing
+  // out (not just Save) returns the user to where they came from (Kids).
+  if (window.parent !== window) {
+    window.parent.postMessage({ ghravaCancelled: 'family' }, '*');
+  }
+});
 (function(){ let _d=false; $('familyDrawer').addEventListener('pointerdown',e=>{_d=e.target===$('familyDrawer')}); $('familyDrawer').addEventListener('pointerup',e=>{if(_d&&e.target===$('familyDrawer'))$('familyDrawer').classList.remove('open');}); })();
 
 $('familySave').addEventListener('click', async () => {
