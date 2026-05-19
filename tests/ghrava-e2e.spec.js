@@ -727,6 +727,39 @@ test.describe('API Contract', () => {
     }
   });
 
+  // v202604.179 — the Kids pencil must open the family editor as an
+  // ON-TOP overlay (GH_REFS iframe sheet), NOT navigate to settings.html.
+  // The v.178 implementation navigated, which was slow and stranded the
+  // user on Settings after Save. Regression test pins the overlay path.
+  test('Kids pencil opens family editor as overlay, not navigation (v.179)', async ({ page }) => {
+    await page.addInitScript(() => {
+      try { localStorage.setItem('gh_device_family_scope_dismissed', '1'); } catch (e) {}
+    });
+    await page.goto(BASE + '/kids.html', { waitUntil: 'load' });
+    await page.waitForTimeout(1600);
+
+    const activePencil = page.locator('.kid-tab.active .kid-edit-pencil').first();
+    if (await activePencil.count() === 0) return;  // no family-linked kid on this DB — skip
+
+    const urlBefore = page.url();
+    await activePencil.click();
+
+    // The shared GH_REFS overlay must mount; no full-page navigation.
+    const overlay = page.locator('#gh-refs-overlay');
+    await expect(overlay, 'GH_REFS overlay mounts on pencil click').toBeVisible({ timeout: 3000 });
+    expect(page.url(), 'still on /kids.html — no navigation').toBe(urlBefore);
+
+    // The iframe loads the EDIT form (drawer=family + id=<n>), not Add.
+    const src = await overlay.locator('iframe').getAttribute('src');
+    expect(src, 'iframe src targets family edit').toMatch(/drawer=family/);
+    expect(src, 'iframe src carries the member id').toMatch(/[?&]id=\d+/);
+
+    // Closing via the Cancel postMessage path (the v.179 family Cancel
+    // signal added in task 2) must dismiss the overlay cleanly.
+    await page.evaluate(() => window.postMessage({ ghravaCancelled: 'family' }, '*'));
+    await expect(overlay, 'overlay closes on ghravaCancelled signal').toHaveCount(0, { timeout: 2000 });
+  });
+
   test('GET /finance/transactions/unified returns transactions and summary', async ({ request }) => {
     const r = await request.get(`${API}/finance/transactions/unified`);
     expect(r.ok()).toBe(true);

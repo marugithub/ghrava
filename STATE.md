@@ -69,6 +69,51 @@ principles.
 
 ---
 
+## 🚧 v.179 BUILT — Kids pencil opens edit form as on-top overlay (2026-05-19)
+
+> Built, committed locally task-by-task, **not yet deployed**. UX
+> follow-up to v.178: replace the slow full-page navigation with the
+> existing GH_REFS iframe sheet. No schema change.
+
+**Root cause v.178 missed.** The pencil did
+`window.location.href = '/settings.html?editFamily=<id>'` — a full page
+load that rebuilt Settings + nav.js + opened the panel + opened the
+drawer with nested ~700ms setTimeouts. Felt sluggish, and on Save the
+user was stranded on the Settings page instead of Kids.
+
+**Fix:** reuse `GH_REFS.openFamilyDrawer({editId, onSave})` — the
+shared iframe-overlay sheet that Contacts already uses to show a
+Settings drawer on top of the calling page. Same form, one codebase,
+no navigation.
+
+1. **`lt-refs.js`** — `_openSettingsDrawer()` gains an optional
+   `editId`; `openFamilyDrawer({editId, onSave})` forwards it as
+   `&id=<n>` on the iframe src.
+2. **`settings.html`** — `?drawer=family&id=<id>` opens
+   `editFamily(id)` (the canonical edit form) inside the iframe
+   chrome instead of empty Add. Family Cancel now postMessages
+   `{ghravaCancelled:'family'}` (mirroring Contacts) so backing out
+   — not only Save — dismisses the overlay. The slow v.178
+   full-page `?editFamily` IIFE handler is removed.
+3. **`kids.html`** — `editKidProfile(fmId)` now calls
+   `GH_REFS.openFamilyDrawer({editId, onSave})`. `onSave` runs
+   `GH_AVATAR.refresh()` + `loadKids()` + reopens the edited kid so
+   the avatar row + age summary update in place. Plain-nav fallback
+   kept defensively though GH_REFS ships on this page.
+4. **ghrava-e2e** — new test pins the overlay path: clicking the
+   active pencil mounts `#gh-refs-overlay` (no navigation), the
+   iframe src carries `drawer=family&id=<n>`, and the
+   `ghravaCancelled` postMessage dismisses the overlay cleanly.
+
+### Expected post-deploy
+Smoke 8/8. E2E: prior 113 + 1 new = 114, 0 failures. Manual smoke:
+open Kids, click the pencil on the active kid → the edit form slides
+up over the Kids page (instant, no Settings chrome), edit/Save → form
+closes, you're back on Kids, and the kid's name/photo/age updates in
+place. Cancel/Esc/backdrop → form closes, no state change.
+
+---
+
 ## ✅ v.178 DEPLOYED & VERIFIED — Kids redesign + gender + scope-overlay fix (2026-05-18)
 
 > **DEPLOYED 2026-05-18 ~22:08. Smoke 8/8, full E2E 113 pass / 0 fail.**
