@@ -1,8 +1,8 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
 ### ✅ SHIPPED in v.178 — Kids redesign + gender + scope-overlay fix
-Bundled drop (built; deploy pending Al's "package"). Details in STATE.md
-v.178 block. Highlights:
+Bundled drop, **DEPLOYED & VERIFIED 2026-05-18 (E2E 113/0, mig 143 live
+on prod)**. Details in STATE.md v.178 block. Highlights:
 - Kids gradient hero removed; selection lives on the avatar row; pencil
   on the active kid → reuses the Settings family-member drawer via
   `?editFamily=<id>`.

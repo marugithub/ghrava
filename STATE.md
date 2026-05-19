@@ -69,11 +69,14 @@ principles.
 
 ---
 
-## 🚧 v.178 BUILT — Kids redesign + gender + scope-overlay fix (2026-05-18)
+## ✅ v.178 DEPLOYED & VERIFIED — Kids redesign + gender + scope-overlay fix (2026-05-18)
 
-> Built, committed locally task-by-task, **not yet deployed**. Schema
-> drop (mig 143). Schema-safety gate run: only the known pre-existing
-> 130/134 noise flagged; new SQL clean.
+> **DEPLOYED 2026-05-18 ~22:08. Smoke 8/8, full E2E 113 pass / 0 fail.**
+> Live verified: `version.txt`=`202604.178`, no boot errors,
+> `family_members.gender` present on prod, mig 143 recorded in
+> `_migrations`. Local/origin/NAS git all == `8961f8a`. Schema drop
+> (mig 143); schema-safety gate showed only the known pre-existing
+> 130/134 noise — new SQL clean.
 
 **4.5 — Kids gradient hero removed.** The decorative `.kid-hero`
 pink/purple banner (avatar + name + Edit) and its dead CSS are gone.
