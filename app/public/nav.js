@@ -530,13 +530,22 @@
       pill.innerHTML = `<span class="gh-scope-pill__dot"></span><span>${scope.name}</span>`;
     },
     async openScopePicker() {
+      // Anti-zombie: never stack overlays. A stale, hard-to-dismiss
+      // .gh-scope-overlay (z-index 600, full viewport) is exactly what
+      // was eating real clicks elsewhere (e.g. the Kids edit pencil).
+      document.querySelectorAll('.gh-scope-overlay').forEach(o => o.remove());
+
       const members = await fetchFamilyForScope();
       const current = this.getScope();
       const overlay = document.createElement('div');
       overlay.className = 'gh-scope-overlay';
       overlay.innerHTML = `
         <div class="gh-scope-modal">
-          <h3 class="gh-scope-modal__title">Who is this device for?</h3>
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+            <h3 class="gh-scope-modal__title">Who is this device for?</h3>
+            <button type="button" class="gh-scope-close" aria-label="Close" title="Close"
+              style="background:none;border:none;color:var(--text3);font-size:22px;line-height:1;cursor:pointer;padding:0 2px;flex-shrink:0">&times;</button>
+          </div>
           <p class="gh-scope-modal__sub">We'll default lists to this person across modules. You can change this anytime.</p>
           <div class="gh-scope-modal__list">
             <button class="gh-scope-modal__opt${!current ? ' active':''}" data-id="">
@@ -552,8 +561,21 @@
               </button>`;
             }).join('')}
           </div>
+          <button type="button" class="gh-scope-skip"
+            style="margin-top:14px;width:100%;background:none;border:none;color:var(--text3);font-size:13px;cursor:pointer;padding:6px">Not now</button>
         </div>`;
       document.body.appendChild(overlay);
+
+      const close = () => {
+        document.removeEventListener('keydown', onKey, true);
+        overlay.remove();
+        // Closing without picking still counts as handled for this device,
+        // so the prompt never silently re-mounts and blocks the page.
+        try { localStorage.setItem('gh_device_family_scope_dismissed', '1'); } catch(e) {}
+      };
+      const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+      document.addEventListener('keydown', onKey, true);
+
       overlay.addEventListener('click', e => {
         const opt = e.target.closest('.gh-scope-modal__opt');
         if (opt) {
@@ -563,10 +585,13 @@
           } else {
             this.setScope(null);
           }
-          overlay.remove();
+          close();
           return;
         }
-        if (e.target === overlay) overlay.remove();
+        // Explicit ×, "Not now", or backdrop click all dismiss.
+        if (e.target.closest('.gh-scope-close') || e.target.closest('.gh-scope-skip') || e.target === overlay) {
+          close();
+        }
       });
     },
   };
