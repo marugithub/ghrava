@@ -200,7 +200,7 @@ window.GH_REFS = (function () {
   // ?drawer=contact and suppresses its main UI, showing only the drawer.
   // When the drawer saves, settings.html postMessages the record back.
 
-  function _openSettingsDrawer(drawerType, presetType, onSave, presetName) {
+  function _openSettingsDrawer(drawerType, presetType, onSave, presetName, editId) {
     document.getElementById('gh-refs-overlay')?.remove();
 
     const overlay = document.createElement('div');
@@ -214,7 +214,8 @@ window.GH_REFS = (function () {
     const frame = document.createElement('iframe');
     frame.src = '/settings.html?drawer=' + drawerType +
       (presetType ? '&type=' + encodeURIComponent(presetType) : '') +
-      (presetName ? '&name=' + encodeURIComponent(presetName) : '');
+      (presetName ? '&name=' + encodeURIComponent(presetName) : '') +
+      (editId   ? '&id='   + encodeURIComponent(editId)   : '');
     frame.style.cssText = [
       'width:min(560px,100vw)', 'height:92vh',
       'border:none', 'border-radius:20px 20px 0 0',
@@ -246,8 +247,9 @@ window.GH_REFS = (function () {
     _openSettingsDrawer('contact', opts.type || '', opts.onSave, opts.name || '');
   }
 
+  // opts.editId → opens the EDIT form for that family member; omit for Add.
   function openFamilyDrawer(opts = {}) {
-    _openSettingsDrawer('family', '', opts.onSave);
+    _openSettingsDrawer('family', '', opts.onSave, '', opts.editId);
   }
 
   // ── Bust cache externally ─────────────────────────────────────
