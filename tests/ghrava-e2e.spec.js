@@ -667,6 +667,66 @@ test.describe('API Contract', () => {
     expect(dupes, `duplicate kid name(s): ${[...new Set(dupes)].join(', ')}`).toHaveLength(0);
   });
 
+  // v202604.178 task 4.6b — Settings family editor (deep-linked from the
+  // Kids avatar pencil) gained a Gender field backed by mig 143's
+  // family_members.gender column. Verify create + update round-trip it.
+  test('family member create/update round-trips gender (v.178)', async ({ request }) => {
+    const post = await request.post(`${API}/settings/family`, {
+      data: { display_name: 'E2E Gender Temp', gender: 'Nonbinary' },
+      headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
+    });
+    if (post.status() === 401) return; // auth-gated instance w/o token — skip
+    expect(post.status(), 'POST /settings/family create').toBe(201);
+    const created = await post.json();
+    try {
+      expect(created.gender, 'gender persisted on create').toBe('Nonbinary');
+      const put = await request.put(`${API}/settings/family/${created.id}`, {
+        data: { display_name: created.display_name, gender: 'Female' },
+        headers: { 'Content-Type': 'application/json', ...AUTH_HEADERS },
+      });
+      expect(put.ok(), 'PUT /settings/family update').toBe(true);
+      const updated = await put.json();
+      expect(updated.gender, 'gender updated on PUT').toBe('Female');
+    } finally {
+      await request.delete(`${API}/settings/family/${created.id}`, { headers: AUTH_HEADERS });
+    }
+  });
+
+  // v202604.178 tasks 4.5/4.6/4.7 — Kids redesign: gradient hero removed
+  // (replaced by the avatar-row summary), an edit pencil rides the ACTIVE
+  // kid avatar only, and the first-run scope overlay must be dismissable
+  // so it never blocks that pencil.
+  test('Kids page: no hero, dismissable scope overlay, pencil on active only', async ({ page }) => {
+    // Pretend the scope prompt was already dismissed on this device so the
+    // auto-prompt cannot mount a click-blocking overlay during the test.
+    await page.addInitScript(() => {
+      try { localStorage.setItem('gh_device_family_scope_dismissed', '1'); } catch (e) {}
+    });
+    await page.goto(BASE + '/kids.html', { waitUntil: 'load' });
+    await page.waitForTimeout(1600); // past the 1200ms first-run prompt timer
+
+    // Old decorative hero must be gone; the dense summary element exists.
+    expect(await page.locator('.kid-hero').count(), 'gradient hero removed').toBe(0);
+    expect(await page.locator('#kidsActiveSummary').count(), 'avatar-row summary present').toBe(1);
+
+    // Scope overlay must not be sitting over the page when dismissed.
+    expect(await page.locator('.gh-scope-overlay').count(), 'no zombie scope overlay').toBe(0);
+
+    // If any kid is family-linked, the pencil renders but is only visible
+    // on the active tab (CSS-gated). Inactive tabs show none.
+    const pencils = page.locator('.kid-edit-pencil');
+    const n = await pencils.count();
+    if (n > 0) {
+      const activePencil = page.locator('.kid-tab.active .kid-edit-pencil');
+      expect(await activePencil.count(), 'active kid has a pencil').toBeGreaterThan(0);
+      await expect(activePencil.first(), 'active pencil is visible').toBeVisible();
+      const inactivePencil = page.locator('.kid-tab:not(.active) .kid-edit-pencil');
+      if (await inactivePencil.count() > 0) {
+        await expect(inactivePencil.first(), 'inactive pencil hidden').toBeHidden();
+      }
+    }
+  });
+
   test('GET /finance/transactions/unified returns transactions and summary', async ({ request }) => {
     const r = await request.get(`${API}/finance/transactions/unified`);
     expect(r.ok()).toBe(true);

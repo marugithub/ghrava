@@ -69,9 +69,70 @@ principles.
 
 ---
 
-## 🚧 v.177 BUILT — orphan-126 migration + Kids duplicate (2026-05-18)
+## 🚧 v.178 BUILT — Kids redesign + gender + scope-overlay fix (2026-05-18)
 
-> Built, committed locally, **not yet deployed**. Two bugs Al reported.
+> Built, committed locally task-by-task, **not yet deployed**. Schema
+> drop (mig 143). Schema-safety gate run: only the known pre-existing
+> 130/134 noise flagged; new SQL clean.
+
+**4.5 — Kids gradient hero removed.** The decorative `.kid-hero`
+pink/purple banner (avatar + name + Edit) and its dead CSS are gone.
+Selection now lives entirely on the avatar row: inactive tabs at 50%
+opacity, active at full opacity + bold accent name (underline kept). A
+right-aligned plain-text `<FirstName> · age N` / `· no age set` summary
+(`#kidsActiveSummary`, `--text2`) sits in the avatar row. Data stats
+strip (Activities/Notes/School) retained — only decoration removed.
+
+**4.6 — Edit pencil on the active kid avatar.** Small inline-SVG pencil
+(codebase's canonical edit glyph; no Tabler font exists here) bottom-
+right of the ACTIVE kid avatar only, CSS-gated to `.kid-tab.active` so
+it tracks selection with no strip re-render. Rendered only for kids
+linked to a `family_members` row. Click deep-links to
+`/settings.html?editFamily=<id>`; a new handler in the existing settings
+query IIFE → `openPanel('family')` + `editFamily(id)`, reusing the
+canonical family-member drawer (no duplicated Kids editor, per Al).
+Distinct from `?drawer=family` (that forces iframe-only chrome).
+
+**4.6b — `family_members.gender`.** `143_family_members_gender.js`
+(`ALTER TABLE family_members ADD COLUMN gender TEXT`, defensive
+try/catch). POST + PUT `/api/v1/settings/family[/:id]` accept & persist
+`gender`. Settings family drawer gains a free-text Gender input
+(populated in `openFamilyDrawer`, sent in `familySave`). **lens-config
+deviation (documented):** the locked v.166 rule says new columns
+register in `lens-config.js`, but `check-lens` enforces an explicit
+allowlist of list-page modules and `family_members` is a
+Settings-edited identity table (not lens-eligible, like junction/system
+tables). `gender` is not a Lens filter dimension on any list, so no
+lens entry exists to add it to and the gate does not require one.
+
+**4.7 — scope overlay made dismissable (root-cause fix).** The
+first-run `.gh-scope-overlay` (z-index 600, full viewport) had no close
+button, no Esc, only a pixel-perfect backdrop-edge click — it sat over
+the page eating real clicks (proven via Playwright; this is why the
+Kids pencil/Edit was un-clickable). `openScopePicker()` now: removes any
+existing overlay before mounting (anti-zombie/dedupe), adds an explicit
+× and "Not now", honors Esc, and routes every exit through one
+`close()` that sets `gh_device_family_scope_dismissed=1` so a dismissed
+prompt never silently re-mounts and re-blocks the page.
+
+**4.8 — tests/docs/version.** ghrava-e2e: gender create/update
+round-trip (API Contract) + Kids page test (no `.kid-hero`,
+`#kidsActiveSummary` present, no zombie scope overlay when dismissed,
+pencil visible only on active tab). `version.txt` → `202604.178`.
+
+### Expected post-deploy
+Smoke 8/8. E2E: prior 111 + 2 new = 113, 0 failures. Boot applies mig
+143 once (`family_members.gender` added). Kids page: no gradient banner,
+dense avatar row with age summary, pencil on the selected kid → opens
+the Settings family editor with a working Gender field. Scope prompt (if
+it ever shows) closes via ×/Esc/Not now and stays closed.
+
+---
+
+## ✅ v.177 DEPLOYED & VERIFIED — orphan-126 migration + Kids duplicate (2026-05-18)
+
+> **DEPLOYED & verified, E2E 111 pass / 0 fail (baseline @ git 410cbad).**
+> Two bugs Al reported.
 > Two new migrations (141, 142) + one route hardening + test + docs.
 > Schema-safety gate applies.
 

@@ -1,5 +1,24 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### ✅ SHIPPED in v.178 — Kids redesign + gender + scope-overlay fix
+Bundled drop (built; deploy pending Al's "package"). Details in STATE.md
+v.178 block. Highlights:
+- Kids gradient hero removed; selection lives on the avatar row; pencil
+  on the active kid → reuses the Settings family-member drawer via
+  `?editFamily=<id>`.
+- New `family_members.gender` (mig 143) + Settings drawer Gender field +
+  POST/PUT endpoint support.
+- Root-caused & fixed the first-run `.gh-scope-overlay` click-blocker
+  (no close/Esc → it covered the page and ate the Kids pencil click).
+- **Documented locked-rule deviation:** v.166 says new schema columns
+  register in `lens-config.js`. `family_members` is a Settings-edited
+  identity table with no list-page Lens module (the `check-lens` gate's
+  allowlist excludes it, like junction/system tables), so
+  `family_members.gender` has no Lens section to join and the gate does
+  not require one. Recorded here + in the v.178 commit so the deviation
+  is explicit, not silent. Revisit only if a family_members list page is
+  ever Lens-wired.
+
 ### ✅ CLEARED in v.176 — the cross-cutting cleanup bundle
 The TOP-PRIORITY `daysFromToday()` day-off bug **and** the small orphan
 security/hygiene items were all fixed in v202604.176 (one bundled drop):
@@ -617,4 +636,4 @@ These came up repeatedly and got locked but should not be relitigated:
 
 ---
 
-*Last updated: v202604.177 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*
+*Last updated: v202604.178 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*
