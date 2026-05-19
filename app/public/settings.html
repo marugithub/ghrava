@@ -2409,6 +2409,18 @@ async function syncGoogleContactsNow() {
       $('familyDrawer').classList.add('open');
     }, 400);
   }
+
+  // ── Edit a specific family member via ?editFamily=<id> ──
+  // Full-page deep link used by the Kids page avatar pencil. Unlike
+  // ?drawer=family this keeps the full settings chrome so closing the
+  // drawer returns to the family list, not a blank iframe shell.
+  const editFamilyId = parseInt(params.get('editFamily'), 10);
+  if (editFamilyId) {
+    setTimeout(() => {
+      try { openPanel('family'); } catch(e){}
+      setTimeout(() => { try { editFamily(editFamilyId); } catch(e){} }, 300);
+    }, 400);
+  }
 })();
 
 async function loadAbout() {
