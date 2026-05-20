@@ -2655,6 +2655,16 @@ async function syncGoogleContactsNow() {
     setTimeout(() => toast('Google error: ' + params.get('google_error'), 'err'), 500);
   }
 
+  // v.184 — generic ?panel=<name> deep-link. Used by Pending Items
+  // ("Manage merchant rules →" link) and any future deep-link from
+  // another page. Only opens panels that have a registered loader so
+  // an unknown name is a no-op.
+  const panelName = params.get('panel');
+  if (panelName && typeof PANEL_LOADERS === 'object' && PANEL_LOADERS[panelName]) {
+    history.replaceState({}, '', '/settings.html');
+    setTimeout(() => openPanel(panelName), 200);
+  }
+
   // ── Drawer auto-open via ?drawer=contact|family&type=Medical ──
   // Used when GH_REFS opens Settings in an iframe to add a new record.
   const drawerParam = params.get('drawer');

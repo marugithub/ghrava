@@ -291,7 +291,12 @@
             <h2 class="pr-title">Pending items</h2>
             <span class="pr-sub">things needing a quick decision</span>
           </div>
-          <span class="pr-count">${total} open</span>
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <!-- v.184 — deep-link into the Settings sub-panel that lists
+                 every rule the user has taught the system. -->
+            <a href="/settings.html?panel=txrules" class="pr-sub" style="font-size:12px;text-decoration:none;border-bottom:1px dotted var(--text3)">Manage merchant rules →</a>
+            <span class="pr-count">${total} open</span>
+          </div>
         </div>
 
         <p class="pr-blurb">Every transaction below was imported from your bank, but the app couldn't tell what it was for. Pick a target once and the rule remembers — future charges from the same place auto-link.</p>
