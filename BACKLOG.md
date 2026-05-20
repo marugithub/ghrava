@@ -1,13 +1,13 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### 🚧 v.179 BUILT — Kids pencil overlay (UX follow-up to v.178)
-Single-purpose UX fix: the v.178 pencil navigated to Settings (slow +
-left user stranded). v.179 swaps it for the existing GH_REFS iframe
-sheet (the same Settings-drawer-on-top-of-current-page pattern Contacts
-uses). Same form, no new code surface, instant open, returns to Kids on
-Save/Cancel with the avatar row + age summary refreshed in place. No
-schema change. Details in STATE.md v.179 block. Built locally, deploy
-pending.
+### ✅ SHIPPED in v.179 — Kids pencil overlay (UX follow-up to v.178)
+Single-purpose UX fix, **DEPLOYED & VERIFIED 2026-05-19 (E2E 114/0)**.
+The v.178 pencil navigated to Settings (slow + left user stranded).
+v.179 swaps it for the existing GH_REFS iframe sheet (the same
+Settings-drawer-on-top-of-current-page pattern Contacts uses). Same
+form, no new code surface, instant open, returns to Kids on Save/
+Cancel with the avatar row + age summary refreshed in place. No schema
+change. Details in STATE.md v.179 block.
 
 ### ✅ SHIPPED in v.178 — Kids redesign + gender + scope-overlay fix
 Bundled drop, **DEPLOYED & VERIFIED 2026-05-18 (E2E 113/0, mig 143 live

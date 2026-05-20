@@ -69,11 +69,12 @@ principles.
 
 ---
 
-## 🚧 v.179 BUILT — Kids pencil opens edit form as on-top overlay (2026-05-19)
+## ✅ v.179 DEPLOYED & VERIFIED — Kids pencil opens edit form as on-top overlay (2026-05-19)
 
-> Built, committed locally task-by-task, **not yet deployed**. UX
-> follow-up to v.178: replace the slow full-page navigation with the
-> existing GH_REFS iframe sheet. No schema change.
+> **DEPLOYED 2026-05-19 ~16:51. Smoke 8/8, full E2E 114 pass / 0 fail.**
+> `version.txt`=`202604.179` live, no boot errors. Local/origin/NAS
+> all == `3aef210`. UX follow-up to v.178: replace the slow full-page
+> navigation with the existing GH_REFS iframe sheet. No schema change.
 
 **Root cause v.178 missed.** The pencil did
 `window.location.href = '/settings.html?editFamily=<id>'` — a full page
