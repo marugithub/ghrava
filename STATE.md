@@ -69,13 +69,21 @@ principles.
 
 ---
 
-## ✅ v.183 SHIPPED — Reports Group 1 (partial): heatmap + treemap + drill-down (sandbox, 2026-05-20)
+## ✅ v.183 DEPLOYED & VERIFIED — Reports Group 1 (partial): heatmap + treemap + drill-down (2026-05-20)
 
-> **In sandbox, awaiting `package` from Al.** Local commits `49c1ecb →
-> 9d414f1 → 7d573cc → <task-4>`. Pure additive drop — four new GET
-> endpoints on the existing reports sub-router, ~470 lines of SVG +
-> drill-down JS in reports.html, one stale BACKLOG bug retired. No
-> migrations, no column changes, no UI deletes.
+> **DEPLOYED 2026-05-20 ~15:55. Smoke 8/8, full E2E 115 pass / 0 fail
+> (held v.182 baseline — no new tests, no regressions; fastest E2E
+> run yet at 2.9m).** `version.txt`=`202604.183` live, container
+> restarted clean. Boot migration line: `Migrations: 0 applied, 143
+> skipped` (no migrations in this drop). Zero `FAILED .*\.js` on the
+> v.183 boot. Local/origin/NAS all == `1b82e88`. Schema-safety gate
+> cleared on Windows host before package: 10 flagged lines all in
+> `130_rescue_126.js` + `134_hsa_plan_to_fsa.js` (known pre-existing
+> noise); zero entries from any v.183 file. Four commits on origin:
+> `49c1ecb → 9d414f1 → 7d573cc → 1b82e88`. Pure additive drop — four
+> new GET endpoints on the existing reports sub-router, ~470 lines of
+> SVG + drill-down JS in reports.html, one stale BACKLOG bug retired.
+> No migrations, no column changes, no UI deletes.
 
 **Theme.** Make the Reports → Charts tab stop being a placeholder.
 The locked #26 design has 13 charts in 3 groups; before v.183 only

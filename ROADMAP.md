@@ -117,7 +117,7 @@
   - `renderVendorTreemap()` + `vendorTreemapSvg()` in `reports.html`. Simplified squarify — 3 rows of decreasing height, 3/4/5 vendors per row, proportional widths, stable hash-based color per vendor, "(K more)" tail lump.
 - [ ] **Task 5 — Wire `#26.1.4` Category small-multiples** — DEFERRED to Group 1 Part B. Needs a new `/spending-by-category-monthly` endpoint variant.
 - [~] **Task 6 — Drill-down on each chart** — **PARTIALLY SHIPPED v.183.** Generic right-pane handler locked: `openDrillDown(kind, key)` + `closeDrillDown()` + `renderDrillDown(title, sub, txns)` in `reports.html`. Reuses existing `.rep-detail-*` CSS. T3 and T4 use it via `kind='calendar'` and `kind='vendor'`. T2 (Sankey) and T5 (small-multiples) will add their own `kind` branches when wired.
-- [x] **Task 7 — Docs + version bump** ✅ **SHIPPED v.183** *(awaiting deploy + verify; flip to ✅ DEPLOYED when E2E lands clean on NAS)*
+- [x] **Task 7 — Docs + version bump** ✅ **DEPLOYED & VERIFIED 2026-05-20 ~15:55 (E2E 115/0, smoke 8/8, no boot errors; 2.9m E2E)**
 
 ---
 

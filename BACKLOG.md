@@ -1,7 +1,8 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### ✅ SHIPPED in v.183 — Reports Group 1 (partial): heatmap + treemap + drill-down (sandbox, awaiting package)
-4-task drop. Closes 2 of the 4 Group 1 charts (#26.1.2 calendar
+### ✅ SHIPPED in v.183 — Reports Group 1 (partial): heatmap + treemap + drill-down
+4-task drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0, smoke 8/8,
+no boot errors on prod; E2E run was 2.9m — fastest yet)**. Closes 2 of the 4 Group 1 charts (#26.1.2 calendar
 heatmap + #26.1.3 vendor treemap), retires a stale CSS bug, and
 locks the generic right-pane drill-down pattern that the rest of
 Group 1 will reuse. Sankey (#26.1.1) and small-multiples (#26.1.4)
