@@ -69,6 +69,143 @@ principles.
 
 ---
 
+## ✅ v.183 SHIPPED — Reports Group 1 (partial): heatmap + treemap + drill-down (sandbox, 2026-05-20)
+
+> **In sandbox, awaiting `package` from Al.** Local commits `49c1ecb →
+> 9d414f1 → 7d573cc → <task-4>`. Pure additive drop — four new GET
+> endpoints on the existing reports sub-router, ~470 lines of SVG +
+> drill-down JS in reports.html, one stale BACKLOG bug retired. No
+> migrations, no column changes, no UI deletes.
+
+**Theme.** Make the Reports → Charts tab stop being a placeholder.
+The locked #26 design has 13 charts in 3 groups; before v.183 only
+#26.1.5 (cash-flow forecast) was live and #26.1.1 (Sankey) /
+#26.2.1 (BP line) had static SVG mockups. v.183 adds **#26.1.2
+(calendar heatmap)** and **#26.1.3 (vendor treemap)**, plus a
+generic right-pane drill-down pattern that the remaining charts will
+reuse. Sankey (#26.1.1) and small-multiples (#26.1.4) stay as
+mockups — deferred to a follow-up "Group 1 Part B" drop.
+
+### What's in this drop (4 tasks, 1 commit each)
+
+1. **Retire stale CSS modal-leak bug** (`49c1ecb`). BACKLOG known-bug
+   #4 ("Reports panels open as center modals — sub-panel CSS leak
+   from settings.html") doesn't reproduce in current code. Verified
+   against live prod 2026-05-20: `shared.css` has zero `.sub-panel`
+   positioning rules (only theme overrides at lines 2636-2641, which
+   restyle but don't position); `reports.html` uses no `.sub-panel`
+   class; the only `position:fixed` rule on reports.html is the
+   intentional mobile overlay at line 59 (`<899px` viewport). Marked
+   the row RESOLVED/STALE with verification notes; no code change.
+
+2. **#26.1.2 Calendar heatmap live + drill-down framework** (`9d414f1`).
+   - NEW endpoints: `GET /api/v1/finance/reports/daily-spend?year=`
+     (daily aggregates from the unified `finance_transactions UNION
+     imported_transactions` feed) and `GET /txns-on-date?date=YYYY-
+     MM-DD` (drill-down companion).
+   - `renderCalendarHeatmap()` + `calendarHeatmapSvg()` in
+     reports.html. GitHub-style 53 weeks × 7 days SVG grid, 5-bucket
+     red ramp (`var(--bg3)` → muted red), month/dow labels, total +
+     legend below. Each cell carries an SVG `<title>` for native
+     tooltip and onclick → drill-down.
+   - **Drill-down framework**: generic `openDrillDown(kind, key)` +
+     `closeDrillDown()` + `renderDrillDown(title, sub, txns)`.
+     Populates the existing `#reportsRight` pane (reuses the
+     `.rep-detail-*` CSS that was already there). Header + back
+     button + per-txn list with red/green amount colors. Mobile
+     <899px viewport gets full-screen overlay via the existing
+     media-query.
+
+3. **#26.1.3 Vendor treemap live + drill-down** (`7d573cc`).
+   - NEW endpoints: `GET /top-vendors?year=&limit=` (GROUP BY
+     description across the unified feed, ranked by spend) and `GET
+     /txns-by-vendor?vendor=NAME&year=YYYY` (drill-down).
+   - `renderVendorTreemap()` + `vendorTreemapSvg()` in reports.html.
+     Simplified squarify: 3 rows with decreasing height (50% / 30% /
+     20%), 3 / 4 / 5 vendors per row, widths proportional to within-
+     row share. "(K more)" lumps the long tail beyond top 12. Stable
+     hash-based color per vendor name from an 8-color palette.
+   - `openDrillDown()` gains the 'vendor' branch — same shape as
+     the calendar branch from Task 2, reuses the shared list
+     renderer.
+
+4. **Docs + version bump + schema gate.** This block; BACKLOG.md
+   SHIPPED block; ROADMAP.md partial-tick; `app/version.txt →
+   202604.183`.
+
+### Drill-down pattern locked (v.183)
+
+For any future chart in any group:
+- Chart cell carries `onclick="openDrillDown(kind, key)"` where
+  `kind` matches the dispatch in `openDrillDown` and `key` is a
+  slice identifier (date / vendor / category / etc.).
+- `openDrillDown(kind, key)` fetches the right endpoint, calls
+  `renderDrillDown(title, sub, txns)`, populates `#reportsRight`.
+- Right pane already has `.rep-detail-header` + `.rep-detail-back`
+  CSS. No new modal layer needed.
+- Mobile full-screen overlay happens automatically via the existing
+  `<899px` media query.
+
+To add a new drill-down: add a `kind === 'X'` branch in
+`openDrillDown()` + the corresponding `/finance/reports/txns-by-X`
+backend endpoint.
+
+### Backend endpoints added (all in `app/features/finance/reports.js`)
+
+| Endpoint | Purpose | Returns |
+|---|---|---|
+| `GET /daily-spend?year=` | Calendar heatmap data | `{year, days, max_spent, total_spent}` |
+| `GET /txns-on-date?date=` | Heatmap drill-down | `{date, transactions, total_spent, total_income}` |
+| `GET /top-vendors?year=&limit=` | Treemap data | `{year, vendors, total_spent}` |
+| `GET /txns-by-vendor?vendor=&year=` | Treemap drill-down | `{vendor, year, transactions, total_spent}` |
+
+All four follow the established UNION pattern from `/spending-by-
+category` (lines 13-56): `finance_transactions UNION ALL
+imported_transactions WHERE is_transfer=0`. Every prepared statement
+has a `// schema:` comment per the locked rule. No schema changes.
+
+### What v.183 deliberately does NOT do
+
+- **Sankey (#26.1.1)** — most complex chart of the 4; needs a per-
+  income-source → category flow query and a custom ribbon renderer.
+  Deferred to a follow-up "Group 1 Part B" drop.
+- **Small-multiples (#26.1.4)** — needs a new
+  `/spending-by-category-monthly` endpoint variant. Deferred to the
+  same follow-up.
+- **Group 2 (Health)** — blocked on the `metric_index` design
+  decision per ROADMAP "v.184" block.
+- **Group 3 (Household)** — blocked on Universal Attachments (#28).
+
+### Expected post-deploy verification
+
+Smoke 8/8 (no smoke changes). E2E baseline `115/0` — v.183 adds no
+tests and doesn't change tested behavior, so 115/0 should hold. On
+the Linux container at package time, schema-safety gate should
+remain at 10 flagged lines (130/134 noise) — zero from v.183
+because every new `db.prepare` references columns from existing
+tables only.
+
+Manual smoke after deploy:
+- Open `/reports.html?tab=charts`. The Group 1 row should show:
+  Sankey (mockup), Calendar heatmap (LIVE, colored cells based on
+  Al's transactions), Vendor treemap (LIVE, top vendors as boxes),
+  Small-multiples (stub), Forecast (LIVE).
+- Click a colored heatmap cell → right pane (or full-screen overlay
+  on mobile) shows that day's transactions with a back button.
+- Click a vendor tile → same drill-down shape with that vendor's
+  transaction history.
+- Back button restores the empty placeholder.
+
+### ROADMAP label slip
+
+ROADMAP's "v.182-reports" block IS this drop (v.183). The off-by-
+one continues. v.183 ticks T1 (CSS verified stale) + T3 (calendar
+heatmap) + T4 (vendor treemap) + T7 (docs); leaves T2 (Sankey), T5
+(small-multiples), and T6 (generic drill-down framework — partially
+done in this drop) unticked with a "deferred to follow-up" note.
+
+---
+
 ## ✅ v.182 DEPLOYED & VERIFIED — Finance asterisk rollout (2026-05-20)
 
 > **DEPLOYED 2026-05-20 ~15:22. Smoke 8/8, full E2E 115 pass / 0 fail

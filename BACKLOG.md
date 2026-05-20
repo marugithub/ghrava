@@ -1,5 +1,35 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### ✅ SHIPPED in v.183 — Reports Group 1 (partial): heatmap + treemap + drill-down (sandbox, awaiting package)
+4-task drop. Closes 2 of the 4 Group 1 charts (#26.1.2 calendar
+heatmap + #26.1.3 vendor treemap), retires a stale CSS bug, and
+locks the generic right-pane drill-down pattern that the rest of
+Group 1 will reuse. Sankey (#26.1.1) and small-multiples (#26.1.4)
+deferred to a follow-up "Group 1 Part B" drop. Details in STATE.md
+v.183 block.
+
+Backend additions (all in `app/features/finance/reports.js`):
+- `GET /daily-spend?year=` and `/txns-on-date?date=` for the
+  heatmap + its drill-down.
+- `GET /top-vendors?year=&limit=` and `/txns-by-vendor?vendor=&year=`
+  for the treemap + its drill-down.
+- Every new `db.prepare` has a `// schema:` comment per locked
+  rule. No schema changes — all queries read existing columns.
+
+Frontend additions (in `app/public/reports.html`):
+- `renderCalendarHeatmap()` + `calendarHeatmapSvg()` — GitHub-style
+  53×7 grid, 5-bucket red ramp.
+- `renderVendorTreemap()` + `vendorTreemapSvg()` — simplified
+  squarify, 3 rows × 3/4/5 boxes, stable hash-based color per
+  vendor.
+- `openDrillDown(kind, key)` + `closeDrillDown()` +
+  `renderDrillDown()` — generic right-pane drill-down. Reuses
+  existing `.rep-detail-*` CSS. Future chart drops add a new
+  `kind === 'X'` branch.
+
+Known-bug #4 (Reports CSS modal leak) retired as STALE — no
+reproduction in current code; verified live on prod.
+
 ### ✅ SHIPPED in v.182 — Finance asterisk rollout
 Pure-frontend drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0,
 smoke 8/8, no boot errors on prod)**. 3-task drop. Closes the only
