@@ -1,13 +1,15 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### 🚧 v.180 BUILT — Kids pencil open-time: 3s → ~1s
-Speed fix to the v.179 overlay (Al timed the open at ~3s; root caused
-to a 0.4s hardcoded wait + a wasteful whole-roster fetch + a serial
-in-iframe single-record fetch). Three commits remove the wait, skip
-the roster fetch, and add a parent-prefetch handshake so the iframe
-gets the record handed to it on open. No schema change. Expected ~1s
-open (instant when the GH_AVATAR cache hits, which is the common
-path). Details in STATE.md v.180 block. Built locally; deploy pending.
+### ✅ SHIPPED in v.180 — Kids pencil open-time: 3s → ~1s
+Speed fix to the v.179 overlay, **DEPLOYED & VERIFIED 2026-05-20
+(E2E 115/0; Al confirmed "much better" on his device)**. Al timed the
+open at ~3s; root caused to a 0.4s hardcoded wait + a wasteful whole-
+roster fetch + a serial in-iframe single-record fetch. Three commits
+removed the wait, skipped the roster fetch, and added a parent-prefetch
+handshake (postMessage `ghravaReady`/`ghravaPrefetchedMember`) so the
+iframe gets the record handed to it on open — instant when the
+`GH_AVATAR` cache hits, which is the common path. No schema change.
+Details in STATE.md v.180 block.
 
 ### ✅ SHIPPED in v.179 — Kids pencil overlay (UX follow-up to v.178)
 Single-purpose UX fix, **DEPLOYED & VERIFIED 2026-05-19 (E2E 114/0)**.

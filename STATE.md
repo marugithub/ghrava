@@ -69,9 +69,11 @@ principles.
 
 ---
 
-## 🚧 v.180 BUILT — Kids pencil open-time: 3s → ~1s (2026-05-20)
+## ✅ v.180 DEPLOYED & VERIFIED — Kids pencil open-time: 3s → ~1s (2026-05-20)
 
-> Built, committed locally task-by-task, **not yet deployed**. UX
+> **DEPLOYED 2026-05-20 ~10:31. Smoke 8/8, full E2E 115 pass / 0 fail.**
+> `version.txt`=`202604.180` live, no boot errors. Al user-verified
+> ("much better") on his device. Local/origin/NAS all == `fd1e98b`. UX
 > speed fix to the v.179 overlay. No schema change.
 
 Al timed the v.179 pencil at ~3s from click to fields visible. Root
