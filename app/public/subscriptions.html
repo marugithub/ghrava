@@ -22,6 +22,8 @@
 <script src="/js/gh-card-brands.js"></script>
 <script src="/js/gh-card-configs-batch1.js"></script>
 <script src="/js/gh-card-mount.js"></script>
+<!-- v.182 — pending-items asterisk scanner for the summary strip -->
+<script src="/js/pending-report.js"></script>
 <!-- v202604.124 — The Lens (sentence-shaped filter UI) -->
 <script src="/js/lens-config.js"></script>
 <script src="/js/gh-lens.js"></script>
@@ -31,7 +33,12 @@
 
   <div class="stats-row" style="margin:10px 16px 0">
     <div class="stat-item"><div class="stat-value" id="sumMonthly" style="color:var(--accent)">—</div><div class="stat-label">Per Month</div></div>
-    <div class="stat-item"><div class="stat-value" id="sumAnnual" style="color:var(--red)">—</div><div class="stat-label">Per Year</div></div>
+    <!-- v.182 — Per-Year is the canonical derived aggregate for subscriptions.
+         Wrap in .gh-pending-target so GhAsterisk.scan() injects a colored *
+         when imported transactions look like recurring charges that aren't
+         yet tracked as a subscription. Inner span keeps the id so the
+         existing textContent update doesn't wipe the .gh-pending-host. -->
+    <div class="stat-item"><div class="stat-value gh-pending-target" data-card="subscriptions"><span id="sumAnnual" style="color:var(--red)">—</span><span class="gh-pending-host"></span></div><div class="stat-label">Per Year</div></div>
     <div class="stat-item"><div class="stat-value" id="sumCount">—</div><div class="stat-label">Active</div></div>
   </div>
 
@@ -229,6 +236,10 @@ async function loadSummary() {
     document.getElementById('sumMonthly').textContent = fmt$(d.monthly_cost);
     document.getElementById('sumAnnual').textContent  = fmt$(d.annual_cost);
     document.getElementById('sumCount').textContent   = d.total_active || 0;
+    // v.182 — light up the pending-items asterisk on the Per-Year cell
+    // when the backend probe finds recurring charges that look like
+    // un-tracked subscriptions.
+    if (window.GhAsterisk) GhAsterisk.scan();
   } catch(e) {}
 }
 
