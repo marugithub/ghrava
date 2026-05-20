@@ -65,21 +65,29 @@
 
 ## v.181 — Finance: Pending Items list view + LP-FSA Settings UI
 
-**Theme:** Close the v.171 promise (Pending Items list visible+actionable). Bundle a small HSA-adjacent win.
+> **Version note (2026-05-20):** This block shipped as **v.182**, not
+> v.181 — v.181 was the Medical drop. Per the v.181-roadmap-label slip,
+> labels here continue to be off-by-one.
+>
+> **Audit-vs-reality finding (2026-05-20):** Tasks 1 and 2 below were
+> ALREADY shipped earlier (v.171 and v.167 respectively) — the original
+> ROADMAP entry was written from the audit's view, but a closer look
+> showed the work was already on prod and verified by E2E. The actually-
+> remaining gap was the **asterisk rollout** sub-item under Task 1 — the
+> infrastructure (DOM probe + scanner + endpoint) shipped v.171/v.173,
+> but only `hsa.html` consumed it. v.182 wired three more surfaces.
 
-- [ ] **Task 1 — Pending Items Report list view at `/reports.html?tab=pending`**
-  - Locked design #29 in `_templates.html`.
-  - Reads from existing pending detectors in `app/features/pending/routes.js`.
-  - List + grid views via `GH_VIEW` (already standard pattern).
-  - Three actions per row: assign / skip 30d / not a [module] expense.
-  - Inline picker per module type (vehicle, subscription, medical visit, HSA, inventory, cert).
-  - Asterisks on derived numbers (the v.173 per-record probe already exists; this is the rollup UI).
-- [ ] **Task 2 — LP-FSA plan info Settings UI**
-  - Backend `lpfsa_plan_info` table already exists.
-  - Mirror the FSA form pattern (already shipped).
-  - Fields: `annual_limit, plan_year, deadline_date, plan_name`.
-  - Same drawer pattern as other Settings sub-forms.
-- [ ] **Task 3 — Docs + version bump**
+**Theme (as built):** Roll out the v.171 asterisk pattern beyond hsa.html.
+
+- [x] **Task 1 — Pending Items Report list view at `/reports.html?tab=pending`** ✅ **ALREADY SHIPPED v.171** (`app/public/js/pending-report.js` 680 lines; all 8 backend endpoints in `pending/routes.js`; E2E `pending-tab.spec.js` passes). The original ROADMAP entry's "asterisks on derived numbers" sub-item is what v.182 actually closed (see new Task A below).
+- [x] **Task 2 — LP-FSA plan info Settings UI** ✅ **ALREADY SHIPPED v.167** (`settings.html:1105-1206` HSA & LP-FSA Plans sub-panel, plan_type dropdown supports HSA / LP-FSA / Medical FSA / Dep-care FSA, backend writes to `fsa_plan_info` keyed by `(year, plan_type)` via `hsa/routes.js`). Note: the ROADMAP entry said "Backend lpfsa_plan_info table already exists" — that was slightly wrong (the table is `fsa_plan_info` with `plan_type='limited_purpose'`), but the UI was nonetheless shipped.
+- [x] **Task A — Asterisk rollout (3 cards)** ✅ **SHIPPED v.182**
+  - Finance F6 HSA + LP-FSA tile (`finance.html` `_finTileHsaLpfsa()`) — wrap `total_pool` hero in `.gh-pending-target data-card="hsa_payment"`.
+  - Subscriptions Per-Year summary (`subscriptions.html` `#sumAnnual`) — wrap in `.gh-pending-target data-card="subscriptions"`.
+  - Inventory Est. Value (`inventory.html` `#stValue`) — wrap in `.gh-pending-target data-card="inventory"`.
+  - Each page now loads `/js/pending-report.js` and calls `GhAsterisk.scan()` after its values render.
+  - Pattern matches the hsa.html canonical example (v.171); inner span keeps the id so existing `textContent` updates don't wipe the sibling `.gh-pending-host`.
+- [x] **Task 3 — Docs + version bump** ✅ **SHIPPED v.182** *(awaiting deploy + verify; flip to ✅ DEPLOYED when E2E lands clean on NAS)*
 
 ---
 

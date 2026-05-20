@@ -69,6 +69,125 @@ principles.
 
 ---
 
+## ✅ v.182 SHIPPED — Finance asterisk rollout (sandbox, 2026-05-20)
+
+> **In sandbox, awaiting `package` from Al.** Local commits `2aade1b →
+> 2d304fc → 9503603 → <task-4>`. Pure frontend drop — no migrations,
+> no schema changes, no route changes. Three .html files touched, ~30
+> lines added across the three.
+
+**Theme.** Roll out the v.171 asterisk pattern beyond hsa.html. The
+ROADMAP scoped v.182 as "build the Pending Items list view + LP-FSA
+Settings UI" — but investigation showed both were ALREADY shipped
+earlier (v.171 and v.167). The actually-remaining work was the
+"asterisks on derived numbers" rollout under the list view, which is
+what v.182 delivered.
+
+### Audit corrections recorded (for future sessions)
+
+The 2026-05-20 four-module audit + the ROADMAP-derived v.182 scope
+both missed two pieces of already-shipped work. v.182 documents these
+to prevent the next session re-investigating:
+
+1. **"Build the Pending Items list view"** — `pending-report.js` is
+   680 lines (list + grid + 7 chips + picker + 3 actions + modal +
+   asterisk scanner). All 8 backend endpoints live in
+   `app/features/pending/routes.js` since v.171. `reports.html:118`
+   already wires the tab. E2E `pending-tab.spec.js` passes (verified
+   in the v.181 deploy run). This was 100% shipped before v.182
+   started.
+2. **"Build the LP-FSA Settings UI"** — `settings.html:1105-1206`
+   shipped the HSA & LP-FSA Plans sub-panel in v.167 with a plan_type
+   dropdown (HSA / LP-FSA / Medical FSA / Dep-care FSA). The ROADMAP
+   said "Backend `lpfsa_plan_info` table already exists" — that was
+   close-but-wrong; the table is `fsa_plan_info` (mig 133/134) with
+   `plan_type='limited_purpose'`. Either way the UI exists.
+
+### What's in this drop (3 tasks, 1 commit each)
+
+1. **Finance F6 HSA + LP-FSA tile asterisk wrap** (`2aade1b`).
+   `finance.html`: load `/js/pending-report.js`; wrap the `total_pool`
+   hero in `_finTileHsaLpfsa()` with `.gh-pending-target data-card=
+   "hsa_payment"` + `.gh-pending-host`; call `GhAsterisk.scan()` at
+   the tail of `loadLandingTiles()`. Per-row sub-totals (`hsa_pool`,
+   `lpfsa_pool`) intentionally NOT wrapped — aggregate is the
+   canonical asterisk surface.
+
+2. **Subscriptions Per-Year summary asterisk wrap** (`2d304fc`).
+   `subscriptions.html`: load `/js/pending-report.js`; restructure
+   the Per-Year `.stat-item` to match the hsa.html canonical pattern
+   — outer `.stat-value` gains `.gh-pending-target` + `data-card=
+   "subscriptions"`, dollar amount moves into a child
+   `<span id="sumAnnual">` so the existing `textContent` update
+   doesn't wipe the sibling `.gh-pending-host`; call
+   `GhAsterisk.scan()` at the tail of `loadSummary()`. Per-Month and
+   Active count intentionally NOT wrapped.
+
+3. **Inventory Est. Value asterisk wrap** (`9503603`).
+   `inventory.html`: load `/js/pending-report.js`; same outer-div +
+   inner-id-span structure on the Est. Value `.stat-num`; call
+   `GhAsterisk.scan()` at the tail of `loadStats()`. Items count and
+   Containers count intentionally NOT wrapped (exact integers, no
+   derived ambiguity).
+
+### Canonical asterisk wrap pattern (locked v.182)
+
+For pages where existing JS calls `getElementById('X').textContent =
+…` on a value cell, the wrap structure is:
+
+```html
+<div class="<existing-class> gh-pending-target" data-card="<card>">
+  <span id="<X>">—</span>
+  <span class="gh-pending-host"></span>
+</div>
+```
+
+The outer div gains the `.gh-pending-target` class; the value lives
+in a child span carrying the original id; `.gh-pending-host` is a
+SIBLING of the value span. This way the existing `textContent`
+update mutates only the value span — the host stays intact for
+`GhAsterisk.scan()` to populate. Mirrors `hsa.html:122` exactly.
+
+### What v.182 deliberately does NOT do
+
+- Per-card asterisks on GH_CARD-rendered cards (subscriptions list,
+  certifications list, etc.) — would require GH_CARD renderer
+  changes touching 25 modules, OR post-render DOM mutation
+  (fragile). Deferred.
+- Vehicle-fuel asterisk — blocked on Vehicles module not built
+  (DRAFT #19).
+- Medication asterisk — blocked on Al's HSA-YTD product decision
+  (BACKLOG carried-forward item **(b)**).
+- The `tx_link_rules` editor UI — scoped for the ROADMAP's
+  "v.182-rules" block (next drop, off-by-one).
+- Reports modal CSS leak fix (known-bug #4) — scoped for the
+  ROADMAP's "v.182-reports" block.
+
+### Expected post-deploy verification
+
+Smoke 8/8 (no smoke changes). E2E baseline `115/0`; v.182 adds no
+tests and modifies no test-asserted behavior, so 115/0 should hold.
+On the Linux container at package time, schema-safety gate should
+remain at 10 flagged lines (130/134 noise) — zero from v.182 because
+v.182 has no SQL changes.
+
+Manual smoke after deploy:
+- Open `/finance.html` → F6 HSA tile. If the backend probe finds
+  missing receipts, the Pool number gets an amber/red `*`.
+- Open `/subscriptions.html` → top stats. If recurring charges look
+  like un-tracked subs, Per-Year gets `*`.
+- Open `/inventory.html` → top stats. If imported purchases look
+  like inventory matches, Est. Value gets `*`.
+- Each asterisk's tooltip = plain-English count; click → jumps to
+  `/reports.html?tab=pending`.
+
+### ROADMAP label slip continues
+
+ROADMAP's "v.181-finance" block IS this drop (v.182). The off-by-one
+banner from v.181 still applies. Read by theme, not by label.
+
+---
+
 ## ✅ v.181 DEPLOYED & VERIFIED — Medical closed-loop completion (2026-05-20)
 
 > **DEPLOYED 2026-05-20 ~13:15. Smoke 8/8, full E2E 115 pass / 0 fail

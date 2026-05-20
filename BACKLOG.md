@@ -1,5 +1,35 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### ✅ SHIPPED in v.182 — Finance asterisk rollout (sandbox, awaiting package)
+3-task pure-frontend drop. Closes the only genuine gap in the
+ROADMAP's "v.181-finance" block: the v.171 asterisk pattern now lights
+up on three more surfaces beyond hsa.html. Details in STATE.md v.182
+block.
+
+Audit corrections recorded:
+- **The Pending Items list view was already shipped v.171** —
+  `pending-report.js` (680 lines), all 8 backend endpoints in
+  `pending/routes.js`, `reports.html` tab wired. E2E test passes.
+- **The LP-FSA Settings UI was already shipped v.167** —
+  `settings.html:1105-1206` HSA & LP-FSA Plans sub-panel with
+  plan_type dropdown. Backend is `fsa_plan_info` keyed by
+  `(year, plan_type)`, not a separate `lpfsa_plan_info` table.
+
+What v.182 actually built:
+- Finance F6 HSA + LP-FSA tile — `total_pool` hero now wraps
+  `.gh-pending-target data-card="hsa_payment"`. Asterisk lights up
+  when the backend reports missing HSA receipts.
+- Subscriptions Per-Year summary — `#sumAnnual` wraps
+  `.gh-pending-target data-card="subscriptions"`. Asterisk lights up
+  when recurring charges look like un-tracked subscriptions.
+- Inventory Est. Value — `#stValue` wraps `.gh-pending-target
+  data-card="inventory"`. Asterisk lights up when imported purchases
+  could match inventory items.
+- Canonical wrap pattern locked: outer div carries the class +
+  `data-card`; value lives in inner `<span id="X">` (so existing
+  `textContent` updates don't wipe the host); `.gh-pending-host` is
+  a SIBLING span.
+
 ### ✅ SHIPPED in v.181 — Medical closed-loop completion
 Bundled drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0, smoke 8/8,
 mig 144+145 applied clean on prod)**. 5-task drop that closes the two HIGH-priority Medical schema gaps
@@ -98,7 +128,11 @@ carried-forward items or the main backlog sections below.
 - **(c) Card-config asterisk path (`gh-card-shared.js asteriskState`):
   retire it, or build per-record into it as a deliberate second
   mechanism.** v.173 chose the v.171 DOM probe as canonical and left
-  this one inert (see LOCKED.md `ASTERISK-MATH`). Decide its fate.
+  this one inert (see LOCKED.md `ASTERISK-MATH`). v.182 followed
+  through by rolling out the v.171 DOM-probe pattern to 3 more
+  surfaces (Finance F6, Subscriptions Per-Year, Inventory Est. Value)
+  — the card-config path stays inert. Decision still open: retire it
+  or keep it dormant. No code touches `asteriskState()` today.
 
 ---
 
