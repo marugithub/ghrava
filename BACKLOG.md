@@ -619,7 +619,19 @@ The bugs landed because chats wrote SQL from memory of "what the column was prob
 2. ✅ **FIXED v.175 (was a MISDIAGNOSIS) — Reports `.rep-row` not found.** `REPORT_REGISTRY` is NOT empty (fully-populated static array). The landing `overview` tab renders summary tiles by design (locked Reports #26); `.rep-row` only exists on money/family/maintenance/system tabs. App is correct; the test was stale. Fixed test-side (`reports.html?tab=money`).
 3. ✅ **FIXED v.175 — all 15 stale Playwright tests (final: 107 pass / 0 fail, verified live).** `:297`+`:430` (legacy-hidden shelf tabs → default shelf), `:327` (`.module-tile` gone; Today page → retargeted), `:344` (Reports `overview` shows tiles by design → `?tab=money`), `:356` (Todos → `.gh-card`), `:455` (All-Items toggle in Lens v.134 → dead click removed), `:886`+`:1079` (test TZ bug — see 3a), `:1379` ×7 (pages migrated GH_VIEW→GH_LENS → assert `.gh-lens__views button[title="Card view"]`). One file: `tests/ghrava-e2e.spec.js`. The app was correct throughout — every one of the 15 was test/contract drift, none an app regression.
 3a. ✅ **FIXED v.176 — `S.daysFromToday()` (+ `fmtDateShort()`) UTC parse off-by-one.** `gh-card-shared.js` now has `parseLocalDate()`: bare `YYYY-MM-DD` → `new Date(y,m-1,d)` (local midnight); strings with a time/Z keep the native parse (v.175 `localCardDate()` fixtures unaffected). One function added, 28 call sites unchanged. TZ-independent regression test in `ghrava-e2e.spec.js` GH_CARD v5 block (today/tomorrow/yesterday = 0/+1/-1). Full card-renderer E2E re-run gated the drop.
-4. **Reports panels open as center modals** — sub-panel CSS leak from `settings.html`. Wrong layer.
+4. ✅ **RESOLVED v.183 — STALE BUG, no actual leak path.** Verified
+   2026-05-20 against live prod (`http://192.168.4.62:3001`): the
+   `.sub-panel` styling defined in `settings.html` lines 207-261 is
+   scoped to the settings page only; `shared.css` carries zero
+   `.sub-panel` positioning rules (only theme overrides at lines
+   2636-2641, which restyle but don't position); `reports.html` uses
+   no `.sub-panel` class anywhere — the page's drill-down lives in
+   `#reportsRight` which has its own `position:sticky` styling at
+   line 55 (desktop) and the intentional `position:fixed` mobile
+   overlay at line 59 (`<899px` viewport, full-screen by design).
+   The entry was filed at an earlier version when CSS architecture
+   was different; refactors since removed the leak without anyone
+   updating this row. Closing as STALE — no code change needed.
 5. ✅ **FIXED v.177 — Multi-kid / "Arnav twice".** Root cause: a legacy unlinked `kids` row (family_member_id NULL, no photo) plus the family-synced linked row (photo) both active → child shown twice. `142_dedupe_orphan_kids.js` soft-deactivates the orphan; `syncKidsFromFamilyMembers` now backfills the link onto an unlinked same-name row instead of inserting a duplicate (no recurrence). Regression test added. Risha (family id 3) was already correct.
 6. ✅ **FIXED v.177 — orphan `126_capture_and_finance_schema.js` failing every boot.** `141_mark_126_capture_applied.js` verifies the superseding schema is present (`record_links` table + `finance_accounts` view, from migs 129/130) then `INSERT OR IGNORE` records 126_capture in `_migrations` so `migrate.js` skips it permanently. Guarded so it can't hide a genuinely-unmigrated DB; idempotent. One last transient `FAILED 126` on the boot that applies 141, then clean. (Also captured the lesson in deploy memory: the deploy script's "no errors" scanner does NOT catch failing-but-idempotent migrations — grep startup for `FAILED .*\.js:` after every deploy.)
 
