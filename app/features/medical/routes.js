@@ -1223,6 +1223,65 @@ router.post('/immunizations', requireAuth, (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// ════════════════════════════════════════════════════════════════════
+//  PROCEDURES — v202604.181 (mig 145)
+//
+//  Surgeries, colonoscopies, mammograms, cardiac catheterizations —
+//  one-time scheduled events. Distinct from visits (routine appts) and
+//  diagnostics (tests with interpretation, not procedures).
+//  procedure_date is nullable: planned-but-not-yet-scheduled records.
+//  GET is public per AUTH-OPEN-GET; POST requires session.
+// ════════════════════════════════════════════════════════════════════
+
+router.get('/procedures', (req, res) => {
+  try {
+    const { sql, params } = _filterByFm(req);
+    const limit = Math.min(500, parseInt(req.query.limit || '500', 10));
+    // schema: med_procedures.{id, family_member_id, procedure_name, procedure_date,
+    //   provider_contact_id, facility_text, procedure_type, status, outcome_notes,
+    //   related_condition_id, created_at, updated_at}
+    // Order: planned (upcoming work) first, then most-recent completed/cancelled.
+    // Nulls in procedure_date come last (planned-but-undated).
+    const rows = db.prepare(
+      `SELECT * FROM med_procedures${sql}
+       ORDER BY (status = 'planned') DESC,
+                (procedure_date IS NULL),
+                procedure_date DESC,
+                id DESC
+       LIMIT ${limit}`
+    ).all(...params);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+router.post('/procedures', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    if (!d.family_member_id) return badRequest(res, 'family_member_id required');
+    if (!d.procedure_name)   return badRequest(res, 'procedure_name required');
+
+    // schema: med_procedures insert — 9 user-settable fields + DB-defaulted
+    // status. created_at / updated_at default to CURRENT_TIMESTAMP.
+    const info = db.prepare(`
+      INSERT INTO med_procedures (
+        family_member_id, procedure_name, procedure_date, provider_contact_id,
+        facility_text, procedure_type, status, outcome_notes, related_condition_id
+      ) VALUES (?,?,?,?,?,?,?,?,?)
+    `).run(
+      parseInt(d.family_member_id), d.procedure_name,
+      d.procedure_date || null,
+      d.provider_contact_id != null ? parseInt(d.provider_contact_id) : null,
+      d.facility_text || null,
+      d.procedure_type || null,
+      d.status || 'planned',
+      d.outcome_notes || null,
+      d.related_condition_id != null ? parseInt(d.related_condition_id) : null
+    );
+    const row = db.prepare('SELECT * FROM med_procedures WHERE id=?').get(info.lastInsertRowid);
+    res.status(201).json(row);
+  } catch (e) { serverError(res, e); }
+});
+
 module.exports = router;
 
 // ══════════════════════════════════════════════════════════════

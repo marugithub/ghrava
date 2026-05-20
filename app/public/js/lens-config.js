@@ -387,6 +387,25 @@
       },
     },
 
+    // v202604.181 — Procedures (new — mig 145). Surgeries / colonoscopies
+    // / cath / cataract / mammograms. outcome_notes is long-tail (global
+    // search). procedure_type + status are select-list dimensions.
+    medical_procedures: {
+      label: 'Procedures',
+      plural: 'procedures',
+      personPrimary: true,
+      dimensions: {
+        person:         { verb: 'for', field: 'family_member_id' },
+        procedure:      { type: 'text',   verb: 'named',    field: 'procedure_name' },
+        procedure_type: { type: 'select', verb: 'type',     field: 'procedure_type',
+          values: ['elective', 'scheduled', 'emergency'] },
+        status:         { type: 'select', verb: 'state',    field: 'status',
+          values: ['planned', 'completed', 'cancelled'] },
+        facility:       { type: 'text',   verb: 'at',       field: 'facility_text' },
+        time:           { verb: 'on', field: 'procedure_date' },
+      },
+    },
+
     // v202604.167 — Cross-module record_links (auto-linker outputs).
     // Lens lets Al filter the "Needs review" surface by confidence,
     // source linker, or kind.
