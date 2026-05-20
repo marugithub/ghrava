@@ -69,13 +69,19 @@ principles.
 
 ---
 
-## ✅ v.181 SHIPPED — Medical closed-loop completion (sandbox, 2026-05-20)
+## ✅ v.181 DEPLOYED & VERIFIED — Medical closed-loop completion (2026-05-20)
 
-> **In sandbox, awaiting `package` from Al.** Local commits `f62bec1 →
-> f6873f4 → d185258 → 74576fe → <task-5>`. Two new migrations (144 +
-> 145), additive only, no CASCADE. Schema validator host-side gates
-> fail on Windows (Unicode + tempfile quirks per `gates-linux-only`
-> lock); real gate runs at package time on Linux.
+> **DEPLOYED 2026-05-20 ~13:15. Smoke 8/8, full E2E 115 pass / 0 fail
+> (held v.180 baseline — no new tests, no regressions).**
+> `version.txt`=`202604.181` live, container restarted clean.
+> Migrations boot line: `Migrations: 2 applied, 141 skipped` — both
+> mig 144 (`med_immunizations`) and mig 145 (`med_procedures`) applied
+> with zero `FAILED` lines. Local/origin/NAS all == `986d8e0`.
+> Schema-safety gate cleared on Windows host before package: 10 flagged
+> lines all in `130_rescue_126.js` + `134_hsa_plan_to_fsa.js` (known
+> pre-existing noise per the deploy memory); zero entries from any
+> v.181 file. Six commits on origin: `f62bec1 → f6873f4 → d185258 →
+> 74576fe → dca5a1c → 986d8e0`.
 
 **Theme.** Make Medical capture-complete and bridge with Finance
 automatically. Closes the two HIGH-priority Medical schema gaps from

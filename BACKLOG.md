@@ -1,7 +1,8 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### ✅ SHIPPED in v.181 — Medical closed-loop completion (sandbox, awaiting package)
-5-task drop that closes the two HIGH-priority Medical schema gaps
+### ✅ SHIPPED in v.181 — Medical closed-loop completion
+Bundled drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0, smoke 8/8,
+mig 144+145 applied clean on prod)**. 5-task drop that closes the two HIGH-priority Medical schema gaps
 (immunizations + procedures), wires the missing category-change auto-
 link trigger, and ships a backfill CLI for pre-trigger transactions.
 Details in STATE.md v.181 block. Highlights:

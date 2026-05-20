@@ -54,11 +54,12 @@
   - Walks all past transactions, runs the same auto-linkers.
   - Idempotent (skip if `record_links` row already exists for that pair).
   - Add to `help.html` COMMANDS.
-- [x] **Task 5 — Docs + version bump** *(awaiting deploy + verify; flip to ✅ DEPLOYED when E2E lands clean on NAS)*
+- [x] **Task 5 — Docs + version bump** ✅ **DEPLOYED & VERIFIED 2026-05-20 ~13:15 (E2E 115/0, smoke 8/8, mig 144+145 applied clean)**
   - STATE.md v.181 block ✓
   - BACKLOG.md: medical-schema-gaps `immunizations` + `procedures` marked SHIPPED ✓
   - `app/version.txt` → `202604.181` ✓
-  - Run gates / deploy / verify — pending Al's `package` signal.
+  - SCHEMA.md regenerated (Task 5b commit `986d8e0`) ✓
+  - Deploy + verify ✓
 
 ---
 
