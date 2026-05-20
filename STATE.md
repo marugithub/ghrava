@@ -69,12 +69,20 @@ principles.
 
 ---
 
-## ✅ v.182 SHIPPED — Finance asterisk rollout (sandbox, 2026-05-20)
+## ✅ v.182 DEPLOYED & VERIFIED — Finance asterisk rollout (2026-05-20)
 
-> **In sandbox, awaiting `package` from Al.** Local commits `2aade1b →
-> 2d304fc → 9503603 → <task-4>`. Pure frontend drop — no migrations,
-> no schema changes, no route changes. Three .html files touched, ~30
-> lines added across the three.
+> **DEPLOYED 2026-05-20 ~15:22. Smoke 8/8, full E2E 115 pass / 0 fail
+> (held v.181 baseline — no new tests, no regressions).**
+> `version.txt`=`202604.182` live, container restarted clean. Boot
+> migration line: `Migrations: 0 applied, 143 skipped` (no migrations
+> in this drop). Zero `FAILED .*\.js` on the v.182 boot. Local/origin/
+> NAS all == `59ca741`. Schema-safety gate cleared on Windows host
+> before package: 10 flagged lines all in `130_rescue_126.js` +
+> `134_hsa_plan_to_fsa.js` (known pre-existing noise); zero entries
+> from any v.182 file. Four commits on origin: `2aade1b → 2d304fc →
+> 9503603 → 59ca741`. Pure frontend drop — no migrations, no schema
+> changes, no route changes. Three `.html` files touched, ~30 lines
+> added across the three.
 
 **Theme.** Roll out the v.171 asterisk pattern beyond hsa.html. The
 ROADMAP scoped v.182 as "build the Pending Items list view + LP-FSA

@@ -87,7 +87,7 @@
   - Inventory Est. Value (`inventory.html` `#stValue`) — wrap in `.gh-pending-target data-card="inventory"`.
   - Each page now loads `/js/pending-report.js` and calls `GhAsterisk.scan()` after its values render.
   - Pattern matches the hsa.html canonical example (v.171); inner span keeps the id so existing `textContent` updates don't wipe the sibling `.gh-pending-host`.
-- [x] **Task 3 — Docs + version bump** ✅ **SHIPPED v.182** *(awaiting deploy + verify; flip to ✅ DEPLOYED when E2E lands clean on NAS)*
+- [x] **Task 3 — Docs + version bump** ✅ **DEPLOYED & VERIFIED 2026-05-20 ~15:22 (E2E 115/0, smoke 8/8, no boot errors)**
 
 ---
 

@@ -1,7 +1,9 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### ✅ SHIPPED in v.182 — Finance asterisk rollout (sandbox, awaiting package)
-3-task pure-frontend drop. Closes the only genuine gap in the
+### ✅ SHIPPED in v.182 — Finance asterisk rollout
+Pure-frontend drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0,
+smoke 8/8, no boot errors on prod)**. 3-task drop. Closes the only
+genuine gap in the
 ROADMAP's "v.181-finance" block: the v.171 asterisk pattern now lights
 up on three more surfaces beyond hsa.html. Details in STATE.md v.182
 block.
