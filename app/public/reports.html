@@ -301,7 +301,7 @@ function renderChartsPreview() {
       sub: 'Where money came from, where it went, what is coming up',
       cards: [
         { id: 'c111', num: '#26.1.1', title: 'Where money goes each month',     sub: 'Income → category ribbons. Click a ribbon to see the transactions.',    chart: 'sankey',     status: 'mock' },
-        { id: 'c112', num: '#26.1.2', title: 'Busiest spending days',           sub: 'Calendar heatmap. Click a day for all transactions.',                  chart: 'stub',       status: 'mock', stubLabel: 'Calendar heatmap mockup pending' },
+        { id: 'c112', num: '#26.1.2', title: 'Busiest spending days',           sub: 'Calendar heatmap. Click a day for all transactions.',                  chart: 'calendar',   status: 'live' },
         { id: 'c113', num: '#26.1.3', title: 'Where you shop most',             sub: 'Treemap of vendors by annual spend. Click a tile for vendor history.', chart: 'stub',       status: 'mock', stubLabel: 'Treemap mockup pending' },
         { id: 'c114', num: '#26.1.4', title: 'What you spend on, month by month', sub: 'Small-multiples: one mini line chart per category, side by side.',   chart: 'stub',       status: 'mock', stubLabel: 'Small-multiples mockup pending' },
         { id: 'c115', num: '#26.1.5', title: 'What is coming in the next 30 days', sub: 'Projected balance from recurring bills and income.',                  chart: 'forecast',   status: 'live' },
@@ -382,6 +382,9 @@ function renderMockCharts() {
 
   // v.172 — #26.1.5 is LIVE: real cash-flow forecast (async fetch).
   renderForecastChart();
+
+  // v.183 — #26.1.2 is LIVE: calendar heatmap of daily spending.
+  renderCalendarHeatmap();
 }
 
 function mockSankeySvg() {
@@ -559,6 +562,192 @@ function forecastLineSvg(daily, summary) {
         <text x="12" y="7" font-size="9" font-family="monospace" fill="#666">Projected balance · ends ${money(endBal)}</text>
       </g>
     </svg>`;
+}
+
+// ── #26.1.2 Busiest spending days (calendar heatmap) — LIVE (v.183)
+// Wires the locked #26.1.2 chart to /finance/reports/daily-spend.
+// Renders a GitHub-style year heatmap (53 weeks × 7 days, ~365 cells)
+// colored by daily spend intensity. Clicking a cell opens the
+// drill-down in #reportsRight with that day's transactions.
+async function renderCalendarHeatmap() {
+  const el = document.getElementById('canvas-c112');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px">Loading heatmap…</div>';
+  try {
+    const year = new Date().getFullYear();
+    const d = await window.api('GET', `/finance/reports/daily-spend?year=${year}`);
+    const days = (d && Array.isArray(d.days)) ? d.days : [];
+    el.innerHTML = calendarHeatmapSvg(year, days, d.max_spent || 0, d.total_spent || 0);
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">Could not load the heatmap right now.</div>';
+  }
+}
+
+// Builds the SVG heatmap. Layout matches the locked card's 400×180
+// canvas. Color ramp: 5 buckets from var(--bg3) (zero spend) to a
+// muted red (max spend). Each cell carries an SVG <title> for native
+// tooltip and an onclick that opens the drill-down.
+function calendarHeatmapSvg(year, days, maxSpent, totalSpent) {
+  const W = 400, H = 180;
+  const pad = { l: 28, r: 4, t: 22, b: 28 };
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+
+  // Cell sizing: 53 weeks across, 7 days down. Stride from inner width.
+  const stride = innerW / 53;
+  const cell   = Math.max(3, stride - 1);
+
+  // Build a date → spent map for fast lookup
+  const byDate = {};
+  for (const d of days) byDate[d.date] = d;
+
+  // Compute Jan 1 day-of-week (Sun=0). Sunday-first columns match the
+  // common GitHub layout.
+  const jan1 = new Date(year, 0, 1);
+  const jan1Dow = jan1.getDay();
+  const isLeap = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
+  const daysInYear = isLeap ? 366 : 365;
+
+  // 5-step color ramp. Buckets: 0, low, med-low, med-high, high. Empty
+  // days stay var(--bg3) (the same neutral the page uses for inactive
+  // surfaces). Red ramp because spending = expense.
+  const colors = ['var(--bg3)', '#fde2e2', '#f9b4b4', '#e87171', '#b91c1c'];
+  const bucketFor = (v) => {
+    if (!v || !maxSpent) return 0;
+    const r = v / maxSpent;
+    if (r < 0.05) return 1;
+    if (r < 0.20) return 2;
+    if (r < 0.50) return 3;
+    return 4;
+  };
+
+  // Render one cell per day-in-year
+  const cells = [];
+  for (let i = 0; i < daysInYear; i++) {
+    const dt = new Date(year, 0, 1 + i);
+    const month = dt.getMonth();
+    const day   = dt.getDate();
+    const col   = Math.floor((i + jan1Dow) / 7);
+    const row   = (i + jan1Dow) % 7;
+    const x = pad.l + col * stride;
+    const y = pad.t + row * stride;
+    const iso = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const data = byDate[iso];
+    const spent = data?.spent || 0;
+    const fill = colors[bucketFor(spent)];
+    const title = spent
+      ? `${iso} · $${spent.toLocaleString()} (${data.tx_count} charge${data.tx_count === 1 ? '' : 's'})`
+      : `${iso} · no spending`;
+    cells.push(
+      `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${cell.toFixed(1)}" height="${cell.toFixed(1)}"`
+      + ` rx="1" fill="${fill}" style="cursor:pointer"`
+      + ` onclick="openDrillDown('calendar','${iso}')">`
+      + `<title>${title}</title></rect>`
+    );
+  }
+
+  // Month labels along the top — show abbreviation above the first
+  // column that contains a day of that month.
+  const monthLabels = [];
+  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  for (let m = 0; m < 12; m++) {
+    const firstOfMonth = new Date(year, m, 1);
+    const dayOfYear = Math.floor((firstOfMonth - jan1) / 86400000);
+    const col = Math.floor((dayOfYear + jan1Dow) / 7);
+    const x = pad.l + col * stride;
+    monthLabels.push(`<text x="${x.toFixed(1)}" y="${pad.t - 6}" font-size="9" font-family="monospace" fill="#999">${monthNames[m]}</text>`);
+  }
+
+  // Day-of-week labels (S M T W T F S) along the left, on alternate rows
+  const dowNames = ['S','M','T','W','T','F','S'];
+  const dowLabels = [0, 2, 4, 6].map(r =>
+    `<text x="${pad.l - 6}" y="${(pad.t + r * stride + cell - 1).toFixed(1)}" font-size="8" font-family="monospace" fill="#999" text-anchor="end">${dowNames[r]}</text>`
+  );
+
+  // Summary line + legend below
+  const summary = `<text x="${pad.l}" y="${H - 14}" font-size="10" font-family="monospace" fill="#666">${days.length} day${days.length === 1 ? '' : 's'} with spending · total $${totalSpent.toLocaleString()}</text>`;
+  const legend = `<g transform="translate(${W - pad.r - 80}, ${H - 18})">
+    <text x="0" y="9" font-size="8" font-family="monospace" fill="#999">less</text>
+    ${colors.slice(1).map((c, i) => `<rect x="${24 + i * 9}" y="2" width="7" height="7" rx="1" fill="${c}"/>`).join('')}
+    <text x="68" y="9" font-size="8" font-family="monospace" fill="#999">more</text>
+  </g>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
+    ${monthLabels.join('')}
+    ${dowLabels.join('')}
+    ${cells.join('')}
+    ${summary}
+    ${legend}
+  </svg>`;
+}
+
+// ── Chart drill-down (v.183) ──────────────────────────────────
+// Generic right-pane drill-down handler shared by chart cards. Kind
+// dispatches to the right endpoint; key carries the slice identifier
+// (a date for calendar, a vendor name for treemap, etc.). The right
+// pane already has `.rep-detail-*` styling from earlier reports work
+// — we reuse it instead of inventing a new modal layer.
+async function openDrillDown(kind, key) {
+  const pane = document.getElementById('reportsRight');
+  if (!pane) return;
+  pane.classList.remove('empty');
+  pane.classList.add('open'); // triggers the mobile full-screen overlay rule
+  pane.innerHTML = '<div style="padding:24px;color:var(--text3);font-size:13px">Loading…</div>';
+
+  try {
+    if (kind === 'calendar') {
+      const date = key;
+      const d = await window.api('GET', `/finance/reports/txns-on-date?date=${encodeURIComponent(date)}`);
+      pane.innerHTML = renderDrillDown(
+        `Charges on ${date}`,
+        `${d.transactions.length} transaction${d.transactions.length === 1 ? '' : 's'} · ${fmtMoney(d.total_spent)} spent`
+          + (d.total_income > 0 ? ` · ${fmtMoney(d.total_income)} in` : ''),
+        d.transactions
+      );
+      return;
+    }
+    pane.innerHTML = '<div style="padding:24px;color:var(--text3)">Unknown drill-down.</div>';
+  } catch (e) {
+    pane.innerHTML = '<div style="padding:24px;color:var(--text3);font-size:13px">Could not load the details right now.</div>';
+  }
+}
+
+function closeDrillDown() {
+  const pane = document.getElementById('reportsRight');
+  if (!pane) return;
+  pane.classList.add('empty');
+  pane.classList.remove('open');
+  pane.innerHTML = '<div>Select a report on the left to see details here.</div>';
+}
+window.openDrillDown  = openDrillDown;
+window.closeDrillDown = closeDrillDown;
+
+// Shared txn-row renderer for the drill-down list. Used by every
+// chart's drill-down so the list reads identically regardless of
+// what slice opened it.
+function renderDrillDown(title, subtitle, transactions) {
+  if (!transactions || !transactions.length) {
+    return `<div class="rep-detail-header">
+      <button class="rep-detail-back" onclick="closeDrillDown()" aria-label="Back">←</button>
+      <div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--text)">${esc(title)}</div>
+      <div style="font-size:12px;color:var(--text3);margin-top:2px">${esc(subtitle)}</div></div>
+    </div>
+    <div class="rep-detail-body" style="text-align:center;color:var(--text3);padding:40px 16px">No transactions on this slice.</div>`;
+  }
+  const rows = transactions.map(t => `
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(t.description || '(no description)')}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(t.date || '')}${t.category ? ' · ' + esc(t.category) : ''}</div>
+      </div>
+      <div style="font-size:13px;font-weight:600;color:${(t.amount || 0) < 0 ? 'var(--red, #b91c1c)' : 'var(--green, #15803d)'};white-space:nowrap">${fmtMoney(Math.abs(t.amount || 0))}</div>
+    </div>`).join('');
+  return `<div class="rep-detail-header">
+    <button class="rep-detail-back" onclick="closeDrillDown()" aria-label="Back">←</button>
+    <div style="flex:1"><div style="font-size:14px;font-weight:600;color:var(--text)">${esc(title)}</div>
+    <div style="font-size:12px;color:var(--text3);margin-top:2px">${esc(subtitle)}</div></div>
+  </div>
+  <div class="rep-detail-body" style="padding:0">${rows}</div>`;
 }
 
 // ── Overview tile load ────────────────────────────────────────

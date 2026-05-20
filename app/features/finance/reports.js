@@ -104,6 +104,83 @@ router.get('/monthly-totals', (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+// v.183 — GET /api/v1/finance/reports/daily-spend?year=2025
+// Drives the Calendar heatmap (#26.1.2). Returns daily aggregates
+// across the unified transactions UNION imported_transactions feed,
+// excluding transfers, summing the magnitude of negative amounts
+// (spend only — incomes don't color the heatmap).
+//
+// Response: { year, days: [{date, spent, tx_count}, ...], max_spent,
+//             total_spent }. Days with zero spend are omitted; the
+// frontend fills the calendar grid and treats missing days as 0.
+router.get('/daily-spend', (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear().toString();
+
+    // schema: transactions.{date, amount}; imported_transactions.{txn_date, amount, is_transfer}
+    const days = db.prepare(`
+      SELECT
+        dt AS date,
+        ROUND(ABS(SUM(amount)), 2) AS spent,
+        COUNT(*) AS tx_count
+      FROM (
+        SELECT date AS dt, amount FROM finance_transactions
+          WHERE strftime('%Y', date) = ? AND amount < 0
+        UNION ALL
+        SELECT txn_date AS dt, amount FROM imported_transactions
+          WHERE strftime('%Y', txn_date) = ? AND amount < 0
+            AND COALESCE(is_transfer, 0) = 0
+      )
+      GROUP BY dt
+      ORDER BY dt ASC
+    `).all(year, year);
+
+    const max_spent   = days.reduce((m, d) => Math.max(m, d.spent || 0), 0);
+    const total_spent = days.reduce((s, d) => s + (d.spent || 0), 0);
+
+    res.json({ year, days, max_spent, total_spent: Math.round(total_spent * 100) / 100 });
+  } catch (e) { serverError(res, e); }
+});
+
+// v.183 — GET /api/v1/finance/reports/txns-on-date?date=YYYY-MM-DD
+// Drill-down companion to /daily-spend. Returns every transaction on
+// the given date (spend + income, transfers excluded) across the same
+// unified feed. Used when the user clicks a calendar heatmap cell.
+//
+// Response: { date, transactions: [...], total_spent, total_income }.
+router.get('/txns-on-date', (req, res) => {
+  try {
+    const date = req.query.date;
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: 'date=YYYY-MM-DD required' });
+    }
+
+    // schema: transactions.{date, description, amount, category};
+    //         imported_transactions.{txn_date, description, amount, category, is_transfer}
+    const txns = db.prepare(`
+      SELECT date, description, amount, category, source
+      FROM (
+        SELECT date,        description, amount, category, 'finance'  AS source
+          FROM finance_transactions WHERE date = ?
+        UNION ALL
+        SELECT txn_date AS date, description, amount, category, 'imported' AS source
+          FROM imported_transactions
+          WHERE txn_date = ? AND COALESCE(is_transfer, 0) = 0
+      )
+      ORDER BY amount ASC
+    `).all(date, date);
+
+    const total_spent  = txns.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    const total_income = txns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    res.json({
+      date,
+      transactions: txns,
+      total_spent:  Math.round(total_spent  * 100) / 100,
+      total_income: Math.round(total_income * 100) / 100,
+    });
+  } catch (e) { serverError(res, e); }
+});
+
 // GET /api/v1/finance/reports/hsa-summary?year=2025
 router.get('/hsa-summary', (req, res) => {
   try {
