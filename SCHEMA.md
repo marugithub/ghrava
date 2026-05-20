@@ -1,16 +1,16 @@
 # SCHEMA.md — Ghrava database reference
 
 > **Auto-generated** by `.claude/skills/ghrava-schema-safety/scripts/gen-schema-doc.py`
-> Last generated: `2026-05-19T02:45:39.752140Z`
-> Source: 141 migration files in `app/db/migrations/`
+> Last generated: `2026-05-20T17:54:33.955041Z`
+> Source: 143 migration files in `app/db/migrations/`
 >
 > **DO NOT EDIT BY HAND.** This file is regenerated before every package.
 > If a column is missing here, it does not exist on prod.
 
 ## Summary
 
-- **121 tables**
-- **1668 columns total**
+- **123 tables**
+- **1692 columns total**
 
 ## Tables
 
@@ -1659,6 +1659,25 @@ _Created in: `054_eob_statements.sql`_
 | `raw_payload` | TEXT |  |  |  | `126_capture_and_finance_schema.js` |
 | `source_format` | TEXT |  |  |  | `126_capture_and_finance_schema.js` |
 
+### `med_immunizations`
+
+_Created in: `144_med_immunizations.js`_
+
+| Column | Type | NN | Default | PK | Added |
+|---|---|---|---|---|---|
+| `id` | INTEGER |  |  | ✓ | `144_med_immunizations.js` |
+| `family_member_id` | INTEGER | ✓ |  |  | `—` |
+| `vaccine_name` | TEXT | ✓ |  |  | `—` |
+| `date_given` | DATE | ✓ |  |  | `—` |
+| `dose_number` | INTEGER |  |  |  | `—` |
+| `lot_number` | TEXT |  |  |  | `—` |
+| `administered_by_contact_id` | INTEGER |  |  |  | `—` |
+| `location_text` | TEXT |  |  |  | `—` |
+| `next_due_date` | DATE |  |  |  | `—` |
+| `notes` | TEXT |  |  |  | `—` |
+| `created_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
+| `updated_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
+
 ### `med_lab_results`
 
 _Created in: `131_medical_expansion.js`_
@@ -1809,6 +1828,25 @@ _Created in: `124_card_schema_expansion.js`_
 | `resolved_at` | DATETIME |  |  |  | `—` |
 | `resolution` | TEXT |  |  |  | `—` |
 | `todo_id` | INTEGER |  |  |  | `—` |
+
+### `med_procedures`
+
+_Created in: `145_med_procedures.js`_
+
+| Column | Type | NN | Default | PK | Added |
+|---|---|---|---|---|---|
+| `id` | INTEGER |  |  | ✓ | `145_med_procedures.js` |
+| `family_member_id` | INTEGER | ✓ |  |  | `—` |
+| `procedure_name` | TEXT | ✓ |  |  | `—` |
+| `procedure_date` | DATE |  |  |  | `—` |
+| `provider_contact_id` | INTEGER |  |  |  | `—` |
+| `facility_text` | TEXT |  |  |  | `—` |
+| `procedure_type` | TEXT |  |  |  | `—` |
+| `status` | TEXT |  | `'planned'` |  | `—` |
+| `outcome_notes` | TEXT |  |  |  | `—` |
+| `related_condition_id` | INTEGER |  |  |  | `—` |
+| `created_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
+| `updated_at` | DATETIME |  | `CURRENT_TIMESTAMP` |  | `—` |
 
 ### `med_visit_conditions`
 
