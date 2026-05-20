@@ -510,6 +510,88 @@ router.delete('/rules/:id', requireAuth, (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// v.184 — PUT /api/v1/pending/rules/:id — patch an existing rule
+//
+// PATCH-style semantics: only fields present in the body are updated.
+// Used by the Settings → Transaction Link Rules editor's Edit action.
+//
+// schema: tx_link_rules.{merchant_pattern, right_type, right_id, auto_apply, category, is_active}
+router.put('/rules/:id', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!id) return badRequest(res, 'invalid id');
+    const existing = db.prepare(`SELECT * FROM tx_link_rules WHERE id = ?`).get(id);
+    if (!existing) return notFound(res, 'rule');
+
+    const b = req.body || {};
+    const next = {
+      merchant_pattern: b.merchant_pattern !== undefined ? String(b.merchant_pattern).trim() : existing.merchant_pattern,
+      right_type:       b.right_type       !== undefined ? String(b.right_type).trim()       : existing.right_type,
+      right_id:         b.right_id         !== undefined ? parseInt(b.right_id, 10)          : existing.right_id,
+      auto_apply:       b.auto_apply       !== undefined ? (b.auto_apply ? 1 : 0)            : existing.auto_apply,
+      category:         b.category         !== undefined ? (b.category || null)              : existing.category,
+      is_active:        b.is_active        !== undefined ? (b.is_active ? 1 : 0)             : existing.is_active,
+    };
+    if (!next.merchant_pattern) return badRequest(res, 'merchant_pattern required');
+    if (!next.right_type)       return badRequest(res, 'right_type required');
+    if (!next.right_id)         return badRequest(res, 'right_id required');
+
+    db.prepare(`
+      UPDATE tx_link_rules
+      SET merchant_pattern = ?, right_type = ?, right_id = ?,
+          auto_apply = ?, category = ?, is_active = ?
+      WHERE id = ?
+    `).run(next.merchant_pattern, next.right_type, next.right_id,
+           next.auto_apply, next.category, next.is_active, id);
+
+    res.json(db.prepare(`SELECT * FROM tx_link_rules WHERE id = ?`).get(id));
+  } catch (e) { serverError(res, e); }
+});
+
+// v.184 — POST /api/v1/pending/rules/backfill — apply rules retroactively
+//
+// Walks every transaction that doesn't yet have a record_link, runs
+// applyRulesToTransaction() per row, and returns the count of new
+// links created. Idempotent — re-running is safe (the helper uses
+// ON CONFLICT DO NOTHING via record_links unique constraint).
+//
+// Body: { limit?: number } — caps the scan (default 1000, max 10000).
+//
+// schema: transactions.{id, description, category};
+//         record_links.{left_type, left_id}
+router.post('/rules/backfill', requireAuth, (req, res) => {
+  try {
+    const limit = Math.min(10000, Math.max(1, parseInt((req.body || {}).limit || 1000, 10)));
+    const startedAt = Date.now();
+
+    const candidates = db.prepare(`
+      SELECT t.id, t.description, t.category
+      FROM transactions t
+      WHERE NOT EXISTS (
+        SELECT 1 FROM record_links rl
+        WHERE rl.left_type = 'transaction' AND rl.left_id = t.id
+      )
+      ORDER BY t.id DESC
+      LIMIT ?
+    `).all(limit);
+
+    let linked = 0;
+    for (const t of candidates) {
+      try {
+        if (applyRulesToTransaction(t.id, t.description, t.category)) linked++;
+      } catch (e) {
+        // best-effort; one bad row should not abort the run
+      }
+    }
+
+    res.json({
+      scanned: candidates.length,
+      linked,
+      elapsed_ms: Date.now() - startedAt,
+    });
+  } catch (e) { serverError(res, e); }
+});
+
 // GET /api/v1/pending/asterisk — gap probe for any card's derived number
 //
 // Asks "are there pending items related to this record that should
