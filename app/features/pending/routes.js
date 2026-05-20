@@ -510,6 +510,37 @@ router.delete('/rules/:id', requireAuth, (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// v.184 — POST /api/v1/pending/rules — create a rule directly
+//
+// Used by the Settings → Transaction Link Rules editor "Add rule"
+// form. Rules created via POST /link?remember_rule=true are tied to
+// a specific transaction; this lets the user create rules ahead of
+// time (e.g. "Always send SHELL charges to the 4Runner").
+//
+// schema: tx_link_rules.{merchant_pattern, right_type, right_id, auto_apply, category, is_active}
+router.post('/rules', requireAuth, (req, res) => {
+  try {
+    const b = req.body || {};
+    const merchant_pattern = String(b.merchant_pattern || '').trim();
+    const right_type       = String(b.right_type || '').trim();
+    const right_id         = parseInt(b.right_id, 10);
+    const auto_apply       = b.auto_apply === false ? 0 : 1; // default ON
+    const category         = b.category || null;
+
+    if (!merchant_pattern) return badRequest(res, 'merchant_pattern required');
+    if (!right_type)       return badRequest(res, 'right_type required');
+    if (!right_id)         return badRequest(res, 'right_id required');
+
+    const info = db.prepare(`
+      INSERT INTO tx_link_rules (merchant_pattern, category, right_type, right_id,
+                                 auto_apply, is_active)
+      VALUES (?, ?, ?, ?, ?, 1)
+    `).run(merchant_pattern, category, right_type, right_id, auto_apply);
+
+    res.status(201).json(db.prepare(`SELECT * FROM tx_link_rules WHERE id = ?`).get(info.lastInsertRowid));
+  } catch (e) { serverError(res, e); }
+});
+
 // v.184 — PUT /api/v1/pending/rules/:id — patch an existing rule
 //
 // PATCH-style semantics: only fields present in the body are updated.

@@ -561,6 +561,12 @@
               <div><div class="settings-rail-label">Finance category rules</div><div class="settings-rail-desc">Auto-categorize imported transactions</div></div>
               <div class="settings-rail-right"><span id="finrulesBadge" class="settings-rail-pill">—</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
             </div>
+            <!-- v.184 — Transaction link rules editor (Pending Items merchant→record mapping) -->
+            <div class="settings-rail-item" onclick="openPanel('txrules')" data-search="transaction link rules merchant vehicle subscription medication inventory certification pending auto-apply">
+              <div class="settings-rail-icon" style="background:rgba(217,119,6,.1);color:#d97706"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></div>
+              <div><div class="settings-rail-label">Transaction link rules</div><div class="settings-rail-desc">Merchant → vehicle, subscription, prescription</div></div>
+              <div class="settings-rail-right"><span id="txrulesBadge" class="settings-rail-pill">—</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg></div>
+            </div>
             <!-- v202604.167 — HSA + LP-FSA plan info -->
             <div class="settings-rail-item" onclick="openPanel('hsaplans')" data-search="hsa fsa lpfsa lp-fsa plan limit deadline contribution custodian">
               <div class="settings-rail-icon" style="background:rgba(236,72,153,.1);color:#ec4899"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l7-3 7 3z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg></div>
@@ -1096,6 +1102,85 @@
         <span id="frCount" style="font-size:12px;color:var(--text3);font-weight:400">—</span>
       </div>
       <div id="frList" style="margin-top:8px">
+        <div style="color:var(--text3);font-size:13px;padding:12px;text-align:center">Loading…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- v.184 — TRANSACTION LINK RULES SUB-PANEL -->
+<div class="sub-panel" id="panel-txrules">
+  <div class="sub-panel-header">
+    <button class="sub-back" onclick="closePanel('txrules')">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      Settings
+    </button>
+    <div class="sub-panel-title">Transaction Link Rules</div>
+  </div>
+  <div class="content" style="padding:16px">
+
+    <div class="settings-card">
+      <div class="settings-card-title">How rules work</div>
+      <div class="settings-card-desc" style="line-height:1.5">
+        Each rule links a <b>merchant pattern</b> (matched against a transaction's
+        description) to a specific <b>target record</b> in another module — a vehicle,
+        subscription, prescription, inventory item, or certification. When the
+        rule's <b>auto-apply</b> flag is on, future imports automatically link
+        matching charges to the target.
+        <br><br>
+        Most rules are created automatically when you tick "remember rule" on a
+        Pending Items pick. Use this page to view what you've taught the system,
+        edit a misclassified one, or add a rule ahead of time.
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title">Add a rule</div>
+      <div class="form-row" style="gap:8px;flex-wrap:wrap">
+        <div class="form-group" style="flex:2;min-width:160px">
+          <label class="form-label">Merchant pattern</label>
+          <input class="form-input" id="trPattern" placeholder="e.g. SHELL or %SHELL OIL%">
+        </div>
+        <div class="form-group" style="flex:1;min-width:140px">
+          <label class="form-label">Target type</label>
+          <select class="form-input" id="trTargetType" onchange="_trLoadTargetOptions()">
+            <option value="">—</option>
+            <option value="vehicle">Vehicle</option>
+            <option value="subscription">Subscription</option>
+            <option value="medication">Medication</option>
+            <option value="item">Inventory item</option>
+            <option value="certification">Certification</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex:2;min-width:160px">
+          <label class="form-label">Target record</label>
+          <select class="form-input" id="trTargetId"><option value="">— pick a type first —</option></select>
+        </div>
+      </div>
+      <div class="form-row" style="gap:8px;flex-wrap:wrap;margin-top:6px">
+        <div class="form-group" style="flex:2;min-width:160px">
+          <label class="form-label">Category filter (optional)</label>
+          <input class="form-input" id="trCategory" placeholder="Leave blank to match any category">
+        </div>
+        <div class="form-group" style="flex:1;min-width:140px;align-self:flex-end">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);padding:8px 0">
+            <input type="checkbox" id="trAutoApply" checked style="width:16px;height:16px"> Auto-apply on import
+          </label>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="trAddRule()">Add rule</button>
+        <button class="btn btn-ghost" onclick="trBackfill()" id="trBackfillBtn">▶ Apply rules to historical transactions</button>
+        <span id="trBackfillResult" style="font-size:12px;color:var(--text3);align-self:center"></span>
+      </div>
+    </div>
+
+    <div class="settings-card">
+      <div class="settings-card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>Existing rules</span>
+        <span id="trCount" style="font-size:12px;color:var(--text3);font-weight:400">—</span>
+      </div>
+      <div id="trList" style="margin-top:8px">
         <div style="color:var(--text3);font-size:13px;padding:12px;text-align:center">Loading…</div>
       </div>
     </div>
@@ -1947,6 +2032,7 @@ const PANEL_LOADERS = {
   database:  () => { loadDatabasePanel(); },
   webhooks:  () => { loadWebhooksPanel(); },
   finrules:  () => { loadFinrulesPanel(); },
+  txrules:   () => { loadTxrulesPanel(); },
   hsaplans:  () => { loadHsaPlansPanel(); },
 };
 
@@ -2068,6 +2154,198 @@ function escHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ── v.184 — Transaction Link Rules editor ──────────────────────
+// Manages the tx_link_rules table (merchant_pattern → record). Most
+// rules get created automatically when the user ticks "remember rule"
+// on a Pending Items pick. This panel lets Al view, edit, deactivate,
+// and backfill them. Backend endpoints:
+//   GET    /api/v1/pending/rules           (list active)
+//   POST   /api/v1/pending/rules           (create) — v.184
+//   PUT    /api/v1/pending/rules/:id       (patch)  — v.184
+//   DELETE /api/v1/pending/rules/:id       (deactivate)
+//   POST   /api/v1/pending/rules/backfill  (apply to historical) — v.184
+
+const TR_TARGET_TYPES = [
+  { value: 'vendor:none',  label: '—' },
+  { value: 'vehicle',      label: 'Vehicle',         table: 'vehicles',
+    labelFor: r => r.nickname || [r.year, r.make, r.model].filter(Boolean).join(' ') || `Vehicle #${r.id}` },
+  { value: 'subscription', label: 'Subscription',    table: 'subscriptions',
+    labelFor: r => r.name || r.service_name || `Subscription #${r.id}` },
+  { value: 'medication',   label: 'Medication',      table: 'medications',
+    labelFor: r => r.name + (r.dosage ? ' · ' + r.dosage : '') },
+  { value: 'item',         label: 'Inventory item',  table: 'items',
+    labelFor: r => r.name + (r.brand ? ' · ' + r.brand : '') },
+  { value: 'certification',label: 'Certification',   table: 'certifications',
+    labelFor: r => r.cert_name || r.name || `Cert #${r.id}` },
+];
+
+const _trCache = {};   // type → [{ id, label }]
+const _trLabelLookup = {}; // `${type}:${id}` → label  (for the existing-rules table)
+
+function _trDefFor(type) { return TR_TARGET_TYPES.find(t => t.value === type); }
+
+async function _trFetchOptions(type) {
+  const def = _trDefFor(type);
+  if (!def || !def.table) return [];
+  if (_trCache[type]) return _trCache[type];
+  try {
+    const r = await window.api('GET', `/data/table?name=${def.table}`);
+    const rows = (r && r.rows) || r || [];
+    const opts = rows.map(row => ({ id: row.id, label: def.labelFor(row) }));
+    _trCache[type] = opts;
+    opts.forEach(o => { _trLabelLookup[`${type}:${o.id}`] = o.label; });
+    return opts;
+  } catch (e) {
+    console.warn('txrules: fetch options failed', type, e);
+    return [];
+  }
+}
+
+async function _trLoadTargetOptions() {
+  const type = $('trTargetType').value;
+  const sel = $('trTargetId');
+  if (!type) { sel.innerHTML = '<option value="">— pick a type first —</option>'; return; }
+  sel.innerHTML = '<option value="">Loading…</option>';
+  const opts = await _trFetchOptions(type);
+  if (!opts.length) {
+    sel.innerHTML = `<option value="">No ${escHtml(_trDefFor(type)?.label.toLowerCase() || type)} records yet</option>`;
+    return;
+  }
+  sel.innerHTML = '<option value="">— select —</option>' +
+    opts.map(o => `<option value="${o.id}">${escHtml(o.label)}</option>`).join('');
+}
+
+async function loadTxrulesPanel() {
+  const list = $('trList');
+  if (!list) return;
+  list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px;text-align:center">Loading…</div>';
+
+  try {
+    const r = await window.api('GET', '/pending/rules');
+    const rules = r?.rules || [];
+    const count = rules.length;
+    $('trCount').textContent = `${count} rule${count === 1 ? '' : 's'}`;
+    const badge = $('txrulesBadge');
+    if (badge) badge.textContent = String(count);
+
+    // Pre-fetch labels for every (right_type, right_id) referenced.
+    // Group by type so we only hit /data/table once per type.
+    const typesNeeded = new Set(rules.map(r => r.right_type));
+    await Promise.all(Array.from(typesNeeded).map(t => _trFetchOptions(t).catch(() => null)));
+
+    if (!count) {
+      list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:14px;text-align:center;border:1px dashed var(--border);border-radius:var(--r);line-height:1.5">No rules yet.<br>Tick "remember rule" on a Pending Items pick to create one,<br>or add one above.</div>';
+      return;
+    }
+
+    list.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px">
+        <thead>
+          <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--text3);font-size:11px;letter-spacing:.06em;text-transform:uppercase">
+            <th style="padding:8px 10px">Pattern</th>
+            <th style="padding:8px 10px">Target</th>
+            <th style="padding:8px 10px;width:80px;text-align:right">Matches</th>
+            <th style="padding:8px 10px;width:80px">Auto</th>
+            <th style="padding:8px 10px;width:120px;text-align:right"></th>
+          </tr>
+        </thead>
+        <tbody id="trTbody">
+          ${rules.map(r => _trRenderRow(r)).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch (e) {
+    list.innerHTML = `<div style="color:var(--red);font-size:13px;padding:12px">Failed to load: ${escHtml(e.message)}</div>`;
+  }
+}
+
+function _trRenderRow(r) {
+  const targetLabel = _trLabelLookup[`${r.right_type}:${r.right_id}`]
+    || `${_trDefFor(r.right_type)?.label || r.right_type} #${r.right_id}`;
+  const lastMatched = r.last_matched_at
+    ? new Date(r.last_matched_at + 'Z').toLocaleDateString()
+    : '—';
+  return `
+    <tr style="border-bottom:1px solid var(--border)" data-tr-row="${r.id}">
+      <td style="padding:8px 10px;font-family:var(--mono);font-size:12px">${escHtml(r.merchant_pattern)}${r.category ? `<div style="font-size:10px;color:var(--text3);font-family:inherit;margin-top:2px">in <i>${escHtml(r.category)}</i></div>` : ''}</td>
+      <td style="padding:8px 10px"><div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em">${escHtml(_trDefFor(r.right_type)?.label || r.right_type)}</div><div>${escHtml(targetLabel)}</div></td>
+      <td style="padding:8px 10px;text-align:right;color:var(--text3);font-family:var(--mono)">${r.match_count || 0}${r.match_count ? `<div style="font-size:10px">last ${lastMatched}</div>` : ''}</td>
+      <td style="padding:8px 10px">
+        <span style="font-size:11px;padding:2px 8px;border-radius:999px;background:${r.auto_apply ? 'rgba(34,197,94,.12)' : 'rgba(0,0,0,.06)'};color:${r.auto_apply ? '#15803d' : 'var(--text3)'}">${r.auto_apply ? 'on' : 'off'}</span>
+      </td>
+      <td style="padding:8px 10px;text-align:right;white-space:nowrap">
+        <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px" onclick="trToggleAutoApply(${r.id}, ${r.auto_apply ? 0 : 1})">${r.auto_apply ? 'Pause' : 'Resume'}</button>
+        <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px;color:var(--red)" onclick="trDeleteRule(${r.id})">Delete</button>
+      </td>
+    </tr>
+  `;
+}
+
+async function trAddRule() {
+  const pattern = ($('trPattern').value || '').trim();
+  const right_type = $('trTargetType').value;
+  const right_id   = parseInt($('trTargetId').value || '0', 10);
+  const category   = ($('trCategory').value || '').trim() || null;
+  const auto_apply = $('trAutoApply').checked;
+
+  if (!pattern)        { toast('Pattern required', 'err'); return; }
+  if (!right_type)     { toast('Target type required', 'err'); return; }
+  if (!right_id)       { toast('Target record required', 'err'); return; }
+
+  // Bare keywords get wrapped in %…%; user-supplied wildcards passed through.
+  const merchant_pattern = (pattern.includes('%') || pattern.includes('_'))
+    ? pattern.toUpperCase()
+    : `%${pattern.toUpperCase()}%`;
+
+  try {
+    await window.api('POST', '/pending/rules', {
+      merchant_pattern, right_type, right_id, auto_apply, category,
+    });
+    $('trPattern').value = '';
+    $('trCategory').value = '';
+    $('trTargetType').value = '';
+    $('trTargetId').innerHTML = '<option value="">— pick a type first —</option>';
+    $('trAutoApply').checked = true;
+    toast('Rule added');
+    loadTxrulesPanel();
+  } catch (e) { toast(e.message || 'Failed to add', 'err'); }
+}
+
+async function trToggleAutoApply(id, next) {
+  try {
+    await window.api('PUT', `/pending/rules/${id}`, { auto_apply: !!next });
+    toast(next ? 'Auto-apply on' : 'Auto-apply paused');
+    loadTxrulesPanel();
+  } catch (e) { toast(e.message || 'Failed', 'err'); }
+}
+
+async function trDeleteRule(id) {
+  if (!await LT.confirm('Delete this rule? (Past matches stay; future charges won\'t auto-link.)')) return;
+  try {
+    await window.api('DELETE', `/pending/rules/${id}`);
+    toast('Rule deleted');
+    loadTxrulesPanel();
+  } catch (e) { toast(e.message || 'Failed to delete', 'err'); }
+}
+
+async function trBackfill() {
+  const btn = $('trBackfillBtn');
+  btn.disabled = true; btn.textContent = '⏳ Applying…';
+  $('trBackfillResult').textContent = '';
+  try {
+    const r = await window.api('POST', '/pending/rules/backfill', { limit: 5000 });
+    const linked  = r?.linked ?? 0;
+    const scanned = r?.scanned ?? 0;
+    $('trBackfillResult').textContent = `${linked} of ${scanned} linked`;
+    toast(`${linked} transaction${linked === 1 ? '' : 's'} linked`);
+    loadTxrulesPanel(); // match_counts changed
+  } catch (e) {
+    toast(e.message || 'Backfill failed', 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '▶ Apply rules to historical transactions';
+  }
 }
 
 // ── HSA & LP-FSA Plans Panel (v202604.167) ──────────────────────
