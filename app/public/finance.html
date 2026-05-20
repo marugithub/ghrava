@@ -1076,6 +1076,7 @@ window.GH_PAGE = {
 <script src="/js/gh-card-brands.js"></script>
 <script src="/js/gh-card-configs-batch1.js"></script>
 <script src="/js/gh-card-mount.js"></script>
+<script src="/js/pending-report.js"></script>
 <script src="/js/lt-shared-data.js"></script>
 <script src="/attachments.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
@@ -2273,7 +2274,7 @@ function _finTileHsaLpfsa(p) {
     <div class="fin-tile">
       <div class="fin-tile-eyebrow">${_finDot(dot)}<span>HSA + LP-FSA · unreimbursed</span></div>
       <div class="fin-tile-hero-row">
-        <div><div class="fin-tile-hero-label">Pool</div><div class="fin-tile-hero">${_finM(p.total_pool)}</div></div>
+        <div><div class="fin-tile-hero-label">Pool</div><div class="fin-tile-hero gh-pending-target" data-card="hsa_payment">${_finM(p.total_pool)}<span class="gh-pending-host"></span></div></div>
         ${_finPill(pill, pillTxt)}
       </div>
       <div class="fin-tile-rows">
@@ -2327,6 +2328,12 @@ async function loadLandingTiles() {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); gotoFinTab(target); }
       });
     });
+
+    // v.182 — light up the pending-items asterisk on F6 (HSA + LP-FSA).
+    // The total_pool hero is wrapped in .gh-pending-target / data-card=
+    // "hsa_payment" in _finTileHsaLpfsa(); scan inserts the amber/red *
+    // when the backend probe reports a gap (e.g. receipts missing).
+    if (window.GhAsterisk) GhAsterisk.scan();
   } catch (e) {
     slot.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:32px;color:#b91c1c;font-family:'DM Mono','SF Mono',monospace;font-size:12px">Couldn't load overview: ${esc(e.message || String(e))}</div>`;
   }
