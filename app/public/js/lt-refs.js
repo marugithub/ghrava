@@ -200,7 +200,11 @@ window.GH_REFS = (function () {
   // ?drawer=contact and suppresses its main UI, showing only the drawer.
   // When the drawer saves, settings.html postMessages the record back.
 
-  function _openSettingsDrawer(drawerType, presetType, onSave, presetName, editId) {
+  // prefetch: optional Promise resolving to a record. When the iframe
+  //   posts {ghravaReady:<drawerType>} we resolve it and post the record
+  //   back as {ghravaPrefetchedMember/Contact} so the iframe skips its
+  //   own fetch. Lets the parent warm the data while settings.html loads.
+  function _openSettingsDrawer(drawerType, presetType, onSave, presetName, editId, prefetch) {
     document.getElementById('gh-refs-overlay')?.remove();
 
     const overlay = document.createElement('div');
@@ -239,6 +243,19 @@ window.GH_REFS = (function () {
         window.removeEventListener('message', onMessage);
         overlay.remove();
       }
+      // v.180 prefetch handshake — iframe signals ready, we hand it the
+      // already-fetched record (if the caller supplied one). The iframe
+      // races this against its own local fetch.
+      if (e.data?.ghravaReady === drawerType && prefetch) {
+        Promise.resolve(prefetch).then(record => {
+          if (record && frame.contentWindow) {
+            frame.contentWindow.postMessage({
+              ghravaPrefetchedMember: record,
+              drawer: drawerType,
+            }, '*');
+          }
+        }).catch(() => { /* parent fetch failed — iframe falls back to local fetch */ });
+      }
     }
     window.addEventListener('message', onMessage);
   }
@@ -247,9 +264,11 @@ window.GH_REFS = (function () {
     _openSettingsDrawer('contact', opts.type || '', opts.onSave, opts.name || '');
   }
 
-  // opts.editId → opens the EDIT form for that family member; omit for Add.
+  // opts.editId   → opens the EDIT form for that family member; omit for Add.
+  // opts.prefetch → Promise<record> to hand the iframe instead of letting
+  //                 it fetch (v.180). Resolves to null if you don't have one.
   function openFamilyDrawer(opts = {}) {
-    _openSettingsDrawer('family', '', opts.onSave, '', opts.editId);
+    _openSettingsDrawer('family', '', opts.onSave, '', opts.editId, opts.prefetch);
   }
 
   // ── Bust cache externally ─────────────────────────────────────
