@@ -123,20 +123,25 @@
 
 ## v.183 — Pending Items polish: `tx_link_rules` editor + auto-apply
 
+> **Version note (2026-05-20):** This block shipped as **v.184**, not
+> v.183 — v.183 was the Reports Group 1 partial drop. Off-by-one
+> continues.
+
 **Theme:** Make pending items self-healing over time. After Al teaches the system Shell→Honda once, it learns.
 
-- [ ] **Task 1 — `tx_link_rules` editor UI**
-  - Table from mig 139 exists, no UI.
-  - Settings page or within Pending Items report.
-  - CRUD on rules: pattern (merchant text), target (vehicle/subscription/etc), confidence threshold.
-- [ ] **Task 2 — Auto-apply rules on import**
-  - After import-confirm, run rules against new transactions.
-  - If match: auto-create `record_links` row, optionally mark `needs_review=0`.
-  - If no match: leave in pending detector.
-- [ ] **Task 3 — Backfill button**
-  - "Apply rules to historical transactions" button in editor.
-  - Same logic as Task 2, walks all past tx.
-- [ ] **Task 4 — Docs + version bump**
+- [x] **Task 1 — `tx_link_rules` editor UI** ✅ **SHIPPED v.184**
+  - Settings sub-panel `panel-txrules` mirroring `panel-finrules` shape.
+  - Add Rule form: pattern (auto-wraps bare keywords in `%…%`), target type (5 options — `hsa_payment` deliberately dropped), target record dropdown (populated from `/data/table?name=X`), optional category secondary filter, auto-apply checkbox.
+  - Existing rules table: pattern + category sub-line, target type+label, match count + last-matched date, auto-apply pill, Pause/Resume + Delete buttons.
+  - Bonus backend endpoint added inline: `POST /api/v1/pending/rules` (direct create, no transaction required).
+  - "Confidence threshold" item from original ROADMAP scope deliberately deferred — backend has no confidence column on `tx_link_rules` yet; needs a schema add before UI exposure is meaningful.
+- [x] **Task 2 — Auto-apply rules on import** ✅ **ALREADY SHIPPED v.171.** `applyRulesToTransaction()` in `pending/routes.js:591` is called from `import/routes.js:282` on every imported transaction. Confirmed during v.182 investigation; reconfirmed in v.184. No work needed.
+- [x] **Task 3 — Backfill button** ✅ **SHIPPED v.184**
+  - NEW endpoint `POST /api/v1/pending/rules/backfill` walks unlinked transactions, runs the existing rules engine per row, returns `{scanned, linked, elapsed_ms}`. Body `{ limit? }` defaults 1000, capped at 10000.
+  - NEW endpoint `PUT /api/v1/pending/rules/:id` for editing (PATCH semantics) — needed for the Pause/Resume action in the editor.
+  - Editor's "▶ Apply rules to historical transactions" button calls the backfill endpoint with limit 5000 and surfaces "X of Y linked" inline.
+  - Discoverability bonus: "Manage merchant rules →" link in the Pending tab header → `/settings.html?panel=txrules`. Generic `?panel=<name>` handler added to settings.html (reusable from any future page).
+- [x] **Task 4 — Docs + version bump** ✅ **SHIPPED v.184** *(awaiting deploy + verify; flip to ✅ DEPLOYED when E2E lands clean on NAS)*
 
 ---
 

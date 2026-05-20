@@ -69,6 +69,141 @@ principles.
 
 ---
 
+## ✅ v.184 SHIPPED — tx_link_rules editor + backfill (sandbox, 2026-05-20)
+
+> **In sandbox, awaiting `package` from Al.** Local commits `d23eb09 →
+> 3db2755 → 72ad837 → <task-4>`. Pure additive drop — three new
+> backend endpoints, one new Settings sub-panel, one deep-link
+> handler, one discoverability link from the Pending tab. No
+> migrations, no schema changes, no column changes.
+
+**Theme.** Give the user a real editor for the `tx_link_rules` table
+that the Pending Items list quietly accumulates whenever they tick
+"remember rule." Until v.184 there was no way to view what rules had
+been created, edit one that misclassified, pause auto-apply on a
+specific rule, or apply rules retroactively to past transactions.
+
+### Audit correction recorded
+
+ROADMAP "v.183-rules" Task 2 ("Auto-apply rules on import") was
+**ALREADY SHIPPED v.171**: `applyRulesToTransaction()` in
+`pending/routes.js:591` is called from `import/routes.js:282` on
+every imported transaction. This was discovered during v.182
+investigation; reconfirmed today. The ROADMAP block's Task 2 is
+moved to ✅ ALREADY SHIPPED with attribution.
+
+### What's in this drop (4 tasks, 1 commit each)
+
+1. **Backend — `PUT /rules/:id` + `POST /rules/backfill`** (`d23eb09`).
+   - `PUT /api/v1/pending/rules/:id` — PATCH-style update (only
+     touches fields present in the body), validates the rule exists,
+     returns the updated row. Lets the editor edit instead of having
+     to delete + re-add.
+   - `POST /api/v1/pending/rules/backfill` — walks transactions with
+     no `record_links` row yet, runs `applyRulesToTransaction()` per
+     row, returns `{scanned, linked, elapsed_ms}`. Body `{ limit? }`
+     defaults 1000, capped at 10000. Idempotent — the underlying
+     helper uses `INSERT … ON CONFLICT DO NOTHING` on the
+     `record_links` unique constraint.
+
+2. **Settings → Transaction Link Rules sub-panel** (`3db2755`).
+   - Bonus backend endpoint added inline: `POST /api/v1/pending/
+     rules` for direct rule creation. Previously rules could only be
+     created via `POST /link?remember_rule=true`, which requires a
+     specific transaction. The editor needs to create rules ahead
+     of time.
+   - New rail item in the Imports section between "Finance category
+     rules" and "HSA & LP-FSA plans": "Transaction link rules —
+     Merchant → vehicle, subscription, prescription". Active-count
+     badge.
+   - New `panel-txrules` sub-panel mirrors `panel-finrules`:
+     how-it-works card; Add Rule form (pattern auto-wraps bare
+     keywords in `%…%`, target type 5 options [vehicle / subscription
+     / medication / item / certification — `hsa_payment` dropped per
+     audit], target record dropdown populated from `/data/table`
+     based on type, optional category secondary filter, auto-apply
+     checkbox); Backfill button; Existing rules table with pattern
+     + optional category sub-line, target type + label, match count
+     + last-matched date, auto-apply pill, Pause/Resume + Delete
+     buttons.
+   - JS uses a declarative `TR_TARGET_TYPES` table — adding a 6th
+     target type later is a one-line change. Per-type cache means
+     `/data/table` is hit once per type, not per rule row.
+
+3. **Discoverability — Pending tab "Manage merchant rules →" link**
+   (`72ad837`).
+   - Small dotted-underline link in the Pending tab header, next to
+     the "N open" count pill. Deep-links to `/settings.html?panel=
+     txrules`.
+   - Generic `?panel=<name>` deep-link handler added to settings.html
+     (right after the Google OAuth IIFE). Reads the param, checks
+     `PANEL_LOADERS[name]`, replaces URL + opens. Reusable from any
+     future page.
+
+4. **Docs + version bump + schema gate** (this commit).
+
+### Five-target-type decision recorded
+
+The backend supports 6 right_type values (vehicle, subscription,
+medication, item, hsa_payment, certification — matching the Pending
+list's MODULES table). The editor exposes 5: `hsa_payment` is
+deliberately dropped from the Add Rule form because there's no
+useful list to pick from (HSA payments are auto-created by the
+linker; a user wouldn't pre-target a specific receipt). The PUT
+endpoint still accepts `right_type='hsa_payment'` for any rules
+created elsewhere (e.g. via direct API or the Pending list flow).
+
+### Endpoint surface added (all in `app/features/pending/routes.js`)
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /rules` | Direct rule creation (no transaction required) |
+| `PUT /rules/:id` | Patch update (auto_apply, pattern, target, category) |
+| `POST /rules/backfill` | Apply rules to unlinked past transactions |
+
+Existing endpoints `GET /rules` and `DELETE /rules/:id` unchanged.
+
+### What v.184 deliberately does NOT do
+
+- Reports Group 1 Part B (Sankey + small-multiples) — still deferred.
+- Reports Group 2 (Health) — still blocked on `metric_index` design.
+- Reports Group 3 (Household) — still blocked on Universal Attachments.
+- Decision-gated work (HSA-YTD card, metric_index design).
+- Per-rule confidence threshold UI — the backend only has
+  `auto_apply` (boolean) and no confidence field on `tx_link_rules`.
+  ROADMAP's "confidence threshold" item is therefore aspirational;
+  if Al wants it, a small schema add + UI exposure can ship in a
+  later drop.
+- Bulk operations on rules (export/import, batch enable/disable).
+
+### Expected post-deploy verification
+
+Smoke 8/8 (no smoke changes). E2E baseline `115/0` — v.184 adds no
+tests and doesn't change tested behavior, so 115/0 should hold. On
+the Linux container at package time, schema-safety gate should
+remain at 10 flagged lines (130/134 noise) — zero from v.184
+because every new `db.prepare` references existing columns only.
+
+Manual smoke after deploy:
+- Open `/reports.html?tab=pending`. The "Manage merchant rules →"
+  link should sit next to the "N open" pill.
+- Click it → Settings opens with the Transaction Link Rules panel
+  already open (the `?panel=txrules` URL is consumed and stripped).
+- Add Rule: pick a target type, dropdown populates with real
+  records from that module, save → row appears in the existing
+  rules table.
+- Pause: clicking flips the auto-apply pill to "off"; clicking
+  Resume flips it back.
+- Backfill: click → result line shows "X of Y linked"; match counts
+  in the table update.
+
+### ROADMAP label slip continues
+
+ROADMAP's "v.183-rules" block IS this drop (v.184). The off-by-one
+slip persists.
+
+---
+
 ## ✅ v.183 DEPLOYED & VERIFIED — Reports Group 1 (partial): heatmap + treemap + drill-down (2026-05-20)
 
 > **DEPLOYED 2026-05-20 ~15:55. Smoke 8/8, full E2E 115 pass / 0 fail

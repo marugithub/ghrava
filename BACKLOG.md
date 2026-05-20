@@ -1,5 +1,34 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### ✅ SHIPPED in v.184 — tx_link_rules editor + backfill (sandbox, awaiting package)
+4-task drop. Closes the Pending Items rule-management gap: the user
+can finally view, edit, pause, delete, and backfill the rules that
+the Pending list quietly accumulates whenever they tick "remember
+rule." Details in STATE.md v.184 block.
+
+Audit correction recorded:
+- **Auto-apply on import was already shipped v.171** —
+  `applyRulesToTransaction()` (`pending/routes.js:591`) is called
+  from `import/routes.js:282` on every imported transaction. The
+  ROADMAP "v.183-rules" Task 2 entry is therefore moved to
+  ✅ ALREADY SHIPPED.
+
+What v.184 actually built:
+- Backend: `POST /pending/rules` (direct create), `PUT /pending/
+  rules/:id` (patch), `POST /pending/rules/backfill` (apply
+  historically). No schema changes.
+- Frontend: new Settings sub-panel `panel-txrules` next to the
+  Finance category rules and HSA & LP-FSA plans panels. Add Rule
+  form, Pause/Resume + Delete + Backfill buttons, existing-rules
+  table with match counts.
+- Discoverability: "Manage merchant rules →" link in the Pending
+  tab header. Generic `?panel=<name>` deep-link handler added to
+  settings.html (reusable from any page).
+- Decision recorded: 5 target types exposed in the editor
+  (vehicle / subscription / medication / item / certification);
+  `hsa_payment` deliberately dropped because there's no useful
+  list to pick from.
+
 ### ✅ SHIPPED in v.183 — Reports Group 1 (partial): heatmap + treemap + drill-down
 4-task drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0, smoke 8/8,
 no boot errors on prod; E2E run was 2.9m — fastest yet)**. Closes 2 of the 4 Group 1 charts (#26.1.2 calendar
