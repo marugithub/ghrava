@@ -7,10 +7,13 @@
 // care-team contact and the dates align.
 //
 // HIGH-confidence (auto-link silently):
-//   txn.merchant exact-match (case-insensitive trim) contacts.name
-//   WHERE type='medical_provider'
+//   transactions.description exact-match (case-insensitive trim) on
+//   contacts.name WHERE contact_type='Medical'  (v.181 doc fix:
+//   prior comment said type='medical_provider' which was never the
+//   value either producer or consumer used. Both seed-routes.js:69
+//   and the query on line 33 below use contact_type='Medical'.)
 //   AND a med_visit_notes exists with visit_date within ±7d of txn.date
-//   for the same family member (when known)
+//   for the same family member (when known).
 //
 // MEDIUM-confidence (auto-link + needs_review=1):
 //   Same contact match, but no visit within ±7d (still link to most

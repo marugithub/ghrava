@@ -974,6 +974,23 @@ router.put('/transactions/:id', (req, res) => {
       d.needs_review !== undefined ? (d.needs_review ? 1 : 0) : existing.needs_review,
       req.params.id
     );
+
+    // v202604.181 — category-change auto-link trigger (#27.1 + #27.2).
+    // Import-path triggers were wired in v.167 (see /transactions/import-
+    // file). This closes the "user re-categorizes an existing txn to
+    // medical" path. Both linkers check for existing record_links rows
+    // before creating, so re-firing on repeated edits is safe.
+    const newCategory     = d.category !== undefined ? d.category : existing.category;
+    const categoryChanged = d.category !== undefined && d.category !== existing.category;
+    const isMedical       = typeof newCategory === 'string' && newCategory.toLowerCase() === 'medical';
+    if (categoryChanged && isMedical) {
+      const txnId = parseInt(req.params.id);
+      try { autoLinkHsa.processTransaction(txnId); }
+      catch (e) { console.warn('[auto-link-hsa]', e.message); }
+      try { autoLinkMedicalVisit.processTransaction(txnId); }
+      catch (e) { console.warn('[auto-link-visit]', e.message); }
+    }
+
     if (d.tags !== undefined) saveTagsByName(parseInt(req.params.id), 'finance_transaction', d.tags);
     res.json({ ok: true });
   } catch (e) { serverError(res, e); }
