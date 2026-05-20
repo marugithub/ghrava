@@ -800,10 +800,22 @@ function editCurrentKid(){openKidDrawer(_currentKid);}
 // iframe sheet, same form Contacts uses). On Save the overlay closes,
 // the user stays on Kids, and the avatar row + age summary refresh in
 // place. No full-page navigation, no nav.js rebuild → instant.
+//
+// v.180 pre-warm: start resolving the family record IMMEDIATELY (from
+// the GH_AVATAR cache when available, falling back to an API fetch) in
+// parallel with the overlay mount. GH_REFS hands it to the iframe the
+// moment it's ready, so the form fills the moment settings.html parses
+// — no in-iframe fetch wait.
 async function editKidProfile(fmId){
   if (window.GH_REFS && GH_REFS.openFamilyDrawer) {
+    const cached = window.GH_AVATAR && GH_AVATAR.getCached(fmId);
+    const prefetch = cached
+      ? Promise.resolve(cached)
+      : window.api('GET', `/settings/family/${fmId}`).catch(() => null);
+
     GH_REFS.openFamilyDrawer({
       editId: fmId,
+      prefetch,
       onSave: async () => {
         try { if (window.GH_AVATAR) await GH_AVATAR.refresh(); } catch(_){}
         const keep = _currentKid && _currentKid.id;
