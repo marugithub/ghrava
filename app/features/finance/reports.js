@@ -142,6 +142,95 @@ router.get('/daily-spend', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// v.183 — GET /api/v1/finance/reports/top-vendors?year=2025&limit=50
+// Drives the Vendor treemap (#26.1.3). Groups the unified transactions
+// feed by description (the canonical vendor field per v.171 — there is
+// no separate `merchant` column on `transactions`) and ranks by total
+// magnitude of negative amounts. Transfers excluded.
+//
+// Response: { year, vendors: [{vendor, spent, tx_count}, ...],
+//             total_spent }. Limit caps result count (default 50,
+// max 200).
+router.get('/top-vendors', (req, res) => {
+  try {
+    const year  = req.query.year || new Date().getFullYear().toString();
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit || '50', 10)));
+
+    // schema: transactions.{description, date, amount};
+    //         imported_transactions.{description, txn_date, amount, is_transfer}
+    const vendors = db.prepare(`
+      SELECT
+        COALESCE(description, '(no description)') AS vendor,
+        ROUND(ABS(SUM(amount)), 2) AS spent,
+        COUNT(*) AS tx_count
+      FROM (
+        SELECT description, amount FROM finance_transactions
+          WHERE strftime('%Y', date) = ? AND amount < 0
+        UNION ALL
+        SELECT description, amount FROM imported_transactions
+          WHERE strftime('%Y', txn_date) = ? AND amount < 0
+            AND COALESCE(is_transfer, 0) = 0
+      )
+      GROUP BY COALESCE(description, '(no description)')
+      ORDER BY spent DESC
+      LIMIT ?
+    `).all(year, year, limit);
+
+    const total_spent = vendors.reduce((s, v) => s + (v.spent || 0), 0);
+    res.json({ year, vendors, total_spent: Math.round(total_spent * 100) / 100 });
+  } catch (e) { serverError(res, e); }
+});
+
+// v.183 — GET /api/v1/finance/reports/txns-by-vendor?vendor=NAME&year=YYYY
+// Drill-down companion to /top-vendors. Returns every transaction
+// where the description matches the given vendor (exact match, case-
+// sensitive — matches what /top-vendors GROUP BY produces). Year
+// optional; omit to scan all years.
+//
+// Response: { vendor, year, transactions: [...], total_spent }.
+router.get('/txns-by-vendor', (req, res) => {
+  try {
+    const vendor = req.query.vendor;
+    if (!vendor) return res.status(400).json({ error: 'vendor=NAME required' });
+    const year = req.query.year || null;
+
+    let where = `description = ?`;
+    const params = [vendor];
+    let importedWhere = `description = ?`;
+    const importedParams = [vendor];
+    if (year) {
+      where         += ` AND strftime('%Y', date) = ?`;
+      params.push(String(year));
+      importedWhere += ` AND strftime('%Y', txn_date) = ?`;
+      importedParams.push(String(year));
+    }
+
+    // schema: transactions.{date, description, amount, category};
+    //         imported_transactions.{txn_date, description, amount, category, is_transfer}
+    const txns = db.prepare(`
+      SELECT date, description, amount, category, source
+      FROM (
+        SELECT date, description, amount, category, 'finance' AS source
+          FROM finance_transactions
+          WHERE ${where}
+        UNION ALL
+        SELECT txn_date AS date, description, amount, category, 'imported' AS source
+          FROM imported_transactions
+          WHERE ${importedWhere} AND COALESCE(is_transfer, 0) = 0
+      )
+      ORDER BY date DESC, amount ASC
+    `).all(...params, ...importedParams);
+
+    const total_spent = txns.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    res.json({
+      vendor,
+      year,
+      transactions: txns,
+      total_spent: Math.round(total_spent * 100) / 100,
+    });
+  } catch (e) { serverError(res, e); }
+});
+
 // v.183 — GET /api/v1/finance/reports/txns-on-date?date=YYYY-MM-DD
 // Drill-down companion to /daily-spend. Returns every transaction on
 // the given date (spend + income, transfers excluded) across the same

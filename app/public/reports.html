@@ -302,7 +302,7 @@ function renderChartsPreview() {
       cards: [
         { id: 'c111', num: '#26.1.1', title: 'Where money goes each month',     sub: 'Income → category ribbons. Click a ribbon to see the transactions.',    chart: 'sankey',     status: 'mock' },
         { id: 'c112', num: '#26.1.2', title: 'Busiest spending days',           sub: 'Calendar heatmap. Click a day for all transactions.',                  chart: 'calendar',   status: 'live' },
-        { id: 'c113', num: '#26.1.3', title: 'Where you shop most',             sub: 'Treemap of vendors by annual spend. Click a tile for vendor history.', chart: 'stub',       status: 'mock', stubLabel: 'Treemap mockup pending' },
+        { id: 'c113', num: '#26.1.3', title: 'Where you shop most',             sub: 'Treemap of vendors by annual spend. Click a tile for vendor history.', chart: 'treemap',    status: 'live' },
         { id: 'c114', num: '#26.1.4', title: 'What you spend on, month by month', sub: 'Small-multiples: one mini line chart per category, side by side.',   chart: 'stub',       status: 'mock', stubLabel: 'Small-multiples mockup pending' },
         { id: 'c115', num: '#26.1.5', title: 'What is coming in the next 30 days', sub: 'Projected balance from recurring bills and income.',                  chart: 'forecast',   status: 'live' },
       ],
@@ -385,6 +385,9 @@ function renderMockCharts() {
 
   // v.183 — #26.1.2 is LIVE: calendar heatmap of daily spending.
   renderCalendarHeatmap();
+
+  // v.183 — #26.1.3 is LIVE: top-vendor treemap.
+  renderVendorTreemap();
 }
 
 function mockSankeySvg() {
@@ -681,6 +684,110 @@ function calendarHeatmapSvg(year, days, maxSpent, totalSpent) {
   </svg>`;
 }
 
+// ── #26.1.3 Where you shop most (vendor treemap) — LIVE (v.183) ─
+// Wires the locked #26.1.3 chart to /finance/reports/top-vendors.
+// Simplified squarify: top vendors laid out in 3 rows of decreasing
+// height (50%/30%/20%), widths within each row proportional to spend.
+// "(N more)" lumps the long tail at the end. Click any tile → drill-
+// down into that vendor's transactions for the year.
+async function renderVendorTreemap() {
+  const el = document.getElementById('canvas-c113');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px">Loading vendors…</div>';
+  try {
+    const year = new Date().getFullYear();
+    const d = await window.api('GET', `/finance/reports/top-vendors?year=${year}&limit=50`);
+    const vendors = (d && Array.isArray(d.vendors)) ? d.vendors : [];
+    if (!vendors.length) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">No spending recorded this year yet.</div>';
+      return;
+    }
+    el.innerHTML = vendorTreemapSvg(vendors, d.total_spent || 0);
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">Could not load the vendor breakdown right now.</div>';
+  }
+}
+
+// Build the treemap SVG. Three-row layout with decreasing height
+// (heuristic: top vendors deserve more area). Within a row, each
+// box's width is its share of that row's total spend. Labels render
+// inside each box when it's wide enough to fit; otherwise just the
+// SVG <title> tooltip is shown.
+function vendorTreemapSvg(vendors, totalSpent) {
+  const W = 400, H = 180;
+  const pad = { l: 4, r: 4, t: 4, b: 20 };
+  const innerW = W - pad.l - pad.r;
+  const innerH = H - pad.t - pad.b;
+
+  // Take the top N; lump the rest as "(K more)". 12 fits cleanly in
+  // 3 rows of 3/4/5.
+  const N_VISIBLE = 12;
+  const visible = vendors.slice(0, N_VISIBLE).slice();
+  if (vendors.length > N_VISIBLE) {
+    const tail = vendors.slice(N_VISIBLE);
+    const otherSpent = tail.reduce((s, v) => s + (v.spent || 0), 0);
+    visible.push({
+      vendor:   `(${tail.length} more)`,
+      spent:    otherSpent,
+      tx_count: tail.reduce((s, v) => s + (v.tx_count || 0), 0),
+      isOther:  true,
+    });
+  }
+
+  // Row distribution and per-row height shares
+  const rowSizes        = [3, 4, 5];
+  const rowHeightShares = [0.50, 0.30, 0.20];
+  const palette = ['#5c72fa', '#7c3aed', '#ec4899', '#b91c1c', '#d97706', '#15803d', '#0891b2', '#475569'];
+
+  // Stable hash → palette index. Same vendor name → same color across
+  // page renders.
+  function hashHue(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h) % palette.length;
+  }
+
+  const boxes = [];
+  let yOffset = pad.t;
+  let i = 0;
+  for (let r = 0; r < rowSizes.length && i < visible.length; r++) {
+    const row = visible.slice(i, Math.min(i + rowSizes[r], visible.length));
+    i += row.length;
+    const rowH     = innerH * rowHeightShares[r];
+    const rowTotal = row.reduce((s, v) => s + (v.spent || 0), 0) || 1;
+    let xOffset = pad.l;
+    for (const v of row) {
+      const w = innerW * ((v.spent || 0) / rowTotal);
+      const color = v.isOther ? '#94a3b8' : palette[hashHue(v.vendor || '')];
+      const safeName = esc(v.vendor || '(no description)');
+      const tooltip  = `${safeName} · $${(v.spent || 0).toLocaleString()} (${v.tx_count} charge${v.tx_count === 1 ? '' : 's'})`;
+      const click = v.isOther
+        ? ''
+        : ` onclick="openDrillDown('vendor', '${safeName.replace(/'/g, '&#39;')}')"`;
+      const cursor   = v.isOther ? 'default' : 'pointer';
+      const showLabel = w > 50 && rowH > 18;
+      const labelText = showLabel
+        ? `<text x="${(xOffset + 4).toFixed(1)}" y="${(yOffset + 14).toFixed(1)}" font-size="10" font-family="monospace" fill="#fff" font-weight="600" pointer-events="none">${safeName.length > 22 ? safeName.slice(0, 21) + '…' : safeName}</text>
+           <text x="${(xOffset + 4).toFixed(1)}" y="${(yOffset + 26).toFixed(1)}" font-size="9" font-family="monospace" fill="#fff" opacity="0.85" pointer-events="none">$${(v.spent || 0).toLocaleString()}</text>`
+        : '';
+      boxes.push(`<g${click} style="cursor:${cursor}">
+        <rect x="${xOffset.toFixed(1)}" y="${yOffset.toFixed(1)}" width="${w.toFixed(1)}" height="${rowH.toFixed(1)}" fill="${color}" stroke="#fff" stroke-width="1" rx="2" opacity="${v.isOther ? 0.55 : 0.88}"/>
+        <title>${tooltip}</title>
+        ${labelText}
+      </g>`);
+      xOffset += w;
+    }
+    yOffset += rowH;
+  }
+
+  const summary = `<text x="${pad.l}" y="${H - 6}" font-size="10" font-family="monospace" fill="#666">${vendors.length} vendor${vendors.length === 1 ? '' : 's'} · top ${Math.min(vendors.length, N_VISIBLE)} shown · total $${totalSpent.toLocaleString()}</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
+    ${boxes.join('')}
+    ${summary}
+  </svg>`;
+}
+
 // ── Chart drill-down (v.183) ──────────────────────────────────
 // Generic right-pane drill-down handler shared by chart cards. Kind
 // dispatches to the right endpoint; key carries the slice identifier
@@ -702,6 +809,17 @@ async function openDrillDown(kind, key) {
         `Charges on ${date}`,
         `${d.transactions.length} transaction${d.transactions.length === 1 ? '' : 's'} · ${fmtMoney(d.total_spent)} spent`
           + (d.total_income > 0 ? ` · ${fmtMoney(d.total_income)} in` : ''),
+        d.transactions
+      );
+      return;
+    }
+    if (kind === 'vendor') {
+      const vendor = key;
+      const year   = new Date().getFullYear();
+      const d = await window.api('GET', `/finance/reports/txns-by-vendor?vendor=${encodeURIComponent(vendor)}&year=${year}`);
+      pane.innerHTML = renderDrillDown(
+        vendor,
+        `${d.transactions.length} transaction${d.transactions.length === 1 ? '' : 's'} in ${year} · ${fmtMoney(d.total_spent)} spent`,
         d.transactions
       );
       return;
