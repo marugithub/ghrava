@@ -69,6 +69,134 @@ principles.
 
 ---
 
+## ✅ v.181 SHIPPED — Medical closed-loop completion (sandbox, 2026-05-20)
+
+> **In sandbox, awaiting `package` from Al.** Local commits `f62bec1 →
+> f6873f4 → d185258 → 74576fe → <task-5>`. Two new migrations (144 +
+> 145), additive only, no CASCADE. Schema validator host-side gates
+> fail on Windows (Unicode + tempfile quirks per `gates-linux-only`
+> lock); real gate runs at package time on Linux.
+
+**Theme.** Make Medical capture-complete and bridge with Finance
+automatically. Closes the two HIGH-priority Medical schema gaps from
+BACKLOG.md, wires the last missing auto-link trigger, and ships a
+backfill CLI for transactions that landed before the v.167/v.181
+triggers existed.
+
+### What's in this drop (5 tasks, 1 commit each)
+
+1. **`med_immunizations` table + routes + Lens** (`f62bec1`).
+   Mig 144 — 11 cols, 3 indexes, idempotent. `family_member_id NOT
+   NULL`, no CASCADE, `ON DELETE SET NULL` on the `administered_by`
+   contact FK. Endpoints: `GET /api/v1/medical/immunizations` (public
+   per AUTH-OPEN-GET) + `POST` (`requireAuth`). `medical_immunizations`
+   Lens entry: person, vaccine, location, time, due.
+
+2. **`med_procedures` table + routes + Lens** (`f6873f4`).
+   Mig 145 — 11 cols, 3 indexes, idempotent. `procedure_date` nullable
+   (planned-but-not-yet-scheduled), `status DEFAULT 'planned'`, FK to
+   `med_conditions(related_condition_id) ON DELETE SET NULL`.
+   Endpoints + Lens entry mirror the immunizations shape.
+
+3. **Category-change auto-link trigger + JSDoc fix** (`d185258`).
+   `PUT /api/v1/finance/transactions/:id` now fires `autoLinkHsa` +
+   `autoLinkMedicalVisit` after UPDATE when the category *changed*
+   AND new value is `medical` (case-insensitive). Best-effort try/
+   catch; both linkers are idempotent via `ON CONFLICT DO NOTHING` in
+   `record_links`. **Audit correction:** the import-path trigger was
+   ALREADY wired in v.167 (`finance/routes.js:1245-1250`). The v.181
+   audit's "auto-link triggers not invoked" was 50% wrong — only the
+   category-change path was missing. Also fixed the stale JSDoc
+   header on `auto-link-medical-visit.js` that claimed
+   `type='medical_provider'` while the SQL on line 33 used
+   `contact_type='Medical'` (false-alarm audit flag — producer at
+   `seed-routes.js:69` and consumer agreed on `'Medical'`).
+
+4. **Backfill CLI `relink-medical-historical.js`** (`74576fe`).
+   Direct-DB walker (not HTTP), pages `t.id ASC` in batches of 500.
+   For each row calls both linkers — idempotent, safe to re-run.
+   Flags: `--account-id N`, `--since YYYY-MM-DD`, `--batch N`,
+   `--verbose`. Output: per-batch progress + final tally + elapsed.
+   Documented side-effect: the HSA linker creates new `hsa_payments`
+   rows when a charge lands on an HSA account with no matching
+   payment (same as the v.167 import-time behavior). help.html
+   COMMANDS gains the click-to-copy entry per the locked v.166 rule.
+
+5. **Docs + version bump + schema-safety gate.** This block;
+   BACKLOG.md moves for immunizations + procedures; ROADMAP.md
+   v.180-medical checkboxes ticked; `app/version.txt → 202604.181`.
+
+### Step 1.0 finding — M-tile audit (per user default #3)
+
+Read `_templates.html #25 medical-tiles`. M1–M6 (#25.1 Active
+Conditions, #25.2 Active Medications, #25.3 Upcoming Visits, #25.4
+EOB Your-Share, #25.5 Recent Vitals, #25.6 Family Snapshot) — none
+are mixed-purpose. The template itself anticipates Immunizations as
+a future **#25.7** tile (line 2241: *"To extend (e.g. add
+Immunizations tile #25.7), follow this same pattern."*). Therefore
+the `/summary` endpoint at `medical/routes.js:1023` was NOT touched
+in this drop — adding immunizations/procedures tiles is a separate
+small UI drop. Captured as a future item in BACKLOG.
+
+### Audit corrections recorded for future sessions
+
+The 2026-05-20 four-module audit had two findings about Medical that
+turned out to be wrong on closer inspection:
+
+1. **"Auto-link triggers not invoked on import-confirm"** — half-
+   wrong. Import-path was wired in v.167 (`finance/routes.js:1245-
+   1250`). Only the category-change path was missing. v.181 closes
+   that.
+2. **"Contact-type mismatch: linker uses `'Medical'`, seed uses
+   `'medical_provider'`"** — false alarm. Both producer
+   (`seed-routes.js:69`) and consumer (`auto-link-medical-visit.js:
+   33`) use `'Medical'` (capital M). LOCKED.md SHARED-CON doesn't
+   dictate the literal value; the audit agent guessed.
+
+Recording these so the next session reading the audit doesn't re-
+investigate.
+
+### Expected post-deploy verification
+
+Smoke 8/8. E2E baseline `115/0` (post-v.180); v.181 adds neither
+tests nor frontend pages, so 115/0 should hold unchanged — no
+regressions expected because all five surfaces are net-new (two new
+tables with no existing readers, one tiny PUT-handler addition, one
+CLI). On the Linux container at package time: `bash gates.sh`
+should pass clean (the host-side validator failures here are
+Windows quirks per the `gates-linux-only` lock).
+
+Post-deploy smoke commands:
+```
+docker logs ghrava --tail 50 | grep -i "FAILED .*\\.js:"   # must be empty
+curl -s http://localhost:3001/api/v1/medical/immunizations  # returns []
+curl -s http://localhost:3001/api/v1/medical/procedures     # returns []
+```
+
+After deploy + verification, a separate commit will flip this
+header to `DEPLOYED & VERIFIED` with timestamp + actual E2E count.
+
+### What v.181 deliberately does NOT do
+
+- Immunizations / procedures tiles (#25.7 / #25.8) — separate small
+  UI drop. M1–M6 unchanged.
+- HSA-YTD on medication card — still blocked on Al's product
+  decision (BACKLOG carried-forward item **(b)**). Becomes part of
+  the decision-gated v.184 (in ROADMAP).
+- Universal Attachments (#28), Pending Items list view, Reports
+  Group 1 — all queued in ROADMAP for later drops.
+
+### ROADMAP version-label note
+
+The user picked plain `v.181` for this drop without renumbering
+ROADMAP.md. ROADMAP labels for subsequent drops are now off-by-one
+(its `v.180-medical` block IS this drop; its `v.181-finance` block
+is the next, etc.). Flagged in the v.181 task-5 commit body. Future
+sessions: read ROADMAP.md by theme, not by version label, until Al
+explicitly renumbers.
+
+---
+
 ## ✅ v.180 DEPLOYED & VERIFIED — Kids pencil open-time: 3s → ~1s (2026-05-20)
 
 > **DEPLOYED 2026-05-20 ~10:31. Smoke 8/8, full E2E 115 pass / 0 fail.**

@@ -1,5 +1,33 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### ✅ SHIPPED in v.181 — Medical closed-loop completion (sandbox, awaiting package)
+5-task drop that closes the two HIGH-priority Medical schema gaps
+(immunizations + procedures), wires the missing category-change auto-
+link trigger, and ships a backfill CLI for pre-trigger transactions.
+Details in STATE.md v.181 block. Highlights:
+- **mig 144 + 145** — `med_immunizations` (11 cols) + `med_procedures`
+  (11 cols). Additive, no CASCADE. Both register `personPrimary:true`
+  Lens entries per the v.166 rule.
+- **Category-change trigger** wired in `PUT /api/v1/finance/
+  transactions/:id` — fires `autoLinkHsa` + `autoLinkMedicalVisit`
+  when category changes TO `medical`. Best-effort, idempotent.
+- **Audit correction recorded:** the import-path trigger was ALREADY
+  wired in v.167 (`finance/routes.js:1245-1250`). v.181 audit was
+  50% wrong about which path was missing.
+- **Audit correction recorded:** the "contact_type mismatch" flag
+  was a false alarm — both producer (`seed-routes.js:69`) and
+  consumer (`auto-link-medical-visit.js:33`) use `'Medical'` (capital
+  M). Only stale JSDoc header needed updating.
+- **Backfill CLI** `relink-medical-historical.js` walks every existing
+  transaction. Idempotent via `ON CONFLICT DO NOTHING`. Documented
+  side-effect: HSA linker creates new `hsa_payments` rows when a
+  charge lands on an HSA account with no matching payment (matches
+  v.167 import-time behavior).
+- **M-tile audit (Step 1.0):** M1–M6 has no slot for immunizations
+  or procedures. The template anticipates `#25.7` as future. `/
+  summary` endpoint NOT touched; tile drop deferred to a later UI-
+  only drop.
+
 ### ✅ SHIPPED in v.180 — Kids pencil open-time: 3s → ~1s
 Speed fix to the v.179 overlay, **DEPLOYED & VERIFIED 2026-05-20
 (E2E 115/0; Al confirmed "much better" on his device)**. Al timed the
@@ -355,11 +383,9 @@ docker exec ghrava node -e "require('/app/db/db').exec('DROP TABLE hsa_plan_info
 
 > Each item names: **what** + **why** + **estimated effort** + **dependencies**.
 
-### Auto-link transaction → medical_visit
+### Auto-link transaction → medical_visit  ✅ FULLY WIRED v.181
 - **What:** when an imported transaction's account is HSA OR category=medical OR vendor matches a care_team contact name, auto-create a `record_links` row connecting `transaction` → `medical_visit` (or `medical_visit` → `hsa_payment`).
-- **Why:** today HSA card swipes appear in Finance but don't show as visit-related in Medical. EOB matching loses the financial half. Reports can't trace cost-per-condition.
-- **Effort:** medium (~200 lines). Logic in `auto-link-medical.js` parallel to `auto-link-subscriptions.js`. Run on import-confirm. Backfill script for existing transactions.
-- **Depends on:** care_team contacts having reliable name spellings. Mig 131 added the columns; needs data.
+- **Status:** Logic shipped v.167 (`shared/auto-link-medical-visit.js`). Import-path trigger ALSO shipped v.167 (`finance/routes.js:1245-1250`). v.181 added the category-change trigger (`PUT /transactions/:id`) + backfill CLI (`app/scripts/relink-medical-historical.js`). Closed.
 
 ### Auto-link transaction → hsa_payment
 - **What:** HSA card swipe ($75 at CVS) → creates hsa_payment row automatically when imported transaction's account_type='HSA'.
@@ -453,8 +479,8 @@ These weren't in the seed JSON but Al needs them eventually.
 
 | Gap | Why | Effort | Priority |
 |---|---|---|---|
-| `med_immunizations` table | Flu/COVID/tetanus boosters, childhood vaccines. Needed for travel, school, employer. Critical record. | small (~80 lines) | **high** |
-| `med_procedures` table | Surgeries, colonoscopies, mammograms. Distinct from visits (one-time, often elective, scheduled in advance). | small | **high** |
+| ✅ **SHIPPED v.181** — `med_immunizations` table | Flu/COVID/tetanus boosters, childhood vaccines. mig 144, 11 cols, GET+POST endpoints, Lens registered. Tile #25.7 deferred to a future UI-only drop. | small | done |
+| ✅ **SHIPPED v.181** — `med_procedures` table | Surgeries, colonoscopies, mammograms, cardiac catheterizations. mig 145, 11 cols (`procedure_date` nullable for planned-but-undated), GET+POST endpoints, Lens registered. Tile #25.8 deferred. | small | done |
 | `med_family_history` table | Mom's heart disease, dad's diabetes. Affects risk assessment + screening recommendations. | small | medium |
 | `med_referrals` table | Active/pending/completed referrals, auth #, expiry date. Drives "you still owe a specialist visit." | medium | medium |
 | `med_care_plans` table | Per-condition care plans + goals (BP target <130/80, A1C target <7.0). Used in Today/Discussion views. | medium | medium |
