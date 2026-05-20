@@ -1,5 +1,14 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### 🚧 v.180 BUILT — Kids pencil open-time: 3s → ~1s
+Speed fix to the v.179 overlay (Al timed the open at ~3s; root caused
+to a 0.4s hardcoded wait + a wasteful whole-roster fetch + a serial
+in-iframe single-record fetch). Three commits remove the wait, skip
+the roster fetch, and add a parent-prefetch handshake so the iframe
+gets the record handed to it on open. No schema change. Expected ~1s
+open (instant when the GH_AVATAR cache hits, which is the common
+path). Details in STATE.md v.180 block. Built locally; deploy pending.
+
 ### ✅ SHIPPED in v.179 — Kids pencil overlay (UX follow-up to v.178)
 Single-purpose UX fix, **DEPLOYED & VERIFIED 2026-05-19 (E2E 114/0)**.
 The v.178 pencil navigated to Settings (slow + left user stranded).
@@ -645,4 +654,4 @@ These came up repeatedly and got locked but should not be relitigated:
 
 ---
 
-*Last updated: v202604.179 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*
+*Last updated: v202604.180 sandbox. Update this file at the end of every chat. Bundled in every deploy zip.*

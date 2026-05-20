@@ -760,6 +760,47 @@ test.describe('API Contract', () => {
     await expect(overlay, 'overlay closes on ghravaCancelled signal').toHaveCount(0, { timeout: 2000 });
   });
 
+  // v202604.180 — Pre-warm handshake: the iframe must post
+  // {ghravaReady:'family',id} on open, the parent must receive it and
+  // hand back a prefetched record, and the form fields must populate
+  // end-to-end (proving the race resolved and openFamilyDrawer ran).
+  test('Kids pencil prefetch handshake populates form quickly (v.180)', async ({ page }) => {
+    await page.addInitScript(() => {
+      try { localStorage.setItem('gh_device_family_scope_dismissed', '1'); } catch (e) {}
+      // Capture postMessages observable on the parent window so we can
+      // prove the iframe sent ghravaReady. (The parent's reply is posted
+      // TO the iframe, not the parent — see end-to-end assertion below.)
+      window._ghMsgs = [];
+      window.addEventListener('message', e => {
+        if (e.data && (e.data.ghravaReady || e.data.ghravaSaved || e.data.ghravaCancelled)) {
+          window._ghMsgs.push(e.data);
+        }
+      });
+    });
+    await page.goto(BASE + '/kids.html', { waitUntil: 'load' });
+    await page.waitForTimeout(1600);
+
+    const activePencil = page.locator('.kid-tab.active .kid-edit-pencil').first();
+    if (await activePencil.count() === 0) return; // no family-linked kid — skip
+    await activePencil.click();
+    await expect(page.locator('#gh-refs-overlay'), 'overlay mounts').toBeVisible({ timeout: 3000 });
+
+    // The iframe sends ghravaReady once parsed; parent listener captures it.
+    await expect.poll(
+      async () => await page.evaluate(() => (window._ghMsgs || []).some(m => m.ghravaReady === 'family')),
+      { timeout: 6000, message: 'iframe must post ghravaReady on open' }
+    ).toBe(true);
+
+    // End-to-end: the form name field is populated (the record won the
+    // race — either via parent prefetch or local fetch — and
+    // openFamilyDrawer ran). Generous timeout since the iframe has to
+    // load settings.html; the assertion is correctness, not perf.
+    const iframe = page.frameLocator('#gh-refs-overlay iframe');
+    await expect(iframe.locator('#fm_display_name'), 'edit form populates').toHaveValue(/.+/, { timeout: 8000 });
+
+    await page.evaluate(() => window.postMessage({ ghravaCancelled: 'family' }, '*'));
+  });
+
   test('GET /finance/transactions/unified returns transactions and summary', async ({ request }) => {
     const r = await request.get(`${API}/finance/transactions/unified`);
     expect(r.ok()).toBe(true);

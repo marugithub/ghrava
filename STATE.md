@@ -69,6 +69,52 @@ principles.
 
 ---
 
+## 🚧 v.180 BUILT — Kids pencil open-time: 3s → ~1s (2026-05-20)
+
+> Built, committed locally task-by-task, **not yet deployed**. UX
+> speed fix to the v.179 overlay. No schema change.
+
+Al timed the v.179 pencil at ~3s from click to fields visible. Root
+cause was a stack of waits inside the iframe path:
+1. A hardcoded 0.4s `setTimeout` waiting for "panels to settle" — but
+   in drawer-only mode there are no panels to settle on.
+2. `loadFamily()` fetching the whole roster to populate `_familyCache`
+   so `editFamily()` could cache-hit — wasted I/O when we only need
+   one record.
+3. The iframe doing its own fetch of the single record *after*
+   settings.html had finished parsing — pure sequential wait when the
+   parent had idle time to prefetch.
+
+**Three commits attack the stack:**
+1. **`settings.html`** drawer-mode rewrites the `?drawer=family&id=`
+   branch: defers to `DOMContentLoaded` instead of a fixed 400ms wait,
+   skips `loadFamily()` entirely, and races a parent-supplied
+   prefetched record (postMessage `ghravaPrefetchedMember`) against a
+   local single-record fetch — whichever resolves first opens the
+   drawer.
+2. **`lt-refs.js`** `_openSettingsDrawer({prefetch})` accepts a Promise.
+   When the iframe posts `{ghravaReady:<drawerType>}` the parent
+   resolves the promise and posts the record back as
+   `{ghravaPrefetchedMember, drawer}`.
+3. **`kids.html`** `editKidProfile()` starts resolving the
+   `family_members` record on click — `GH_AVATAR.getCached(fmId)`
+   first (synchronous, zero network — already populated for the kid's
+   avatar), falling back to `window.api('GET','/settings/family/<id>')`
+   in parallel with the overlay mount.
+
+**ghrava-e2e** gains a v.180 test: pencil click sends `ghravaReady` on
+the parent listener, the iframe's `#fm_display_name` populates within
+the generous 8s timeout (correctness, not perf).
+
+### Expected post-deploy
+Smoke 8/8. E2E: prior 114 + 1 new = 115, 0 failures. Manual smoke:
+open Kids, click the pencil — fields should appear in ~1s (down from
+~3s), often instant if `GH_AVATAR` already cached the member (the
+common path). The remaining ~1s is settings.html parsing inside the
+iframe — structural; would need a Settings split to attack further.
+
+---
+
 ## ✅ v.179 DEPLOYED & VERIFIED — Kids pencil opens edit form as on-top overlay (2026-05-19)
 
 > **DEPLOYED 2026-05-19 ~16:51. Smoke 8/8, full E2E 114 pass / 0 fail.**
