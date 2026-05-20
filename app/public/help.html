@@ -241,6 +241,12 @@ const COMMANDS = [
     tags: ['v.166', 'medical', 'seed'],
   },
   {
+    title: 'Backfill medical auto-links (HSA + visits)',
+    cmd: 'docker exec -it ghrava node /app/scripts/relink-medical-historical.js',
+    desc: 'Walk every existing transaction and re-run the HSA + medical-visit auto-linkers (#27.1 + #27.2). Catches every charge that landed BEFORE v.167/v.181 wired the live triggers. Safe to re-run — already-linked rows are skipped via ON CONFLICT DO NOTHING. Add --account-id N to scope to one account, --since YYYY-MM-DD to limit by date, --verbose to log per-txn errors.',
+    tags: ['v.181', 'medical', 'backfill', 'auto-link'],
+  },
+  {
     title: 'Container restart (apply code changes)',
     cmd: 'docker restart ghrava',
     desc: 'Apply Node code changes after a deploy. Takes ~2s. Auto-runs any pending DB migrations. Use this for almost every deploy — only use --build if package.json changed.',
