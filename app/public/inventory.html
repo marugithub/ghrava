@@ -764,7 +764,12 @@
     <div class="stat-lbl">Containers</div>
   </div>
   <div class="stat-card">
-    <div class="stat-num" id="stValue">—</div>
+    <!-- v.182 — Est. Value is the derived inventory aggregate. Wrap
+         with .gh-pending-target so GhAsterisk.scan() injects a colored *
+         when imported transactions look like purchases that could be
+         linked to existing inventory items. Inner span keeps the id
+         so the existing textContent update doesn't wipe the host. -->
+    <div class="stat-num gh-pending-target" data-card="inventory"><span id="stValue">—</span><span class="gh-pending-host"></span></div>
     <div class="stat-lbl">Est. Value</div>
     <div class="stat-val" id="stArchived"></div>
   </div>
@@ -1372,6 +1377,8 @@
 <!-- v202604.126 — The Lens (replaces GH_VIEW filter drawer) -->
 <script src="/js/lens-config.js"></script>
 <script src="/js/gh-lens.js"></script>
+<!-- v.182 — pending-items asterisk scanner for the stats bar -->
+<script src="/js/pending-report.js"></script>
 <script>
 AttachmentManager.injectStyles();
 window.addEventListener('att:uploaded', () => { loadStats(); renderBrowse(); });
@@ -1793,6 +1800,9 @@ async function loadStats() {
       sv.textContent = v >= 1000 ? `$${(v/1000).toFixed(1)}k` : `$${Math.round(v)}`;
     }
     if (sa) sa.textContent = d.archived > 0 ? `+${d.archived} archived` : '';
+    // v.182 — light up the pending-items asterisk on Est. Value when
+    // the backend probe finds purchases that look like inventory items.
+    if (window.GhAsterisk) GhAsterisk.scan();
   } catch(e) { console.warn('loadStats failed', e); }
 }
 
