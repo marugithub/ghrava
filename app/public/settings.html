@@ -2413,11 +2413,52 @@ async function syncGoogleContactsNow() {
     // ?drawer=family            → Add form (GH_REFS "+ add" flows)
     // ?drawer=family&id=<id>    → Edit that member (Kids avatar pencil)
     const fid = parseInt(params.get('id'), 10);
-    setTimeout(() => {
-      loadFamily();
-      if (fid) { editFamily(fid); }            // editFamily fetches on cache miss
-      else     { $('familyDrawer').classList.add('open'); }
-    }, 400);
+
+    // v.180: open as fast as the document is ready — no fixed setTimeout.
+    // For the edit path, race a parent-supplied prefetched record (sent
+    // via postMessage in response to our ghravaReady signal) against a
+    // local single-record fetch. Whichever resolves first opens the
+    // drawer. Skips loadFamily entirely (it pulled the whole roster).
+    const openNow = () => {
+      if (!fid) {
+        loadFamily();
+        $('familyDrawer').classList.add('open');
+        return;
+      }
+
+      let resolved = false;
+      const winWith = (member) => {
+        if (resolved || !member) return;
+        resolved = true;
+        window.removeEventListener('message', onPrefetch);
+        openFamilyDrawer(member);
+      };
+      function onPrefetch(e) {
+        if (e.data?.ghravaPrefetchedMember
+            && e.data.drawer === 'family'
+            && e.data.ghravaPrefetchedMember.id === fid) {
+          winWith(e.data.ghravaPrefetchedMember);
+        }
+      }
+      window.addEventListener('message', onPrefetch);
+
+      // Tell parent we're ready for the prefetched record (if it has one).
+      if (window.parent !== window) {
+        window.parent.postMessage({ ghravaReady: 'family', id: fid }, '*');
+      }
+
+      // Channel 2: local single-record fetch in parallel. Whichever
+      // wins, the other is a no-op.
+      window.api('GET', `/settings/family/${fid}`).then(winWith).catch(err => {
+        if (!resolved) toast('Could not load member: ' + err.message, 'err');
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', openNow, { once: true });
+    } else {
+      openNow();
+    }
   }
 })();
 
