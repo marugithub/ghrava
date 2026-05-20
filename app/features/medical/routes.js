@@ -1171,6 +1171,58 @@ router.get('/vitals', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// ════════════════════════════════════════════════════════════════════
+//  IMMUNIZATIONS — v202604.181 (mig 144)
+//
+//  Vaccine records: flu, COVID, tetanus boosters, childhood vaccines.
+//  Distinct from med_visit_notes (pharmacy-administered shots have no
+//  visit) and med_medications (one-time administrations, not ongoing).
+//  GET is public per AUTH-OPEN-GET; POST requires session.
+// ════════════════════════════════════════════════════════════════════
+
+router.get('/immunizations', (req, res) => {
+  try {
+    const { sql, params } = _filterByFm(req);
+    const limit = Math.min(500, parseInt(req.query.limit || '500', 10));
+    // schema: med_immunizations.{id, family_member_id, vaccine_name, date_given,
+    //   dose_number, lot_number, administered_by_contact_id, location_text,
+    //   next_due_date, notes, created_at, updated_at}
+    // Order: upcoming due dates first (booster reminders), then most-recent shots.
+    const rows = db.prepare(
+      `SELECT * FROM med_immunizations${sql}
+       ORDER BY (next_due_date IS NULL), next_due_date ASC, date_given DESC, id DESC
+       LIMIT ${limit}`
+    ).all(...params);
+    res.json(rows);
+  } catch (e) { serverError(res, e); }
+});
+
+router.post('/immunizations', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    if (!d.family_member_id) return badRequest(res, 'family_member_id required');
+    if (!d.vaccine_name)     return badRequest(res, 'vaccine_name required');
+    if (!d.date_given)       return badRequest(res, 'date_given required');
+
+    // schema: med_immunizations insert — all 9 user-settable fields.
+    // created_at / updated_at default to CURRENT_TIMESTAMP at the table level.
+    const info = db.prepare(`
+      INSERT INTO med_immunizations (
+        family_member_id, vaccine_name, date_given, dose_number, lot_number,
+        administered_by_contact_id, location_text, next_due_date, notes
+      ) VALUES (?,?,?,?,?,?,?,?,?)
+    `).run(
+      parseInt(d.family_member_id), d.vaccine_name, d.date_given,
+      d.dose_number != null ? parseInt(d.dose_number) : null,
+      d.lot_number || null,
+      d.administered_by_contact_id != null ? parseInt(d.administered_by_contact_id) : null,
+      d.location_text || null, d.next_due_date || null, d.notes || null
+    );
+    const row = db.prepare('SELECT * FROM med_immunizations WHERE id=?').get(info.lastInsertRowid);
+    res.status(201).json(row);
+  } catch (e) { serverError(res, e); }
+});
+
 module.exports = router;
 
 // ══════════════════════════════════════════════════════════════

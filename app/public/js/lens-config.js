@@ -371,6 +371,22 @@
       },
     },
 
+    // v202604.181 — Immunizations (new — mig 144). Vaccine records:
+    // flu/COVID/tetanus boosters + childhood vaccines. dose_number /
+    // lot_number / notes are long-tail (covered by global search).
+    medical_immunizations: {
+      label: 'Immunizations',
+      plural: 'shots',
+      personPrimary: true,
+      dimensions: {
+        person:    { verb: 'for', field: 'family_member_id' },
+        vaccine:   { type: 'text', verb: 'named', field: 'vaccine_name' },
+        location:  { type: 'text', verb: 'at', field: 'location_text' },
+        time:      { verb: 'given', field: 'date_given' },
+        due:       { verb: 'next due', field: 'next_due_date' },
+      },
+    },
+
     // v202604.167 — Cross-module record_links (auto-linker outputs).
     // Lens lets Al filter the "Needs review" surface by confidence,
     // source linker, or kind.
