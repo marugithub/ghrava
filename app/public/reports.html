@@ -300,7 +300,7 @@ function renderChartsPreview() {
       title: 'Money & spending',
       sub: 'Where money came from, where it went, what is coming up',
       cards: [
-        { id: 'c111', num: '#26.1.1', title: 'Where money goes each month',     sub: 'Income → category ribbons. Click a ribbon to see the transactions.',    chart: 'sankey',     status: 'mock' },
+        { id: 'c111', num: '#26.1.1', title: 'Where money goes each month',     sub: 'Income → category ribbons. Click a ribbon to see the transactions.',    chart: 'sankey',     status: 'live' },
         { id: 'c112', num: '#26.1.2', title: 'Busiest spending days',           sub: 'Calendar heatmap. Click a day for all transactions.',                  chart: 'calendar',   status: 'live' },
         { id: 'c113', num: '#26.1.3', title: 'Where you shop most',             sub: 'Treemap of vendors by annual spend. Click a tile for vendor history.', chart: 'treemap',    status: 'live' },
         { id: 'c114', num: '#26.1.4', title: 'What you spend on, month by month', sub: 'Small-multiples: one mini line chart per category, side by side.',   chart: 'stub',       status: 'mock', stubLabel: 'Small-multiples mockup pending' },
@@ -372,9 +372,8 @@ function renderChartsPreview() {
 }
 
 function renderMockCharts() {
-  // Mockup #1: Sankey (income → categories) — static demo data
-  const sankey = document.getElementById('canvas-c111');
-  if (sankey) sankey.innerHTML = mockSankeySvg();
+  // v.185 — #26.1.1 is LIVE: income → category Sankey.
+  renderSankey();
 
   // Mockup #2: BP line over time with healthy zone shaded
   const bp = document.getElementById('canvas-c221');
@@ -390,40 +389,174 @@ function renderMockCharts() {
   renderVendorTreemap();
 }
 
-function mockSankeySvg() {
-  // Simple two-column sankey approximation: income on left, categories on right
-  return `
-    <svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">
-      <!-- left node: paycheck -->
-      <rect x="20" y="20" width="14" height="140" fill="#5c72fa" rx="2"/>
-      <text x="42" y="36" font-size="10" font-family="monospace" fill="#666">Paycheck</text>
-      <text x="42" y="48" font-size="9" font-family="monospace" fill="#999">$6,400 / mo</text>
+// ── #26.1.1 Where money goes each month (Sankey) — LIVE (v.185) ─
+// Wires the locked #26.1.1 chart to /finance/reports/income-by-
+// category-flow. Two-column ribbon layout: income categories stacked
+// left (amount > 0 rows), expense categories stacked right (amount <
+// 0 rows), ribbons drawn between every (i, j) pair with width =
+// (income[i].amount / total_income) × (expense[j].amount /
+// total_expense) × full_height. Both sides fill the full chart
+// height — the visual is proportional, not a true paired join,
+// because finance_transactions rows aren't linked income→expense.
+// Click an income or expense node → drill into that side+category
+// for the year. Click a ribbon → drill into the destination expense
+// category (the "where the money went" side).
+async function renderSankey() {
+  const el = document.getElementById('canvas-c111');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px">Loading flow…</div>';
+  try {
+    const year = new Date().getFullYear();
+    const d = await window.api('GET', `/finance/reports/income-by-category-flow?year=${year}`);
+    const income  = (d && Array.isArray(d.income))  ? d.income  : [];
+    const expense = (d && Array.isArray(d.expense)) ? d.expense : [];
+    if (!income.length || !expense.length) {
+      const msg = !income.length && !expense.length
+        ? 'No transactions recorded this year yet.'
+        : !income.length
+          ? 'No income recorded this year yet.'
+          : 'No spending recorded this year yet.';
+      el.innerHTML = `<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">${msg}</div>`;
+      return;
+    }
+    el.innerHTML = sankeySvg(year, income, expense, d.total_income || 0, d.total_expense || 0);
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">Could not load the flow right now.</div>';
+  }
+}
 
-      <!-- right nodes: categories -->
-      <rect x="350" y="14"  width="14" height="32" fill="#15803d" rx="2"/>
-      <text x="304" y="32" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Rent · $1,800</text>
+// Build the Sankey SVG. Top-N per side (default 6) with "(K more)"
+// tail. Pixel layout: 14px wide bar on each side, the rest is ribbons.
+// Ribbon rendering: cubic bezier 4-corner ribbon (top edge bows from
+// income slice's top → expense slice's top, bottom edge bows back),
+// fill = expense-side color at low opacity, matches the locked mock-
+// up's style.
+function sankeySvg(year, income, expense, totalIncome, totalExpense) {
+  const W = 400, H = 180;
+  const pad = { l: 4, r: 4, t: 4, b: 18 };
+  const innerH = H - pad.t - pad.b;
 
-      <rect x="350" y="52"  width="14" height="26" fill="#b45309" rx="2"/>
-      <text x="304" y="68" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Groceries · $720</text>
+  const N_PER_SIDE = 6;
+  const palette = ['#5c72fa', '#7c3aed', '#ec4899', '#b91c1c', '#d97706', '#15803d', '#0891b2', '#475569'];
+  function hashHue(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h) % palette.length;
+  }
 
-      <rect x="350" y="84"  width="14" height="22" fill="#7c3aed" rx="2"/>
-      <text x="304" y="100" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Subscriptions · $310</text>
+  function topN(arr, total) {
+    if (arr.length <= N_PER_SIDE) return arr.slice();
+    const head = arr.slice(0, N_PER_SIDE - 1);
+    const tail = arr.slice(N_PER_SIDE - 1);
+    const otherAmt = tail.reduce((s, r) => s + (r.amount || 0), 0);
+    head.push({ category: `(${tail.length} more)`, amount: otherAmt, isOther: true });
+    return head;
+  }
 
-      <rect x="350" y="112" width="14" height="20" fill="#ec4899" rx="2"/>
-      <text x="304" y="128" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Medical · $260</text>
+  const incomeN  = topN(income,  totalIncome);
+  const expenseN = topN(expense, totalExpense);
+  const sumI = incomeN .reduce((s, r) => s + (r.amount || 0), 0) || 1;
+  const sumE = expenseN.reduce((s, r) => s + (r.amount || 0), 0) || 1;
 
-      <rect x="350" y="138" width="14" height="14" fill="#0891b2" rx="2"/>
-      <text x="304" y="152" font-size="9" font-family="monospace" fill="#666" text-anchor="end">Other · $180</text>
+  // Compute stacked y-positions for each side.
+  function stack(arr, total) {
+    let y = pad.t;
+    return arr.map(r => {
+      const h = innerH * ((r.amount || 0) / total);
+      const out = { ...r, y, h };
+      y += h;
+      return out;
+    });
+  }
+  const iNodes = stack(incomeN,  sumI);
+  const eNodes = stack(expenseN, sumE);
 
-      <!-- flow ribbons (cubic bezier paths) -->
-      <path d="M 34 30 C 180 30 200 30 350 30 L 350 46 C 200 46 180 90 34 90 Z" fill="#15803d" opacity="0.18"/>
-      <path d="M 34 90 C 180 90 200 65 350 65 L 350 78 C 200 78 180 110 34 110 Z" fill="#b45309" opacity="0.18"/>
-      <path d="M 34 110 C 180 110 200 95 350 95 L 350 106 C 200 106 180 130 34 130 Z" fill="#7c3aed" opacity="0.18"/>
-      <path d="M 34 130 C 180 130 200 123 350 123 L 350 132 C 200 132 180 148 34 148 Z" fill="#ec4899" opacity="0.18"/>
-      <path d="M 34 148 C 180 148 200 145 350 145 L 350 152 C 200 152 180 158 34 158 Z" fill="#0891b2" opacity="0.18"/>
+  // Bar geometry
+  const barW = 12;
+  const xI = pad.l + 90;          // income bar x — leave room for labels on left
+  const xE = W - pad.r - 90 - barW; // expense bar x — leave room for labels on right
 
-      <text x="200" y="172" font-size="9" font-family="monospace" fill="#bbb" text-anchor="middle">click a ribbon → transactions in that category</text>
-    </svg>`;
+  // Ribbons: for every (i, j) pair, draw a bezier from a sub-slice of
+  // i's right edge to a sub-slice of j's left edge. Track per-node
+  // y-offsets as we stack ribbons against each node.
+  const iCursor = iNodes.map(n => n.y);
+  const eCursor = eNodes.map(n => n.y);
+  const ribbons = [];
+  for (let i = 0; i < iNodes.length; i++) {
+    for (let j = 0; j < eNodes.length; j++) {
+      const inode = iNodes[i], enode = eNodes[j];
+      const flowH = innerH * ((inode.amount || 0) / sumI) * ((enode.amount || 0) / sumE);
+      if (flowH < 0.3) continue; // skip near-zero slivers
+      const iy0 = iCursor[i], iy1 = iy0 + flowH;
+      const ey0 = eCursor[j], ey1 = ey0 + flowH;
+      iCursor[i] += flowH;
+      eCursor[j] += flowH;
+      const color = enode.isOther ? '#94a3b8' : palette[hashHue(enode.category || '')];
+      const mx = (xI + barW + xE) / 2;
+      // 4-corner cubic bezier ribbon
+      const d = `M ${xI + barW} ${iy0.toFixed(1)} `
+              + `C ${mx} ${iy0.toFixed(1)}, ${mx} ${ey0.toFixed(1)}, ${xE} ${ey0.toFixed(1)} `
+              + `L ${xE} ${ey1.toFixed(1)} `
+              + `C ${mx} ${ey1.toFixed(1)}, ${mx} ${iy1.toFixed(1)}, ${xI + barW} ${iy1.toFixed(1)} Z`;
+      const safeSrc = esc(inode.category || '');
+      const safeDst = esc(enode.category || '');
+      const tooltip = `${safeSrc} → ${safeDst} · share $${((inode.amount || 0) * ((enode.amount || 0) / sumE)).toLocaleString(undefined,{maximumFractionDigits:0})}`;
+      const click = enode.isOther
+        ? ''
+        : ` onclick="openDrillDown('income-flow', 'expense::${safeDst.replace(/'/g, '&#39;')}')"`;
+      const cursor = enode.isOther ? 'default' : 'pointer';
+      ribbons.push(`<path d="${d}" fill="${color}" opacity="0.22"${click} style="cursor:${cursor}"><title>${tooltip}</title></path>`);
+    }
+  }
+
+  // Side bars + labels (rendered AFTER ribbons so they sit on top)
+  const incomeBars = iNodes.map(n => {
+    const color = n.isOther ? '#94a3b8' : palette[hashHue(n.category || '')];
+    const safe = esc(n.category || '');
+    const click = n.isOther
+      ? ''
+      : ` onclick="openDrillDown('income-flow','income::${safe.replace(/'/g, '&#39;')}')"`;
+    const cursor = n.isOther ? 'default' : 'pointer';
+    const showLabel = n.h > 10;
+    const labelY = n.y + Math.min(n.h - 2, 11);
+    const labelText = showLabel
+      ? `<text x="${(xI - 4).toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-family="monospace" fill="#666" text-anchor="end" pointer-events="none">${safe.length > 14 ? safe.slice(0, 13) + '…' : safe}</text>`
+      : '';
+    return `<g${click} style="cursor:${cursor}">
+      <rect x="${xI.toFixed(1)}" y="${n.y.toFixed(1)}" width="${barW}" height="${n.h.toFixed(1)}" rx="2" fill="${color}" opacity="${n.isOther ? 0.55 : 0.95}"/>
+      <title>${safe} · $${(n.amount || 0).toLocaleString()}</title>
+      ${labelText}
+    </g>`;
+  }).join('');
+
+  const expenseBars = eNodes.map(n => {
+    const color = n.isOther ? '#94a3b8' : palette[hashHue(n.category || '')];
+    const safe = esc(n.category || '');
+    const click = n.isOther
+      ? ''
+      : ` onclick="openDrillDown('income-flow','expense::${safe.replace(/'/g, '&#39;')}')"`;
+    const cursor = n.isOther ? 'default' : 'pointer';
+    const showLabel = n.h > 10;
+    const labelY = n.y + Math.min(n.h - 2, 11);
+    const labelText = showLabel
+      ? `<text x="${(xE + barW + 4).toFixed(1)}" y="${labelY.toFixed(1)}" font-size="9" font-family="monospace" fill="#666" pointer-events="none">${safe.length > 14 ? safe.slice(0, 13) + '…' : safe}</text>`
+      : '';
+    return `<g${click} style="cursor:${cursor}">
+      <rect x="${xE.toFixed(1)}" y="${n.y.toFixed(1)}" width="${barW}" height="${n.h.toFixed(1)}" rx="2" fill="${color}" opacity="${n.isOther ? 0.55 : 0.95}"/>
+      <title>${safe} · $${(n.amount || 0).toLocaleString()}</title>
+      ${labelText}
+    </g>`;
+  }).join('');
+
+  // Summary line
+  const summary = `<text x="${pad.l}" y="${H - 4}" font-size="10" font-family="monospace" fill="#666">${year} · income $${totalIncome.toLocaleString()} · spend $${totalExpense.toLocaleString()}</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
+    ${ribbons.join('')}
+    ${incomeBars}
+    ${expenseBars}
+    ${summary}
+  </svg>`;
 }
 
 function mockBpLineSvg() {
@@ -820,6 +953,26 @@ async function openDrillDown(kind, key) {
       pane.innerHTML = renderDrillDown(
         vendor,
         `${d.transactions.length} transaction${d.transactions.length === 1 ? '' : 's'} in ${year} · ${fmtMoney(d.total_spent)} spent`,
+        d.transactions
+      );
+      return;
+    }
+    if (kind === 'income-flow') {
+      // v.185 — Sankey ribbon / node click. Key shape: "side::category"
+      // where side is 'income' or 'expense'. Reuses /txns-by-category.
+      const sep = key.indexOf('::');
+      const side = sep > 0 ? key.slice(0, sep) : 'expense';
+      const category = sep > 0 ? key.slice(sep + 2) : key;
+      const year = new Date().getFullYear();
+      const d = await window.api(
+        'GET',
+        `/finance/reports/txns-by-category?category=${encodeURIComponent(category)}&year=${year}&side=${encodeURIComponent(side)}`
+      );
+      const total = side === 'income' ? d.total_income : d.total_spent;
+      const verb  = side === 'income' ? 'received' : 'spent';
+      pane.innerHTML = renderDrillDown(
+        `${category} (${side})`,
+        `${d.transactions.length} transaction${d.transactions.length === 1 ? '' : 's'} in ${year} · ${fmtMoney(total)} ${verb}`,
         d.transactions
       );
       return;
