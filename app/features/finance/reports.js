@@ -562,4 +562,66 @@ router.get('/txns-by-category', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// v.185 — GET /api/v1/finance/reports/spending-by-category-monthly?year=YYYY&limit=N
+// Drives the small-multiples (#26.1.4). Returns the top-N expense
+// categories for the year, each with a 12-element monthly array
+// (positions 0..11 = Jan..Dec, ABS of net spend). Limit defaults
+// to 6, capped at 12 — small-multiples reads best at 6 panels.
+// Transfers excluded; income rows excluded (this chart shows
+// spending only).
+//
+// Response: { year, limit, categories: [{category, months: [12]}],
+//   total_spent_year }.
+router.get('/spending-by-category-monthly', (req, res) => {
+  try {
+    const year  = req.query.year  || new Date().getFullYear().toString();
+    const limit = Math.min(12, Math.max(1, parseInt(req.query.limit || '6', 10)));
+
+    // schema: finance_transactions.{date, amount, category};
+    //         imported_transactions.{txn_date, amount, category, is_transfer}
+    const rows = db.prepare(`
+      SELECT
+        COALESCE(NULLIF(category, ''), 'Uncategorized') AS category,
+        CAST(strftime('%m', dt) AS INTEGER)              AS month,
+        ROUND(ABS(SUM(amount)), 2)                        AS spent
+      FROM (
+        SELECT date     AS dt, amount, category FROM finance_transactions
+          WHERE strftime('%Y', date) = ?       AND amount < 0
+        UNION ALL
+        SELECT txn_date AS dt, amount, category FROM imported_transactions
+          WHERE strftime('%Y', txn_date) = ?   AND amount < 0
+            AND COALESCE(is_transfer, 0) = 0
+      )
+      GROUP BY COALESCE(NULLIF(category, ''), 'Uncategorized'),
+               strftime('%m', dt)
+    `).all(year, year);
+
+    // Pivot to category → 12-element array, then pick top-N by year total.
+    const byCat = new Map();
+    for (const r of rows) {
+      if (!byCat.has(r.category)) byCat.set(r.category, new Array(12).fill(0));
+      byCat.get(r.category)[r.month - 1] = r.spent || 0;
+    }
+    const ranked = [...byCat.entries()]
+      .map(([category, months]) => ({
+        category,
+        months,
+        _total: months.reduce((s, v) => s + v, 0),
+      }))
+      .sort((a, b) => b._total - a._total)
+      .slice(0, limit)
+      .map(({ category, months }) => ({ category, months }));
+
+    const total_spent_year = [...byCat.values()]
+      .reduce((s, arr) => s + arr.reduce((t, v) => t + v, 0), 0);
+
+    res.json({
+      year,
+      limit,
+      categories: ranked,
+      total_spent_year: Math.round(total_spent_year * 100) / 100,
+    });
+  } catch (e) { serverError(res, e); }
+});
+
 module.exports = router;
