@@ -1,7 +1,8 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### ✅ SHIPPED in v.184 — tx_link_rules editor + backfill (sandbox, awaiting package)
-4-task drop. Closes the Pending Items rule-management gap: the user
+### ✅ SHIPPED in v.184 — tx_link_rules editor + backfill
+4-task drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0, smoke 8/8,
+no boot errors on prod)**. Closes the Pending Items rule-management gap: the user
 can finally view, edit, pause, delete, and backfill the rules that
 the Pending list quietly accumulates whenever they tick "remember
 rule." Details in STATE.md v.184 block.

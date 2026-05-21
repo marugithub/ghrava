@@ -141,7 +141,7 @@
   - NEW endpoint `PUT /api/v1/pending/rules/:id` for editing (PATCH semantics) — needed for the Pause/Resume action in the editor.
   - Editor's "▶ Apply rules to historical transactions" button calls the backfill endpoint with limit 5000 and surfaces "X of Y linked" inline.
   - Discoverability bonus: "Manage merchant rules →" link in the Pending tab header → `/settings.html?panel=txrules`. Generic `?panel=<name>` handler added to settings.html (reusable from any future page).
-- [x] **Task 4 — Docs + version bump** ✅ **SHIPPED v.184** *(awaiting deploy + verify; flip to ✅ DEPLOYED when E2E lands clean on NAS)*
+- [x] **Task 4 — Docs + version bump** ✅ **DEPLOYED & VERIFIED 2026-05-20 ~16:35 (E2E 115/0, smoke 8/8, no boot errors)**
 
 ---
 

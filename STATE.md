@@ -69,13 +69,21 @@ principles.
 
 ---
 
-## ✅ v.184 SHIPPED — tx_link_rules editor + backfill (sandbox, 2026-05-20)
+## ✅ v.184 DEPLOYED & VERIFIED — tx_link_rules editor + backfill (2026-05-20)
 
-> **In sandbox, awaiting `package` from Al.** Local commits `d23eb09 →
-> 3db2755 → 72ad837 → <task-4>`. Pure additive drop — three new
-> backend endpoints, one new Settings sub-panel, one deep-link
-> handler, one discoverability link from the Pending tab. No
-> migrations, no schema changes, no column changes.
+> **DEPLOYED 2026-05-20 ~16:35. Smoke 8/8, full E2E 115 pass / 0 fail
+> (3.0m run; held the v.183 baseline — no new tests, no regressions).**
+> `version.txt`=`202604.184` live, container restarted clean. Boot
+> migration line: `Migrations: 0 applied, 143 skipped` (no migrations
+> in this drop). Zero `FAILED .*\.js` on the v.184 boot. Local/origin/
+> NAS all == `dd65043`. Schema-safety gate cleared on Windows host
+> before package: 10 flagged lines all in `130_rescue_126.js` +
+> `134_hsa_plan_to_fsa.js` (known pre-existing noise); zero entries
+> from any v.184 file. Four commits on origin: `d23eb09 → 3db2755 →
+> 72ad837 → dd65043`. Pure additive drop — three new backend
+> endpoints, one new Settings sub-panel, one deep-link handler, one
+> discoverability link from the Pending tab. No migrations, no
+> schema changes, no column changes.
 
 **Theme.** Give the user a real editor for the `tx_link_rules` table
 that the Pending Items list quietly accumulates whenever they tick
