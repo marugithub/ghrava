@@ -303,7 +303,7 @@ function renderChartsPreview() {
         { id: 'c111', num: '#26.1.1', title: 'Where money goes each month',     sub: 'Income → category ribbons. Click a ribbon to see the transactions.',    chart: 'sankey',     status: 'live' },
         { id: 'c112', num: '#26.1.2', title: 'Busiest spending days',           sub: 'Calendar heatmap. Click a day for all transactions.',                  chart: 'calendar',   status: 'live' },
         { id: 'c113', num: '#26.1.3', title: 'Where you shop most',             sub: 'Treemap of vendors by annual spend. Click a tile for vendor history.', chart: 'treemap',    status: 'live' },
-        { id: 'c114', num: '#26.1.4', title: 'What you spend on, month by month', sub: 'Small-multiples: one mini line chart per category, side by side.',   chart: 'stub',       status: 'mock', stubLabel: 'Small-multiples mockup pending' },
+        { id: 'c114', num: '#26.1.4', title: 'What you spend on, month by month', sub: 'Small-multiples: one mini bar chart per category, side by side.',    chart: 'smallmult',  status: 'live' },
         { id: 'c115', num: '#26.1.5', title: 'What is coming in the next 30 days', sub: 'Projected balance from recurring bills and income.',                  chart: 'forecast',   status: 'live' },
       ],
     },
@@ -387,6 +387,9 @@ function renderMockCharts() {
 
   // v.183 — #26.1.3 is LIVE: top-vendor treemap.
   renderVendorTreemap();
+
+  // v.185 — #26.1.4 is LIVE: per-category small-multiples.
+  renderSmallMultiples();
 }
 
 // ── #26.1.1 Where money goes each month (Sankey) — LIVE (v.185) ─
@@ -921,6 +924,113 @@ function vendorTreemapSvg(vendors, totalSpent) {
   </svg>`;
 }
 
+// ── #26.1.4 What you spend on, month by month (small-multiples) — LIVE (v.185) ─
+// Wires the locked #26.1.4 chart to /finance/reports/spending-by-
+// category-monthly. Grid of N mini bar charts, one per top expense
+// category, 12 bars each (Jan..Dec). Bar charts (not lines) because
+// (a) monthly spend is non-cumulative bucketed data — a line implies
+// continuity between months — and (b) sparse spend (some months
+// zero) reads better as gaps in a bar chart than as zigzag line.
+// Each bar carries an SVG <title> tooltip and an onclick that opens
+// the drill-down for that (category, month).
+async function renderSmallMultiples() {
+  const el = document.getElementById('canvas-c114');
+  if (!el) return;
+  el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px">Loading…</div>';
+  try {
+    const year  = new Date().getFullYear();
+    const limit = 6;
+    const d = await window.api('GET', `/finance/reports/spending-by-category-monthly?year=${year}&limit=${limit}`);
+    const cats = (d && Array.isArray(d.categories)) ? d.categories : [];
+    if (!cats.length) {
+      el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">No spending recorded this year yet.</div>';
+      return;
+    }
+    el.innerHTML = smallMultiplesSvg(year, cats, d.total_spent_year || 0);
+  } catch (e) {
+    el.innerHTML = '<div style="color:var(--text3);font-size:12px;text-align:center;padding:24px;line-height:1.5">Could not load the category breakdown right now.</div>';
+  }
+}
+
+// Build the small-multiples SVG. Layout: 3 columns × 2 rows of mini
+// panels (for limit=6). Each panel: category name + max-month label
+// at top, 12 mini bars below, month tick (J/F/M/...) at the bottom.
+// Shared per-panel Y scale (each panel scales to its own max — small-
+// multiples convention is "show shape, not magnitude" since
+// categories differ wildly in absolute spend).
+function smallMultiplesSvg(year, categories, totalYear) {
+  const W = 400, H = 180;
+  const cols = 3;
+  const rows = Math.ceil(categories.length / cols);
+  const outerPad = { l: 4, r: 4, t: 4, b: 16 };
+  const innerW = W - outerPad.l - outerPad.r;
+  const innerH = H - outerPad.t - outerPad.b;
+  const cellW = innerW / cols;
+  const cellH = innerH / rows;
+
+  const palette = ['#5c72fa', '#7c3aed', '#ec4899', '#b91c1c', '#d97706', '#15803d', '#0891b2', '#475569'];
+  function hashHue(s) {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+    return Math.abs(h) % palette.length;
+  }
+
+  const monthLetters = ['J','F','M','A','M','J','J','A','S','O','N','D'];
+  const panels = categories.map((c, idx) => {
+    const r = Math.floor(idx / cols);
+    const col = idx % cols;
+    const cx = outerPad.l + col * cellW;
+    const cy = outerPad.t + r * cellH;
+
+    // Panel internal padding (room for title at top, month labels at bottom)
+    const ip = { t: 14, b: 12, l: 2, r: 2 };
+    const barAreaY = cy + ip.t;
+    const barAreaH = cellH - ip.t - ip.b;
+    const barAreaW = cellW - ip.l - ip.r;
+    const barW = barAreaW / 12;
+
+    const max = Math.max(...c.months, 1);
+    const total = c.months.reduce((s, v) => s + v, 0);
+    const color = palette[hashHue(c.category || '')];
+    const safe = esc(c.category || '');
+    const titleTxt = safe.length > 16 ? safe.slice(0, 15) + '…' : safe;
+
+    const bars = c.months.map((v, m) => {
+      const x = cx + ip.l + m * barW;
+      const h = max > 0 ? (v / max) * barAreaH : 0;
+      const y = barAreaY + barAreaH - h;
+      if (v <= 0) return '';
+      const monthName = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m];
+      const tip = `${safe} · ${monthName} ${year} · $${v.toLocaleString()}`;
+      return `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${(barW - 0.6).toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" rx="0.5" style="cursor:pointer"`
+           + ` onclick="openDrillDown('category-month','${safe.replace(/'/g, '&#39;')}::${m + 1}')">`
+           + `<title>${tip}</title></rect>`;
+    }).join('');
+
+    // Month tick labels — show every other letter to fit
+    const ticks = monthLetters.map((ltr, m) => {
+      if (m % 2 !== 0) return '';
+      const x = cx + ip.l + m * barW + barW / 2;
+      return `<text x="${x.toFixed(1)}" y="${(cy + cellH - 2).toFixed(1)}" font-size="7" font-family="monospace" fill="#bbb" text-anchor="middle">${ltr}</text>`;
+    }).join('');
+
+    return `<g>
+      <text x="${(cx + ip.l).toFixed(1)}" y="${(cy + 9).toFixed(1)}" font-size="9" font-family="monospace" fill="#666" font-weight="600">${titleTxt}</text>
+      <text x="${(cx + cellW - ip.r).toFixed(1)}" y="${(cy + 9).toFixed(1)}" font-size="8" font-family="monospace" fill="#999" text-anchor="end">$${total.toLocaleString(undefined,{maximumFractionDigits:0})}</text>
+      <line x1="${cx + ip.l}" y1="${(barAreaY + barAreaH).toFixed(1)}" x2="${(cx + cellW - ip.r).toFixed(1)}" y2="${(barAreaY + barAreaH).toFixed(1)}" stroke="#eee" stroke-width="0.5"/>
+      ${bars}
+      ${ticks}
+    </g>`;
+  }).join('');
+
+  const summary = `<text x="${outerPad.l}" y="${H - 4}" font-size="10" font-family="monospace" fill="#666">${year} · top ${categories.length} of all categories · total $${totalYear.toLocaleString()}</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet" style="width:100%;height:auto">
+    ${panels}
+    ${summary}
+  </svg>`;
+}
+
 // ── Chart drill-down (v.183) ──────────────────────────────────
 // Generic right-pane drill-down handler shared by chart cards. Kind
 // dispatches to the right endpoint; key carries the slice identifier
@@ -973,6 +1083,29 @@ async function openDrillDown(kind, key) {
       pane.innerHTML = renderDrillDown(
         `${category} (${side})`,
         `${d.transactions.length} transaction${d.transactions.length === 1 ? '' : 's'} in ${year} · ${fmtMoney(total)} ${verb}`,
+        d.transactions
+      );
+      return;
+    }
+    if (kind === 'category-month') {
+      // v.185 — Small-multiples bar click. Key shape: "category::month"
+      // where month is 1..12. Reuses /txns-by-category (expense side,
+      // year + month filter).
+      const sep = key.lastIndexOf('::');
+      const category = sep > 0 ? key.slice(0, sep) : key;
+      const month    = sep > 0 ? key.slice(sep + 2) : null;
+      const year = new Date().getFullYear();
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const mLabel = month ? `${monthNames[+month - 1]} ${year}` : `${year}`;
+      const d = await window.api(
+        'GET',
+        `/finance/reports/txns-by-category?category=${encodeURIComponent(category)}&year=${year}`
+          + (month ? `&month=${encodeURIComponent(month)}` : '')
+          + `&side=expense`
+      );
+      pane.innerHTML = renderDrillDown(
+        `${category} · ${mLabel}`,
+        `${d.transactions.length} transaction${d.transactions.length === 1 ? '' : 's'} · ${fmtMoney(d.total_spent)} spent`,
         d.transactions
       );
       return;
