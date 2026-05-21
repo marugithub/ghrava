@@ -417,4 +417,149 @@ router.get('/annual-summary', (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+// v.185 — GET /api/v1/finance/reports/income-by-category-flow?year=YYYY
+// Drives the Sankey (#26.1.1). Returns income totals per income-side
+// category (amount > 0) and spend totals per expense-side category
+// (amount < 0) for the year, across the unified
+// finance_transactions UNION imported_transactions feed (transfers
+// excluded). The frontend draws ribbons between the two sides;
+// because individual rows are not joined income→expense, the flow
+// allocation is proportional, not a true paired join.
+//
+// Response: { year, income: [{category, amount}], expense:
+//   [{category, amount}], total_income, total_expense }.
+// Categories with zero magnitude are omitted; "Uncategorized" rolls
+// up rows whose category is NULL or empty.
+router.get('/income-by-category-flow', (req, res) => {
+  try {
+    const year = req.query.year || new Date().getFullYear().toString();
+
+    // schema: finance_transactions.{date, amount, category};
+    //         imported_transactions.{txn_date, amount, category, is_transfer}
+    const income = db.prepare(`
+      SELECT
+        COALESCE(NULLIF(category, ''), 'Uncategorized') AS category,
+        ROUND(SUM(amount), 2)                            AS amount
+      FROM (
+        SELECT category, amount FROM finance_transactions
+          WHERE strftime('%Y', date) = ? AND amount > 0
+        UNION ALL
+        SELECT category, amount FROM imported_transactions
+          WHERE strftime('%Y', txn_date) = ? AND amount > 0
+            AND COALESCE(is_transfer, 0) = 0
+      )
+      GROUP BY COALESCE(NULLIF(category, ''), 'Uncategorized')
+      HAVING SUM(amount) > 0
+      ORDER BY amount DESC
+    `).all(year, year);
+
+    // schema: finance_transactions.{date, amount, category};
+    //         imported_transactions.{txn_date, amount, category, is_transfer}
+    const expense = db.prepare(`
+      SELECT
+        COALESCE(NULLIF(category, ''), 'Uncategorized') AS category,
+        ROUND(ABS(SUM(amount)), 2)                       AS amount
+      FROM (
+        SELECT category, amount FROM finance_transactions
+          WHERE strftime('%Y', date) = ? AND amount < 0
+        UNION ALL
+        SELECT category, amount FROM imported_transactions
+          WHERE strftime('%Y', txn_date) = ? AND amount < 0
+            AND COALESCE(is_transfer, 0) = 0
+      )
+      GROUP BY COALESCE(NULLIF(category, ''), 'Uncategorized')
+      HAVING SUM(amount) < 0
+      ORDER BY amount DESC
+    `).all(year, year);
+
+    const total_income  = income .reduce((s, r) => s + (r.amount || 0), 0);
+    const total_expense = expense.reduce((s, r) => s + (r.amount || 0), 0);
+    res.json({
+      year,
+      income,
+      expense,
+      total_income:  Math.round(total_income  * 100) / 100,
+      total_expense: Math.round(total_expense * 100) / 100,
+    });
+  } catch (e) { serverError(res, e); }
+});
+
+// v.185 — GET /api/v1/finance/reports/txns-by-category?category=NAME&year=YYYY&month=MM&side=income|expense
+// Generic category drill-down used by Sankey ribbon clicks (whole
+// year, side-filtered) and small-multiples bar clicks (one month,
+// expense side). `category` required; `year`, `month`, `side`
+// optional. "Uncategorized" matches rows where category IS NULL OR
+// category = ''.
+//
+// Response: { category, year, month, side, transactions: [...],
+//   total_spent, total_income }.
+router.get('/txns-by-category', (req, res) => {
+  try {
+    const category = req.query.category;
+    if (!category) return res.status(400).json({ error: 'category=NAME required' });
+    const year  = req.query.year  || null;
+    const month = req.query.month || null;
+    const side  = (req.query.side === 'income' || req.query.side === 'expense') ? req.query.side : null;
+
+    const isUncat = (category === 'Uncategorized');
+    const catCond = isUncat
+      ? `(category IS NULL OR category = '')`
+      : `category = ?`;
+
+    let financeWhere  = catCond;
+    let importedWhere = catCond;
+    const financeParams  = isUncat ? [] : [category];
+    const importedParams = isUncat ? [] : [category];
+
+    if (year) {
+      financeWhere  += ` AND strftime('%Y', date) = ?`;
+      importedWhere += ` AND strftime('%Y', txn_date) = ?`;
+      financeParams .push(String(year));
+      importedParams.push(String(year));
+    }
+    if (month) {
+      const mm = String(month).padStart(2, '0');
+      financeWhere  += ` AND strftime('%m', date) = ?`;
+      importedWhere += ` AND strftime('%m', txn_date) = ?`;
+      financeParams .push(mm);
+      importedParams.push(mm);
+    }
+    if (side === 'income') {
+      financeWhere  += ` AND amount > 0`;
+      importedWhere += ` AND amount > 0`;
+    } else if (side === 'expense') {
+      financeWhere  += ` AND amount < 0`;
+      importedWhere += ` AND amount < 0`;
+    }
+
+    // schema: finance_transactions.{date, description, amount, category};
+    //         imported_transactions.{txn_date, description, amount, category, is_transfer}
+    const txns = db.prepare(`
+      SELECT date, description, amount, category, source
+      FROM (
+        SELECT date, description, amount, category, 'finance' AS source
+          FROM finance_transactions
+          WHERE ${financeWhere}
+        UNION ALL
+        SELECT txn_date AS date, description, amount, category, 'imported' AS source
+          FROM imported_transactions
+          WHERE ${importedWhere} AND COALESCE(is_transfer, 0) = 0
+      )
+      ORDER BY date DESC, amount ASC
+    `).all(...financeParams, ...importedParams);
+
+    const total_spent  = txns.filter(t => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+    const total_income = txns.filter(t => t.amount > 0).reduce((s, t) => s + t.amount, 0);
+    res.json({
+      category,
+      year,
+      month,
+      side,
+      transactions: txns,
+      total_spent:  Math.round(total_spent  * 100) / 100,
+      total_income: Math.round(total_income * 100) / 100,
+    });
+  } catch (e) { serverError(res, e); }
+});
+
 module.exports = router;
