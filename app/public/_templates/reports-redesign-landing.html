@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #30a — REPORTS PAGE REDESIGN: LANDING WITH TABS + PINNED
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    NOT YET BUILT — design locked 2026-05-22
+  CREATED:   2026-05-22
+  RELATED:   draft #30b (Lens active), #30c (Report viewer)
+  HANDOFF:   REPORTS_REDESIGN_HANDOFF.md (repo root)
+
+  WHAT THIS IS
+    The redesigned /reports.html landing page. Replaces the current
+    three-tab loose-card layout with a 5-tab categorized hub that
+    mirrors the left-nav sections. Adds a Lens search bar like every
+    other module and a Pinned strip directly above the tabs.
+
+  WHERE IT LIVES (when shipped — v.186 foundation, v.187+ content)
+    - app/public/reports.html — full rewrite of landing layout
+    - app/public/_templates.html — move locked design here as
+      numbered section #30
+    - LOCKED.md — new row REPORTS-LAYOUT-v2
+
+  STATED REQUIREMENTS (verbatim, Al 2026-05-22)
+    - "keep lens search option, our layout and follow other pages
+       for navigation or tabs right"
+    - "Don't make a tab on navigation for each of the modules,
+       maybe we can name it based on the collapsible section name
+       in left nav"
+    - "we drop daily log reporting"
+    - "Trading Terminal can go under money"
+    - "Operational tab itself can go in Settings"
+    - "Family - generic"
+    - "no, we are not doing claude code now. it can code but the
+       visuals are horrible"
+
+  AGREEMENTS — LOCKED
+    ✅ Five tabs: Money | Health | Household | Family | Pending
+    ✅ No Overview tab (Inventory/Medical don't have one either)
+    ✅ No Recent tab (last-run timestamp on cards + Lens covers it)
+    ✅ Lens search bar above tabs, scope = report names + visible
+       descriptions on this page only (NOT inside report data)
+    ✅ Pinned strip above tabs, max 4, persists via user_preferences
+       table
+    ✅ Each tab = long page of stacked category cards (no sub-tabs,
+       no pill chips inside — already rejected as visual noise)
+    ✅ Report cards: 4-col desktop, 2-col tablet, 1-col mobile
+    ✅ Card click → opens report viewer (draft #30c)
+
+  REJECTED IDEAS
+    ❌ Hero photos / mood board / image-heavy hero blocks (the
+       screenshot Al shared as "not what we want")
+    ❌ Overview tab as a duplicate of category-tab contents
+    ❌ Pill chip sub-filters inside each tab
+    ❌ "Misc" catchall tab
+    ❌ Daily Log as a report source (data didn't get routed to
+       modules, dropping reports from it)
+    ❌ Cross-source metric_index dynamic discovery (path-Y per-report
+       joins instead, build metric_index only when 3+ reports need it)
+  ════════════════════════════════════════════════════════════════════
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Draft #30a — Reports redesign landing</title>
+  <link rel="stylesheet" href="_templates.css">
+  <style>
+    .preview { background: #f3f4f6; padding: 16px; border-radius: 12px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; max-width: 1100px; margin: 12px 0; }
+    .ph-icon { width:14px; height:14px; display:inline-block; }
+  </style>
+</head>
+<body>
+
+<h1>Draft #30a — Reports page redesign: landing</h1>
+<p class="meta">Status: NOT YET BUILT · Design locked 2026-05-22 · Implement in v.186 (foundation) + v.187 (Money tab) + v.188+ (other tabs)</p>
+
+<div class="preview">
+
+  <!-- ════ Page header row (mirrors inventory.html / medical.html) ════ -->
+  <div style="display:flex; align-items:center; gap:14px; margin-bottom: 12px;">
+    <div style="display:flex; align-items:center; gap:10px; min-width:140px;">
+      <div style="width:36px; height:36px; border-radius:10px; background: #e0e7ff; display:flex; align-items:center; justify-content:center;">
+        <span style="font-size:18px;">📊</span>
+      </div>
+      <div>
+        <div style="font-size:16px; font-weight:500; color:#111; line-height:1.1;">Reports</div>
+        <div style="font-size:11px; color:#666;">38 reports · 4 pinned</div>
+      </div>
+    </div>
+
+    <!-- The Lens search bar -->
+    <div style="flex:1; background:#fff; border:0.5px solid #d4d4d4; border-radius:999px; padding: 7px 14px; display:flex; align-items:center; gap:10px;">
+      <span style="font-size:14px; color:#666;">🔍</span>
+      <span style="font-size:13px; color:#888; font-style:italic;">narrow by category, time, family member…</span>
+      <span style="margin-left:auto; font-size:11px; color:#888; border:0.5px solid #d4d4d4; padding:1px 6px; border-radius:4px;">/</span>
+    </div>
+
+    <button style="font-size:12px; padding:7px 12px; background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; color:#111; cursor:pointer;">+ New report</button>
+  </div>
+
+  <!-- ════ Tabs row ════ -->
+  <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:12px; padding:4px; display:flex; gap:2px; margin-bottom:14px; width: fit-content;">
+    <button style="font-size:13px; padding:7px 14px; background:#111; color:#fff; border:none; border-radius:8px; cursor:pointer; font-weight:500;">Money</button>
+    <button style="font-size:13px; padding:7px 14px; background:transparent; color:#666; border:none; border-radius:8px; cursor:pointer;">Health</button>
+    <button style="font-size:13px; padding:7px 14px; background:transparent; color:#666; border:none; border-radius:8px; cursor:pointer;">Household</button>
+    <button style="font-size:13px; padding:7px 14px; background:transparent; color:#666; border:none; border-radius:8px; cursor:pointer;">Family</button>
+    <button style="font-size:13px; padding:7px 14px; background:transparent; color:#666; border:none; border-radius:8px; cursor:pointer;">Pending <span style="font-size:10px; color:#d97706; margin-left:2px;">12</span></button>
+  </div>
+
+  <!-- ════ Pinned strip (visible on every tab) ════ -->
+  <div style="margin-bottom: 18px;">
+    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+      <span style="font-size:13px;">📌</span>
+      <span style="font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:#666; font-weight:500;">Pinned</span>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+      <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:12px; padding:12px; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+          <span style="font-size:14px;">💰</span>
+          <span style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:.04em;">Money</span>
+        </div>
+        <div style="font-size:13px; font-weight:500; color:#111; line-height:1.3; margin-bottom:4px;">Spending by category</div>
+        <div style="font-size:11px; color:#888;">last run today · 9:42 am</div>
+      </div>
+      <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:12px; padding:12px; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+          <span style="font-size:14px;">💰</span>
+          <span style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:.04em;">Money</span>
+        </div>
+        <div style="font-size:13px; font-weight:500; color:#111; line-height:1.3; margin-bottom:4px;">Cash-flow forecast</div>
+        <div style="font-size:11px; color:#888;">last run today · 9:42 am</div>
+      </div>
+      <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:12px; padding:12px; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+          <span style="font-size:14px;">🩺</span>
+          <span style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:.04em;">Health</span>
+        </div>
+        <div style="font-size:13px; font-weight:500; color:#111; line-height:1.3; margin-bottom:4px;">HSA & FSA — IRS ready</div>
+        <div style="font-size:11px; color:#888;">last run yesterday</div>
+      </div>
+      <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:12px; padding:12px; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:6px; margin-bottom:8px;">
+          <span style="font-size:14px; color:#d97706;">⚠</span>
+          <span style="font-size:11px; color:#666; text-transform:uppercase; letter-spacing:.04em;">Pending</span>
+        </div>
+        <div style="font-size:13px; font-weight:500; color:#111; line-height:1.3; margin-bottom:4px;">Pending items</div>
+        <div style="font-size:11px; color:#888;">12 transactions waiting</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════ Money tab content — category card with reports ════ -->
+  <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:12px; margin-bottom: 10px;">
+    <div style="padding: 12px 16px; display:flex; align-items:center; justify-content:space-between; border-bottom:0.5px solid #d4d4d4;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:16px;">💰</span>
+        <span style="font-size:14px; font-weight:500; color:#111;">Money</span>
+        <span style="font-size:11px; color:#888;">10 reports</span>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 12px;">
+      <div style="border:0.5px solid #d4d4d4; border-radius:8px; padding:10px; cursor:pointer;">
+        <div style="font-size:12px; font-weight:500; color:#111; margin-bottom:3px;">Income → categories</div>
+        <div style="font-size:11px; color:#888;">Sankey · today</div>
+      </div>
+      <div style="border:0.5px solid #d4d4d4; border-radius:8px; padding:10px; cursor:pointer;">
+        <div style="font-size:12px; font-weight:500; color:#111; margin-bottom:3px;">Spending calendar</div>
+        <div style="font-size:11px; color:#888;">heatmap · today</div>
+      </div>
+      <div style="border:0.5px solid #d4d4d4; border-radius:8px; padding:10px; cursor:pointer;">
+        <div style="font-size:12px; font-weight:500; color:#111; margin-bottom:3px;">Top vendors</div>
+        <div style="font-size:11px; color:#888;">treemap · today</div>
+      </div>
+      <div style="border:0.5px solid #d4d4d4; border-radius:8px; padding:10px; cursor:pointer;">
+        <div style="font-size:12px; font-weight:500; color:#111; margin-bottom:3px;">Category trends</div>
+        <div style="font-size:11px; color:#888;">small multiples</div>
+      </div>
+    </div>
+  </div>
+
+  <p style="font-size:11px; color:#888; font-style:italic; text-align:center; margin-top:14px;">Other tabs show their own category card with their reports. Family + Household contents not yet locked.</p>
+
+</div>
+
+<h2>Implementation notes for Claude Code</h2>
+<ul>
+  <li>Use existing GH_LENS pattern with scope name <code>reports</code></li>
+  <li>Tabs use existing tab pattern from inventory.html / medical.html — NOT custom</li>
+  <li>Pinned strip is its own component, fed by <code>GET /api/v1/preferences/pinned-reports</code></li>
+  <li>4-col grid uses existing card pattern (see <code>_templates.html</code> #18 finance overview tiles for cell shape)</li>
+  <li>Empty placeholder for non-Money tabs in v.186 — populate in v.187+</li>
+  <li>Pending tab keeps existing v.171 rendering — don't refactor it</li>
+</ul>
+
+</body>
+</html>

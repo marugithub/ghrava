@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<!--
+  ════════════════════════════════════════════════════════════════════
+  DRAFT #30c — REPORT VIEWER PAGE (with drill-down + empty + error)
+  ════════════════════════════════════════════════════════════════════
+  STATUS:    NOT YET BUILT — design locked 2026-05-22
+  CREATED:   2026-05-22
+  RELATED:   draft #30a (landing), #30b (Lens active)
+  HANDOFF:   REPORTS_REDESIGN_HANDOFF.md
+
+  WHAT THIS IS
+    Single-report viewer page. URL pattern: /reports.html?run=<slug>
+    Contents from top down: breadcrumb, title, metadata line (one
+    subtle line with description + last-refreshed timestamp), action
+    icon row (refresh/pin/columns + export icons), filter strip,
+    summary cards, sortable data table with drill-down links.
+
+  AGREEMENTS — LOCKED
+    ✅ Opens on its own page (NOT a slideout from Reports landing)
+    ✅ Breadcrumb shows Reports › <Tab>
+    ✅ Metadata line subtle, single line, doesn't push content
+    ✅ Auto-refreshes on every load (no cache). Refresh button is for
+       "I just edited a transaction in another tab" cases
+    ✅ Action icons 30px, grouped: Refresh/Pin/Columns then divider
+       then PDF/Excel/CSV/Print/Share
+    ✅ Print can ship functional immediately via window.print() with
+       @media print stylesheet hiding nav + actions
+    ✅ Other exports display-only for now — wire up later
+    ✅ Filter strip shows current filters as removable pills + Add
+       filter button
+    ✅ Sortable headers with arrow indicator
+    ✅ Hover row shows ... overflow menu for source-module shortcuts
+    ✅ Drill-down opens slideout from RIGHT, uses SAME COMPONENT the
+       source module renders for that record (no duplication)
+    ✅ Slideout has back-stack breadcrumb for drill-into-drill
+    ✅ URL encodes active filters so share-link reproduces view
+    ✅ Empty state: friendly + suggests filter relaxes
+    ✅ Error state: names last-working version, two actions
+  ════════════════════════════════════════════════════════════════════
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Draft #30c — Report viewer page</title>
+  <link rel="stylesheet" href="_templates.css">
+</head>
+<body>
+
+<h1>Draft #30c — Report viewer page (with all states)</h1>
+<p class="meta">Status: NOT YET BUILT · Locked 2026-05-22 · Implement in v.187</p>
+
+<h2>Main view</h2>
+<div style="background:#f3f4f6; padding:16px; border-radius:12px; max-width:1100px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+
+  <!-- Title row -->
+  <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:12px; margin-bottom:14px;">
+    <div style="flex:1; min-width:0;">
+      <div style="font-size:11px; color:#888; margin-bottom:3px;">
+        <a href="#" style="color:#888; text-decoration:none;">📊 Reports</a>
+        <span style="margin:0 6px;">›</span>
+        <a href="#" style="color:#888; text-decoration:none;">Health</a>
+      </div>
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:2px;">
+        <h2 style="font-size:18px; font-weight:500; color:#111; margin:0;">HSA & FSA — IRS ready</h2>
+        <span style="font-size:11px; color:#888; padding:2px 8px; background:#fff; border-radius:999px;">2025 tax year</span>
+      </div>
+      <div style="font-size:11px; color:#888; display:flex; align-items:center; gap:8px;">
+        <span>All HSA and FSA expenses with receipts, grouped for IRS Form 8889 and FSA substantiation.</span>
+        <span style="opacity:.6;">·</span>
+        <span>🕒 just now</span>
+      </div>
+    </div>
+
+    <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
+      <button title="Refresh" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer;">↻</button>
+      <button title="Pin" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer;">📌</button>
+      <button title="Columns" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer;">▦</button>
+      <span style="width:0.5px; height:20px; background:#d4d4d4; margin:0 2px;"></span>
+      <button title="PDF" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer; font-size:9px;">PDF</button>
+      <button title="Excel" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer; font-size:9px;">XLS</button>
+      <button title="CSV" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer; font-size:9px;">CSV</button>
+      <button title="Print" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer;">🖨</button>
+      <button title="Share" style="width:30px; height:30px; border:0.5px solid #d4d4d4; border-radius:8px; background:#fff; cursor:pointer;">↗</button>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; padding:10px 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-bottom:14px;">
+    <span style="font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.04em;">Filters</span>
+    <span style="font-size:12px; padding:4px 10px; background:#f3f4f6; color:#111; border-radius:999px; border:0.5px solid #d4d4d4;">Year: 2025 ×</span>
+    <span style="font-size:12px; padding:4px 10px; background:#f3f4f6; color:#111; border-radius:999px; border:0.5px solid #d4d4d4;">Family: All ×</span>
+    <span style="font-size:12px; padding:4px 10px; background:#f3f4f6; color:#111; border-radius:999px; border:0.5px solid #d4d4d4;">With receipts only ×</span>
+    <button style="font-size:11px; padding:4px 10px; background:transparent; color:#3b82f6; border:0.5px dashed #d4d4d4; border-radius:999px; cursor:pointer;">+ Add filter</button>
+  </div>
+
+  <!-- Summary cards -->
+  <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-bottom:14px;">
+    <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; padding:12px;">
+      <div style="font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;">HSA spent</div>
+      <div style="font-size:18px; font-weight:500; color:#111;">$3,142</div>
+    </div>
+    <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; padding:12px;">
+      <div style="font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;">FSA spent</div>
+      <div style="font-size:18px; font-weight:500; color:#111;">$1,820</div>
+    </div>
+    <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; padding:12px;">
+      <div style="font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;">Receipts</div>
+      <div style="font-size:18px; font-weight:500; color:#111;">42 / 48 <span style="font-size:11px; color:#d97706; font-weight:400;">88%</span></div>
+    </div>
+    <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; padding:12px;">
+      <div style="font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.04em; margin-bottom:4px;">Linked visits</div>
+      <div style="font-size:18px; font-weight:500; color:#111;">31</div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; overflow:hidden;">
+    <div style="padding:8px 12px; background:#f3f4f6; border-bottom:0.5px solid #d4d4d4; display:grid; grid-template-columns: 90px 1fr 130px 90px 80px 70px 24px; gap:10px; font-size:11px; color:#888; text-transform:uppercase; letter-spacing:.04em;">
+      <div style="cursor:pointer;">Date ▼</div>
+      <div style="cursor:pointer;">Vendor</div>
+      <div style="cursor:pointer;">Linked to</div>
+      <div style="cursor:pointer;">Amount</div>
+      <div style="cursor:pointer;">Account</div>
+      <div>Receipt</div>
+      <div></div>
+    </div>
+    <div style="padding:10px 12px; border-bottom:0.5px solid #d4d4d4; display:grid; grid-template-columns: 90px 1fr 130px 90px 80px 70px 24px; gap:10px; font-size:13px; color:#111; align-items:center; background:#f3f4f6;">
+      <div style="color:#666;">Mar 12</div>
+      <div>CVS Pharmacy</div>
+      <div style="color:#3b82f6; cursor:pointer; font-size:12px;">💊 Lisinopril →</div>
+      <div style="font-family:monospace;">$44.13</div>
+      <div style="color:#666; font-size:12px;">HSA</div>
+      <div style="color:#16a34a;">✓</div>
+      <div style="color:#888; cursor:pointer;">⋯</div>
+    </div>
+    <div style="padding:10px 12px; border-bottom:0.5px solid #d4d4d4; display:grid; grid-template-columns: 90px 1fr 130px 90px 80px 70px 24px; gap:10px; font-size:13px; color:#111; align-items:center;">
+      <div style="color:#666;">Mar 8</div>
+      <div>Dr. Patel office</div>
+      <div style="color:#3b82f6; cursor:pointer; font-size:12px;">🩺 Annual visit →</div>
+      <div style="font-family:monospace;">$220.00</div>
+      <div style="color:#666; font-size:12px;">FSA</div>
+      <div style="color:#16a34a;">✓</div>
+      <div></div>
+    </div>
+    <div style="padding:8px 12px; display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#888;">
+      <span>+ 45 more rows</span>
+      <span>showing 3 of 48</span>
+    </div>
+  </div>
+</div>
+
+<h2>Drill-down slideout</h2>
+<p>Opens from right, uses same partial as Medical page would render. Has back-stack breadcrumb for drill-into-drill (Lisinopril → Dr. Patel → back).</p>
+<div style="background:#f3f4f6; padding:16px; border-radius:12px; max-width:500px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+  <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:12px; padding:16px;">
+    <div style="display:flex; align-items:center; gap:6px; margin-bottom:12px; font-size:11px; color:#888;">
+      <button style="font-size:11px; padding:3px 8px; background:#f3f4f6; color:#666; border:0.5px solid #d4d4d4; border-radius:8px; cursor:pointer;">← Back</button>
+      <span>Report</span>
+      <span>›</span>
+      <span style="color:#111;">Lisinopril</span>
+      <button style="margin-left:auto; width:24px; height:24px; border:none; background:transparent; color:#888; cursor:pointer;">✕</button>
+    </div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:10px;">
+      <div style="width:36px; height:36px; border-radius:10px; background:#f3f4f6; display:flex; align-items:center; justify-content:center; font-size:18px;">💊</div>
+      <div>
+        <div style="font-size:15px; font-weight:500; color:#111;">Lisinopril 10mg</div>
+        <div style="font-size:12px; color:#888;">For Algir · prescribed Dr. Patel · active</div>
+      </div>
+    </div>
+    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; font-size:12px;">
+      <div style="padding:8px 10px; background:#f3f4f6; border-radius:8px;">
+        <div style="color:#888; text-transform:uppercase; font-size:10px; letter-spacing:.04em; margin-bottom:2px;">Last filled</div>
+        <div style="color:#111;">Mar 12 · $44.13 at CVS</div>
+      </div>
+      <div style="padding:8px 10px; background:#f3f4f6; border-radius:8px;">
+        <div style="color:#888; text-transform:uppercase; font-size:10px; letter-spacing:.04em; margin-bottom:2px;">Refills</div>
+        <div style="color:#111;">3 remaining · expires Oct 2025</div>
+      </div>
+    </div>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+      <button style="font-size:12px; padding:7px 12px; background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; color:#111; cursor:pointer;">Open in Medical →</button>
+      <button style="font-size:12px; padding:7px 12px; background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; color:#111; cursor:pointer;">🩺 Dr. Patel</button>
+    </div>
+  </div>
+</div>
+
+<h2>Empty state</h2>
+<div style="background:#f3f4f6; padding:14px; border-radius:12px; max-width:500px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+  <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; padding:32px 16px; text-align:center;">
+    <div style="font-size:32px; opacity:.5; margin-bottom:10px;">🔍</div>
+    <div style="font-size:14px; color:#111; margin-bottom:4px;">No matches for these filters</div>
+    <div style="font-size:12px; color:#888; margin-bottom:12px;">No HSA or FSA expenses for 2025 with these filters applied.</div>
+    <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">
+      <button style="font-size:11px; padding:5px 10px; background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; color:#3b82f6; cursor:pointer;">Try 2024</button>
+      <button style="font-size:11px; padding:5px 10px; background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; color:#3b82f6; cursor:pointer;">Remove "with receipts only"</button>
+    </div>
+  </div>
+</div>
+
+<h2>Error state</h2>
+<div style="background:#f3f4f6; padding:14px; border-radius:12px; max-width:500px; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+  <div style="background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; padding:32px 16px; text-align:center;">
+    <div style="font-size:32px; opacity:.7; margin-bottom:10px; color:#dc2626;">⚠</div>
+    <div style="font-size:14px; color:#111; margin-bottom:4px;">Couldn't load this report</div>
+    <div style="font-size:12px; color:#888; margin-bottom:12px;">The query failed. Last working version was v.176.</div>
+    <div style="display:flex; gap:6px; justify-content:center;">
+      <button style="font-size:11px; padding:5px 10px; background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; color:#3b82f6; cursor:pointer;">↻ Try again</button>
+      <button style="font-size:11px; padding:5px 10px; background:#fff; border:0.5px solid #d4d4d4; border-radius:8px; color:#dc2626; cursor:pointer;">Report issue</button>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
