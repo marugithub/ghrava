@@ -69,6 +69,133 @@ principles.
 
 ---
 
+## 🚧 v.185 BUILT (pre-package) — Reports Group 1 Part B: Sankey + small-multiples (2026-05-21)
+
+> **Built, committed, pushed — not yet packaged or deployed. Smoke +
+> E2E run on the NAS at package time.** Pure-additive drop: three
+> new read-only endpoints in `app/features/finance/reports.js`, two
+> new chart renderers in `app/public/reports.html`. No migrations,
+> no schema changes, no column changes. Validator on Windows host:
+> 10 noise lines all in `130_rescue_126.js` + `134_hsa_plan_to_fsa.js`
+> (pre-existing baseline); zero entries from any v.185 file. Four
+> commits on local main: `7481334 → 4a0fcd9 → 3fcf7a5 → d129df4`.
+> One follow-up commit for this docs block + version bump pending.
+
+**Theme.** Finish Reports Group 1 (Money). v.183 closed 2 of the 4
+chart slots (calendar heatmap #26.1.2, vendor treemap #26.1.3) and
+locked the generic drill-down framework. ROADMAP's v.182 block
+explicitly deferred the remaining two — Sankey (#26.1.1) and small-
+multiples (#26.1.4) — to a "Group 1 Part B" follow-up drop. This
+is that drop.
+
+### What's in this drop (4 tasks, 1 commit each)
+
+1. **Backend — `/income-by-category-flow` + `/txns-by-category`** (`7481334`).
+   - `GET /api/v1/finance/reports/income-by-category-flow?year=YYYY`
+     drives the Sankey. Returns income totals per income-side
+     category (amount > 0) and spend totals per expense-side
+     category (amount < 0) across the unified
+     `finance_transactions UNION imported_transactions` feed.
+     Transfers excluded. "Uncategorized" rolls up NULL/empty.
+   - `GET /api/v1/finance/reports/txns-by-category?category=NAME[&year=&month=&side=income|expense]`
+     is the generic category drill-down endpoint, designed to be
+     reused by both the Sankey (year+side) and small-multiples
+     (year+month+expense). Single endpoint, four optional filters.
+     Handles the "Uncategorized" sentinel as
+     `(category IS NULL OR category = '')`.
+   - Every `db.prepare` carries the `// schema:` comment per LOCKED
+     rule.
+
+2. **Frontend — #26.1.1 Sankey live + drill-down** (`4a0fcd9`).
+   - `renderSankey()` + `sankeySvg()` replace `mockSankeySvg()`.
+     Two-column ribbon layout at 400×180; income categories stacked
+     left (filling full chart height proportional to their share of
+     `total_income`), expense categories stacked right (same logic
+     against `total_expense`).
+   - Ribbons drawn between every (i, j) pair with width =
+     `(income[i] / sumI) × (expense[j] / sumE) × innerH`. Near-zero
+     slivers skipped.
+   - Top-6 per side with "(K more)" tail node (matches treemap
+     pattern). Stable hash-based color per category.
+   - Click income bar → drill `side=income`, click expense bar or
+     ribbon → drill `side=expense`. New `kind === 'income-flow'`
+     branch in `openDrillDown`. Key shape `side::category`.
+
+3. **Backend — `/spending-by-category-monthly`** (`3fcf7a5`).
+   - `GET /api/v1/finance/reports/spending-by-category-monthly?year=YYYY&limit=N`
+     drives the small-multiples. Returns the top-N expense
+     categories for the year, each with a 12-element monthly array
+     (positions 0..11 = Jan..Dec, ABS of net spend). Limit default
+     6, capped at 12. Income rows excluded.
+   - Single SQL query groups by `(category, strftime('%m'))`; JS
+     pivots to `Map<category, number[12]>` and slices to top-N
+     by year total.
+
+4. **Frontend — #26.1.4 small-multiples live + drill-down** (`d129df4`).
+   - `renderSmallMultiples()` + `smallMultiplesSvg()` replace the
+     "Small-multiples mockup pending" stub.
+   - 3×2 grid of mini bar charts (one per top-6 category, 12 bars
+     each). Per-panel Y scale (small-multiples convention: show
+     shape not magnitude). Every-other-month J/M/M/J/S/N ticks.
+   - Bars (not lines) because monthly spend is non-cumulative
+     bucketed data and sparse months read cleanly as gaps.
+   - Click any bar → drill `kind='category-month'`,
+     key `category::month`. Reuses `/txns-by-category` with
+     `side=expense&year=&month=`. New `kind === 'category-month'`
+     branch in `openDrillDown`.
+
+### Group 1 status after v.185
+
+| # | Title | Chart | Status |
+|---|---|---|---|
+| #26.1.1 | Where money goes each month | Sankey | **LIVE v.185** |
+| #26.1.2 | Busiest spending days | Calendar heatmap | LIVE v.183 |
+| #26.1.3 | Where you shop most | Vendor treemap | LIVE v.183 |
+| #26.1.4 | What you spend on, month by month | Small-multiples | **LIVE v.185** |
+| #26.1.5 | What is coming in the next 30 days | Cash-flow forecast | LIVE v.172 |
+
+Group 1 (Money) is now **5 of 5 charts live**. Drill-down framework
+exercised across all four `kind` branches (`calendar`, `vendor`,
+`income-flow`, `category-month`). The ROADMAP "v.182-reports" block
+(which shipped as v.183 partial) is fully closed.
+
+### What v.185 deliberately does NOT do
+
+- Group 2 (Health) — still blocked on `metric_index` design
+  conversation per ROADMAP "v.184" block. Needs ~30 min in chat
+  before any code starts.
+- Group 3 (Household) — still blocked on #28 Universal Attachments.
+- HSA-YTD product decision (medication card) — still your call,
+  separate small drop.
+- Vehicles module (DRAFT #19) — still LATER scope.
+
+### Schema-safety gate
+
+Windows host pre-package check: 10 flagged lines, all in
+`130_rescue_126.js` + `134_hsa_plan_to_fsa.js` (pre-existing
+baseline; same noise carried since v.181). Zero new entries from
+any v.185 file. Three new `db.prepare` calls all carry `// schema:`
+comments naming the table/column path.
+
+### Tests
+
+Smoke 8/8 expected unchanged (no smoke-suite changes). E2E baseline
+`115/0` — v.185 adds no tests, no migrations, no contract changes
+that would touch the existing suite. Schema-validator on Windows
+host clear of new entries; will re-validate on NAS at package time.
+
+### Audit reconciliation
+
+ROADMAP's "v.182-reports" block (which shipped as v.183 partial)
+listed T2 (Sankey) + T5 (small-multiples) as DEFERRED to "Group 1
+Part B." v.185 IS that drop. T6 ("Drill-down on each chart") was
+marked `[~]` partially shipped in v.183 because the generic
+framework was in place but only `calendar` + `vendor` branches
+existed. v.185 adds the `income-flow` + `category-month` branches,
+finishing T6.
+
+---
+
 ## ✅ v.184 DEPLOYED & VERIFIED — tx_link_rules editor + backfill (2026-05-20)
 
 > **DEPLOYED 2026-05-20 ~16:35. Smoke 8/8, full E2E 115 pass / 0 fail

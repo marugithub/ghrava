@@ -1,7 +1,7 @@
 # SCHEMA.md — Ghrava database reference
 
 > **Auto-generated** by `.claude/skills/ghrava-schema-safety/scripts/gen-schema-doc.py`
-> Last generated: `2026-05-20T21:47:37.756085Z`
+> Last generated: `2026-05-21T22:44:15.189987Z`
 > Source: 143 migration files in `app/db/migrations/`
 >
 > **DO NOT EDIT BY HAND.** This file is regenerated before every package.

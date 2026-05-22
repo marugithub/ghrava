@@ -104,19 +104,24 @@
 > when they're wired. The remaining 3 tasks (T2 Sankey, T5 small-
 > multiples, plus T6 finishing) are deferred to a follow-up "Group 1
 > Part B" drop.
+>
+> **Group 1 Part B SHIPPED as v.185 (2026-05-21):** T2 (Sankey live)
+> + T5 (small-multiples live) + T6 finishing (`income-flow` +
+> `category-month` drill-down `kind` branches added). Group 1 is now
+> 5 of 5 charts live. See STATE.md v.185 block.
 
 **Theme:** Make Reports stop being a placeholder.
 
 - [x] **Task 1 — Fix Reports panels opening as center modals** (BACKLOG known-bug #4) ✅ **RESOLVED v.183 — STALE BUG.** Verified live: no reproduction path in current CSS. `shared.css` has no `.sub-panel` positioning rules; `reports.html` doesn't use the class. BACKLOG row updated with verification notes; no code change needed.
-- [ ] **Task 2 — Wire `#26.1.1` Sankey income → categories** — DEFERRED to Group 1 Part B. Most complex chart of the 4; needs per-income-source → category flow query and custom ribbon renderer.
+- [x] **Task 2 — Wire `#26.1.1` Sankey income → categories** ✅ **SHIPPED v.185** as Group 1 Part B. New endpoint `/income-by-category-flow?year=` (income + expense category totals); `renderSankey()` + `sankeySvg()` in `reports.html` (two-column ribbon layout, top-6 per side, proportional flow allocation). New `kind='income-flow'` drill-down branch.
 - [x] **Task 3 — Wire `#26.1.2` Calendar heatmap** ✅ **SHIPPED v.183**
   - NEW endpoint `/api/v1/finance/reports/daily-spend?year=`.
   - `renderCalendarHeatmap()` + `calendarHeatmapSvg()` in `reports.html`. GitHub-style 53×7 grid, 5-bucket red ramp, month + day labels, total + legend.
 - [x] **Task 4 — Wire `#26.1.3` Vendor treemap** ✅ **SHIPPED v.183**
   - NEW endpoint `/api/v1/finance/reports/top-vendors?year=&limit=`.
   - `renderVendorTreemap()` + `vendorTreemapSvg()` in `reports.html`. Simplified squarify — 3 rows of decreasing height, 3/4/5 vendors per row, proportional widths, stable hash-based color per vendor, "(K more)" tail lump.
-- [ ] **Task 5 — Wire `#26.1.4` Category small-multiples** — DEFERRED to Group 1 Part B. Needs a new `/spending-by-category-monthly` endpoint variant.
-- [~] **Task 6 — Drill-down on each chart** — **PARTIALLY SHIPPED v.183.** Generic right-pane handler locked: `openDrillDown(kind, key)` + `closeDrillDown()` + `renderDrillDown(title, sub, txns)` in `reports.html`. Reuses existing `.rep-detail-*` CSS. T3 and T4 use it via `kind='calendar'` and `kind='vendor'`. T2 (Sankey) and T5 (small-multiples) will add their own `kind` branches when wired.
+- [x] **Task 5 — Wire `#26.1.4` Category small-multiples** ✅ **SHIPPED v.185** as Group 1 Part B. New endpoint `/spending-by-category-monthly?year=&limit=` (top-N expense categories × 12 monthly values); `renderSmallMultiples()` + `smallMultiplesSvg()` in `reports.html` (3×2 mini bar grid, per-panel Y scale). New `kind='category-month'` drill-down branch.
+- [x] **Task 6 — Drill-down on each chart** ✅ **FULLY SHIPPED across v.183 + v.185.** Generic right-pane handler locked v.183: `openDrillDown(kind, key)` + `closeDrillDown()` + `renderDrillDown(title, sub, txns)` in `reports.html`. v.185 added `kind='income-flow'` (Sankey) and `kind='category-month'` (small-multiples). All four Group 1 charts now drill-down through this one handler; each new chart kind adds one `if (kind === 'X')` branch.
 - [x] **Task 7 — Docs + version bump** ✅ **DEPLOYED & VERIFIED 2026-05-20 ~15:55 (E2E 115/0, smoke 8/8, no boot errors; 2.9m E2E)**
 
 ---

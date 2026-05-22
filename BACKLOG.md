@@ -1,5 +1,35 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### 🚧 BUILT in v.185 (pre-package) — Reports Group 1 Part B: Sankey + small-multiples
+4-task drop, **BUILT 2026-05-21 — not yet packaged or deployed.**
+Closes Reports Group 1 (Money): #26.1.1 Sankey and #26.1.4 small-
+multiples — the two charts ROADMAP v.182's block deferred to a
+"Group 1 Part B" follow-up — are both live. Group 1 is now 5 of 5
+charts live. Details in STATE.md v.185 block.
+
+Endpoints added (all in `app/features/finance/reports.js`):
+- `GET /income-by-category-flow?year=` — income + expense category
+  totals for the Sankey.
+- `GET /txns-by-category?category=&year=&month=&side=` — generic
+  category drill-down, reused by both new charts.
+- `GET /spending-by-category-monthly?year=&limit=` — top-N expense
+  categories × 12 monthly values for the small-multiples.
+
+Frontend additions (in `app/public/reports.html`):
+- `renderSankey()` + `sankeySvg()` — two-column ribbon layout,
+  top-6 per side with "(K more)" tail, proportional flow allocation.
+- `renderSmallMultiples()` + `smallMultiplesSvg()` — 3×2 mini bar
+  grid, per-panel Y scale, every-other-month J/M/M/J/S/N ticks.
+- Two new drill-down `kind` branches: `income-flow` (Sankey ribbon
+  / node clicks) and `category-month` (small-multiples bar clicks).
+  Both reuse `/txns-by-category`.
+
+No schema changes; all queries read existing columns on the
+`finance_transactions UNION imported_transactions` feed (transfers
+excluded). Every new `db.prepare` has a `// schema:` comment.
+Reports module's "v.182" ROADMAP block (which shipped as v.183
+partial) is now fully closed via this drop.
+
 ### ✅ SHIPPED in v.184 — tx_link_rules editor + backfill
 4-task drop, **DEPLOYED & VERIFIED 2026-05-20 (E2E 115/0, smoke 8/8,
 no boot errors on prod)**. Closes the Pending Items rule-management gap: the user
