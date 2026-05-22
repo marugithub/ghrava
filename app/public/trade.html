@@ -1119,9 +1119,32 @@ const AIAnalystTab = ({ data, update, quotes }) => {
               <div style={{ color:C.muted, fontSize:13 }}>Generated: {result._date ? new Date(result._date).toLocaleString() : '—'}</div>
               <div style={{ display:'flex', gap:8 }}>
                 {saved && <Tag color={C.green}>✓ SAVED</Tag>}
+                {saveErr && <span style={{ color:C.red, fontSize:11, maxWidth:220 }}>⚠ {saveErr}</span>}
                 <Btn small color={C.amber} onClick={saveReport} disabled={saving}>
                   {saving?'SAVING…':'💾 SAVE REPORT'}
                 </Btn>
+                <Btn small color={C.blue} disabled={saving} onClick={async ()=>{
+                  if(!result) return;
+                  setSaving(true); setSaveErr('');
+                  try {
+                    const r = await fetch('/api/v1/trading/reports/save-to-ghrava',{
+                      method:'POST', headers:{'Content-Type':'application/json'},
+                      body:JSON.stringify({
+                        symbol:result._sym,
+                        title:`${result._sym} ${result.action} — ${tf} — ${new Date().toLocaleDateString()}`,
+                        summary:result.thesis,
+                        timeframe:tf,
+                        provider:settings.provider,
+                        date:new Date().toISOString().slice(0,10),
+                      })
+                    });
+                    const d = await r.json();
+                    if(d.duplicate) setSaveErr('Already saved to Ghrava today');
+                    else if(d.ok) { setSaved(true); setTimeout(()=>setSaved(false),3000); }
+                    else setSaveErr(d.error||'Save to Ghrava failed');
+                  } catch(e){ setSaveErr(e.message); }
+                  setSaving(false);
+                }}>📁 SAVE TO GHRAVA</Btn>
               </div>
             </div>
             <AIResultCard result={result} symbol={result._sym} fundamentals={fundamentals} enrichment={resultEnrichment} />
@@ -1162,143 +1185,492 @@ const AIAnalystTab = ({ data, update, quotes }) => {
 // ═══════════════════════════════════════════════════════════════
 // PORTFOLIO TAB
 // ═══════════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════════
+// GHRAVA PERFORMANCE CHART
+// Reads from portfolio_snapshots via /api/v1/trading/portfolio/performance
+// ═══════════════════════════════════════════════════════════════
+const GhravaPerformanceChart = ({ data }) => {
+  const canvasRef = useRef(null);
+  const chartRef  = useRef(null);
+  const [metric, setMetric] = useState('value'); // value | gain | pct
+
+  useEffect(() => {
+    if (!data?.snapshots?.length || !canvasRef.current) return;
+    if (chartRef.current) chartRef.current.destroy();
+
+    const snaps   = data.snapshots;
+    const labels  = snaps.map(s => new Date(s.snapshot_date).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
+    const values  = metric === 'value' ? snaps.map(s => s.total_value)
+                  : metric === 'gain'  ? snaps.map(s => s.total_gain)
+                  : snaps.map(s => s.total_gain_pct);
+
+    const last   = values[values.length - 1];
+    const first  = values[0];
+    const lineColor = last >= first ? '#4ade80' : '#f87171';
+    const fillColor = last >= first ? 'rgba(74,222,128,0.10)' : 'rgba(248,113,113,0.10)';
+
+    const draw = () => {
+      const ctx = canvasRef.current.getContext('2d');
+      chartRef.current = new window.Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            data: values,
+            borderColor: lineColor,
+            backgroundColor: fillColor,
+            borderWidth: 2,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            tension: 0.3,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          animation: { duration: 400 },
+          interaction: { mode:'index', intersect:false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: C.panel,
+              borderColor: C.border, borderWidth: 1,
+              titleColor: C.muted, bodyColor: C.text,
+              callbacks: {
+                label: ctx => metric==='pct'
+                  ? ` ${parseFloat(ctx.raw).toFixed(2)}%`
+                  : ` $${parseFloat(ctx.raw).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`
+              }
+            }
+          },
+          scales: {
+            x: { grid:{ color:C.border+'33' }, ticks:{ color:C.muted, maxTicksLimit:8, font:{size:11} } },
+            y: {
+              position:'right',
+              grid:{ color:C.border+'33' },
+              ticks: {
+                color:C.muted, font:{size:11},
+                callback: v => metric==='pct' ? parseFloat(v).toFixed(1)+'%' : '$'+Math.round(v).toLocaleString()
+              }
+            }
+          }
+        }
+      });
+    };
+
+    if (window.Chart) draw();
+    else {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+      s.onload = draw;
+      document.head.appendChild(s);
+    }
+
+    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
+  }, [data, metric]);
+
+  const last  = data.snapshots[data.snapshots.length - 1];
+  const first = data.snapshots[0];
+  const gainPct = first?.total_value > 0 ? ((last.total_value - first.total_value) / first.total_value * 100) : 0;
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:8 }}>
+        <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+          <span style={{ color:C.text, fontWeight:700, fontSize:15 }}>${last?.total_value?.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) || '—'}</span>
+          <span style={{ color: gainPct>=0?C.green:C.red, fontWeight:600, fontSize:13 }}>
+            {gainPct>=0?'+':''}{gainPct.toFixed(2)}% over {data.snapshots.length} days
+          </span>
+        </div>
+        <div style={{ display:'flex', gap:4 }}>
+          {[['value','$ Value'],['gain','$ Gain'],['pct','% Return']].map(([id,label]) => (
+            <button key={id} onClick={() => setMetric(id)} style={{
+              background: metric===id ? C.blue+'30' : 'transparent',
+              color: metric===id ? C.blue : C.muted,
+              border:`1px solid ${metric===id?C.blue:C.border}`,
+              borderRadius:5, padding:'3px 9px', cursor:'pointer',
+              fontFamily:'inherit', fontSize:11, fontWeight: metric===id ? 600 : 400,
+            }}>{label}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ height:200, position:'relative' }}>
+        <canvas ref={canvasRef} />
+      </div>
+
+      {/* Allocation strip */}
+      {data.allocation?.length > 0 && (
+        <div style={{ marginTop:14, borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+          <div style={{ color:C.muted, fontSize:11, letterSpacing:1, fontWeight:600, marginBottom:8 }}>ASSET ALLOCATION</div>
+          <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+            {data.allocation.map((a,i) => {
+              const total = data.allocation.reduce((s,x) => s+(x.value||0), 0);
+              const pct   = total > 0 ? ((a.value/total)*100).toFixed(1) : 0;
+              const colors= [C.blue,C.green,C.amber,C.purple,C.red,'#06b6d4','#f97316'];
+              return (
+                <div key={i} style={{ background:colors[i%colors.length]+'20',
+                  border:`1px solid ${colors[i%colors.length]}44`,
+                  borderRadius:6, padding:'5px 10px', textAlign:'center' }}>
+                  <div style={{ color:colors[i%colors.length], fontWeight:700, fontSize:13 }}>{pct}%</div>
+                  <div style={{ color:C.muted, fontSize:10 }}>{a.type}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Top gainers/losers */}
+      {(data.top_gainers?.length > 0 || data.top_losers?.length > 0) && (
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12, marginTop:14, borderTop:`1px solid ${C.border}`, paddingTop:12 }}>
+          {[['TOP GAINERS', data.top_gainers, C.green], ['TOP LOSERS', data.top_losers, C.red]].map(([title, list, color]) => (
+            <div key={title}>
+              <div style={{ color:C.muted, fontSize:11, fontWeight:600, letterSpacing:1, marginBottom:6 }}>{title}</div>
+              {(list||[]).map((h,i) => (
+                <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'4px 0', borderBottom:`1px solid ${C.border}22`, fontSize:12 }}>
+                  <span style={{ color:C.text, fontWeight:600 }}>{h.symbol}</span>
+                  <span style={{ color }}>{h.gain_loss_pct>=0?'+':''}{parseFloat(h.gain_loss_pct||0).toFixed(2)}%</span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PortfolioTab = ({ data, update, quotes }) => {
   const { portfolio=[], settings={} } = data;
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ symbol:'', shares:'', cost:'', type:'stock', notes:'' });
-  const [analyzing, setAnalyzing] = useState(null);
-  const [posResult, setPosResult] = useState({});
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
 
+  // Ghrava live portfolio state
+  const [ghravaPf, setGhravaPf]         = useState(null);   // { accounts, summary }
+  const [ghravaPfErr, setGhravaPfErr]   = useState('');
+  const [ghravaPfLoading, setGhravaPfLoading] = useState(false);
+  const [perfData, setPerfData]         = useState(null);   // { snapshots, allocation }
+  const [perfLoading, setPerfLoading]   = useState(false);
+  const [activeSource, setSource]       = useState('ghrava'); // 'ghrava' | 'manual'
+
+  // Manual portfolio state (legacy)
+  const [showForm, setShowForm]         = useState(false);
+  const [form, setForm]                 = useState({ symbol:'', shares:'', cost:'', type:'stock', notes:'' });
+  const [analyzing, setAnalyzing]       = useState(null);
+  const [posResult, setPosResult]       = useState({});
+  const [saving, setSaving]             = useState(false);
+  const [saved, setSaved]               = useState(false);
+  const [saveErr, setSaveErr]           = useState('');
+
+  // Load Ghrava portfolio on mount
+  useEffect(() => {
+    loadGhrava();
+    loadPerf();
+  }, []);
+
+  const loadGhrava = async () => {
+    setGhravaPfLoading(true); setGhravaPfErr('');
+    try {
+      const r = await fetch('/api/v1/trading/portfolio/live');
+      const d = await r.json();
+      if (d._note && !d.accounts?.length) {
+        setGhravaPfErr(d._note);
+      } else {
+        setGhravaPf(d);
+        // If Ghrava has data, default to showing it
+        if (d.accounts?.length) setSource('ghrava');
+      }
+    } catch(e) { setGhravaPfErr('Could not reach Ghrava portfolio — ' + e.message); }
+    setGhravaPfLoading(false);
+  };
+
+  const loadPerf = async () => {
+    setPerfLoading(true);
+    try {
+      const r = await fetch('/api/v1/trading/portfolio/performance?months=12');
+      const d = await r.json();
+      if (d.snapshots?.length) setPerfData(d);
+    } catch(e) {}
+    setPerfLoading(false);
+  };
+
+  // Manual portfolio helpers
   const getPrice = p => quotes[p.symbol]?.price ?? p.cost;
-  const totalCost  = portfolio.reduce((a,p) => a + p.shares*p.cost, 0);
-  const totalValue = portfolio.reduce((a,p) => a + p.shares*getPrice(p), 0);
-  const totalPnl   = totalValue - totalCost;
-  const totalPct   = totalCost>0 ? (totalPnl/totalCost)*100 : 0;
+  const remove   = id => update({ portfolio: portfolio.filter(p => p.id !== id) });
 
   const add = () => {
-    const s = form.symbol.toUpperCase().trim();
-    if (!s||!form.shares||!form.cost) return;
-    const pos = { id:Date.now(), symbol:s, shares:parseFloat(form.shares), cost:parseFloat(form.cost), type:form.type, notes:form.notes, addedAt:nowISO() };
-    update({ portfolio:[...portfolio, pos] });
+    if (!form.symbol || !form.shares || !form.cost) return;
+    update({ portfolio: [...portfolio, { ...form, id: Date.now(), shares: parseFloat(form.shares), cost: parseFloat(form.cost) }] });
     setForm({ symbol:'', shares:'', cost:'', type:'stock', notes:'' });
     setShowForm(false);
   };
 
-  const remove = id => update({ portfolio: portfolio.filter(p=>p.id!==id) });
-
-  const analyzePos = async pos => {
-    setAnalyzing(pos.id);
-    const q = quotes[pos.symbol]||MOCK_QUOTES[pos.symbol];
-    const ctx = `I own ${pos.shares} shares at avg cost $${pos.cost}. Current P&L: ${fmtPct(((getPrice(pos)-pos.cost)/pos.cost)*100)}.`;
+  const analyzePos = async (p) => {
+    setAnalyzing(p.id);
+    const q = quotes[p.symbol] || MOCK_QUOTES[p.symbol];
     try {
-      const r = await analyzeStock({ symbol:pos.symbol, quote:q, timeframe:'medium to long term', context:ctx, settings });
-      setPosResult(prev=>({...prev,[pos.id]:r}));
+      const r = await analyzeStock({ symbol:p.symbol, quote:q, timeframe:'medium term (1-3 months)',
+        context:`I hold ${p.shares} shares at a cost basis of $${p.cost}/share. Current P&L: ${fmtP(getPrice(p)*p.shares - p.cost*p.shares)}`, settings });
+      setPosResult(prev => ({ ...prev, [p.id]: r }));
     } catch(e) { alert(e.message); }
     setAnalyzing(null);
   };
 
-  const [saveErr, setSaveErr] = useState('');
-  const saveReport = async () => {
+  // Save report
+  const savePortfolioReport = async () => {
     setSaving(true); setSaveErr('');
     try {
-      const reportData = {
-        summary: { totalValue, totalCost, totalPnl, totalPct },
-        positions: portfolio.map(p => {
-          const curr=getPrice(p), val=p.shares*curr, cost=p.shares*p.cost;
-          return { ...p, currentPrice:curr, marketValue:val, pnl:val-cost, pnlPct:cost>0?(val-cost)/cost*100:0 };
-        }),
+      const title = `Portfolio Snapshot — ${new Date().toLocaleDateString()}`;
+      await persistReport('Portfolio Snapshot', title, null, {
+        source: activeSource,
+        ghrava: ghravaPf?.summary || null,
+        manual: portfolio,
         generatedAt: nowISO(),
-      };
-      await persistReport('Portfolio Snapshot', `Portfolio Snapshot — ${new Date().toLocaleDateString()}`, null, reportData);
-      setSaved(true);
-      setTimeout(()=>setSaved(false),3000);
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
     } catch(e) { setSaveErr(e.message); }
     setSaving(false);
   };
 
-  return (
-    <div>
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:10, marginBottom:14 }}>
-        {[['PORTFOLIO VALUE',`$${totalValue.toFixed(2)}`,C.text],
-          ['TOTAL COST',`$${totalCost.toFixed(2)}`,C.muted],
-          ['TOTAL P&L',`${totalPnl>=0?'+':''}$${Math.abs(totalPnl).toFixed(2)}`,pColor(totalPnl)],
-          ['RETURN',fmtPct(totalPct),pColor(totalPct)],
-        ].map(([label,val,color])=>(
-          <Panel key={label} style={{ textAlign:'center' }}>
-            <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:6 }}>{label}</div>
-            <div style={{ color, fontSize:20, fontWeight:'bold' }}>{val}</div>
-          </Panel>
-        ))}
+  // ── Ghrava holdings renderer ──────────────────────────────────
+  const GhravaPortfolio = () => {
+    if (ghravaPfLoading) return <Spinner text="Loading holdings from Ghrava…" />;
+    if (ghravaPfErr) return (
+      <div style={{ padding:20 }}>
+        <div style={{ color:C.amber, fontSize:13, marginBottom:12 }}>⚠ {ghravaPfErr}</div>
+        <div style={{ color:C.muted, fontSize:12, lineHeight:1.7 }}>
+          To populate this view: go to <strong>Finance → Holdings</strong> in Ghrava and import a CSV
+          from Schwab, Vanguard, TSP, or another broker. Once imported, your positions
+          will appear here automatically.
+        </div>
+        <Btn small color={C.blue} onClick={loadGhrava} style={{ marginTop:12 }}>⟳ Retry</Btn>
       </div>
-      <div style={{ display:'flex', gap:8, marginBottom:12 }}>
-        <Btn onClick={()=>setShowForm(!showForm)}>+ ADD POSITION</Btn>
-        {saved && <Tag color={C.green}>✓ REPORT SAVED</Tag>}
-        {saveErr && <span style={{ color:C.red, fontSize:11, maxWidth:300 }}>⚠ {saveErr}</span>}
-        <Btn onClick={saveReport} color={C.amber} disabled={saving||portfolio.length===0}>
-          {saving?'SAVING…':'💾 SAVE SNAPSHOT'}
-        </Btn>
+    );
+    if (!ghravaPf?.accounts?.length) return (
+      <div style={{ color:C.muted, fontSize:13, textAlign:'center', padding:40 }}>
+        No holdings found in Ghrava Finance.<br/>
+        <span style={{ fontSize:12 }}>Import a CSV from Finance → Holdings to get started.</span>
       </div>
-      {showForm && (
-        <Panel style={{ marginBottom:14 }}>
-          <PanelTitle>NEW POSITION</PanelTitle>
-          <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'flex-end' }}>
-            {[['SYMBOL','symbol','AAPL',90,null],['SHARES','shares','100',90,'number'],['AVG COST ($)','cost','185.00',100,'number']].map(([lbl,fld,ph,w,t])=>(
-              <div key={fld}>
-                <div style={{ color:C.muted, fontSize:13, marginBottom:4 }}>{lbl}</div>
-                <Inp value={form[fld]} onChange={v=>setForm(f=>({...f,[fld]:v}))} placeholder={ph} style={{ width:w }} type={t||'text'} />
+    );
+
+    const s = ghravaPf.summary;
+    const gainColor = s.total_gain_loss >= 0 ? C.green : C.red;
+
+    return (
+      <div>
+        {/* Summary bar */}
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(140px,1fr))', gap:8, marginBottom:16 }}>
+          {[
+            ['Total Value',    `$${(s.total_market_value||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`, C.text],
+            ['Cost Basis',     `$${(s.total_cost_basis||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`, C.muted],
+            ['Total Gain',     `${s.total_gain_loss>=0?'+':''}$${Math.abs(s.total_gain_loss||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`, gainColor],
+            ['Return',         `${s.total_gain_loss_pct>=0?'+':''}${(s.total_gain_loss_pct||0).toFixed(2)}%`, gainColor],
+          ].map(([label,val,color]) => (
+            <div key={label} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px' }}>
+              <div style={{ color:C.muted, fontSize:11, marginBottom:4 }}>{label}</div>
+              <div style={{ color, fontWeight:700, fontSize:15 }}>{val}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Accounts and holdings */}
+        {ghravaPf.accounts.map(acct => {
+          const acctGainColor = acct.gain_loss >= 0 ? C.green : C.red;
+          const taxBadgeColor = acct.tax_treatment==='roth_ira'?C.green:acct.tax_treatment==='taxable'?C.amber:C.blue;
+          const taxLabel = { taxable:'Taxable', traditional_ira:'Trad IRA', roth_ira:'Roth IRA', tsp:'TSP', hsa:'HSA', other:'Other' }[acct.tax_treatment] || acct.tax_treatment;
+          return (
+            <div key={acct.id} style={{ marginBottom:14 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                padding:'8px 12px', background:C.panel, borderRadius:'8px 8px 0 0',
+                border:`1px solid ${C.border}`, borderBottom:'none' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <span style={{ color:C.text, fontWeight:600, fontSize:14 }}>{acct.nickname}</span>
+                  <span style={{ color:C.muted, fontSize:12 }}>{acct.institution}</span>
+                  <Tag color={taxBadgeColor}>{taxLabel}</Tag>
+                </div>
+                <div style={{ display:'flex', gap:12, fontSize:12 }}>
+                  <span style={{ color:C.text }}>${(acct.market_value||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                  <span style={{ color:acctGainColor }}>{acct.gain_loss>=0?'+':''}${Math.abs(acct.gain_loss||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                </div>
               </div>
-            ))}
-            <div>
-              <div style={{ color:C.muted, fontSize:13, marginBottom:4 }}>TYPE</div>
-              <Sel value={form.type} onChange={v=>setForm(f=>({...f,type:v}))} options={['stock','etf','option']} style={{ width:90 }} />
+              <div style={{ border:`1px solid ${C.border}`, borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
+                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                  <thead><tr style={{ background:C.bg, color:C.muted }}>
+                    {['SYMBOL','TYPE','SHARES','COST BASIS','PRICE','MKT VALUE','GAIN $','GAIN %','52W',''].map((h,i) => (
+                      <th key={i} style={{ padding:'5px 10px', textAlign:i===0?'left':'right', fontWeight:600, fontSize:10, letterSpacing:0.3 }}>{h}</th>
+                    ))}
+                  </tr></thead>
+                  <tbody>
+                    {acct.holdings.map((h,i) => {
+                      const live = quotes[h.symbol];
+                      const livePrice = live?.price ?? h.price;
+                      const liveVal   = livePrice && h.shares ? livePrice * h.shares : h.market_value;
+                      const liveCost  = h.total_cost_basis || (h.cost_basis||0) * (h.shares||0);
+                      const liveGain  = liveVal && liveCost ? liveVal - liveCost : h.gain_loss_dollar;
+                      const liveGainPct = liveCost > 0 && liveGain != null ? (liveGain / liveCost) * 100 : h.gain_loss_pct;
+                      const gc = (liveGain||0) >= 0 ? C.green : C.red;
+                      const w52pct = h.week52_low && h.week52_high && livePrice
+                        ? ((livePrice - h.week52_low) / (h.week52_high - h.week52_low) * 100).toFixed(0)
+                        : null;
+                      return (
+                        <tr key={i} style={{ borderTop:`1px solid ${C.border}22`,
+                          background: i%2===0 ? 'transparent' : C.bg+'44' }}>
+                          <td style={{ padding:'7px 10px', fontWeight:700, color:C.text }}>{h.symbol}</td>
+                          <td style={{ padding:'7px 10px', textAlign:'right' }}><Tag color={C.muted}>{h.asset_type||'stock'}</Tag></td>
+                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.text }}>{h.shares?.toLocaleString()}</td>
+                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.muted }}>{h.cost_basis ? fmtP(h.cost_basis) : '—'}</td>
+                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.text }}>
+                            {fmtP(livePrice)}
+                            {live && <span style={{ color:pColor(live.pct), fontSize:10, marginLeft:4 }}>{fmtPct(live.pct)}</span>}
+                          </td>
+                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.text, fontWeight:600 }}>{liveVal ? fmtP(liveVal) : '—'}</td>
+                          <td style={{ padding:'7px 10px', textAlign:'right', color:gc }}>{liveGain != null ? `${liveGain>=0?'+':''}${fmtP(Math.abs(liveGain))}` : '—'}</td>
+                          <td style={{ padding:'7px 10px', textAlign:'right', color:gc }}>{liveGainPct != null ? `${liveGainPct>=0?'+':''}${parseFloat(liveGainPct).toFixed(2)}%` : '—'}</td>
+                          <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                            {w52pct !== null ? (
+                              <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                                <div style={{ width:40, height:4, borderRadius:2, background:C.border, overflow:'hidden' }}>
+                                  <div style={{ width:`${w52pct}%`, height:'100%', background:C.blue }} />
+                                </div>
+                                <span style={{ color:C.dimmed, fontSize:10 }}>{w52pct}%</span>
+                              </div>
+                            ) : '—'}
+                          </td>
+                          <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                            <Btn small color={C.purple} onClick={() => {
+                              window.dispatchEvent(new CustomEvent('analyzeFromPortfolio', { detail: { symbol: h.symbol, shares: h.shares, costBasis: h.cost_basis } }));
+                            }}>AI ▶</Btn>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div>
-              <div style={{ color:C.muted, fontSize:13, marginBottom:4 }}>NOTES</div>
-              <Inp value={form.notes} onChange={v=>setForm(f=>({...f,notes:v}))} placeholder="Optional" style={{ width:180 }} />
+          );
+        })}
+
+        <div style={{ color:C.dimmed, fontSize:11, marginTop:8 }}>
+          Source: Ghrava Finance → Holdings · {ghravaPf._as_of} ·
+          <span style={{ color:C.blue, cursor:'pointer', marginLeft:6 }} onClick={loadGhrava}>⟳ refresh</span>
+        </div>
+      </div>
+    );
+  };
+
+  // ── Performance chart ─────────────────────────────────────────
+  const PerformanceChart = () => {
+    if (perfLoading) return <Spinner text="Loading performance history…" />;
+    if (!perfData?.snapshots?.length) return (
+      <div style={{ color:C.muted, fontSize:12, textAlign:'center', padding:24 }}>
+        No performance history yet. Once Ghrava Finance takes its first portfolio snapshot,
+        the chart will appear here automatically.
+      </div>
+    );
+    return <GhravaPerformanceChart data={perfData} />;
+  };
+
+  // ── Manual portfolio ──────────────────────────────────────────
+  const ManualPortfolio = () => {
+    const manualValue = portfolio.reduce((s,p) => s + getPrice(p)*p.shares, 0);
+    const manualCost  = portfolio.reduce((s,p) => s + p.cost*p.shares, 0);
+    const manualPnl   = manualValue - manualCost;
+    const manualPct   = manualCost > 0 ? (manualPnl / manualCost) * 100 : 0;
+
+    return (
+      <div>
+        <div style={{ display:'flex', gap:16, marginBottom:14, flexWrap:'wrap', alignItems:'center', fontSize:13 }}>
+          <span style={{ color:C.muted }}>Value: <span style={{ color:C.text, fontWeight:600 }}>{fmtP(manualValue)}</span></span>
+          <span style={{ color:C.muted }}>Cost: <span style={{ color:C.text }}>{fmtP(manualCost)}</span></span>
+          <span style={{ color:C.muted }}>P&L: <span style={{ color:pColor(manualPnl), fontWeight:600 }}>{manualPnl>=0?'+':''}{fmtP(manualPnl)} ({fmtPct(manualPct)})</span></span>
+          <Btn small color={C.blue} onClick={() => setShowForm(f => !f)}>+ ADD POSITION</Btn>
+        </div>
+        {showForm && (
+          <Panel style={{ marginBottom:12 }}>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginBottom:8 }}>
+              <Inp value={form.symbol} onChange={v=>setForm(f=>({...f,symbol:v.toUpperCase()}))} placeholder="Symbol" style={{ width:90 }} />
+              <Inp value={form.shares} onChange={v=>setForm(f=>({...f,shares:v}))} placeholder="Shares" style={{ width:80 }} type="number" />
+              <Inp value={form.cost}   onChange={v=>setForm(f=>({...f,cost:v}))}   placeholder="Cost/share" style={{ width:90 }} type="number" />
+              <Btn color={C.green} onClick={add}>ADD</Btn>
+              <Btn color={C.muted} onClick={() => setShowForm(false)}>CANCEL</Btn>
             </div>
-            <Btn onClick={add} color={C.green}>ADD</Btn>
+          </Panel>
+        )}
+        {portfolio.length === 0 ? (
+          <div style={{ color:C.muted, fontSize:13, textAlign:'center', padding:32 }}>
+            No manual positions. Add one above, or switch to Ghrava Holdings view.
           </div>
-        </Panel>
-      )}
-      <Panel style={{ overflowX:'auto' }}>
-        {portfolio.length===0
-          ? <div style={{ color:C.muted, textAlign:'center', padding:40 }}>No positions yet.</div>
-          : <>
-            <div style={{ display:'grid', gridTemplateColumns:'80px 55px 70px 75px 80px 90px 90px 75px 1fr',
-              gap:8, padding:'6px 10px', color:C.muted, fontSize:13, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
-              {['SYMBOL','TYPE','SHARES','AVG COST','CUR PRICE','MKT VALUE','P&L','RETURN',''].map(h=><span key={h}>{h}</span>)}
-            </div>
-            {portfolio.map(p => {
-              const curr=getPrice(p), val=p.shares*curr, cost=p.shares*p.cost, pnl=val-cost, pct=cost>0?(pnl/cost)*100:0, r=posResult[p.id];
-              return (
-                <div key={p.id}>
-                  <div style={{ display:'grid', gridTemplateColumns:'80px 55px 70px 75px 80px 90px 90px 75px 1fr',
-                    gap:8, padding:'9px 10px', borderBottom:`1px solid ${C.border}22`, alignItems:'center' }}>
-                    <span style={{ color:C.text, fontWeight:'bold' }}>{p.symbol}</span>
-                    <Tag color={C.muted}>{p.type.toUpperCase()}</Tag>
-                    <span style={{ color:C.text }}>{p.shares}</span>
-                    <span style={{ color:C.text }}>{fmtP(p.cost)}</span>
-                    <span style={{ color:C.text }}>{fmtP(curr)}</span>
-                    <span style={{ color:C.text }}>${val.toFixed(2)}</span>
-                    <span style={{ color:pColor(pnl) }}>{pnl>=0?'+':''}${Math.abs(pnl).toFixed(2)}</span>
-                    <span style={{ color:pColor(pct) }}>{fmtPct(pct)}</span>
+        ) : (
+          portfolio.map((p, i) => {
+            const curr = getPrice(p), val = p.shares*curr, cost = p.cost*p.shares;
+            const pnl = val - cost, pct = cost > 0 ? (pnl/cost)*100 : 0;
+            const r = posResult[p.id];
+            return (
+              <div key={p.id} style={{ marginBottom:8, border:`1px solid ${C.border}`, borderRadius:8, overflow:'hidden' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', flexWrap:'wrap', gap:8 }}>
+                  <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+                    <span style={{ color:C.text, fontWeight:700, fontSize:15 }}>{p.symbol}</span>
+                    <span style={{ color:C.muted, fontSize:12 }}>{p.shares} @ {fmtP(p.cost)}</span>
+                  </div>
+                  <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+                    <span style={{ color:C.text, fontWeight:600 }}>{fmtP(val)}</span>
+                    <span style={{ color:pColor(pct), fontWeight:600 }}>{pnl>=0?'+':''}{fmtP(pnl)} ({fmtPct(pct)})</span>
                     <div style={{ display:'flex', gap:5 }}>
-                      <Btn small color={C.blue} onClick={()=>analyzePos(p)} disabled={analyzing===p.id}>{analyzing===p.id?'⟳':'AI ▶'}</Btn>
-                      <Btn small color={C.red} onClick={()=>remove(p.id)}>✕</Btn>
+                      <Btn small color={C.blue} onClick={() => analyzePos(p)} disabled={analyzing===p.id}>{analyzing===p.id?'⟳':'AI ▶'}</Btn>
+                      <Btn small color={C.red} onClick={() => remove(p.id)}>✕</Btn>
                     </div>
                   </div>
-                  {r && <div style={{ padding:'10px 10px 10px 20px', background:C.bg+'aa', borderBottom:`1px solid ${C.border}22` }}><AIResultCard result={r} symbol={p.symbol} /></div>}
                 </div>
-              );
-            })}
-          </>
-        }
-      </Panel>
+                {r && <div style={{ padding:'10px 14px', background:C.bg+'aa', borderTop:`1px solid ${C.border}22` }}><AIResultCard result={r} symbol={p.symbol} /></div>}
+              </div>
+            );
+          })
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      {/* Source toggle + save */}
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexWrap:'wrap', gap:8 }}>
+        <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}` }}>
+          {[['ghrava','📊 Ghrava Holdings'],['manual','✏ Manual']].map(([id,label]) => (
+            <button key={id} onClick={() => setSource(id)} style={{
+              background: activeSource===id ? C.blue : 'transparent',
+              color: activeSource===id ? 'white' : C.muted,
+              border:'none', padding:'7px 16px', cursor:'pointer',
+              fontFamily:'inherit', fontSize:12, fontWeight:600,
+            }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          {saved && <Tag color={C.green}>✓ SAVED</Tag>}
+          {saveErr && <span style={{ color:C.red, fontSize:11 }}>⚠ {saveErr}</span>}
+          <Btn small color={C.amber} onClick={savePortfolioReport} disabled={saving}>
+            {saving ? 'SAVING…' : '💾 SAVE SNAPSHOT'}
+          </Btn>
+        </div>
+      </div>
+
+      {activeSource === 'ghrava' ? (
+        <div>
+          <Panel style={{ marginBottom:14 }}>
+            <GhravaPortfolio />
+          </Panel>
+          <Panel>
+            <PanelTitle>PORTFOLIO PERFORMANCE — 12 MONTHS</PanelTitle>
+            <PerformanceChart />
+          </Panel>
+        </div>
+      ) : (
+        <Panel><ManualPortfolio /></Panel>
+      )}
     </div>
   );
 };
+
 
 // ═══════════════════════════════════════════════════════════════
 // OPTIONS TAB
@@ -3173,7 +3545,21 @@ function App() {
     // Allow Social tab to link to Settings via custom event
     const handler = () => setTab('settings');
     window.addEventListener('gotoSettings', handler);
-    return () => window.removeEventListener('gotoSettings', handler);
+
+    // From portfolio — jump to AI Analyst tab with symbol pre-filled
+    const analyzeHandler = (e) => {
+      setTab('ai');
+      // Small delay to let tab render
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('prefillAnalyst', { detail: e.detail }));
+      }, 100);
+    };
+    window.addEventListener('analyzeFromPortfolio', analyzeHandler);
+
+    return () => {
+      window.removeEventListener('gotoSettings', handler);
+      window.removeEventListener('analyzeFromPortfolio', analyzeHandler);
+    };
   }, []);
 
   // Debounced auto-save to backend on every data change

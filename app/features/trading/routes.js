@@ -13,6 +13,10 @@ const fs           = require('fs');
 const path         = require('path');
 const { serverError, badRequest } = require('../../shared/errors');
 
+// Ghrava DB — read-only for portfolio integration
+// NEVER write to finance tables. NEVER DELETE. Read only.
+const db = require('../db/db');
+
 const DATA_DIR    = path.join(__dirname, '../../data');
 const DATA_FILE   = path.join(DATA_DIR, 'trading.json');
 const REPORTS_DIR = path.join(DATA_DIR, 'trading-reports');
@@ -351,6 +355,219 @@ router.get('/market/congress/:symbol', async (req, res) => {
   } catch(e) {
     res.status(502).json({ error: 'Congress data failed: '+e.message, trades:[] });
   }
+});
+
+
+// ══════════════════════════════════════════════════════════════
+// GHRAVA INTEGRATION — READ-ONLY FROM lifetracker.db
+// All queries filter is_active=1. No DELETE. No writes to Ghrava tables.
+// See TRADE_TERMINAL_INTEGRATION.md for rules and constraints.
+// ══════════════════════════════════════════════════════════════
+
+// GET live portfolio from Ghrava holdings
+// Reads: financial_accounts JOIN holdings (import system tables)
+// Filters: is_active=1 on accounts only
+router.get('/portfolio/live', (req, res) => {
+  try {
+    // Check if financial_accounts table exists (may not on fresh install)
+    const tableCheck = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='financial_accounts'`
+    ).get();
+    if (!tableCheck) return res.json({ accounts: [], summary: { total_market_value:0, total_cost_basis:0, total_gain_loss:0, total_gain_loss_pct:0 }, _source:'ghrava_holdings', _note:'No investment accounts found' });
+
+    const accounts = db.prepare(`
+      SELECT id, nickname, institution, account_type,
+             COALESCE(tax_treatment,'taxable') AS tax_treatment,
+             owner, is_active
+      FROM financial_accounts
+      WHERE is_active = 1
+      ORDER BY institution, nickname
+    `).all();
+
+    const holdingsStmt = db.prepare(`
+      SELECT symbol, name, asset_type, shares, cost_basis,
+             price, price_date, market_value,
+             total_cost_basis, gain_loss_dollar, gain_loss_pct,
+             day_change_dollar, day_change_pct,
+             week52_low, week52_high,
+             dividend_yield, annual_dividend
+      FROM holdings
+      WHERE account_id = ?
+      ORDER BY market_value DESC
+    `);
+
+    let totalValue = 0, totalCost = 0, totalGain = 0;
+
+    const result = accounts.map(acct => {
+      const holdings = holdingsStmt.all(acct.id);
+      const acctValue = holdings.reduce((s, h) => s + (h.market_value || 0), 0);
+      const acctCost  = holdings.reduce((s, h) => s + (h.total_cost_basis || (h.cost_basis||0) * (h.shares||0)), 0);
+      totalValue += acctValue;
+      totalCost  += acctCost;
+      totalGain  += (acctValue - acctCost);
+      return {
+        id:           acct.id,
+        nickname:     acct.nickname,
+        institution:  acct.institution,
+        account_type: acct.account_type,
+        tax_treatment: acct.tax_treatment,
+        owner:        acct.owner,
+        market_value: parseFloat(acctValue.toFixed(2)),
+        cost_basis:   parseFloat(acctCost.toFixed(2)),
+        gain_loss:    parseFloat((acctValue - acctCost).toFixed(2)),
+        holdings:     holdings.map(h => ({
+          ...h,
+          market_value:       h.market_value       ? parseFloat(h.market_value.toFixed(2))       : null,
+          total_cost_basis:   h.total_cost_basis   ? parseFloat(h.total_cost_basis.toFixed(2))   : null,
+          gain_loss_dollar:   h.gain_loss_dollar   ? parseFloat(h.gain_loss_dollar.toFixed(2))   : null,
+          gain_loss_pct:      h.gain_loss_pct      ? parseFloat(h.gain_loss_pct.toFixed(4))      : null,
+        }))
+      };
+    });
+
+    const gainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
+
+    res.json({
+      accounts: result,
+      summary: {
+        total_market_value:  parseFloat(totalValue.toFixed(2)),
+        total_cost_basis:    parseFloat(totalCost.toFixed(2)),
+        total_gain_loss:     parseFloat(totalGain.toFixed(2)),
+        total_gain_loss_pct: parseFloat(gainPct.toFixed(4)),
+      },
+      _source:  'ghrava_holdings',
+      _as_of:   new Date().toISOString().slice(0, 10),
+    });
+  } catch(e) { serverError(res, e); }
+});
+
+// GET portfolio performance history from portfolio_snapshots
+// Reads: portfolio_snapshots (written by shared/portfolio-analytics.js scheduler)
+router.get('/portfolio/performance', (req, res) => {
+  try {
+    const months = Math.min(parseInt(req.query.months) || 12, 60);
+    const tableCheck = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='portfolio_snapshots'`
+    ).get();
+    if (!tableCheck) return res.json({ snapshots: [], allocation: [], top_gainers: [], _note: 'No performance history yet' });
+
+    const snapshots = db.prepare(`
+      SELECT snapshot_date, total_value, total_cost, total_gain, total_gain_pct
+      FROM portfolio_snapshots
+      WHERE snapshot_date >= date('now', '-' || ? || ' months')
+      ORDER BY snapshot_date ASC
+    `).all(months);
+
+    // Asset allocation from current holdings
+    const allocation = db.prepare(`
+      SELECT COALESCE(asset_type,'other') AS type,
+             ROUND(SUM(market_value),2)   AS value,
+             COUNT(*)                     AS count
+      FROM holdings
+      WHERE market_value > 0
+      GROUP BY asset_type
+      ORDER BY value DESC
+    `).all();
+
+    // Top performers from holdings
+    const topGainers = db.prepare(`
+      SELECT symbol, name, market_value, total_cost_basis,
+             gain_loss_dollar, gain_loss_pct
+      FROM holdings
+      WHERE market_value > 0 AND gain_loss_pct IS NOT NULL
+      ORDER BY gain_loss_pct DESC
+      LIMIT 5
+    `).all();
+
+    const topLosers = db.prepare(`
+      SELECT symbol, name, market_value, total_cost_basis,
+             gain_loss_dollar, gain_loss_pct
+      FROM holdings
+      WHERE market_value > 0 AND gain_loss_pct IS NOT NULL
+      ORDER BY gain_loss_pct ASC
+      LIMIT 5
+    `).all();
+
+    res.json({ snapshots, allocation, top_gainers: topGainers, top_losers: topLosers });
+  } catch(e) { serverError(res, e); }
+});
+
+// GET watchlist summary — top movers for Dashboard widget
+// Reads: trading.json watchlist + live Yahoo Finance quotes
+router.get('/watchlist/summary', async (req, res) => {
+  try {
+    const data = readData();
+    const watchlist = data.watchlist || [];
+    if (!watchlist.length) return res.json({ movers: [], fearGreed: null });
+
+    const https = require('https');
+    const fetchYahoo = (sym) => new Promise((resolve) => {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=1d`;
+      https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, r => {
+        let b = ''; r.on('data', c => b += c);
+        r.on('end', () => {
+          try {
+            const d = JSON.parse(b);
+            const m = d?.chart?.result?.[0]?.meta;
+            if (!m) return resolve(null);
+            const prev = m.previousClose || m.chartPreviousClose || m.regularMarketPrice;
+            const chg  = m.regularMarketPrice - prev;
+            const pct  = prev > 0 ? (chg / prev) * 100 : 0;
+            resolve({ symbol: sym, price: parseFloat(m.regularMarketPrice.toFixed(2)),
+              chg: parseFloat(chg.toFixed(2)), pct: parseFloat(pct.toFixed(2)) });
+          } catch(e) { resolve(null); }
+        });
+      }).on('error', () => resolve(null));
+    });
+
+    // Fetch top 8 watchlist symbols in parallel
+    const quotes = (await Promise.all(watchlist.slice(0, 8).map(fetchYahoo)))
+      .filter(Boolean)
+      .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct));
+
+    res.json({ movers: quotes, count: watchlist.length });
+  } catch(e) { serverError(res, e); }
+});
+
+// POST save analysis report to Ghrava Documents
+// Writes one new row to documents table — the ONLY write to lifetracker.db
+router.post('/reports/save-to-ghrava', (req, res) => {
+  try {
+    const { symbol, title, summary, timeframe, provider, date } = req.body;
+    if (!symbol || !title) return badRequest(res, 'symbol and title required');
+
+    // Check documents table exists
+    const tableCheck = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='documents'`
+    ).get();
+    if (!tableCheck) return res.status(503).json({ error: 'Documents module not available' });
+
+    // Check for duplicate — same symbol + same date to avoid re-saves
+    const existing = db.prepare(
+      `SELECT id FROM documents WHERE title = ? AND issue_date = ?`
+    ).get(title, date || new Date().toISOString().slice(0, 10));
+    if (existing) return res.json({ ok: true, id: existing.id, duplicate: true });
+
+    const r = db.prepare(`
+      INSERT INTO documents
+        (title, category, subcategory, description, issue_date, issuer)
+      VALUES (?, 'Trade Research', ?, ?, ?, ?)
+    `).run(
+      title,
+      symbol.toUpperCase(),
+      summary ? summary.slice(0, 500) : null,
+      date || new Date().toISOString().slice(0, 10),
+      provider || 'Trade Terminal'
+    );
+
+    // Tag with ticker symbol
+    try {
+      const { saveTagsByName } = require('../shared/tags');
+      saveTagsByName(r.lastInsertRowid, 'document', [symbol.toUpperCase()]);
+    } catch(e) { /* tags optional — don't fail the save */ }
+
+    res.status(201).json({ ok: true, id: r.lastInsertRowid });
+  } catch(e) { serverError(res, e); }
 });
 
 // ── WRITES ────────────────────────────────────────────────────────

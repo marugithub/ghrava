@@ -234,6 +234,35 @@ literally instead.
 
 ---
 
+
+---
+
+## Trade Terminal Integration
+
+The Trade Terminal (`app/public/trade.html` + `app/features/trading/routes.js`)
+is a Bloomberg-style trading terminal linked from the Ghrava nav bar.
+It runs as a standalone page — no build step, React via Babel CDN.
+
+**When working on anything touching Finance, Holdings, financial_accounts,
+portfolio_snapshots, or the trading routes — read
+`TRADE_TERMINAL_INTEGRATION.md` first.**
+
+Key rules (full detail in the doc):
+- Terminal reads from `financial_accounts` and `holdings` — never writes to them
+- Terminal's one write to Ghrava: `POST /api/v1/trading/reports/save-to-ghrava`
+  creates a new row in `documents` only
+- `financial_accounts` (investment, uses `nickname`) ≠ `finance_accounts`
+  (banking ledger, uses `name`) — don't mix these
+- All terminal queries filter `WHERE is_active = 1` on accounts
+- No DELETE, no ON DELETE CASCADE, ever
+
+**Pending Ghrava-side tasks from integration (v202604.185+):**
+1. Wire `tax_treatment` dropdown in Finance investment account form —
+   migration 146 adds the column and seeds `dropdown_options`
+   under `list_key = 'investment_tax_treatment'`
+2. Add watchlist widget to `dashboard.html` — calls
+   `GET /api/v1/trading/watchlist/summary`, silent fail if unavailable
+
 ## How Al works
 
 Al writes terse messages. "Continue" means "keep building, no recap
