@@ -15,7 +15,7 @@ const { serverError, badRequest } = require('../../shared/errors');
 
 // Ghrava DB — read-only for portfolio integration
 // NEVER write to finance tables. NEVER DELETE. Read only.
-const db = require('../db/db');
+const db = require('../../db/db');
 
 const DATA_DIR    = path.join(__dirname, '../../data');
 const DATA_FILE   = path.join(DATA_DIR, 'trading.json');
@@ -562,7 +562,7 @@ router.post('/reports/save-to-ghrava', (req, res) => {
 
     // Tag with ticker symbol
     try {
-      const { saveTagsByName } = require('../shared/tags');
+      const { saveTagsByName } = require('../../shared/tags');
       saveTagsByName(r.lastInsertRowid, 'document', [symbol.toUpperCase()]);
     } catch(e) { /* tags optional — don't fail the save */ }
 
