@@ -69,17 +69,23 @@ principles.
 
 ---
 
-## 🚧 v.185 BUILT (pre-package) — Reports Group 1 Part B: Sankey + small-multiples (2026-05-21)
+## ✅ v.185 DEPLOYED & VERIFIED — Reports Group 1 Part B: Sankey + small-multiples (2026-05-21)
 
-> **Built, committed, pushed — not yet packaged or deployed. Smoke +
-> E2E run on the NAS at package time.** Pure-additive drop: three
-> new read-only endpoints in `app/features/finance/reports.js`, two
-> new chart renderers in `app/public/reports.html`. No migrations,
-> no schema changes, no column changes. Validator on Windows host:
-> 10 noise lines all in `130_rescue_126.js` + `134_hsa_plan_to_fsa.js`
-> (pre-existing baseline); zero entries from any v.185 file. Four
-> commits on local main: `7481334 → 4a0fcd9 → 3fcf7a5 → d129df4`.
-> One follow-up commit for this docs block + version bump pending.
+> **DEPLOYED 2026-05-21 ~21:17 (deploy started 21:07, full pipeline
+> 10m). Smoke 8/8, full E2E 115 pass / 0 fail (4.5m run; held the
+> v.184 baseline — no new tests, no regressions).** `version.txt`=
+> `202604.185` live, container restarted clean. Boot migration line:
+> `Migrations: 0 applied, 143 skipped` (no migrations in this drop;
+> identical to v.184's baseline). Zero `FAILED .*\.js` on the v.185
+> boot (the 126 orphan stays resolved per v.177). Local/origin/NAS
+> all == `4a25b3e`. Schema-safety gate cleared on Windows host
+> before package: 10 flagged lines all in `130_rescue_126.js` +
+> `134_hsa_plan_to_fsa.js` (known pre-existing noise); zero entries
+> from any v.185 file. Five commits on origin: `7481334 → 4a0fcd9
+> → 3fcf7a5 → d129df4 → 4a25b3e`. Pure additive drop — three new
+> backend endpoints, two new chart renderers, two new drill-down
+> kind branches. No migrations, no schema changes, no column
+> changes.
 
 **Theme.** Finish Reports Group 1 (Money). v.183 closed 2 of the 4
 chart slots (calendar heatmap #26.1.2, vendor treemap #26.1.3) and
