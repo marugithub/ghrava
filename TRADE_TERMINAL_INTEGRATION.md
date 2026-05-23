@@ -1,8 +1,8 @@
 # Trade Terminal — Ghrava Integration
-**Status:** Phase 1 (portfolio + performance + document save) BUILT — not yet deployed
-**Built against:** Ghrava v202604.185
-**Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`
-**New migration:** `146_financial_accounts_tax_treatment.sql`
+**Status:** Phase 1 + 3A LIVE on v202605.190 (deployed via parallel chat: v.186 → v.190)
+**Built against:** Ghrava v202604.185 (extended through v202605.190)
+**Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`, `app/public/finance.html`, `app/public/dashboard.html`, `app/features/finance/routes.js`
+**Migrations applied:** `146_financial_accounts_tax_treatment.sql`
 
 ---
 
@@ -20,14 +20,23 @@ The trading routes file now requires `../db/db` for read access to `lifetracker.
 | `GET /api/v1/trading/watchlist/summary` | Top movers from watchlist for Dashboard widget | `trading.json` + Yahoo Finance |
 | `POST /api/v1/trading/reports/save-to-ghrava` | Save AI analysis to Ghrava Documents | writes to `documents` |
 
-### New migration: `146_financial_accounts_tax_treatment.sql`
+### Migration `146_financial_accounts_tax_treatment.sql`
 
-Adds `tax_treatment TEXT NOT NULL DEFAULT 'taxable'` to `financial_accounts`.
-Seeds `dropdown_options` with `list_key = 'investment_tax_treatment'`.
-Additive only — no existing rows affected.
+Adds `tax_treatment TEXT NOT NULL DEFAULT 'taxable'` to the underlying `accounts`
+table (mig 130 made `financial_accounts` a VIEW), and recreates the view to expose
+the column. Additive only — no existing rows affected.
 
-**The Finance account form in `finance.html` still needs a `tax_treatment` dropdown
-wired to this column.** That's a Ghrava-side task, not done in this integration.
+**Doc-correction note (v.190 audit):** earlier text here claimed migration 146 also
+seeded `dropdown_options` with `list_key = 'investment_tax_treatment'`. **It does
+not** — only the column + view exist. The dropdown in `finance.html` uses static
+`<option>` elements with keys matching `trade.html`'s `taxLabel` enum
+(`taxable / traditional_ira / roth_ira / tsp / hsa / other`). This is intentional:
+the vocabulary is code-coupled (the trade terminal renders badges per key), so
+keeping it static prevents user-added values from becoming silent orphans.
+
+**Status (v.190):** Finance dropdown wired at `finance.html:3610-3623`, show/hide
+at `:2620-2621`, save/load at `:2664/2711`. End-to-end verified via live NAS GET
+returning `tax_treatment` per investment account.
 
 ### Portfolio tab — now reads from Ghrava
 
@@ -91,51 +100,63 @@ without creating another row.
 
 ---
 
-## What Still Needs Doing (Ghrava-side)
+## Phase 1 + 3A completion status (v.190 audit)
 
-### 1. Wire `tax_treatment` dropdown in `finance.html`
+### ✅ DONE in v.189 (shipped by parallel chat)
 
-Migration 146 adds the column. The Finance account form for investment accounts
-needs a new dropdown. The dropdown options are already seeded in `dropdown_options`
-under `list_key = 'investment_tax_treatment'`.
+1. **`tax_treatment` dropdown in `finance.html`** — wired end-to-end. Static options
+   match the `trade.html` taxLabel enum (not from `dropdown_options`; see correction
+   above). Shown only for investment account types (Brokerage / TSP / Retirement).
+2. **Dashboard watchlist widget** — `dashboard.html:418-428` widget HTML,
+   `loadWatchlistWidget()` at `:436-467` calls `/api/v1/trading/watchlist/summary`,
+   shows top 5 movers + count, silent-fail on error or empty.
+3. **Phase 1 terminal upgrades** — candlestick chart, technical indicators
+   (RSI/MACD/BB), FRED macro panel, Polygon options chain — all live.
 
-The field should appear in the investment account form (account_type = brokerage/tsp/other),
-not in the banking account form (checking/savings/credit).
+### ✅ DONE in v.190
 
-### 2. Dashboard watchlist widget
-
-`GET /api/v1/trading/watchlist/summary` is built and returns top movers.
-A small widget on `dashboard.html` should call this endpoint and display:
-- Top 3–5 movers with price and % change coloured green/red
-- "N symbols in watchlist" count
-- Link to open the terminal
-Silent fail — if the endpoint is unavailable, widget shows nothing.
-
-### 3. Smoke test additions
-
-Add to `smoke-test.sh`:
-```bash
-check_endpoint "GET /api/v1/trading/portfolio/live"               200
-check_endpoint "GET /api/v1/trading/portfolio/performance?months=12" 200
-check_endpoint "GET /api/v1/trading/watchlist/summary"            200
-```
+4. **Smoke test additions** — `smoke-test.sh` Trading Terminal section adds
+   `/portfolio/live`, `/portfolio/performance`, `/watchlist/summary`, `/market/macro`.
+5. **Phase 3A — Target Allocation editor panel** with AI Rebalancing Advice button.
+   New collapsible panel on the Portfolio tab below the performance chart. Reads
+   current allocation from `/portfolio/performance`, persists target in
+   `trading.json` under `settings.targetAllocation`. AI advice uses
+   `callProvider()` with the user's configured provider; result can be saved as a
+   report with `type='AI Rebalancing Advice'`.
 
 ---
 
 ## Next Phases (not yet built)
 
-**Phase 1 terminal upgrades** (planned after integration):
-- Candlestick chart with volume bars — replace line chart in AI Analyst tab
-- Technical indicators (RSI, MACD, Bollinger Bands) computed from OHLCV data,
-  fed into AI prompt context
-- FRED macro panel — Fed rate, CPI, unemployment, yield curve (free, no key)
-- Real options chain via Polygon.io free key
+**Phase 3B — Tax Location Optimisation** (v.191 — unblocked, now that the dropdown
+has been live since v.189):
+- Reads holdings grouped by account + tax_treatment
+- Client-side rule engine flags suboptimal locations (bonds in Taxable, growth
+  in Trad IRA, etc.)
+- AI "Full Tax Optimisation Analysis" button for prioritised rebalancing plan
 
-**Phase 3 portfolio optimisation** (requires tax_treatment to be filled in):
-- Asset allocation vs target allocation
-- Tax location advice (AI-generated, based on holdings + tax_treatment per account)
-- Concentration/correlation analysis
-- Earnings capture — cross-reference holdings vs upcoming earnings calendar
+**Phase 6 — Short Interest** (v.191): Yahoo `quoteSummary` enrichment + AI prompt
++ AIResultCard badge.
+
+**Phase 3D + Phase 7 (v.192):** Earnings capture for holdings (new `/portfolio/
+earnings-calendar` route + "My Holdings" sub-tab) + price alerts (bell icon on
+watchlist rows, toast on threshold crossing).
+
+**Phase 3C + Phase 4A (v.193):** Concentration/correlation analysis (new
+`/portfolio/correlation` route, Pearson on 90-day closes) + multi-symbol chart
+comparison (normalised line mode).
+
+**Phase 8 (v.194):** Reports tab rich viewer for `AI Analysis`, `Portfolio
+Snapshot`, and `AI Rebalancing Advice` types. CSV export. Compare-two-snapshots
+diff.
+
+**Phase 5A (v.195):** Real screener universe via Finnhub `/stock/symbol` with
+24h cache.
+
+**Phase 9 (v.196):** Mobile UX pass.
+
+See `MEMORY.md` → `parallel-roadmaps-may-2026` for the broader queue context
+(Trade Terminal v.190-v.196, then Reports Redesign v.197+).
 
 ---
 

@@ -313,6 +313,17 @@ section "Insurance"
 assert_array "GET /insurance"         "$BASE/api/v1/insurance/"
 assert_keys  "GET /insurance/summary" "$BASE/api/v1/insurance/summary" "active"
 
+# ── Trading Terminal (v.186 onwards) ──────────────────────────
+section "Trading Terminal"
+# /portfolio/live reads financial_accounts + holdings (Ghrava DB integration).
+# Empty state returns 200 with accounts:[] and a _note — both are healthy.
+assert_keys "GET /trading/portfolio/live"               "$BASE/api/v1/trading/portfolio/live"        "accounts summary"
+assert_keys "GET /trading/portfolio/performance"        "$BASE/api/v1/trading/portfolio/performance?months=12" "snapshots allocation"
+# /watchlist/summary calls Yahoo — empty movers is acceptable (network may be down or watchlist empty).
+assert_json "GET /trading/watchlist/summary"            "$BASE/api/v1/trading/watchlist/summary"
+# /market/macro fetches FRED CSV — fields are nullable on FRED outage, so just verify the route returns JSON.
+assert_json "GET /trading/market/macro"                 "$BASE/api/v1/trading/market/macro"
+
 # ── Google integration ────────────────────────────────────────
 section "Google"
 assert_json "GET /google/status" "$BASE/api/v1/google/status"

@@ -69,6 +69,113 @@ principles.
 
 ---
 
+## 🚧 v.190 BUILT — Phase 3A Target Allocation editor + Phase-1-2 doc reconcile (2026-05-22)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.190`. Hand-off
+> situation worth flagging: at session start, this Windows clone was 6 commits
+> behind `origin/main` because the v.186-v.189 trade-terminal work was shipped
+> by a parallel chat (the deploy script pushes from `Z:\ghrava` on the NAS-side
+> after each deploy). `git fetch` + fast-forward brought local back in sync;
+> v.190 is layered on top. See `MEMORY.md → parallel-roadmaps-may-2026` and
+> the updated start-of-session check in `ghrava-deploy-ssh`.
+
+### Reconciled into v.190 (work that landed v.186-v.189 by parallel chat)
+
+| Theme | Drop | What |
+|---|---|---|
+| Trade Terminal Phase 1 — Ghrava integration | v.186-v.187 | mig 146 `tax_treatment` (column on `accounts`, view recreated); `/portfolio/live`, `/portfolio/performance`, `/watchlist/summary`, `/reports/save-to-ghrava`. Portfolio tab Ghrava Holdings view with tax-treatment badges. AI Analyst auto-injects cost basis when launched from a position. |
+| Trade Terminal Phase 2 — chart + macro + options | v.187-v.189 | Candlestick chart with volume bars + technical indicators (RSI/MACD/BB) fed into AI prompt context. FRED macro panel (`/market/macro` — Fed rate, CPI, unemployment, yield curve, S&P, VIX). Real options chain via Polygon (`/market/options`, free tier). Finance dropdown UI for `tax_treatment` (`finance.html:3610-3623`). Dashboard watchlist widget (`dashboard.html:418-428`). |
+
+These were missing from STATE.md but **live on the NAS as v202605.189** before
+v.190 work began. Smoke + Playwright at v.189 deploy time confirmed healthy boot
+(docker logs grepped clean, container running on port 3001).
+
+### What's in v.190 (3 net-new commits + 1 deploy-script fix)
+
+1. **`af685a1` — Deploy-script false-positive fix.**
+   `ghrava_deploy.ps1` Step-6 log scan was matching `errors=0` (the data-cleanup
+   stat counter) and reporting "3 error-like line(s) in logs" on healthy
+   deploys. Filter `\berrors?=0\b` lines before counting. Legitimate
+   `[ERROR]` / `errors=3` / `Uncaught` / crash patterns still trip the warning.
+   No app code change. No version bump on its own — landed alongside v.190.
+
+2. **`00a152e` — Task 2 / Phase 3A: Target Allocation editor panel.**
+   New collapsible panel below the Portfolio Performance chart on the Portfolio
+   tab. Columns: ASSET TYPE / CURRENT% / TARGET% / DRIFT / STATUS dot
+   (green ≤2%, amber 2-5%, red >5%). Six canonical categories
+   (stock / etf / mutual_fund / bond / cash / other) with `normaliseAllocKey()`
+   folding the raw `holdings.asset_type` values into the canonical set. Reads
+   current % from `/portfolio/performance` allocation; persists target in
+   `trading.json` under `settings.targetAllocation` via the existing debounced
+   `update()`. First-launch UX: "Use Current as Target" button seeds an
+   integer-rounded distribution (fractional-remainder algorithm) summing to 100.
+   Edit mode validates sum=100 before allowing Save.
+
+3. **`4f80748` — Task 3 / Phase 3A: AI Rebalancing Advice button.**
+   Wires the slot reserved in commit 2. `buildRebalancePrompt()` composes a
+   prompt with current vs target drift, total value, and the top 3 holdings per
+   category (with account name + tax_treatment), instructing the AI to prefer
+   tax-advantaged accounts for bond/dividend moves. Uses the existing
+   `callProvider()` (gemini / deepseek / openai / claudeHaiku / claudeSonnet —
+   the user's setting picks). Result renders inline as a narrative card with
+   provider badge, timestamp, dismiss, and Save-as-Report button.
+   `saveRebalanceReport()` calls existing `persistReport()` with
+   `type='AI Rebalancing Advice'` — the current Reports tab renders that as JSON
+   (rich viewer is Phase 8 scope).
+
+4. **Task 5 / docs + smoke + version bump (this drop).**
+   - `app/version.txt` → `202605.190`
+   - `smoke-test.sh` gets a new "Trading Terminal" section: `/portfolio/live`,
+     `/portfolio/performance`, `/watchlist/summary`, `/market/macro`.
+   - `TRADE_TERMINAL_INTEGRATION.md` updated: marks Phase 1 + 3A as live;
+     corrects the stale claim that mig 146 seeds `dropdown_options` (it does
+     not — the dropdown uses static options matching the taxLabel enum).
+   - `STATE.md` (this block).
+
+### Audit-vs-reality findings during v.190 build (3 cases caught)
+
+| Spec claim | Reality on v.189 | Resolution |
+|---|---|---|
+| "Task 1 — Wire `tax_treatment` dropdown in `finance.html`" | Already wired end-to-end in v.189 (`finance.html:3610-3623` + `:2620/2664/2711`). Live NAS verified `GET /finance/accounts` returns `tax_treatment` for Brokerage rows. | No code change; doc correction in `TRADE_TERMINAL_INTEGRATION.md`. |
+| "Task 4 — Build dashboard watchlist widget" | Already wired in v.189 (`dashboard.html:418-428` widget + `:436-467` loader). Live `/watchlist/summary` returns 7 movers. | No code change; doc correction. |
+| Mig 146 "seeds `dropdown_options` with `list_key = 'investment_tax_treatment'`" | False — SQL only adds the column + recreates the view, no seed INSERT. | Doc corrected to explain why static options are correct (vocabulary is code-coupled). |
+
+Net: v.190 ships **2 net-new app commits** (Tasks 2 + 3) instead of the planned
+5 — Tasks 1 and 4 were already shipped, Task 5 is docs-only. Same pattern as the
+v.181–v.184 audit cases the `audit-vs-reality-check` memory tracks.
+
+### Schema-safety gate (Windows host pre-package)
+
+11 flagged lines via `validate-schema.py --strict`. 10 are in `130_rescue_126.js`
+(pre-existing 130/134 noise — known benign per [[ghrava-deploy-ssh]]). **1 new
+flag** is `app/features/trading/routes.js:378 — no such column: tax_treatment`
+on `financial_accounts`. This is a v.189 condition (not a v.190 regression):
+the route reads `tax_treatment` via the `financial_accounts` view, but the
+validator doesn't expand view definitions, so it can't see that mig 146 recreated
+the view to expose the column. The route works correctly on prod (live NAS verified
+above). **Treating as a known validator limitation.** v.190 ships zero new SQL.
+
+### Tests
+
+E2E baseline `115/0` should hold — v.190 adds no migrations, no contract
+changes, no smoke-suite regressions. The new smoke section is additive: 4 new
+trading-terminal assertions, all expected to pass against the live NAS state.
+
+### What v.190 deliberately does NOT do
+
+- Phase 3B (Tax Location Optimisation) — deferred to v.191 (unblocked now that
+  the `tax_treatment` dropdown is verified live).
+- Phase 6 (Short Interest) — v.191.
+- Phase 3D + 7 (Earnings + Alerts) — v.192.
+- Phase 3C + 4A (Correlation + multi-symbol chart) — v.193.
+- Phase 8 (Reports tab rich viewer) — v.194.
+- Phase 5A (real screener universe) — v.195.
+- Phase 9 (mobile UX) — v.196.
+- Reports page redesign (`REPORTS_REDESIGN_HANDOFF.md`) — queued AFTER trade
+  terminal Phase 3-9 ships, per [[parallel-roadmaps-may-2026]].
+
+---
+
 ## ✅ v.185 DEPLOYED & VERIFIED — Reports Group 1 Part B: Sankey + small-multiples (2026-05-21)
 
 > **DEPLOYED 2026-05-21 ~21:17 (deploy started 21:07, full pipeline
