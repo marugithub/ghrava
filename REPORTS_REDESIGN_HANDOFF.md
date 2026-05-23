@@ -2,7 +2,183 @@
 
 **For:** Next Claude Code session OR new chat that picks up Reports work.
 **Created:** 2026-05-22 (end of v.185 design session).
-**Status:** Design locked. Build NOT started.
+**Refined:** 2026-05-23 (post-v.193 design conversation — see REFINEMENT block below).
+**Status:** Design locked. Build NOT started. **Build sequenced AFTER trade-terminal Phase 8/5A/9 ship (v.194-v.196) — Reports Redesign starts at v.197.**
+
+---
+
+## ⚡ 2026-05-23 REFINEMENT BLOCK — READ FIRST
+
+This block was added in the post-v.193 design conversation. **Everything here
+supersedes any conflicting statement in the original handoff below.** The
+original handoff is preserved unchanged for history; this block tells you what
+actually shipped through the design conversations since.
+
+### Sequencing (UPDATED)
+
+The original handoff's v.186-v.190 build plan **DID NOT HAPPEN** — those
+version labels got used by trade-terminal Phase 1-2 integration shipped via
+a parallel chat. Trade-terminal Phase 3-9 then continued through v.190-v.196.
+The Reports Redesign now starts at **v.197** (after trade-terminal Phase 8/
+5A/9 ship). Build sequence locked 2026-05-23:
+
+- **v.194** — trade-terminal Phase 8 (saved AI report rich viewers inside trade.html)
+- **v.195** — trade-terminal Phase 5A (real screener)
+- **v.196** — trade-terminal Phase 9 (mobile UX)
+- **v.197** — Reports Redesign drop 1 = scaffolding + Money tab live (combined)
+- **v.198** — Reports Redesign drop 2 = remaining Money reports
+- **v.199** — Reports Redesign drop 3 = Health tab
+- **v.200+** — Household, Family
+
+See [[parallel-roadmaps-may-2026]] memory for the full queue context.
+
+### Grouping pattern within a tab (NEW LOCK)
+
+Variant A: tiny lowercase eyebrows. 10px lowercase muted-grey label above each
+tile row. No boxes, no horizontal lines, no background tints, no sub-tabs, no
+pill chips. Whitespace + label only.
+
+```
+spending                                                 ← 10px, lowercase, muted grey
+[tile] [tile] [tile] [tile]
+                                                         ← ~24px vertical gap
+income & cash
+[tile] [tile] [tile]
+```
+
+Tiles still carry their per-tile eyebrow chip (e.g. `💰 SPEND`). The section
+label adds grouping context without adding chrome. This is the SAME pattern
+applied across Money / Health / Household / Family. Pending tab has no groups
+(single existing list).
+
+### Build approach (NEW LOCK)
+
+**Scaffolding + Money live in one combined drop.** First Reports Redesign
+drop ships:
+
+- New `/reports.html` layout with header + Lens + tabs + Pinned strip
+- ALL FOUR non-Pending tabs render real tile grids with locked tile lists
+- Pending tab keeps existing v.171 rendering unchanged
+- Tiles in the 5 "first-drop live" Money slots → click goes to wired viewer
+- All other tiles → click does a "Coming soon" toast (no viewer wired)
+- Migration for `user_preferences` + endpoints for pinned-reports
+- ALL shared components in `app/public/shared/` (see Centralization below)
+- Mobile responsive behavior wired and verified at phone/tablet/desktop widths
+
+This lets the user visually approve the look on prod before any per-report
+work goes in. Subsequent drops fill in viewer pages tab-by-tab.
+
+### Centralization plan (NEW LOCK)
+
+Shared UI components live in central files, NOT duplicated per page. New
+shared partials under `app/public/shared/`:
+
+| File | What it does | Used by |
+|---|---|---|
+| `gh-tile.js` | Renders one shortcut tile in the grid (eyebrow + title + meta) | All Reports tabs |
+| `gh-drilldown.js` | The drill-down panel — slideout on desktop, full-screen overlay on mobile. Same component, two visual modes by viewport width. | Every report viewer that drills into a record |
+| `gh-filter-strip.js` | Filter pill row + "Add filter" button on viewer pages | All report viewer pages |
+| `gh-report-states.js` | Shared empty + error states (icon, title, subtitle, recovery actions) | All report viewer pages + the "Coming soon" toast |
+| `gh-print.css` | `@media print` stylesheet — hides nav + actions, keeps title + filters + table | Report viewer pages |
+
+Reuse existing `GH_LENS`, `GH_CARD v5`, `GH_VIEW` as-is — don't fork.
+
+### Mobile picks (NEW LOCK — M1 through M6)
+
+| | Lock | Why |
+|---|---|---|
+| **M1 Lens search on mobile** | Stacked under title row, full-width, always visible | Reports page is search-forward; hiding behind an icon adds friction. Costs ~40px vertical, worth it. |
+| **M2 Pinned strip on mobile** | Horizontal scroll, single thin row, right-edge fade hint | 4 pins in 2×2 takes ~200px before tabs appear. Scroll keeps the top of the page useful. Native iOS/Android pattern. |
+| **M3 Action icon row on viewer page** | Refresh + Pin visible inline; PDF/XLS/CSV/Print/Share collapsed into a `⋯` overflow menu | 8 icons wrap ugly on phone; overflow keeps the inline row clean. |
+| **M4 Drill-down on mobile** | Full-screen overlay (NOT a right-side slideout) | No horizontal room for a slideout. Same `gh-drilldown.js` component, viewport-aware mode. |
+| **M5 Data table on mobile** | Each row becomes a card with 3-4 most important columns visible; tap to expand and see the rest | Stacking 10 fields per row = endless scroll. Important-first + expand pattern. |
+| **M6 Filter strip on mobile** | Pills wrap inline to multiple rows. "+ Add filter" stays attached to last pill (no separate row). | Filters are critical context; the Add button is a less-common action and doesn't need its own row. |
+
+### Money tab — final tile list (NEW LOCK — 17 tiles + Pending shortcut)
+
+```
+spending
+[💰 Spending by category LIVE] [💰 Top vendors LIVE] [💰 Calendar] [💰 Trends LIVE]
+
+income & cash
+[💰 Income → categories] [💰 Cash-flow forecast LIVE] [💰 Net worth trend]
+
+tax & receipts
+[💰 HSA & FSA — IRS ready LIVE] [💰 Subscriptions — renewals]
+
+trade terminal                          ─────────────  Open terminal ↗
+[💰 Portfolio snapshot] [💰 Portfolio performance] [💰 Concentration & corr]
+[💰 Tax location check] [💰 Trade research log] [💰 Rebalancing advice log]
+[💰 Tax optimization log]
+
+pending shortcut
+[⚠ Pending items →]   (links to Pending tab — not its own viewer page)
+```
+
+**5 wired LIVE in the first drop:** Spending by category · Top vendors · Trends · Cash-flow forecast · HSA-FSA IRS. All have working backend endpoints from past drops (v.169-v.185), so the work is per-report viewer-page wiring, not new queries.
+
+**12 visible but NON-FUNCTIONAL in first drop:** Click → "Coming soon" toast. Wired one or two per subsequent drop in v.198+.
+
+The 7 trade-terminal tiles all read from existing backend (`/portfolio/live`, `/portfolio/performance`, `/portfolio/correlation`, `/reports` JSON files). Surfacing them inside the redesigned `/reports.html` doesn't change `/trade.html` — the terminal stays as-is and the "Open terminal ↗" link on the trade-terminal section header jumps to it.
+
+### Health tab — content per original handoff
+
+Per the original "Health tab" section below: hsa-fsa-irs (shared with Money), hsa-spending, meds-active, visits-history, immunizations, procedures, receipts-missing. Labs + BP trend remain "in design" cards until the metric_index design conversation. No changes from the original handoff for this tab.
+
+### Household tab — final tile list (NEW LOCK — 11 tiles, 3 groups)
+
+```
+property & vehicles
+[🏠 Property summary] [🏠 Maintenance log] [🚗 Vehicles summary]
+[🚗 Vehicle maintenance] [🚗 Fuel + service log]
+
+recurring spend & policies
+[📰 Subscriptions overview] [🛡 Insurance policies]
+
+inventory & documents
+[📦 Inventory valuation] [📦 Warranty expiry] [📄 Document expiry]
+[📦 Items by location]
+```
+
+All source data exists in current modules — Property, Vehicles, Subscriptions, Insurance, Inventory, Documents.
+
+### Family tab — final tile list (NEW LOCK — 7 tiles, 4 groups)
+
+```
+emergency & snapshot
+[🆔 Emergency info — per person] [👪 Family snapshot]
+
+family member detail
+[👤 Family member detail]   ← ONE tile with member switcher inside the viewer
+
+kids
+[👧 Kids — activities] [👧 Kids — school + grades]
+
+contacts
+[📇 Care team contacts] [📇 Family contacts directory]
+```
+
+**Family member detail = ONE tile with a switcher inside the viewer page** (NOT auto-multiplied per family member). Tile count is stable regardless of family size. Adding a 5th family member doesn't add a 5th tile — the switcher dropdown gets one more option.
+
+### Cross-tab duplicates (NEW LOCK)
+
+Reports listed under multiple tabs (e.g. `hsa-fsa-irs` in Money AND Health) ship as **duplicate tiles, same underlying report, identical drill-down**. The tile's leading icon color/emoji follows the **tab**, not the report — so `hsa-fsa-irs` shows with `💰` under Money and `🩺` under Health. Identical behavior on click.
+
+### Tile sort within a group (NEW LOCK)
+
+Manually curated. The exact tile order is locked at each drop's build time and frozen unless explicitly redesigned. NOT auto-sorted by usage frequency (jumpy) or alphabetical (boring).
+
+### Column picker per-report defaults (DEFERRED, default rule set)
+
+Per-report column visibility defaults stay deferred — they'll be locked at each report's individual build. **Default rule:** every column visible. `GH_VIEW`'s existing column picker is reused, not redesigned.
+
+### Reports Redesign — what's still NOT decided
+
+- **Per-report default column visibility** (above — deferred per default rule)
+- **`user_preferences` table schema** for v.197 (likely the handoff's original spec: `id`, `user_key`, `pinned_reports` JSON, `updated_at` — but confirm at build time)
+- **"Pinned" interaction model** — pin button lives on viewer pages, which don't exist until at least one report has a viewer. So pinning is a v.197+ concern, not a v.197 task.
+
+Everything else from this chat is **LOCKED**. Don't re-litigate.
 
 ---
 
