@@ -815,7 +815,7 @@ const AIResultCard = ({ result, symbol, fundamentals=null, enrichment=null }) =>
 // WATCHLIST TAB
 // ═══════════════════════════════════════════════════════════════
 const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
-  const { watchlist=[], settings={} } = data;
+  const { watchlist=[], settings={}, alerts=[] } = data;
   const [newTick, setNewTick] = useState('');
   const [busy, setBusy] = useState(false);
   const [aiSymbol, setAiSymbol] = useState(null);
@@ -824,12 +824,47 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
   const [aiErr, setAiErr] = useState('');
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Phase 7 alerts state — editor + the most-recently-triggered banner queue
+  const [alertEditSym,    setAlertEditSym]    = useState(null);
+  const [alertCond,       setAlertCond]       = useState('above');
+  const [alertPrice,      setAlertPrice]      = useState('');
+  const [triggeredBanner, setTriggeredBanner] = useState([]);  // [{ id, symbol, condition, price, crossedAt }]
+
   const TFS = ['day trade (today)','swing (1–2 weeks)','swing (2–4 weeks)','medium term (1–3 months)','long term (6+ months)'];
 
   const [fetchStatus, setFetchStatus] = useState(null); // { source, warnings }
 
+  // Walk alerts after every refresh. For each un-triggered alert whose
+  // condition is met by the fresh quote, fire the banner and persist
+  // triggered=true so the alert doesn't re-fire on every subsequent refresh.
+  const checkAlerts = (latestQuotes) => {
+    if (!alerts.length) return;
+    const fired = [];
+    const updatedAlerts = alerts.map(a => {
+      if (a.triggered) return a;
+      const q = latestQuotes[a.symbol];
+      if (!q || q.price == null) return a;
+      const met = a.condition === 'above' ? q.price > a.price
+                : a.condition === 'below' ? q.price < a.price
+                : false;
+      if (met) {
+        fired.push({ ...a, crossedAt: q.price });
+        return { ...a, triggered: true };
+      }
+      return a;
+    });
+    if (fired.length) {
+      update({ alerts: updatedAlerts });
+      setTriggeredBanner(prev => [...fired, ...prev].slice(0, 10));
+    }
+  };
+
   const refresh = async () => {
-    if (settings.demoMode) { setQuotes(MOCK_QUOTES); return; }
+    if (settings.demoMode) {
+      setQuotes(MOCK_QUOTES);
+      checkAlerts(MOCK_QUOTES);
+      return;
+    }
     setBusy(true); setFetchStatus(null);
     const updated = {};
     let lastStatus = null;
@@ -839,8 +874,10 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
       lastStatus = { source: res.source, warnings: res.warnings };
       await sleep(300);
     }
+    const merged = { ...quotes, ...updated };
     setQuotes(prev => ({ ...prev, ...updated }));
     setFetchStatus(lastStatus);
+    checkAlerts(merged);
     setBusy(false);
   };
 
@@ -854,7 +891,41 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
     setNewTick('');
   };
 
-  const remove = s => update({ watchlist: watchlist.filter(x => x !== s) });
+  const remove = s => {
+    // Removing a symbol also removes any alerts attached to it.
+    update({
+      watchlist: watchlist.filter(x => x !== s),
+      alerts:    alerts.filter(a => a.symbol !== s),
+    });
+  };
+
+  // ── Phase 7 alert helpers ───────────────────────────────────────
+  const openAlertEditor = (sym) => {
+    setAlertEditSym(sym);
+    setAlertCond('above');
+    // Default to current price as a sensible starting point — user just changes the digits.
+    setAlertPrice(quotes[sym]?.price ? String(quotes[sym].price) : '');
+  };
+  const closeAlertEditor = () => { setAlertEditSym(null); setAlertPrice(''); };
+
+  const saveAlert = () => {
+    const price = parseFloat(alertPrice);
+    if (!alertEditSym || !isFinite(price) || price <= 0) return;
+    const newAlert = {
+      id:        `a${Date.now()}${Math.random().toString(36).slice(2,6)}`,
+      symbol:    alertEditSym,
+      condition: alertCond,
+      price,
+      triggered: false,
+      createdAt: new Date().toISOString(),
+    };
+    update({ alerts: [...alerts, newAlert] });
+    closeAlertEditor();
+  };
+
+  const deleteAlert = (id) => update({ alerts: alerts.filter(a => a.id !== id) });
+  const resetAlert  = (id) => update({ alerts: alerts.map(a => a.id === id ? { ...a, triggered: false } : a) });
+  const dismissBannerItem = (id) => setTriggeredBanner(prev => prev.filter(x => x.id !== id));
 
   const analyze = async sym => {
     setAiSymbol(sym); setAiLoading(true); setAiResult(null); setAiErr('');
@@ -881,27 +952,93 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
           <Btn onClick={refresh} color={C.amber} disabled={busy}>{busy?'⟳ FETCHING…':'⟳ REFRESH'}</Btn>
           {settings.demoMode && <Tag color={C.amber}>DEMO — SIMULATED PRICES</Tag>}
         </div>
+
+        {/* Triggered-alert banner (Phase 7, v.192). Persists until dismissed. */}
+        {triggeredBanner.length > 0 && (
+          <div style={{ marginBottom:12 }}>
+            {triggeredBanner.map(t => (
+              <div key={t.id} style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+                gap:8, padding:'9px 12px', background:C.amber+'18', border:`1px solid ${C.amber}77`,
+                borderRadius:6, marginBottom:6 }}>
+                <span style={{ color:C.text, fontSize:13 }}>
+                  🔔 <strong>{t.symbol}</strong> crossed <strong>{t.condition}</strong> ${t.price.toFixed(2)} — now ${t.crossedAt.toFixed(2)}
+                </span>
+                <Btn small color={C.muted} onClick={()=>dismissBannerItem(t.id)}>✕</Btn>
+              </div>
+            ))}
+          </div>
+        )}
+
         <div style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
           gap:8, padding:'6px 10px', color:C.muted, fontSize:13, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
           {['SYMBOL','PRICE','CHANGE','CHG%','HIGH','LOW',''].map(h=><span key={h}>{h}</span>)}
         </div>
         {watchlist.map(sym => {
           const q = quotes[sym]; const up = (q?.chg??0)>=0; const nd = !q?.price;
+          const symAlerts = alerts.filter(a => a.symbol === sym);
+          const hasArmed   = symAlerts.some(a => !a.triggered);
           return (
-            <div key={sym} style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
-              alignItems:'center', gap:8, padding:'8px 10px', borderBottom:`1px solid ${C.border}22`,
-              borderLeft:`4px solid ${nd?C.muted:up?C.green:C.red}`, background:C.bg, borderRadius:'0 6px 6px 0' }}>
-              <span style={{ color:C.text, fontWeight:'bold' }}>{sym}</span>
-              <span style={{ color:C.text }}>{nd?'—':fmtP(q.price)}</span>
-              <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':`${up?'+':''}${fmtNum(q.chg)}`}</span>
-              <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':fmtPct(q.pct)}</span>
-              <span style={{ color:C.muted, fontSize:13 }}>{q?.h?fmtP(q.h):'—'}</span>
-              <span style={{ color:C.muted, fontSize:13 }}>{q?.l?fmtP(q.l):'—'}</span>
-              <div style={{ display:'flex', gap:5, justifyContent:'flex-end' }}>
-                <Btn small color={C.blue} onClick={()=>analyze(sym)}>AI ▶</Btn>
-                <Btn small color={C.red} onClick={()=>remove(sym)}>✕</Btn>
+            <React.Fragment key={sym}>
+              <div style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
+                alignItems:'center', gap:8, padding:'8px 10px', borderBottom:symAlerts.length || alertEditSym===sym ? 'none' : `1px solid ${C.border}22`,
+                borderLeft:`4px solid ${nd?C.muted:up?C.green:C.red}`, background:C.bg, borderRadius:'0 6px 6px 0' }}>
+                <span style={{ color:C.text, fontWeight:'bold' }}>{sym}</span>
+                <span style={{ color:C.text }}>{nd?'—':fmtP(q.price)}</span>
+                <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':`${up?'+':''}${fmtNum(q.chg)}`}</span>
+                <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':fmtPct(q.pct)}</span>
+                <span style={{ color:C.muted, fontSize:13 }}>{q?.h?fmtP(q.h):'—'}</span>
+                <span style={{ color:C.muted, fontSize:13 }}>{q?.l?fmtP(q.l):'—'}</span>
+                <div style={{ display:'flex', gap:5, justifyContent:'flex-end', alignItems:'center' }}>
+                  <Btn small color={hasArmed ? C.amber : C.muted} onClick={()=>alertEditSym===sym?closeAlertEditor():openAlertEditor(sym)}>
+                    🔔{symAlerts.length > 0 ? ` ${symAlerts.length}` : ''}
+                  </Btn>
+                  <Btn small color={C.blue} onClick={()=>analyze(sym)}>AI ▶</Btn>
+                  <Btn small color={C.red} onClick={()=>remove(sym)}>✕</Btn>
+                </div>
               </div>
-            </div>
+
+              {/* Inline alert editor */}
+              {alertEditSym === sym && (
+                <div style={{ background:C.panel, border:`1px solid ${C.amber}55`, borderLeft:`4px solid ${C.amber}`,
+                  padding:'10px 14px', borderBottom: symAlerts.length ? 'none' : `1px solid ${C.border}22`,
+                  display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+                  <span style={{ color:C.muted, fontSize:12 }}>Alert for <strong style={{ color:C.text }}>{sym}</strong> when price is</span>
+                  <Sel value={alertCond} onChange={setAlertCond}
+                    options={[{value:'above',label:'above'},{value:'below',label:'below'}]}
+                    style={{ width:90 }} />
+                  <span style={{ color:C.muted, fontSize:12 }}>$</span>
+                  <Inp value={alertPrice} onChange={setAlertPrice} placeholder="0.00" type="number"
+                    style={{ width:100 }} onKeyDown={e=>e.key==='Enter'&&saveAlert()} />
+                  <Btn small color={C.green} onClick={saveAlert} disabled={!alertPrice || parseFloat(alertPrice) <= 0}>Set</Btn>
+                  <Btn small color={C.muted} onClick={closeAlertEditor}>Cancel</Btn>
+                </div>
+              )}
+
+              {/* Existing alert chips for this symbol */}
+              {symAlerts.length > 0 && (
+                <div style={{ background:C.bg+'88', padding:'6px 14px',
+                  borderBottom:`1px solid ${C.border}22`, display:'flex', gap:6, flexWrap:'wrap', alignItems:'center' }}>
+                  {symAlerts.map(a => (
+                    <div key={a.id} style={{ display:'flex', alignItems:'center', gap:4,
+                      padding:'3px 8px', borderRadius:5, fontSize:11,
+                      background: a.triggered ? C.amber+'22' : C.green+'18',
+                      border: `1px solid ${a.triggered ? C.amber : C.green}55`,
+                      color: a.triggered ? C.amber : C.green }}>
+                      <span>🔔 {a.condition} ${a.price.toFixed(2)}</span>
+                      <span style={{ color:C.muted, marginLeft:2 }}>
+                        {a.triggered ? '· fired' : '· armed'}
+                      </span>
+                      {a.triggered && (
+                        <button onClick={()=>resetAlert(a.id)} title="Re-arm this alert"
+                          style={{ background:'none', border:'none', color:C.blue, cursor:'pointer', padding:'0 2px', fontSize:11 }}>↻</button>
+                      )}
+                      <button onClick={()=>deleteAlert(a.id)} title="Delete"
+                        style={{ background:'none', border:'none', color:C.red, cursor:'pointer', padding:'0 2px', fontSize:11 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </React.Fragment>
           );
         })}
         {watchlist.length===0 && <div style={{ color:C.muted, textAlign:'center', padding:30 }}>Watchlist empty.</div>}
