@@ -69,11 +69,25 @@ principles.
 
 ---
 
-## 🚧 v.193 BUILT — Phase 3C Concentration/Correlation + Phase 4A Multi-Symbol Chart (2026-05-23)
+## ✅ v.193 DEPLOYED & VERIFIED — Phase 3C Concentration/Correlation + Phase 4A Multi-Symbol Chart (2026-05-23)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.193`. Stacks
-> on top of the un-deployed v.192 — v.192 + v.193 will ship together
-> as one bundle when Al says so. Zero new SQL, zero migrations.
+> **DEPLOYED 2026-05-23 ~15:39 (deploy started 15:29, full pipeline 10m
+> incl. ~5m Playwright). Smoke 8/8, full E2E 115 pass / 0 fail — baseline
+> held despite +522 lines on trade.html and +282 lines on
+> trading/routes.js across v.192 + v.193.** `version.txt`=`202605.193`
+> live (`/api/v1/app/info` confirms). Container restarted clean.
+> Boot migration line: `Migrations: 0 applied, 144 skipped`. Zero
+> `FAILED .*\.js` on the v.193 boot. Local + origin + NAS all aligned
+> at `e999165`. Shipped via **Path A** (push then `-SkipGit` deploy
+> then NAS git reset) — 8 granular commits preserved on origin instead
+> of squash-committed by Step 4. Sanity check of the new
+> `/portfolio/correlation` route returned the graceful-empty shape
+> correctly (`holdings:[], sectors:[], correlation_pairs:[]` because
+> the live DB has no holdings populated yet — exactly what the route
+> is meant to return in that case). Schema gate clean on Windows host:
+> 12 flags = 10 known 130/134 noise + 2 known view-limitation false-
+> positives (one carried from v.189 + one carried from v.192 with its
+> line shifted due to v.193's new route landing above it).
 
 ### What's in v.193 (3 net-new commits, 2 features)
 
@@ -180,12 +194,13 @@ accepts that since the three top-level keys still exist.
 
 ---
 
-## 🚧 v.192 BUILT — Phase 3D Earnings for Holdings + Phase 7 Watchlist Alerts (2026-05-23)
+## ✅ v.192 DEPLOYED & VERIFIED — Phase 3D Earnings for Holdings + Phase 7 Watchlist Alerts (2026-05-23)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.192`. Stacks
-> on top of the deployed v.191 (`4ac3ebc`). Will deploy via Path A
-> (push then `-SkipGit`, then NAS reset) when Al says so. Zero new SQL,
-> zero migrations — additive feature drop only.
+> **Built 2026-05-23, deployed 2026-05-23 ~15:39 as part of the
+> v.192+v.193 bundle.** Stacked on top of the deployed v.191
+> (`4ac3ebc`); shipped together with v.193 via Path A. The bundle
+> deploy bumped straight to `202605.193`; v.192's
+> `version.txt=202605.192` was a transient label.
 
 ### What's in v.192 (3 net-new commits, 2 features)
 
