@@ -3586,11 +3586,38 @@ const ScreenerTab = ({ data, update, quotes }) => {
   const [aiPicks, setAiPicks] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiErr, setAiErr] = useState('');
-  const [sector, setSector] = useState('ALL');
-  const [sortBy, setSortBy] = useState('pct');
-  const [sortDir, setSortDir] = useState('desc');
+  // Universe filter state (Phase 5A, v.195)
+  const [universe,        setUniverse]        = useState([]);   // [{ symbol, displaySymbol, description, type, currency, mic }]
+  const [universeMeta,    setUniverseMeta]    = useState(null); // { fetchedAt, count, _source, _ageHours, _note }
+  const [universeLoading, setUniverseLoading] = useState(false);
+  const [universeErr,     setUniverseErr]     = useState('');
+  const [uniSearch,       setUniSearch]       = useState('');
+  const [uniType,         setUniType]         = useState('ALL');
+  const [uniMic,          setUniMic]          = useState('ALL');
+  const [uniSortBy,       setUniSortBy]       = useState('symbol');
+  const [uniSortDir,      setUniSortDir]      = useState('asc');
 
   const TFS = ['day trade (today)','swing (1-2 weeks)','swing (2-4 weeks)','medium term (1-3 months)','long term (6+ months)'];
+
+  // Fetch the universe on mount (uses cache if fresh). Manual refresh button hits ?refresh=1.
+  const loadUniverse = async (forceRefresh = false) => {
+    setUniverseLoading(true); setUniverseErr('');
+    try {
+      const url = '/api/v1/trading/market/symbols' + (forceRefresh ? '?refresh=1' : '');
+      const r = await fetch(url);
+      const d = await r.json();
+      if (!r.ok) { setUniverseErr(d.error || `HTTP ${r.status}`); setUniverseLoading(false); return; }
+      setUniverse(Array.isArray(d.symbols) ? d.symbols : []);
+      setUniverseMeta({
+        fetchedAt: d.fetchedAt, count: d.count, _source: d._source,
+        _ageHours: d._ageHours, _note: d._note,
+      });
+    } catch (e) {
+      setUniverseErr(e.message);
+    }
+    setUniverseLoading(false);
+  };
+  useEffect(() => { loadUniverse(false); }, []);
 
   const searchTicker = async () => {
     const sym = searchSym.toUpperCase().trim();
@@ -3638,12 +3665,49 @@ Return ONLY valid JSON:
     setAiLoading(false);
   };
 
-  const all = Object.entries(MOCK_QUOTES).map(([sym,q])=>({sym,...q}));
-  const sectors = ['ALL',...new Set(all.map(s=>s.sector))];
-  let filtered = sector==='ALL'?all:all.filter(s=>s.sector===sector);
-  filtered = [...filtered].sort((a,b)=>sortDir==='desc'?b[sortBy]-a[sortBy]:a[sortBy]-b[sortBy]);
-  const toggleSort = col => { if(sortBy===col) setSortDir(d=>d==='desc'?'asc':'desc'); else {setSortBy(col);setSortDir('desc');} };
-  const SortArrow = ({ col }) => sortBy===col?(sortDir==='desc'?' ▼':' ▲'):'';
+  // Build filter dropdown options from the loaded universe.
+  // Type/MIC values come straight from Finnhub's response — we surface whatever
+  // shows up (Common Stock / ETF / ADR / Preferred Stock / etc.) rather than
+  // hard-coding a list that might drift from Finnhub's vocabulary.
+  const universeTypes = ['ALL', ...[...new Set(universe.map(s => s.type).filter(Boolean))].sort()];
+  const universeMics  = ['ALL', ...[...new Set(universe.map(s => s.mic).filter(Boolean))].sort()];
+
+  // Apply substring + type + mic filters, then sort.
+  const uniSearchNorm = uniSearch.trim().toUpperCase();
+  let uniFiltered = universe.filter(s => {
+    if (uniType !== 'ALL' && s.type !== uniType) return false;
+    if (uniMic  !== 'ALL' && s.mic  !== uniMic)  return false;
+    if (uniSearchNorm) {
+      const sym  = (s.displaySymbol || s.symbol || '').toUpperCase();
+      const desc = (s.description || '').toUpperCase();
+      if (!sym.includes(uniSearchNorm) && !desc.includes(uniSearchNorm)) return false;
+    }
+    return true;
+  });
+  uniFiltered = uniFiltered.sort((a, b) => {
+    const av = (a[uniSortBy] || '').toString();
+    const bv = (b[uniSortBy] || '').toString();
+    const cmp = av.localeCompare(bv);
+    return uniSortDir === 'desc' ? -cmp : cmp;
+  });
+  const UNI_PAGE_SIZE = 100;
+  const uniDisplayed = uniFiltered.slice(0, UNI_PAGE_SIZE);
+
+  const toggleUniSort = col => {
+    if (uniSortBy === col) setUniSortDir(d => d === 'desc' ? 'asc' : 'desc');
+    else { setUniSortBy(col); setUniSortDir('asc'); }
+  };
+  const UniSortArrow = ({ col }) => uniSortBy === col ? (uniSortDir === 'desc' ? ' ▼' : ' ▲') : '';
+
+  // Friendly "fetched X ago" stamp.
+  const cacheAgeLabel = () => {
+    if (!universeMeta?.fetchedAt) return '';
+    const ms = Date.now() - new Date(universeMeta.fetchedAt).getTime();
+    const hours = ms / 3600000;
+    if (hours < 1)  return `fetched ${Math.round(ms / 60000)} min ago`;
+    if (hours < 48) return `fetched ${hours.toFixed(1)} h ago`;
+    return `fetched ${Math.round(hours / 24)} days ago`;
+  };
 
   return (
     <div style={{ display:'grid', gridTemplateColumns:'1fr 280px', gap:14 }}>
@@ -3744,38 +3808,100 @@ Return ONLY valid JSON:
           </Panel>
         )}
 
-        {/* Reference table */}
+        {/* Universe — Finnhub /stock/symbol cached 24h (Phase 5A, v.195) */}
         <Panel style={{ overflowX:'auto' }}>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, flexWrap:'wrap', gap:8 }}>
-            <PanelTitle>REFERENCE — SAMPLE TICKERS</PanelTitle>
-            <Sel value={sector} onChange={setSector} options={sectors.map(s=>({value:s,label:s}))} />
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:8 }}>
+            <PanelTitle>UNIVERSE — US-LISTED SYMBOLS</PanelTitle>
+            <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+              {universeMeta && (
+                <span style={{ color:C.dimmed, fontSize:11 }}>
+                  {universeMeta.count?.toLocaleString()} symbols · {cacheAgeLabel()}
+                </span>
+              )}
+              <Btn small color={C.blue} onClick={() => loadUniverse(true)} disabled={universeLoading}>
+                {universeLoading ? '⟳' : '⟳ refresh'}
+              </Btn>
+            </div>
           </div>
-          <div style={{ color:C.dimmed, fontSize:11, marginBottom:8 }}>Click any row to load into search above · Simulated prices for reference</div>
-          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-            <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
-              {[['SYMBOL','sym'],['SECTOR','sector'],['PRICE','price'],['CHG','chg'],['CHG %','pct'],['VOLUME','vol'],['',null]].map(([l,c])=>(
-                <th key={l} onClick={c?()=>toggleSort(c):undefined}
-                  style={{ textAlign:'left', padding:'5px 8px', fontWeight:600, cursor:c?'pointer':'default',
-                    color:sortBy===c?C.blue:C.muted, fontSize:11, letterSpacing:0.3 }}>
-                  {l}{c&&<SortArrow col={c} />}
-                </th>
-              ))}
-            </tr></thead>
-            <tbody>{filtered.map(s=>(
-              <tr key={s.sym} style={{ borderBottom:`1px solid ${C.border}18`, cursor:'pointer' }}
-                onClick={()=>setSearchSym(s.sym)}>
-                <td style={{ padding:'7px 8px', color:C.text, fontWeight:700 }}>{s.sym}</td>
-                <td style={{ padding:'7px 8px' }}><Tag color={C.muted}>{s.sector}</Tag></td>
-                <td style={{ padding:'7px 8px', color:C.text }}>{fmtP(s.price)}</td>
-                <td style={{ padding:'7px 8px', color:pColor(s.chg) }}>{s.chg>=0?'+':''}{fmtNum(s.chg)}</td>
-                <td style={{ padding:'7px 8px', color:pColor(s.pct) }}>{fmtPct(s.pct)}</td>
-                <td style={{ padding:'7px 8px', color:C.muted }}>{s.vol}</td>
-                <td style={{ padding:'7px 8px' }}>
-                  <Btn small color={C.blue} onClick={e=>{ e.stopPropagation(); setSearchSym(s.sym); setTimeout(searchTicker,50); }}>Screen</Btn>
-                </td>
-              </tr>
-            ))}</tbody>
-          </table>
+
+          {/* Filter row */}
+          <div style={{ display:'flex', gap:8, marginBottom:10, flexWrap:'wrap', alignItems:'center' }}>
+            <Inp value={uniSearch} onChange={setUniSearch}
+              placeholder="search ticker or company name…" style={{ flex:1, minWidth:180 }} />
+            <Sel value={uniType} onChange={setUniType}
+              options={universeTypes.map(t => ({ value:t, label: t === 'ALL' ? 'All types' : t }))}
+              style={{ minWidth:140 }} />
+            <Sel value={uniMic} onChange={setUniMic}
+              options={universeMics.map(m => ({ value:m, label: m === 'ALL' ? 'All exchanges' : m }))}
+              style={{ minWidth:120 }} />
+          </div>
+
+          {universeLoading && universe.length === 0 && <Spinner text="Loading symbol universe…" />}
+          {universeErr && (
+            <div style={{ color:C.amber, fontSize:12, marginBottom:8 }}>
+              ⚠ {universeErr}
+              {universeErr.toLowerCase().includes('finnhub') && (
+                <span style={{ display:'block', color:C.muted, marginTop:4 }}>
+                  Add a Finnhub free key in Settings → Market Data to load the universe.
+                </span>
+              )}
+            </div>
+          )}
+          {universeMeta?._note && (
+            <div style={{ color:C.dimmed, fontSize:11, marginBottom:8, fontStyle:'italic' }}>
+              {universeMeta._note}
+            </div>
+          )}
+
+          <div style={{ color:C.dimmed, fontSize:11, marginBottom:8 }}>
+            {uniFiltered.length === 0 && universe.length > 0
+              ? 'No symbols match the current filters.'
+              : `${uniFiltered.length.toLocaleString()} match${uniFiltered.length === 1 ? '' : 'es'}${uniFiltered.length > UNI_PAGE_SIZE ? ` · showing first ${UNI_PAGE_SIZE}` : ''} · click any row to load into the lookup above`}
+          </div>
+
+          {uniDisplayed.length > 0 && (
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+              <thead>
+                <tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
+                  {[['SYMBOL','symbol'],['NAME','description'],['TYPE','type'],['EXCHANGE','mic'],['',null]].map(([l,c]) => (
+                    <th key={l} onClick={c ? () => toggleUniSort(c) : undefined}
+                      style={{ textAlign:'left', padding:'5px 8px', fontWeight:600,
+                        cursor:c?'pointer':'default',
+                        color: uniSortBy===c ? C.blue : C.muted,
+                        fontSize:11, letterSpacing:0.3 }}>
+                      {l}{c && <UniSortArrow col={c} />}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {uniDisplayed.map(s => (
+                  <tr key={s.symbol} style={{ borderBottom:`1px solid ${C.border}18`, cursor:'pointer' }}
+                    onClick={() => setSearchSym(s.displaySymbol || s.symbol)}>
+                    <td style={{ padding:'7px 8px', color:C.text, fontWeight:700 }}>{s.displaySymbol || s.symbol}</td>
+                    <td style={{ padding:'7px 8px', color:C.text, maxWidth:280, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {s.description || '—'}
+                    </td>
+                    <td style={{ padding:'7px 8px' }}><Tag color={C.muted}>{s.type || '—'}</Tag></td>
+                    <td style={{ padding:'7px 8px', color:C.muted }}>{s.mic || '—'}</td>
+                    <td style={{ padding:'7px 8px' }}>
+                      <Btn small color={C.blue} onClick={e => {
+                        e.stopPropagation();
+                        const sym = s.displaySymbol || s.symbol;
+                        setSearchSym(sym);
+                        setTimeout(searchTicker, 50);
+                      }}>Screen</Btn>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <div style={{ color:C.dimmed, fontSize:10, marginTop:10, lineHeight:1.5 }}>
+            Universe filter uses Finnhub's free <code>/stock/symbol</code> response (ticker + name + type + exchange).
+            Sector and market-cap filtering aren't available on the free tier — they require a per-symbol profile fetch
+            (~10k API calls). Use the lookup above for full per-symbol metrics on any row you pick.
+          </div>
         </Panel>
       </div>
 
