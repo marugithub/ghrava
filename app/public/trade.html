@@ -3490,7 +3490,7 @@ const EarningsTab = ({ data, quotes }) => {
   const [earnings, setEarnings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
-  const [view, setView] = useState('upcoming'); // upcoming | watchlist
+  const [view, setView] = useState('upcoming'); // upcoming | watchlist | holdings (v.192)
   const [analyzing, setAnalyzing] = useState(null);
   const [earningsAI, setEarningsAI] = useState({});
 
@@ -3499,6 +3499,21 @@ const EarningsTab = ({ data, quotes }) => {
   const in30 = new Date(today); in30.setDate(in30.getDate()+30);
 
   const fetchEarnings = async () => {
+    // 'holdings' view goes through the new Ghrava-backed endpoint; the other
+    // two still hit Finnhub directly (existing watchlist-key path preserved).
+    if (view === 'holdings') {
+      setLoading(true); setErr(''); setEarnings([]);
+      try {
+        const r = await fetch('/api/v1/trading/portfolio/earnings-calendar');
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+        if (d._note && !d.items?.length) setErr(d._note);
+        setEarnings(d.items || []);
+      } catch(e) { setErr(e.message); }
+      setLoading(false);
+      return;
+    }
+
     if (!settings.finnhubKey) {
       setErr('Finnhub key required for earnings data. Add it in Settings → Market Data.');
       return;
@@ -3525,7 +3540,12 @@ const EarningsTab = ({ data, quotes }) => {
   const analyzeEarnings = async (e) => {
     setAnalyzing(e.symbol);
     const q = quotes[e.symbol]||MOCK_QUOTES[e.symbol];
-    const ctx = `Earnings date: ${e.date}. EPS estimate: ${e.epsEstimate??'N/A'}. Revenue estimate: ${e.revenueEstimate??'N/A'}. How to play this earnings event?`;
+    // If this is a held position, include the user's actual exposure in the prompt
+    // so the AI's recommendation is grounded in 'I have X shares at $Y' not 'general view'.
+    const positionBlock = e.position
+      ? `I hold ${e.position.shares} shares of ${e.symbol} at an average cost of $${e.position.avg_cost?.toFixed(2)} (across ${e.position.accounts?.join(' + ')}). Current market value $${e.position.market_value?.toFixed(2)}, P&L ${e.position.gain_dollar >= 0 ? '+' : ''}$${e.position.gain_dollar?.toFixed(2)} (${e.position.gain_pct >= 0 ? '+' : ''}${e.position.gain_pct?.toFixed(2)}%). Given this exposure, should I hold through earnings, trim before, hedge with puts, or add? Be specific about the trade. `
+      : '';
+    const ctx = `${positionBlock}Earnings date: ${e.date}${e.hour ? ` (${e.hour === 'bmo' ? 'pre-market' : e.hour === 'amc' ? 'after-hours' : e.hour})` : ''}. EPS estimate: ${e.epsEstimate??'N/A'}. Revenue estimate: ${e.revenueEstimate??'N/A'}. How to play this earnings event?`;
     try {
       const r = await analyzeStock({ symbol:e.symbol, quote:q, timeframe:'earnings play', context:ctx, settings });
       setEarningsAI(p=>({...p,[e.symbol]:r}));
@@ -3554,7 +3574,7 @@ const EarningsTab = ({ data, quotes }) => {
         </div>
         <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center' }}>
           <div style={{ display:'flex', borderRadius:8, overflow:'hidden', border:`1px solid ${C.border}` }}>
-            {[['upcoming','All Upcoming'],['watchlist','My Watchlist']].map(([id,label])=>(
+            {[['upcoming','All Upcoming'],['watchlist','My Watchlist'],['holdings','My Holdings ★']].map(([id,label])=>(
               <button key={id} onClick={()=>setView(id)} style={{
                 background:view===id?C.blue:'transparent', color:view===id?'white':C.muted,
                 border:'none', padding:'7px 14px', cursor:'pointer', fontFamily:'inherit', fontSize:12, fontWeight:600,
@@ -3590,7 +3610,27 @@ const EarningsTab = ({ data, quotes }) => {
                       <Tag color={uc}>{daysUntil(e.date)}</Tag>
                       {e.hour === 'bmo' && <Tag color={C.muted}>PRE-MARKET</Tag>}
                       {e.hour === 'amc' && <Tag color={C.muted}>AFTER-HOURS</Tag>}
+                      {e.position && <Tag color={C.purple}>YOU HOLD</Tag>}
                     </div>
+                    {/* Position context — only shown on the My Holdings view */}
+                    {e.position && (
+                      <div style={{ marginBottom:8, padding:'7px 10px', background:C.purple+'10',
+                        border:`1px solid ${C.purple}44`, borderRadius:6, fontSize:12, lineHeight:1.6 }}>
+                        <div style={{ color:C.text }}>
+                          <strong>{e.position.shares}</strong> shares @ <strong>${e.position.avg_cost?.toFixed(2)}</strong> avg cost
+                          <span style={{ color:C.muted }}> · {e.position.accounts?.join(' + ')}</span>
+                        </div>
+                        <div style={{ marginTop:3 }}>
+                          <span style={{ color:C.muted }}>Mkt value </span>
+                          <span style={{ color:C.text, fontWeight:600 }}>${e.position.market_value?.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                          <span style={{ color:C.muted, marginLeft:10 }}>P&L </span>
+                          <span style={{ color: e.position.gain_dollar >= 0 ? C.green : C.red, fontWeight:600 }}>
+                            {e.position.gain_dollar >= 0 ? '+' : ''}${Math.abs(e.position.gain_dollar||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+                            {' '}({e.position.gain_pct >= 0 ? '+' : ''}{e.position.gain_pct?.toFixed(2)}%)
+                          </span>
+                        </div>
+                      </div>
+                    )}
                     <div style={{ display:'flex', gap:20, fontSize:12, color:C.muted, flexWrap:'wrap' }}>
                       <span>📅 {e.date}</span>
                       {e.epsEstimate != null && <span>EPS Est: <span style={{ color:C.text }}>{e.epsEstimate}</span></span>}
@@ -3605,7 +3645,7 @@ const EarningsTab = ({ data, quotes }) => {
                     )}
                   </div>
                   <Btn small color={C.purple} onClick={()=>analyzeEarnings(e)} disabled={analyzing===e.symbol}>
-                    {analyzing===e.symbol?'⟳':'🤖 EARNINGS PLAY'}
+                    {analyzing===e.symbol?'⟳':(e.position ? '🤖 PLAY FOR MY POSITION' : '🤖 EARNINGS PLAY')}
                   </Btn>
                 </div>
                 {ai && (
