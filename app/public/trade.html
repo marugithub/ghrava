@@ -1905,6 +1905,10 @@ const PortfolioTab = ({ data, update, quotes }) => {
             ghravaPf={ghravaPf}
             perfData={perfData}
           />
+          <TaxLocationPanel
+            settings={settings}
+            ghravaPf={ghravaPf}
+          />
         </div>
       ) : (
         <Panel><ManualPortfolio /></Panel>
@@ -2266,6 +2270,327 @@ const TargetAllocationPanel = ({ settings, update, ghravaPf, perfData }) => {
               <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                 {aiSaved && <Tag color={C.green}>✓ SAVED</Tag>}
                 <Btn small color={C.amber} onClick={saveRebalanceReport} disabled={aiSaving || aiSaved}>
+                  {aiSaving ? 'SAVING…' : '💾 SAVE AS REPORT'}
+                </Btn>
+                <Btn small color={C.muted} onClick={() => { setAiResult(null); setAiErr(''); }}>✕</Btn>
+              </div>
+            </div>
+            <div style={{ color:C.text, fontSize:13, lineHeight:1.7, whiteSpace:'pre-wrap' }}>
+              {aiResult.text}
+            </div>
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// TAX LOCATION PANEL (Phase 3B, v.191)
+// Shown on Portfolio tab below the Target Allocation panel.
+// Flags holdings in tax-suboptimal accounts using tax_treatment +
+// asset_type + dividend_yield heuristics. AI Full Optimization
+// button sends the whole picture to the configured AI provider.
+// ═══════════════════════════════════════════════════════════════
+const TAX_TREAT_LABELS = {
+  taxable:         'Taxable',
+  traditional_ira: 'Trad IRA',
+  roth_ira:        'Roth IRA',
+  tsp:             'TSP',
+  hsa:             'HSA',
+  other:           'Other',
+};
+const TAX_TREAT_COLORS = (key) =>
+  key === 'roth_ira' ? C.green :
+  key === 'taxable'  ? C.amber :
+  C.blue;
+
+// Heuristic: dividend_yield comes from holdings — units vary across CSV
+// imports (decimal 0.035 vs percent 3.5). Treat anything ≥ 0.025 as
+// "high dividend" — that catches both forms (0.025 decimal = 2.5%; 3 in
+// percent form is also ≥ 0.025). False positives prefer to over-warn.
+const HIGH_DIV_THRESHOLD = 0.025;
+
+// Each rule: { test(h, acct) → bool, issue: string, suggest: string }
+// Rules are checked in order; first match wins per holding.
+const TAX_LOCATION_RULES = [
+  {
+    test: (h, acct) => h.asset_type === 'bond' && acct.tax_treatment === 'taxable',
+    issue:   'Bond interest is taxed as ordinary income every year',
+    suggest: 'Move to Trad IRA, TSP, or HSA (tax-deferred)',
+  },
+  {
+    test: (h, acct) => h.asset_type === 'bond' && acct.tax_treatment === 'roth_ira',
+    issue:   'Bond in Roth wastes your tax-free growth space on a low-growth asset',
+    suggest: 'Move to Trad IRA — tax-deferred is enough for bonds',
+  },
+  {
+    test: (h, acct) => h.asset_type === 'cash' && acct.tax_treatment === 'roth_ira',
+    issue:   'Cash in Roth earns near-zero real return and wastes tax-free space',
+    suggest: 'Invest the Roth cash or hold cash in Taxable instead',
+  },
+  {
+    test: (h, acct) => (h.dividend_yield || 0) >= HIGH_DIV_THRESHOLD
+                    && acct.tax_treatment === 'taxable'
+                    && h.asset_type !== 'bond',
+    issue:   'High-dividend holding in Taxable — dividends are taxed every year',
+    suggest: 'Move to Trad IRA, TSP, or HSA',
+  },
+];
+
+// Walk every holding × account and return [{ holding, account, issue, suggest }].
+const findTaxLocationIssues = (ghravaPf) => {
+  const flagged = [];
+  for (const acct of (ghravaPf?.accounts || [])) {
+    for (const h of (acct.holdings || [])) {
+      for (const rule of TAX_LOCATION_RULES) {
+        if (rule.test(h, acct)) {
+          flagged.push({
+            holding: h,
+            account: acct,
+            issue:   rule.issue,
+            suggest: rule.suggest,
+          });
+          break; // one flag per holding
+        }
+      }
+    }
+  }
+  // Largest market_value first — user attention should follow the money.
+  return flagged.sort((a, b) => (b.holding.market_value || 0) - (a.holding.market_value || 0));
+};
+
+// AI prompt: full holdings-by-account picture + rules table.
+const buildTaxOptimizationPrompt = ({ ghravaPf, flagged }) => {
+  const summary = ghravaPf?.summary || {};
+  const accountsBlock = (ghravaPf?.accounts || []).map(acct => {
+    const taxLabel = TAX_TREAT_LABELS[acct.tax_treatment] || acct.tax_treatment || 'unset';
+    const holdings = (acct.holdings || []).map(h => {
+      const div = (h.dividend_yield || 0) >= HIGH_DIV_THRESHOLD ? ` [div ~${h.dividend_yield}]` : '';
+      return `    - ${h.symbol} (${h.asset_type || 'unknown'}, $${(h.market_value || 0).toLocaleString('en-US', {maximumFractionDigits:0})})${div}`;
+    }).join('\n');
+    return `${acct.nickname} (${acct.institution}, ${taxLabel}, total $${(acct.market_value || 0).toLocaleString('en-US', {maximumFractionDigits:0})}):\n${holdings || '    (no holdings)'}`;
+  }).join('\n\n');
+
+  const flaggedBlock = flagged.map((f, i) =>
+    `${i + 1}. ${f.holding.symbol} in ${f.account.nickname} (${TAX_TREAT_LABELS[f.account.tax_treatment] || 'unset'}): ${f.issue}. Suggested: ${f.suggest}.`
+  ).join('\n');
+
+  return `You are a tax-location optimisation advisor. Be specific and use plain English.
+
+PORTFOLIO TOTAL: $${(summary.total_market_value || 0).toLocaleString('en-US', {maximumFractionDigits:0})}
+
+HOLDINGS BY ACCOUNT (asset_type and market value shown; [div ~X] marks high-dividend holdings):
+${accountsBlock || '(no holdings)'}
+
+PRE-FLAGGED ISSUES from a simple rule engine (you don't have to repeat these — build on them):
+${flaggedBlock || '(no rule-based flags)'}
+
+GENERAL TAX LOCATION PRINCIPLES (you may diverge if the user's situation warrants):
+- Taxable accounts → tax-efficient holds: broad index funds, qualified-dividend equities, buy-and-hold growth.
+- Traditional IRA / TSP → bonds, REITs, high-dividend equities (tax-deferred shields the ordinary-income tax).
+- Roth IRA → highest-growth assets (gains are tax-free forever); avoid cash and bonds (wastes the space).
+- HSA → invest aggressively (triple tax advantage); only keep cash for near-term medical reserve.
+
+Produce a prioritised plan in three short sections, total under 450 words:
+
+1. SUMMARY — one paragraph: how tax-efficient is this portfolio overall? Biggest single fix?
+2. PRIORITISED MOVES — numbered list, biggest tax saving first. Each item names the holding, the from/to accounts, an estimated dollar amount, and one-sentence rationale.
+3. CAVEATS — wash-sale risk, taxable-account capital gains realisation, contribution-limit constraints on Roth/IRA, and anything else the user should know before executing.
+
+Use only the holdings and accounts listed above. Do not invent symbols or account names.`;
+};
+
+const TaxLocationPanel = ({ settings, ghravaPf }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult,  setAiResult]  = useState(null);   // { text, prompt, provider, generatedAt }
+  const [aiErr,     setAiErr]     = useState('');
+  const [aiSaving,  setAiSaving]  = useState(false);
+  const [aiSaved,   setAiSaved]   = useState(false);
+
+  const accounts   = ghravaPf?.accounts || [];
+  const anyAccount = accounts.length > 0;
+  // "No tax_treatment set" means every account is still on the default 'taxable'.
+  // That's only a meaningful banner if the user has multiple accounts AND every
+  // one is taxable — single-account users may legitimately have just one Taxable.
+  const allTaxable = anyAccount && accounts.every(a => (a.tax_treatment || 'taxable') === 'taxable');
+  const showBanner = anyAccount && accounts.length >= 2 && allTaxable;
+
+  const flagged = anyAccount ? findTaxLocationIssues(ghravaPf) : [];
+
+  const runTaxAI = async () => {
+    setAiLoading(true); setAiErr(''); setAiResult(null); setAiSaved(false);
+    try {
+      const prompt = buildTaxOptimizationPrompt({ ghravaPf, flagged });
+      const provider = settings?.provider || 'gemini';
+      const apiKeys  = settings?.apiKeys  || {};
+      const text = await callProvider(prompt, provider, apiKeys);
+      setAiResult({ text, prompt, provider, generatedAt: new Date().toISOString() });
+    } catch (e) {
+      setAiErr(e.message || String(e));
+    }
+    setAiLoading(false);
+  };
+
+  const saveTaxReport = async () => {
+    if (!aiResult) return;
+    setAiSaving(true);
+    try {
+      const title = `Tax Optimization — ${new Date().toLocaleDateString()}`;
+      await persistReport('AI Tax Optimization', title, null, {
+        provider:    aiResult.provider,
+        generatedAt: aiResult.generatedAt,
+        portfolioTotal: ghravaPf?.summary?.total_market_value || 0,
+        flagged:     flagged.map(f => ({
+          symbol: f.holding.symbol,
+          account: f.account.nickname,
+          tax_treatment: f.account.tax_treatment,
+          asset_type: f.holding.asset_type,
+          market_value: f.holding.market_value,
+          issue: f.issue,
+          suggest: f.suggest,
+        })),
+        advice:      aiResult.text,
+        prompt:      aiResult.prompt,
+      });
+      setAiSaved(true);
+      setTimeout(() => setAiSaved(false), 3000);
+    } catch (e) {
+      setAiErr(e.message || String(e));
+    }
+    setAiSaving(false);
+  };
+
+  // Header — always visible
+  const header = (
+    <div onClick={() => setCollapsed(c => !c)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
+      <span style={{ color:C.blue, fontSize:16 }}>{collapsed ? '▸' : '▾'}</span>
+      <span style={{ color:C.blue, fontWeight:700, fontSize:13, letterSpacing:1 }}>TAX LOCATION ANALYSIS</span>
+      {!collapsed && flagged.length > 0 && (
+        <Tag color={C.amber}>{flagged.length} flag{flagged.length === 1 ? '' : 's'}</Tag>
+      )}
+      {!collapsed && anyAccount && flagged.length === 0 && !showBanner && (
+        <Tag color={C.green}>looks tidy</Tag>
+      )}
+    </div>
+  );
+
+  if (collapsed) return <Panel style={{ marginTop:14 }}>{header}</Panel>;
+
+  // No holdings yet
+  if (!anyAccount) return (
+    <Panel style={{ marginTop:14 }}>
+      {header}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:14, paddingTop:14, color:C.muted, fontSize:12, textAlign:'center' }}>
+        Tax location analysis runs once you have investment holdings loaded from Ghrava.
+      </div>
+    </Panel>
+  );
+
+  return (
+    <Panel style={{ marginTop:14 }}>
+      {header}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:14, paddingTop:10 }}>
+
+        {/* Tax-treatment-not-set banner */}
+        {showBanner && (
+          <div style={{ padding:'10px 12px', background:C.amber+'15', border:`1px solid ${C.amber}55`,
+            borderRadius:6, color:C.amber, fontSize:12, marginBottom:12, lineHeight:1.5 }}>
+            ⚠ All your investment accounts are tagged Taxable. If some are actually IRAs, TSP, or HSA,
+            open <strong>Finance → Accounts</strong> and set the right Tax Treatment so this analysis
+            can tell apart what should sit where.
+          </div>
+        )}
+
+        {/* Flagged holdings table */}
+        {flagged.length === 0 ? (
+          <div style={{ color:C.muted, fontSize:13, lineHeight:1.6 }}>
+            No tax-location issues detected on your current holdings.
+            {!showBanner && ' Your bonds are tax-deferred, your high-dividend holdings are out of Taxable, and Roth is doing growth duty.'}
+          </div>
+        ) : (
+          <div style={{ marginBottom:8 }}>
+            <div style={{ color:C.amber, fontSize:13, marginBottom:10 }}>
+              ⚠ {flagged.length} holding{flagged.length === 1 ? '' : 's'} may be in a suboptimal account.
+            </div>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+              <thead>
+                <tr style={{ color:C.muted, fontSize:10, letterSpacing:0.3 }}>
+                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>HOLDING</th>
+                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>CURRENT ACCOUNT</th>
+                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>ISSUE</th>
+                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>SUGGESTED</th>
+                </tr>
+              </thead>
+              <tbody>
+                {flagged.slice(0, 12).map((f, i) => {
+                  const taxLabel = TAX_TREAT_LABELS[f.account.tax_treatment] || f.account.tax_treatment;
+                  const taxColor = TAX_TREAT_COLORS(f.account.tax_treatment);
+                  return (
+                    <tr key={i} style={{ borderTop:`1px solid ${C.border}22` }}>
+                      <td style={{ padding:'8px 8px', verticalAlign:'top' }}>
+                        <div style={{ color:C.text, fontWeight:700 }}>{f.holding.symbol}</div>
+                        <div style={{ color:C.dimmed, fontSize:10 }}>
+                          {f.holding.asset_type || 'unknown'} · ${(f.holding.market_value || 0).toLocaleString('en-US', {maximumFractionDigits:0})}
+                        </div>
+                      </td>
+                      <td style={{ padding:'8px 8px', verticalAlign:'top' }}>
+                        <div style={{ color:C.text, fontSize:12 }}>{f.account.nickname}</div>
+                        <Tag color={taxColor}>{taxLabel}</Tag>
+                      </td>
+                      <td style={{ padding:'8px 8px', color:C.muted, verticalAlign:'top', lineHeight:1.5 }}>
+                        {f.issue}
+                      </td>
+                      <td style={{ padding:'8px 8px', color:C.green, verticalAlign:'top', lineHeight:1.5 }}>
+                        {f.suggest}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+            {flagged.length > 12 && (
+              <div style={{ color:C.dimmed, fontSize:11, marginTop:6 }}>
+                Showing top 12 by value. {flagged.length - 12} more flagged below.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Footer with AI button — always visible when there are accounts */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+          marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}`, flexWrap:'wrap', gap:8 }}>
+          <div style={{ color:C.dimmed, fontSize:11 }}>
+            Rules: bond in Taxable · bond/cash in Roth · high-dividend in Taxable
+          </div>
+          <Btn small color={C.purple} onClick={runTaxAI} disabled={aiLoading || !anyAccount}>
+            {aiLoading ? '⟳ THINKING…' : '🤖 FULL TAX OPTIMISATION ANALYSIS'}
+          </Btn>
+        </div>
+
+        {/* AI result — same narrative card pattern as Rebalancing Advice */}
+        {aiErr && (
+          <div style={{ marginTop:12, padding:'8px 12px', background:C.red+'15',
+            border:`1px solid ${C.red}55`, borderRadius:6, color:C.red, fontSize:12 }}>
+            ⚠ {aiErr}
+          </div>
+        )}
+        {aiResult && (
+          <div style={{ marginTop:12, padding:14, background:C.bg, border:`1px solid ${C.border}`, borderRadius:8 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+              marginBottom:10, gap:8, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <Tag color={C.purple}>AI TAX OPTIMIZATION</Tag>
+                <Tag color={C.muted}>{aiResult.provider}</Tag>
+                <span style={{ color:C.dimmed, fontSize:11 }}>
+                  {new Date(aiResult.generatedAt).toLocaleString()}
+                </span>
+              </div>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                {aiSaved && <Tag color={C.green}>✓ SAVED</Tag>}
+                <Btn small color={C.amber} onClick={saveTaxReport} disabled={aiSaving || aiSaved}>
                   {aiSaving ? 'SAVING…' : '💾 SAVE AS REPORT'}
                 </Btn>
                 <Btn small color={C.muted} onClick={() => { setAiResult(null); setAiErr(''); }}>✕</Btn>
