@@ -69,6 +69,126 @@ principles.
 
 ---
 
+## 🚧 v.191 BUILT — Phase 3B Tax Location + Phase 6 Short Interest + AIAnalyst bugfix (2026-05-23)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.191`. Layered on
+> top of the un-deployed v.190 — v.190 + v.191 will ship together as one
+> bundle when Al says "package". No origin push from this clone yet; the
+> deploy script handles git from `Z:\ghrava` per usual workflow.
+
+### What's in v.191 (3 net-new commits, 2 features + 1 bug fix)
+
+1. **`1a80dc3` — Tasks 2+3 / Phase 3B: Tax Location Analysis + AI Full Tax
+   Optimization.** Both tasks ship in one commit because the AI button is built
+   into the same `TaxLocationPanel` component (mirrors the
+   `TargetAllocationPanel` pattern from v.190). New collapsible panel renders
+   below Target Allocation on the Portfolio tab. Client-side rules engine —
+   first-match-wins per holding — flags four placement types:
+   - Bond in Taxable → interest taxed as ordinary income annually
+   - Bond in Roth IRA → wastes tax-free growth space
+   - Cash in Roth IRA → near-zero return, wastes tax-free space
+   - High-dividend in Taxable → dividends taxed annually (threshold
+     `dividend_yield >= 0.025` handles both decimal-form and percent-form
+     CSV imports)
+
+   Display: table with HOLDING / CURRENT ACCOUNT (+ tax badge) / ISSUE /
+   SUGGESTED. Largest market_value first. Caps at 12 rows with 'N more'
+   tail. Amber banner only when the user has 2+ investment accounts AND
+   every one is on the default 'taxable' (clear signal the v.189 dropdown
+   needs populating).
+
+   AI button (`buildTaxOptimizationPrompt`) sends full holdings-by-account
+   picture + flagged issues + four tax-location principles to the configured
+   provider. Asks for 3-section response (SUMMARY / PRIORITISED MOVES /
+   CAVEATS) under 450 words with dollar amounts. Save-as-Report wired with
+   `type='AI Tax Optimization'`.
+
+2. **`05dcb7b` — Task 4 / Phase 6 Short Interest end-to-end + AIAnalyst bug
+   fix.** Two interleaved changes — short-interest required the AI enrichment
+   pipeline to work, and that pipeline lived behind state that was never
+   declared.
+
+   *Backend:* new route `GET /api/v1/trading/market/short-interest/:symbol`.
+   Tries Yahoo `quoteSummary defaultKeyStatistics` with browser UA. Returns
+   `{ symbol, shortFloat, shortRatio, sharesShort, sharesShortPrior, _source }`.
+   Graceful-null contract: on 401/timeout/parse-fail returns 200 with all
+   fields null and `_source='unavailable'` (verified externally — Yahoo
+   blocks cookie-less calls). The route's failure mode keeps the frontend
+   enrichment pipeline working; UI hides the section.
+
+   *Frontend bug fix:* `AIAnalystTab.run()` referenced `setFundamentals`,
+   `enrichment`, and (in JSX) `setTechContext` — **none of which were
+   declared.** Every Run Analysis click on v.189 raised
+   `setFundamentals is not defined`, caught by the surrounding try/catch
+   and shown as the error message. AI never ran on v.189. v.191 adds the
+   three missing `useState` hooks and rebuilds `run()` so that
+   fundamentals/short-interest/congress/filings fetch in parallel and the
+   structured `enrichment` object flows into `analyzeStock()` (which
+   already had an `if (e.shortInterest)` branch waiting for input).
+
+   *Frontend display:* AIResultCard gains a new SHORT INTEREST section
+   between the fundamentals grid and the insider table. Three cells —
+   Short Float (% of float), Days to Cover, Δ vs prior month — with
+   amber-at-15% / red-at-25% severity colouring and a plain-English
+   label ('EXTREME — short squeeze potential' / 'HIGH — watch for squeeze
+   pressure' / 'Normal').
+
+3. **Task 5 / docs + smoke + version bump (this commit).**
+   - `app/version.txt` → `202605.191`
+   - `smoke-test.sh` adds one more Trading Terminal assertion:
+     `/market/short-interest/AAPL` JSON shape (route may return null
+     fields on Yahoo block; healthy either way).
+   - `TRADE_TERMINAL_INTEGRATION.md` Phase 3B + Phase 6 marked DONE in
+     v.191; the AIAnalyst bug captured as item 8; next-phases list shifts
+     to v.192 (Phase 3D + 7) onwards.
+   - `STATE.md` (this block).
+
+### Audit-vs-reality finding in v.191
+
+The AIAnalystTab bug above is the **fourth** v.186-v.189 audit-vs-reality
+case caught since the v.190 reconcile (after Tasks 1 + 4 of v.190 being
+already-shipped, and the mig 146 dropdown_options doc bug). The user's
+spec at session start claimed AI Analyst was '✅ Full' with rich enrichment;
+the reality was that clicking Run Analysis silently failed. Pattern
+matches the `audit-vs-reality-check` memory's premise: roadmap claims
+unbuilt or broken work as done. The fix here was small (3 hooks + a
+rewritten `run()` body) but if it had been missed, Phase 6 would have
+landed on top of a still-broken AI Analyst.
+
+### Schema-safety gate
+
+Baseline unchanged from v.190 — `validate-schema.py --strict` exit 2 (the
+ten 130/134 noise lines) + the same 1 view-limitation flag on
+`trading/routes.js:378` (pre-existing v.189 condition, not a v.191
+regression). Zero new flags from v.191-edited files. v.191 ships zero
+new SQL. SCHEMA.md NOT regenerated (same reason as v.190 — the `.js`
+generator that produced the committed file isn't being run, and the
+`.py` generator's output would only churn formatting).
+
+### Tests
+
+E2E baseline `115/0` should hold — v.191 adds no migrations and no
+contract changes. The new smoke assertion is additive (5 trading
+assertions total now). The `/market/short-interest` route is expected
+to return JSON with `_source:'unavailable'` against the live NAS until
+the Yahoo crumb dance or Polygon fallback is wired — that's still a
+PASS for `assert_json`.
+
+### What v.191 deliberately does NOT do
+
+- **Yahoo crumb dance / Polygon short-interest fallback.** Documented as
+  a known limitation. The route's graceful-null contract means the UI and
+  AI prompt handle missing data correctly. Future drop will address if Al
+  wants real short-interest data flowing.
+- Phase 3D + 7 (Earnings calendar for holdings + alerts) → v.192.
+- Phase 3C + 4A (Correlation + multi-symbol chart) → v.193.
+- Phase 8 (Reports tab rich viewer) → v.194.
+- Phase 5A (real screener universe) → v.195.
+- Phase 9 (mobile UX) → v.196.
+- Reports Redesign — queued AFTER v.196 per [[parallel-roadmaps-may-2026]].
+
+---
+
 ## 🚧 v.190 BUILT — Phase 3A Target Allocation editor + Phase-1-2 doc reconcile (2026-05-22)
 
 > **Built locally, not yet deployed.** `version.txt`=`202605.190`. Hand-off

@@ -1,6 +1,6 @@
 # Trade Terminal — Ghrava Integration
-**Status:** Phase 1 + 3A LIVE on v202605.190 (deployed via parallel chat: v.186 → v.190)
-**Built against:** Ghrava v202604.185 (extended through v202605.190)
+**Status:** Phase 1 + 3A + 3B + 6 LIVE on v202605.191 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191)
+**Built against:** Ghrava v202604.185 (extended through v202605.191)
 **Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`, `app/public/finance.html`, `app/public/dashboard.html`, `app/features/finance/routes.js`
 **Migrations applied:** `146_financial_accounts_tax_treatment.sql`
 
@@ -124,19 +124,40 @@ without creating another row.
    `callProvider()` with the user's configured provider; result can be saved as a
    report with `type='AI Rebalancing Advice'`.
 
+### ✅ DONE in v.191
+
+6. **Phase 3B — Tax Location Analysis panel** with AI Full Tax Optimization button.
+   New collapsible panel below the Target Allocation panel. Client-side rules
+   engine flags four kinds of suboptimal placements:
+   bond/Taxable, bond/Roth, cash/Roth, high-dividend/Taxable. AI button sends
+   the full holdings-by-account picture + flag set to the configured provider.
+   Save-as-Report uses `type='AI Tax Optimization'`.
+
+7. **Phase 6 — Short Interest end-to-end.** New backend route
+   `/api/v1/trading/market/short-interest/:symbol` (Yahoo quoteSummary
+   defaultKeyStatistics with graceful-null contract on 401/timeout). Frontend
+   AI enrichment pipeline wired into `AIAnalystTab.run()` — fetches fundamentals
+   + short interest + congress trades + recent filings in parallel; passes a
+   structured `enrichment` object to `analyzeStock()`. AIResultCard renders a
+   new "Short Interest" section (% of float, days to cover, Δ vs prior month)
+   with amber/red severity colouring.
+   **Yahoo limitation:** cookie-less `quoteSummary` calls historically return
+   401. The route handles this — returns 200 with `shortFloat:null` and
+   `_source:'unavailable'`. Future enhancement: implement the Yahoo crumb dance
+   OR add a Polygon free-tier fallback (user already has a Polygon key for
+   options).
+
+8. **Bug fix uncovered during Phase 6 wiring — AI Analyst was silently broken
+   on v.189.** `AIAnalystTab.run()` referenced `setFundamentals`, `enrichment`,
+   and (in JSX) `setTechContext` without ever declaring the corresponding
+   `useState` hooks. Every Run Analysis click raised
+   `setFundamentals is not defined`, was caught by the surrounding try/catch,
+   and the error message was shown in the UI — so the AI never actually ran.
+   v.191 restores the three hooks and rebuilds the enrichment pipeline.
+
 ---
 
 ## Next Phases (not yet built)
-
-**Phase 3B — Tax Location Optimisation** (v.191 — unblocked, now that the dropdown
-has been live since v.189):
-- Reads holdings grouped by account + tax_treatment
-- Client-side rule engine flags suboptimal locations (bonds in Taxable, growth
-  in Trad IRA, etc.)
-- AI "Full Tax Optimisation Analysis" button for prioritised rebalancing plan
-
-**Phase 6 — Short Interest** (v.191): Yahoo `quoteSummary` enrichment + AI prompt
-+ AIResultCard badge.
 
 **Phase 3D + Phase 7 (v.192):** Earnings capture for holdings (new `/portfolio/
 earnings-calendar` route + "My Holdings" sub-tab) + price alerts (bell icon on

@@ -323,6 +323,9 @@ assert_keys "GET /trading/portfolio/performance"        "$BASE/api/v1/trading/po
 assert_json "GET /trading/watchlist/summary"            "$BASE/api/v1/trading/watchlist/summary"
 # /market/macro fetches FRED CSV — fields are nullable on FRED outage, so just verify the route returns JSON.
 assert_json "GET /trading/market/macro"                 "$BASE/api/v1/trading/market/macro"
+# /market/short-interest (Phase 6, v.191) — Yahoo quoteSummary historically returns 401 cookie-less,
+# so the route returns 200 with shortFloat=null and _source='unavailable' in that case. Healthy either way.
+assert_json "GET /trading/market/short-interest/AAPL"   "$BASE/api/v1/trading/market/short-interest/AAPL"
 
 # ── Google integration ────────────────────────────────────────
 section "Google"
