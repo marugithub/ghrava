@@ -4683,12 +4683,20 @@ const NarrativeAIReport = ({ d, color, label }) => {
   );
 };
 
+const REPORT_TYPES = ['AI Analysis', 'Portfolio Snapshot', 'AI Rebalancing Advice', 'AI Tax Optimization'];
+
 const ReportsTab = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState(null);
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  // Phase 8 filter state (v.194). null in `filterTypes` = no type filter.
+  const [filterTypes,    setFilterTypes]    = useState(null);
+  const [filterTicker,   setFilterTicker]   = useState('');
+  const [filterFromDate, setFilterFromDate] = useState('');
+  const [filterToDate,   setFilterToDate]   = useState('');
+  const [showFilters,    setShowFilters]    = useState(false);
 
   const refresh = async () => {
     setLoading(true);
@@ -4698,6 +4706,33 @@ const ReportsTab = () => {
   };
 
   useEffect(()=>{ refresh(); }, []);
+
+  // Apply filters client-side. Reports list is small (≤ hundreds), no need
+  // to push filtering server-side. Empty filter = match-all on that axis.
+  const filteredReports = reports.filter(r => {
+    if (filterTypes && filterTypes.length > 0 && !filterTypes.includes(r.type)) return false;
+    if (filterTicker.trim()) {
+      const needle = filterTicker.trim().toUpperCase();
+      if (!r.ticker || !r.ticker.toUpperCase().includes(needle)) return false;
+    }
+    if (filterFromDate && r.date) {
+      if (r.date.slice(0, 10) < filterFromDate) return false;
+    }
+    if (filterToDate && r.date) {
+      if (r.date.slice(0, 10) > filterToDate) return false;
+    }
+    return true;
+  });
+
+  const filterActive = (filterTypes && filterTypes.length > 0) || filterTicker.trim() || filterFromDate || filterToDate;
+  const clearFilters = () => { setFilterTypes(null); setFilterTicker(''); setFilterFromDate(''); setFilterToDate(''); };
+
+  const toggleType = (t) => {
+    setFilterTypes(prev => {
+      const cur = prev || [];
+      return cur.includes(t) ? cur.filter(x => x !== t) : [...cur, t];
+    });
+  };
 
   const viewReport = async (filename) => {
     setSelected(filename); setDetailLoading(true); setDetail(null);
@@ -4925,15 +4960,75 @@ const ReportsTab = () => {
       <div>
         <Panel>
           <PanelTitle>SAVED REPORTS</PanelTitle>
-          <div style={{ marginBottom:10 }}>
+          <div style={{ display:'flex', gap:6, marginBottom:10, alignItems:'center', flexWrap:'wrap' }}>
             <Btn onClick={refresh} color={C.amber} small>{loading?'⟳ LOADING…':'⟳ REFRESH'}</Btn>
+            <Btn onClick={()=>setShowFilters(s=>!s)} color={filterActive ? C.blue : C.muted} small>
+              {showFilters ? '▾ FILTERS' : '▸ FILTERS'}{filterActive ? ' •' : ''}
+            </Btn>
+            {filterActive && (
+              <Btn onClick={clearFilters} color={C.dimmed} small>✕ CLEAR</Btn>
+            )}
           </div>
-          <div style={{ color:C.dimmed, fontSize:13, marginBottom:10 }}>All reports saved with full date/time. Stored on NAS — never lost.</div>
+
+          {/* Filter strip (Phase 8, v.194) — collapsible */}
+          {showFilters && (
+            <div style={{ marginBottom:10, padding:'10px 12px', background:C.bg,
+              border:`1px solid ${C.border}`, borderRadius:6 }}>
+              <div style={{ color:C.muted, fontSize:10, letterSpacing:0.3, fontWeight:600, marginBottom:6 }}>TYPE</div>
+              <div style={{ display:'flex', flexWrap:'wrap', gap:4, marginBottom:10 }}>
+                {REPORT_TYPES.map(t => {
+                  const active = filterTypes && filterTypes.includes(t);
+                  return (
+                    <button key={t} onClick={()=>toggleType(t)}
+                      style={{ background: active ? typeColor(t)+'33' : 'transparent',
+                        color: active ? typeColor(t) : C.muted,
+                        border: `1px solid ${active ? typeColor(t) : C.border}`,
+                        borderRadius: 5, padding:'3px 8px', cursor:'pointer',
+                        fontFamily:'inherit', fontSize:10, fontWeight: active ? 600 : 400 }}>
+                      {t}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div style={{ color:C.muted, fontSize:10, letterSpacing:0.3, fontWeight:600, marginBottom:6 }}>TICKER</div>
+              <Inp value={filterTicker} onChange={setFilterTicker}
+                placeholder="e.g. NVDA — leave blank for all"
+                style={{ width:'100%', marginBottom:10 }} />
+
+              <div style={{ color:C.muted, fontSize:10, letterSpacing:0.3, fontWeight:600, marginBottom:6 }}>DATE RANGE</div>
+              <div style={{ display:'flex', gap:6, alignItems:'center' }}>
+                <input type="date" value={filterFromDate}
+                  onChange={e=>setFilterFromDate(e.target.value)}
+                  style={{ flex:1, background:C.bg, border:`1px solid ${C.border2}`,
+                    color:C.text, padding:'4px 6px', borderRadius:4, fontFamily:'inherit',
+                    fontSize:11, outline:'none' }} />
+                <span style={{ color:C.muted, fontSize:11 }}>to</span>
+                <input type="date" value={filterToDate}
+                  onChange={e=>setFilterToDate(e.target.value)}
+                  style={{ flex:1, background:C.bg, border:`1px solid ${C.border2}`,
+                    color:C.text, padding:'4px 6px', borderRadius:4, fontFamily:'inherit',
+                    fontSize:11, outline:'none' }} />
+              </div>
+            </div>
+          )}
+
+          <div style={{ color:C.dimmed, fontSize:13, marginBottom:10 }}>
+            {filterActive
+              ? `${filteredReports.length} of ${reports.length} reports match filters`
+              : 'All reports saved with full date/time. Stored on NAS — never lost.'}
+          </div>
           {loading && <Spinner text="Loading reports…" />}
           {!loading && reports.length===0 && (
             <div style={{ color:C.muted, fontSize:13 }}>No reports yet. Save an AI analysis or portfolio snapshot.</div>
           )}
-          {reports.map(r=>(
+          {!loading && reports.length > 0 && filteredReports.length === 0 && (
+            <div style={{ color:C.muted, fontSize:13, textAlign:'center', padding:'16px 8px' }}>
+              No reports match the current filters.
+              <div style={{ marginTop:6 }}><Btn small color={C.blue} onClick={clearFilters}>Clear filters</Btn></div>
+            </div>
+          )}
+          {filteredReports.map(r=>(
             <div key={r.filename} onClick={()=>viewReport(r.filename)}
               style={{ padding:'9px 10px', borderBottom:`1px solid ${C.border}22`, cursor:'pointer',
                 background:selected===r.filename?C.border:'transparent',
