@@ -69,12 +69,24 @@ principles.
 
 ---
 
-## 🚧 v.191 BUILT — Phase 3B Tax Location + Phase 6 Short Interest + AIAnalyst bugfix (2026-05-23)
+## ✅ v.191 DEPLOYED & VERIFIED — Phase 3B Tax Location + Phase 6 Short Interest + AIAnalyst bugfix (2026-05-23)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.191`. Layered on
-> top of the un-deployed v.190 — v.190 + v.191 will ship together as one
-> bundle when Al says "package". No origin push from this clone yet; the
-> deploy script handles git from `Z:\ghrava` per usual workflow.
+> **DEPLOYED 2026-05-23 ~13:43 (deploy started 13:28, full pipeline 15m
+> incl. 8m Playwright). Smoke 8/8, full E2E 115 pass / 0 fail — baseline
+> held despite +772 lines on trade.html and the AIAnalyst fix.**
+> `version.txt`=`202605.191` live (`/api/v1/app/info` confirms). Container
+> restarted clean. Boot migration line: `Migrations: 0 applied, 144
+> skipped` (no migrations in v.190/v.191; same as v.189). Zero
+> `FAILED .*\.js` on the v.191 boot. Local + origin + NAS all aligned at
+> `2689078`. Shipped via **Path A** (push from `C:\dev\ghrava` first, then
+> `ghrava_deploy.ps1 -SkipGit`, then NAS git reset to origin) so the 7
+> granular commits are preserved on origin instead of being squash-
+> committed by Step 4. Schema-safety gate clean on Windows host: 11 flags
+> = 10 known 130/134 + 1 known view-limitation on `routes.js:378` (pre-
+> existing v.189). Zero new SQL across v.190 + v.191. The deploy
+> script's `errors=0` false-positive fix (`af685a1`) also rode along —
+> the v.191 deploy log shows "No errors in fresh logs" cleanly (vs the
+> previous v.189 deploy which mis-reported "3 error-like line(s)").
 
 ### What's in v.191 (3 net-new commits, 2 features + 1 bug fix)
 
@@ -189,15 +201,19 @@ PASS for `assert_json`.
 
 ---
 
-## 🚧 v.190 BUILT — Phase 3A Target Allocation editor + Phase-1-2 doc reconcile (2026-05-22)
+## ✅ v.190 DEPLOYED & VERIFIED — Phase 3A Target Allocation editor + Phase-1-2 doc reconcile (2026-05-22 built, 2026-05-23 deployed)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.190`. Hand-off
-> situation worth flagging: at session start, this Windows clone was 6 commits
-> behind `origin/main` because the v.186-v.189 trade-terminal work was shipped
-> by a parallel chat (the deploy script pushes from `Z:\ghrava` on the NAS-side
-> after each deploy). `git fetch` + fast-forward brought local back in sync;
-> v.190 is layered on top. See `MEMORY.md → parallel-roadmaps-may-2026` and
-> the updated start-of-session check in `ghrava-deploy-ssh`.
+> **Built 2026-05-22, deployed 2026-05-23 as part of the v.190+v.191
+> bundle.** `version.txt`=`202605.190` was a transient label; the
+> bundle deploy bumped straight to `202605.191`. Hand-off situation
+> worth flagging: at session start, this Windows clone was 6 commits
+> behind `origin/main` because the v.186-v.189 trade-terminal work was
+> shipped by a parallel chat (the deploy script pushes from `Z:\ghrava`
+> on the NAS-side after each deploy). `git fetch` + fast-forward
+> brought local back in sync; v.190 + v.191 were layered on top and
+> shipped via Path A (push then -SkipGit deploy). See
+> `MEMORY.md → parallel-roadmaps-may-2026` and the updated
+> start-of-session check in `ghrava-deploy-ssh`.
 
 ### Reconciled into v.190 (work that landed v.186-v.189 by parallel chat)
 
