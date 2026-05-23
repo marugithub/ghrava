@@ -630,6 +630,59 @@ router.get('/market/macro', async (req, res) => {
   }
 });
 
+// GET Yahoo short interest from quoteSummary defaultKeyStatistics (Phase 6, v.191).
+// Yahoo's quoteSummary historically requires cookies/crumb for authenticated access.
+// We try it cookie-less first; if it returns non-200 or no payload, we return a
+// graceful null shape — never an error — so the frontend can show '—' without
+// breaking the AI enrichment pipeline.
+router.get('/market/short-interest/:symbol', async (req, res) => {
+  const symbol = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+  if (!symbol) return res.status(400).json({ error: 'Invalid symbol' });
+
+  const https = require('https');
+  const tryYahoo = () => new Promise((resolve) => {
+    const url = `https://query1.finance.yahoo.com/v10/finance/quoteSummary/${symbol}?modules=defaultKeyStatistics`;
+    const req2 = https.get(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json,text/plain,*/*',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+    }, r => {
+      let b = ''; r.on('data', c => b += c);
+      r.on('end', () => {
+        try {
+          if (r.statusCode !== 200) return resolve(null);
+          const d = JSON.parse(b);
+          const stats = d?.quoteSummary?.result?.[0]?.defaultKeyStatistics;
+          if (!stats) return resolve(null);
+          resolve({
+            shortFloat:        stats.shortPercentOfFloat?.raw ?? null,    // decimal e.g. 0.184 = 18.4%
+            shortRatio:        stats.shortRatio?.raw ?? null,             // days to cover
+            sharesShort:       stats.sharesShort?.raw ?? null,
+            sharesShortPrior:  stats.sharesShortPriorMonth?.raw ?? null,
+            _source:           'yahoo_quoteSummary',
+          });
+        } catch (e) { resolve(null); }
+      });
+    });
+    req2.on('error', () => resolve(null));
+    req2.setTimeout(8000, () => { req2.destroy(); resolve(null); });
+  });
+
+  const data = await tryYahoo();
+  if (data) return res.json({ symbol, ...data });
+
+  // No data available — return a graceful empty payload, not an HTTP error,
+  // so the frontend enrichment pipeline keeps working.
+  res.json({
+    symbol,
+    shortFloat: null, shortRatio: null, sharesShort: null, sharesShortPrior: null,
+    _source: 'unavailable',
+    _note:   'Short interest data not available — Yahoo quoteSummary may be rate-limited or require auth',
+  });
+});
+
 // GET real options chain via Polygon.io (free tier — delayed 15min)
 // Requires a free Polygon key from polygon.io — email signup, no CC
 router.get('/market/options/:symbol', async (req, res) => {
