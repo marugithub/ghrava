@@ -69,6 +69,110 @@ principles.
 
 ---
 
+## 🚧 v.194 BUILT — Phase 8 Reports tab rich viewer (2026-05-23)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.194`.
+> Stacks on top of the deployed v.193 (`bb39204`). Pure frontend
+> drop — zero new SQL, zero new backend routes, zero migrations.
+> Renames + dead-code removal mean the net trade.html growth is
+> modest (~+340 lines) for substantial new functionality.
+
+### What's in v.194 (4 net-new commits, 1 docs commit, 1 feature)
+
+1. **`3915c0a` — Docs lock for Reports Redesign.** Pre-build
+   design conversation locked all four NEEDS-CHAT items from the
+   original Reports Redesign handoff (Household / Family / mobile /
+   column picker) plus several new architectural decisions
+   (Variant A grouping, scaffolding-first build, centralized
+   `app/public/shared/` components, mobile M1-M6, Family
+   single-tile-with-switcher, sequencing v.197+ for the redesign).
+   Captured as a "⚡ 2026-05-23 REFINEMENT BLOCK" at the top of
+   `REPORTS_REDESIGN_HANDOFF.md`. New memory note +
+   `MEMORY.md` index pointer. No app code change.
+
+2. **`dde62d9` — Task 2 / Rich viewers for all 4 saved report types.**
+   ReportsTab's old `renderDetail` falls back to raw JSON for
+   anything but AI Analysis (which was already wired via
+   AIResultCard). v.194 adds proper rendering for the other
+   three types AND fixes Portfolio Snapshot which was BROKEN on
+   v.193:
+   - **Audit-vs-reality:** `PortfolioTab.savePortfolioReport`
+     wrote `data.ghrava.<snake_case>` but the renderer read
+     `data.summary.<camelCase>`. Saved snapshots also didn't
+     include per-position detail. Every snapshot saved before
+     v.194 shows mostly empty cells.
+   - Fix: save now captures `ghrava: { summary, accounts:[...] }`
+     (full tree). Renderer normalises three known shapes
+     (new v.194 / pre-v.194 broken / legacy positions-array) into
+     a common `{ summary, positions }`.
+   - AI Rebalancing Advice + AI Tax Optimization render via new
+     `<NarrativeAIReport>` component at module scope (hooks-of-rules
+     compliance — `useState` for the collapsible 'show prompt'
+     toggle).
+   - CSV export wired alongside the snapshot renderer.
+
+3. **`438dfb6` — Task 3 / Filter UI for saved reports.**
+   Collapsible filter strip above the reports list. Three axes —
+   TYPE (multi-select pills), TICKER (substring), DATE RANGE
+   (from/to pickers). Applied client-side; reports list is small.
+   '✕ CLEAR' when any filter active. Empty-state when no reports
+   match the filter.
+
+4. **`0af6422` — Task 4 / Compare-two-snapshots diff.**
+   Big refactor: extracts snapshot rendering from a helper-function-
+   inside-ReportsTab to a proper module-scope React component
+   `<PortfolioSnapshotViewer>`. Necessary because the compare
+   picker needs its own `useState`. The component:
+   - Renders standard snapshot view (unchanged from task 2)
+   - Adds 'COMPARE TO' picker listing other Portfolio Snapshots
+   - On selection, fetches the other snapshot via `loadReport()`
+   - Computes per-symbol diff: ADDED / REMOVED / CHANGED /
+     UNCHANGED based on shares + value comparison
+   - Renders status counts as colour pills + portfolio-level Δ
+     cards (Δ VALUE / Δ COST / Δ P&L) + diff table sorted
+     changed-by-|Δvalue| first
+   - UNCHANGED rows hidden by default with a 'show N unchanged'
+     toggle
+   - `key={d.filename}` so switching reports resets the picker
+
+   Cleanup: 143 + 30 lines of dead code removed via Python script
+   (dead `renderPortfolioSnapshot` placeholder + duplicate
+   `downloadSnapshotCsv` inside ReportsTab — both moved to module
+   scope as part of the refactor).
+
+5. **Task 5 / docs + version bump (this commit).**
+   - `app/version.txt` → `202605.194`
+   - `TRADE_TERMINAL_INTEGRATION.md`: status line bumped to
+     'Phase 1 + 3A + 3B + 3C + 3D + 4A + 6 + 7 + 8'. Items 13-16
+     added under '✅ DONE in v.194'. Next-phases list refreshed
+     to v.195 Phase 5A + v.196 Phase 9 + v.197 Reports Redesign
+     (consolidated; previous duplicate next-phases block deleted).
+   - `STATE.md` (this block).
+   - No smoke-test.sh additions — Phase 8 is pure frontend reuse
+     of existing /reports endpoints, no new routes to assert.
+
+### Schema-safety gate
+
+Baseline unchanged from v.193 — `validate-schema.py --strict` exit
+2 with the same 12 flags (10 known 130/134 noise + 2 view-limitation
+false-positives on `routes.js:378` and `:727`). v.194 ships ZERO
+new SQL. node --check passes on routes.js (no edits to it).
+
+### Tests
+
+E2E baseline `115/0` expected to hold — no migrations, no backend
+contract changes, no smoke-suite changes, additive frontend only.
+
+### What v.194 deliberately does NOT do
+
+- Reports Redesign for `/reports.html` (the big rewrite). That's
+  v.197+ — locked in this session's design conversation. See the
+  refinement block at the top of `REPORTS_REDESIGN_HANDOFF.md`.
+- Phase 5A (real screener) → v.195.
+- Phase 9 (mobile UX) → v.196.
+
+---
+
 ## ✅ v.193 DEPLOYED & VERIFIED — Phase 3C Concentration/Correlation + Phase 4A Multi-Symbol Chart (2026-05-23)
 
 > **DEPLOYED 2026-05-23 ~15:39 (deploy started 15:29, full pipeline 10m

@@ -1,6 +1,6 @@
 # Trade Terminal — Ghrava Integration
-**Status:** Phase 1 + 3A + 3B + 3C + 3D + 4A + 6 + 7 LIVE on v202605.193 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192; Phases 3C/4A: v.193)
-**Built against:** Ghrava v202604.185 (extended through v202605.193)
+**Status:** Phase 1 + 3A + 3B + 3C + 3D + 4A + 6 + 7 + 8 LIVE on v202605.194 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192; Phases 3C/4A: v.193; Phase 8: v.194)
+**Built against:** Ghrava v202604.185 (extended through v202605.194)
 **Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`, `app/public/finance.html`, `app/public/dashboard.html`, `app/features/finance/routes.js`
 **Migrations applied:** `146_financial_accounts_tax_treatment.sql`
 
@@ -124,6 +124,49 @@ without creating another row.
    `callProvider()` with the user's configured provider; result can be saved as a
    report with `type='AI Rebalancing Advice'`.
 
+### ✅ DONE in v.194
+
+13. **Phase 8 — Reports tab rich viewer.** Inside `trade.html`'s
+    Reports tab, saved JSON reports now render as proper structured
+    views instead of raw JSON. Four type-aware renderers:
+    - **AI Analysis** → existing `AIResultCard` (was already wired
+      correctly — kept as-is)
+    - **Portfolio Snapshot** → new `<PortfolioSnapshotViewer>`
+      component at module scope. **Snapshot save fixed end-to-end**
+      (was BROKEN on v.193 — `savePortfolioReport` wrote
+      `data.ghrava.<snake_case>` keys but the viewer read
+      `data.summary.<camelCase>` keys; saved reports also didn't
+      include per-position detail, only summary totals; v.194
+      fixes both ends). Renderer handles three shapes (new v.194 /
+      pre-v.194 broken save / legacy positions-array) and shows
+      summary cards + positions table with tax-treatment badges +
+      CSV export.
+    - **AI Rebalancing Advice** → new `<NarrativeAIReport>`
+      component. Renders meta strip + current-vs-target table +
+      advice body + collapsible 'show prompt sent to AI'.
+    - **AI Tax Optimization** → same `<NarrativeAIReport>` component
+      (different colour + label). Renders flagged-holdings table +
+      advice body + prompt.
+
+14. **Phase 8 — filter UI.** Collapsible filter strip in the
+    reports sidebar with three axes: type (multi-select pills,
+    one per known type), ticker (substring), date range (from/to
+    pickers). Client-side filtering. '✕ CLEAR' button when any
+    filter active. Empty-state when no reports match.
+
+15. **Phase 8 — CSV export for Portfolio Snapshots.** '⬇ CSV'
+    button on the positions table. Iterates the flattened
+    positions list. RFC-4180 escaping (commas, quotes, newlines).
+    Filename: `portfolio-snapshot-YYYY-MM-DD.csv`.
+
+16. **Phase 8 — compare-two-snapshots diff.** 'COMPARE TO' picker
+    below the positions table on Portfolio Snapshot reports.
+    Selecting another snapshot fetches its data and shows a
+    per-symbol diff: ADDED / REMOVED / CHANGED / UNCHANGED, with
+    Δ shares and Δ value columns. Portfolio-level Δ VALUE / Δ COST /
+    Δ P&L cards above the diff table. Unchanged rows hidden by
+    default with a toggle. Status counts as colour pills.
+
 ### ✅ DONE in v.193
 
 11. **Phase 3C — Concentration & Correlation panel.** New backend route
@@ -221,13 +264,6 @@ without creating another row.
 
 ## Next Phases (not yet built)
 
-**Phase 8 (v.194):** Reports tab rich viewer — render the structured
-JSON of `AI Analysis`, `Portfolio Snapshot`, `AI Rebalancing Advice`,
-`AI Tax Optimization`, and `AI Tax Optimization` reports as proper
-cards instead of raw JSON. Add filter (type / ticker / date range)
-and CSV export for portfolio snapshots. Compare-two-snapshots diff
-for tracking position changes over time.
-
 **Phase 5A (v.195):** Real screener universe via Finnhub
 `/stock/symbol?exchange=US`, cached 24h in `trading.json`. Sector +
 market-cap + price filters in the Screener tab.
@@ -236,21 +272,12 @@ market-cap + price filters in the Screener tab.
 collapse, portfolio card view, chart height reduction, settings
 accordion sections.
 
-**Phase 3C + Phase 4A (v.193):** Concentration/correlation analysis (new
-`/portfolio/correlation` route, Pearson on 90-day closes) + multi-symbol chart
-comparison (normalised line mode).
+**v.197+:** Reports Redesign drop 1 begins (the big `/reports.html`
+rewrite). See `REPORTS_REDESIGN_HANDOFF.md` for the locked spec —
+the "2026-05-23 REFINEMENT BLOCK" at the top is the current truth.
 
-**Phase 8 (v.194):** Reports tab rich viewer for `AI Analysis`, `Portfolio
-Snapshot`, and `AI Rebalancing Advice` types. CSV export. Compare-two-snapshots
-diff.
-
-**Phase 5A (v.195):** Real screener universe via Finnhub `/stock/symbol` with
-24h cache.
-
-**Phase 9 (v.196):** Mobile UX pass.
-
-See `MEMORY.md` → `parallel-roadmaps-may-2026` for the broader queue context
-(Trade Terminal v.190-v.196, then Reports Redesign v.197+).
+See `MEMORY.md` → `parallel-roadmaps-may-2026` for the broader queue
+context (Trade Terminal v.190-v.196, then Reports Redesign v.197+).
 
 ---
 
