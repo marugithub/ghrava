@@ -1,6 +1,6 @@
 # Trade Terminal — Ghrava Integration
-**Status:** Phase 1 + 3A + 3B + 6 LIVE on v202605.191 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191)
-**Built against:** Ghrava v202604.185 (extended through v202605.191)
+**Status:** Phase 1 + 3A + 3B + 3D + 6 + 7 LIVE on v202605.192 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192)
+**Built against:** Ghrava v202604.185 (extended through v202605.192)
 **Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`, `app/public/finance.html`, `app/public/dashboard.html`, `app/features/finance/routes.js`
 **Migrations applied:** `146_financial_accounts_tax_treatment.sql`
 
@@ -124,6 +124,36 @@ without creating another row.
    `callProvider()` with the user's configured provider; result can be saved as a
    report with `type='AI Rebalancing Advice'`.
 
+### ✅ DONE in v.192
+
+9. **Phase 3D — Earnings capture for holdings.** New backend route
+   `GET /api/v1/trading/portfolio/earnings-calendar` cross-references the
+   user's holdings (financial_accounts JOIN holdings, is_active=1, equities
+   only — bonds/cash skipped) against Finnhub's free `/calendar/earnings`
+   for the next 30 days. Position aggregated per symbol across multiple
+   accounts (sum shares, weighted-avg cost, sum market_value/gain). Finnhub
+   key read server-side from trading.json so it stays out of URL logs.
+   Frontend: EarningsTab gets a new 'My Holdings ★' sub-tab alongside All
+   Upcoming and My Watchlist. Per-row position panel shows shares + avg
+   cost + accounts + market value + P&L. AI Earnings Play button rebrands
+   to 'PLAY FOR MY POSITION' and the prompt embeds the actual exposure so
+   the AI recommendation is grounded in 'I hold N shares at \$X' rather
+   than a generic earnings view.
+
+10. **Phase 7 — Watchlist price alerts.** Bell icon on each Watchlist
+    row with an inline editor: 'Alert when price is [above|below]
+    \$[___]'. Default price is the current quote — user just changes
+    digits. Alerts persist in `trading.json` under `alerts:[]`
+    (server's POST /data deep-merge preserves the key automatically).
+    Per-row alert chips show armed (green) or fired (amber) state with
+    ↻ re-arm and ✕ delete controls. Trigger check runs after every
+    `refresh()` once the merged quotes are known — fires once per
+    threshold cross (sets `triggered:true` so it doesn't re-fire on the
+    next refresh). Banner at top of the Watchlist panel announces
+    crossings: '🔔 NVDA crossed above \$950 — now \$967.40'. Dismissable,
+    capped at 10 entries. Removing a symbol from the watchlist also
+    deletes any alerts attached to it.
+
 ### ✅ DONE in v.191
 
 6. **Phase 3B — Tax Location Analysis panel** with AI Full Tax Optimization button.
@@ -159,9 +189,10 @@ without creating another row.
 
 ## Next Phases (not yet built)
 
-**Phase 3D + Phase 7 (v.192):** Earnings capture for holdings (new `/portfolio/
-earnings-calendar` route + "My Holdings" sub-tab) + price alerts (bell icon on
-watchlist rows, toast on threshold crossing).
+**Phase 3C + Phase 4A (v.193):** Concentration/correlation analysis (new
+`/portfolio/correlation` route, Pearson on 90-day closes for top 10
+holdings) + multi-symbol chart comparison (normalised line mode when
+compareSymbols.length > 0).
 
 **Phase 3C + Phase 4A (v.193):** Concentration/correlation analysis (new
 `/portfolio/correlation` route, Pearson on 90-day closes) + multi-symbol chart

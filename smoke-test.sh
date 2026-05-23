@@ -326,6 +326,15 @@ assert_json "GET /trading/market/macro"                 "$BASE/api/v1/trading/ma
 # /market/short-interest (Phase 6, v.191) — Yahoo quoteSummary historically returns 401 cookie-less,
 # so the route returns 200 with shortFloat=null and _source='unavailable' in that case. Healthy either way.
 assert_json "GET /trading/market/short-interest/AAPL"   "$BASE/api/v1/trading/market/short-interest/AAPL"
+# /portfolio/earnings-calendar (Phase 3D, v.192) — depends on Finnhub key in trading.json.
+# Returns 400 with items:[] if no key configured; 200 with items if holdings + key present;
+# 200 with empty items + _note if no holdings or no upcoming earnings. All three are healthy.
+# We test the route exists and returns JSON; do NOT use assert_keys since the shape varies.
+code=$(fetch "$BASE/api/v1/trading/portfolio/earnings-calendar")
+if [ "$code" = "200" ] || [ "$code" = "400" ]; then
+  if is_json; then pass "GET /trading/portfolio/earnings-calendar  (HTTP $code, valid JSON)"
+  else fail "GET /trading/portfolio/earnings-calendar  (HTTP $code, not JSON)"; fi
+else fail "GET /trading/portfolio/earnings-calendar  (HTTP $code)"; fi
 
 # ── Google integration ────────────────────────────────────────
 section "Google"

@@ -69,6 +69,124 @@ principles.
 
 ---
 
+## 🚧 v.192 BUILT — Phase 3D Earnings for Holdings + Phase 7 Watchlist Alerts (2026-05-23)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.192`. Stacks
+> on top of the deployed v.191 (`4ac3ebc`). Will deploy via Path A
+> (push then `-SkipGit`, then NAS reset) when Al says so. Zero new SQL,
+> zero migrations — additive feature drop only.
+
+### What's in v.192 (3 net-new commits, 2 features)
+
+1. **`f0b7e76` — Task 2 / Phase 3D backend: `/portfolio/earnings-calendar`.**
+   New trading route. Reads `financial_accounts JOIN holdings WHERE
+   is_active=1`, aggregates per-symbol across multiple accounts (sum
+   shares + market_value + gain_loss_dollar; weighted-avg cost_basis;
+   accounts as `nickname (tax_treatment)` strings), filters out
+   non-equity asset_types (bond / cash / other), then hits Finnhub's
+   free `/calendar/earnings` for the next 30 days with the held
+   symbols as a comma-separated filter. Finnhub key read server-side
+   from `trading.json` so it doesn't hit URL logs. Returns each
+   matching earnings entry with `position` sub-object attached. Empty
+   list + `_note` returned when: no holdings, no equity holdings, or
+   no upcoming earnings for the held symbols. 400 + `items:[]` when
+   `finnhubKey` is not configured. `// schema:` comment per LOCKED
+   rule. node --check passes.
+
+2. **`590b830` — Task 3 / Phase 3D frontend: 'My Holdings ★' sub-tab.**
+   EarningsTab toggle gets a third pill alongside All Upcoming and My
+   Watchlist. fetchEarnings() branches: 'holdings' hits the new
+   Ghrava-backed endpoint, the other two preserve their existing
+   Finnhub direct paths. Per-row position panel (purple tint) shows
+   shares + avg cost + accounts + market value + P&L in a banner
+   above the standard EPS/Rev row. 'YOU HOLD' tag in the header.
+   AI Earnings Play button label flips to 'PLAY FOR MY POSITION'
+   when `e.position` is set; `analyzeEarnings()` prepends a
+   position context block to the prompt ('I hold N shares of S at
+   \$X across [accounts]. Market value \$M, P&L \$D (P%). Given
+   this exposure, should I hold through earnings, trim before,
+   hedge with puts, or add?'). The AI recommendation is grounded
+   in the actual exposure instead of a generic 'how to play this
+   event' view.
+
+3. **`53b7547` — Task 4 / Phase 7 Watchlist price alerts.**
+   `trading.json` gains `alerts: [{ id, symbol, condition, price,
+   triggered, createdAt }]`. The server's POST /data deep-merge
+   handles the new key automatically; no backend change. Bell
+   icon button on each Watchlist row in the actions area, amber
+   when any armed alert exists for that symbol. Click opens an
+   inline editor row: 'Alert for SYM when price is [above|below]
+   \$[___] [Set] [Cancel]'. Default price = current quote so the
+   user only changes the digits. Per-row chips below the editor
+   show each alert ('🔔 above \$950 · armed' green, '🔔 above
+   \$950 · fired' amber) with ↻ re-arm (when fired) and ✕ delete.
+   checkAlerts() runs after every refresh() on the merged quotes
+   set: walks every un-triggered alert, fires once per threshold
+   cross, sets `triggered:true` via the existing debounced
+   update() so it doesn't re-fire next refresh. Banner at top
+   of the panel: '🔔 NVDA crossed above \$950 — now \$967.40 [✕]',
+   dismissable, capped at 10. Removing a symbol from the watchlist
+   also deletes its alerts.
+
+4. **Task 5 / docs + smoke + version bump (this commit).**
+   - `app/version.txt` → `202605.192`
+   - `smoke-test.sh` adds one more Trading Terminal assertion:
+     `/portfolio/earnings-calendar` — accepts both 200 (Finnhub
+     key present, holdings found) and 400 (no Finnhub key) as
+     valid responses since both shapes are healthy.
+   - `TRADE_TERMINAL_INTEGRATION.md` Phase 3D + Phase 7 marked
+     DONE in v.192 (items 9 + 10). Next-phases list shifts to v.193.
+   - `STATE.md` (this block).
+
+### Schema-safety gate
+
+`validate-schema.py --strict` exit 2, **12 flags total** (was 11 in
+v.191). 10 are the same known 130/134 noise. The other 2 are the
+same view-limitation pattern — the validator doesn't expand
+`financial_accounts` (mig 130's VIEW) to see `tax_treatment` (which
+mig 146 added via CREATE VIEW recreation):
+
+- `trading/routes.js:378` — pre-existing v.189 (the `/portfolio/live`
+  query).
+- `trading/routes.js:560` — new in v.192 (the
+  `/portfolio/earnings-calendar` JOIN on `fa.tax_treatment`).
+
+Both are false-positives. The runtime queries work correctly against
+the live DB (mig 146 is applied; v.189-v.191 prod uses the same VIEW
+column daily; the live `/portfolio/live` response from this session
+returned `tax_treatment` values). The validator just doesn't model
+SQL views.
+
+Treating as known-validator-limitation. Future fix: teach
+`validate-schema.py` to follow `CREATE VIEW ... AS SELECT col FROM
+table` definitions, OR add a per-file ignore list. Not blocking
+v.192.
+
+### Tests
+
+E2E baseline `115/0` expected to hold — no migrations, no contract
+changes, additive only. The new smoke assertion is additive: 6 trading
+assertions total now. `/portfolio/earnings-calendar` returns 400
+('Finnhub API key required') when no key is configured — the smoke
+test accepts that as healthy.
+
+### What v.192 deliberately does NOT do
+
+- Multi-tab toast infrastructure for alerts. The trigger banner lives
+  inside the Watchlist tab only — alerts only fire on refresh, which
+  the user initiates from the Watchlist tab, so the banner is always
+  visible when alerts fire. Cross-tab toasts can be added later if
+  background polling becomes a feature.
+- Phase 3C + 4A (Correlation + multi-symbol chart) → v.193.
+- Phase 8 (Reports tab rich viewer for AI Rebalancing, AI Tax
+  Optimization, Earnings Play reports) → v.194.
+- Phase 5A (real screener universe) → v.195.
+- Phase 9 (mobile UX) → v.196.
+- Reports Redesign — queued AFTER v.196 per
+  [[parallel-roadmaps-may-2026]].
+
+---
+
 ## ✅ v.191 DEPLOYED & VERIFIED — Phase 3B Tax Location + Phase 6 Short Interest + AIAnalyst bugfix (2026-05-23)
 
 > **DEPLOYED 2026-05-23 ~13:43 (deploy started 13:28, full pipeline 15m
