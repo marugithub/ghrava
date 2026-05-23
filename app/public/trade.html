@@ -4685,6 +4685,393 @@ const NarrativeAIReport = ({ d, color, label }) => {
 
 const REPORT_TYPES = ['AI Analysis', 'Portfolio Snapshot', 'AI Rebalancing Advice', 'AI Tax Optimization'];
 
+// ═══════════════════════════════════════════════════════════════
+// SNAPSHOT HELPERS (Phase 8, v.194) — module scope so they're
+// usable by PortfolioSnapshotViewer + the compare-diff logic.
+// ═══════════════════════════════════════════════════════════════
+
+// Normalises three known snapshot shapes (new v.194 / old broken pre-v.194 /
+// legacy positions-array) into a common { summary, positions, isNewShape }.
+const flattenSnapshotPositions = (d) => {
+  const rd = d?.data || {};
+  const isNewShape    = rd.ghrava && Array.isArray(rd.ghrava.accounts);
+  const isOldGhrava   = rd.ghrava && typeof rd.ghrava.total_market_value !== 'undefined';
+  const isLegacyShape = rd.summary && typeof rd.summary.totalValue !== 'undefined';
+
+  let summary;
+  if (isNewShape || isOldGhrava) {
+    const g = isNewShape ? rd.ghrava.summary : rd.ghrava;
+    summary = {
+      totalValue: g?.total_market_value || 0,
+      totalCost:  g?.total_cost_basis   || 0,
+      totalPnl:   g?.total_gain_loss    || 0,
+      totalPct:   g?.total_gain_loss_pct|| 0,
+    };
+  } else if (isLegacyShape) {
+    summary = rd.summary;
+  } else {
+    summary = { totalValue: 0, totalCost: 0, totalPnl: 0, totalPct: 0 };
+  }
+
+  const positions = [];
+  if (isNewShape) {
+    for (const acct of rd.ghrava.accounts) {
+      for (const h of (acct.holdings || [])) {
+        positions.push({
+          symbol:  h.symbol,
+          shares:  h.shares,
+          cost:    h.cost_basis,
+          value:   h.market_value,
+          gain:    h.gain_loss_dollar,
+          gainPct: h.gain_loss_pct,
+          account: acct.nickname,
+          taxTreatment: acct.tax_treatment,
+        });
+      }
+    }
+  }
+  for (const p of (rd.manual || [])) {
+    positions.push({
+      symbol:  p.symbol,
+      shares:  p.shares,
+      cost:    p.cost,
+      value:   (p.cost || 0) * (p.shares || 0),
+      gain:    null,
+      gainPct: null,
+      account: 'Manual',
+      taxTreatment: null,
+    });
+  }
+  if (isLegacyShape && Array.isArray(rd.positions)) {
+    for (const p of rd.positions) {
+      positions.push({
+        symbol: p.symbol, shares: p.shares, cost: p.cost,
+        value: p.currentPrice ? p.currentPrice * p.shares : null,
+        gain: p.pnl, gainPct: p.pnlPct,
+        account: '—', taxTreatment: null,
+      });
+    }
+  }
+  return { summary, positions, isNewShape };
+};
+
+// Aggregate a flat positions list to { SYMBOL: { shares, value } } summed
+// across accounts. Used by the compare-snapshot diff so a symbol held in
+// multiple accounts compares as one line.
+const aggregateBySymbol = (positions) => {
+  const out = {};
+  for (const p of positions) {
+    if (!p.symbol) continue;
+    const key = p.symbol.toUpperCase();
+    if (!out[key]) out[key] = { symbol: key, shares: 0, value: 0 };
+    out[key].shares += (p.shares || 0);
+    out[key].value  += (p.value  || 0);
+  }
+  return out;
+};
+
+// CSV export with RFC-4180 escaping.
+const downloadSnapshotCsv = (d, positions) => {
+  const rows = [
+    ['symbol','account','tax_treatment','shares','cost','value','gain_dollar','gain_pct'],
+    ...positions.map(p => [
+      p.symbol || '',
+      p.account || '',
+      p.taxTreatment || '',
+      p.shares != null ? p.shares : '',
+      p.cost   != null ? p.cost   : '',
+      p.value  != null ? p.value  : '',
+      p.gain   != null ? p.gain   : '',
+      p.gainPct!= null ? p.gainPct: '',
+    ]),
+  ];
+  const csv = rows.map(r => r.map(c => {
+    const s = String(c);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const stamp = (d.date || new Date().toISOString()).slice(0,10);
+  a.href = url; a.download = `portfolio-snapshot-${stamp}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+};
+
+// ═══════════════════════════════════════════════════════════════
+// PORTFOLIO SNAPSHOT VIEWER (Phase 8, v.194)
+// Renders a single Portfolio Snapshot report. Has its own state for
+// the compare-to-another-snapshot diff picker.
+// ═══════════════════════════════════════════════════════════════
+const PortfolioSnapshotViewer = ({ d, allReports }) => {
+  const [compareFilename, setCompareFilename] = useState('');
+  const [compareData,     setCompareData]     = useState(null);
+  const [compareLoading,  setCompareLoading]  = useState(false);
+  const [showUnchanged,   setShowUnchanged]   = useState(false);
+
+  const { summary, positions, isNewShape } = flattenSnapshotPositions(d);
+  const rd = d.data || {};
+
+  // Other snapshot reports for the compare picker — exclude self.
+  const otherSnapshots = (allReports || [])
+    .filter(r => r.type === 'Portfolio Snapshot' && r.filename !== d.filename);
+
+  // Load the picked compare snapshot's full data when selection changes.
+  useEffect(() => {
+    if (!compareFilename) { setCompareData(null); return; }
+    let cancelled = false;
+    (async () => {
+      setCompareLoading(true);
+      const cd = await loadReport(compareFilename);
+      if (!cancelled) { setCompareData(cd); setCompareLoading(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [compareFilename]);
+
+  // Build per-symbol diff between current (d) and compare (compareData).
+  let diff = null;
+  if (compareData) {
+    const compareFlat = flattenSnapshotPositions(compareData);
+    const curMap  = aggregateBySymbol(positions);
+    const baseMap = aggregateBySymbol(compareFlat.positions);
+    const allSyms = new Set([...Object.keys(curMap), ...Object.keys(baseMap)]);
+    const rows = [];
+    for (const sym of allSyms) {
+      const cur  = curMap[sym]  || null;
+      const base = baseMap[sym] || null;
+      let status;
+      if (cur && !base) status = 'added';
+      else if (base && !cur) status = 'removed';
+      else {
+        const dShares = (cur?.shares || 0) - (base?.shares || 0);
+        const dValue  = (cur?.value  || 0) - (base?.value  || 0);
+        status = (dShares === 0 && dValue === 0) ? 'unchanged' : 'changed';
+      }
+      rows.push({
+        symbol:    sym,
+        status,
+        curShares: cur?.shares ?? null,
+        baseShares:base?.shares ?? null,
+        curValue:  cur?.value  ?? null,
+        baseValue: base?.value ?? null,
+        dShares:   (cur?.shares || 0) - (base?.shares || 0),
+        dValue:    (cur?.value  || 0) - (base?.value  || 0),
+      });
+    }
+    // Sort: changed (by |Δvalue| desc), added (by curValue desc), removed (by baseValue desc), unchanged last.
+    const statusOrder = { changed:0, added:1, removed:2, unchanged:3 };
+    rows.sort((a, b) => {
+      if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
+      if (a.status === 'changed')   return Math.abs(b.dValue)   - Math.abs(a.dValue);
+      if (a.status === 'added')     return (b.curValue  || 0) - (a.curValue  || 0);
+      if (a.status === 'removed')   return (b.baseValue || 0) - (a.baseValue || 0);
+      return (a.symbol || '').localeCompare(b.symbol || '');
+    });
+    diff = {
+      rows,
+      counts: {
+        changed:   rows.filter(r => r.status === 'changed').length,
+        added:     rows.filter(r => r.status === 'added').length,
+        removed:   rows.filter(r => r.status === 'removed').length,
+        unchanged: rows.filter(r => r.status === 'unchanged').length,
+      },
+      baseSummary: compareFlat.summary,
+      baseDate: compareData.date,
+    };
+  }
+
+  const statusColor = (s) =>
+    s === 'added'     ? C.green :
+    s === 'removed'   ? C.red   :
+    s === 'changed'   ? C.amber :
+    C.dimmed;
+
+  const fmtMoney = (v) => v != null
+    ? `${v >= 0 ? '' : '-'}$${Math.abs(v).toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 })}`
+    : '—';
+
+  return (
+    <div>
+      <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>
+        Generated: {d.dateDisplay || (d.date ? new Date(d.date).toLocaleString() : '—')}
+        {rd.source && <span style={{ marginLeft:10 }}>· source: <span style={{ color:C.text }}>{rd.source}</span></span>}
+      </div>
+
+      {/* Summary cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
+        {[['PORTFOLIO VALUE',`$${summary.totalValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,C.text],
+          ['TOTAL COST',     `$${summary.totalCost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,C.muted],
+          ['TOTAL P&L',      `${summary.totalPnl>=0?'+':''}$${Math.abs(summary.totalPnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,pColor(summary.totalPnl)],
+          ['RETURN',         fmtPct(summary.totalPct),pColor(summary.totalPct)],
+        ].map(([l,v,c])=>(
+          <div key={l} style={{ background:c+'12', border:`1px solid ${c}33`, borderRadius:6, padding:'10px 12px' }}>
+            <div style={{ color:C.muted, fontSize:10, letterSpacing:1, marginBottom:4 }}>{l}</div>
+            <div style={{ color:c, fontWeight:700, fontSize:15 }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Positions table or "no detail" notice */}
+      {positions.length === 0 ? (
+        <div style={{ color:C.muted, fontSize:12, marginBottom:12 }}>
+          No per-position detail captured in this snapshot.
+          {!isNewShape && ' (Snapshots taken before v.194 only saved summary totals; new snapshots include per-symbol detail.)'}
+        </div>
+      ) : (
+        <>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+            <span style={{ color:C.muted, fontSize:10, letterSpacing:1, fontWeight:600 }}>
+              POSITIONS AT SNAPSHOT — {positions.length}
+            </span>
+            <Btn small color={C.blue} onClick={() => downloadSnapshotCsv(d, positions)}>⬇ CSV</Btn>
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12, marginBottom:14 }}>
+            <thead>
+              <tr style={{ color:C.muted, fontSize:10, letterSpacing:0.3 }}>
+                <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>SYMBOL</th>
+                <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>ACCOUNT</th>
+                <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>SHARES</th>
+                <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>COST</th>
+                <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>VALUE</th>
+                <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>GAIN $</th>
+                <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>GAIN %</th>
+              </tr>
+            </thead>
+            <tbody>
+              {positions.map((p, i) => (
+                <tr key={i} style={{ borderTop:`1px solid ${C.border}22` }}>
+                  <td style={{ padding:'7px 8px', color:C.text, fontWeight:700 }}>{p.symbol}</td>
+                  <td style={{ padding:'7px 8px', color:C.muted }}>
+                    {p.account}
+                    {p.taxTreatment && <span style={{ color:C.dimmed, fontSize:10, marginLeft:4 }}>· {p.taxTreatment}</span>}
+                  </td>
+                  <td style={{ padding:'7px 8px', textAlign:'right', color:C.text }}>{p.shares != null ? p.shares.toLocaleString() : '—'}</td>
+                  <td style={{ padding:'7px 8px', textAlign:'right', color:C.muted }}>{p.cost != null ? fmtP(p.cost) : '—'}</td>
+                  <td style={{ padding:'7px 8px', textAlign:'right', color:C.text, fontWeight:600 }}>{p.value != null ? fmtP(p.value) : '—'}</td>
+                  <td style={{ padding:'7px 8px', textAlign:'right', color: p.gain != null ? pColor(p.gain) : C.muted }}>
+                    {p.gain != null ? `${p.gain>=0?'+':''}${fmtP(Math.abs(p.gain))}` : '—'}
+                  </td>
+                  <td style={{ padding:'7px 8px', textAlign:'right', color: p.gainPct != null ? pColor(p.gainPct) : C.muted }}>
+                    {p.gainPct != null ? fmtPct(p.gainPct) : '—'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
+
+      {/* Compare-to-another-snapshot section (Phase 8 task 4) */}
+      {otherSnapshots.length > 0 && (
+        <div style={{ borderTop:`1px solid ${C.border}`, paddingTop:12, marginTop:6 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:8, flexWrap:'wrap' }}>
+            <span style={{ color:C.muted, fontSize:10, letterSpacing:1, fontWeight:600 }}>COMPARE TO</span>
+            <select value={compareFilename} onChange={e => setCompareFilename(e.target.value)}
+              style={{ background:C.panel, border:`1px solid ${C.border2}`, color:C.text,
+                padding:'4px 8px', borderRadius:5, fontFamily:'inherit', fontSize:12, outline:'none' }}>
+              <option value="">— select an earlier snapshot —</option>
+              {otherSnapshots.map(r => (
+                <option key={r.filename} value={r.filename}>
+                  {r.title} {r.date ? `· ${r.date.slice(0,10)}` : ''}
+                </option>
+              ))}
+            </select>
+            {compareFilename && (
+              <Btn small color={C.muted} onClick={() => setCompareFilename('')}>✕ clear</Btn>
+            )}
+          </div>
+
+          {compareLoading && <Spinner text="Loading comparison snapshot…" />}
+
+          {diff && !compareLoading && (
+            <div>
+              {/* Summary deltas */}
+              <div style={{ marginBottom:10, fontSize:12, color:C.muted }}>
+                Comparing to <strong style={{ color:C.text }}>{diff.baseDate ? diff.baseDate.slice(0,10) : 'baseline'}</strong>
+                {' · '}
+                <Tag color={C.amber}>{diff.counts.changed} changed</Tag>{' '}
+                <Tag color={C.green}>{diff.counts.added} added</Tag>{' '}
+                <Tag color={C.red}>{diff.counts.removed} removed</Tag>{' '}
+                <Tag color={C.dimmed}>{diff.counts.unchanged} unchanged</Tag>
+              </div>
+
+              {/* Portfolio-level deltas */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:8, marginBottom:12 }}>
+                {[
+                  ['Δ VALUE', summary.totalValue - diff.baseSummary.totalValue],
+                  ['Δ COST',  summary.totalCost  - diff.baseSummary.totalCost],
+                  ['Δ P&L',   summary.totalPnl   - diff.baseSummary.totalPnl],
+                ].map(([label, v]) => (
+                  <div key={label} style={{ padding:'8px 10px', background:C.bg, border:`1px solid ${C.border}`, borderRadius:6 }}>
+                    <div style={{ color:C.muted, fontSize:10, letterSpacing:1, marginBottom:3 }}>{label}</div>
+                    <div style={{ color: v >= 0 ? C.green : C.red, fontWeight:700, fontSize:14 }}>
+                      {v >= 0 ? '+' : ''}{fmtMoney(v).replace('-','')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Diff table */}
+              <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                <thead>
+                  <tr style={{ color:C.muted, fontSize:10, letterSpacing:0.3 }}>
+                    <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}></th>
+                    <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>SYMBOL</th>
+                    <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>BASE SHARES</th>
+                    <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>NOW SHARES</th>
+                    <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>Δ SHARES</th>
+                    <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>BASE VALUE</th>
+                    <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>NOW VALUE</th>
+                    <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>Δ VALUE</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diff.rows
+                    .filter(r => showUnchanged || r.status !== 'unchanged')
+                    .map((r, i) => (
+                      <tr key={i} style={{ borderTop:`1px solid ${C.border}22` }}>
+                        <td style={{ padding:'6px 8px' }}><Tag color={statusColor(r.status)}>{r.status}</Tag></td>
+                        <td style={{ padding:'6px 8px', color:C.text, fontWeight:700 }}>{r.symbol}</td>
+                        <td style={{ padding:'6px 8px', textAlign:'right', color:C.muted }}>
+                          {r.baseShares != null ? r.baseShares.toLocaleString() : '—'}
+                        </td>
+                        <td style={{ padding:'6px 8px', textAlign:'right', color:C.text }}>
+                          {r.curShares != null ? r.curShares.toLocaleString() : '—'}
+                        </td>
+                        <td style={{ padding:'6px 8px', textAlign:'right',
+                          color: r.dShares > 0 ? C.green : r.dShares < 0 ? C.red : C.dimmed }}>
+                          {r.dShares > 0 ? '+' : ''}{r.dShares.toLocaleString()}
+                        </td>
+                        <td style={{ padding:'6px 8px', textAlign:'right', color:C.muted }}>{fmtMoney(r.baseValue)}</td>
+                        <td style={{ padding:'6px 8px', textAlign:'right', color:C.text }}>{fmtMoney(r.curValue)}</td>
+                        <td style={{ padding:'6px 8px', textAlign:'right',
+                          color: r.dValue > 0 ? C.green : r.dValue < 0 ? C.red : C.dimmed, fontWeight:600 }}>
+                          {r.dValue >= 0 ? '+' : ''}{fmtMoney(r.dValue).replace('-','')}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+
+              {diff.counts.unchanged > 0 && (
+                <div style={{ marginTop:8, color:C.dimmed, fontSize:11 }}>
+                  <button onClick={() => setShowUnchanged(s => !s)}
+                    style={{ background:'none', border:'none', color:C.dimmed, cursor:'pointer',
+                      fontSize:11, fontFamily:'inherit', padding:0, letterSpacing:0.3 }}>
+                    {showUnchanged
+                      ? `▾ hide ${diff.counts.unchanged} unchanged position${diff.counts.unchanged === 1 ? '' : 's'}`
+                      : `▸ show ${diff.counts.unchanged} unchanged position${diff.counts.unchanged === 1 ? '' : 's'}`}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ReportsTab = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -4754,160 +5141,16 @@ const ReportsTab = () => {
     t==='AI Tax Optimization'     ? C.purple :
     C.muted;
 
-  // ── Portfolio Snapshot renderer (Phase 8, v.194) ──────────────────
-  // Supports two shapes:
-  //   NEW (v.194+): { source, ghrava: { summary, accounts:[{ nickname, market_value, holdings:[...] }] }, manual, generatedAt }
-  //   OLD (pre-v.194 broken save): { source, ghrava: <summary object>, manual, generatedAt }
-  //     -> the renderer reads ghrava.total_market_value etc. directly when accounts is missing.
-  // Plus a back-compat branch for legacy { summary: {totalValue, totalCost, totalPnl, totalPct}, positions } shape
-  // in case very old snapshots exist.
-  const renderPortfolioSnapshot = (d) => {
-    const rd = d.data || {};
-    // Detect shape
-    const isNewShape    = rd.ghrava && Array.isArray(rd.ghrava.accounts);
-    const isOldGhrava   = rd.ghrava && typeof rd.ghrava.total_market_value !== 'undefined';
-    const isLegacyShape = rd.summary && typeof rd.summary.totalValue !== 'undefined';
-
-    // Normalise to a common summary object
-    let summary;
-    if (isNewShape || isOldGhrava) {
-      const g = isNewShape ? rd.ghrava.summary : rd.ghrava;
-      summary = {
-        totalValue: g?.total_market_value || 0,
-        totalCost:  g?.total_cost_basis   || 0,
-        totalPnl:   g?.total_gain_loss    || 0,
-        totalPct:   g?.total_gain_loss_pct|| 0,
-      };
-    } else if (isLegacyShape) {
-      summary = rd.summary;
-    } else {
-      summary = { totalValue: 0, totalCost: 0, totalPnl: 0, totalPct: 0 };
-    }
-
-    // Flatten ghrava holdings + manual into a single positions list for display.
-    const positions = [];
-    if (isNewShape) {
-      for (const acct of rd.ghrava.accounts) {
-        for (const h of (acct.holdings || [])) {
-          positions.push({
-            symbol:  h.symbol,
-            shares:  h.shares,
-            cost:    h.cost_basis,
-            value:   h.market_value,
-            gain:    h.gain_loss_dollar,
-            gainPct: h.gain_loss_pct,
-            account: acct.nickname,
-            taxTreatment: acct.tax_treatment,
-          });
-        }
-      }
-    }
-    // Manual positions added (whether Ghrava data is present or not)
-    for (const p of (rd.manual || [])) {
-      positions.push({
-        symbol:  p.symbol,
-        shares:  p.shares,
-        cost:    p.cost,
-        value:   (p.cost || 0) * (p.shares || 0),   // no live price at snapshot time for manual
-        gain:    null,
-        gainPct: null,
-        account: 'Manual',
-        taxTreatment: null,
-      });
-    }
-    // Legacy positions array — older snapshots stored them directly.
-    if (isLegacyShape && Array.isArray(rd.positions)) {
-      for (const p of rd.positions) {
-        positions.push({
-          symbol: p.symbol, shares: p.shares, cost: p.cost,
-          value: p.currentPrice ? p.currentPrice * p.shares : null,
-          gain: p.pnl, gainPct: p.pnlPct,
-          account: '—', taxTreatment: null,
-        });
-      }
-    }
-
-    return (
-      <div>
-        <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>
-          Generated: {d.dateDisplay || (d.date ? new Date(d.date).toLocaleString() : '—')}
-          {rd.source && <span style={{ marginLeft:10 }}>· source: <span style={{ color:C.text }}>{rd.source}</span></span>}
-        </div>
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
-          {[['PORTFOLIO VALUE',`$${summary.totalValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,C.text],
-            ['TOTAL COST',     `$${summary.totalCost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,C.muted],
-            ['TOTAL P&L',      `${summary.totalPnl>=0?'+':''}$${Math.abs(summary.totalPnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,pColor(summary.totalPnl)],
-            ['RETURN',         fmtPct(summary.totalPct),pColor(summary.totalPct)],
-          ].map(([l,v,c])=>(
-            <div key={l} style={{ background:c+'12', border:`1px solid ${c}33`, borderRadius:6, padding:'10px 12px' }}>
-              <div style={{ color:C.muted, fontSize:10, letterSpacing:1, marginBottom:4 }}>{l}</div>
-              <div style={{ color:c, fontWeight:700, fontSize:15 }}>{v}</div>
-            </div>
-          ))}
-        </div>
-
-        {positions.length === 0 ? (
-          <div style={{ color:C.muted, fontSize:12 }}>
-            No per-position detail captured in this snapshot.
-            {!isNewShape && ' (Snapshots taken before v.194 only saved summary totals; new snapshots include per-symbol detail.)'}
-          </div>
-        ) : (
-          <>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-              <span style={{ color:C.muted, fontSize:10, letterSpacing:1, fontWeight:600 }}>
-                POSITIONS AT SNAPSHOT — {positions.length}
-              </span>
-              <Btn small color={C.blue} onClick={() => downloadSnapshotCsv(d, positions)}>
-                ⬇ CSV
-              </Btn>
-            </div>
-            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-              <thead>
-                <tr style={{ color:C.muted, fontSize:10, letterSpacing:0.3 }}>
-                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>SYMBOL</th>
-                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>ACCOUNT</th>
-                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>SHARES</th>
-                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>COST</th>
-                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>VALUE</th>
-                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>GAIN $</th>
-                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>GAIN %</th>
-                </tr>
-              </thead>
-              <tbody>
-                {positions.map((p, i) => (
-                  <tr key={i} style={{ borderTop:`1px solid ${C.border}22` }}>
-                    <td style={{ padding:'7px 8px', color:C.text, fontWeight:700 }}>{p.symbol}</td>
-                    <td style={{ padding:'7px 8px', color:C.muted }}>
-                      {p.account}
-                      {p.taxTreatment && <span style={{ color:C.dimmed, fontSize:10, marginLeft:4 }}>· {p.taxTreatment}</span>}
-                    </td>
-                    <td style={{ padding:'7px 8px', textAlign:'right', color:C.text }}>{p.shares != null ? p.shares.toLocaleString() : '—'}</td>
-                    <td style={{ padding:'7px 8px', textAlign:'right', color:C.muted }}>{p.cost != null ? fmtP(p.cost) : '—'}</td>
-                    <td style={{ padding:'7px 8px', textAlign:'right', color:C.text, fontWeight:600 }}>{p.value != null ? fmtP(p.value) : '—'}</td>
-                    <td style={{ padding:'7px 8px', textAlign:'right', color: p.gain != null ? pColor(p.gain) : C.muted }}>
-                      {p.gain != null ? `${p.gain>=0?'+':''}${fmtP(Math.abs(p.gain))}` : '—'}
-                    </td>
-                    <td style={{ padding:'7px 8px', textAlign:'right', color: p.gainPct != null ? pColor(p.gainPct) : C.muted }}>
-                      {p.gainPct != null ? fmtPct(p.gainPct) : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </>
-        )}
-      </div>
-    );
-  };
-
-  // Narrative AI report rendering is delegated to <NarrativeAIReport>
-  // (defined at module scope just above ReportsTab) so its useState for
-  // the collapsible-prompt toggle follows React's rules-of-hooks.
+  // Snapshot rendering delegated to <PortfolioSnapshotViewer> at module
+  // scope (manages its own compare-snapshot state + diff).
+  // Narrative AI reports delegated to <NarrativeAIReport>.
+  // Both live above ReportsTab.
 
   const renderDetail = d => {
     if (!d) return null;
     const { type, data:rd } = d;
-    if (type === 'Portfolio Snapshot' && rd) return renderPortfolioSnapshot(d);
+    if (type === 'Portfolio Snapshot' && rd)
+      return <PortfolioSnapshotViewer key={d.filename} d={d} allReports={reports} />;
     if (type === 'AI Analysis' && rd) {
       return (
         <div>
@@ -4925,36 +5168,6 @@ const ReportsTab = () => {
     if (type === 'AI Tax Optimization'   && rd) return <NarrativeAIReport key={d.filename} d={d} color={C.purple} label="AI TAX OPTIMIZATION"   />;
     return <pre style={{ color:C.text, fontSize:13, whiteSpace:'pre-wrap' }}>{JSON.stringify(rd,null,2)}</pre>;
   };
-
-  // CSV export for Portfolio Snapshots — used by the snapshot renderer's CSV button.
-  const downloadSnapshotCsv = (d, positions) => {
-    const rows = [
-      ['symbol','account','tax_treatment','shares','cost','value','gain_dollar','gain_pct'],
-      ...positions.map(p => [
-        p.symbol || '',
-        p.account || '',
-        p.taxTreatment || '',
-        p.shares != null ? p.shares : '',
-        p.cost != null ? p.cost : '',
-        p.value != null ? p.value : '',
-        p.gain != null ? p.gain : '',
-        p.gainPct != null ? p.gainPct : '',
-      ]),
-    ];
-    const csv = rows.map(r => r.map(c => {
-      const s = String(c);
-      // CSV escape: wrap in quotes if contains comma/quote/newline; double internal quotes.
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    }).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    const stamp = (d.date || new Date().toISOString()).slice(0,10);
-    a.href = url; a.download = `portfolio-snapshot-${stamp}.csv`;
-    document.body.appendChild(a); a.click(); document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  };
-
   return (
     <div style={{ display:'grid', gridTemplateColumns:'300px 1fr', gap:14 }}>
       <div>
