@@ -1895,15 +1895,254 @@ const PortfolioTab = ({ data, update, quotes }) => {
           <Panel style={{ marginBottom:14 }}>
             <GhravaPortfolio />
           </Panel>
-          <Panel>
+          <Panel style={{ marginBottom:14 }}>
             <PanelTitle>PORTFOLIO PERFORMANCE — 12 MONTHS</PanelTitle>
             <PerformanceChart />
           </Panel>
+          <TargetAllocationPanel
+            settings={settings}
+            update={update}
+            ghravaPf={ghravaPf}
+            perfData={perfData}
+          />
         </div>
       ) : (
         <Panel><ManualPortfolio /></Panel>
       )}
     </div>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// TARGET ALLOCATION PANEL (Phase 3A, v.190)
+// Shown on Portfolio tab below the performance chart.
+// User-defined target asset allocation, compared to current holdings.
+// Drift colour: green ≤2%, amber 2-5%, red >5%.
+// Persists to trading.json under settings.targetAllocation via update().
+// ═══════════════════════════════════════════════════════════════
+const ALLOC_CATEGORIES = [
+  { key:'stock',       label:'Stock' },
+  { key:'etf',         label:'ETF' },
+  { key:'mutual_fund', label:'Mutual Fund' },
+  { key:'bond',        label:'Bond' },
+  { key:'cash',        label:'Cash' },
+  { key:'other',       label:'Other' },
+];
+
+// Normalise an asset_type string from the DB (case/punct varies) to a canonical key.
+const normaliseAllocKey = (raw) => {
+  if (raw == null) return 'other';
+  const k = String(raw).toLowerCase().trim().replace(/[\s-]+/g, '_');
+  return ALLOC_CATEGORIES.some(c => c.key === k) ? k : 'other';
+};
+
+// Build current allocation % map from the /portfolio/performance allocation array.
+// Returns { stock:%, etf:%, ... } summing approximately to 100 (rounding aside).
+const computeCurrentAlloc = (allocation, totalValue) => {
+  const out = Object.fromEntries(ALLOC_CATEGORIES.map(c => [c.key, 0]));
+  if (!Array.isArray(allocation) || !totalValue || totalValue <= 0) return out;
+  for (const row of allocation) {
+    const k = normaliseAllocKey(row.type);
+    out[k] += (Number(row.value) || 0) / totalValue * 100;
+  }
+  return out;
+};
+
+// Round a {key: pct} map to integers that still sum to 100.
+// Strategy: floor each, distribute remainder to largest fractional parts.
+const roundToHundred = (pctMap) => {
+  const entries = ALLOC_CATEGORIES.map(c => [c.key, pctMap[c.key] || 0]);
+  const floors  = entries.map(([k,v]) => [k, Math.floor(v), v - Math.floor(v)]);
+  let used = floors.reduce((s,[,f]) => s+f, 0);
+  const remainder = 100 - used;
+  // Sort by fractional part descending; bump the top `remainder` categories by 1.
+  const order = [...floors].sort((a,b) => b[2] - a[2]);
+  const bump = new Set(order.slice(0, Math.max(0, remainder)).map(([k]) => k));
+  return Object.fromEntries(floors.map(([k,f]) => [k, f + (bump.has(k) ? 1 : 0)]));
+};
+
+const driftStatus = (drift) => {
+  const abs = Math.abs(drift);
+  if (abs <= 2) return { color: C.green, label: 'OK' };
+  if (abs <= 5) return { color: C.amber, label: 'Watch' };
+  return { color: C.red, label: 'Rebalance' };
+};
+
+const TargetAllocationPanel = ({ settings, update, ghravaPf, perfData }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [editing,   setEditing]   = useState(false);
+  const [draft,     setDraft]     = useState(null);
+
+  const target     = settings?.targetAllocation || null;
+  const hasTarget  = target && ALLOC_CATEGORIES.some(c => (target[c.key] || 0) > 0);
+  const totalValue = ghravaPf?.summary?.total_market_value || 0;
+  const current    = computeCurrentAlloc(perfData?.allocation, totalValue);
+
+  // Save target back to trading.json via the parent's debounced update().
+  const saveTarget = (next) => {
+    update({ settings: { ...(settings || {}), targetAllocation: next } });
+  };
+
+  const seedFromCurrent = () => {
+    if (totalValue <= 0) return;
+    saveTarget(roundToHundred(current));
+  };
+
+  const startEdit = () => {
+    // Start draft from current target if set, else from rounded current%.
+    const seed = hasTarget
+      ? Object.fromEntries(ALLOC_CATEGORIES.map(c => [c.key, Number(target[c.key]) || 0]))
+      : (totalValue > 0 ? roundToHundred(current) : Object.fromEntries(ALLOC_CATEGORIES.map(c => [c.key, 0])));
+    setDraft(seed);
+    setEditing(true);
+  };
+
+  const cancelEdit = () => { setEditing(false); setDraft(null); };
+
+  const draftSum = draft ? ALLOC_CATEGORIES.reduce((s,c) => s + (Number(draft[c.key]) || 0), 0) : 0;
+  const draftValid = draft && draftSum === 100;
+
+  const saveEdit = () => {
+    if (!draftValid) return;
+    saveTarget(draft);
+    setEditing(false);
+    setDraft(null);
+  };
+
+  // Header row — always visible
+  const header = (
+    <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+      <div onClick={() => setCollapsed(c => !c)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8, flex:1 }}>
+        <span style={{ color:C.blue, fontSize:16 }}>{collapsed ? '▸' : '▾'}</span>
+        <span style={{ color:C.blue, fontWeight:700, fontSize:13, letterSpacing:1 }}>TARGET ALLOCATION</span>
+        {!hasTarget && !collapsed && (
+          <span style={{ color:C.muted, fontSize:11, marginLeft:8 }}>— not set yet</span>
+        )}
+      </div>
+      {!collapsed && hasTarget && !editing && (
+        <Btn small color={C.blue} onClick={startEdit}>Edit</Btn>
+      )}
+    </div>
+  );
+
+  if (collapsed) return <Panel>{header}</Panel>;
+
+  // No Ghrava data yet → friendly placeholder
+  if (totalValue <= 0) return (
+    <Panel>
+      {header}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:14, paddingTop:14, color:C.muted, fontSize:12, textAlign:'center' }}>
+        Set a target allocation here once your holdings load.
+        This panel compares your real positions to the mix you want.
+      </div>
+    </Panel>
+  );
+
+  // No target yet → seed prompt
+  if (!hasTarget && !editing) return (
+    <Panel>
+      {header}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:14, paddingTop:14 }}>
+        <div style={{ color:C.muted, fontSize:13, marginBottom:12, lineHeight:1.6 }}>
+          You haven't set a target allocation yet. Set one to see how your current
+          holdings line up with the mix you want, and to get AI rebalancing advice.
+        </div>
+        <div style={{ display:'flex', gap:8 }}>
+          <Btn color={C.green} onClick={seedFromCurrent}>Use Current as Target</Btn>
+          <Btn color={C.blue}  onClick={startEdit}>Set Manually</Btn>
+        </div>
+      </div>
+    </Panel>
+  );
+
+  // Render rows — view mode reads from target, edit mode reads from draft
+  const rowSource = editing ? draft : target;
+
+  return (
+    <Panel>
+      {header}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:14, paddingTop:10 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+          <thead>
+            <tr style={{ color:C.muted, fontSize:10, letterSpacing:0.3 }}>
+              <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>ASSET TYPE</th>
+              <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>CURRENT</th>
+              <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>TARGET</th>
+              <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>DRIFT</th>
+              <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>STATUS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ALLOC_CATEGORIES.map(cat => {
+              const curPct = current[cat.key] || 0;
+              const tgtPct = Number(rowSource?.[cat.key]) || 0;
+              const drift  = curPct - tgtPct;
+              const st     = driftStatus(drift);
+              // Skip rows where both current and target are 0 (no signal).
+              if (curPct === 0 && tgtPct === 0 && !editing) return null;
+              return (
+                <tr key={cat.key} style={{ borderTop:`1px solid ${C.border}22` }}>
+                  <td style={{ padding:'8px 8px', color:C.text }}>{cat.label}</td>
+                  <td style={{ padding:'8px 8px', textAlign:'right', color:C.text }}>
+                    {curPct.toFixed(1)}%
+                  </td>
+                  <td style={{ padding:'8px 8px', textAlign:'right' }}>
+                    {editing ? (
+                      <input
+                        type="number" min="0" max="100" step="1"
+                        value={draft[cat.key] ?? 0}
+                        onChange={e => setDraft(d => ({ ...d, [cat.key]: Math.max(0, Math.min(100, parseInt(e.target.value || '0', 10))) }))}
+                        style={{ width:64, background:C.bg, border:`1.5px solid ${C.border2}`,
+                          color:C.text, padding:'4px 8px', borderRadius:5, fontFamily:'inherit',
+                          fontSize:13, textAlign:'right', outline:'none' }}
+                      />
+                    ) : (
+                      <span style={{ color:C.text, fontWeight:600 }}>{tgtPct}%</span>
+                    )}
+                  </td>
+                  <td style={{ padding:'8px 8px', textAlign:'right', color: drift >= 0 ? C.amber : C.blue }}>
+                    {drift >= 0 ? '+' : ''}{drift.toFixed(1)}%
+                  </td>
+                  <td style={{ padding:'8px 8px', textAlign:'right' }}>
+                    <Tag color={st.color}>{st.label}</Tag>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        {/* Edit footer — sum validation + save/cancel */}
+        {editing && (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+            <div style={{ fontSize:12 }}>
+              <span style={{ color:C.muted }}>Total: </span>
+              <span style={{ color: draftValid ? C.green : C.red, fontWeight:700 }}>
+                {draftSum}%
+              </span>
+              {!draftValid && <span style={{ color:C.muted, marginLeft:8 }}>— must equal 100</span>}
+            </div>
+            <div style={{ display:'flex', gap:8 }}>
+              <Btn small color={C.muted} onClick={cancelEdit}>Cancel</Btn>
+              <Btn small color={C.green} onClick={saveEdit} disabled={!draftValid}>Save Target</Btn>
+            </div>
+          </div>
+        )}
+
+        {/* Source line + AI Rebalancing button (button wired in v.190 task 3) */}
+        {!editing && (
+          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+            marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+            <div style={{ color:C.dimmed, fontSize:11 }}>
+              Target stored in trading.json · current % from Ghrava holdings
+            </div>
+            {/* AI Rebalancing Advice button — wired in v.190 task 3 */}
+          </div>
+        )}
+      </div>
+    </Panel>
   );
 };
 
