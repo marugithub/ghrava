@@ -1175,6 +1175,13 @@ const PriceChart = ({ symbol, onTechContext }) => {
   const [loading, setLoading] = useState(false);
   const [err, setErr]         = useState('');
   const [overlay, setOverlay] = useState('none'); // none | sma | bb | rsi | macd
+  // Phase 4A (v.193) — multi-symbol comparison. Max 3 add'l symbols.
+  // When compareSymbols.length > 0, the chart switches from candlestick
+  // to a normalised line chart (each series indexed to 100 at the first bar).
+  const [compareSymbols,   setCompareSymbols]   = useState([]);
+  const [compareInput,     setCompareInput]     = useState('');
+  const [compareCandlesBy, setCompareCandlesBy] = useState({});  // { sym: candles[] }
+
   const canvasRef  = useRef(null);
   const rsiRef     = useRef(null);
   const macdRef    = useRef(null);
@@ -1183,6 +1190,9 @@ const PriceChart = ({ symbol, onTechContext }) => {
   const macdChart  = useRef(null);
 
   const RANGES = ['1wk','1mo','3mo','6mo','1y','2y'];
+  // Fixed palette so a given symbol gets a stable colour across renders.
+  // Main symbol = first slot, compare symbols fill the rest in add order.
+  const COMPARE_PALETTE = [C.blue, C.amber, C.purple, C.green];
 
   const fetchAndDraw = async (sym, rng) => {
     if (!sym) return;
@@ -1197,6 +1207,36 @@ const PriceChart = ({ symbol, onTechContext }) => {
   };
 
   useEffect(() => { if (symbol) fetchAndDraw(symbol, range); }, [symbol]);
+
+  // Refetch comparison series whenever the comparison list or the range changes.
+  // Each fetch is independent; one symbol failing leaves the rest intact.
+  useEffect(() => {
+    if (!compareSymbols.length) { setCompareCandlesBy({}); return; }
+    let cancelled = false;
+    (async () => {
+      const fetched = {};
+      await Promise.all(compareSymbols.map(async sym => {
+        try {
+          const r = await fetch(`/api/v1/trading/market/history/${sym}?range=${range}`);
+          const d = await r.json();
+          fetched[sym] = d.candles || [];
+        } catch { fetched[sym] = []; }
+      }));
+      if (!cancelled) setCompareCandlesBy(fetched);
+    })();
+    return () => { cancelled = true; };
+  }, [compareSymbols.join(','), range]);
+
+  const addCompare = () => {
+    const s = compareInput.toUpperCase().trim();
+    if (!s) return;
+    if (s === (symbol || '').toUpperCase()) return;          // can't compare to self
+    if (compareSymbols.includes(s)) return;                  // already there
+    if (compareSymbols.length >= 3) return;                  // cap at 3
+    setCompareSymbols([...compareSymbols, s]);
+    setCompareInput('');
+  };
+  const removeCompare = (s) => setCompareSymbols(compareSymbols.filter(x => x !== s));
 
   useEffect(() => {
     if (!candles.length || !canvasRef.current) return;
@@ -1214,7 +1254,90 @@ const PriceChart = ({ symbol, onTechContext }) => {
       onTechContext(buildTechContext(closes, symbol));
     }
 
+    const isCompareMode = compareSymbols.length > 0;
+
+    // ── COMPARE MODE: normalised line chart (Phase 4A, v.193) ──
+    // When the user adds compare symbols, candlesticks make no visual sense
+    // (different price levels). Switch to a line chart where every series
+    // is normalised to 100 at the first bar — what shows up as 'spread'
+    // is the relative-return divergence.
+    const drawCompareChart = () => {
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
+      const allSyms = [symbol.toUpperCase(), ...compareSymbols];
+      const seriesRaw = allSyms.map(s => {
+        const arr = s === symbol.toUpperCase() ? candles : (compareCandlesBy[s] || []);
+        return arr.map(c => c.c).filter(v => v != null);
+      });
+      // Align series by trimming to the shortest from the END (most recent bars).
+      // Different symbols can have slightly different bar counts within the same
+      // range (holidays, listings, halts). Aligning from the recent end keeps
+      // the recent comparison honest.
+      const minLen = Math.min(...seriesRaw.map(s => s.length));
+      if (minLen < 2) {
+        // Not enough data to compare — render a friendly message instead of crashing Chart.js.
+        ctx.fillStyle = C.muted;
+        ctx.font = '13px monospace';
+        ctx.fillText('Waiting for comparison data…', 16, 100);
+        return;
+      }
+      const trimmed = seriesRaw.map(s => s.slice(-minLen));
+      const normalised = trimmed.map(s => {
+        const base = s[0] || 1;
+        return s.map(v => (v / base) * 100);
+      });
+      const compareLabels = candles.slice(-minLen).map(c =>
+        new Date(c.t).toLocaleDateString('en-US', { month:'short', day:'numeric' })
+      );
+
+      const datasets = allSyms.map((s, i) => {
+        const ser = normalised[i];
+        const ret = ser[ser.length - 1] - 100;
+        return {
+          type:        'line',
+          label:       `${s}  ${ret >= 0 ? '+' : ''}${ret.toFixed(2)}%`,
+          data:        ser,
+          borderColor: COMPARE_PALETTE[i % COMPARE_PALETTE.length],
+          borderWidth: 1.8,
+          pointRadius: 0,
+          fill:        false,
+          tension:     0.1,
+        };
+      });
+
+      chartRef.current = new window.Chart(ctx, {
+        type: 'line',
+        data: { labels: compareLabels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: {
+              display: true, position: 'top',
+              labels: { color: C.text, font: { size: 11, family: 'inherit' }, usePointStyle: true, padding: 10 },
+            },
+            tooltip: {
+              backgroundColor: C.panel, borderColor: C.border, borderWidth: 1,
+              titleColor: C.muted, bodyColor: C.text,
+              callbacks: { label: ctx => ` ${ctx.dataset.label.split('  ')[0]}: ${parseFloat(ctx.raw).toFixed(2)}` },
+            },
+          },
+          scales: {
+            x: { grid: { color: C.border + '22' }, ticks: { color: C.muted, maxTicksLimit: 8, font: { size: 10 } } },
+            y: {
+              position: 'right',
+              grid: { color: C.border + '22' },
+              ticks: { color: C.muted, font: { size: 10 }, callback: v => parseFloat(v).toFixed(0) },
+              title: { display: true, text: 'Indexed to 100', color: C.dimmed, font: { size: 10 } },
+            },
+          },
+        },
+      });
+    };
+
     const draw = () => {
+      if (isCompareMode) { drawCompareChart(); return; }
+
       // ── Main price chart ──
       const ctx = canvasRef.current?.getContext('2d');
       if (!ctx) return;
@@ -1366,13 +1489,16 @@ const PriceChart = ({ symbol, onTechContext }) => {
     return () => {
       [chartRef, rsiChart, macdChart].forEach(r => { if (r.current) { r.current.destroy(); r.current = null; } });
     };
-  }, [candles, overlay]);
+    // compareSymbols.join + compareCandlesBy length forces re-render when
+    // compare list or its data changes; raw object refs would over-fire.
+  }, [candles, overlay, compareSymbols.join(','), Object.keys(compareCandlesBy).length]);
 
   const pct = candles.length >= 2
     ? ((candles[candles.length-1].c - candles[0].c) / candles[0].c * 100).toFixed(2)
     : null;
 
-  const showSub = overlay === 'rsi' || overlay === 'macd';
+  // Sub-chart only applies to single-symbol candlestick mode.
+  const showSub = (overlay === 'rsi' || overlay === 'macd') && compareSymbols.length === 0;
 
   return (
     <Panel>
@@ -1396,17 +1522,57 @@ const PriceChart = ({ symbol, onTechContext }) => {
                   fontWeight:range===r?600:400 }}>{r}</button>
             ))}
           </div>
-          {/* Overlay selector */}
-          <div style={{ display:'flex', gap:3 }}>
-            {[['none','Candles'],['sma','SMA'],['bb','BB'],['rsi','RSI'],['macd','MACD']].map(([id,label]) => (
-              <button key={id} onClick={()=>setOverlay(id)}
-                style={{ background:overlay===id?C.purple+'30':'transparent', color:overlay===id?C.purple:C.muted,
-                  border:`1px solid ${overlay===id?C.purple:C.border}`, borderRadius:5,
-                  padding:'3px 8px', cursor:'pointer', fontFamily:'inherit', fontSize:10,
-                  fontWeight:overlay===id?600:400 }}>{label}</button>
-            ))}
-          </div>
+          {/* Overlay selector — hidden in compare mode (overlays apply to single-symbol candles only) */}
+          {compareSymbols.length === 0 && (
+            <div style={{ display:'flex', gap:3 }}>
+              {[['none','Candles'],['sma','SMA'],['bb','BB'],['rsi','RSI'],['macd','MACD']].map(([id,label]) => (
+                <button key={id} onClick={()=>setOverlay(id)}
+                  style={{ background:overlay===id?C.purple+'30':'transparent', color:overlay===id?C.purple:C.muted,
+                    border:`1px solid ${overlay===id?C.purple:C.border}`, borderRadius:5,
+                    padding:'3px 8px', cursor:'pointer', fontFamily:'inherit', fontSize:10,
+                    fontWeight:overlay===id?600:400 }}>{label}</button>
+              ))}
+            </div>
+          )}
         </div>
+      </div>
+
+      {/* Compare bar (Phase 4A, v.193) — input + chips, max 3 add'l symbols */}
+      <div style={{ display:'flex', alignItems:'center', gap:6, marginBottom:8, flexWrap:'wrap', fontSize:11 }}>
+        <span style={{ color:C.muted, letterSpacing:0.5 }}>Compare:</span>
+        <input value={compareInput}
+          onChange={e => setCompareInput(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && addCompare()}
+          placeholder={compareSymbols.length >= 3 ? 'max 3' : 'e.g. SPY'}
+          disabled={compareSymbols.length >= 3}
+          style={{ background:C.bg, border:`1px solid ${C.border2}`, color:C.text,
+            padding:'3px 8px', borderRadius:5, fontFamily:'inherit', fontSize:11,
+            width:90, outline:'none' }} />
+        <button onClick={addCompare}
+          disabled={compareSymbols.length >= 3 || !compareInput.trim()}
+          style={{ background:'transparent', color: compareSymbols.length >= 3 ? C.dimmed : C.green,
+            border:`1px solid ${compareSymbols.length >= 3 ? C.dimmed : C.green}`,
+            borderRadius:5, padding:'3px 8px',
+            cursor: compareSymbols.length >= 3 ? 'not-allowed' : 'pointer',
+            fontFamily:'inherit', fontSize:11 }}>+ Add</button>
+        {compareSymbols.map((s, i) => {
+          const color = COMPARE_PALETTE[(i + 1) % COMPARE_PALETTE.length];
+          return (
+            <span key={s} style={{ display:'inline-flex', alignItems:'center', gap:4,
+              background: color + '22', border:`1px solid ${color}66`, borderRadius:5,
+              padding:'2px 6px 2px 8px', color, fontSize:11, fontWeight:600 }}>
+              {s}
+              <button onClick={()=>removeCompare(s)}
+                style={{ background:'none', border:'none', color, cursor:'pointer',
+                  padding:'0 2px', fontSize:11, lineHeight:1 }} title="Remove">×</button>
+            </span>
+          );
+        })}
+        {compareSymbols.length > 0 && (
+          <span style={{ color:C.dimmed, fontSize:10, marginLeft:'auto' }}>
+            Normalised — each line starts at 100
+          </span>
+        )}
       </div>
 
       {loading && <div style={{ height:200, display:'flex', alignItems:'center', justifyContent:'center' }}><Spinner text="Loading chart…" /></div>}
