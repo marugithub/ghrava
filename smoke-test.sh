@@ -335,6 +335,10 @@ if [ "$code" = "200" ] || [ "$code" = "400" ]; then
   if is_json; then pass "GET /trading/portfolio/earnings-calendar  (HTTP $code, valid JSON)"
   else fail "GET /trading/portfolio/earnings-calendar  (HTTP $code, not JSON)"; fi
 else fail "GET /trading/portfolio/earnings-calendar  (HTTP $code)"; fi
+# /portfolio/correlation (Phase 3C, v.193) — depends on holdings + Yahoo network reachability.
+# Always returns 200 (empty arrays + _note when no holdings); Yahoo failures degrade individual
+# correlation pairs without failing the whole route. Just verify it returns JSON.
+assert_keys "GET /trading/portfolio/correlation"       "$BASE/api/v1/trading/portfolio/correlation" "holdings sectors correlation_pairs"
 
 # ── Google integration ────────────────────────────────────────
 section "Google"

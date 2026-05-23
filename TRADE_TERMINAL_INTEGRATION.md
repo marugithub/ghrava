@@ -1,6 +1,6 @@
 # Trade Terminal — Ghrava Integration
-**Status:** Phase 1 + 3A + 3B + 3D + 6 + 7 LIVE on v202605.192 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192)
-**Built against:** Ghrava v202604.185 (extended through v202605.192)
+**Status:** Phase 1 + 3A + 3B + 3C + 3D + 4A + 6 + 7 LIVE on v202605.193 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192; Phases 3C/4A: v.193)
+**Built against:** Ghrava v202604.185 (extended through v202605.193)
 **Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`, `app/public/finance.html`, `app/public/dashboard.html`, `app/features/finance/routes.js`
 **Migrations applied:** `146_financial_accounts_tax_treatment.sql`
 
@@ -124,6 +124,38 @@ without creating another row.
    `callProvider()` with the user's configured provider; result can be saved as a
    report with `type='AI Rebalancing Advice'`.
 
+### ✅ DONE in v.193
+
+11. **Phase 3C — Concentration & Correlation panel.** New backend route
+    `GET /api/v1/trading/portfolio/correlation` walks the user's
+    holdings, fetches 90-day daily closes via the existing Yahoo
+    proxy for the top 10 by market_value, and computes pairwise
+    Pearson correlation on daily LOG-RETURNS (financial standard,
+    not raw prices). Sector data comes from Finnhub `/stock/profile2`
+    `finnhubIndustry` when a Finnhub key is configured; otherwise
+    falls back to `holdings.asset_type`. Per-symbol fetches run
+    in parallel with timeouts so slow upstreams can't pin the route.
+    Frontend: new collapsible `ConcentrationPanel` on the Portfolio
+    tab below Tax Location. Three sub-sections — SINGLE-STOCK
+    EXPOSURE (top 10 bars, amber >10%, red >25%), SECTOR EXPOSURE
+    (all holdings grouped, amber >40%, red >60%), CORRELATION PAIRS
+    (top 12 by |r|, red >0.95, amber >0.85). Auto-loads when the
+    parent's `ghravaPf` changes so hitting Refresh on the parent
+    reloads concentration too.
+
+12. **Phase 4A — Multi-symbol PriceChart comparison.** PriceChart
+    gets a Compare row above the chart canvas. Add up to 3 extra
+    symbols; chips show with fixed palette colours matching the
+    line colour each symbol gets in the chart. When
+    `compareSymbols.length > 0` the chart switches from candlestick
+    to a normalised line chart — every series indexed to 100 at
+    the first aligned bar (most-recent alignment trims tail to
+    shortest series). Legend label: `SYM  +X.XX%` (period return).
+    Y-axis labelled 'Indexed to 100'. Overlay buttons
+    (Candles/SMA/BB/RSI/MACD) hidden in compare mode — they only
+    apply to single-symbol candles. Reuses existing
+    `/market/history/:symbol` — no new backend.
+
 ### ✅ DONE in v.192
 
 9. **Phase 3D — Earnings capture for holdings.** New backend route
@@ -189,10 +221,20 @@ without creating another row.
 
 ## Next Phases (not yet built)
 
-**Phase 3C + Phase 4A (v.193):** Concentration/correlation analysis (new
-`/portfolio/correlation` route, Pearson on 90-day closes for top 10
-holdings) + multi-symbol chart comparison (normalised line mode when
-compareSymbols.length > 0).
+**Phase 8 (v.194):** Reports tab rich viewer — render the structured
+JSON of `AI Analysis`, `Portfolio Snapshot`, `AI Rebalancing Advice`,
+`AI Tax Optimization`, and `AI Tax Optimization` reports as proper
+cards instead of raw JSON. Add filter (type / ticker / date range)
+and CSV export for portfolio snapshots. Compare-two-snapshots diff
+for tracking position changes over time.
+
+**Phase 5A (v.195):** Real screener universe via Finnhub
+`/stock/symbol?exchange=US`, cached 24h in `trading.json`. Sector +
+market-cap + price filters in the Screener tab.
+
+**Phase 9 (v.196):** Mobile UX — responsive tab bar, watchlist column
+collapse, portfolio card view, chart height reduction, settings
+accordion sections.
 
 **Phase 3C + Phase 4A (v.193):** Concentration/correlation analysis (new
 `/portfolio/correlation` route, Pearson on 90-day closes) + multi-symbol chart

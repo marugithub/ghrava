@@ -69,6 +69,117 @@ principles.
 
 ---
 
+## 🚧 v.193 BUILT — Phase 3C Concentration/Correlation + Phase 4A Multi-Symbol Chart (2026-05-23)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.193`. Stacks
+> on top of the un-deployed v.192 — v.192 + v.193 will ship together
+> as one bundle when Al says so. Zero new SQL, zero migrations.
+
+### What's in v.193 (3 net-new commits, 2 features)
+
+1. **`dadbe8d` — Task 2 / Phase 3C backend: `/portfolio/correlation`.**
+   Walks the holdings table (financial_accounts JOIN holdings,
+   is_active=1, market_value>0), aggregates per-symbol across
+   multiple accounts, takes top 10 by value. Fetches 90-day daily
+   closes via the existing Yahoo proxy for each. Computes Pearson
+   correlation on daily LOG-RETURNS (financial convention — raw
+   prices overweight drift, returns measure co-movement). Min
+   sample = 30 returns to qualify a pair for the output.
+   Sector data via Finnhub `/stock/profile2 finnhubIndustry` when
+   a key is configured; otherwise falls back to `holdings.asset_type`
+   in parentheses ('(stock)', '(etf)', etc.). All per-symbol
+   fetches in parallel with 6-8s timeouts so slow upstreams can't
+   hang the route. Output:
+   `{ holdings:[{symbol, value, pct, sector}],
+      total_value, sectors:[{sector, value, pct}],
+      correlation_pairs:[{sym1, sym2, correlation}],
+      _flags: { single_over_10pct, sector_over_40pct, pairs_over_85 } }`.
+   `// schema:` comment inline. node --check passes.
+
+2. **`5f1525a` — Task 3 / Phase 3C frontend: ConcentrationPanel.**
+   New collapsible panel on the Portfolio tab below TaxLocationPanel.
+   Auto-loads on mount and re-loads when `ghravaPf` changes (so the
+   parent's Refresh button cascades). Three sub-sections:
+   - SINGLE-STOCK EXPOSURE: horizontal bars per top-10 holding,
+     amber >10%, red >25%, with label ('OK' / 'HIGH' / 'VERY HIGH').
+   - SECTOR EXPOSURE: bars per sector (all holdings, not just top
+     10 — sector concentration is portfolio-wide), amber >40%,
+     red >60%.
+   - CORRELATION PAIRS: top 12 pairs by |r|, severity coloured:
+     |r| >0.95 red 'NEARLY IDENTICAL', >0.85 amber 'HIGHLY
+     CORRELATED', >0.7 text 'STRONG', else dimmed 'MODERATE'.
+     Pairs with |r| < 0.5 hidden after the first 6 to keep the
+     list focused on signal.
+   Header shows aggregate flag count from the route's `_flags`;
+   'balanced' tag when there are no flags. Refresh button + source
+   line in the footer.
+
+3. **`1791192` — Task 4 / Phase 4A multi-symbol PriceChart.**
+   PriceChart gets a Compare input above the chart. User can add
+   up to 3 extra symbols; chips show with fixed palette colours
+   that match the line colours each symbol gets in the chart.
+   When `compareSymbols.length > 0`:
+   - Chart switches from candlestick to a normalised line chart.
+   - Every series indexed to 100 at the first aligned bar.
+   - Series trimmed from the tail to the shortest series so the
+     most recent bars align (holidays / listings / halts mean
+     symbols can have different bar counts within the same range).
+   - Legend label: 'SYM  +X.XX%' (period return).
+   - Y-axis labelled 'Indexed to 100'.
+   - Overlay buttons (Candles/SMA/BB/RSI/MACD) hidden — overlays
+     apply to single-symbol candles only.
+   Comparison data fetched via existing `/market/history` — no
+   new backend. useEffect dep array uses
+   `compareSymbols.join(',')` + `Object.keys(compareCandlesBy).length`
+   so the chart re-renders when compares change but doesn't
+   over-fire on object identity.
+
+4. **Task 5 / docs + smoke + version bump (this commit).**
+   - `app/version.txt` → `202605.193`
+   - `smoke-test.sh` adds one more Trading Terminal assertion:
+     `/portfolio/correlation` — uses `assert_keys` for
+     `holdings sectors correlation_pairs` since the route always
+     returns these top-level keys even when empty.
+   - `TRADE_TERMINAL_INTEGRATION.md` items 11 + 12 added under
+     '✅ DONE in v.193'. Next-phases list refreshed: v.194 starts
+     at Phase 8 Reports rich viewer.
+   - `STATE.md` (this block).
+
+### Schema-safety gate
+
+Baseline unchanged from v.192 — `validate-schema.py --strict` exit 2
+with the same 12 flags (10 known 130/134 noise + 2 view-limitation
+flags). Line numbers for the v.192 flag shifted (`:560` → `:727`)
+because the new correlation route added 167 lines above it; same
+SQL, same false-positive. v.193's own new JOIN doesn't reference
+`tax_treatment` so it doesn't add a third view-limitation flag.
+Zero new flags from v.193-edited files. Zero new SQL beyond the
+read-only JOIN.
+
+### Tests
+
+E2E baseline `115/0` expected to hold — no migrations, no contract
+changes, additive only. The new smoke assertion is additive: 7
+trading assertions total now. `/portfolio/correlation` returns 200
+with empty arrays + `_note` when no holdings — `assert_keys`
+accepts that since the three top-level keys still exist.
+
+### What v.193 deliberately does NOT do
+
+- Correlation matrix heatmap (spec called this out as 'too complex
+  for the space' — pairs list is the better fit).
+- Volume Profile (Phase 4B in the original spec; intentionally
+  deferred as 'lower priority than 4A').
+- Phase 8 (Reports tab rich viewer for the structured AI report
+  JSON) → v.194.
+- Phase 5A (real screener universe via Finnhub /stock/symbol with
+  24h cache) → v.195.
+- Phase 9 (mobile UX) → v.196.
+- Reports Redesign — still queued AFTER v.196 per
+  [[parallel-roadmaps-may-2026]].
+
+---
+
 ## 🚧 v.192 BUILT — Phase 3D Earnings for Holdings + Phase 7 Watchlist Alerts (2026-05-23)
 
 > **Built locally, not yet deployed.** `version.txt`=`202605.192`. Stacks
