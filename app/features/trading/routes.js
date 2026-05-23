@@ -19,6 +19,7 @@ const db = require('../../db/db');
 
 const DATA_DIR    = path.join(__dirname, '../../data');
 const DATA_FILE   = path.join(DATA_DIR, 'trading.json');
+const CACHE_FILE  = path.join(DATA_DIR, 'trading-cache.json');  // v.195 — kept separate from trading.json so 10k-symbol payload doesn't bloat every client save
 const REPORTS_DIR = path.join(DATA_DIR, 'trading-reports');
 
 // Ensure directories exist at module load
@@ -910,6 +911,127 @@ router.get('/market/macro', async (req, res) => {
   } catch(e) {
     res.status(502).json({ error: 'FRED fetch failed: ' + e.message });
   }
+});
+
+// GET US-equity symbol universe from Finnhub for the Screener (Phase 5A, v.195).
+// Cached in /app/data/trading-cache.json with a 24h TTL — Finnhub's symbol list
+// changes slowly (new IPOs/delistings daily, not minute-by-minute), so a daily
+// refresh is plenty and avoids burning the free-tier 60/min quota on every page
+// load. Cache kept in its own file (NOT trading.json) so the ~1MB payload
+// doesn't round-trip on every client save of settings/watchlist/alerts.
+//
+// Response shapes:
+//   200 { symbols, fetchedAt, count, _source: 'cache' | 'finnhub_fresh' |
+//        'cache_stale_no_key' | 'cache_stale_fetch_failed' }
+//   400 { error, symbols:[] }   only when no cache AND no key
+//   502 { error, symbols:[] }   only when Finnhub failed AND no cache
+//
+// Forced refresh: ?refresh=1 bypasses the cache TTL.
+const SYMBOLS_CACHE_TTL = 24 * 60 * 60 * 1000;   // 24h
+
+const readCacheFile = () => {
+  try {
+    return fs.existsSync(CACHE_FILE)
+      ? JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'))
+      : {};
+  } catch { return {}; }
+};
+
+router.get('/market/symbols', async (req, res) => {
+  try {
+    const data      = readData();
+    const finnhubKey= data?.settings?.finnhubKey;
+    const cacheJson = readCacheFile();
+    const cache     = cacheJson.symbolsCache || null;
+    const refresh   = req.query.refresh === '1';
+
+    const cacheAge   = cache?.fetchedAt ? Date.now() - new Date(cache.fetchedAt).getTime() : Infinity;
+    const cacheFresh = cache && cacheAge < SYMBOLS_CACHE_TTL
+                        && Array.isArray(cache.symbols) && cache.symbols.length > 0;
+
+    if (cacheFresh && !refresh) {
+      return res.json({
+        symbols:   cache.symbols,
+        fetchedAt: cache.fetchedAt,
+        count:     cache.symbols.length,
+        _source:   'cache',
+        _ageHours: parseFloat((cacheAge / 3600000).toFixed(2)),
+      });
+    }
+
+    // Need to (re)fetch — but no key means we can only return stale cache (if any) or 400.
+    if (!finnhubKey) {
+      if (cache && Array.isArray(cache.symbols) && cache.symbols.length > 0) {
+        return res.json({
+          symbols:   cache.symbols,
+          fetchedAt: cache.fetchedAt,
+          count:     cache.symbols.length,
+          _source:   'cache_stale_no_key',
+          _note:     'Finnhub key not set — returning stale cache. Add a key in Settings → Market Data to refresh.',
+          _ageHours: parseFloat((cacheAge / 3600000).toFixed(2)),
+        });
+      }
+      return res.status(400).json({
+        error:   'Finnhub API key required to populate the universe. Add it in Settings → Market Data.',
+        symbols: [],
+      });
+    }
+
+    // Fetch fresh from Finnhub.
+    const https = require('https');
+    const fetched = await new Promise((resolve, reject) => {
+      const url = `https://finnhub.io/api/v1/stock/symbol?exchange=US&token=${finnhubKey}`;
+      const r2 = https.get(url, { headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' } }, r => {
+        let b = ''; r.on('data', c => b += c);
+        r.on('end', () => {
+          try { resolve(JSON.parse(b)); }
+          catch (e) { reject(new Error('Finnhub parse failed')); }
+        });
+      });
+      r2.on('error', reject);
+      r2.setTimeout(15000, () => { r2.destroy(); reject(new Error('Finnhub timeout')); });
+    }).catch(err => ({ _fetchError: err.message }));
+
+    if (!Array.isArray(fetched)) {
+      // Either an HTTP error wrapped { _fetchError } or Finnhub returned { error: '...' }.
+      const msg = fetched?._fetchError || fetched?.error || 'unexpected Finnhub response';
+      if (cache && Array.isArray(cache.symbols) && cache.symbols.length > 0) {
+        return res.json({
+          symbols:   cache.symbols,
+          fetchedAt: cache.fetchedAt,
+          count:     cache.symbols.length,
+          _source:   'cache_stale_fetch_failed',
+          _note:     'Finnhub fetch failed — returning stale cache. ' + msg,
+          _ageHours: parseFloat((cacheAge / 3600000).toFixed(2)),
+        });
+      }
+      return res.status(502).json({ error: 'Finnhub fetch failed: ' + msg, symbols: [] });
+    }
+
+    // Slim down to the fields the frontend filter actually needs. Drops ~half
+    // the payload size (Finnhub returns figi, isin, share class, etc. — irrelevant
+    // for a Screener filter). Keep symbol/displaySymbol/description/type/currency/mic.
+    const slim = fetched.map(s => ({
+      symbol:        s.symbol,
+      displaySymbol: s.displaySymbol,
+      description:   s.description,
+      type:          s.type,
+      currency:      s.currency,
+      mic:           s.mic,
+    })).filter(s => s.symbol);
+
+    // Persist to cache file.
+    const newCacheJson = { ...cacheJson, symbolsCache: { fetchedAt: new Date().toISOString(), symbols: slim } };
+    try { fs.writeFileSync(CACHE_FILE, JSON.stringify(newCacheJson)); }
+    catch (e) { /* cache write failure isn't fatal — fall through and return fresh data */ }
+
+    res.json({
+      symbols:   slim,
+      fetchedAt: newCacheJson.symbolsCache.fetchedAt,
+      count:     slim.length,
+      _source:   'finnhub_fresh',
+    });
+  } catch (e) { serverError(res, e); }
 });
 
 // GET Yahoo short interest from quoteSummary defaultKeyStatistics (Phase 6, v.191).
