@@ -1969,10 +1969,68 @@ const driftStatus = (drift) => {
   return { color: C.red, label: 'Rebalance' };
 };
 
+// Build the AI rebalancing prompt — current vs target + the top holdings driving each category.
+const buildRebalancePrompt = ({ current, target, ghravaPf }) => {
+  const totalValue = ghravaPf?.summary?.total_market_value || 0;
+  const summary    = ghravaPf?.summary || {};
+
+  // Flatten holdings across accounts, group by normalised category, top 3 per cat by value.
+  const byCat = Object.fromEntries(ALLOC_CATEGORIES.map(c => [c.key, []]));
+  for (const acct of (ghravaPf?.accounts || [])) {
+    for (const h of (acct.holdings || [])) {
+      const k = normaliseAllocKey(h.asset_type);
+      byCat[k].push({ symbol: h.symbol, value: h.market_value || 0, account: acct.nickname, tax: acct.tax_treatment });
+    }
+  }
+  Object.keys(byCat).forEach(k => { byCat[k].sort((a,b) => b.value - a.value); });
+
+  const fmtPct = v => `${(Number(v) || 0).toFixed(1)}%`;
+  const fmtMoney = v => `$${(Number(v) || 0).toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
+  const driftLine = c => {
+    const cur = current[c.key] || 0;
+    const tgt = Number(target[c.key]) || 0;
+    const d = cur - tgt;
+    return `- ${c.label}: current ${fmtPct(cur)} / target ${fmtPct(tgt)} / drift ${d >= 0 ? '+' : ''}${d.toFixed(1)}%`;
+  };
+
+  const holdingsBlock = ALLOC_CATEGORIES.map(c => {
+    const top = byCat[c.key].slice(0, 3);
+    if (top.length === 0) return null;
+    const list = top.map(h => `${h.symbol} (${fmtMoney(h.value)}, ${h.account}${h.tax ? `, ${h.tax}` : ''})`).join(', ');
+    return `- ${c.label}: ${list}`;
+  }).filter(Boolean).join('\n');
+
+  return `You are a portfolio rebalancing advisor. Be specific, practical, and use plain English.
+
+TOTAL PORTFOLIO VALUE: ${fmtMoney(totalValue)}
+TOTAL GAIN/LOSS: ${summary.total_gain_loss >= 0 ? '+' : ''}${fmtMoney(summary.total_gain_loss)} (${summary.total_gain_loss_pct >= 0 ? '+' : ''}${(summary.total_gain_loss_pct || 0).toFixed(2)}%)
+
+ALLOCATION CURRENT vs TARGET (drift = current - target):
+${ALLOC_CATEGORIES.map(driftLine).join('\n')}
+
+TOP HOLDINGS BY CATEGORY (for specific trade suggestions; account name and tax treatment shown where known):
+${holdingsBlock || '(no holdings detail available)'}
+
+Provide a rebalancing plan in three short sections, total under 400 words:
+
+1. SUMMARY — one paragraph naming the biggest drift and whether it matters.
+2. SPECIFIC TRADES — bullet list of trades the user could execute today, in dollar amounts (e.g. "Sell ~$3,200 of VTSAX in Schwab Taxable, buy ~$1,800 of BND in Trad IRA"). Prefer tax-advantaged accounts for bond/dividend-heavy moves when possible.
+3. NOTES — caveats: tax implications, wash-sale risk, settlement timing, or why a smaller adjustment might be fine.
+
+Use only the categories and holdings listed above. Do not invent symbols.`;
+};
+
 const TargetAllocationPanel = ({ settings, update, ghravaPf, perfData }) => {
   const [collapsed, setCollapsed] = useState(false);
   const [editing,   setEditing]   = useState(false);
   const [draft,     setDraft]     = useState(null);
+
+  // AI rebalancing advice state
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiResult,  setAiResult]  = useState(null);   // { text, prompt, provider, generatedAt }
+  const [aiErr,     setAiErr]     = useState('');
+  const [aiSaving,  setAiSaving]  = useState(false);
+  const [aiSaved,   setAiSaved]   = useState(false);
 
   const target     = settings?.targetAllocation || null;
   const hasTarget  = target && ALLOC_CATEGORIES.some(c => (target[c.key] || 0) > 0);
@@ -2008,6 +2066,48 @@ const TargetAllocationPanel = ({ settings, update, ghravaPf, perfData }) => {
     saveTarget(draft);
     setEditing(false);
     setDraft(null);
+  };
+
+  // ── AI Rebalancing Advice (Phase 3A) ────────────────────────────
+  const runRebalanceAI = async () => {
+    setAiLoading(true); setAiErr(''); setAiResult(null); setAiSaved(false);
+    try {
+      const prompt = buildRebalancePrompt({ current, target, ghravaPf });
+      const provider = settings?.provider || 'gemini';
+      const apiKeys  = settings?.apiKeys  || {};
+      const text = await callProvider(prompt, provider, apiKeys);
+      setAiResult({
+        text,
+        prompt,
+        provider,
+        generatedAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      setAiErr(e.message || String(e));
+    }
+    setAiLoading(false);
+  };
+
+  const saveRebalanceReport = async () => {
+    if (!aiResult) return;
+    setAiSaving(true);
+    try {
+      const title = `Rebalancing Advice — ${new Date().toLocaleDateString()}`;
+      await persistReport('AI Rebalancing Advice', title, null, {
+        provider:    aiResult.provider,
+        generatedAt: aiResult.generatedAt,
+        portfolioTotal: ghravaPf?.summary?.total_market_value || 0,
+        current,
+        target,
+        advice:      aiResult.text,
+        prompt:      aiResult.prompt,
+      });
+      setAiSaved(true);
+      setTimeout(() => setAiSaved(false), 3000);
+    } catch (e) {
+      setAiErr(e.message || String(e));
+    }
+    setAiSaving(false);
   };
 
   // Header row — always visible
@@ -2131,14 +2231,49 @@ const TargetAllocationPanel = ({ settings, update, ghravaPf, perfData }) => {
           </div>
         )}
 
-        {/* Source line + AI Rebalancing button (button wired in v.190 task 3) */}
+        {/* Source line + AI Rebalancing button */}
         {!editing && (
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
-            marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+            marginTop:12, paddingTop:10, borderTop:`1px solid ${C.border}`, flexWrap:'wrap', gap:8 }}>
             <div style={{ color:C.dimmed, fontSize:11 }}>
               Target stored in trading.json · current % from Ghrava holdings
             </div>
-            {/* AI Rebalancing Advice button — wired in v.190 task 3 */}
+            <Btn small color={C.purple} onClick={runRebalanceAI} disabled={aiLoading}>
+              {aiLoading ? '⟳ THINKING…' : '🤖 AI REBALANCING ADVICE'}
+            </Btn>
+          </div>
+        )}
+
+        {/* AI result — narrative card. Phase 8 will give Reports a richer viewer; for now persist as JSON. */}
+        {aiErr && (
+          <div style={{ marginTop:12, padding:'8px 12px', background:C.red+'15',
+            border:`1px solid ${C.red}55`, borderRadius:6, color:C.red, fontSize:12 }}>
+            ⚠ {aiErr}
+          </div>
+        )}
+        {aiResult && (
+          <div style={{ marginTop:12, padding:14, background:C.bg, border:`1px solid ${C.border}`,
+            borderRadius:8 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+              marginBottom:10, gap:8, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <Tag color={C.purple}>AI REBALANCING ADVICE</Tag>
+                <Tag color={C.muted}>{aiResult.provider}</Tag>
+                <span style={{ color:C.dimmed, fontSize:11 }}>
+                  {new Date(aiResult.generatedAt).toLocaleString()}
+                </span>
+              </div>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                {aiSaved && <Tag color={C.green}>✓ SAVED</Tag>}
+                <Btn small color={C.amber} onClick={saveRebalanceReport} disabled={aiSaving || aiSaved}>
+                  {aiSaving ? 'SAVING…' : '💾 SAVE AS REPORT'}
+                </Btn>
+                <Btn small color={C.muted} onClick={() => { setAiResult(null); setAiErr(''); }}>✕</Btn>
+              </div>
+            </div>
+            <div style={{ color:C.text, fontSize:13, lineHeight:1.7, whiteSpace:'pre-wrap' }}>
+              {aiResult.text}
+            </div>
           </div>
         )}
       </div>
