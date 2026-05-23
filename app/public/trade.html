@@ -2028,15 +2028,19 @@ const PortfolioTab = ({ data, update, quotes }) => {
     setAnalyzing(null);
   };
 
-  // Save report
+  // Save report — captures full holdings tree (Phase 8, v.194).
+  // Earlier shape (pre-v.194) stored only summary; the snapshot viewer couldn't
+  // show per-position detail because the data wasn't there. New shape preserves
+  // accounts + holdings so the viewer + CSV export + compare-snapshots work.
+  // Old reports load via the renderer's back-compat branch.
   const savePortfolioReport = async () => {
     setSaving(true); setSaveErr('');
     try {
       const title = `Portfolio Snapshot — ${new Date().toLocaleDateString()}`;
       await persistReport('Portfolio Snapshot', title, null, {
-        source: activeSource,
-        ghrava: ghravaPf?.summary || null,
-        manual: portfolio,
+        source:      activeSource,
+        ghrava:      ghravaPf ? { summary: ghravaPf.summary, accounts: ghravaPf.accounts || [] } : null,
+        manual:      portfolio,
         generatedAt: nowISO(),
       });
       setSaved(true); setTimeout(() => setSaved(false), 3000);
@@ -4566,6 +4570,119 @@ const SocialTab = ({ data, quotes }) => {
   );
 };
 
+// ═══════════════════════════════════════════════════════════════
+// NARRATIVE AI REPORT (Phase 8, v.194)
+// Shared renderer for AI Rebalancing Advice + AI Tax Optimization
+// saved-report types. Both store the same payload shape:
+//   { provider, generatedAt, portfolioTotal, current?, target?,
+//     flagged?, advice, prompt }
+// Lives at module scope (not inside ReportsTab) so its useState for
+// the collapsible prompt toggle follows React's rules-of-hooks.
+// ReportsTab passes the report + a colour + a label per type, keyed
+// by filename so switching reports resets the prompt-open state.
+// ═══════════════════════════════════════════════════════════════
+const NarrativeAIReport = ({ d, color, label }) => {
+  const rd = d.data || {};
+  const [showPrompt, setShowPrompt] = useState(false);
+  return (
+    <div>
+      <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:12, flexWrap:'wrap' }}>
+        <Tag color={color}>{label}</Tag>
+        {rd.provider && <Tag color={C.muted}>{rd.provider}</Tag>}
+        <span style={{ color:C.muted, fontSize:12 }}>
+          {d.dateDisplay || (d.date ? new Date(d.date).toLocaleString() : (rd.generatedAt ? new Date(rd.generatedAt).toLocaleString() : '—'))}
+        </span>
+        {rd.portfolioTotal != null && (
+          <span style={{ color:C.dimmed, fontSize:12, marginLeft:'auto' }}>
+            portfolio: ${rd.portfolioTotal.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+          </span>
+        )}
+      </div>
+
+      {/* Current vs Target (Rebalancing) */}
+      {rd.current && rd.target && (
+        <div style={{ marginBottom:14, border:`1px solid ${C.border}`, borderRadius:6, overflow:'hidden' }}>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+            <thead>
+              <tr style={{ background:C.bg, color:C.muted, fontSize:10, letterSpacing:0.3 }}>
+                <th style={{ textAlign:'left',  padding:'6px 10px', fontWeight:600 }}>ASSET TYPE</th>
+                <th style={{ textAlign:'right', padding:'6px 10px', fontWeight:600 }}>CURRENT</th>
+                <th style={{ textAlign:'right', padding:'6px 10px', fontWeight:600 }}>TARGET</th>
+                <th style={{ textAlign:'right', padding:'6px 10px', fontWeight:600 }}>DRIFT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.keys(rd.target).map(k => {
+                const cur = rd.current[k] || 0;
+                const tgt = rd.target[k] || 0;
+                const drift = cur - tgt;
+                return (
+                  <tr key={k} style={{ borderTop:`1px solid ${C.border}22` }}>
+                    <td style={{ padding:'6px 10px', color:C.text, textTransform:'capitalize' }}>{k.replace(/_/g, ' ')}</td>
+                    <td style={{ padding:'6px 10px', textAlign:'right', color:C.text }}>{cur.toFixed(1)}%</td>
+                    <td style={{ padding:'6px 10px', textAlign:'right', color:C.text }}>{tgt}%</td>
+                    <td style={{ padding:'6px 10px', textAlign:'right', color: drift >= 0 ? C.amber : C.blue }}>
+                      {drift >= 0 ? '+' : ''}{drift.toFixed(1)}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Flagged holdings (Tax Optimization) */}
+      {Array.isArray(rd.flagged) && rd.flagged.length > 0 && (
+        <div style={{ marginBottom:14 }}>
+          <div style={{ color:C.muted, fontSize:10, letterSpacing:1, fontWeight:600, marginBottom:6 }}>
+            FLAGGED HOLDINGS — {rd.flagged.length}
+          </div>
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
+            <tbody>
+              {rd.flagged.map((f, i) => (
+                <tr key={i} style={{ borderTop:i>0?`1px solid ${C.border}22`:'none' }}>
+                  <td style={{ padding:'6px 8px', color:C.text, fontWeight:700, width:60 }}>{f.symbol}</td>
+                  <td style={{ padding:'6px 8px', color:C.muted }}>
+                    {f.account} <span style={{ color:C.dimmed }}>({f.tax_treatment || '—'})</span>
+                  </td>
+                  <td style={{ padding:'6px 8px', color:C.muted, fontSize:10 }}>{f.issue}</td>
+                  <td style={{ padding:'6px 8px', color:C.green, fontSize:10 }}>{f.suggest}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Advice body */}
+      {rd.advice && (
+        <div style={{ color:C.text, fontSize:13, lineHeight:1.7, whiteSpace:'pre-wrap',
+          padding:12, background:C.bg, border:`1px solid ${C.border}`, borderRadius:6, marginBottom:8 }}>
+          {rd.advice}
+        </div>
+      )}
+
+      {/* Collapsible prompt for transparency */}
+      {rd.prompt && (
+        <div style={{ marginTop:8 }}>
+          <button onClick={() => setShowPrompt(s => !s)}
+            style={{ background:'none', border:'none', color:C.dimmed, cursor:'pointer',
+              fontSize:10, fontFamily:'inherit', padding:0, letterSpacing:0.3 }}>
+            {showPrompt ? '▾ hide prompt' : '▸ show prompt sent to AI'}
+          </button>
+          {showPrompt && (
+            <pre style={{ marginTop:6, color:C.muted, fontSize:11, whiteSpace:'pre-wrap',
+              padding:10, background:C.bg, border:`1px solid ${C.border}22`, borderRadius:4, maxHeight:300, overflow:'auto' }}>
+              {rd.prompt}
+            </pre>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ReportsTab = () => {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -4595,50 +4712,212 @@ const ReportsTab = () => {
     refresh();
   };
 
-  const typeColor = t => t==='Portfolio Snapshot'?C.green:t==='AI Analysis'?C.blue:C.purple;
+  const typeColor = t =>
+    t==='Portfolio Snapshot'      ? C.green :
+    t==='AI Analysis'             ? C.blue  :
+    t==='AI Rebalancing Advice'   ? C.amber :
+    t==='AI Tax Optimization'     ? C.purple :
+    C.muted;
 
-  const renderDetail = d => {
-    if (!d) return null;
-    const { type, title, date, dateDisplay, data:rd } = d;
-    if (type==='Portfolio Snapshot' && rd) {
-      const { summary, positions=[] } = rd;
-      return (
-        <div>
-          <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(2,1fr)', gap:8, marginBottom:14 }}>
-            {[['PORTFOLIO VALUE',`$${(summary?.totalValue||0).toFixed(2)}`,C.text],
-              ['TOTAL COST',`$${(summary?.totalCost||0).toFixed(2)}`,C.muted],
-              ['TOTAL P&L',`${(summary?.totalPnl||0)>=0?'+':''}$${Math.abs(summary?.totalPnl||0).toFixed(2)}`,pColor(summary?.totalPnl||0)],
-              ['RETURN',fmtPct(summary?.totalPct||0),pColor(summary?.totalPct||0)],
-            ].map(([l,v,c])=>(
-              <div key={l} style={{ background:c+'12', border:`1px solid ${c}33`, borderRadius:3, padding:'8px 12px' }}>
-                <div style={{ color:C.muted, fontSize:13, letterSpacing:2 }}>{l}</div>
-                <div style={{ color:c, fontWeight:'bold', fontSize:16, marginTop:3 }}>{v}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ color:C.muted, fontSize:13, letterSpacing:2, marginBottom:8 }}>POSITIONS AT SNAPSHOT</div>
-          {positions.map((p,i)=>(
-            <div key={i} style={{ display:'flex', justifyContent:'space-between', padding:'7px 0', borderBottom:`1px solid ${C.border}22`, flexWrap:'wrap', gap:8 }}>
-              <span style={{ color:C.text, fontWeight:'bold', width:60 }}>{p.symbol}</span>
-              <span style={{ color:C.muted, fontSize:13 }}>{p.shares} @ {fmtP(p.cost)}</span>
-              <span style={{ color:C.text }}>{fmtP(p.currentPrice)}</span>
-              <span style={{ color:pColor(p.pnl) }}>{p.pnl>=0?'+':''}${Math.abs(p.pnl||0).toFixed(2)} ({fmtPct(p.pnlPct)})</span>
+  // ── Portfolio Snapshot renderer (Phase 8, v.194) ──────────────────
+  // Supports two shapes:
+  //   NEW (v.194+): { source, ghrava: { summary, accounts:[{ nickname, market_value, holdings:[...] }] }, manual, generatedAt }
+  //   OLD (pre-v.194 broken save): { source, ghrava: <summary object>, manual, generatedAt }
+  //     -> the renderer reads ghrava.total_market_value etc. directly when accounts is missing.
+  // Plus a back-compat branch for legacy { summary: {totalValue, totalCost, totalPnl, totalPct}, positions } shape
+  // in case very old snapshots exist.
+  const renderPortfolioSnapshot = (d) => {
+    const rd = d.data || {};
+    // Detect shape
+    const isNewShape    = rd.ghrava && Array.isArray(rd.ghrava.accounts);
+    const isOldGhrava   = rd.ghrava && typeof rd.ghrava.total_market_value !== 'undefined';
+    const isLegacyShape = rd.summary && typeof rd.summary.totalValue !== 'undefined';
+
+    // Normalise to a common summary object
+    let summary;
+    if (isNewShape || isOldGhrava) {
+      const g = isNewShape ? rd.ghrava.summary : rd.ghrava;
+      summary = {
+        totalValue: g?.total_market_value || 0,
+        totalCost:  g?.total_cost_basis   || 0,
+        totalPnl:   g?.total_gain_loss    || 0,
+        totalPct:   g?.total_gain_loss_pct|| 0,
+      };
+    } else if (isLegacyShape) {
+      summary = rd.summary;
+    } else {
+      summary = { totalValue: 0, totalCost: 0, totalPnl: 0, totalPct: 0 };
+    }
+
+    // Flatten ghrava holdings + manual into a single positions list for display.
+    const positions = [];
+    if (isNewShape) {
+      for (const acct of rd.ghrava.accounts) {
+        for (const h of (acct.holdings || [])) {
+          positions.push({
+            symbol:  h.symbol,
+            shares:  h.shares,
+            cost:    h.cost_basis,
+            value:   h.market_value,
+            gain:    h.gain_loss_dollar,
+            gainPct: h.gain_loss_pct,
+            account: acct.nickname,
+            taxTreatment: acct.tax_treatment,
+          });
+        }
+      }
+    }
+    // Manual positions added (whether Ghrava data is present or not)
+    for (const p of (rd.manual || [])) {
+      positions.push({
+        symbol:  p.symbol,
+        shares:  p.shares,
+        cost:    p.cost,
+        value:   (p.cost || 0) * (p.shares || 0),   // no live price at snapshot time for manual
+        gain:    null,
+        gainPct: null,
+        account: 'Manual',
+        taxTreatment: null,
+      });
+    }
+    // Legacy positions array — older snapshots stored them directly.
+    if (isLegacyShape && Array.isArray(rd.positions)) {
+      for (const p of rd.positions) {
+        positions.push({
+          symbol: p.symbol, shares: p.shares, cost: p.cost,
+          value: p.currentPrice ? p.currentPrice * p.shares : null,
+          gain: p.pnl, gainPct: p.pnlPct,
+          account: '—', taxTreatment: null,
+        });
+      }
+    }
+
+    return (
+      <div>
+        <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>
+          Generated: {d.dateDisplay || (d.date ? new Date(d.date).toLocaleString() : '—')}
+          {rd.source && <span style={{ marginLeft:10 }}>· source: <span style={{ color:C.text }}>{rd.source}</span></span>}
+        </div>
+        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:8, marginBottom:14 }}>
+          {[['PORTFOLIO VALUE',`$${summary.totalValue.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,C.text],
+            ['TOTAL COST',     `$${summary.totalCost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,C.muted],
+            ['TOTAL P&L',      `${summary.totalPnl>=0?'+':''}$${Math.abs(summary.totalPnl).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}`,pColor(summary.totalPnl)],
+            ['RETURN',         fmtPct(summary.totalPct),pColor(summary.totalPct)],
+          ].map(([l,v,c])=>(
+            <div key={l} style={{ background:c+'12', border:`1px solid ${c}33`, borderRadius:6, padding:'10px 12px' }}>
+              <div style={{ color:C.muted, fontSize:10, letterSpacing:1, marginBottom:4 }}>{l}</div>
+              <div style={{ color:c, fontWeight:700, fontSize:15 }}>{v}</div>
             </div>
           ))}
         </div>
-      );
-    }
-    if (type==='AI Analysis' && rd) {
+
+        {positions.length === 0 ? (
+          <div style={{ color:C.muted, fontSize:12 }}>
+            No per-position detail captured in this snapshot.
+            {!isNewShape && ' (Snapshots taken before v.194 only saved summary totals; new snapshots include per-symbol detail.)'}
+          </div>
+        ) : (
+          <>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+              <span style={{ color:C.muted, fontSize:10, letterSpacing:1, fontWeight:600 }}>
+                POSITIONS AT SNAPSHOT — {positions.length}
+              </span>
+              <Btn small color={C.blue} onClick={() => downloadSnapshotCsv(d, positions)}>
+                ⬇ CSV
+              </Btn>
+            </div>
+            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+              <thead>
+                <tr style={{ color:C.muted, fontSize:10, letterSpacing:0.3 }}>
+                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>SYMBOL</th>
+                  <th style={{ textAlign:'left',  padding:'6px 8px', fontWeight:600 }}>ACCOUNT</th>
+                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>SHARES</th>
+                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>COST</th>
+                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>VALUE</th>
+                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>GAIN $</th>
+                  <th style={{ textAlign:'right', padding:'6px 8px', fontWeight:600 }}>GAIN %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {positions.map((p, i) => (
+                  <tr key={i} style={{ borderTop:`1px solid ${C.border}22` }}>
+                    <td style={{ padding:'7px 8px', color:C.text, fontWeight:700 }}>{p.symbol}</td>
+                    <td style={{ padding:'7px 8px', color:C.muted }}>
+                      {p.account}
+                      {p.taxTreatment && <span style={{ color:C.dimmed, fontSize:10, marginLeft:4 }}>· {p.taxTreatment}</span>}
+                    </td>
+                    <td style={{ padding:'7px 8px', textAlign:'right', color:C.text }}>{p.shares != null ? p.shares.toLocaleString() : '—'}</td>
+                    <td style={{ padding:'7px 8px', textAlign:'right', color:C.muted }}>{p.cost != null ? fmtP(p.cost) : '—'}</td>
+                    <td style={{ padding:'7px 8px', textAlign:'right', color:C.text, fontWeight:600 }}>{p.value != null ? fmtP(p.value) : '—'}</td>
+                    <td style={{ padding:'7px 8px', textAlign:'right', color: p.gain != null ? pColor(p.gain) : C.muted }}>
+                      {p.gain != null ? `${p.gain>=0?'+':''}${fmtP(Math.abs(p.gain))}` : '—'}
+                    </td>
+                    <td style={{ padding:'7px 8px', textAlign:'right', color: p.gainPct != null ? pColor(p.gainPct) : C.muted }}>
+                      {p.gainPct != null ? fmtPct(p.gainPct) : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </>
+        )}
+      </div>
+    );
+  };
+
+  // Narrative AI report rendering is delegated to <NarrativeAIReport>
+  // (defined at module scope just above ReportsTab) so its useState for
+  // the collapsible-prompt toggle follows React's rules-of-hooks.
+
+  const renderDetail = d => {
+    if (!d) return null;
+    const { type, data:rd } = d;
+    if (type === 'Portfolio Snapshot' && rd) return renderPortfolioSnapshot(d);
+    if (type === 'AI Analysis' && rd) {
       return (
         <div>
-          <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>Generated: {dateDisplay || new Date(date).toLocaleString()}</div>
-          <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>Timeframe: {rd.timeframe} {rd.context ? `· Context: ${rd.context}` : ''}</div>
+          <div style={{ color:C.muted, fontSize:13, marginBottom:8 }}>
+            Generated: {d.dateDisplay || new Date(d.date).toLocaleString()}
+          </div>
+          <div style={{ color:C.muted, fontSize:13, marginBottom:12 }}>
+            Timeframe: {rd.timeframe} {rd.context ? `· Context: ${rd.context}` : ''}
+          </div>
           <AIResultCard result={rd.result} symbol={rd.symbol} />
         </div>
       );
     }
+    if (type === 'AI Rebalancing Advice' && rd) return <NarrativeAIReport key={d.filename} d={d} color={C.amber}  label="AI REBALANCING ADVICE" />;
+    if (type === 'AI Tax Optimization'   && rd) return <NarrativeAIReport key={d.filename} d={d} color={C.purple} label="AI TAX OPTIMIZATION"   />;
     return <pre style={{ color:C.text, fontSize:13, whiteSpace:'pre-wrap' }}>{JSON.stringify(rd,null,2)}</pre>;
+  };
+
+  // CSV export for Portfolio Snapshots — used by the snapshot renderer's CSV button.
+  const downloadSnapshotCsv = (d, positions) => {
+    const rows = [
+      ['symbol','account','tax_treatment','shares','cost','value','gain_dollar','gain_pct'],
+      ...positions.map(p => [
+        p.symbol || '',
+        p.account || '',
+        p.taxTreatment || '',
+        p.shares != null ? p.shares : '',
+        p.cost != null ? p.cost : '',
+        p.value != null ? p.value : '',
+        p.gain != null ? p.gain : '',
+        p.gainPct != null ? p.gainPct : '',
+      ]),
+    ];
+    const csv = rows.map(r => r.map(c => {
+      const s = String(c);
+      // CSV escape: wrap in quotes if contains comma/quote/newline; double internal quotes.
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    const stamp = (d.date || new Date().toISOString()).slice(0,10);
+    a.href = url; a.download = `portfolio-snapshot-${stamp}.csv`;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   return (
