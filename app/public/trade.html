@@ -2119,6 +2119,7 @@ const PortfolioTab = ({ data, update, quotes }) => {
             settings={settings}
             ghravaPf={ghravaPf}
           />
+          <ConcentrationPanel ghravaPf={ghravaPf} />
         </div>
       ) : (
         <Panel><ManualPortfolio /></Panel>
@@ -2810,6 +2811,184 @@ const TaxLocationPanel = ({ settings, ghravaPf }) => {
               {aiResult.text}
             </div>
           </div>
+        )}
+      </div>
+    </Panel>
+  );
+};
+
+
+// ═══════════════════════════════════════════════════════════════
+// CONCENTRATION & CORRELATION PANEL (Phase 3C, v.193)
+// Shown on Portfolio tab below Tax Location. Calls /portfolio/correlation
+// (backend handles aggregation, Yahoo fetch, sector lookup, Pearson math)
+// and renders three sub-sections: single-stock exposure, sector exposure,
+// correlation pairs. Severity colours: amber soft, red hard.
+// ═══════════════════════════════════════════════════════════════
+const ConcentrationPanel = ({ ghravaPf }) => {
+  const [collapsed, setCollapsed] = useState(false);
+  const [data,      setData]      = useState(null);   // /portfolio/correlation response
+  const [loading,   setLoading]   = useState(false);
+  const [err,       setErr]       = useState('');
+
+  const accounts = ghravaPf?.accounts || [];
+
+  const load = async () => {
+    setLoading(true); setErr('');
+    try {
+      const r = await fetch('/api/v1/trading/portfolio/correlation');
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error || `HTTP ${r.status}`);
+      if (d._note && !d.holdings?.length) { setErr(d._note); setData(null); }
+      else setData(d);
+    } catch (e) { setErr(e.message); setData(null); }
+    setLoading(false);
+  };
+
+  // Auto-load once we know holdings exist. Re-run when ghravaPf changes
+  // (the parent reloads on Refresh, so concentration follows).
+  useEffect(() => { if (accounts.length) load(); }, [accounts.length]);
+
+  // Severity colour for a single-stock %: green ≤10, amber 10-25, red >25.
+  const stockSev = (pct) => pct > 25 ? C.red : pct > 10 ? C.amber : C.green;
+  // Sector severity: green ≤40, amber 40-60, red >60.
+  const sectorSev = (pct) => pct > 60 ? C.red : pct > 40 ? C.amber : C.green;
+  // Correlation severity: |r| >0.95 red, >0.85 amber, >0.7 muted, else dimmed.
+  const corrSev = (r) => Math.abs(r) > 0.95 ? C.red : Math.abs(r) > 0.85 ? C.amber : Math.abs(r) > 0.7 ? C.text : C.dimmed;
+
+  // Header
+  const flagCount =
+    (data?._flags?.single_over_10pct?.length || 0) +
+    (data?._flags?.sector_over_40pct?.length || 0) +
+    (data?._flags?.pairs_over_85?.length || 0);
+  const header = (
+    <div onClick={() => setCollapsed(c => !c)} style={{ cursor:'pointer', display:'flex', alignItems:'center', gap:8 }}>
+      <span style={{ color:C.blue, fontSize:16 }}>{collapsed ? '▸' : '▾'}</span>
+      <span style={{ color:C.blue, fontWeight:700, fontSize:13, letterSpacing:1 }}>CONCENTRATION & CORRELATION</span>
+      {!collapsed && flagCount > 0 && <Tag color={C.amber}>{flagCount} flag{flagCount === 1 ? '' : 's'}</Tag>}
+      {!collapsed && data && flagCount === 0 && <Tag color={C.green}>balanced</Tag>}
+      {!collapsed && loading && <span style={{ color:C.muted, fontSize:11 }}>· loading…</span>}
+    </div>
+  );
+
+  if (collapsed) return <Panel style={{ marginTop:14 }}>{header}</Panel>;
+
+  // No holdings → friendly placeholder
+  if (!accounts.length) return (
+    <Panel style={{ marginTop:14 }}>
+      {header}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:14, paddingTop:14, color:C.muted, fontSize:12, textAlign:'center' }}>
+        Concentration and correlation analysis runs once Ghrava holdings are loaded.
+      </div>
+    </Panel>
+  );
+
+  return (
+    <Panel style={{ marginTop:14 }}>
+      {header}
+      <div style={{ borderTop:`1px solid ${C.border}`, marginTop:14, paddingTop:10 }}>
+        {err && (
+          <div style={{ padding:'8px 12px', background:C.red+'15', border:`1px solid ${C.red}55`,
+            borderRadius:6, color:C.red, fontSize:12, marginBottom:12 }}>⚠ {err}</div>
+        )}
+        {loading && !data && <Spinner text="Computing concentration + correlation…" />}
+
+        {data && (
+          <>
+            {/* SINGLE-STOCK EXPOSURE */}
+            <div style={{ marginBottom:18 }}>
+              <div style={{ color:C.muted, fontSize:10, letterSpacing:0.5, marginBottom:8, fontWeight:600 }}>
+                SINGLE-STOCK EXPOSURE — top {data.holdings.length} of portfolio
+              </div>
+              {data.holdings.map(h => {
+                const sev = stockSev(h.pct);
+                const barPct = Math.min(100, h.pct * 4); // x4 scale so 25% fills the bar
+                return (
+                  <div key={h.symbol} style={{ display:'grid', gridTemplateColumns:'80px 120px 1fr 60px 80px',
+                    gap:8, alignItems:'center', padding:'5px 0', fontSize:12 }}>
+                    <span style={{ color:C.text, fontWeight:700 }}>{h.symbol}</span>
+                    <span style={{ color:C.muted }}>${(h.value/1000).toFixed(1)}k</span>
+                    <div style={{ height:8, background:C.bg, borderRadius:4, overflow:'hidden', border:`1px solid ${C.border}` }}>
+                      <div style={{ height:'100%', width:`${barPct}%`, background:sev, transition:'width .2s' }} />
+                    </div>
+                    <span style={{ color:sev, fontWeight:600, textAlign:'right' }}>{h.pct.toFixed(1)}%</span>
+                    <span style={{ color:sev, fontSize:10, textAlign:'right' }}>
+                      {h.pct > 25 ? 'VERY HIGH' : h.pct > 10 ? 'HIGH' : 'OK'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* SECTOR EXPOSURE */}
+            {data.sectors.length > 0 && (
+              <div style={{ marginBottom:18 }}>
+                <div style={{ color:C.muted, fontSize:10, letterSpacing:0.5, marginBottom:8, fontWeight:600 }}>
+                  SECTOR EXPOSURE — full portfolio
+                </div>
+                {data.sectors.slice(0, 10).map(s => {
+                  const sev = sectorSev(s.pct);
+                  const barPct = Math.min(100, s.pct);
+                  return (
+                    <div key={s.sector} style={{ display:'grid', gridTemplateColumns:'1fr 80px 1fr 60px 80px',
+                      gap:8, alignItems:'center', padding:'5px 0', fontSize:12 }}>
+                      <span style={{ color:C.text, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{s.sector}</span>
+                      <span style={{ color:C.muted }}>${(s.value/1000).toFixed(1)}k</span>
+                      <div style={{ height:8, background:C.bg, borderRadius:4, overflow:'hidden', border:`1px solid ${C.border}` }}>
+                        <div style={{ height:'100%', width:`${barPct}%`, background:sev, transition:'width .2s' }} />
+                      </div>
+                      <span style={{ color:sev, fontWeight:600, textAlign:'right' }}>{s.pct.toFixed(1)}%</span>
+                      <span style={{ color:sev, fontSize:10, textAlign:'right' }}>
+                        {s.pct > 60 ? 'VERY HIGH' : s.pct > 40 ? 'HIGH' : 'OK'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* CORRELATION PAIRS — show top pairs with |r| > 0.7 */}
+            {data.correlation_pairs.length > 0 && (
+              <div style={{ marginBottom:8 }}>
+                <div style={{ color:C.muted, fontSize:10, letterSpacing:0.5, marginBottom:8, fontWeight:600 }}>
+                  CORRELATION PAIRS — top holdings, 90-day daily returns
+                </div>
+                <div style={{ color:C.dimmed, fontSize:11, marginBottom:8 }}>
+                  Pearson on log-returns. |r| &gt; 0.85 means the two move together — diversification is weaker than the symbol count suggests.
+                </div>
+                {data.correlation_pairs.slice(0, 12).map((p, i) => {
+                  const r  = p.correlation;
+                  const ab = Math.abs(r);
+                  const sev = corrSev(r);
+                  // Skip very-low pairs to keep the list focused on signal.
+                  if (ab < 0.5 && i > 5) return null;
+                  return (
+                    <div key={i} style={{ display:'grid', gridTemplateColumns:'1fr 60px 100px',
+                      gap:8, alignItems:'center', padding:'4px 0', fontSize:12, borderTop:i>0?`1px solid ${C.border}22`:'none' }}>
+                      <span style={{ color:C.text }}>
+                        <strong>{p.sym1}</strong> <span style={{ color:C.dimmed }}>↔</span> <strong>{p.sym2}</strong>
+                      </span>
+                      <span style={{ color:sev, fontWeight:600, textAlign:'right' }}>{r >= 0 ? '+' : ''}{r.toFixed(2)}</span>
+                      <span style={{ color:sev, fontSize:10, textAlign:'right' }}>
+                        {ab > 0.95 ? 'NEARLY IDENTICAL' : ab > 0.85 ? 'HIGHLY CORRELATED' : ab > 0.7 ? 'STRONG' : 'MODERATE'}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Footer with refresh */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between',
+              marginTop:14, paddingTop:10, borderTop:`1px solid ${C.border}` }}>
+              <span style={{ color:C.dimmed, fontSize:11 }}>
+                {data._source} · {data._as_of}
+              </span>
+              <Btn small color={C.blue} onClick={load} disabled={loading}>
+                {loading ? '⟳' : '⟳ refresh'}
+              </Btn>
+            </div>
+          </>
         )}
       </div>
     </Panel>
