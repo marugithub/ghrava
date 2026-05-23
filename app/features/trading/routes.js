@@ -529,6 +529,173 @@ router.get('/watchlist/summary', async (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+// GET concentration + correlation analysis for the user's holdings (Phase 3C, v.193).
+// Pulls top 10 holdings by aggregated market_value, fetches 90 days of daily closes
+// via the existing Yahoo proxy pattern, and computes Pearson correlation on daily
+// log-returns (NOT raw prices — financial correlation convention).
+//
+// Sector data: if a Finnhub key is configured, /stock/profile2 supplies
+// `finnhubIndustry` per symbol. Otherwise we fall back to `holdings.asset_type`
+// (rougher — stock/etf/bond — but always available).
+//
+// Output:
+//   { holdings:           [{ symbol, value, pct, sector }],  // top 10 by value
+//     total_value:        number,                            // ALL holdings, not just top 10
+//     sectors:            [{ sector, value, pct }],          // grouped across ALL holdings
+//     correlation_pairs:  [{ sym1, sym2, correlation }],     // top 10 × top 10, sorted by |r|
+//     _flags:             { single_over_10pct, sector_over_40pct, pairs_over_85 } }
+router.get('/portfolio/correlation', async (req, res) => {
+  try {
+    const tableCheck = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='financial_accounts'`
+    ).get();
+    if (!tableCheck) return res.json({ holdings:[], total_value:0, sectors:[], correlation_pairs:[], _flags:{ single_over_10pct:[], sector_over_40pct:[], pairs_over_85:[] }, _note:'No investment accounts found' });
+
+    // schema: holdings(symbol, asset_type, market_value, account_id) + financial_accounts(id, is_active)
+    const rows = db.prepare(`
+      SELECT h.symbol, h.asset_type, h.market_value
+      FROM holdings h
+      JOIN financial_accounts fa ON fa.id = h.account_id
+      WHERE fa.is_active = 1
+        AND h.market_value > 0
+        AND h.symbol IS NOT NULL AND h.symbol != ''
+    `).all();
+
+    // Aggregate per-symbol across accounts.
+    const bySym = new Map();
+    for (const r of rows) {
+      const sym = r.symbol.toUpperCase();
+      const agg = bySym.get(sym) || { symbol: sym, value: 0, asset_type: r.asset_type };
+      agg.value += r.market_value || 0;
+      if (!agg.asset_type) agg.asset_type = r.asset_type;
+      bySym.set(sym, agg);
+    }
+    if (!bySym.size) return res.json({ holdings:[], total_value:0, sectors:[], correlation_pairs:[], _flags:{ single_over_10pct:[], sector_over_40pct:[], pairs_over_85:[] }, _note:'No holdings with market value' });
+
+    const all   = [...bySym.values()].sort((a,b) => b.value - a.value);
+    const total = all.reduce((s,h) => s + h.value, 0);
+    const top10 = all.slice(0, 10);
+
+    // Optional sector enrichment via Finnhub. Failures silently fall back.
+    const trading = readData();
+    const finnhubKey = trading?.settings?.finnhubKey;
+    const sectorMap = {};
+    const https = require('https');
+
+    if (finnhubKey) {
+      const fetchProfile = (sym) => new Promise(resolve => {
+        const url = `https://finnhub.io/api/v1/stock/profile2?symbol=${encodeURIComponent(sym)}&token=${finnhubKey}`;
+        const r2 = https.get(url, { headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' } }, r => {
+          let b = ''; r.on('data', c => b += c);
+          r.on('end', () => { try { resolve(JSON.parse(b)); } catch { resolve(null); } });
+        });
+        r2.on('error', () => resolve(null));
+        r2.setTimeout(6000, () => { r2.destroy(); resolve(null); });
+      });
+      const profiles = await Promise.all(top10.map(h => fetchProfile(h.symbol)));
+      profiles.forEach((p, i) => {
+        if (p && p.finnhubIndustry) sectorMap[top10[i].symbol] = p.finnhubIndustry;
+      });
+    }
+
+    const sectorOf = (h) => sectorMap[h.symbol] || (h.asset_type ? `(${h.asset_type})` : '(unclassified)');
+
+    const holdings = top10.map(h => ({
+      symbol: h.symbol,
+      value:  parseFloat(h.value.toFixed(2)),
+      pct:    parseFloat((h.value / total * 100).toFixed(2)),
+      sector: sectorOf(h),
+    }));
+
+    // Sector concentration spans ALL holdings, not just top 10 — sector concentration
+    // is about the whole portfolio's industry tilt, not just the largest positions.
+    const sectorTotals = {};
+    for (const h of all) {
+      const s = sectorOf(h);
+      sectorTotals[s] = (sectorTotals[s] || 0) + h.value;
+    }
+    const sectors = Object.entries(sectorTotals)
+      .map(([sector, value]) => ({
+        sector,
+        value: parseFloat(value.toFixed(2)),
+        pct:   parseFloat((value / total * 100).toFixed(2)),
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    // Fetch 90-day daily closes via Yahoo for the top 10.
+    const fetchCloses = (sym) => new Promise(resolve => {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?range=3mo&interval=1d`;
+      const r2 = https.get(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }, r => {
+        let b = ''; r.on('data', c => b += c);
+        r.on('end', () => {
+          try {
+            const d = JSON.parse(b);
+            const closes = (d?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || [])
+              .filter(c => c != null && isFinite(c));
+            resolve(closes);
+          } catch { resolve([]); }
+        });
+      });
+      r2.on('error', () => resolve([]));
+      r2.setTimeout(8000, () => { r2.destroy(); resolve([]); });
+    });
+
+    const closesBy = {};
+    await Promise.all(top10.map(async h => { closesBy[h.symbol] = await fetchCloses(h.symbol); }));
+
+    // Pearson on daily log-returns (financial standard, not raw prices).
+    const logReturns = (closes) => closes.slice(1).map((c, i) =>
+      closes[i] > 0 && c > 0 ? Math.log(c / closes[i]) : 0
+    );
+    const pearson = (x, y) => {
+      const n = Math.min(x.length, y.length);
+      if (n < 2) return 0;
+      let sx = 0, sy = 0, sxy = 0, sx2 = 0, sy2 = 0;
+      for (let i = 0; i < n; i++) {
+        sx += x[i]; sy += y[i];
+        sxy += x[i] * y[i]; sx2 += x[i] * x[i]; sy2 += y[i] * y[i];
+      }
+      const num = n * sxy - sx * sy;
+      const den = Math.sqrt((n * sx2 - sx * sx) * (n * sy2 - sy * sy));
+      return den === 0 ? 0 : num / den;
+    };
+
+    const returnsBy = {};
+    for (const sym of Object.keys(closesBy)) returnsBy[sym] = logReturns(closesBy[sym]);
+
+    // Need at least 30 data points (~6 weeks) for a meaningful correlation.
+    const MIN_SAMPLES = 30;
+    const pairs = [];
+    const syms = top10.map(h => h.symbol).filter(s => returnsBy[s]?.length >= MIN_SAMPLES);
+    for (let i = 0; i < syms.length; i++) {
+      for (let j = i + 1; j < syms.length; j++) {
+        const r = pearson(returnsBy[syms[i]], returnsBy[syms[j]]);
+        pairs.push({
+          sym1: syms[i],
+          sym2: syms[j],
+          correlation: parseFloat(r.toFixed(4)),
+        });
+      }
+    }
+    pairs.sort((a, b) => Math.abs(b.correlation) - Math.abs(a.correlation));
+
+    res.json({
+      holdings,
+      total_value: parseFloat(total.toFixed(2)),
+      sectors,
+      correlation_pairs: pairs,
+      _flags: {
+        single_over_10pct: holdings.filter(h => h.pct > 10).map(h => h.symbol),
+        sector_over_40pct: sectors.filter(s => s.pct > 40).map(s => s.sector),
+        pairs_over_85:     pairs.filter(p => Math.abs(p.correlation) > 0.85)
+                                .map(p => `${p.sym1} ↔ ${p.sym2} (${p.correlation.toFixed(2)})`),
+      },
+      _as_of:  new Date().toISOString().slice(0, 10),
+      _source: 'ghrava_holdings + yahoo_chart' + (finnhubKey ? ' + finnhub_profile' : ''),
+    });
+  } catch (e) { serverError(res, e); }
+});
+
 // GET upcoming earnings for the user's actual Ghrava holdings (Phase 3D, v.192).
 // Cross-references the symbols in `holdings` (joined via financial_accounts, is_active=1)
 // against Finnhub's free earnings calendar for the next 30 days, then attaches each
