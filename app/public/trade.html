@@ -86,7 +86,7 @@ const MOCK_NEWS = [
 const DEFAULTS = {
   settings: {
     provider:'gemini', apiKeys:{}, avKey:'',
-    marketProvider:'yahoo', tradierKey:'', tradierSandbox:true, finnhubKey:'',
+    marketProvider:'yahoo', tradierKey:'', tradierSandbox:true, finnhubKey:'', polygonKey:'',
     demoMode:true,
     appearance: { fontSize:14, fontFamily:'inter', bgTheme:'dark' },
     socialLinks: {
@@ -1913,23 +1913,55 @@ const PortfolioTab = ({ data, update, quotes }) => {
 // ═══════════════════════════════════════════════════════════════
 const OptionsTab = ({ data, quotes }) => {
   const { settings={} } = data;
-  const [symbol, setSymbol] = useState('AAPL');
-  const [expiry, setExpiry] = useState('');
-  const [optType, setOptType] = useState('call');
-  const [aiResult, setAiResult] = useState(null);
+  const polygonKey = settings.polygonKey || '';
+  const [symbol, setSymbol]       = useState('AAPL');
+  const [expiry, setExpiry]       = useState('');
+  const [optType, setOptType]     = useState('call');
+  const [expiries, setExpiries]   = useState([]);
+  const [contracts, setContracts] = useState([]);
+  const [loading, setLoading]     = useState(false);
+  const [err, setErr]             = useState('');
+  const [aiResult, setAiResult]   = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiErr, setAiErr] = useState('');
+  const [aiErr, setAiErr]         = useState('');
+  const [dataSource, setDataSource] = useState(''); // 'real' | 'simulated'
 
   const q  = quotes[symbol] || MOCK_QUOTES[symbol] || {};
   const sp = q.price || 200;
-  const getExpiries = () => {
+
+  // Fetch real options from Polygon if key available
+  const fetchOptions = async (sym, exp) => {
+    const s = (sym||symbol).toUpperCase().trim();
+    if (!s) return;
+    if (!polygonKey) { setDataSource('simulated'); return; }
+    setLoading(true); setErr(''); setContracts([]); setDataSource('');
+    try {
+      const url = `/api/v1/trading/market/options/${s}?key=${polygonKey}${exp?`&expiry=${exp}`:''}`;
+      const r = await fetch(url);
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      setExpiries(d.expiries || []);
+      if (!expiry && d.expiry) setExpiry(d.expiry);
+      setContracts(d.contracts || []);
+      setDataSource('real');
+    } catch(e) {
+      setErr(e.message);
+      setDataSource('simulated');
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => { fetchOptions(symbol, expiry); }, [symbol, polygonKey]);
+
+  // Simulated chain (fallback when no Polygon key)
+  const getSimExpiries = () => {
     const dates=[]; const d=new Date();
     while(dates.length<4){ d.setDate(d.getDate()+1); if(d.getDay()===5) dates.push(d.toISOString().slice(0,10)); }
     return dates;
   };
-  const expiries = getExpiries();
-  const selExp = expiry || expiries[1];
-  const base = Math.round(sp/5)*5;
+  const simExpiries = getSimExpiries();
+  const selExp = expiry || (expiries.length ? expiries[1]||expiries[0] : simExpiries[1]);
+  const base   = Math.round(sp/5)*5;
   const strikes = Array.from({length:13},(_,i)=>base+(i-6)*5);
   const mockOpt = strike => {
     const diff=optType==='call'?sp-strike:strike-sp;
@@ -1944,59 +1976,140 @@ const OptionsTab = ({ data, quotes }) => {
       itm:diff>0,
     };
   };
+
   const getAI = async () => {
     setAiLoading(true); setAiResult(null); setAiErr('');
     try {
       const r = await analyzeStock({ symbol, quote:q, timeframe:`options expiring ${selExp}`,
-        context:`Underlying: $${sp}. Looking for options strategy expiring ${selExp}.`, settings });
+        context:`Underlying: $${sp}. Analyze options strategy expiring ${selExp}. ${dataSource==='real'?`Real options data available — ${contracts.filter(c=>c.type===optType).length} ${optType} contracts.`:'Using simulated chain.'}`, settings });
       setAiResult(r);
     } catch(e) { setAiErr(e.message); }
     setAiLoading(false);
   };
+
   const ac = optType==='call'?C.green:C.red;
+  const isReal = dataSource === 'real';
+
+  // Build display rows — real or simulated
+  const displayExpiries = isReal ? expiries : simExpiries;
+  const displayStrikes  = isReal
+    ? [...new Set(contracts.filter(c=>c.type===optType&&c.expiry===selExp).map(c=>c.strike))].sort((a,b)=>a-b)
+    : strikes;
+
+  const getContract = (strike) => {
+    if (!isReal) return mockOpt(strike);
+    const c = contracts.find(x => x.strike===strike && x.type===optType && x.expiry===selExp);
+    if (!c) return null;
+    const diff = optType==='call' ? sp-strike : strike-sp;
+    return {
+      premium: c.last?.toFixed(2) || '—',
+      iv: '—', delta: '—', gamma: '—', theta: '—',
+      vol: c.size || '—', oi: '—',
+      itm: diff > 0,
+    };
+  };
+
   return (
     <div>
+      {/* Controls */}
       <div style={{ display:'flex', gap:8, marginBottom:14, alignItems:'center', flexWrap:'wrap' }}>
-        <Inp value={symbol} onChange={v=>setSymbol(v.toUpperCase())} placeholder="Symbol" style={{ width:90 }} />
-        <Sel value={selExp} onChange={setExpiry} options={expiries.map(e=>({value:e,label:e}))} />
+        <Inp value={symbol} onChange={v=>setSymbol(v.toUpperCase())} placeholder="Symbol"
+          style={{ width:90 }} onKeyDown={e=>e.key==='Enter'&&fetchOptions(symbol,expiry)} />
+        <Sel value={selExp} onChange={v=>{ setExpiry(v); if(isReal) fetchOptions(symbol,v); }}
+          options={displayExpiries.map(e=>({value:e,label:e}))} />
         <div style={{ display:'flex', gap:4 }}>
           {['call','put'].map(t=>(
             <Btn key={t} color={optType===t?(t==='call'?C.green:C.red):C.muted} onClick={()=>setOptType(t)}>{t.toUpperCase()}S</Btn>
           ))}
         </div>
-        <Btn color={C.blue} onClick={getAI} disabled={aiLoading}>{aiLoading?'⟳ ANALYZING…':'🤖 AI OPTIONS STRATEGY'}</Btn>
-        <Tag color={C.muted}>UNDERLYING {fmtP(sp)} · SIMULATED CHAIN</Tag>
+        <Btn color={C.blue} onClick={()=>fetchOptions(symbol,expiry)} disabled={loading}>
+          {loading?'⟳ LOADING…':'⟳ REFRESH'}
+        </Btn>
+        <Btn color={C.purple} onClick={getAI} disabled={aiLoading}>{aiLoading?'⟳ ANALYZING…':'🤖 AI STRATEGY'}</Btn>
+        <Tag color={isReal?C.green:C.amber}>
+          {isReal ? '✓ REAL DATA — 15min delayed' : 'SIMULATED — add Polygon key in Settings for real data'}
+        </Tag>
       </div>
+
+      {/* No key prompt */}
+      {!polygonKey && (
+        <Panel style={{ marginBottom:14, borderLeft:`3px solid ${C.amber}` }}>
+          <div style={{ display:'flex', gap:10, alignItems:'flex-start' }}>
+            <div style={{ fontSize:20 }}>💡</div>
+            <div>
+              <div style={{ color:C.text, fontWeight:600, marginBottom:4 }}>Get real options data for free</div>
+              <div style={{ color:C.muted, fontSize:13, lineHeight:1.7 }}>
+                Sign up at <a href="https://polygon.io/dashboard/signup" target="_blank" style={{ color:C.blue }}>polygon.io</a> — email only, no credit card.
+                Add your API key in <strong>Settings → Market Data → Polygon.io</strong>.
+                The chain will then show real strikes, expiry dates, and last trade prices (15-minute delay on free tier).
+              </div>
+            </div>
+          </div>
+        </Panel>
+      )}
+
+      {err && <Panel style={{ marginBottom:14 }}><div style={{ color:C.red }}>⚠ {err}</div></Panel>}
       {aiLoading && <Panel style={{ marginBottom:14 }}><Spinner text="Generating options strategy…" /></Panel>}
       {aiErr && <Panel style={{ marginBottom:14 }}><div style={{ color:C.red }}>⚠ {aiErr}</div></Panel>}
-      {!aiLoading && aiResult && <Panel style={{ marginBottom:14 }}><PanelTitle>AI OPTIONS RECOMMENDATION — {symbol}</PanelTitle><AIResultCard result={aiResult} symbol={symbol} /></Panel>}
+      {!aiLoading && aiResult && (
+        <Panel style={{ marginBottom:14 }}>
+          <PanelTitle>AI OPTIONS STRATEGY — {symbol}</PanelTitle>
+          <AIResultCard result={aiResult} symbol={symbol} />
+        </Panel>
+      )}
+
+      {/* Options chain table */}
       <Panel style={{ overflowX:'auto' }}>
-        <PanelTitle>{symbol} · {selExp} · {optType.toUpperCase()}S</PanelTitle>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
-          <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
-            {['ITM','STRIKE','LAST $','IV %','DELTA','GAMMA','THETA','VOLUME','OPEN INT'].map(h=>(
-              <th key={h} style={{ textAlign:'left', padding:'6px 10px', fontWeight:'normal', letterSpacing:1 }}>{h}</th>
-            ))}
-          </tr></thead>
-          <tbody>{strikes.map(strike=>{
-            const o=mockOpt(strike);
-            return (<tr key={strike} style={{ borderBottom:`1px solid ${C.border}18`, background:o.itm?ac+'0a':'transparent' }}>
-              <td style={{ padding:'7px 10px' }}>{o.itm?<Tag color={ac}>ITM</Tag>:<span style={{ color:C.muted,fontSize:13 }}>OTM</span>}</td>
-              <td style={{ padding:'7px 10px', color:C.text, fontWeight:'bold' }}>${strike.toFixed(2)}</td>
-              <td style={{ padding:'7px 10px', color:C.text }}>${o.premium}</td>
-              <td style={{ padding:'7px 10px', color:C.amber }}>{o.iv}%</td>
-              <td style={{ padding:'7px 10px', color:ac }}>{o.delta}</td>
-              <td style={{ padding:'7px 10px', color:C.muted }}>{o.gamma}</td>
-              <td style={{ padding:'7px 10px', color:C.red }}>{o.theta}</td>
-              <td style={{ padding:'7px 10px', color:C.text }}>{o.vol.toLocaleString()}</td>
-              <td style={{ padding:'7px 10px', color:C.muted }}>{o.oi.toLocaleString()}</td>
-            </tr>);
-          })}</tbody>
-        </table>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
+          <PanelTitle>{symbol} · {selExp} · {optType.toUpperCase()}S · Underlying {fmtP(sp)}</PanelTitle>
+        </div>
+
+        {loading && <Spinner text={`Loading ${symbol} options…`} />}
+        {!loading && (
+          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+            <thead><tr style={{ color:C.muted, borderBottom:`1px solid ${C.border}` }}>
+              {['ITM','STRIKE','LAST $', isReal?'VOLUME':'IV %', isReal?'':'DELTA', isReal?'':'GAMMA', isReal?'':'THETA', 'VOL','OI'].filter(Boolean).map(h=>(
+                <th key={h} style={{ textAlign:'left', padding:'5px 8px', fontWeight:600, fontSize:10, letterSpacing:0.5 }}>{h}</th>
+              ))}
+            </tr></thead>
+            <tbody>
+              {displayStrikes.map(strike => {
+                const opt = getContract(strike);
+                if (!opt) return null;
+                const itm = opt.itm;
+                return (
+                  <tr key={strike} style={{ borderBottom:`1px solid ${C.border}18`,
+                    background: itm ? ac+'0a' : 'transparent' }}>
+                    <td style={{ padding:'6px 8px' }}>
+                      {itm && <span style={{ color:ac, fontSize:10, fontWeight:700 }}>ITM</span>}
+                    </td>
+                    <td style={{ padding:'6px 8px', color:C.text, fontWeight:700 }}>{fmtP(strike)}</td>
+                    <td style={{ padding:'6px 8px', color:ac, fontWeight:600 }}>{opt.premium}</td>
+                    {!isReal && <>
+                      <td style={{ padding:'6px 8px', color:C.text }}>{opt.iv}%</td>
+                      <td style={{ padding:'6px 8px', color:C.text }}>{opt.delta}</td>
+                      <td style={{ padding:'6px 8px', color:C.muted }}>{opt.gamma}</td>
+                      <td style={{ padding:'6px 8px', color:C.red }}>{opt.theta}</td>
+                    </>}
+                    <td style={{ padding:'6px 8px', color:C.muted }}>{(opt.vol||'—').toLocaleString()}</td>
+                    <td style={{ padding:'6px 8px', color:C.muted }}>{(opt.oi||'—').toLocaleString()}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+        {isReal && (
+          <div style={{ color:C.dimmed, fontSize:10, marginTop:8 }}>
+            Source: Polygon.io · 15-minute delayed · Greeks not available on free tier ·
+            <a href="https://polygon.io/docs/options" target="_blank" style={{ color:C.blue, marginLeft:4 }}>API docs ↗</a>
+          </div>
+        )}
       </Panel>
     </div>
   );
 };
+
 
 // ═══════════════════════════════════════════════════════════════
 // NEWS TAB
@@ -2444,6 +2557,158 @@ Return ONLY valid JSON:
 };
 
 // REPORTS TAB
+
+
+// ═══════════════════════════════════════════════════════════════
+// MACRO TAB — Economic indicators via FRED (Federal Reserve, free)
+// ═══════════════════════════════════════════════════════════════
+const MacroTab = ({ data }) => {
+  const { settings={} } = data;
+  const [macro, setMacro]       = useState(null);
+  const [loading, setLoading]   = useState(false);
+  const [err, setErr]           = useState('');
+  const [aiSummary, setAiSum]   = useState('');
+  const [aiLoading, setAiLoad]  = useState(false);
+
+  const load = async () => {
+    setLoading(true); setErr('');
+    try {
+      const r = await fetch('/api/v1/trading/market/macro');
+      const d = await r.json();
+      if (d.error) throw new Error(d.error);
+      setMacro(d);
+    } catch(e) { setErr(e.message); }
+    setLoading(false);
+  };
+
+  useEffect(() => { load(); }, []);
+
+  const getAI = async () => {
+    if (!macro) return;
+    setAiLoad(true); setAiSum('');
+    const context = [
+      `Fed Funds Rate: ${macro.fedRate?.value}%`,
+      `10Y Treasury: ${macro.t10y?.value}%`,
+      `2Y Treasury: ${macro.t2y?.value}%`,
+      `Yield Curve (10Y-2Y): ${macro.yieldSpread?.value}% — ${macro.yieldSpread?.note}`,
+      `CPI Index: ${macro.cpi?.value}`,
+      `Unemployment: ${macro.unemployment?.value}%`,
+      `VIX: ${macro.vix?.value} — ${macro.vix?.note}`,
+      `S&P 500: ${macro.sp500?.value}`,
+    ].join('\n');
+    const prompt = `You are a macro economist and investment strategist. Based on the following current economic indicators, provide a concise market outlook and suggest which sectors or asset classes are likely to outperform or underperform in the next 3-6 months. Be specific and data-driven.\n\nCurrent indicators:\n${context}\n\nProvide: 1) Overall macro environment assessment 2) Top 2-3 sectors to overweight 3) Top 2-3 sectors to underweight 4) Key risks to watch. Keep it under 250 words.`;
+    try {
+      const text = await callProvider(prompt, settings.provider||'gemini', settings.apiKeys||{});
+      setAiSum(text);
+    } catch(e) { setAiSum('Error: ' + e.message); }
+    setAiLoad(false);
+  };
+
+  const MetricCard = ({ label, value, unit, date, note, noteColor }) => {
+    const nc = noteColor || (note?.includes('INVERT')||note?.includes('FEAR')?C.red:note?.includes('complacent')?C.amber:C.green);
+    return (
+      <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:'12px 14px' }}>
+        <div style={{ color:C.muted, fontSize:11, marginBottom:4, fontWeight:600, letterSpacing:0.3 }}>{label}</div>
+        <div style={{ color:C.text, fontWeight:700, fontSize:20, marginBottom:note?4:0 }}>
+          {value != null ? `${typeof value==='number'?value.toFixed(2):value}${unit}` : '—'}
+        </div>
+        {note && <div style={{ color:nc, fontSize:11, lineHeight:1.4 }}>{note}</div>}
+        {date && <div style={{ color:C.dimmed, fontSize:10, marginTop:4 }}>As of {date}</div>}
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <Panel style={{ marginBottom:14 }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4, flexWrap:'wrap', gap:8 }}>
+          <div>
+            <PanelTitle>MACRO ECONOMIC INDICATORS</PanelTitle>
+            <div style={{ color:C.muted, fontSize:12, marginTop:2 }}>
+              Source: <a href="https://fred.stlouisfed.org" target="_blank" style={{ color:C.blue }}>FRED — Federal Reserve Bank of St. Louis</a>
+              · Free, no key required · Data may lag 1–30 days by release schedule
+            </div>
+          </div>
+          <div style={{ display:'flex', gap:8 }}>
+            <Btn small color={C.muted} onClick={load} disabled={loading}>{loading?'⟳':'⟳ Refresh'}</Btn>
+            <Btn small color={C.purple} onClick={getAI} disabled={aiLoading||!macro}>
+              {aiLoading?'⟳ ANALYZING…':'🤖 AI MARKET OUTLOOK'}
+            </Btn>
+          </div>
+        </div>
+      </Panel>
+
+      {loading && <Spinner text="Loading economic indicators from FRED…" />}
+      {err && <Panel><div style={{ color:C.red }}>⚠ {err} — FRED may be temporarily unavailable</div></Panel>}
+
+      {macro && !loading && (
+        <div>
+          {/* Yield curve — most important indicator, show prominently */}
+          <Panel style={{ marginBottom:14, borderLeft:`4px solid ${macro.yieldSpread?.value < 0 ? C.red : macro.yieldSpread?.value < 0.5 ? C.amber : C.green}` }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', flexWrap:'wrap', gap:10 }}>
+              <div>
+                <div style={{ color:C.muted, fontSize:11, fontWeight:600, letterSpacing:0.3, marginBottom:4 }}>YIELD CURVE (10Y minus 2Y Treasury)</div>
+                <div style={{ color:C.text, fontWeight:700, fontSize:28 }}>
+                  {macro.yieldSpread?.value != null ? `${macro.yieldSpread.value > 0?'+':''}${macro.yieldSpread.value.toFixed(3)}%` : '—'}
+                </div>
+                <div style={{ color: macro.yieldSpread?.value < 0 ? C.red : macro.yieldSpread?.value < 0.5 ? C.amber : C.green, fontWeight:600, marginTop:4 }}>
+                  {macro.yieldSpread?.note}
+                </div>
+              </div>
+              <div style={{ color:C.muted, fontSize:12, maxWidth:320, lineHeight:1.7 }}>
+                <strong style={{ color:C.text }}>What this means:</strong> When the 10-year Treasury yield is higher than the 2-year,
+                the curve is "normal" — investors expect growth. When it inverts (negative), it historically
+                signals a recession 12–18 months ahead. Every US recession since 1955 was preceded by inversion.
+                <br/><a href="https://fred.stlouisfed.org/series/T10Y2Y" target="_blank" style={{ color:C.blue, fontSize:11 }}>Learn more on FRED ↗</a>
+              </div>
+            </div>
+          </Panel>
+
+          {/* Main grid of indicators */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(200px,1fr))', gap:10, marginBottom:14 }}>
+            <MetricCard label="Fed Funds Rate" value={macro.fedRate?.value} unit="%" date={macro.fedRate?.date} />
+            <MetricCard label="10-Year Treasury" value={macro.t10y?.value} unit="%" date={macro.t10y?.date} />
+            <MetricCard label="2-Year Treasury" value={macro.t2y?.value} unit="%" date={macro.t2y?.date} />
+            <MetricCard label="Unemployment Rate" value={macro.unemployment?.value} unit="%" date={macro.unemployment?.date} />
+            <MetricCard label="CPI Index" value={macro.cpi?.value} unit="" date={macro.cpi?.date} note={macro.cpi?.note} />
+            <MetricCard label="S&P 500" value={macro.sp500?.value} unit="" date={macro.sp500?.date} />
+            <MetricCard label="VIX Volatility Index" value={macro.vix?.value} unit="" date={macro.vix?.date} note={macro.vix?.note} />
+          </div>
+
+          {/* Glossary */}
+          <Panel style={{ marginBottom:14 }}>
+            <PanelTitle>WHAT THESE MEAN — PLAIN ENGLISH</PanelTitle>
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:10 }}>
+              {[
+                ['Fed Funds Rate', 'The interest rate the Federal Reserve sets for banks to lend to each other overnight. When this goes up, borrowing becomes more expensive for everyone — mortgages, car loans, business loans. Higher rates slow the economy and often hurt stock prices, especially growth stocks.'],
+                ['10-Year Treasury Yield', 'The interest rate the US government pays to borrow money for 10 years. When yields rise, bond prices fall. This rate is the benchmark for mortgage rates and corporate borrowing. Rising yields often pressure stock valuations.'],
+                ['CPI (Consumer Price Index)', 'Measures the average price of a basket of goods and services. Rising CPI = inflation. The Fed raises interest rates to fight high inflation, which typically slows economic growth and hurts stocks.'],
+                ['VIX (Volatility Index)', 'Called the "Fear Gauge." Measures how much the market expects the S&P 500 to move in the next 30 days. VIX above 30 = high fear, often a buying opportunity. VIX below 15 = complacency, market may be overconfident.'],
+              ].map(([term, def]) => (
+                <div key={term} style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:'10px 12px' }}>
+                  <div style={{ color:C.blue, fontWeight:600, fontSize:12, marginBottom:4 }}>{term}</div>
+                  <div style={{ color:C.muted, fontSize:12, lineHeight:1.6 }}>{def}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          {/* AI Outlook */}
+          {aiLoading && <Panel><Spinner text="AI analyzing macro conditions…" /></Panel>}
+          {aiSummary && !aiLoading && (
+            <Panel>
+              <PanelTitle>AI MACRO MARKET OUTLOOK</PanelTitle>
+              <div style={{ color:C.text, fontSize:13, lineHeight:1.8, whiteSpace:'pre-wrap' }}>{aiSummary}</div>
+              <div style={{ color:C.dimmed, fontSize:10, marginTop:8 }}>
+                AI analysis based on FRED data · Not financial advice · Always do your own research
+              </div>
+            </Panel>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ═══════════════════════════════════════════════════════════════
 // EARNINGS CALENDAR TAB
@@ -3209,8 +3474,10 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
     marketProvider: 'yahoo',
     avKey:          '',
     finnhubKey:     '',
+    polygonKey:     '',
     tradierKey:     '',
     tradierSandbox: true,
+    polygonKey:     '',
     demoMode:       true,
     appearance: { fontSize:14, fontFamily:'inter', bgTheme:'dark' },
     apiKeys: { gemini:'', deepseek:'', openai:'', claudeHaiku:'', claudeSonnet:'' },
@@ -3437,6 +3704,37 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
             </div>
           );
         })}
+
+        {/* Polygon.io — for real options chain */}
+        <div style={{ background:C.bg, border:`1px solid ${C.border}`, borderRadius:8, padding:12, marginBottom:10 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+            <div style={{ color:C.text, fontSize:13, fontWeight:600 }}>🔷 Polygon.io — Real Options Chain</div>
+            <Tag color={C.blue}>FREE · EMAIL SIGNUP</Tag>
+          </div>
+          <div style={{ color:C.muted, fontSize:12, marginBottom:8, lineHeight:1.6 }}>
+            {POLYGON_NOTE} Get a free key at{' '}
+            <a href="https://polygon.io/dashboard/signup" target="_blank" style={{ color:C.blue }}>polygon.io/dashboard/signup</a>
+          </div>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+            <Inp value={showKeys.polygon?(local.polygonKey||''):(local.polygonKey||'').replace(/./g,'•')}
+              onChange={v=>setLocal(l=>({...l,polygonKey:v}))}
+              placeholder="Polygon API key…" style={{ flex:1, minWidth:180 }} />
+            <Btn small color={C.muted} onClick={()=>setShowKeys(s=>({...s,polygon:!s.polygon}))}>{showKeys.polygon?'HIDE':'SHOW'}</Btn>
+            <Btn small color={C.amber} onClick={async()=>{
+              const k=(local.polygonKey||'').trim();
+              if(!k){setTestResult(t=>({...t,polygon:'No key entered'}));return;}
+              setTesting('polygon');
+              try {
+                const r = await fetch(`https://api.polygon.io/v2/aggs/ticker/AAPL/prev?apiKey=${k}`);
+                const d = await r.json();
+                if(d.status==='OK') setTestResult(t=>({...t,polygon:`✓ Connected — AAPL prev close $${d.results?.[0]?.c?.toFixed(2)||'?'}`}));
+                else setTestResult(t=>({...t,polygon:`✕ ${d.error||d.status||'Unknown error'}`}));
+              } catch(e){setTestResult(t=>({...t,polygon:'✕ '+e.message}));}
+              setTesting(null);
+            }} disabled={testing==='polygon'}>{testing==='polygon'?'⟳':'⚡ Test'}</Btn>
+          </div>
+          {testResult.polygon && <div style={{ color:testResult.polygon.startsWith('✓')?C.green:C.red, fontSize:12, marginTop:6 }}>{testResult.polygon}</div>}
+        </div>
 
         {/* Alpha Vantage key always visible for news — even if not primary */}
         {(local.marketProvider||'yahoo') !== 'av' && (
@@ -3816,6 +4114,7 @@ function App() {
     { id:'options',   label:'⚙ OPTIONS' },
     { id:'news',      label:'📰 NEWS' },
     { id:'earnings',  label:'📅 EARNINGS' },
+    { id:'macro',     label:'🌍 MACRO' },
     { id:'social',    label:'🌐 SOCIAL' },
     { id:'reports',   label:'📁 REPORTS' },
     { id:'settings',  label:'⚙ SETTINGS' },
@@ -3870,8 +4169,8 @@ function App() {
         {TABS.map(t=>(
           <button key={t.id} onClick={()=>setTab(t.id)} style={{
             background:'transparent', border:'none',
-            borderBottom:`2px solid ${activeTab===t.id?(t.id==='settings'||t.id==='reports'||t.id==='earnings'?C.amber:C.blue):'transparent'}`,
-            color:activeTab===t.id?(t.id==='settings'||t.id==='reports'||t.id==='earnings'?C.amber:C.blue):C.muted,
+            borderBottom:`2px solid ${activeTab===t.id?(t.id==='settings'||t.id==='reports'||t.id==='earnings'||t.id==='macro'?C.amber:C.blue):'transparent'}`,
+            color:activeTab===t.id?(t.id==='settings'||t.id==='reports'||t.id==='earnings'||t.id==='macro'?C.amber:C.blue):C.muted,
             padding:'10px 14px', cursor:'pointer', fontFamily:'inherit',
             fontSize:13, fontWeight:activeTab===t.id?'bold':'normal', letterSpacing:1, whiteSpace:'nowrap',
           }}>{t.label}</button>
@@ -3887,6 +4186,7 @@ function App() {
         {activeTab==='options'   && <OptionsTab   data={appData} quotes={quotes} />}
         {activeTab==='news'      && <NewsTab       data={appData} quotes={quotes} />}
         {activeTab==='earnings'  && <EarningsTab data={appData} quotes={quotes} />}
+        {activeTab==='macro'     && <MacroTab data={appData} />}
         {activeTab==='social'    && <SocialTab data={appData} quotes={quotes} />}
         {activeTab==='reports'   && <ReportsTab />}
         {activeTab==='settings'  && <SettingsTab  data={appData} update={update} setSaveMsg={setSaveMsg} saveMsg={saveMsg} />}

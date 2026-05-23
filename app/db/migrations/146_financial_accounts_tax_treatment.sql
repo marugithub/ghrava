@@ -1,21 +1,19 @@
--- Migration 146: Add tax_treatment to financial_accounts
--- Required for trade terminal portfolio optimisation and tax location advice.
--- Additive only — no existing rows harmed. DEFAULT 'taxable' is safe because
--- brokerage accounts without a specified type are most likely taxable.
--- See TRADE_TERMINAL_INTEGRATION.md for context.
+-- Migration 146: Add tax_treatment to accounts table
+-- financial_accounts is a VIEW over accounts (mig 126/130).
+-- The column must go on the underlying accounts table.
+-- Also update the financial_accounts view to expose it.
+-- Additive only. DEFAULT 'taxable' is safe.
 
-ALTER TABLE financial_accounts
+ALTER TABLE accounts
   ADD COLUMN tax_treatment TEXT NOT NULL DEFAULT 'taxable';
 
--- Note: CHECK constraints cannot be added via ALTER TABLE in SQLite.
--- Valid values enforced at application layer in finance form dropdown.
--- Accepted values: taxable | traditional_ira | roth_ira | tsp | hsa | other
-
--- Seed dropdown options for the Finance account form
-INSERT OR IGNORE INTO dropdown_options (list_key, value, label, sort_order, is_active) VALUES
-  ('investment_tax_treatment', 'taxable',          'Taxable (Brokerage)',       10, 1),
-  ('investment_tax_treatment', 'traditional_ira',  'Traditional IRA',           20, 1),
-  ('investment_tax_treatment', 'roth_ira',         'Roth IRA',                  30, 1),
-  ('investment_tax_treatment', 'tsp',              'TSP (Thrift Savings Plan)', 40, 1),
-  ('investment_tax_treatment', 'hsa',              'HSA',                       50, 1),
-  ('investment_tax_treatment', 'other',            'Other',                     60, 1);
+-- Recreate the financial_accounts view to include tax_treatment
+DROP VIEW IF EXISTS financial_accounts;
+CREATE VIEW financial_accounts AS
+  SELECT id, name AS nickname, institution,
+         type AS account_type,
+         owner, last4 AS last_four, currency,
+         is_active, track_statements, notes,
+         tax_treatment,
+         created_at, updated_at
+  FROM accounts;

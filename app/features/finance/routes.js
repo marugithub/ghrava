@@ -658,8 +658,9 @@ router.post('/accounts', (req, res) => {
          track_statements, notes, sort_order, source, needs_review,
          credit_limit, statement_balance, minimum_payment,
          payment_due_date, apr, promo_apr, promo_end_date,
-         annual_fee, annual_fee_renewal_date, rewards_balance)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?)
+         annual_fee, annual_fee_renewal_date, rewards_balance,
+         tax_treatment)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?,?,?,?)
     `).run(
       d.name,
       d.alias || null,
@@ -687,6 +688,7 @@ router.post('/accounts', (req, res) => {
       d.annual_fee              !== undefined && d.annual_fee              !== '' ? parseFloat(d.annual_fee)              : null,
       d.annual_fee_renewal_date || null,
       d.rewards_balance         !== undefined && d.rewards_balance         !== '' ? parseFloat(d.rewards_balance)         : null,
+      d.tax_treatment || 'taxable',
     );
     saveFamilyMembers(r.lastInsertRowid, 'finance_account', d.family_member_ids || []);
     res.status(201).json({ id: r.lastInsertRowid });
@@ -722,6 +724,7 @@ router.put('/accounts/:id', (req, res) => {
         credit_limit=?, statement_balance=?, minimum_payment=?,
         payment_due_date=?, apr=?, promo_apr=?, promo_end_date=?,
         annual_fee=?, annual_fee_renewal_date=?, rewards_balance=?,
+        tax_treatment=?,
         updated_at=CURRENT_TIMESTAMP
       WHERE id=?
     `).run(
@@ -750,6 +753,7 @@ router.put('/accounts/:id', (req, res) => {
       num('annual_fee'),
       str('annual_fee_renewal_date'),
       num('rewards_balance'),
+      d.tax_treatment !== undefined ? d.tax_treatment : (existing.tax_treatment || 'taxable'),
       req.params.id
     );
     res.json({ ok: true });

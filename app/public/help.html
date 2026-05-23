@@ -65,6 +65,10 @@
       <div style="font-weight:700;margin-bottom:4px">Automation</div>
       <div style="font-size:12px;color:var(--text3)">Recurring tasks, folder watcher</div>
     </div>
+    <div class="help-card" onclick="scrollTo('terminal')">
+      <div class="help-card-icon">📈</div>
+      <div class="help-card-label">Terminal</div>
+    </div>
     <div class="help-card" onclick="scrollTo('commands')">
       <div style="font-size:28px;margin-bottom:8px">⌘</div>
       <div style="font-weight:700;margin-bottom:4px">Commands</div>
@@ -127,6 +131,11 @@
   </div>
 
   <!-- FAQ -->
+  <div class="help-section" id="terminal" style="margin-bottom:32px">
+    <div class="section-hdr">📈 Trade Terminal Guide</div>
+    <div id="terminalList"></div>
+  </div>
+
   <div class="help-section" id="faq" style="margin-bottom:32px">
     <div class="section-hdr">❓ FAQ</div>
     <div id="faqList"></div>
@@ -137,7 +146,7 @@
 <script>
 const MODULES = [
   {icon:'📦',name:'Inventory',desc:'Track everything you own. Scan barcodes, add photos, organize by location. Link items to documents for manuals and warranties.'},
-  {icon:'💰',name:'Finance',desc:'Bank accounts, transactions, HSA, investments, and recurring bills. Import statements from CSV/OFX/QFX.'},
+  {icon:'💰',name:'Finance',desc:'Bank accounts, transactions, HSA, investments, and recurring bills. Import statements from CSV/OFX/QFX. Set Tax Treatment on investment accounts (Brokerage/TSP/Retirement) so the Trade Terminal can provide personalised tax advice.'},
   {icon:'🏥',name:'Medical',desc:'Medications, conditions, doctor visits, EOB imports. Emergency Info Card pulls from here.'},
   {icon:'✓',name:'To-Do',desc:'Tasks with priorities, due dates, and Google Tasks sync. Apply checklist templates for recurring checklists.'},
   {icon:'📋',name:'Daily Log',desc:'Journal entries with follow-up tracking and search.'},
@@ -146,6 +155,7 @@ const MODULES = [
   {icon:'👔',name:'Career',desc:'Jobs, certifications, skills, training, and continuing education records.'},
   {icon:'👨‍👩‍👧‍👦',name:'Kids',desc:'Children\'s info, schools, activities, and notes. Family member snapshots pull from here.'},
   {icon:'👤',name:'Contacts',desc:'Household contacts with type classification. Mark emergency contacts for the Emergency Info Card.'},
+  {icon:'📈',name:'Trade Terminal',desc:'Bloomberg-style market terminal linked from the nav bar. Live stock quotes, AI analysis, options chains, economic indicators, portfolio tracking, and social sentiment. Access at /trade.html. Opens in a new tab.'},
 ];
 
 const AUTOMATION = [
@@ -168,7 +178,303 @@ const FAQ = [
   {q:'How do I print an Emergency Info Card?',a:'Reports → Emergency → View & Print. The card includes emergency contacts, medications, conditions, allergies, and insurance info.'},
   {q:'What are webhooks used for?',a:'Webhooks let Ghrava notify external tools when things happen — backup completed, document expiring, HSA pool threshold reached. Set them up in Settings → Webhooks.'},
   {q:'How do I add recurring bills?',a:'Finance → Transactions tab → Recurring section → + Add. Choose frequency (monthly, biweekly, etc.) and it auto-generates transactions on schedule.'},
+  {q:'How do I access the Trade Terminal?',a:'Click Terminal in the left navigation bar. It opens in a new tab at /trade.html. You can also bookmark it directly.'},
+  {q:'Why is the Portfolio tab empty in the terminal?',a:'Go to Finance → Import and upload a CSV from your broker (Schwab, Vanguard, TSP, etc.). Once imported, the Portfolio tab reads your holdings automatically. Click Refresh after each new import.'},
+  {q:'Is AI analysis free? Will I get charged?',a:'Gemini Flash-Lite (the default) includes 1,000 free requests per day — more than enough for personal use. If you exceed this or use a different model, charges are roughly $0.0003 per analysis (about $0.09 for 300 analyses). You can see your usage at aistudio.google.com.'},
+  {q:'What is the yield curve and why does it matter?',a:'The yield curve compares short-term vs long-term US Treasury interest rates. When long-term rates are higher than short-term (normal), the economy is healthy. When it inverts (short-term higher), it has historically predicted a recession 12-18 months ahead. Watch this in the terminal under Macro tab.'},
+  {q:'What does VIX above 30 mean?',a:'VIX measures expected stock market volatility. Above 30 means investors are fearful — historically this is often a good buying opportunity because fear is usually overblown. Below 15 means markets are complacent. Watch it in the Macro tab.'},
+  {q:'What is an options contract?',a:'An options contract gives you the right (but not obligation) to buy (call) or sell (put) 100 shares of a stock at a specific price (strike) before a specific date (expiry). You pay a premium for this right. Options amplify gains and losses. The terminal shows an options chain with available strikes and prices.'},
 ];
+
+// Trade Terminal help — v202605.187+
+// Every terminal feature added must have an entry here.
+const TERMINAL_HELP = [
+  {
+    section: 'Getting Started',
+    items: [
+      {
+        label: 'What is the Trade Terminal?',
+        desc: 'A personal Bloomberg-style trading research tool built into Ghrava. It gives you live stock prices, AI-powered trade analysis, an options chain, economic indicators, social sentiment, and a view of your investment portfolio — all in one place. It does not execute trades; it is a research and analysis tool only.',
+        link: null,
+      },
+      {
+        label: 'How to open it',
+        desc: 'Click <strong>Terminal</strong> in the left navigation bar. It opens in a new browser tab. You can also bookmark /trade.html directly for quick access from your phone or desktop.',
+        link: null,
+      },
+      {
+        label: 'Where data is stored',
+        desc: 'All your settings, API keys, watchlist, and analysis history save automatically to your NAS at /app/data/trading.json. Nothing is stored in your browser — you can clear your browser or switch devices and everything is still there.',
+        link: null,
+      },
+    ]
+  },
+  {
+    section: 'Live Market Data',
+    items: [
+      {
+        label: 'How live prices work',
+        desc: 'The terminal tries three data sources in order, automatically falling back if one fails. A coloured badge on the Watchlist shows which source delivered your data and why others were skipped. <strong>Yahoo Finance</strong> (free, no key) → <strong>Finnhub</strong> (free key, 60 calls/min) → <strong>Alpha Vantage</strong> (free key, 25 calls/day).',
+        link: null,
+      },
+      {
+        label: 'Yahoo Finance (default)',
+        desc: 'Works out of the box with no account or key. Prices are proxied through your Ghrava server to avoid browser security restrictions. Best option for most users.',
+        link: null,
+      },
+      {
+        label: 'Finnhub (recommended free upgrade)',
+        desc: 'Sign up at finnhub.io — email and password only, no credit card. Gives 60 calls per minute (vs 25 per day on Alpha Vantage). Also powers the Earnings Calendar, company fundamentals, insider transactions, and analyst recommendations. Add your key in Settings → Market Data.',
+        link: 'https://finnhub.io/register',
+      },
+      {
+        label: 'Alpha Vantage (news feed)',
+        desc: 'Free key from alphavantage.co — email only. 25 price calls per day, but recommended regardless of your primary provider because it powers the News tab sentiment feed. Add your key in Settings → Market Data.',
+        link: 'https://www.alphavantage.co/support/#api-key',
+      },
+      {
+        label: 'Polygon.io (real options data)',
+        desc: 'Free key from polygon.io — email only, no credit card. Unlocks real options chains with actual strike prices, expiry dates, and last trade prices (15-minute delay on free tier). Without this key the Options tab shows estimated/simulated data. Add your key in Settings → Market Data.',
+        link: 'https://polygon.io/dashboard/signup',
+      },
+    ]
+  },
+  {
+    section: 'AI Analysis',
+    items: [
+      {
+        label: 'How to get a free AI key',
+        desc: 'Go to aistudio.google.com and click "Get API key". It is free — Google gives you 1,000 requests per day at no charge. No credit card required. Paste the key into Settings → AI Provider → Gemini 2.5 Flash-Lite. This is the only key you need to get started.',
+        link: 'https://aistudio.google.com/app/apikey',
+      },
+      {
+        label: 'What the AI actually knows about a stock',
+        desc: 'Before generating any analysis, the terminal automatically fetches: live price, 52-week high/low, P/E ratio, market cap, EPS, beta, dividend yield, upcoming earnings date and estimates, recent insider buys/sells (executives trading their own stock), analyst consensus (how many Wall St analysts say Buy/Hold/Sell), recent SEC filings (8-K, 10-Q), congressional trades (Senate/House members who bought or sold this stock), and technical indicators from the chart (RSI, MACD, Bollinger Bands, moving averages). All of this context goes into the AI prompt automatically.',
+        link: null,
+      },
+      {
+        label: 'Congressional trades — what they are',
+        desc: 'Under the STOCK Act, US senators and House members must publicly disclose stock trades within 45 days. This public data is pulled into the terminal automatically when you run an analysis. Politicians have been shown to outperform the market — their trades can be a useful signal. Note: amounts are reported as ranges ($1k-$15k, $50k-$100k), not exact figures.',
+        link: 'https://efts.senate.gov/LATEST/search-index?q=stock+act',
+      },
+      {
+        label: 'Reading the AI result',
+        desc: '<strong>Action:</strong> BUY/SELL/HOLD/AVOID — the AI's recommendation. <strong>Confidence:</strong> 1-10 how certain it is (7+ = higher conviction). <strong>Entry:</strong> suggested price to enter the trade. <strong>Target:</strong> where the AI expects price to go. <strong>Stop loss:</strong> where to exit if the trade goes wrong. <strong>Risk/reward:</strong> ratio of potential gain to potential loss (2:1 means you could make twice what you risk). <strong>Thesis:</strong> the reasoning. <strong>Key risks:</strong> what could go wrong.',
+        link: null,
+      },
+      {
+        label: 'Save to Ghrava',
+        desc: 'The "📁 Save to Ghrava" button saves your AI analysis as a Document record in Ghrava under the category "Trade Research", tagged with the ticker symbol. You can then find it later in Ghrava → Documents. The button detects duplicates — saving the same ticker on the same day twice creates only one record.',
+        link: null,
+      },
+    ]
+  },
+  {
+    section: 'Reading the Charts',
+    items: [
+      {
+        label: 'Candlestick chart — basics',
+        desc: 'Each bar represents one day's price action. A <strong style="color:#4ade80">green candle</strong> means the stock closed higher than it opened (good day). A <strong style="color:#f87171">red candle</strong> means it closed lower (bad day). The thin lines above and below (wicks) show the highest and lowest prices reached during the day. The thick body shows where the price opened and closed.',
+        link: null,
+      },
+      {
+        label: 'Volume bars',
+        desc: 'The bars at the bottom show how many shares were traded that day. High volume on an up day = strong buying. High volume on a down day = strong selling. Low volume moves are less reliable signals.',
+        link: null,
+      },
+      {
+        label: 'RSI — Relative Strength Index',
+        desc: 'A number from 0 to 100 that measures how fast the price has been moving. <strong>Above 70:</strong> the stock has moved up quickly and may be "overbought" — due for a pullback. <strong>Below 30:</strong> the stock has fallen quickly and may be "oversold" — a potential buying opportunity. <strong>Around 50:</strong> neutral, no strong signal. RSI works best on daily charts. Select RSI in the chart overlay buttons.',
+        link: 'https://www.investopedia.com/terms/r/rsi.asp',
+      },
+      {
+        label: 'MACD — Moving Average Convergence Divergence',
+        desc: 'Shows the relationship between two moving averages of the price. When the blue MACD line crosses above the orange signal line = bullish signal (momentum turning positive). When it crosses below = bearish signal. The histogram bars show the gap between the two lines — green bars growing = increasing bullish momentum. Select MACD in the chart overlay buttons.',
+        link: 'https://www.investopedia.com/terms/m/macd.asp',
+      },
+      {
+        label: 'Bollinger Bands',
+        desc: 'Three lines: a middle moving average and two outer bands that expand and contract based on volatility. Price touching the upper band = potentially overbought. Price touching the lower band = potentially oversold. When the bands are very narrow (squeeze), a big move is usually coming — direction not guaranteed. Select BB in the chart overlay buttons.',
+        link: 'https://www.investopedia.com/terms/b/bollingerbands.asp',
+      },
+      {
+        label: 'SMA — Simple Moving Average',
+        desc: 'The average closing price over the last N days, plotted as a line. SMA20 (amber) = 20-day average, short-term trend. SMA50 (purple) = 50-day average, medium-term trend. When the price is above both = bullish. When SMA20 crosses above SMA50 = "golden cross", a strong bullish signal. When SMA20 crosses below SMA50 = "death cross", bearish.',
+        link: null,
+      },
+    ]
+  },
+  {
+    section: 'Options Chain',
+    items: [
+      {
+        label: 'What is an options contract?',
+        desc: 'An options contract gives you the <em>right but not obligation</em> to buy (call) or sell (put) 100 shares of a stock at a fixed price (the strike) before a specific date (expiry). You pay a premium upfront. Options can be used to bet on direction, hedge a position, or generate income. They can expire worthless — only use money you can afford to lose.',
+        link: 'https://www.investopedia.com/options-basics-tutorial-4583012',
+      },
+      {
+        label: 'Call vs Put',
+        desc: '<strong>Call:</strong> the right to BUY at the strike price. You want calls when you think the stock will go UP. <strong>Put:</strong> the right to SELL at the strike price. You want puts when you think the stock will go DOWN, or to protect a position you own.',
+        link: null,
+      },
+      {
+        label: 'ITM — In The Money',
+        desc: 'A call is ITM when the current stock price is above the strike (you could exercise it profitably). A put is ITM when the current price is below the strike. ITM options have intrinsic value. OTM (out of the money) options are cheaper but require a bigger move to become profitable.',
+        link: null,
+      },
+      {
+        label: 'Strike price',
+        desc: 'The price at which you can buy (call) or sell (put) the underlying stock. If AAPL is at $200 and you buy a call with a $210 strike, AAPL needs to go above $210 for you to profit (before paying the premium).',
+        link: null,
+      },
+      {
+        label: 'Premium',
+        desc: 'The price you pay per share for the options contract. Since each contract covers 100 shares, multiply the premium by 100 for the total cost. If the premium shows $3.50, the contract costs $350 total.',
+        link: null,
+      },
+      {
+        label: 'Real vs simulated data',
+        desc: 'Without a Polygon.io key in Settings, the Options tab shows estimated data based on the live price. With a free Polygon key, you get real options chains with actual market prices (15-minute delayed). Greeks (Delta, Gamma, Theta) are only available on paid Polygon tiers.',
+        link: 'https://polygon.io/dashboard/signup',
+      },
+    ]
+  },
+  {
+    section: 'Macro Economic Tab',
+    items: [
+      {
+        label: 'What is the Macro tab?',
+        desc: 'Shows key economic indicators from the Federal Reserve's free FRED database. No API key required. These indicators give you the "big picture" context for any trade — what interest rates are doing, whether inflation is high, how worried investors are, and whether a recession is likely.',
+        link: 'https://fred.stlouisfed.org',
+      },
+      {
+        label: 'Fed Funds Rate',
+        desc: 'The interest rate the Federal Reserve sets. When rates go up, borrowing costs more for everyone — businesses, mortgages, car loans. High rates slow the economy and often hurt stock prices, especially growth stocks (tech). Low rates stimulate borrowing and spending, which usually helps stocks.',
+        link: 'https://fred.stlouisfed.org/series/FEDFUNDS',
+      },
+      {
+        label: 'Yield Curve (10Y minus 2Y)',
+        desc: 'Compares 10-year vs 2-year US Treasury interest rates. Normal = 10Y higher than 2Y (investors expect growth). Inverted = 2Y higher than 10Y — this has preceded every US recession since 1955, usually by 12-18 months. The terminal shows the spread with a clear warning when inverted.',
+        link: 'https://fred.stlouisfed.org/series/T10Y2Y',
+      },
+      {
+        label: 'VIX — The Fear Gauge',
+        desc: 'Measures expected stock market volatility over the next 30 days. VIX above 30 = investors are fearful (often a contrarian buying signal). VIX below 15 = investors are complacent (markets may be overvalued). VIX spikes during crashes and selloffs.',
+        link: 'https://fred.stlouisfed.org/series/VIXCLS',
+      },
+      {
+        label: 'CPI — Consumer Price Index',
+        desc: 'Tracks the average price of everyday goods and services. Rising CPI = inflation. The Fed raises interest rates to fight inflation, which slows the economy. High inflation = bad for bonds and often bad for growth stocks, but can benefit commodity and energy companies.',
+        link: 'https://fred.stlouisfed.org/series/CPIAUCSL',
+      },
+      {
+        label: 'AI Market Outlook button',
+        desc: 'Sends all the current indicator values to the AI and asks for a plain-English assessment: which sectors look good, which to avoid, what risks to watch. Updates automatically when you refresh the indicators.',
+        link: null,
+      },
+    ]
+  },
+  {
+    section: 'Portfolio Tab',
+    items: [
+      {
+        label: 'Ghrava Holdings view',
+        desc: 'Reads your actual investment positions from Finance → Holdings — the same data imported from your Schwab, Vanguard, or TSP CSV statements. Shows each account with its tax treatment, all positions with cost basis, current price, and gain/loss. Live price overlay uses your watchlist quotes if the stock is on your watchlist.',
+        link: null,
+      },
+      {
+        label: 'How to populate it',
+        desc: 'Go to Ghrava → Finance → Import tab. Upload a positions CSV from your broker. After import, come back to the terminal Portfolio tab and click Refresh. Do this once per broker statement period to keep it current.',
+        link: null,
+      },
+      {
+        label: 'Tax Treatment',
+        desc: 'Set this on each investment account in Finance → Accounts (edit any Brokerage/TSP/Retirement account). Options: Taxable, Traditional IRA, Roth IRA, TSP, HSA. Used by the AI for tax-aware advice — for example, it might suggest holding high-growth stocks in a Roth IRA where gains are tax-free.',
+        link: null,
+      },
+      {
+        label: 'Performance chart',
+        desc: 'Shows your total portfolio value over time, pulled from daily snapshots Ghrava captures automatically. Three views: $ Value (total portfolio worth), $ Gain (unrealized profit/loss), % Return. The allocation strip below shows your breakdown by asset type (stock, ETF, mutual fund, etc.).',
+        link: null,
+      },
+      {
+        label: 'AI button on each holding',
+        desc: 'Click AI ▶ on any position to jump to the AI Analyst tab with that stock pre-filled and your cost basis automatically injected into the analysis context. The AI then knows you own it and at what price.',
+        link: null,
+      },
+    ]
+  },
+  {
+    section: 'Social & News',
+    items: [
+      {
+        label: 'StockTwits',
+        desc: 'A social network specifically for traders. Shows real-time posts tagged with a stock symbol, with a bullish/bearish sentiment bar showing the ratio of positive to negative posts. No account required. Proxied through your Ghrava server.',
+        link: 'https://stocktwits.com',
+      },
+      {
+        label: 'Reddit sentiment',
+        desc: 'Browse r/wallstreetbets, r/stocks, r/investing, r/options, r/stockmarket, or r/SecurityAnalysis. Search by ticker to filter posts about a specific stock. Uses Reddit's public data with no account required.',
+        link: null,
+      },
+      {
+        label: 'Fear & Greed Index',
+        desc: 'CNN's 0-100 market sentiment gauge. Below 25 = Extreme Fear (market panic — historically a buying opportunity). Above 75 = Extreme Greed (euphoria — historically a warning to be cautious). Around 50 = neutral.',
+        link: 'https://edition.cnn.com/markets/fear-and-greed',
+      },
+      {
+        label: 'Customising links',
+        desc: 'All Reddit subreddits, X/Twitter links, and external sources (TradingView, Finviz, etc.) are fully customisable in Settings → Social & External Links. Add any URL, enable/disable sources, and use {TICKER} as a placeholder — it gets replaced with your active symbol automatically.',
+        link: null,
+      },
+    ]
+  },
+  {
+    section: 'Settings — All Keys',
+    items: [
+      {
+        label: 'Keys never lost',
+        desc: 'All API keys save automatically to your NAS (/app/data/trading.json) when you click Save in Settings. They are not stored in your browser. Clearing browser data, switching devices, or redeploying Ghrava will not lose your keys.',
+        link: null,
+      },
+      {
+        label: 'Gemini AI key (for AI analysis)',
+        desc: 'Free — 1,000 requests/day. Sign up at aistudio.google.com → Get API key. No credit card. Copy the key and paste into Settings → AI Provider → Gemini 2.5 Flash-Lite.',
+        link: 'https://aistudio.google.com/app/apikey',
+      },
+      {
+        label: 'Finnhub key (for fundamentals + earnings)',
+        desc: 'Free — 60 calls/minute. Sign up at finnhub.io/register — email only. Enables: company fundamentals (P/E, market cap, beta), insider transactions, analyst recommendations, earnings calendar.',
+        link: 'https://finnhub.io/register',
+      },
+      {
+        label: 'Alpha Vantage key (for news sentiment)',
+        desc: 'Free — 25 calls/day. Sign up at alphavantage.co — email only. Powers the News tab market sentiment feed. Recommended even if Yahoo is your primary price source.',
+        link: 'https://www.alphavantage.co/support/#api-key',
+      },
+      {
+        label: 'Polygon.io key (for real options)',
+        desc: 'Free — email signup at polygon.io. Unlocks real options chain data (15-min delayed). Without this the Options tab shows estimated data.',
+        link: 'https://polygon.io/dashboard/signup',
+      },
+    ]
+  },
+];
+
+document.getElementById('terminalList').innerHTML = TERMINAL_HELP.map(group => `
+  <div style="margin-bottom:20px">
+    <div style="font-size:12px;font-weight:600;color:var(--accent);letter-spacing:.08em;margin-bottom:8px;text-transform:uppercase;padding-bottom:4px;border-bottom:1px solid var(--border)">${group.section}</div>
+    ${group.items.map(item => `
+      <div class="module-row" style="margin-bottom:6px;align-items:flex-start">
+        <div style="min-width:0;flex:1">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px">
+            <div style="font-weight:600;font-size:13px;color:var(--text)">${item.label}</div>
+            ${item.link ? `<a href="${item.link}" target="_blank" style="font-size:10px;color:var(--accent);text-decoration:none;flex-shrink:0">Learn more ↗</a>` : ''}
+          </div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.7">${item.desc}</div>
+        </div>
+      </div>`).join('')}
+  </div>`).join('');
 
 // v202604.166 — Operational commands shown in Help → Commands.
 // RULE: every drop that adds a CLI tool / docker exec / one-time op

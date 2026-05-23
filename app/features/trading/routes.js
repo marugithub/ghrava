@@ -570,6 +570,149 @@ router.post('/reports/save-to-ghrava', (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+
+// GET FRED macro indicators (Federal Reserve Bank of St. Louis — free, no key)
+// Fetches key economic indicators that provide market context for AI analysis
+router.get('/market/macro', async (req, res) => {
+  const https = require('https');
+  const FRED_BASE = 'https://fred.stlouisfed.org/graph/fredgraph.csv?id=';
+
+  // Fetch a single FRED series — returns CSV, we just want the last value
+  const fetchSeries = (seriesId) => new Promise((resolve) => {
+    https.get(`${FRED_BASE}${seriesId}`, {
+      headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' }
+    }, r => {
+      let body = '';
+      r.on('data', c => body += c);
+      r.on('end', () => {
+        try {
+          const lines = body.trim().split('
+').filter(l => l && !l.startsWith('DATE'));
+          const last  = lines[lines.length - 1];
+          const [date, value] = last.split(',');
+          const num = parseFloat(value);
+          resolve({ date: date?.trim(), value: isNaN(num) ? null : num });
+        } catch(e) { resolve({ date: null, value: null }); }
+      });
+    }).on('error', () => resolve({ date: null, value: null }));
+  });
+
+  try {
+    // Fetch all indicators in parallel
+    const [fedRate, cpi, unemployment, t10y, t2y, sp500, vix] = await Promise.all([
+      fetchSeries('FEDFUNDS'),      // Federal Funds Rate
+      fetchSeries('CPIAUCSL'),      // Consumer Price Index
+      fetchSeries('UNRATE'),        // Unemployment Rate
+      fetchSeries('DGS10'),         // 10-Year Treasury Yield
+      fetchSeries('DGS2'),          // 2-Year Treasury Yield
+      fetchSeries('SP500'),         // S&P 500
+      fetchSeries('VIXCLS'),        // VIX Volatility Index
+    ]);
+
+    // Yield curve spread: 10Y minus 2Y (negative = inverted = recession signal)
+    const yieldSpread = (t10y.value != null && t2y.value != null)
+      ? parseFloat((t10y.value - t2y.value).toFixed(3))
+      : null;
+
+    res.json({
+      fedRate:      { value: fedRate.value,      label: 'Fed Funds Rate',       unit: '%',  date: fedRate.date },
+      cpi:          { value: cpi.value,          label: 'CPI Index',            unit: '',   date: cpi.date,   note:'Higher = more inflation' },
+      unemployment: { value: unemployment.value, label: 'Unemployment Rate',    unit: '%',  date: unemployment.date },
+      t10y:         { value: t10y.value,         label: '10-Year Treasury',     unit: '%',  date: t10y.date },
+      t2y:          { value: t2y.value,          label: '2-Year Treasury',      unit: '%',  date: t2y.date },
+      yieldSpread:  { value: yieldSpread,        label: 'Yield Curve (10Y-2Y)', unit: '%',  date: t10y.date, note: yieldSpread < 0 ? 'INVERTED — historically precedes recession' : yieldSpread < 0.5 ? 'Flat — watch for inversion' : 'Normal' },
+      sp500:        { value: sp500.value,        label: 'S&P 500',              unit: '',   date: sp500.date },
+      vix:          { value: vix.value,          label: 'VIX Volatility',       unit: '',   date: vix.date,   note: vix.value > 30 ? 'HIGH FEAR — potential buying opportunity' : vix.value < 15 ? 'Low — markets complacent' : 'Normal' },
+      _source: 'FRED — Federal Reserve Bank of St. Louis',
+      _note: 'Data may lag 1-30 days depending on release schedule',
+    });
+  } catch(e) {
+    res.status(502).json({ error: 'FRED fetch failed: ' + e.message });
+  }
+});
+
+// GET real options chain via Polygon.io (free tier — delayed 15min)
+// Requires a free Polygon key from polygon.io — email signup, no CC
+router.get('/market/options/:symbol', async (req, res) => {
+  const symbol     = req.params.symbol.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+  const polygonKey = req.query.key || '';
+  const expiry     = req.query.expiry || '';
+
+  if (!polygonKey) return res.status(400).json({ error: 'Polygon API key required. Get a free key at polygon.io' });
+
+  const https = require('https');
+  try {
+    // Step 1: get available expiry dates
+    const expiries = await new Promise((resolve, reject) => {
+      const url = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&expired=false&limit=20&apiKey=${polygonKey}`;
+      https.get(url, { headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' } }, r => {
+        let b = ''; r.on('data', c => b += c);
+        r.on('end', () => {
+          try {
+            const d = JSON.parse(b);
+            if (d.status === 'ERROR' || d.error) return reject(new Error(d.error || 'Polygon error'));
+            const dates = [...new Set((d.results || []).map(c => c.expiration_date))].sort().slice(0, 8);
+            resolve(dates);
+          } catch(e) { reject(e); }
+        });
+      }).on('error', reject);
+    });
+
+    if (!expiries.length) return res.json({ expiries: [], contracts: [], symbol, _source: 'Polygon.io' });
+
+    // Step 2: get contracts for selected expiry
+    const targetExpiry = expiry || expiries[1] || expiries[0];
+    const contracts = await new Promise((resolve, reject) => {
+      const url = `https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=${symbol}&expiration_date=${targetExpiry}&expired=false&limit=50&apiKey=${polygonKey}`;
+      https.get(url, { headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' } }, r => {
+        let b = ''; r.on('data', c => b += c);
+        r.on('end', () => {
+          try {
+            const d = JSON.parse(b);
+            resolve((d.results || []).map(c => ({
+              ticker:      c.ticker,
+              strike:      c.strike_price,
+              type:        c.contract_type,  // call | put
+              expiry:      c.expiration_date,
+              shares:      c.shares_per_contract || 100,
+            })));
+          } catch(e) { reject(e); }
+        });
+      }).on('error', reject);
+    });
+
+    // Step 3: get last quotes for each contract (snapshot)
+    // Polygon free tier: use /v2/last/trade for individual contracts
+    const withPrices = await Promise.all(
+      contracts.slice(0, 30).map(async c => {
+        try {
+          const snap = await new Promise((resolve, reject) => {
+            const url = `https://api.polygon.io/v2/last/trade/${c.ticker}?apiKey=${polygonKey}`;
+            https.get(url, { headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' } }, r => {
+              let b = ''; r.on('data', d => b += d);
+              r.on('end', () => {
+                try { resolve(JSON.parse(b)); } catch(e) { resolve({}); }
+              });
+            }).on('error', () => resolve({}));
+          });
+          return { ...c, last: snap?.results?.p || null, size: snap?.results?.s || null };
+        } catch(e) { return { ...c, last: null }; }
+      })
+    );
+
+    res.json({
+      symbol,
+      expiry:    targetExpiry,
+      expiries,
+      contracts: withPrices,
+      _source:   'Polygon.io',
+      _delayed:  '15 minutes (free tier)',
+    });
+  } catch(e) {
+    res.status(502).json({ error: 'Polygon options fetch failed: ' + e.message });
+  }
+});
+
 // ── WRITES ────────────────────────────────────────────────────────
 
 // POST save all trading data
