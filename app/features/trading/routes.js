@@ -529,6 +529,121 @@ router.get('/watchlist/summary', async (req, res) => {
   } catch(e) { serverError(res, e); }
 });
 
+// GET upcoming earnings for the user's actual Ghrava holdings (Phase 3D, v.192).
+// Cross-references the symbols in `holdings` (joined via financial_accounts, is_active=1)
+// against Finnhub's free earnings calendar for the next 30 days, then attaches each
+// position's aggregated context (shares + cost basis + current P&L) so the AI can
+// reason about earnings as 'something I hold' rather than 'something on a list'.
+//
+// Finnhub key comes from trading.json settings (server-side read) so it doesn't
+// hit URL/access logs and the frontend doesn't have to pass it.
+router.get('/portfolio/earnings-calendar', async (req, res) => {
+  try {
+    const data = readData();
+    const finnhubKey = data?.settings?.finnhubKey;
+    if (!finnhubKey) {
+      return res.status(400).json({
+        error: 'Finnhub API key required. Add it in Settings → Market Data.',
+        items: [],
+      });
+    }
+
+    // 1. Pull holdings grouped by symbol (aggregate across multiple accounts).
+    // Reads the same financial_accounts/holdings tables as /portfolio/live.
+    const tableCheck = db.prepare(
+      `SELECT name FROM sqlite_master WHERE type='table' AND name='financial_accounts'`
+    ).get();
+    if (!tableCheck) return res.json({ items: [], _note: 'No investment accounts found' });
+
+    // schema: financial_accounts(id, is_active) + holdings(symbol, shares, cost_basis,
+    //         market_value, gain_loss_dollar, gain_loss_pct, asset_type, account_id)
+    const rows = db.prepare(`
+      SELECT h.symbol, h.shares, h.cost_basis, h.market_value,
+             h.gain_loss_dollar, h.gain_loss_pct, h.asset_type,
+             fa.nickname AS account_name, fa.account_type, fa.tax_treatment
+      FROM holdings h
+      JOIN financial_accounts fa ON fa.id = h.account_id
+      WHERE fa.is_active = 1
+        AND h.symbol IS NOT NULL AND h.symbol != ''
+    `).all();
+
+    if (!rows.length) return res.json({ items: [], _note: 'No holdings imported yet' });
+
+    // Aggregate per-symbol: sum shares + market_value, weighted-avg cost basis,
+    // list accounts. Skip non-equity asset types (bond/cash/etc.) — they don't
+    // have earnings reports.
+    const bySym = new Map();
+    for (const r of rows) {
+      const t = (r.asset_type || '').toLowerCase();
+      if (t === 'bond' || t === 'cash' || t === 'other') continue; // skip non-equity
+      const sym = r.symbol.toUpperCase();
+      const agg = bySym.get(sym) || { symbol: sym, shares: 0, totalCost: 0, marketValue: 0, gainDollar: 0, accounts: [] };
+      const cost = (r.cost_basis || 0) * (r.shares || 0);
+      agg.shares      += r.shares || 0;
+      agg.totalCost   += cost;
+      agg.marketValue += r.market_value || 0;
+      agg.gainDollar  += r.gain_loss_dollar || 0;
+      agg.accounts.push(`${r.account_name}${r.tax_treatment ? ` (${r.tax_treatment})` : ''}`);
+      bySym.set(sym, agg);
+    }
+
+    if (!bySym.size) return res.json({ items: [], _note: 'No equity holdings found (only bonds/cash)' });
+
+    // 2. Fetch Finnhub earnings calendar for these symbols, next 30 days.
+    const today = new Date().toISOString().slice(0, 10);
+    const in30  = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
+    const syms  = [...bySym.keys()].join(',');
+
+    const https = require('https');
+    const earnings = await new Promise((resolve, reject) => {
+      const url = `https://finnhub.io/api/v1/calendar/earnings?from=${today}&to=${in30}&symbol=${encodeURIComponent(syms)}&token=${finnhubKey}`;
+      https.get(url, { headers: { 'User-Agent': 'GhravaTradeTerminal/1.0' } }, r => {
+        let b = ''; r.on('data', c => b += c);
+        r.on('end', () => {
+          try { resolve(JSON.parse(b)); }
+          catch (e) { reject(new Error('Finnhub response parse failed')); }
+        });
+      }).on('error', reject);
+    });
+
+    if (earnings?.error) return res.status(502).json({ error: 'Finnhub error: ' + earnings.error, items: [] });
+
+    // 3. Attach position context to each calendar entry.
+    const items = (earnings?.earningsCalendar || [])
+      .filter(e => e.symbol && e.date && bySym.has(e.symbol.toUpperCase()))
+      .map(e => {
+        const pos = bySym.get(e.symbol.toUpperCase());
+        const avgCost = pos.shares > 0 ? pos.totalCost / pos.shares : 0;
+        const gainPct = pos.totalCost > 0 ? (pos.gainDollar / pos.totalCost) * 100 : 0;
+        return {
+          symbol:           e.symbol.toUpperCase(),
+          date:             e.date,
+          hour:             e.hour || null,           // 'bmo' | 'amc' | null
+          epsEstimate:      e.epsEstimate ?? null,
+          epsPrior:         e.epsPrior ?? null,
+          revenueEstimate:  e.revenueEstimate ?? null,
+          revenueActual:    e.revenueActual ?? null,
+          position: {
+            shares:       parseFloat(pos.shares.toFixed(4)),
+            avg_cost:     parseFloat(avgCost.toFixed(4)),
+            market_value: parseFloat(pos.marketValue.toFixed(2)),
+            gain_dollar:  parseFloat(pos.gainDollar.toFixed(2)),
+            gain_pct:     parseFloat(gainPct.toFixed(4)),
+            accounts:     pos.accounts,
+          },
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    res.json({
+      items,
+      _as_of:  new Date().toISOString().slice(0, 10),
+      _source: 'finnhub_earnings + ghrava_holdings',
+    });
+  } catch (e) { serverError(res, e); }
+});
+
+
 // POST save analysis report to Ghrava Documents
 // Writes one new row to documents table — the ONLY write to lifetracker.db
 router.post('/reports/save-to-ghrava', (req, res) => {
