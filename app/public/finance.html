@@ -2616,6 +2616,9 @@ function onAccTypeChange() {
   // CC-specific section: only visible for Credit type.
   const ccBlock = $('accCcFields');
   if (ccBlock) ccBlock.style.display = (t === 'Credit') ? '' : 'none';
+  // Tax treatment: only relevant for investment account types
+  const taxBlock = $('accTaxTreatmentBlock');
+  if (taxBlock) taxBlock.style.display = isInv ? '' : 'none';
 }
 
 async function openAccountDrawer(id /*, sourceTable (legacy, ignored) */) {
@@ -2656,6 +2659,9 @@ async function openAccountDrawer(id /*, sourceTable (legacy, ignored) */) {
   $('accAsOf').value      = a.balance_as_of || new Date().toISOString().slice(0, 10);
   $('accInNw').checked    = a.include_net_worth !== 0;
   $('accNotes').value     = a.notes || '';
+  // Tax treatment — investment accounts only (migration 146)
+  const taxSel = $('accTaxTreatment');
+  if (taxSel) taxSel.value = a.tax_treatment || 'taxable';
   // Credit-card-specific (mig 128). Pull through; fields hidden when
   // type !== 'Credit' but values are still preserved on save.
   $('accCreditLimit').value      = (a.credit_limit            != null) ? a.credit_limit            : '';
@@ -2702,6 +2708,9 @@ async function saveAccount() {
       balance_as_of:          $('accAsOf').value || null,
       include_net_worth:      $('accInNw').checked ? 1 : 0,
       notes:                  $('accNotes').value.trim() || null,
+      tax_treatment:          ACC_TYPES_INVESTMENT.has(type)
+                                ? ($('accTaxTreatment')?.value || 'taxable')
+                                : null,
       contact_id:             $('accContactId').value ? parseInt($('accContactId').value) : null,
       institution_contact_id: $('accInstContact').value ? parseInt($('accInstContact').value) : null,
       family_member_ids:      GH_FAMILY.getIds('accFamilyWrap'),
@@ -3597,6 +3606,21 @@ async function deleteGc() {
     </div>
 
     <div class="form-group"><label class="form-label">Notes</label><textarea class="form-textarea" id="accNotes" style="min-height:56px"></textarea></div>
+
+    <!-- Tax treatment — migration 146. Shown only for Brokerage/TSP/Retirement. -->
+    <div id="accTaxTreatmentBlock" style="display:none;margin-bottom:12px">
+      <label class="form-label">Tax Treatment
+        <span style="font-size:10px;font-weight:400;color:var(--text3)">for trade terminal portfolio optimisation</span>
+      </label>
+      <select class="form-select" id="accTaxTreatment">
+        <option value="taxable">Taxable (Brokerage)</option>
+        <option value="traditional_ira">Traditional IRA</option>
+        <option value="roth_ira">Roth IRA</option>
+        <option value="tsp">TSP (Thrift Savings Plan)</option>
+        <option value="hsa">HSA</option>
+        <option value="other">Other</option>
+      </select>
+    </div>
     <div id="accFamilyWrap" style="margin-bottom:12px"></div>
     <div class="form-group"><label class="form-label" style="font-size:12px">Bank Contact <span style="font-size:10px;font-weight:400;color:var(--text3)">optional</span></label><select class="form-select" id="accContactId"></select></div>
 

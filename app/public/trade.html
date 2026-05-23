@@ -293,7 +293,7 @@ async function callProvider(prompt, provider, apiKeys) {
   throw new Error(`Unknown provider: ${provider}`);
 }
 
-async function analyzeStock({ symbol, quote, timeframe, context='', settings, enrichment=null }) {
+async function analyzeStock({ symbol, quote, timeframe, context='', settings, enrichment=null, techContext='' }) {
   const { provider='gemini', apiKeys={} } = settings || {};
   const qStr = quote
     ? `Price: $${parseFloat(quote.price).toFixed(2)} | Change: ${quote.chg>=0?'+':''}${parseFloat(quote.chg).toFixed(2)} (${parseFloat(quote.pct).toFixed(2)}%) | Day Range: $${parseFloat(quote.l||0).toFixed(2)}–$${parseFloat(quote.h||0).toFixed(2)}`
@@ -329,6 +329,7 @@ async function analyzeStock({ symbol, quote, timeframe, context='', settings, en
     if (e.recentFilings && e.recentFilings.length > 0) {
       lines.push(`Recent SEC Filings: ${e.recentFilings.slice(0,3).map(f=>f.form+' ('+f.filed+')').join(', ')}`);
     }
+    if (techContext) lines.push(techContext);
     if (lines.length > 0) enrichBlock = '\n' + lines.join('\n');
   }
 
@@ -892,16 +893,120 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
 // AI ANALYST TAB
 // ═══════════════════════════════════════════════════════════════
 
+
+// ═══════════════════════════════════════════════════════════════
+// TECHNICAL INDICATOR MATH (client-side, no API)
+// Input: array of close prices (oldest first)
+// ═══════════════════════════════════════════════════════════════
+
+function calcSMA(closes, period) {
+  return closes.map((_, i) => {
+    if (i < period - 1) return null;
+    const slice = closes.slice(i - period + 1, i + 1);
+    return slice.reduce((a, b) => a + b, 0) / period;
+  });
+}
+
+function calcEMA(closes, period) {
+  const k = 2 / (period + 1);
+  const ema = [closes[0]];
+  for (let i = 1; i < closes.length; i++) {
+    ema.push(closes[i] * k + ema[i - 1] * (1 - k));
+  }
+  return ema;
+}
+
+function calcRSI(closes, period = 14) {
+  if (closes.length < period + 1) return closes.map(() => null);
+  const rsi = Array(period).fill(null);
+  let gains = 0, losses = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d > 0) gains += d; else losses -= d;
+  }
+  let avgG = gains / period, avgL = losses / period;
+  rsi.push(avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL));
+  for (let i = period + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    avgG = (avgG * (period - 1) + Math.max(d, 0)) / period;
+    avgL = (avgL * (period - 1) + Math.max(-d, 0)) / period;
+    rsi.push(avgL === 0 ? 100 : 100 - 100 / (1 + avgG / avgL));
+  }
+  return rsi;
+}
+
+function calcMACD(closes, fast = 12, slow = 26, signal = 9) {
+  if (closes.length < slow + signal) return { macd: [], signal: [], histogram: [] };
+  const emaFast = calcEMA(closes, fast);
+  const emaSlow = calcEMA(closes, slow);
+  const macd    = emaFast.map((v, i) => (v != null && emaSlow[i] != null) ? v - emaSlow[i] : null);
+  const macdVal = macd.filter(v => v != null);
+  const sigEMA  = calcEMA(macdVal, signal);
+  const sigFull = macd.map((v, i) => {
+    if (v == null) return null;
+    const idx = macd.slice(0, i + 1).filter(x => x != null).length - 1;
+    return sigEMA[idx] ?? null;
+  });
+  const histogram = macd.map((v, i) => (v != null && sigFull[i] != null) ? v - sigFull[i] : null);
+  return { macd, signal: sigFull, histogram };
+}
+
+function calcBollingerBands(closes, period = 20, stdDev = 2) {
+  const sma = calcSMA(closes, period);
+  return sma.map((mid, i) => {
+    if (mid == null) return { upper: null, mid: null, lower: null };
+    const slice = closes.slice(i - period + 1, i + 1);
+    const variance = slice.reduce((s, v) => s + Math.pow(v - mid, 2), 0) / period;
+    const sd = Math.sqrt(variance) * stdDev;
+    return { upper: mid + sd, mid, lower: mid - sd };
+  });
+}
+
+// Format indicator values for AI prompt context
+function buildTechContext(closes, symbol) {
+  if (!closes || closes.length < 30) return '';
+  const rsi    = calcRSI(closes);
+  const macd   = calcMACD(closes);
+  const bb     = calcBollingerBands(closes);
+  const sma20  = calcSMA(closes, 20);
+  const sma50  = calcSMA(closes, Math.min(50, closes.length));
+  const last   = closes.length - 1;
+  const price  = closes[last];
+
+  const rsiVal = rsi[last]?.toFixed(1) ?? '—';
+  const macdVal = macd.macd[last]?.toFixed(3) ?? '—';
+  const sigVal  = macd.signal[last]?.toFixed(3) ?? '—';
+  const histVal = macd.histogram[last];
+  const bbLast  = bb[last];
+  const sma20v  = sma20[last]?.toFixed(2) ?? '—';
+  const sma50v  = sma50[last]?.toFixed(2) ?? '—';
+
+  const rsiLabel = rsi[last] >= 70 ? 'overbought' : rsi[last] <= 30 ? 'oversold' : 'neutral';
+  const macdDir  = histVal > 0 ? 'bullish crossover' : 'bearish crossover';
+  const bbPos    = bbLast?.upper && bbLast?.lower
+    ? price >= bbLast.upper ? 'above upper band (overbought)'
+      : price <= bbLast.lower ? 'below lower band (oversold)'
+      : 'within bands'
+    : '—';
+
+  return `Technicals (${symbol}): RSI(14)=${rsiVal} (${rsiLabel}) | MACD=${macdVal} Signal=${sigVal} (${macdDir}) | BB: ${bbPos} | SMA20=$${sma20v} | SMA50=$${sma50v}`;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // PRICE CHART
 // ═══════════════════════════════════════════════════════════════
-const PriceChart = ({ symbol }) => {
-  const [range, setRange] = useState('3mo');
+const PriceChart = ({ symbol, onTechContext }) => {
+  const [range, setRange]     = useState('3mo');
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [err, setErr] = useState('');
-  const canvasRef = useRef(null);
-  const chartRef  = useRef(null);
+  const [err, setErr]         = useState('');
+  const [overlay, setOverlay] = useState('none'); // none | sma | bb | rsi | macd
+  const canvasRef  = useRef(null);
+  const rsiRef     = useRef(null);
+  const macdRef    = useRef(null);
+  const chartRef   = useRef(null);
+  const rsiChart   = useRef(null);
+  const macdChart  = useRef(null);
 
   const RANGES = ['1wk','1mo','3mo','6mo','1y','2y'];
 
@@ -921,114 +1026,245 @@ const PriceChart = ({ symbol }) => {
 
   useEffect(() => {
     if (!candles.length || !canvasRef.current) return;
-    if (chartRef.current) chartRef.current.destroy();
+    [chartRef, rsiChart, macdChart].forEach(r => { if (r.current) { r.current.destroy(); r.current = null; } });
 
     const closes = candles.map(c => c.c);
-    const labels  = candles.map(c => {
-      const d = new Date(c.t);
-      return d.toLocaleDateString('en-US', { month:'short', day:'numeric' });
-    });
+    const opens  = candles.map(c => c.o);
+    const highs  = candles.map(c => c.h);
+    const lows   = candles.map(c => c.l);
+    const vols   = candles.map(c => c.v || 0);
+    const labels = candles.map(c => new Date(c.t).toLocaleDateString('en-US', { month:'short', day:'numeric' }));
 
-    // Colour: green if end > start, red if not
-    const lineColor = closes[closes.length-1] >= closes[0] ? '#4ade80' : '#f87171';
-    const fillColor = closes[closes.length-1] >= closes[0] ? 'rgba(74,222,128,0.12)' : 'rgba(248,113,113,0.12)';
+    // Push tech context up to parent (AI Analyst)
+    if (onTechContext && closes.length >= 30) {
+      onTechContext(buildTechContext(closes, symbol));
+    }
 
-    // Load Chart.js dynamically if not already loaded
     const draw = () => {
-      const ctx = canvasRef.current.getContext('2d');
+      // ── Main price chart ──
+      const ctx = canvasRef.current?.getContext('2d');
+      if (!ctx) return;
+
+      // Candlestick simulation using floating bar chart
+      // Each candle = { x: label, y: [low, high] } for wick
+      // Colored bar from open to close
+      const candleData = candles.map(c => ({
+        x: new Date(c.t).toLocaleDateString('en-US',{month:'short',day:'numeric'}),
+        o: c.o, h: c.h, l: c.l, c: c.c,
+      }));
+
+      // Build datasets based on overlay
+      const datasets = [];
+
+      // Candle body — floating bar from open to close
+      datasets.push({
+        type: 'bar',
+        label: 'Price',
+        data: candleData.map(c => [Math.min(c.o,c.c), Math.max(c.o,c.c)]),
+        backgroundColor: candleData.map(c => c.c >= c.o ? 'rgba(74,222,128,0.85)' : 'rgba(248,113,113,0.85)'),
+        borderColor:     candleData.map(c => c.c >= c.o ? '#4ade80' : '#f87171'),
+        borderWidth: 1,
+        barPercentage: 0.5,
+        yAxisID: 'yPrice',
+      });
+
+      // Wick — high-low line via scatter
+      datasets.push({
+        type: 'bar',
+        label: 'Wick',
+        data: candleData.map(c => [c.l, c.h]),
+        backgroundColor: candleData.map(c => c.c >= c.o ? 'rgba(74,222,128,0.5)' : 'rgba(248,113,113,0.5)'),
+        borderColor: 'transparent',
+        borderWidth: 0,
+        barPercentage: 0.1,
+        yAxisID: 'yPrice',
+      });
+
+      // Volume bars
+      datasets.push({
+        type: 'bar',
+        label: 'Volume',
+        data: vols,
+        backgroundColor: candleData.map(c => c.c >= c.o ? 'rgba(74,222,128,0.15)' : 'rgba(248,113,113,0.15)'),
+        borderWidth: 0,
+        yAxisID: 'yVol',
+        barPercentage: 0.9,
+      });
+
+      // SMA overlays
+      if (overlay === 'sma') {
+        const sma20 = calcSMA(closes, 20);
+        const sma50 = calcSMA(closes, Math.min(50, closes.length));
+        datasets.push({ type:'line', label:'SMA20', data:sma20, borderColor:'#f59e0b', borderWidth:1.5, pointRadius:0, yAxisID:'yPrice' });
+        datasets.push({ type:'line', label:'SMA50', data:sma50, borderColor:'#818cf8', borderWidth:1.5, pointRadius:0, yAxisID:'yPrice' });
+      }
+
+      // Bollinger Bands
+      if (overlay === 'bb') {
+        const bb = calcBollingerBands(closes);
+        datasets.push({ type:'line', label:'Upper', data:bb.map(b=>b.upper), borderColor:'rgba(148,163,184,0.6)', borderWidth:1, pointRadius:0, yAxisID:'yPrice', fill:false });
+        datasets.push({ type:'line', label:'Mid',   data:bb.map(b=>b.mid),   borderColor:'rgba(148,163,184,0.9)', borderWidth:1.5, pointRadius:0, yAxisID:'yPrice', fill:false });
+        datasets.push({ type:'line', label:'Lower', data:bb.map(b=>b.lower), borderColor:'rgba(148,163,184,0.6)', borderWidth:1, pointRadius:0, yAxisID:'yPrice', fill:false });
+      }
+
       chartRef.current = new window.Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets:[{
-            data: closes,
-            borderColor: lineColor,
-            backgroundColor: fillColor,
-            borderWidth: 2,
-            pointRadius: 0,
-            pointHoverRadius: 4,
-            fill: true,
-            tension: 0.3,
-          }]
-        },
+        type: 'bar',
+        data: { labels, datasets },
         options: {
-          responsive: true, maintainAspectRatio: false,
-          animation: { duration: 400 },
-          interaction: { mode:'index', intersect:false },
+          responsive: true, maintainAspectRatio: false, animation:{ duration:300 },
+          interaction:{ mode:'index', intersect:false },
           plugins: {
-            legend: { display:false },
-            tooltip: {
-              backgroundColor: C.panel,
-              borderColor: C.border,
-              borderWidth: 1,
-              titleColor: C.muted,
-              bodyColor: C.text,
-              callbacks: {
-                label: ctx => ` $${parseFloat(ctx.raw).toFixed(2)}`,
+            legend:{ display: overlay==='sma'||overlay==='bb' },
+            tooltip:{
+              backgroundColor:C.panel, borderColor:C.border, borderWidth:1,
+              titleColor:C.muted, bodyColor:C.text,
+              callbacks:{
+                label: ctx => {
+                  if (ctx.dataset.label==='Volume') return ` Vol: ${(ctx.raw||0).toLocaleString()}`;
+                  if (ctx.dataset.label==='Wick') return null;
+                  if (Array.isArray(ctx.raw)) return ` $${parseFloat(ctx.raw[0]).toFixed(2)} – $${parseFloat(ctx.raw[1]).toFixed(2)}`;
+                  return ctx.raw != null ? ` $${parseFloat(ctx.raw).toFixed(2)}` : null;
+                },
+                filter: item => item.dataset.label !== 'Wick',
               }
             },
           },
           scales: {
-            x: {
-              grid: { color: C.border+'44', drawTicks:false },
-              ticks: { color: C.muted, maxTicksLimit: 8, font:{ size:11 } },
-            },
-            y: {
-              position: 'right',
-              grid: { color: C.border+'44', drawTicks:false },
-              ticks: { color: C.muted, font:{ size:11 },
-                callback: v => '$'+parseFloat(v).toFixed(0) },
-            }
-          },
+            x:{ grid:{ color:C.border+'22' }, ticks:{ color:C.muted, maxTicksLimit:8, font:{size:10} } },
+            yPrice:{ position:'right', grid:{ color:C.border+'22' }, ticks:{ color:C.muted, font:{size:10}, callback: v => '$'+parseFloat(v).toFixed(0) } },
+            yVol:{ position:'left', grid:{ display:false }, ticks:{ display:false }, max: Math.max(...vols) * 5 },
+          }
         }
       });
+
+      // ── RSI sub-chart ──
+      if (overlay === 'rsi' && rsiRef.current) {
+        const rsi = calcRSI(closes);
+        rsiChart.current = new window.Chart(rsiRef.current.getContext('2d'), {
+          type: 'line',
+          data: { labels, datasets:[{
+            data: rsi, borderColor:'#a78bfa', borderWidth:1.5,
+            pointRadius:0, fill:false,
+          }]},
+          options:{
+            responsive:true, maintainAspectRatio:false, animation:{duration:300},
+            plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: c => ` RSI: ${parseFloat(c.raw||0).toFixed(1)}` } } },
+            scales:{
+              x:{ display:false },
+              y:{ position:'right', min:0, max:100, grid:{ color:C.border+'22' },
+                ticks:{ color:C.muted, font:{size:9}, callback: v=>`${v}` },
+                afterBuildTicks: axis => { axis.ticks = [{value:30},{value:50},{value:70}]; } },
+            }
+          }
+        });
+      }
+
+      // ── MACD sub-chart ──
+      if (overlay === 'macd' && macdRef.current) {
+        const { macd, signal, histogram } = calcMACD(closes);
+        macdChart.current = new window.Chart(macdRef.current.getContext('2d'), {
+          type: 'bar',
+          data: { labels, datasets:[
+            { type:'bar',  label:'Hist', data:histogram, backgroundColor:histogram.map(v=>v>=0?'rgba(74,222,128,0.5)':'rgba(248,113,113,0.5)'), borderWidth:0 },
+            { type:'line', label:'MACD', data:macd,      borderColor:'#60a5fa', borderWidth:1.5, pointRadius:0, fill:false },
+            { type:'line', label:'Sig',  data:signal,    borderColor:'#f59e0b', borderWidth:1.5, pointRadius:0, fill:false },
+          ]},
+          options:{
+            responsive:true, maintainAspectRatio:false, animation:{duration:300},
+            plugins:{ legend:{display:false} },
+            scales:{
+              x:{ display:false },
+              y:{ position:'right', grid:{ color:C.border+'22' }, ticks:{ color:C.muted, font:{size:9} } },
+            }
+          }
+        });
+      }
     };
 
-    if (window.Chart) {
-      draw();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
-      script.onload = draw;
-      document.head.appendChild(script);
+    if (window.Chart) draw();
+    else {
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js';
+      s.onload = draw;
+      document.head.appendChild(s);
     }
 
-    return () => { if (chartRef.current) { chartRef.current.destroy(); chartRef.current = null; } };
-  }, [candles]);
+    return () => {
+      [chartRef, rsiChart, macdChart].forEach(r => { if (r.current) { r.current.destroy(); r.current = null; } });
+    };
+  }, [candles, overlay]);
 
   const pct = candles.length >= 2
     ? ((candles[candles.length-1].c - candles[0].c) / candles[0].c * 100).toFixed(2)
     : null;
 
+  const showSub = overlay === 'rsi' || overlay === 'macd';
+
   return (
     <Panel>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10, flexWrap:'wrap', gap:8 }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8, flexWrap:'wrap', gap:6 }}>
         <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-          <PanelTitle>{symbol} PRICE CHART</PanelTitle>
+          <PanelTitle>{symbol} CHART</PanelTitle>
           {pct !== null && (
             <span style={{ color:parseFloat(pct)>=0?C.green:C.red, fontWeight:600, fontSize:13 }}>
               {parseFloat(pct)>=0?'+':''}{pct}%
             </span>
           )}
         </div>
-        <div style={{ display:'flex', gap:4 }}>
-          {RANGES.map(r => (
-            <button key={r} onClick={()=>{ setRange(r); fetchAndDraw(symbol, r); }}
-              style={{ background: range===r ? C.blue+'30' : 'transparent',
-                color: range===r ? C.blue : C.muted,
-                border: `1px solid ${range===r ? C.blue : C.border}`,
-                borderRadius:5, padding:'3px 9px', cursor:'pointer',
-                fontFamily:'inherit', fontSize:11, fontWeight: range===r ? 600 : 400 }}>
-              {r}
-            </button>
-          ))}
+        <div style={{ display:'flex', gap:6, flexWrap:'wrap' }}>
+          {/* Range selector */}
+          <div style={{ display:'flex', gap:3 }}>
+            {RANGES.map(r => (
+              <button key={r} onClick={()=>{ setRange(r); fetchAndDraw(symbol, r); }}
+                style={{ background:range===r?C.blue+'30':'transparent', color:range===r?C.blue:C.muted,
+                  border:`1px solid ${range===r?C.blue:C.border}`, borderRadius:5,
+                  padding:'3px 8px', cursor:'pointer', fontFamily:'inherit', fontSize:10,
+                  fontWeight:range===r?600:400 }}>{r}</button>
+            ))}
+          </div>
+          {/* Overlay selector */}
+          <div style={{ display:'flex', gap:3 }}>
+            {[['none','Candles'],['sma','SMA'],['bb','BB'],['rsi','RSI'],['macd','MACD']].map(([id,label]) => (
+              <button key={id} onClick={()=>setOverlay(id)}
+                style={{ background:overlay===id?C.purple+'30':'transparent', color:overlay===id?C.purple:C.muted,
+                  border:`1px solid ${overlay===id?C.purple:C.border}`, borderRadius:5,
+                  padding:'3px 8px', cursor:'pointer', fontFamily:'inherit', fontSize:10,
+                  fontWeight:overlay===id?600:400 }}>{label}</button>
+            ))}
+          </div>
         </div>
       </div>
+
       {loading && <div style={{ height:200, display:'flex', alignItems:'center', justifyContent:'center' }}><Spinner text="Loading chart…" /></div>}
-      {err && <div style={{ color:C.red, fontSize:12 }}>⚠ Chart: {err} — check Yahoo Finance proxy route in Ghrava</div>}
+      {err && <div style={{ color:C.red, fontSize:12 }}>⚠ {err}</div>}
       {!loading && !err && candles.length > 0 && (
-        <div style={{ height:220, position:'relative' }}>
-          <canvas ref={canvasRef} />
+        <div>
+          <div style={{ height:220, position:'relative' }}>
+            <canvas ref={canvasRef} />
+          </div>
+          {showSub && (
+            <div style={{ height:80, position:'relative', marginTop:4, borderTop:`1px solid ${C.border}` }}>
+              <div style={{ position:'absolute', top:3, left:6, fontSize:10, color:C.muted, fontWeight:600, zIndex:1 }}>
+                {overlay.toUpperCase()}
+              </div>
+              {overlay==='rsi' && <canvas ref={rsiRef} />}
+              {overlay==='macd' && <canvas ref={macdRef} />}
+            </div>
+          )}
+          {overlay==='rsi' && (
+            <div style={{ display:'flex', gap:12, fontSize:11, color:C.muted, marginTop:4 }}>
+              <span style={{ color:'#dc2626' }}>▬ &lt;30 oversold</span>
+              <span style={{ color:C.muted }}>▬ 50 neutral</span>
+              <span style={{ color:'#16a34a' }}>▬ &gt;70 overbought</span>
+            </div>
+          )}
+          {overlay==='macd' && (
+            <div style={{ display:'flex', gap:12, fontSize:11, marginTop:4 }}>
+              <span style={{ color:'#60a5fa' }}>▬ MACD</span>
+              <span style={{ color:'#f59e0b' }}>▬ Signal</span>
+              <span style={{ color:C.muted }}>▮ Histogram</span>
+            </div>
+          )}
         </div>
       )}
     </Panel>
@@ -1149,7 +1385,7 @@ const AIAnalystTab = ({ data, update, quotes }) => {
             </div>
             <AIResultCard result={result} symbol={result._sym} fundamentals={fundamentals} enrichment={resultEnrichment} />
           </Panel>
-          <PriceChart symbol={result._sym} />
+          <PriceChart symbol={result._sym} onTechContext={setTechContext} />
         </>
           );
         })()}

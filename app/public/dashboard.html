@@ -414,12 +414,57 @@
           </div>
           <div id="reviewList"></div>
           <a href="reports.html" style="display:block;margin-top:6px;font-size:11px;color:var(--accent);text-decoration:none">View in Reports → Tools →</a>
+        </div>
+        <div id="watchlistWidget" class="widget widget-wide" style="--w-accent:#3b82f6;display:none">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+            <div class="wgt-wide-icon" style="background:rgba(59,130,246,.12);color:#3b82f6">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            </div>
+            <div class="wgt-label" style="margin-bottom:0">Market Watchlist</div>
+            <a href="/trade.html" style="margin-left:auto;font-size:11px;color:#3b82f6;text-decoration:none;font-weight:600">Terminal ↗</a>
+          </div>
+          <div id="watchlistMoversList" style="display:flex;flex-direction:column;gap:4px"></div>
+          <div id="watchlistFooter" style="margin-top:8px;font-size:11px;color:var(--text3)"></div>
         </div>`;
 
     loadAttention();
     loadReviewCard();
+    loadWatchlistWidget();
   }
 
+
+  async function loadWatchlistWidget() {
+    try {
+      const r = await fetch('/api/v1/trading/watchlist/summary');
+      if (!r.ok) return;
+      const d = await r.json();
+      const movers = d.movers || [];
+      if (!movers.length) return;
+
+      const widget = document.getElementById('watchlistWidget');
+      const list   = document.getElementById('watchlistMoversList');
+      const footer = document.getElementById('watchlistFooter');
+      if (!widget || !list) return;
+
+      list.innerHTML = movers.slice(0, 5).map(m => {
+        const up    = m.pct >= 0;
+        const color = up ? '#22c55e' : '#ef4444';
+        const arrow = up ? '▲' : '▼';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid var(--border-light,rgba(0,0,0,.06))">
+          <span style="font-size:13px;font-weight:600;color:var(--text)">${m.symbol}</span>
+          <div style="display:flex;gap:12px;font-size:12px">
+            <span style="color:var(--text2)">$${parseFloat(m.price).toFixed(2)}</span>
+            <span style="color:${color};font-weight:600">${arrow} ${Math.abs(m.pct).toFixed(2)}%</span>
+          </div>
+        </div>`;
+      }).join('');
+
+      if (footer) footer.textContent = `${d.count || movers.length} symbols in watchlist`;
+      widget.style.display = '';
+    } catch(e) {
+      // Silent fail — terminal may not be deployed or NAS unreachable
+    }
+  }
 
   async function loadAttention() {
     try {
