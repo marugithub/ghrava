@@ -586,8 +586,7 @@ router.get('/market/macro', async (req, res) => {
       r.on('data', c => body += c);
       r.on('end', () => {
         try {
-          const lines = body.trim().split('
-').filter(l => l && !l.startsWith('DATE'));
+          const lines = body.trim().split('\n').filter(l => l && !l.startsWith('DATE'));
           const last  = lines[lines.length - 1];
           const [date, value] = last.split(',');
           const num = parseFloat(value);
