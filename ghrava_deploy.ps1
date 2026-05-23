@@ -247,7 +247,12 @@ if ($SkipRestart) {
 
     # Quick health check: any line containing 'error' or 'crash' that
     # ISN'T a stack trace from a known-recovered startup?
-    $errCount = ($logOut | Select-String -Pattern 'error|crash|unhandled' -CaseSensitive:$false).Count
+    # Exclude benign stat counters like '[data-cleanup] ... errors=0' where
+    # the substring 'errors' is a zero-valued counter, not an actual error.
+    $errLines = $logOut |
+        Select-String -Pattern 'error|crash|unhandled' -CaseSensitive:$false |
+        Where-Object { $_.Line -notmatch '\berrors?=0\b' }
+    $errCount = $errLines.Count
     if ($errCount -gt 0) {
         Warn "$errCount error-like line(s) in logs - eyeball above"
         L "Logs: $errCount error-like lines"
