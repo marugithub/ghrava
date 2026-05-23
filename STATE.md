@@ -69,6 +69,97 @@ principles.
 
 ---
 
+## 🚧 v.195 BUILT — Phase 5A Real Screener Universe (2026-05-23)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.195`.
+> Stacks on top of the un-deployed v.194 — v.194 + v.195 will ship
+> together as one bundle when Al says so. Zero new SQL, zero
+> migrations. One new backend route, one new on-disk cache file.
+
+### What's in v.195 (3 net-new commits, 1 feature)
+
+1. **`d71e07c` — Task 2 / Phase 5A backend: `/market/symbols`.**
+   New trading route fetches Finnhub `/stock/symbol?exchange=US`
+   (~10k US-listed symbols on the free tier) and caches in a
+   dedicated `/app/data/trading-cache.json` with 24h TTL. Kept
+   OUT of `trading.json` so the ~1MB payload doesn't round-trip
+   on every client save. Graceful-fallback contract handles all
+   four combinations of (cache present/absent) × (Finnhub key
+   present/absent or fetch ok/failed). Forced refresh via
+   `?refresh=1`. Slimmed response: keep symbol/displaySymbol/
+   description/type/currency/mic (drops figi/isin/share class —
+   irrelevant for a Screener filter, halves payload). 15s timeout
+   on the Finnhub call.
+
+2. **`8163f26` — Tasks 3+4 / Phase 5A frontend: universe view +
+   filters + freshness UI.** Replaces the old `MOCK_QUOTES`-driven
+   reference table in the Screener tab with a real filtered
+   universe view backed by the new route. Tasks 3+4 ship together
+   because the filter UI and cache-freshness UI live in the same
+   panel.
+   - Filters: substring on ticker + name, type select (sources
+     surfaced from the actual data — not hard-coded), exchange
+     select (MIC code).
+   - Sortable by symbol or description (alpha asc/desc).
+   - 100-row display cap for DOM perf; typical filter narrows
+     below 100 anyway.
+   - Row click → loads into the existing ticker lookup +
+     triggers a quote fetch (same UX as the old mock table).
+   - Freshness stamp: `<count> symbols · fetched X min/h/days ago`.
+   - `⟳ refresh` button forces re-fetch.
+   - Stale-cache notes from the backend render as italic muted
+     text under the filters when present.
+   - Footer note explicitly documents the free-tier limitation:
+     sector + market-cap filters need `/stock/profile2` per
+     symbol which the free tier can't sustain.
+   - Removed dead `MOCK_QUOTES`-driven helpers (`sector`, `sortBy`,
+     `sortDir` state; `all`/`sectors`/`filtered` derived blob;
+     `toggleSort`/`SortArrow` helpers).
+
+3. **Task 5 / docs + smoke + version bump (this commit).**
+   - `app/version.txt` → `202605.195`
+   - `smoke-test.sh` adds `/market/symbols` JSON assertion
+     (accepts 200 with cache OR 400 with no-key+no-cache as
+     healthy — both are correct shapes for prod).
+   - `TRADE_TERMINAL_INTEGRATION.md`: status line bumped to
+     'Phase 1 + 3A + 3B + 3C + 3D + 4A + 5A + 6 + 7 + 8'.
+     Item 17 added under '✅ DONE in v.195' with the free-tier
+     limitation explicit. Next-phases collapsed to just Phase 9
+     (last trade-terminal drop before Reports Redesign).
+   - `STATE.md` (this block).
+
+### Schema-safety gate
+
+Baseline unchanged from v.194 — `validate-schema.py --strict` exit
+2 with the same 12 flags (10 known 130/134 noise + 2 view-
+limitation false-positives on `routes.js:378` and `:727` — the
+new symbols route added 122 lines but doesn't shift those flag
+positions because it lands AFTER them). Zero new SQL. node --check
+passes on routes.js.
+
+### Tests
+
+E2E baseline `115/0` expected to hold — no migrations, no contract
+changes, additive feature only. The new smoke assertion is
+additive: 8 trading assertions total now.
+
+### What v.195 deliberately does NOT do
+
+- Sector + market-cap filters (documented as a Finnhub free-tier
+  limitation — would need `/stock/profile2` per symbol).
+- Live-price filtering across the universe (impossible at scale on
+  free APIs — the existing watchlist refresh handles live-price
+  needs for the user's subset).
+- The new on-disk `trading-cache.json` is not part of `trading.json`
+  — clients never write it. The cache file isn't included in the
+  deploy zip because it's runtime-generated (the route writes it
+  on first refresh).
+- Phase 9 (Mobile UX) → v.196 (last trade-terminal drop).
+- Reports Redesign → v.197+ per the design lock in
+  `REPORTS_REDESIGN_HANDOFF.md`'s refinement block.
+
+---
+
 ## 🚧 v.194 BUILT — Phase 8 Reports tab rich viewer (2026-05-23)
 
 > **Built locally, not yet deployed.** `version.txt`=`202605.194`.

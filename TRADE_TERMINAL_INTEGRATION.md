@@ -1,6 +1,6 @@
 # Trade Terminal — Ghrava Integration
-**Status:** Phase 1 + 3A + 3B + 3C + 3D + 4A + 6 + 7 + 8 LIVE on v202605.194 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192; Phases 3C/4A: v.193; Phase 8: v.194)
-**Built against:** Ghrava v202604.185 (extended through v202605.194)
+**Status:** Phase 1 + 3A + 3B + 3C + 3D + 4A + 5A + 6 + 7 + 8 LIVE on v202605.195 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192; Phases 3C/4A: v.193; Phase 8: v.194; Phase 5A: v.195)
+**Built against:** Ghrava v202604.185 (extended through v202605.195)
 **Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`, `app/public/finance.html`, `app/public/dashboard.html`, `app/features/finance/routes.js`
 **Migrations applied:** `146_financial_accounts_tax_treatment.sql`
 
@@ -123,6 +123,38 @@ without creating another row.
    `trading.json` under `settings.targetAllocation`. AI advice uses
    `callProvider()` with the user's configured provider; result can be saved as a
    report with `type='AI Rebalancing Advice'`.
+
+### ✅ DONE in v.195
+
+17. **Phase 5A — Real screener universe.** New backend route
+    `GET /api/v1/trading/market/symbols` fetches Finnhub's free
+    `/stock/symbol?exchange=US` (~10k US-listed symbols) and caches
+    the slim response in `/app/data/trading-cache.json` with a 24h
+    TTL. Cache lives in its OWN file (not `trading.json`) so the
+    ~1MB payload doesn't round-trip on every client save of
+    settings/watchlist/alerts. Graceful-fallback contract:
+    - Cache fresh + no `?refresh=1` → return cache, `_source='cache'`
+    - Cache stale OR forced refresh + key + fetch ok → fresh fetch,
+      persist, `_source='finnhub_fresh'`
+    - Fetch fails + cache present → stale cache with `_note`,
+      `_source='cache_stale_fetch_failed'`
+    - No key + cache present → stale cache with `_note`,
+      `_source='cache_stale_no_key'`
+    - No key + no cache → 400 with friendly error
+    Frontend: Screener tab's old hardcoded `MOCK_QUOTES` reference
+    table replaced with a real filtered universe view. Filters:
+    substring on ticker + company name, type select (Common Stock /
+    ETF / ADR / ...), exchange select (XNAS / XNYS / ARCX / ...).
+    Sortable by symbol or description. Results capped at 100 rows
+    for DOM perf (typical search narrows below 100 anyway).
+    Refresh button forces re-fetch. Friendly age stamp
+    ('fetched 2h ago').
+
+    **Limitation documented in the panel footer:** sector + market-
+    cap filters NOT available on Finnhub's free tier — would require
+    `/stock/profile2` per symbol (~10k API calls). The existing
+    lookup above the table provides full per-symbol metrics on
+    demand when the user picks a row.
 
 ### ✅ DONE in v.194
 
@@ -264,13 +296,10 @@ without creating another row.
 
 ## Next Phases (not yet built)
 
-**Phase 5A (v.195):** Real screener universe via Finnhub
-`/stock/symbol?exchange=US`, cached 24h in `trading.json`. Sector +
-market-cap + price filters in the Screener tab.
-
 **Phase 9 (v.196):** Mobile UX — responsive tab bar, watchlist column
 collapse, portfolio card view, chart height reduction, settings
-accordion sections.
+accordion sections. **This is the last trade-terminal drop** before
+the queue pivots to the Reports Redesign.
 
 **v.197+:** Reports Redesign drop 1 begins (the big `/reports.html`
 rewrite). See `REPORTS_REDESIGN_HANDOFF.md` for the locked spec —
