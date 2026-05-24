@@ -1208,6 +1208,7 @@ function buildTechContext(closes, symbol) {
 // PRICE CHART
 // ═══════════════════════════════════════════════════════════════
 const PriceChart = ({ symbol, onTechContext }) => {
+  const isMobile = useIsMobile();   // v.196 task 5 — chart height + sub-chart visibility
   const [range, setRange]     = useState('3mo');
   const [candles, setCandles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1536,7 +1537,11 @@ const PriceChart = ({ symbol, onTechContext }) => {
     : null;
 
   // Sub-chart only applies to single-symbol candlestick mode.
-  const showSub = (overlay === 'rsi' || overlay === 'macd') && compareSymbols.length === 0;
+  // Also hidden on mobile (Phase 9 task 5, v.196) — too narrow to be useful;
+  // overlay buttons remain visible but the sub-chart simply doesn't render
+  // (showing a "full chart on desktop" note instead).
+  const showSub = (overlay === 'rsi' || overlay === 'macd') && compareSymbols.length === 0 && !isMobile;
+  const subHiddenByMobile = (overlay === 'rsi' || overlay === 'macd') && isMobile;
 
   return (
     <Panel>
@@ -1613,13 +1618,19 @@ const PriceChart = ({ symbol, onTechContext }) => {
         )}
       </div>
 
-      {loading && <div style={{ height:200, display:'flex', alignItems:'center', justifyContent:'center' }}><Spinner text="Loading chart…" /></div>}
+      {loading && <div style={{ height: isMobile ? 140 : 200, display:'flex', alignItems:'center', justifyContent:'center' }}><Spinner text="Loading chart…" /></div>}
       {err && <div style={{ color:C.red, fontSize:12 }}>⚠ {err}</div>}
       {!loading && !err && candles.length > 0 && (
         <div>
-          <div style={{ height:220, position:'relative' }}>
+          {/* Phase 9 task 5 (v.196) — chart height 220 -> 160 on mobile to save space */}
+          <div style={{ height: isMobile ? 160 : 220, position:'relative' }}>
             <canvas ref={canvasRef} />
           </div>
+          {subHiddenByMobile && (
+            <div style={{ color:C.dimmed, fontSize:10, marginTop:6, fontStyle:'italic', textAlign:'center' }}>
+              {overlay.toUpperCase()} sub-chart hidden on mobile — open on desktop for the full indicator panel.
+            </div>
+          )}
           {showSub && (
             <div style={{ height:80, position:'relative', marginTop:4, borderTop:`1px solid ${C.border}` }}>
               <div style={{ position:'absolute', top:3, left:6, fontSize:10, color:C.muted, fontWeight:600, zIndex:1 }}>
