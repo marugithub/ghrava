@@ -69,12 +69,22 @@ principles.
 
 ---
 
-## 🚧 v.195 BUILT — Phase 5A Real Screener Universe (2026-05-23)
+## ✅ v.195 DEPLOYED & VERIFIED — Phase 5A Real Screener Universe (2026-05-23)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.195`.
-> Stacks on top of the un-deployed v.194 — v.194 + v.195 will ship
-> together as one bundle when Al says so. Zero new SQL, zero
-> migrations. One new backend route, one new on-disk cache file.
+> **DEPLOYED 2026-05-23 ~17:09 as part of the v.194+v.195 bundle.**
+> `version.txt`=`202605.195` live (`/api/v1/app/info` confirms).
+> Container restarted clean. Local + origin + NAS all at `7825f71`.
+> Smoke 8/8 + E2E 115/0 — baseline held through both drops.
+>
+> **Deploy quirk:** `ghrava_deploy.ps1` Step 6 (SSH `docker logs`
+> tail) hung indefinitely (~1h 21min before manual intervention),
+> blocking the script from reaching Steps 7-8 (smoke + E2E). The
+> deploy was functionally complete by Step 5 (container restarted,
+> /api/v1/app/info served the new version). Smoke + E2E run
+> manually via Playwright CLI against the live NAS confirmed
+> 8/8 + 115/0. New rule added to [[ghrava-deploy-ssh]]: if Step 6
+> log-tail SSH stalls > ~30s, verify the deploy via
+> /api/v1/app/info and run smoke/E2E manually instead of waiting.
 
 ### What's in v.195 (3 net-new commits, 1 feature)
 
@@ -160,13 +170,13 @@ additive: 8 trading assertions total now.
 
 ---
 
-## 🚧 v.194 BUILT — Phase 8 Reports tab rich viewer (2026-05-23)
+## ✅ v.194 DEPLOYED & VERIFIED — Phase 8 Reports tab rich viewer (2026-05-23)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.194`.
-> Stacks on top of the deployed v.193 (`bb39204`). Pure frontend
-> drop — zero new SQL, zero new backend routes, zero migrations.
-> Renames + dead-code removal mean the net trade.html growth is
-> modest (~+340 lines) for substantial new functionality.
+> **Built + deployed 2026-05-23 as part of the v.194+v.195 bundle.**
+> Stacked on top of the deployed v.193 (`bb39204`); bundle deploy
+> bumped straight to `202605.195`. v.194's `version.txt=202605.194`
+> was a transient label. Smoke 8/8 + E2E 115/0 confirmed against
+> the bundle.
 
 ### What's in v.194 (4 net-new commits, 1 docs commit, 1 feature)
 
