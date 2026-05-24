@@ -3,7 +3,7 @@
 **For:** Next Claude Code session OR new chat that picks up Reports work.
 **Created:** 2026-05-22 (end of v.185 design session).
 **Refined:** 2026-05-23 (post-v.193 design conversation — see REFINEMENT block below).
-**Status:** Design locked. Build NOT started. **Build sequenced AFTER trade-terminal Phase 8/5A/9 ship (v.194-v.196) — Reports Redesign starts at v.197.**
+**Status:** Foundation BUILT in v.197 (course-corrected from "scaffolding + Money LIVE in one drop" to "scaffolding only, Money live in v.198" mid-build because the realistic effort was ~1600 lines of new code in one drop — splitting reduced risk). v.197 ships the visible redesign with all 44 tiles non-functional ("Coming soon" toast). v.198 wires the 5 LIVE Money reports.
 
 ---
 

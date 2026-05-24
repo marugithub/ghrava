@@ -358,6 +358,10 @@ else fail "GET /trading/portfolio/earnings-calendar  (HTTP $code)"; fi
 # Always returns 200 (empty arrays + _note when no holdings); Yahoo failures degrade individual
 # correlation pairs without failing the whole route. Just verify it returns JSON.
 assert_keys "GET /trading/portfolio/correlation"       "$BASE/api/v1/trading/portfolio/correlation" "holdings sectors correlation_pairs"
+
+# ── Preferences / Reports Redesign (v.197) ──────────────────
+section "Preferences (v.197)"
+assert_keys "GET /preferences/pinned-reports" "$BASE/api/v1/preferences/pinned-reports" "pinned_reports"
 # /market/symbols (Phase 5A, v.195) — Finnhub-backed universe with 24h cache.
 # Accepts 200 (cache hit OR fresh fetch OR stale-cache fallback) AND 400 (no key + no cache yet).
 # Both shapes are healthy for prod; the route can't fail intrinsically as long as the route registers.

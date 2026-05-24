@@ -1,6 +1,8 @@
 # Trade Terminal — Ghrava Integration
-**Status:** Phase 1 + 3A + 3B + 3C + 3D + 4A + 5A + 6 + 7 + 8 LIVE on v202605.195 (Phase 1-2 via parallel chat: v.186-v.189; Phases 3A/3B/6: v.190-v.191; Phases 3D/7: v.192; Phases 3C/4A: v.193; Phase 8: v.194; Phase 5A: v.195)
-**Built against:** Ghrava v202604.185 (extended through v202605.195)
+**Status:** ALL PHASES (1, 3A, 3B, 3C, 3D, 4A, 5A, 6, 7, 8, 9) LIVE on v202605.196 — trade-terminal Phase 3-9 roadmap COMPLETE.
+**Built against:** Ghrava v202604.185 (extended through v202605.196). Reports Redesign Foundation (v.197) is a SEPARATE project — see `REPORTS_REDESIGN_HANDOFF.md`.
+
+**Phase 9 (v.196):** Mobile UX shipped — `useIsMobile()` hook, responsive tab bar, Watchlist 4-col on mobile, Portfolio card view, PriceChart 160px + sub-chart hidden, Settings accordion. Trade terminal closed.
 **Files changed:** `app/features/trading/routes.js`, `app/public/trade.html`, `app/public/finance.html`, `app/public/dashboard.html`, `app/features/finance/routes.js`
 **Migrations applied:** `146_financial_accounts_tax_treatment.sql`
 
