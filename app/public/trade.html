@@ -5574,8 +5574,33 @@ const SocialLinkList = ({ items, onChange, placeholder }) => {
 // ═══════════════════════════════════════════════════════════════
 // SETTINGS TAB
 // ═══════════════════════════════════════════════════════════════
-const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
+const SettingsTab = ({ data, update, setSaveMsg, saveMsg, isMobile }) => {
   const { settings={} } = data;
+  // Phase 9 task 6 (v.196) — collapsible accordion on mobile.
+  // Defaults: all open on desktop (no behavioural change), only first
+  // section open on mobile. Tap a section header to toggle.
+  const [openSections, setOpenSections] = useState({
+    provider:   true,                // always start with AI Provider open
+    market:     !isMobile,
+    appearance: !isMobile,
+    social:     !isMobile,
+  });
+  const toggleSection = (k) => setOpenSections(s => ({ ...s, [k]: !s[k] }));
+  // PanelTitle clickable + chevron on mobile; falls back to standard PanelTitle on desktop.
+  const SectionHeader = ({ k, children }) => {
+    if (!isMobile) return <PanelTitle>{children}</PanelTitle>;
+    const open = openSections[k];
+    return (
+      <div onClick={() => toggleSection(k)} style={{ cursor:'pointer',
+        display:'flex', alignItems:'center', gap:8, color:C.blue, fontWeight:700,
+        fontSize:13, letterSpacing:1, marginBottom: open ? 14 : 0,
+        paddingBottom: open ? 10 : 0,
+        borderBottom: open ? `1px solid ${C.border}` : 'none' }}>
+        <span style={{ fontSize:16 }}>{open ? '▾' : '▸'}</span>
+        <span>{children}</span>
+      </div>
+    );
+  };
   const [local, setLocal] = useState({
     // Full defaults first — ensures every field exists even if JSON predates it
     provider:       'gemini',
@@ -5655,7 +5680,8 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
 
       {/* AI PROVIDER */}
       <Panel style={{ marginBottom:14 }}>
-        <PanelTitle>AI PROVIDER — ANALYSIS ENGINE</PanelTitle>
+        <SectionHeader k="provider">AI PROVIDER — ANALYSIS ENGINE</SectionHeader>
+        {openSections.provider && <>
         <InfoBox title="COST GUIDE" color={C.amber}>
           <div style={{ color:C.text, fontSize:13, lineHeight:1.8 }}>
             Each "AI ▶" click = one API request. At ~10 analyses/day:<br/>
@@ -5698,11 +5724,13 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
             </div>
           </div>
         ))}
+        </>}
       </Panel>
 
       {/* MARKET DATA */}
       <Panel style={{ marginBottom:14 }}>
-        <PanelTitle>MARKET DATA — LIVE PRICES</PanelTitle>
+        <SectionHeader k="market">MARKET DATA — LIVE PRICES</SectionHeader>
+        {openSections.market && <>
 
         <InfoBox title="HOW FALLBACK WORKS" color={C.blue}>
           <div style={{ color:C.text, fontSize:12, lineHeight:1.8 }}>
@@ -5859,11 +5887,13 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
             {testResult.av && <div style={{ color:testResult.av.startsWith('✓')?C.green:C.red, fontSize:12, marginTop:6 }}>{testResult.av}</div>}
           </div>
         )}
+        </>}
       </Panel>
 
       {/* APPEARANCE */}      {/* APPEARANCE */}
       <Panel style={{ marginBottom:14 }}>
-        <PanelTitle>APPEARANCE — FONT & COLOURS</PanelTitle>
+        <SectionHeader k="appearance">APPEARANCE — FONT & COLOURS</SectionHeader>
+        {openSections.appearance && <>
         <div style={{ color:C.muted, fontSize:13, marginBottom:14 }}>Changes apply instantly. Saved to NAS with all other settings.</div>
 
         {/* Font size */}
@@ -5951,11 +5981,13 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
             Backed up by Ghrava's existing backup system automatically.
           </div>
         </InfoBox>
+        </>}
       </Panel>
 
       {/* SOCIAL & LINKS SETTINGS */}
       <Panel style={{ marginBottom:14 }} id="settings-social">
-        <PanelTitle>SOCIAL & EXTERNAL LINKS</PanelTitle>
+        <SectionHeader k="social">SOCIAL & EXTERNAL LINKS</SectionHeader>
+        {openSections.social && <>
         <div style={{ color:C.muted, fontSize:12, marginBottom:14, lineHeight:1.7 }}>
           Manage Reddit subreddits, X/Twitter feeds, and external links shown in the Social tab.
           Use <code style={{ color:C.blue }}>{`{TICKER}`}</code> in URLs — it gets replaced with the active symbol.
@@ -6007,6 +6039,7 @@ const SettingsTab = ({ data, update, setSaveMsg, saveMsg }) => {
             placeholder="https://..."
           />
         </div>
+        </>}
       </Panel>
 
       <Panel style={{ marginBottom:14 }}>
@@ -6303,7 +6336,7 @@ function App() {
         {activeTab==='macro'     && <MacroTab data={appData} />}
         {activeTab==='social'    && <SocialTab data={appData} quotes={quotes} />}
         {activeTab==='reports'   && <ReportsTab />}
-        {activeTab==='settings'  && <SettingsTab  data={appData} update={update} setSaveMsg={setSaveMsg} saveMsg={saveMsg} />}
+        {activeTab==='settings'  && <SettingsTab  data={appData} update={update} setSaveMsg={setSaveMsg} saveMsg={saveMsg} isMobile={isMobile} />}
       </div>
 
       {/* Footer */}
