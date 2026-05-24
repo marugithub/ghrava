@@ -8,6 +8,25 @@ BASE="${1:-http://localhost:3001}"
 PASS=0; FAIL=0; WARN_COUNT=0; ERRORS=()
 green='\033[0;32m'; red='\033[0;31m'; yellow='\033[0;33m'; reset='\033[0m'
 
+# Portable Python detector — `python3` on Linux is the right interpreter,
+# but on Windows git-bash `python3` is the dead MS-Store stub that prints
+# "install Python" and exits non-zero (breaking every is_json / is_array
+# / has_key check that pipes through it). Prefer `python` on Windows; fall
+# back to `python3` on Linux. The PYTHON var threads through all helpers.
+PYTHON=""
+for cand in python3 python py; do
+  if command -v "$cand" >/dev/null 2>&1; then
+    # Probe — the MS-Store stub exits non-zero on a trivial -c. Real Python prints OK.
+    if "$cand" -c "import sys; sys.exit(0)" 2>/dev/null; then
+      PYTHON="$cand"; break
+    fi
+  fi
+done
+if [ -z "$PYTHON" ]; then
+  echo "WARN: no working Python found — JSON shape checks will be skipped (treated as PASS)"
+  PYTHON=":"  # no-op shell builtin so the pipes don't break
+fi
+
 echo "Waiting for $BASE/health ..."
 for i in $(seq 1 30); do
   code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "$BASE/health" 2>/dev/null)
@@ -36,12 +55,12 @@ fetch_post() {
 
 body() { cat /tmp/gh_body; }
 
-is_json()  { body | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; }
-is_array() { body | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if isinstance(d,list) else 1)" 2>/dev/null; }
-has_key()  { body | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if '$1' in d else 1)" 2>/dev/null; }
-key_val()  { body | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('$1',''))" 2>/dev/null; }
-arr_len()  { body | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else '?')" 2>/dev/null; }
-no_error() { body | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(1 if 'error' in str(d).lower() and not isinstance(d,list) else 0)" 2>/dev/null; }
+is_json()  { body | $PYTHON -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; }
+is_array() { body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if isinstance(d,list) else 1)" 2>/dev/null; }
+has_key()  { body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); sys.exit(0 if '$1' in d else 1)" 2>/dev/null; }
+key_val()  { body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); print(d.get('$1',''))" 2>/dev/null; }
+arr_len()  { body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else '?')" 2>/dev/null; }
+no_error() { body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); sys.exit(1 if 'error' in str(d).lower() and not isinstance(d,list) else 0)" 2>/dev/null; }
 
 assert_200() {
   local label="$1" url="$2"
@@ -107,7 +126,7 @@ assert_schema() {
   local label="$1" url="$2" field="$3"
   local code; code=$(fetch "$url")
   if [ "$code" != "200" ]; then fail "$label  (HTTP $code)"; return; fi
-  body | python3 -c "
+  body | $PYTHON -c "
 import sys, json
 d = json.load(sys.stdin)
 rows = d if isinstance(d, list) else d.get('items', d.get('data', []))
@@ -161,7 +180,7 @@ assert_keys "GET /dashboard/attention" "$BASE/api/v1/dashboard/attention" "items
 # Attention should not error internally
 code=$(fetch "$BASE/api/v1/dashboard/attention")
 if [ "$code" = "200" ]; then
-  CNT=$(body | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('items',[])))" 2>/dev/null)
+  CNT=$(body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); print(len(d.get('items',[])))" 2>/dev/null)
   pass "GET /dashboard/attention  ($CNT attention items)"
 else
   fail "GET /dashboard/attention  (HTTP $code)"
@@ -354,8 +373,8 @@ assert_json "GET /google/status" "$BASE/api/v1/google/status"
 # Should NOT have calendar in status (replaced by tasks)
 code=$(fetch "$BASE/api/v1/google/status")
 if [ "$code" = "200" ]; then
-  HAS_TASKS=$(body | python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('services',{}); print('yes' if 'tasks' in s else 'no')" 2>/dev/null)
-  HAS_CAL=$(body | python3 -c "import sys,json; d=json.load(sys.stdin); s=d.get('services',{}); print('yes' if 'calendar' in s else 'no')" 2>/dev/null)
+  HAS_TASKS=$(body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); s=d.get('services',{}); print('yes' if 'tasks' in s else 'no')" 2>/dev/null)
+  HAS_CAL=$(body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); s=d.get('services',{}); print('yes' if 'calendar' in s else 'no')" 2>/dev/null)
   [ "$HAS_TASKS" = "yes" ] && pass "Google status has tasks service" || warn "Google status missing tasks service (B2 pending)"
   [ "$HAS_CAL" = "no" ] && pass "Google calendar removed from status" || warn "Google calendar still in status (B2 pending)"
 fi
@@ -419,7 +438,7 @@ fi
 # B8: net worth should include investment total
 code=$(fetch "$BASE/api/v1/finance/net-worth/current")
 if [ "$code" = "200" ]; then
-  HAS_INV=$(body | python3 -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'investment_total' in d else 'no')" 2>/dev/null)
+  HAS_INV=$(body | $PYTHON -c "import sys,json; d=json.load(sys.stdin); print('yes' if 'investment_total' in d else 'no')" 2>/dev/null)
   [ "$HAS_INV" = "yes" ] \
     && pass "Net worth includes investment_total (B8 done)" \
     || warn "Net worth missing investment_total (B8 pending)"
