@@ -1,0 +1,60 @@
+/* gh-print.css — Print stylesheet for /reports.html and report viewer pages (v.197)
+ *
+ * Foundation drop ships the stylesheet; v.198+ viewer pages link it
+ * via <link rel="stylesheet" href="/gh-print.css" media="print">.
+ * Print can ship functional immediately via window.print() per the
+ * locked Reports Redesign spec (other exports stay display-only for
+ * now).
+ *
+ * Lives at /app/public/gh-print.css (web root) rather than /js/ so
+ * <link media="print"> doesn't have a JS-script extension mismatch.
+ */
+@media print {
+  /* Hide chrome that doesn't belong on paper */
+  nav, .gh-sidebar, .gh-header,
+  .reports-tabs, .gh-tabs,
+  .gh-filters, .pinned-strip,
+  .gh-tile, .gh-tile *,
+  #gh-drilldown, #gh-drilldown *,
+  button, [role="button"],
+  .gh-print-hide {
+    display: none !important;
+  }
+
+  /* Keep page content visible + paper-readable */
+  body, html, .reports-container, .reports-shell, .reports-left {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Reports viewer tables — readable on paper */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 11px;
+  }
+  th, td {
+    border: 1px solid #ccc;
+    padding: 4px 6px;
+    text-align: left;
+  }
+  th {
+    background: #f3f4f6 !important;
+    color: black !important;
+    font-weight: 600;
+  }
+
+  /* Report title row stays — strip the action buttons via the .gh-print-hide
+     class consumers add. */
+  h1, h2, .rep-title {
+    color: black !important;
+    margin-top: 0;
+  }
+
+  /* Default A4 page margins */
+  @page {
+    margin: 12mm;
+  }
+}
