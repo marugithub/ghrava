@@ -120,6 +120,7 @@ app.use('/api/v1/notifications', require('./features/notifications/routes'));
 app.use('/api/v1/dashboard',     require('./features/dashboard/routes'));
 app.use('/api/v1/today',         require('./features/today/routes'));
 app.use('/api/v1/settings',      require('./features/settings/routes'));
+app.use('/api/v1/preferences',   require('./features/preferences/routes'));  // v.197 — Reports Redesign pinned-reports
 app.use('/api/v1/hsa',           require('./features/hsa/routes'));
 app.use('/api/v1/medical',       require('./features/medical/routes'));
 app.use('/api/v1/medical',       require('./features/medical/seed-routes'));
