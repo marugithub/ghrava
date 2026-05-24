@@ -106,32 +106,94 @@
 </head>
 <body>
 <script>window.GH_PAGE = { module:'reports', title:'Reports' };</script>
+<link rel="stylesheet" href="/gh-print.css" media="print">
 <script src="/nav.js"></script>
 <script src="/js/lt-core.js"></script>
 <script src="/js/lt-messages.js"></script>
 <script src="/js/pending-report.js"></script>
+<!-- Reports Redesign Foundation (v.197) — shared components -->
+<script src="/js/gh-tile.js"></script>
+<script src="/js/gh-drilldown.js"></script>
+<script src="/js/gh-filter-strip.js"></script>
+<script src="/js/gh-report-states.js"></script>
 
 <div id="app">
   <div class="reports-container">
+
+    <!-- Reports Redesign Foundation (v.197) ── #30a locked layout ─────────
+         Replaces the old 7-tab loose-card layout with: header (icon + title
+         + Lens search + count) + Pinned strip + 5-tab row + per-tab tile
+         grid. Tile grids are NON-FUNCTIONAL in v.197 (every click → 'Coming
+         soon' toast). v.198 wires the 5 Money reports live. Pending tab
+         keeps the existing v.171 PendingReport.mount() behavior unchanged.
+    ───────────────────────────────────────────────────────────────────── -->
+
+    <!-- Page header — icon, title + count subtitle, Lens search, New report -->
+    <div class="rep-header" style="display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:10px;min-width:140px">
+        <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center">
+          <span style="font-size:18px">📊</span>
+        </div>
+        <div>
+          <div style="font-size:16px;font-weight:500;color:var(--text);line-height:1.1">Reports</div>
+          <div id="repHeaderCount" style="font-size:11px;color:var(--text3)">— reports · 0 pinned</div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:200px" id="repLensWrap">
+        <!-- Lens search renders here via GH_LENS.init or a simple input fallback -->
+        <input id="repLensInput" placeholder="🔍 narrow by report name or description…"
+          style="width:100%;background:var(--bg2);border:0.5px solid var(--border);border-radius:999px;
+            padding:7px 14px;color:var(--text);font-family:inherit;font-size:13px;outline:none">
+      </div>
+    </div>
+
+    <!-- Pinned strip — populated from /api/v1/preferences/pinned-reports -->
+    <div id="repPinnedWrap" style="margin-bottom:18px;display:none">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        <span style="font-size:13px">📌</span>
+        <span style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--text3);font-weight:500">Pinned</span>
+      </div>
+      <div id="repPinnedGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px"></div>
+    </div>
+
+    <!-- Tab row — 5 tabs per locked spec, Money first (most-used) -->
     <div class="reports-tabs" id="reportsTabs">
-      <button class="reports-tab active" data-tab="overview"    onclick="switchTab('overview',this)">Overview</button>
-      <button class="reports-tab"        data-tab="pending"     onclick="switchTab('pending',this)" title="Bank charges waiting to be linked to the right car, prescription, item, or subscription">Pending <span id="pendingTabCount" style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px"></span></button>
-      <button class="reports-tab"        data-tab="charts"      onclick="switchTab('charts',this)" title="Visual reports — preview design">📊 Charts <span style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px">preview</span></button>
-      <button class="reports-tab"        data-tab="family"      onclick="switchTab('family',this)">Family</button>
-      <button class="reports-tab"        data-tab="money"       onclick="switchTab('money',this)">Money</button>
-      <button class="reports-tab"        data-tab="maintenance" onclick="switchTab('maintenance',this)">Maintenance</button>
-      <button class="reports-tab"        data-tab="system"      onclick="switchTab('system',this)">System</button>
+      <button class="reports-tab active" data-tab="money"      onclick="switchTab('money',this)">Money <span id="repCount_money" class="rep-tab-count"></span></button>
+      <button class="reports-tab"        data-tab="health"     onclick="switchTab('health',this)">Health <span id="repCount_health" class="rep-tab-count"></span></button>
+      <button class="reports-tab"        data-tab="household"  onclick="switchTab('household',this)">Household <span id="repCount_household" class="rep-tab-count"></span></button>
+      <button class="reports-tab"        data-tab="family"     onclick="switchTab('family',this)">Family <span id="repCount_family" class="rep-tab-count"></span></button>
+      <button class="reports-tab"        data-tab="pending"    onclick="switchTab('pending',this)"
+        title="Bank charges waiting to be linked to the right car, prescription, item, or subscription">Pending <span id="pendingTabCount" style="font-size:10px;color:var(--text3);font-weight:400;margin-left:4px"></span></button>
     </div>
-    <div class="reports-shell">
-      <div class="reports-left" id="reportsLeft">
-        <div class="spinner"><div class="spin"></div>Loading…</div>
-      </div>
-      <div class="reports-right empty" id="reportsRight">
-        <div>Select a report on the left to see details here.</div>
-      </div>
+
+    <!-- Tab content. Pending uses pendingRoot for the existing PendingReport.mount.
+         All other tabs render their tile grid into repTabContent via JS. -->
+    <div id="repTabContent">
+      <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
+    <div id="pendingRoot" style="display:none"></div>
+
+    <!-- LEGACY HIDDEN SHELL — kept so the unreachable renderer functions
+         below don't throw on getElementById('reportsLeft'/'reportsRight').
+         Removed in v.198+ when those functions are deleted. -->
+    <div class="reports-shell" style="display:none">
+      <div class="reports-left" id="reportsLeft"></div>
+      <div class="reports-right empty" id="reportsRight"><div></div></div>
+    </div>
+
   </div>
 </div>
+
+<!-- Tile-grid styles for the new layout — small helpers, kept inline -->
+<style>
+  .rep-tab-count { font-size:10px;color:var(--text3);font-weight:400;margin-left:4px }
+  .rep-tab-count.active { color:var(--accent) }
+  .rep-group-label { font-size:10px;text-transform:lowercase;letter-spacing:.04em;color:var(--text3);font-weight:500;margin:18px 0 8px 2px }
+  .rep-group-label:first-child { margin-top:6px }
+  .rep-tile-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-bottom:6px }
+  @media (max-width:899px) { .rep-tile-grid { grid-template-columns:repeat(auto-fill,minmax(150px,1fr)) } }
+  @media (max-width:640px) { .rep-tile-grid { grid-template-columns:1fr 1fr } }
+</style>
 
 <script>
 // ── Report Registry — add new reports here only ───────────────
@@ -215,8 +277,301 @@ const EDIT_PATHS = {
   'maint-rollup': '/property.html',
 };
 
-let activeTab = 'overview';
+let activeTab = 'money';   // v.197 default
 let activeReportId = null;
+
+// ── Reports Redesign Foundation (v.197) ───────────────────────
+// Locked tile lists per REPORTS_REDESIGN_HANDOFF.md 2026-05-23 refinement block.
+// Format: { groups: [ { label, tiles: [ { slug, title, meta, icon, color, live? } ] } ] }
+// 'live' is OPTIONAL — defaults to false (Coming soon toast). v.198+ flips
+// individual tiles to live as their viewer pages get wired.
+const REPORT_TABS_V2 = {
+  money: {
+    label: 'Money',
+    icon: '💰',
+    color: 'var(--green,#22c55e)',
+    groups: [
+      { label: 'spending', tiles: [
+        { slug:'spending-by-cat', title:'Spending by category',  meta:'per-category totals, current month + YTD' },
+        { slug:'top-vendors',     title:'Top vendors',           meta:'treemap of vendor totals' },
+        { slug:'spending-cal',    title:'Spending calendar',     meta:'heatmap of daily spend' },
+        { slug:'category-trends', title:'Category trends',       meta:'small-multiples, top categories' },
+      ]},
+      { label: 'income & cash', tiles: [
+        { slug:'income-flow',     title:'Income → categories',   meta:'Sankey, where every dollar went' },
+        { slug:'cash-flow',       title:'Cash-flow forecast',    meta:'projected balance 30/60/90 days' },
+        { slug:'net-worth',       title:'Net worth trend',       meta:'monthly snapshots' },
+      ]},
+      { label: 'tax & receipts', tiles: [
+        { slug:'hsa-fsa-irs',     title:'HSA & FSA — IRS ready', meta:'tax-export, current year' },
+        { slug:'subs-renewals',   title:'Subscriptions renewals',meta:'next 90 days' },
+      ]},
+      { label: 'trade terminal', tiles: [
+        { slug:'portfolio-snap',  title:'Portfolio snapshot',    meta:'live holdings by account' },
+        { slug:'portfolio-perf',  title:'Portfolio performance', meta:'12-month value, gain, return' },
+        { slug:'concentration',   title:'Concentration & correlation', meta:'top holdings + sector spread' },
+        { slug:'tax-location',    title:'Tax location check',    meta:'holdings in suboptimal accounts' },
+        { slug:'trade-research',  title:'Trade research log',    meta:'saved AI analysis reports' },
+        { slug:'trade-rebalance', title:'Rebalancing advice log',meta:'saved AI rebalancing reports' },
+        { slug:'trade-tax-opt',   title:'Tax optimization log',  meta:'saved AI tax-opt reports' },
+      ]},
+    ],
+  },
+  health: {
+    label: 'Health',
+    icon: '🩺',
+    color: 'var(--teal,#14b8a6)',
+    groups: [
+      { label: 'tax & receipts', tiles: [
+        { slug:'hsa-fsa-irs',     title:'HSA & FSA — IRS ready', meta:'audit-ready expenses' },
+        { slug:'hsa-spending',    title:'HSA spending history',  meta:'year-by-year breakdown' },
+        { slug:'receipts-missing',title:'Missing receipts',      meta:'HSA/FSA without attachments' },
+      ]},
+      { label: 'medications & care', tiles: [
+        { slug:'meds-active',     title:'Active medications',    meta:'all family, last fill date' },
+        { slug:'visits-history',  title:'Visits history',        meta:'filterable by member + provider' },
+        { slug:'immunizations',   title:'Immunizations record',  meta:'card per family member' },
+        { slug:'procedures',      title:'Procedures record',     meta:'card per family member' },
+      ]},
+      { label: 'trends (in design)', tiles: [
+        { slug:'labs-trend',      title:'Labs trend',            meta:'in design — metric_index pending' },
+        { slug:'bp-trend',        title:'Blood pressure trend',  meta:'in design — metric_index pending' },
+      ]},
+    ],
+  },
+  household: {
+    label: 'Household',
+    icon: '🏠',
+    color: 'var(--red,#ef4444)',
+    groups: [
+      { label: 'property & vehicles', tiles: [
+        { slug:'property-summary',title:'Property summary',      meta:'homes, values, key dates' },
+        { slug:'property-maint',  title:'Maintenance log',       meta:'all property maintenance' },
+        { slug:'vehicles-summary',title:'Vehicles summary',      meta:'fleet snapshot' },
+        { slug:'vehicle-maint',   title:'Vehicle maintenance',   meta:'service history per vehicle' },
+        { slug:'vehicle-fuel',    title:'Fuel + service log',    meta:'cost per mile, MPG trend' },
+      ]},
+      { label: 'recurring spend & policies', tiles: [
+        { slug:'subs-overview',   title:'Subscriptions overview',meta:'monthly + annual cost' },
+        { slug:'insurance-policies', title:'Insurance policies', meta:'active policies + premiums' },
+      ]},
+      { label: 'inventory & documents', tiles: [
+        { slug:'inventory-value', title:'Inventory valuation',   meta:'home insurance ready' },
+        { slug:'warranty-expiry', title:'Warranty expiry',       meta:'upcoming warranty expirations' },
+        { slug:'doc-expiry',      title:'Document expiry',       meta:'passports, licenses, IDs' },
+        { slug:'items-by-loc',    title:'Items by location',     meta:'inventory grouped by room' },
+      ]},
+    ],
+  },
+  family: {
+    label: 'Family',
+    icon: '👪',
+    color: 'var(--pink,#ec4899)',
+    groups: [
+      { label: 'emergency & snapshot', tiles: [
+        { slug:'emergency-info',  title:'Emergency info per person', meta:'critical contacts + medical' },
+        { slug:'family-snapshot', title:'Family snapshot',       meta:'whole family overview' },
+      ]},
+      { label: 'family member detail', tiles: [
+        { slug:'member-detail',   title:'Family member detail',  meta:'switcher inside viewer' },
+      ]},
+      { label: 'kids', tiles: [
+        { slug:'kids-activities', title:'Kids — activities',     meta:'sports, lessons, dates' },
+        { slug:'kids-school',     title:'Kids — school + grades',meta:'teachers, terms, grades' },
+      ]},
+      { label: 'contacts', tiles: [
+        { slug:'care-team',       title:'Care team contacts',    meta:'doctors, dentists, vets' },
+        { slug:'family-contacts', title:'Family contacts directory', meta:'extended family + emergency' },
+      ]},
+    ],
+  },
+};
+
+// Count total tiles per tab (used for the header subtitle + tab pills)
+function repTileCount(tabId) {
+  const tab = REPORT_TABS_V2[tabId];
+  if (!tab) return 0;
+  return tab.groups.reduce((s, g) => s + g.tiles.length, 0);
+}
+function repAllTilesCount() {
+  return Object.keys(REPORT_TABS_V2).reduce((s, k) => s + repTileCount(k), 0);
+}
+
+// Render the new tile grid for a tab into #repTabContent.
+function renderTabGridV2(tabId) {
+  const root = document.getElementById('repTabContent');
+  if (!root) return;
+  const tab = REPORT_TABS_V2[tabId];
+  if (!tab) { root.innerHTML = ''; return; }
+  root.innerHTML = '';   // wipe spinner / previous tab's grid
+  for (const group of tab.groups) {
+    const label = document.createElement('div');
+    label.className = 'rep-group-label';
+    label.textContent = group.label;
+    root.appendChild(label);
+
+    const grid = document.createElement('div');
+    grid.className = 'rep-tile-grid';
+    root.appendChild(grid);
+
+    for (const t of group.tiles) {
+      const matchesLens = repLensMatches(t);
+      if (!matchesLens) continue;
+      window.GH_TILE.render({
+        container: grid,
+        slug: t.slug,
+        title: t.title,
+        meta: t.meta,
+        icon: tab.icon,
+        eyebrow: tab.label.toUpperCase() + ' · ' + (group.label.split(' ')[0]).toUpperCase(),
+        color: tab.color,
+        onClick: (slug) => {
+          // v.197 foundation: all tiles non-functional. v.198 will swap
+          // selected slugs to navigate to their viewer page.
+          if (t.live) {
+            // Future: navigate to /reports.html?run=<slug>
+            window.GH_REPORT_STATES.comingSoon(slug);
+          } else {
+            window.GH_REPORT_STATES.comingSoon(slug);
+          }
+        },
+      });
+    }
+  }
+  // Show empty state if Lens filtered everything out.
+  if (root.children.length === 0) {
+    window.GH_REPORT_STATES.empty(root, {
+      title: 'No reports match your search',
+      subtitle: 'Try a different word or clear the search box.',
+      actions: [{ label: 'Clear search', onClick: () => { document.getElementById('repLensInput').value = ''; repLensQuery = ''; renderTabGridV2(tabId); refreshTabCounts(); } }],
+    });
+  }
+}
+
+// Lens search — matches against title + meta (per locked spec: titles +
+// visible descriptions only; NOT inside report data).
+let repLensQuery = '';
+function repLensMatches(tile) {
+  if (!repLensQuery) return true;
+  const q = repLensQuery.toLowerCase();
+  return ((tile.title || '').toLowerCase().includes(q))
+      || ((tile.meta  || '').toLowerCase().includes(q));
+}
+
+// Update per-tab count pills + header subtitle based on current Lens query.
+function refreshTabCounts() {
+  for (const tabId of Object.keys(REPORT_TABS_V2)) {
+    const el = document.getElementById('repCount_' + tabId);
+    if (!el) continue;
+    const total = repTileCount(tabId);
+    if (!repLensQuery) { el.textContent = ''; continue; }
+    let matches = 0;
+    for (const g of REPORT_TABS_V2[tabId].groups) for (const t of g.tiles) if (repLensMatches(t)) matches++;
+    el.textContent = '· ' + matches + ' of ' + total;
+    el.classList.toggle('active', matches > 0 && matches < total);
+  }
+  // Header subtitle
+  const headerCount = document.getElementById('repHeaderCount');
+  if (headerCount) {
+    const total = repAllTilesCount();
+    const pinnedN = (repPinnedSlugs || []).length;
+    headerCount.textContent = total + ' reports · ' + pinnedN + ' pinned';
+  }
+}
+
+// ── Pinned strip ──────────────────────────────────────────────
+let repPinnedSlugs = [];
+function repFindTileBySlug(slug) {
+  for (const tabId of Object.keys(REPORT_TABS_V2)) {
+    for (const g of REPORT_TABS_V2[tabId].groups) for (const t of g.tiles) {
+      if (t.slug === slug) return { tab: REPORT_TABS_V2[tabId], group: g, tile: t };
+    }
+  }
+  return null;
+}
+async function loadPinned() {
+  try {
+    const r = await window.silentGet('/preferences/pinned-reports');
+    repPinnedSlugs = Array.isArray(r && r.pinned_reports) ? r.pinned_reports : [];
+  } catch { repPinnedSlugs = []; }
+  renderPinned();
+  refreshTabCounts();
+}
+function renderPinned() {
+  const wrap = document.getElementById('repPinnedWrap');
+  const grid = document.getElementById('repPinnedGrid');
+  if (!wrap || !grid) return;
+  grid.innerHTML = '';
+  if (!repPinnedSlugs.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  for (const slug of repPinnedSlugs) {
+    const found = repFindTileBySlug(slug);
+    if (!found) continue;   // pinned slug no longer in the registry — skip silently
+    window.GH_TILE.render({
+      container: grid,
+      slug,
+      title: found.tile.title,
+      meta: found.tile.meta,
+      icon: found.tab.icon,
+      eyebrow: found.tab.label.toUpperCase(),
+      color: found.tab.color,
+      onClick: (s) => window.GH_REPORT_STATES.comingSoon(s),
+    });
+  }
+}
+
+// ── New switchTab (v.197 foundation) ──────────────────────────
+// Replaces the old switchTab. Pending tab keeps existing PendingReport.mount.
+// All other tabs render the new tile grid + hide the old layout shells.
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.reports-tab').forEach(b => b.classList.toggle('active', b === btn || b.dataset.tab === tabId));
+  activeTab = tabId;
+  history.replaceState(null, '', `?tab=${tabId}`);
+
+  const content = document.getElementById('repTabContent');
+  const pending = document.getElementById('pendingRoot');
+  if (tabId === 'pending') {
+    content.style.display = 'none';
+    pending.style.display = '';
+    pending.innerHTML = '<div class="spinner"><div class="spin"></div>Loading pending items…</div>';
+    if (window.PendingReport && typeof window.PendingReport.mount === 'function') {
+      window.PendingReport.mount('pendingRoot');
+    } else {
+      pending.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text3)">Pending Items module did not load (pending-report.js missing).</div>';
+    }
+    return;
+  }
+  pending.style.display = 'none';
+  content.style.display = '';
+  renderTabGridV2(tabId);
+}
+window.switchTab = switchTab;
+
+// ── Lens search wiring ────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  const input = document.getElementById('repLensInput');
+  if (input) {
+    input.addEventListener('input', (e) => {
+      repLensQuery = (e.target.value || '').trim();
+      // Re-render only the active tab (Pending stays as-is — it doesn't pull from the registry)
+      if (activeTab !== 'pending') renderTabGridV2(activeTab);
+      refreshTabCounts();
+    });
+  }
+});
+
+// ── Boot — load pinned, render default tab ────────────────────
+(async function bootReportsV2() {
+  // Honor ?tab= query so deep-links work; default to money
+  const params = new URLSearchParams(window.location.search);
+  const wanted = params.get('tab');
+  const initial = REPORT_TABS_V2[wanted] ? wanted : (wanted === 'pending' ? 'pending' : 'money');
+  await loadPinned();
+  // Find the button to mark active. switchTab also toggles by data-tab if no btn passed.
+  const btn = document.querySelector(`.reports-tab[data-tab="${initial}"]`);
+  switchTab(initial, btn);
+  refreshTabCounts();
+})();
 
 // ── Render left pane for a given tab ──────────────────────────
 function renderTabContent(tabId) {
@@ -279,12 +634,16 @@ function renderTabContent(tabId) {
   if (tab.showFamilyAvatars) loadFamilyAvatars();
 }
 
-function switchTab(tabId, btn) {
+// v.197 — renamed from switchTab to switchTab_LEGACY_DELETED. The new
+// switchTab is defined above and routes the 5-tab v.197 layout. This old
+// function references unreachable rendering (Overview/Charts/etc.) but is
+// kept as dead code so we have a record of the prior wiring. v.198+ can
+// delete it along with the renderXxx helpers it called.
+function switchTab_LEGACY_DELETED(tabId, btn) {
   document.querySelectorAll('.reports-tab').forEach(b => b.classList.toggle('active', b === btn));
   renderTabContent(tabId);
   history.replaceState(null, '', `?tab=${tabId}`);
 }
-window.switchTab = switchTab;
 
 // ── v202604.167 — Charts (preview) tab ─────────────────────────
 // Renders the design lock from _templates.html #26: Settings-style
