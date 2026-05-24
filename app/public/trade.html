@@ -1992,7 +1992,7 @@ const GhravaPerformanceChart = ({ data }) => {
   );
 };
 
-const PortfolioTab = ({ data, update, quotes }) => {
+const PortfolioTab = ({ data, update, quotes, isMobile }) => {
   const { portfolio=[], settings={} } = data;
 
   // Ghrava live portfolio state
@@ -2148,14 +2148,12 @@ const PortfolioTab = ({ data, update, quotes }) => {
                 </div>
               </div>
               <div style={{ border:`1px solid ${C.border}`, borderRadius:'0 0 8px 8px', overflow:'hidden' }}>
-                <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                  <thead><tr style={{ background:C.bg, color:C.muted }}>
-                    {['SYMBOL','TYPE','SHARES','COST BASIS','PRICE','MKT VALUE','GAIN $','GAIN %','52W',''].map((h,i) => (
-                      <th key={i} style={{ padding:'5px 10px', textAlign:i===0?'left':'right', fontWeight:600, fontSize:10, letterSpacing:0.3 }}>{h}</th>
-                    ))}
-                  </tr></thead>
-                  <tbody>
-                    {acct.holdings.map((h,i) => {
+                {/* Phase 9 task 4 (v.196): 10-column table on desktop, stacked
+                    cards on mobile. Same per-holding math (livePrice / liveGain /
+                    w52pct), different layout. */}
+                {isMobile ? (
+                  <div>
+                    {acct.holdings.map((h, i) => {
                       const live = quotes[h.symbol];
                       const livePrice = live?.price ?? h.price;
                       const liveVal   = livePrice && h.shares ? livePrice * h.shares : h.market_value;
@@ -2163,43 +2161,97 @@ const PortfolioTab = ({ data, update, quotes }) => {
                       const liveGain  = liveVal && liveCost ? liveVal - liveCost : h.gain_loss_dollar;
                       const liveGainPct = liveCost > 0 && liveGain != null ? (liveGain / liveCost) * 100 : h.gain_loss_pct;
                       const gc = (liveGain||0) >= 0 ? C.green : C.red;
-                      const w52pct = h.week52_low && h.week52_high && livePrice
-                        ? ((livePrice - h.week52_low) / (h.week52_high - h.week52_low) * 100).toFixed(0)
-                        : null;
                       return (
-                        <tr key={i} style={{ borderTop:`1px solid ${C.border}22`,
-                          background: i%2===0 ? 'transparent' : C.bg+'44' }}>
-                          <td style={{ padding:'7px 10px', fontWeight:700, color:C.text }}>{h.symbol}</td>
-                          <td style={{ padding:'7px 10px', textAlign:'right' }}><Tag color={C.muted}>{h.asset_type||'stock'}</Tag></td>
-                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.text }}>{h.shares?.toLocaleString()}</td>
-                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.muted }}>{h.cost_basis ? fmtP(h.cost_basis) : '—'}</td>
-                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.text }}>
-                            {fmtP(livePrice)}
-                            {live && <span style={{ color:pColor(live.pct), fontSize:10, marginLeft:4 }}>{fmtPct(live.pct)}</span>}
-                          </td>
-                          <td style={{ padding:'7px 10px', textAlign:'right', color:C.text, fontWeight:600 }}>{liveVal ? fmtP(liveVal) : '—'}</td>
-                          <td style={{ padding:'7px 10px', textAlign:'right', color:gc }}>{liveGain != null ? `${liveGain>=0?'+':''}${fmtP(Math.abs(liveGain))}` : '—'}</td>
-                          <td style={{ padding:'7px 10px', textAlign:'right', color:gc }}>{liveGainPct != null ? `${liveGainPct>=0?'+':''}${parseFloat(liveGainPct).toFixed(2)}%` : '—'}</td>
-                          <td style={{ padding:'7px 10px', textAlign:'right' }}>
-                            {w52pct !== null ? (
-                              <div style={{ display:'flex', alignItems:'center', gap:4 }}>
-                                <div style={{ width:40, height:4, borderRadius:2, background:C.border, overflow:'hidden' }}>
-                                  <div style={{ width:`${w52pct}%`, height:'100%', background:C.blue }} />
-                                </div>
-                                <span style={{ color:C.dimmed, fontSize:10 }}>{w52pct}%</span>
-                              </div>
-                            ) : '—'}
-                          </td>
-                          <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                        <div key={i} style={{ borderTop:`1px solid ${C.border}22`,
+                          padding:'10px 12px', background: i%2===0 ? 'transparent' : C.bg+'44' }}>
+                          {/* Top row: symbol + type + price + live% */}
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'baseline', marginBottom:6, gap:8 }}>
+                            <div style={{ display:'flex', alignItems:'baseline', gap:8 }}>
+                              <span style={{ color:C.text, fontWeight:700, fontSize:15 }}>{h.symbol}</span>
+                              <Tag color={C.muted}>{h.asset_type || 'stock'}</Tag>
+                            </div>
+                            <div style={{ display:'flex', alignItems:'baseline', gap:6 }}>
+                              <span style={{ color:C.text, fontWeight:600 }}>{fmtP(livePrice)}</span>
+                              {live && <span style={{ color:pColor(live.pct), fontSize:11 }}>{fmtPct(live.pct)}</span>}
+                            </div>
+                          </div>
+                          {/* Middle row: shares × cost · market value */}
+                          <div style={{ display:'flex', justifyContent:'space-between', fontSize:12, color:C.muted, marginBottom:4 }}>
+                            <span>
+                              <span style={{ color:C.text }}>{h.shares?.toLocaleString()}</span> @ {h.cost_basis ? fmtP(h.cost_basis) : '—'}
+                            </span>
+                            <span style={{ color:C.text, fontWeight:600 }}>{liveVal ? fmtP(liveVal) : '—'}</span>
+                          </div>
+                          {/* Bottom row: gain $/% + AI button */}
+                          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', fontSize:12 }}>
+                            <span style={{ color:gc, fontWeight:600 }}>
+                              {liveGain != null ? `${liveGain>=0?'+':''}${fmtP(Math.abs(liveGain))}` : '—'}
+                              {liveGainPct != null && (
+                                <span style={{ marginLeft:8 }}>({liveGainPct>=0?'+':''}{parseFloat(liveGainPct).toFixed(2)}%)</span>
+                              )}
+                            </span>
                             <Btn small color={C.purple} onClick={() => {
                               window.dispatchEvent(new CustomEvent('analyzeFromPortfolio', { detail: { symbol: h.symbol, shares: h.shares, costBasis: h.cost_basis } }));
                             }}>AI ▶</Btn>
-                          </td>
-                        </tr>
+                          </div>
+                        </div>
                       );
                     })}
-                  </tbody>
-                </table>
+                  </div>
+                ) : (
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                    <thead><tr style={{ background:C.bg, color:C.muted }}>
+                      {['SYMBOL','TYPE','SHARES','COST BASIS','PRICE','MKT VALUE','GAIN $','GAIN %','52W',''].map((h,i) => (
+                        <th key={i} style={{ padding:'5px 10px', textAlign:i===0?'left':'right', fontWeight:600, fontSize:10, letterSpacing:0.3 }}>{h}</th>
+                      ))}
+                    </tr></thead>
+                    <tbody>
+                      {acct.holdings.map((h,i) => {
+                        const live = quotes[h.symbol];
+                        const livePrice = live?.price ?? h.price;
+                        const liveVal   = livePrice && h.shares ? livePrice * h.shares : h.market_value;
+                        const liveCost  = h.total_cost_basis || (h.cost_basis||0) * (h.shares||0);
+                        const liveGain  = liveVal && liveCost ? liveVal - liveCost : h.gain_loss_dollar;
+                        const liveGainPct = liveCost > 0 && liveGain != null ? (liveGain / liveCost) * 100 : h.gain_loss_pct;
+                        const gc = (liveGain||0) >= 0 ? C.green : C.red;
+                        const w52pct = h.week52_low && h.week52_high && livePrice
+                          ? ((livePrice - h.week52_low) / (h.week52_high - h.week52_low) * 100).toFixed(0)
+                          : null;
+                        return (
+                          <tr key={i} style={{ borderTop:`1px solid ${C.border}22`,
+                            background: i%2===0 ? 'transparent' : C.bg+'44' }}>
+                            <td style={{ padding:'7px 10px', fontWeight:700, color:C.text }}>{h.symbol}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right' }}><Tag color={C.muted}>{h.asset_type||'stock'}</Tag></td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', color:C.text }}>{h.shares?.toLocaleString()}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', color:C.muted }}>{h.cost_basis ? fmtP(h.cost_basis) : '—'}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', color:C.text }}>
+                              {fmtP(livePrice)}
+                              {live && <span style={{ color:pColor(live.pct), fontSize:10, marginLeft:4 }}>{fmtPct(live.pct)}</span>}
+                            </td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', color:C.text, fontWeight:600 }}>{liveVal ? fmtP(liveVal) : '—'}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', color:gc }}>{liveGain != null ? `${liveGain>=0?'+':''}${fmtP(Math.abs(liveGain))}` : '—'}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', color:gc }}>{liveGainPct != null ? `${liveGainPct>=0?'+':''}${parseFloat(liveGainPct).toFixed(2)}%` : '—'}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                              {w52pct !== null ? (
+                                <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                                  <div style={{ width:40, height:4, borderRadius:2, background:C.border, overflow:'hidden' }}>
+                                    <div style={{ width:`${w52pct}%`, height:'100%', background:C.blue }} />
+                                  </div>
+                                  <span style={{ color:C.dimmed, fontSize:10 }}>{w52pct}%</span>
+                                </div>
+                              ) : '—'}
+                            </td>
+                            <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                              <Btn small color={C.purple} onClick={() => {
+                                window.dispatchEvent(new CustomEvent('analyzeFromPortfolio', { detail: { symbol: h.symbol, shares: h.shares, costBasis: h.cost_basis } }));
+                              }}>AI ▶</Btn>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </div>
           );
@@ -6233,7 +6285,7 @@ function App() {
         {activeTab==='watchlist' && <WatchlistTab data={appData} update={update} quotes={quotes} setQuotes={setQuotes} isMobile={isMobile} />}
         {activeTab==='screener'  && <ScreenerTab  data={appData} update={update} quotes={quotes} />}
         {activeTab==='ai'        && <AIAnalystTab data={appData} update={update} quotes={quotes} />}
-        {activeTab==='portfolio' && <PortfolioTab data={appData} update={update} quotes={quotes} />}
+        {activeTab==='portfolio' && <PortfolioTab data={appData} update={update} quotes={quotes} isMobile={isMobile} />}
         {activeTab==='options'   && <OptionsTab   data={appData} quotes={quotes} />}
         {activeTab==='news'      && <NewsTab       data={appData} quotes={quotes} />}
         {activeTab==='earnings'  && <EarningsTab data={appData} quotes={quotes} />}
