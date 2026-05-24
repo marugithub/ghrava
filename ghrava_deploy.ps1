@@ -37,7 +37,11 @@ param(
     [string]$AuthToken   = "",
     [switch]$SkipGit,
     [switch]$SkipRestart,
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    [switch]$SkipE2E       # v.197 — run smoke (HARD) but skip Playwright E2E (per the
+                           #         every-other-deploy rule from 2026-05-23). Use on
+                           #         alternate deploys to save ~5min when no contract
+                           #         changes are expected to surface in E2E.
 )
 
 # Live app URL the smoke + E2E suites hit. Defaults from $NasHost.
@@ -314,9 +318,10 @@ if ($SkipTests) {
 # ~3 min. Prints the failure summary but does NOT roll back — Al decides.
 $e2eFailed = $false
 Step "8/8" "Full Playwright E2E suite"
-if ($SkipTests) {
-    Info "Skipped (--SkipTests)"
-    L "E2E: skipped"
+if ($SkipTests -or $SkipE2E) {
+    $reason = if ($SkipTests) { '--SkipTests' } else { '--SkipE2E (every-other-deploy rule)' }
+    Info "Skipped ($reason)"
+    L "E2E: skipped ($reason)"
 } elseif ($SkipRestart) {
     Info "Skipped (no restart this run)"
     L "E2E: skipped (no restart)"
