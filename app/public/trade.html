@@ -837,7 +837,7 @@ const AIResultCard = ({ result, symbol, fundamentals=null, enrichment=null }) =>
 // ═══════════════════════════════════════════════════════════════
 // WATCHLIST TAB
 // ═══════════════════════════════════════════════════════════════
-const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
+const WatchlistTab = ({ data, update, quotes, setQuotes, isMobile }) => {
   const { watchlist=[], settings={}, alerts=[] } = data;
   const [newTick, setNewTick] = useState('');
   const [busy, setBusy] = useState(false);
@@ -965,7 +965,9 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
   };
 
   return (
-    <div style={{ display:'grid', gridTemplateColumns:'1fr 380px', gap:14 }}>
+    <div style={{ display:'grid',
+      gridTemplateColumns: isMobile ? '1fr' : '1fr 380px',
+      gap:14 }}>
       <Panel>
         <PanelTitle>WATCHLIST</PanelTitle>
         <div style={{ display:'flex', gap:8, marginBottom:12, flexWrap:'wrap', alignItems:'center' }}>
@@ -992,9 +994,15 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
           </div>
         )}
 
-        <div style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
-          gap:8, padding:'6px 10px', color:C.muted, fontSize:13, letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
-          {['SYMBOL','PRICE','CHANGE','CHG%','HIGH','LOW',''].map(h=><span key={h}>{h}</span>)}
+        {/* Header columns — H/L hidden on mobile (Phase 9 task 3, v.196) */}
+        <div style={{ display:'grid',
+          gridTemplateColumns: isMobile ? '70px 70px 70px 1fr' : '90px 80px 90px 90px 70px 70px 1fr',
+          gap:8, padding:'6px 10px', color:C.muted, fontSize: isMobile ? 11 : 13,
+          letterSpacing:1, borderBottom:`1px solid ${C.border}` }}>
+          {(isMobile
+            ? ['SYMBOL','PRICE','CHG%','']
+            : ['SYMBOL','PRICE','CHANGE','CHG%','HIGH','LOW','']
+          ).map(h=><span key={h}>{h}</span>)}
         </div>
         {watchlist.map(sym => {
           const q = quotes[sym]; const up = (q?.chg??0)>=0; const nd = !q?.price;
@@ -1002,15 +1010,22 @@ const WatchlistTab = ({ data, update, quotes, setQuotes }) => {
           const hasArmed   = symAlerts.some(a => !a.triggered);
           return (
             <React.Fragment key={sym}>
-              <div style={{ display:'grid', gridTemplateColumns:'90px 80px 90px 90px 70px 70px 1fr',
+              <div style={{ display:'grid',
+                gridTemplateColumns: isMobile ? '70px 70px 70px 1fr' : '90px 80px 90px 90px 70px 70px 1fr',
                 alignItems:'center', gap:8, padding:'8px 10px', borderBottom:symAlerts.length || alertEditSym===sym ? 'none' : `1px solid ${C.border}22`,
                 borderLeft:`4px solid ${nd?C.muted:up?C.green:C.red}`, background:C.bg, borderRadius:'0 6px 6px 0' }}>
                 <span style={{ color:C.text, fontWeight:'bold' }}>{sym}</span>
                 <span style={{ color:C.text }}>{nd?'—':fmtP(q.price)}</span>
-                <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':`${up?'+':''}${fmtNum(q.chg)}`}</span>
+                {!isMobile && (
+                  <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':`${up?'+':''}${fmtNum(q.chg)}`}</span>
+                )}
                 <span style={{ color:nd?C.muted:up?C.green:C.red }}>{nd?'—':fmtPct(q.pct)}</span>
-                <span style={{ color:C.muted, fontSize:13 }}>{q?.h?fmtP(q.h):'—'}</span>
-                <span style={{ color:C.muted, fontSize:13 }}>{q?.l?fmtP(q.l):'—'}</span>
+                {!isMobile && (
+                  <>
+                    <span style={{ color:C.muted, fontSize:13 }}>{q?.h?fmtP(q.h):'—'}</span>
+                    <span style={{ color:C.muted, fontSize:13 }}>{q?.l?fmtP(q.l):'—'}</span>
+                  </>
+                )}
                 <div style={{ display:'flex', gap:5, justifyContent:'flex-end', alignItems:'center' }}>
                   <Btn small color={hasArmed ? C.amber : C.muted} onClick={()=>alertEditSym===sym?closeAlertEditor():openAlertEditor(sym)}>
                     🔔{symAlerts.length > 0 ? ` ${symAlerts.length}` : ''}
