@@ -69,10 +69,26 @@ principles.
 
 ---
 
-## 🚧 v.196 + v.197 BUILT (bundle) — Trade Terminal Mobile UX + Reports Redesign Foundation (2026-05-23/24)
+## ✅ v.196 + v.197 DEPLOYED & VERIFIED — Trade Terminal Mobile UX + Reports Redesign Foundation (2026-05-24)
 
-> **Built locally as one bundle, not yet deployed.** `version.txt`=`202605.197`.
-> 13 commits stacked above the deployed v.195 (`305b079`).
+> **DEPLOYED 2026-05-24 ~00:23 via Path A + new -SkipE2E flag.**
+> `version.txt`=`202605.197` live (verified via /api/v1/app/info).
+> Local + origin + NAS all at `44ecbc0`.
+> Smoke 8/8 ✅ (23.8s) — E2E SKIPPED per the new every-other-deploy
+> rule (previous v.194+v.195 ran full E2E 115/0; next deploy after
+> this one runs E2E again). Total deploy time **2 minutes** (vs
+> ~15min with E2E).
+>
+> **Live route checks:**
+>   - `/api/v1/app/info` → `version: 202605.197`
+>   - `/api/v1/preferences/pinned-reports` → `{pinned_reports: []}`
+>     (mig 147 applied, new module mounted, auth gates passing)
+>   - `/reports.html` → HTTP 200, 142KB (new layout served)
+>
+> **Deploy-script Step 6 quirk:** did NOT recur this time (last
+> bundle's 1h 21min hang on SSH log-tail was a one-off; the new
+> `-SkipE2E` flag is unrelated to the Step 6 issue, just provides
+> the new every-other-deploy cadence).
 >
 > **NEW DEPLOY RULE this turn:** full Playwright every OTHER deploy.
 > Previous (v.194+v.195) ran full E2E (115/0). This bundle runs
