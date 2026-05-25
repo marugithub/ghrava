@@ -167,11 +167,44 @@
     </div>
 
     <!-- Tab content. Pending uses pendingRoot for the existing PendingReport.mount.
-         All other tabs render their tile grid into repTabContent via JS. -->
+         All other tabs render their tile grid into repTabContent via JS.
+         repViewerRoot renders the report viewer page when ?run=<slug> is in the URL. -->
     <div id="repTabContent">
       <div class="spinner"><div class="spin"></div>Loading…</div>
     </div>
     <div id="pendingRoot" style="display:none"></div>
+    <div id="repViewerRoot" style="display:none">
+      <!-- Viewer shell — populated by openReportViewer() per the locked #30c design -->
+      <div class="rep-viewer-head" style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:11px;color:var(--text3);margin-bottom:3px" id="repViewerCrumb">
+            <a href="/reports.html" style="color:var(--text3);text-decoration:none">📊 Reports</a>
+            <span style="margin:0 6px">›</span>
+            <a href="#" id="repViewerCrumbTab" style="color:var(--text3);text-decoration:none">Money</a>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:2px;flex-wrap:wrap">
+            <h2 id="repViewerTitle" style="font-size:18px;font-weight:500;color:var(--text);margin:0">Loading…</h2>
+            <span id="repViewerScope" style="font-size:11px;color:var(--text3);padding:2px 8px;background:var(--bg2);border-radius:999px;display:none"></span>
+          </div>
+          <div style="font-size:11px;color:var(--text3);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span id="repViewerDesc"></span>
+            <span style="opacity:.6">·</span>
+            <span id="repViewerRefreshed">🕒 —</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+          <button id="repViewerBackBtn" title="Back to Reports" onclick="closeReportViewer()"
+            style="background:var(--bg2);border:0.5px solid var(--border);border-radius:8px;color:var(--text2);
+              cursor:pointer;padding:6px 12px;font-family:inherit;font-size:12px">← Back</button>
+          <button id="repViewerRefreshBtn" title="Refresh"
+            style="width:30px;height:30px;border:0.5px solid var(--border);border-radius:8px;
+              background:var(--bg2);cursor:pointer;color:var(--text2);font-family:inherit">↻</button>
+        </div>
+      </div>
+      <div id="repViewerFilters"></div>
+      <div id="repViewerSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px"></div>
+      <div id="repViewerBody"></div>
+    </div>
 
     <!-- LEGACY HIDDEN SHELL — kept so the unreachable renderer functions
          below don't throw on getElementById('reportsLeft'/'reportsRight').
@@ -560,14 +593,187 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
-// ── Boot — load pinned, render default tab ────────────────────
-(async function bootReportsV2() {
-  // Honor ?tab= query so deep-links work; default to money
+// ── Report viewer registry (v.198) ──────────────────────────
+// Per-report viewer modules register themselves into REPORT_VIEWERS keyed
+// by slug. Each module exposes:
+//   defaultFilters()  → array of { key, label, value } applied on first load
+//   fetch(filters)    → returns the data object the renderers consume
+//   renderSummary(container, data, filters)  → fills the 4-card grid
+//   renderBody(container, data, filters, onDrill)  → fills the data table
+// onDrill(detailObj) opens GH_DRILLDOWN with whatever content the report wants.
+// v.198 task 3-4 populate REPORT_VIEWERS with the 5 Money LIVE reports.
+// Slugs not in this registry continue to fire comingSoon() per v.197 behavior.
+window.REPORT_VIEWERS = window.REPORT_VIEWERS || {};
+
+// ── Viewer page rendering ─────────────────────────────────────
+let currentViewerSlug = null;
+let currentViewerFilters = [];
+
+function showViewerView() {
+  document.getElementById('repTabContent').style.display = 'none';
+  document.getElementById('pendingRoot').style.display = 'none';
+  document.getElementById('repPinnedWrap').style.display = 'none';
+  document.getElementById('reportsTabs').style.display = 'none';
+  document.getElementById('repViewerRoot').style.display = '';
+}
+function showTabsView() {
+  document.getElementById('repViewerRoot').style.display = 'none';
+  document.getElementById('reportsTabs').style.display = '';
+  document.getElementById('repTabContent').style.display = '';
+  // Pinned strip visibility decided by renderPinned() based on count
+  renderPinned();
+}
+
+// Locate the tab + group + tile object that owns a given slug (for breadcrumbs).
+function findTileMeta(slug) {
+  for (const tabId of Object.keys(REPORT_TABS_V2)) {
+    for (const g of REPORT_TABS_V2[tabId].groups) for (const t of g.tiles) {
+      if (t.slug === slug) return { tabId, tab: REPORT_TABS_V2[tabId], group: g, tile: t };
+    }
+  }
+  return null;
+}
+
+async function openReportViewer(slug, opts) {
+  const viewer = window.REPORT_VIEWERS[slug];
+  if (!viewer) {
+    // Not wired live yet → fall through to tile-grid toast behavior.
+    window.GH_REPORT_STATES.comingSoon(slug);
+    return;
+  }
+  const meta = findTileMeta(slug);
+  if (!meta) { window.GH_REPORT_STATES.comingSoon(slug); return; }
+
+  currentViewerSlug = slug;
+  // Initialise filters from defaults unless caller overrides via opts.filters.
+  currentViewerFilters = (opts && opts.filters) || (viewer.defaultFilters ? viewer.defaultFilters() : []);
+
+  showViewerView();
+
+  // Title + breadcrumb
+  document.getElementById('repViewerTitle').textContent = meta.tile.title;
+  const crumbTab = document.getElementById('repViewerCrumbTab');
+  crumbTab.textContent = meta.tab.label;
+  crumbTab.onclick = (e) => { e.preventDefault(); closeReportViewer(meta.tabId); };
+  document.getElementById('repViewerDesc').textContent = meta.tile.meta || '';
+
+  // Push history state so browser back button works naturally.
+  if (!opts || !opts.fromPopstate) {
+    history.pushState({ viewer: slug }, '', '?run=' + encodeURIComponent(slug));
+  }
+
+  // Refresh button
+  document.getElementById('repViewerRefreshBtn').onclick = () => loadAndRenderViewer(slug);
+
+  await loadAndRenderViewer(slug);
+}
+
+async function loadAndRenderViewer(slug) {
+  const viewer = window.REPORT_VIEWERS[slug];
+  if (!viewer) return;
+  const summaryEl = document.getElementById('repViewerSummary');
+  const bodyEl    = document.getElementById('repViewerBody');
+  const filtersEl = document.getElementById('repViewerFilters');
+  const refreshedEl = document.getElementById('repViewerRefreshed');
+
+  // Filter strip — uses gh-filter-strip.
+  window.GH_FILTERS.render({
+    container: filtersEl,
+    filters: currentViewerFilters,
+    onRemove: (key) => {
+      currentViewerFilters = currentViewerFilters.filter(f => f.key !== key);
+      loadAndRenderViewer(slug);
+    },
+    onAdd: () => {
+      // v.198: stub — real "add filter" flow ships in v.199+ (typeahead UI).
+      window.GH_REPORT_STATES.comingSoon('add-filter');
+    },
+  });
+
+  // Loading state
+  summaryEl.innerHTML = '<div class="spinner"><div class="spin"></div>Loading…</div>';
+  bodyEl.innerHTML = '';
+  refreshedEl.textContent = '🕒 loading…';
+
+  try {
+    const t0 = Date.now();
+    const data = await viewer.fetch(currentViewerFilters);
+    const ms  = Date.now() - t0;
+    refreshedEl.textContent = '🕒 just now · ' + ms + 'ms';
+
+    summaryEl.innerHTML = '';
+    if (viewer.renderSummary) viewer.renderSummary(summaryEl, data, currentViewerFilters);
+
+    bodyEl.innerHTML = '';
+    if (viewer.renderBody) {
+      viewer.renderBody(bodyEl, data, currentViewerFilters, (detail) => {
+        // Drill-down — opens gh-drilldown with the detail HTML provided by the report.
+        window.GH_DRILLDOWN.open({
+          title: detail.title || 'Detail',
+          html:  detail.html  || '',
+          onClose: detail.onClose,
+        });
+      });
+    }
+  } catch (e) {
+    window.GH_REPORT_STATES.error(bodyEl, {
+      title: "Couldn't load this report",
+      subtitle: (e && e.message) || 'Request failed.',
+      retry: () => loadAndRenderViewer(slug),
+    });
+    refreshedEl.textContent = '🕒 error';
+  }
+}
+
+function closeReportViewer(targetTabId) {
+  currentViewerSlug = null;
+  currentViewerFilters = [];
+  // Restore tab grid view + URL.
+  const tabId = targetTabId || 'money';
+  history.pushState(null, '', '?tab=' + tabId);
+  showTabsView();
+  const btn = document.querySelector(`.reports-tab[data-tab="${tabId}"]`);
+  switchTab(tabId, btn);
+}
+window.openReportViewer  = openReportViewer;
+window.closeReportViewer = closeReportViewer;
+
+// Browser back/forward — restore prior state.
+window.addEventListener('popstate', (e) => {
   const params = new URLSearchParams(window.location.search);
+  const runSlug = params.get('run');
+  if (runSlug && window.REPORT_VIEWERS[runSlug]) {
+    openReportViewer(runSlug, { fromPopstate: true });
+  } else {
+    const tab = params.get('tab') || 'money';
+    showTabsView();
+    const btn = document.querySelector(`.reports-tab[data-tab="${tab}"]`);
+    switchTab(tab, btn);
+  }
+});
+
+// ── Boot — load pinned, render default tab OR open viewer if ?run=  ────
+(async function bootReportsV2() {
+  await loadPinned();
+  // Honor ?run=<slug> if the slug is a registered live viewer; else fall
+  // through to ?tab= (tile grid). ?tab= unrecognised → money default.
+  const params = new URLSearchParams(window.location.search);
+  const runSlug = params.get('run');
+  if (runSlug && window.REPORT_VIEWERS[runSlug]) {
+    // Need to mark a tab active for the breadcrumb / back-target — find which tab
+    // owns the slug and mark it without rendering the grid.
+    const meta = findTileMeta(runSlug);
+    if (meta) {
+      document.querySelectorAll('.reports-tab').forEach(b =>
+        b.classList.toggle('active', b.dataset.tab === meta.tabId));
+      activeTab = meta.tabId;
+    }
+    await openReportViewer(runSlug, { fromPopstate: true });
+    refreshTabCounts();
+    return;
+  }
   const wanted = params.get('tab');
   const initial = REPORT_TABS_V2[wanted] ? wanted : (wanted === 'pending' ? 'pending' : 'money');
-  await loadPinned();
-  // Find the button to mark active. switchTab also toggles by data-tab if no btn passed.
   const btn = document.querySelector(`.reports-tab[data-tab="${initial}"]`);
   switchTab(initial, btn);
   refreshTabCounts();
