@@ -459,11 +459,10 @@ function renderTabGridV2(tabId) {
         eyebrow: tab.label.toUpperCase() + ' · ' + (group.label.split(' ')[0]).toUpperCase(),
         color: tab.color,
         onClick: (slug) => {
-          // v.197 foundation: all tiles non-functional. v.198 will swap
-          // selected slugs to navigate to their viewer page.
-          if (t.live) {
-            // Future: navigate to /reports.html?run=<slug>
-            window.GH_REPORT_STATES.comingSoon(slug);
+          // v.198 — if a viewer module is registered for this slug, open it.
+          // Otherwise fall back to the v.197 'Coming soon' toast.
+          if (window.REPORT_VIEWERS && window.REPORT_VIEWERS[slug]) {
+            window.openReportViewer(slug);
           } else {
             window.GH_REPORT_STATES.comingSoon(slug);
           }
@@ -548,7 +547,13 @@ function renderPinned() {
       icon: found.tab.icon,
       eyebrow: found.tab.label.toUpperCase(),
       color: found.tab.color,
-      onClick: (s) => window.GH_REPORT_STATES.comingSoon(s),
+      onClick: (s) => {
+        if (window.REPORT_VIEWERS && window.REPORT_VIEWERS[s]) {
+          window.openReportViewer(s);
+        } else {
+          window.GH_REPORT_STATES.comingSoon(s);
+        }
+      },
     });
   }
 }
