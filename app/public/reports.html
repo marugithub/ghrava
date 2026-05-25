@@ -940,6 +940,273 @@ window.REPORT_VIEWERS['cash-flow'] = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Top vendors (v.198) — ranked treemap-style list with bars
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['top-vendors'] = {
+  defaultFilters() {
+    return [{ key: 'year', label: 'Year', value: repCurrentYear() }];
+  },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    const r = await fetch('/api/v1/finance/reports/top-vendors?year=' + encodeURIComponent(year) + '&limit=50');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const v = data.vendors || [];
+    const top = v[0] || {};
+    container.innerHTML = ''
+      + repSummaryCard('Total Spent',  repFmt$(data.total_spent), 'var(--red,#dc2626)')
+      + repSummaryCard('Vendors',      String(v.length))
+      + repSummaryCard('Top Vendor',   '<span style="font-size:13px;font-weight:600">' + escapeHtml(top.vendor || '—') + '</span><div style="font-size:11px;color:var(--text3);margin-top:2px;font-weight:400">' + repFmt$(top.spent) + '</div>');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const v = data.vendors || [];
+    if (v.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No vendor data for this year',
+        subtitle: 'Import or categorize transactions to populate the vendor breakdown.',
+      });
+      return;
+    }
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    const total = data.total_spent || 0;
+    container.innerHTML = ''
+      + '<div style="color:var(--text3);font-size:11px;margin-bottom:8px">Top ' + v.length + ' vendors · click for transactions</div>'
+      + '<div id="rep-vendors-list"></div>';
+    const listEl = container.querySelector('#rep-vendors-list');
+    for (const vendor of v) {
+      const pct = total > 0 ? (vendor.spent / total * 100) : 0;
+      const row = document.createElement('div');
+      row.style.cssText = 'border-bottom:1px solid var(--border);padding:10px 0;cursor:pointer';
+      row.onmouseenter = () => { row.style.background = 'var(--bg2)'; };
+      row.onmouseleave = () => { row.style.background = ''; };
+      row.innerHTML = ''
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:4px">'
+        +   '<span style="font-size:13px;color:var(--text);font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+        +     escapeHtml(vendor.vendor) + '</span>'
+        +   '<span style="font-size:13px;color:var(--text);font-family:var(--mono,monospace);font-weight:600">' + repFmt$(vendor.spent) + '</span>'
+        + '</div>'
+        + '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:11px;color:var(--text3)">'
+        +   '<div style="flex:1;height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">'
+        +     '<div style="height:100%;background:var(--accent,#3b82f6);width:' + pct.toFixed(1) + '%"></div>'
+        +   '</div>'
+        +   '<span>' + pct.toFixed(1) + '% · ' + (vendor.tx_count || 0) + ' tx</span>'
+        + '</div>';
+      row.onclick = async () => {
+        try {
+          const r = await fetch('/api/v1/finance/reports/txns-by-vendor?vendor=' + encodeURIComponent(vendor.vendor) + '&year=' + encodeURIComponent(year));
+          const d = await r.json();
+          const txns = d.transactions || [];
+          let html = '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">' + txns.length + ' transactions · ' + repFmt$(d.total_spent) + ' total</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:6px">';
+          for (const t of txns.slice(0, 50)) {
+            const amtColor = (t.amount || 0) < 0 ? 'var(--red,#dc2626)' : 'var(--green,#22c55e)';
+            html += '<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px">'
+              + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+              +   '<span style="color:var(--text);font-weight:500">' + escapeHtml(t.date || '') + '</span>'
+              +   '<span style="color:' + amtColor + ';font-family:var(--mono,monospace)">' + repFmt$(t.amount) + '</span>'
+              + '</div>'
+              + '<div style="color:var(--text3);font-size:11px;margin-top:2px">' + escapeHtml(t.category || '—') + ' · ' + escapeHtml(t.source || '') + '</div>'
+              + '</div>';
+          }
+          if (txns.length > 50) html += '<div style="color:var(--text3);font-size:11px;text-align:center;padding:8px">' + (txns.length - 50) + ' more — open in Finance for full list</div>';
+          html += '</div>';
+          onDrill({ title: vendor.vendor, html });
+        } catch (e) {
+          onDrill({ title: vendor.vendor, html: '<div style="color:var(--red,#dc2626)">Could not load transactions: ' + escapeHtml(e.message) + '</div>' });
+        }
+      };
+      listEl.appendChild(row);
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Category trends (v.198) — small-multiples-style monthly grid
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['category-trends'] = {
+  defaultFilters() {
+    return [
+      { key: 'year',  label: 'Year',     value: repCurrentYear() },
+      { key: 'limit', label: 'Top N',    value: '6' },
+    ];
+  },
+  async fetch(filters) {
+    const year  = (filters.find(f => f.key === 'year')  || {}).value || repCurrentYear();
+    const limit = (filters.find(f => f.key === 'limit') || {}).value || '6';
+    const r = await fetch('/api/v1/finance/reports/spending-by-category-monthly?year=' + encodeURIComponent(year) + '&limit=' + encodeURIComponent(limit));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const cats = data.categories || [];
+    const top = cats[0] || {};
+    const topTotal = top.months ? top.months.reduce((s, v) => s + v, 0) : 0;
+    container.innerHTML = ''
+      + repSummaryCard('Total Spent (' + (data.year || '—') + ')', repFmt$(data.total_spent_year), 'var(--red,#dc2626)')
+      + repSummaryCard('Categories Tracked', String(cats.length))
+      + repSummaryCard('Top Category', '<span style="font-size:13px;font-weight:600">' + escapeHtml(top.category || '—') + '</span><div style="font-size:11px;color:var(--text3);margin-top:2px;font-weight:400">' + repFmt$(topTotal) + '</div>');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const cats = data.categories || [];
+    if (cats.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No spending data for this year',
+        subtitle: 'Try a different year or import recent transactions.',
+      });
+      return;
+    }
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    // Find max across all cells for bar scaling
+    let maxCell = 0;
+    for (const c of cats) for (const v of c.months) if (v > maxCell) maxCell = v;
+
+    let html = ''
+      + '<div style="color:var(--text3);font-size:11px;margin-bottom:8px">Monthly spend by category · click a cell to see transactions</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:12px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:10px;text-transform:uppercase">'
+      +     '<th style="text-align:left;padding:6px 8px">Category</th>';
+    for (const m of months) html += '<th style="text-align:right;padding:6px 4px">' + m + '</th>';
+    html += '<th style="text-align:right;padding:6px 8px">Year</th></tr></thead><tbody id="rep-trends-tbody"></tbody></table>';
+    container.innerHTML = html;
+
+    const tbody = container.querySelector('#rep-trends-tbody');
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    for (const c of cats) {
+      const yearTotal = c.months.reduce((s, v) => s + v, 0);
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid var(--border)';
+      let row = '<td style="padding:6px 8px;color:var(--text);font-weight:500">' + escapeHtml(c.category) + '</td>';
+      for (let i = 0; i < 12; i++) {
+        const v = c.months[i] || 0;
+        const intensity = maxCell > 0 ? (v / maxCell) : 0;
+        const bg = v > 0 ? 'rgba(239,68,68,' + (intensity * 0.35).toFixed(3) + ')' : 'transparent';
+        const month = (i + 1).toString().padStart(2, '0');
+        row += '<td data-cat="' + escapeHtml(c.category) + '" data-month="' + month
+          + '" style="padding:6px 4px;text-align:right;background:' + bg + ';font-family:var(--mono,monospace);font-size:11px;cursor:' + (v > 0 ? 'pointer' : 'default') + ';color:' + (v > 0 ? 'var(--text)' : 'var(--text3)') + '">'
+          + (v > 0 ? repFmt$k(v) : '—') + '</td>';
+      }
+      row += '<td style="padding:6px 8px;text-align:right;color:var(--text);font-weight:600;font-family:var(--mono,monospace)">' + repFmt$(yearTotal) + '</td>';
+      tr.innerHTML = row;
+      // Wire month-cell clicks → drill into that category × month
+      tr.querySelectorAll('td[data-cat]').forEach(cell => {
+        if (!cell.dataset.cat) return;
+        cell.onclick = async () => {
+          const cat = cell.dataset.cat;
+          const month = cell.dataset.month;
+          try {
+            const r = await fetch('/api/v1/finance/reports/txns-by-category?category=' + encodeURIComponent(cat) + '&year=' + encodeURIComponent(year) + '&month=' + encodeURIComponent(month) + '&side=expense');
+            const d = await r.json();
+            const txns = d.txns || d.transactions || [];
+            let html = '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">' + cat + ' · ' + year + '-' + month + ' · ' + txns.length + ' transactions</div>';
+            html += '<div style="display:flex;flex-direction:column;gap:6px">';
+            for (const t of txns.slice(0, 50)) {
+              html += '<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px">'
+                + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+                +   '<span style="color:var(--text);font-weight:500">' + escapeHtml(t.description || '—') + '</span>'
+                +   '<span style="color:var(--red,#dc2626);font-family:var(--mono,monospace)">' + repFmt$(Math.abs(t.amount || 0)) + '</span>'
+                + '</div>'
+                + '<div style="color:var(--text3);font-size:11px;margin-top:2px">' + escapeHtml(t.date || '') + '</div>'
+                + '</div>';
+            }
+            html += '</div>';
+            onDrill({ title: cat + ' · ' + year + '-' + month, html });
+          } catch (e) {
+            onDrill({ title: cat, html: '<div style="color:var(--red,#dc2626)">Could not load: ' + escapeHtml(e.message) + '</div>' });
+          }
+        };
+      });
+      tbody.appendChild(tr);
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MONEY/HEALTH · HSA & FSA IRS-ready (v.198 — shared across two tabs)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['hsa-fsa-irs'] = {
+  defaultFilters() {
+    return [{ key: 'year', label: 'Tax year', value: repCurrentYear() }];
+  },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    const r = await fetch('/api/v1/finance/reports/hsa-summary?year=' + encodeURIComponent(year));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const p = data.pool || {};
+    const missingColor = (p.missing_receipts || 0) > 0 ? 'var(--amber,#d97706)' : 'var(--green,#22c55e)';
+    container.innerHTML = ''
+      + repSummaryCard('HSA Eligible',     repFmt$(p.total_eligible),  'var(--text)')
+      + repSummaryCard('Reimbursed',       repFmt$(p.reimbursed),      'var(--green,#22c55e)')
+      + repSummaryCard('Unreimbursed',     repFmt$(p.unreimbursed),    'var(--amber,#d97706)')
+      + repSummaryCard('Missing Receipts', String(p.missing_receipts || 0) + ' / ' + (p.total_expenses || 0), missingColor);
+  },
+  renderBody(container, data, filters, onDrill) {
+    const byCat = data.by_category || [];
+    const byMonth = data.by_month || [];
+    const visits = data.visits_by_patient || [];
+    if (byCat.length === 0 && byMonth.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No HSA expenses recorded for this year',
+        subtitle: 'Add HSA payments in the HSA module to build your IRS-ready report.',
+      });
+      return;
+    }
+
+    // BY CATEGORY table
+    let html = '';
+    if (byCat.length > 0) {
+      html += '<div style="margin-bottom:18px"><div style="color:var(--text3);font-size:11px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;font-weight:500">By category</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px"><th style="text-align:left;padding:8px 10px">Category</th><th style="text-align:right;padding:8px 10px">Amount</th><th style="text-align:right;padding:8px 10px">Count</th></tr></thead><tbody>';
+      for (const c of byCat) {
+        html += '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:8px 10px;color:var(--text)">' + escapeHtml(c.category) + '</td>'
+          + '<td style="padding:8px 10px;text-align:right;color:var(--text);font-family:var(--mono,monospace)">' + repFmt$(c.amount) + '</td>'
+          + '<td style="padding:8px 10px;text-align:right;color:var(--text3)">' + (c.count || 0) + '</td>'
+          + '</tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+
+    // BY MONTH heatmap
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const maxMonthly = Math.max(...byMonth.map(m => m.amount || 0), 1);
+    html += '<div style="margin-bottom:18px"><div style="color:var(--text3);font-size:11px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;font-weight:500">By month</div>'
+      + '<div style="display:grid;grid-template-columns:repeat(12,1fr);gap:4px">';
+    for (let i = 0; i < 12; i++) {
+      const m = byMonth[i] || { month: i+1, amount: 0 };
+      const intensity = m.amount / maxMonthly;
+      const bg = m.amount > 0 ? 'rgba(20,184,166,' + (0.15 + intensity * 0.55).toFixed(3) + ')' : 'var(--bg2)';
+      html += '<div style="background:' + bg + ';border:1px solid var(--border);border-radius:6px;padding:8px 6px;text-align:center">'
+        +   '<div style="font-size:10px;color:var(--text3);text-transform:uppercase">' + monthNames[i] + '</div>'
+        +   '<div style="font-size:12px;color:var(--text);font-family:var(--mono,monospace);margin-top:3px">' + (m.amount > 0 ? repFmt$k(m.amount) : '—') + '</div>'
+        + '</div>';
+    }
+    html += '</div></div>';
+
+    // VISITS by patient
+    if (visits.length > 0) {
+      html += '<div><div style="color:var(--text3);font-size:11px;margin-bottom:8px;text-transform:uppercase;letter-spacing:.04em;font-weight:500">Medical visits by patient</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px"><th style="text-align:left;padding:8px 10px">Patient</th><th style="text-align:right;padding:8px 10px">Visits</th></tr></thead><tbody>';
+      for (const v of visits) {
+        html += '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:8px 10px;color:var(--text)">' + escapeHtml(v.patient || '—') + '</td>'
+          + '<td style="padding:8px 10px;text-align:right;color:var(--text3)">' + (v.visits || 0) + '</td>'
+          + '</tr>';
+      }
+      html += '</tbody></table></div>';
+    }
+
+    container.innerHTML = html;
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
