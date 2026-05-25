@@ -946,6 +946,119 @@ window.REPORT_VIEWERS['cash-flow'] = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// MONEY · Spending calendar (v.199) — 12-month heatmap of daily spend
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['spending-cal'] = {
+  defaultFilters() {
+    return [{ key: 'year', label: 'Year', value: repCurrentYear() }];
+  },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    const r = await fetch('/api/v1/finance/reports/daily-spend?year=' + encodeURIComponent(year));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const days = data.days || [];
+    const daysWithSpend = days.length;
+    // Calendar year days (or partial if mid-year)
+    const yearNum = parseInt(data.year, 10);
+    const isCurrentYear = yearNum === new Date().getFullYear();
+    const daysInYear = isCurrentYear
+      ? Math.floor((Date.now() - new Date(yearNum, 0, 1).getTime()) / 86400000) + 1
+      : (yearNum % 4 === 0 ? 366 : 365);
+    const quietDays = Math.max(0, daysInYear - daysWithSpend);
+    // Busiest day
+    const busiest = days.reduce((m, d) => (!m || d.spent > m.spent) ? d : m, null);
+    container.innerHTML = ''
+      + repSummaryCard('Total Spent',     repFmt$(data.total_spent), 'var(--red,#dc2626)')
+      + repSummaryCard('Days with Spend', daysWithSpend + ' / ' + daysInYear)
+      + repSummaryCard('Quiet Days',      String(quietDays), quietDays > daysInYear/2 ? 'var(--green,#22c55e)' : 'var(--text)')
+      + repSummaryCard('Busiest Day',     busiest ? repFmt$(busiest.spent) + ' <span style="font-size:11px;color:var(--text3)">on ' + busiest.date + '</span>' : '—');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const days = data.days || [];
+    if (days.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No spending in ' + (filters.find(f => f.key === 'year') || {}).value,
+        subtitle: 'Try a different year or import recent transactions.',
+      });
+      return;
+    }
+    // Build a fast lookup: 'YYYY-MM-DD' -> { spent, tx_count }
+    const byDate = {};
+    for (const d of days) byDate[d.date] = d;
+    const maxSpent = data.max_spent || days.reduce((m, d) => Math.max(m, d.spent || 0), 0);
+    const year = parseInt(data.year, 10);
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    let html = ''
+      + '<div style="color:var(--text3);font-size:11px;margin-bottom:10px">Spend per day in ' + year
+      + ' · click a cell with spend to see transactions · darker red = bigger spend day</div>'
+      + '<div style="display:flex;flex-direction:column;gap:6px">';
+    for (let m = 0; m < 12; m++) {
+      const daysInMonth = new Date(year, m + 1, 0).getDate();
+      let monthRow = ''
+        + '<div style="display:grid;grid-template-columns:42px repeat(31,1fr);gap:2px;align-items:center">'
+        + '<div style="font-size:10px;color:var(--text3);text-align:right;padding-right:6px;text-transform:uppercase;font-weight:600">' + monthNames[m] + '</div>';
+      for (let d = 1; d <= 31; d++) {
+        if (d > daysInMonth) {
+          monthRow += '<div style="height:16px"></div>';
+          continue;
+        }
+        const iso = year + '-' + String(m + 1).padStart(2, '0') + '-' + String(d).padStart(2, '0');
+        const entry = byDate[iso];
+        const intensity = entry && maxSpent > 0 ? Math.min(1, entry.spent / maxSpent) : 0;
+        const bg = intensity > 0
+          ? 'rgba(239,68,68,' + (0.15 + intensity * 0.7).toFixed(3) + ')'
+          : 'var(--bg2)';
+        const titleAttr = entry
+          ? iso + ' · ' + repFmt$(entry.spent) + ' (' + (entry.tx_count || 0) + ' tx)'
+          : iso + ' · no spending';
+        const cursor = entry ? 'pointer' : 'default';
+        monthRow += '<div data-date="' + iso + '" data-has="' + (entry ? '1' : '0') + '"'
+          + ' title="' + titleAttr + '"'
+          + ' style="height:16px;background:' + bg + ';border-radius:2px;cursor:' + cursor + ';'
+          + ' border:0.5px solid var(--border)"></div>';
+      }
+      monthRow += '</div>';
+      html += monthRow;
+    }
+    html += '</div>';
+    container.innerHTML = html;
+
+    // Wire cell clicks (only cells that had spend)
+    container.querySelectorAll('div[data-date][data-has="1"]').forEach(cell => {
+      cell.onclick = async () => {
+        const date = cell.dataset.date;
+        try {
+          const r = await fetch('/api/v1/finance/reports/txns-on-date?date=' + encodeURIComponent(date));
+          const d = await r.json();
+          const txns = (d.transactions || []).filter(t => t.amount < 0);
+          let html = '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">'
+            + txns.length + ' transaction' + (txns.length === 1 ? '' : 's') + ' · ' + repFmt$(d.total_spent || 0) + ' total</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:6px">';
+          for (const t of txns.slice(0, 50)) {
+            html += '<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px">'
+              + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+              +   '<span style="color:var(--text);font-weight:500">' + escapeHtml(t.description || '—') + '</span>'
+              +   '<span style="color:var(--red,#dc2626);font-family:var(--mono,monospace)">' + repFmt$(Math.abs(t.amount || 0)) + '</span>'
+              + '</div>'
+              + '<div style="color:var(--text3);font-size:11px;margin-top:2px">' + escapeHtml(t.category || 'Uncategorized') + '</div>'
+              + '</div>';
+          }
+          if (txns.length > 50) html += '<div style="color:var(--text3);font-size:11px;text-align:center;padding:8px">' + (txns.length - 50) + ' more — open in Finance for full list</div>';
+          html += '</div>';
+          onDrill({ title: date, html });
+        } catch (e) {
+          onDrill({ title: date, html: '<div style="color:var(--red,#dc2626)">Could not load: ' + escapeHtml(e.message) + '</div>' });
+        }
+      };
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
 // MONEY · Top vendors (v.198) — ranked treemap-style list with bars
 // ═══════════════════════════════════════════════════════════════
 window.REPORT_VIEWERS['top-vendors'] = {
