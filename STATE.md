@@ -69,6 +69,111 @@ principles.
 
 ---
 
+## 🚧 v.198 BUILT — Reports Redesign Drop 2: Money 5 LIVE (2026-05-25)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.198`.
+> 5 commits stacked above the deployed v.197 (`89276d6`).
+> **This deploy will run FULL Playwright** per the every-other rule
+> (previous v.196+v.197 ran smoke only). E2E 115/0 baseline expected
+> to hold.
+
+### What v.198 does
+
+Restores the v.197 regression — the 5 Money tiles that broke in v.197
+foundation now have working viewer pages. Same `/reports.html` page,
+new `?run=<slug>` URL routing toggles the viewer view.
+
+5 commits:
+
+1. **`0069f92`** — Task 2 / Viewer shell + `?run=` routing. Adds
+   #repViewerRoot DOM block per the locked #30c design:
+   breadcrumb / title / refreshed timestamp / Back + Refresh
+   buttons / GH_FILTERS strip / summary card grid / data table
+   container / GH_DRILLDOWN slot. New JS: `window.REPORT_VIEWERS`
+   registry + `openReportViewer(slug)` + `closeReportViewer()` +
+   `loadAndRenderViewer(slug)` + popstate listener for browser
+   back/forward. bootReportsV2 honors `?run=` before falling back
+   to `?tab=`.
+
+2. **`133a48d`** — Task 3 / `spending-by-cat` + `cash-flow` LIVE.
+   spending-by-cat: 5 summary cards (spent/income/net/categories/
+   transactions) + sortable category table with % of total +
+   transaction drill via `/txns-by-category`. cash-flow: 4 summary
+   cards (starting/net/ending balance + lowest point) + filtered
+   daily table (skip zero-net days) + per-day item drill.
+   Also adds shared helpers: `repFmt$`, `repFmt$k`,
+   `repSummaryCard`, `repCurrentYear`, `escapeHtml`.
+
+3. **`31e2cd9`** — Task 4 / `top-vendors` + `category-trends` +
+   `hsa-fsa-irs` LIVE.
+   - top-vendors: ranked list with horizontal % bars + tx counts +
+     drill via `/txns-by-vendor`. Treemap visual simplified to a
+     ranked list (proper SVG treemap deferred).
+   - category-trends: small-multiples-style table — categories ×
+     12 months with intensity-shaded cells (red opacity); cell
+     click drills into `/txns-by-category?month=MM`.
+   - hsa-fsa-irs: 4 cards (eligible/reimbursed/unreimbursed/
+     missing receipts amber when >0) + by-category table + 12-cell
+     teal month heatmap + visits-by-patient table.
+
+4. **`e7c7692`** — Task 5 / Tile click navigation.
+   `renderTabGridV2` onClick checks `window.REPORT_VIEWERS[slug]`.
+   In registry → `openReportViewer(slug)`. Not in registry →
+   v.197 `comingSoon` toast. Same change in Pinned strip's
+   onClick. After this commit on prod, the 5 LIVE slugs are
+   reachable from the Money tab and from any pinned card.
+
+5. **Task 6 / docs + version bump (this commit).**
+   - `app/version.txt` → `202605.198`
+   - REPORTS_REDESIGN_HANDOFF.md status updated: "Foundation + 5
+     Money LIVE", 39 tiles remain on "Coming soon"
+   - STATE.md (this block)
+   - smoke-test.sh: no new assertions (this drop reuses existing
+     finance + HSA endpoints; nothing new at the API boundary)
+
+### Schema-safety gate
+
+Unchanged from v.197 baseline. v.198 is pure frontend —
+zero SQL, zero migrations, zero backend changes. 12 known flags
+(10 noise + 2 view-limitation false-positives) stable.
+
+### Tests
+
+E2E baseline `115/0` expected to hold. **This deploy runs FULL
+PLAYWRIGHT** per the every-other-deploy rule (v.196+v.197 was
+smoke-only via -SkipE2E). Approximately +5 min deploy time vs
+last drop.
+
+The existing Playwright E2E "Reports page renders report cards
+from registry" test (`ghrava-e2e.spec.js:369`) will likely need
+inspection — the old REPORT_REGISTRY in reports.html is now
+unused (the new layout uses REPORT_TABS_V2 + REPORT_VIEWERS).
+If that test fails, it's a test-staleness issue, not a v.198
+regression — but worth flagging in advance.
+
+### Regression closed
+
+The v.197 → v.198 access regression for the 5 Money reports is
+RESOLVED. They're back, with the new layout (breadcrumb +
+filter strip + drill-down slideout) instead of the pre-v.197
+left/right two-pane.
+
+### What's still NOT done
+
+- 12 of 17 Money tiles (income-flow / spending-cal / net-worth /
+  subs-renewals / 7 trade-terminal tiles) — v.199+
+- All Health tiles (9) — v.200
+- All Household tiles (11) — v.201
+- All Family tiles (7) — v.202
+- Pin button on viewer pages (the strip RENDERS but no UI to
+  add/remove pins yet) — small follow-up
+- "Add filter" typeahead UI in GH_FILTERS — stubbed to
+  comingSoon; v.199+ wires real filter add
+- Export buttons (PDF/Excel/CSV/Share) — display-only per the
+  locked spec, wire later
+
+---
+
 ## ✅ v.196 + v.197 DEPLOYED & VERIFIED — Trade Terminal Mobile UX + Reports Redesign Foundation (2026-05-24)
 
 > **DEPLOYED 2026-05-24 ~00:23 via Path A + new -SkipE2E flag.**

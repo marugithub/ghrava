@@ -3,7 +3,7 @@
 **For:** Next Claude Code session OR new chat that picks up Reports work.
 **Created:** 2026-05-22 (end of v.185 design session).
 **Refined:** 2026-05-23 (post-v.193 design conversation — see REFINEMENT block below).
-**Status:** Foundation BUILT in v.197 (course-corrected from "scaffolding + Money LIVE in one drop" to "scaffolding only, Money live in v.198" mid-build because the realistic effort was ~1600 lines of new code in one drop — splitting reduced risk). v.197 ships the visible redesign with all 44 tiles non-functional ("Coming soon" toast). v.198 wires the 5 LIVE Money reports.
+**Status:** Foundation BUILT in v.197 + Money 5 LIVE wired in v.198. The 5 Money tiles (spending-by-cat / cash-flow / top-vendors / category-trends / hsa-fsa-irs) navigate to their viewer pages and consume existing finance + HSA endpoints with drill-down. 39 tiles remain non-functional ("Coming soon" toast); v.199+ wires the rest of Money, then v.200 Health, v.201 Household, v.202 Family per the locked tile lists.
 
 ---
 
