@@ -1,5 +1,51 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### 📋 QUEUED for v.203+ — Inventory grouping enhancements (chat-design first)
+
+Queued 2026-05-25 after Al's inventory grouping question post-v.198.
+**Slot: AFTER the Reports Redesign drops finish** (v.199 Money remainder,
+v.200 Health, v.201 Household, v.202 Family). Starts v.203 or later.
+**Process: ONE design conversation covers ALL gaps + anything else we
+find needs doing on Inventory**, then build as one drop.
+
+**Confirmed working today (no action needed)**:
+- Containers can nest inside other containers via the "Containers
+  (nested)" optgroup in the parent picker (`inventory.html:3107`).
+  Tools Case → inside Storage Cabinet → inside Garage is fully
+  supported end-to-end (schema, backend, browse UI, move propagation).
+- Items can live in containers (`parent_type='container'`) or directly
+  at a location (`parent_type='location'`).
+- Items have a `size` column (mig 074) perfect for openers/wrenches/etc.
+- Container move propagates to all nested items automatically.
+
+**Three candidates locked from the 2026-05-25 chat**:
+
+1. **Sibling-shortcut on item detail.** On an item detail drawer for
+   an item with a container parent, render a "7 other items in
+   Tools Case →" link that opens that container's contents.
+   - Effort: small (one query, one link).
+   - Why: when looking at a 10mm opener, you want to see siblings.
+
+2. **Container aggregated stats.** On each container card in Browse
+   and on the container's own header, show `Tools Case · 7 items ·
+   $123 total value · 1 expiring warranty` instead of just the name.
+   - Effort: small-to-medium (backend `GET /containers/:id` augments
+     response with aggregates; UI consumes).
+
+3. **Side-by-side comparison view.** New view-mode toggle that
+   renders all items in a container as a compact column-aligned
+   table (size / brand / purchase date / value / warranty) instead
+   of cards. Useful for the "I have 7 wrenches, which sizes?" case.
+   - Effort: medium (new render mode, sort, mobile-responsive).
+   - Reuses existing `/items?parent_type=container` endpoint.
+
+**Plus anything else surfaced in the design conversation.** Before
+the drop, do a fresh audit of the inventory module (UI gaps, UX
+friction, data-model holes) and surface findings to Al in chat.
+The 3 above are a starting list, not the final scope.
+
+---
+
 ### 🚧 BUILT in v.185 (pre-package) — Reports Group 1 Part B: Sankey + small-multiples
 4-task drop, **BUILT 2026-05-21 — not yet packaged or deployed.**
 Closes Reports Group 1 (Money): #26.1.1 Sankey and #26.1.4 small-
