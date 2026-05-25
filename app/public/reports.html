@@ -946,6 +946,142 @@ window.REPORT_VIEWERS['cash-flow'] = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// MONEY · Subscriptions renewals (v.199) — next 90 days
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['subs-renewals'] = {
+  defaultFilters() {
+    return [{ key: 'window', label: 'Window', value: '90 days' }];
+  },
+  async fetch() {
+    // Pull both summary (for totals) and full list (for date grouping).
+    const [sumR, listR] = await Promise.all([
+      fetch('/api/v1/subscriptions/summary'),
+      fetch('/api/v1/subscriptions/?status=active'),
+    ]);
+    if (!sumR.ok)  throw new Error('summary HTTP ' + sumR.status);
+    if (!listR.ok) throw new Error('list HTTP ' + listR.status);
+    const summary = await sumR.json();
+    const list = await listR.json();
+    return { summary, list };
+  },
+  renderSummary(container, data) {
+    const s = data.summary || {};
+    const monthCount = (data.list || []).filter(sub => {
+      if (!sub.next_billing_date) return false;
+      const now = new Date();
+      const thisMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+      const today = now.toISOString().slice(0, 10);
+      return sub.next_billing_date >= today && sub.next_billing_date <= thisMonth;
+    }).length;
+    container.innerHTML = ''
+      + repSummaryCard('Active', String(s.total_active || 0))
+      + repSummaryCard('Monthly Cost',  repFmt$(s.monthly_cost),  'var(--red,#dc2626)')
+      + repSummaryCard('Annual Projected', repFmt$(s.annual_cost), 'var(--red,#dc2626)')
+      + repSummaryCard('Renewing This Month', String(monthCount), monthCount > 0 ? 'var(--amber,#d97706)' : 'var(--green,#22c55e)');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const subs = data.list || [];
+    const today = new Date().toISOString().slice(0, 10);
+    const horizon = new Date(); horizon.setDate(horizon.getDate() + 90);
+    const horizonStr = horizon.toISOString().slice(0, 10);
+
+    // Filter to upcoming renewals within 90 days
+    const upcoming = subs
+      .filter(s => s.next_billing_date && s.next_billing_date >= today && s.next_billing_date <= horizonStr)
+      .sort((a, b) => a.next_billing_date.localeCompare(b.next_billing_date));
+
+    if (upcoming.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No subscription renewals in the next 90 days',
+        subtitle: subs.length === 0
+          ? 'Add subscriptions in the Subscriptions module to track them.'
+          : 'Your ' + subs.length + ' active subscriptions don\'t renew within the window — or their next_billing_date isn\'t set.',
+      });
+      return;
+    }
+
+    // Group by week bucket: this week / next week / this month / next month / 60-90 days
+    const bucketOf = (dateStr) => {
+      const ms = new Date(dateStr).getTime();
+      const now = Date.now();
+      const daysFromNow = (ms - now) / 86400000;
+      if (daysFromNow <= 7)  return 'this week';
+      if (daysFromNow <= 14) return 'next week';
+      if (daysFromNow <= 30) return 'this month';
+      if (daysFromNow <= 60) return 'next month';
+      return '60-90 days';
+    };
+    const buckets = { 'this week': [], 'next week': [], 'this month': [], 'next month': [], '60-90 days': [] };
+    for (const s of upcoming) buckets[bucketOf(s.next_billing_date)].push(s);
+
+    let html = '<div style="color:var(--text3);font-size:11px;margin-bottom:10px">'
+      + upcoming.length + ' renewal' + (upcoming.length === 1 ? '' : 's') + ' in the next 90 days · click a row for detail</div>';
+
+    const bucketColors = {
+      'this week':  'var(--red,#dc2626)',
+      'next week':  'var(--amber,#d97706)',
+      'this month': 'var(--amber,#d97706)',
+      'next month': 'var(--text2)',
+      '60-90 days': 'var(--text3)',
+    };
+
+    for (const [bucket, items] of Object.entries(buckets)) {
+      if (items.length === 0) continue;
+      const bucketTotal = items.reduce((s, sub) => s + (sub.cost || 0), 0);
+      html += '<div style="margin-bottom:14px">'
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px">'
+        +   '<span style="color:' + bucketColors[bucket] + ';font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600">' + bucket + ' · ' + items.length + '</span>'
+        +   '<span style="color:var(--text3);font-size:11px;font-family:var(--mono,monospace)">' + repFmt$(bucketTotal) + ' total</span>'
+        + '</div>'
+        + '<div id="rep-subs-' + bucket.replace(/\s+/g, '-') + '"></div>'
+        + '</div>';
+    }
+    container.innerHTML = html;
+
+    for (const [bucket, items] of Object.entries(buckets)) {
+      if (items.length === 0) continue;
+      const groupEl = container.querySelector('#rep-subs-' + bucket.replace(/\s+/g, '-'));
+      for (const sub of items) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;gap:10px;'
+          + 'padding:8px 12px;border:1px solid var(--border);border-radius:6px;margin-bottom:4px;cursor:pointer;background:var(--bg2)';
+        row.onmouseenter = () => { row.style.background = 'var(--bg3)'; };
+        row.onmouseleave = () => { row.style.background = 'var(--bg2)'; };
+        const cycle = sub.billing_cycle || 'monthly';
+        row.innerHTML = ''
+          + '<div style="flex:1;min-width:0">'
+          +   '<div style="font-size:13px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escapeHtml(sub.name) + '</div>'
+          +   '<div style="font-size:11px;color:var(--text3);margin-top:2px">'
+          +     escapeHtml(sub.category || '—') + ' · ' + escapeHtml(cycle)
+          +     (sub.account_name ? ' · ' + escapeHtml(sub.account_name) : '')
+          +   '</div>'
+          + '</div>'
+          + '<div style="text-align:right;flex-shrink:0">'
+          +   '<div style="font-size:13px;color:var(--text);font-family:var(--mono,monospace);font-weight:600">' + repFmt$(sub.cost) + '</div>'
+          +   '<div style="font-size:11px;color:var(--text3);margin-top:2px">' + escapeHtml(sub.next_billing_date) + '</div>'
+          + '</div>';
+        row.onclick = () => {
+          const html = ''
+            + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+            +   '<div><strong style="color:var(--text)">Name:</strong> ' + escapeHtml(sub.name) + '</div>'
+            +   '<div><strong style="color:var(--text)">Category:</strong> ' + escapeHtml(sub.category || '—') + '</div>'
+            +   '<div><strong style="color:var(--text)">Cost:</strong> ' + repFmt$(sub.cost) + ' / ' + escapeHtml(cycle) + '</div>'
+            +   '<div><strong style="color:var(--text)">Next renewal:</strong> ' + escapeHtml(sub.next_billing_date) + '</div>'
+            +   (sub.account_name ? '<div><strong style="color:var(--text)">Paid from:</strong> ' + escapeHtml(sub.account_name) + '</div>' : '')
+            +   (sub.provider_name ? '<div><strong style="color:var(--text)">Provider:</strong> ' + escapeHtml(sub.provider_name) + '</div>' : '')
+            +   (sub.auto_renew ? '<div style="color:var(--amber,#d97706)">⚡ Auto-renews</div>' : '<div style="color:var(--text3)">Manual renewal</div>')
+            +   (sub.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(sub.notes) + '</div>' : '')
+            +   '<div style="margin-top:10px"><a href="/subscriptions.html" style="color:var(--accent);font-size:12px;text-decoration:none">Open in Subscriptions module →</a></div>'
+            + '</div>';
+          onDrill({ title: sub.name, html });
+        };
+        groupEl.appendChild(row);
+      }
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
 // MONEY · Net worth trend (v.199) — current + history + accounts
 // ═══════════════════════════════════════════════════════════════
 window.REPORT_VIEWERS['net-worth'] = {
