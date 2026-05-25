@@ -69,12 +69,17 @@ principles.
 
 ---
 
-## 🚧 v.199 BUILT — Reports Redesign Drop 3: Money +4 LIVE (2026-05-25)
+## ✅ v.199 DEPLOYED & VERIFIED — Reports Redesign Drop 3: Money +4 LIVE (2026-05-25)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.199`.
+> **NAS confirms `version=202605.199`** via `/api/v1/app/info` at
+> 2026-05-25T22:53Z. NAS realigned to `origin/main` @ `8986d49`.
 > 5 commits stacked above deployed v.198 (`2680cd1`). Per the
-> every-other-deploy rule, **this deploy runs smoke only via
-> `-SkipE2E`** (v.198 ran full Playwright 115/0). Saves ~5 min.
+> every-other-deploy rule, **this deploy ran SMOKE ONLY via
+> `-SkipE2E`** (v.198 ran full Playwright 115/0). Saved ~5 min.
+> Next deploy (v.200) runs full Playwright again.
+>
+> **Verification:** smoke 8/8 ✅, fresh-log zero-error gate ✅,
+> NAS `/api/v1/app/info` version-report ✅, NAS git reset ✅.
 >
 > Money tab is now **9 of 17 tiles LIVE** (v.198 shipped 5 + v.199
 > adds 4). The 7 remaining trade-terminal Money tiles go in v.200.
