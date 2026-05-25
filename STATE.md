@@ -69,6 +69,95 @@ principles.
 
 ---
 
+## 🚧 v.199 BUILT — Reports Redesign Drop 3: Money +4 LIVE (2026-05-25)
+
+> **Built locally, not yet deployed.** `version.txt`=`202605.199`.
+> 5 commits stacked above deployed v.198 (`2680cd1`). Per the
+> every-other-deploy rule, **this deploy runs smoke only via
+> `-SkipE2E`** (v.198 ran full Playwright 115/0). Saves ~5 min.
+>
+> Money tab is now **9 of 17 tiles LIVE** (v.198 shipped 5 + v.199
+> adds 4). The 7 remaining trade-terminal Money tiles go in v.200.
+
+### What v.199 ships (4 new viewers + docs)
+
+1. **`beaeec8`** — Task 2 / `spending-cal` calendar heatmap.
+   12-row × 31-cell grid of daily spend intensity. Cells shade
+   rgba(239,68,68, 0.15..0.85) based on spent / max_spent. Cell
+   click drills via `gh-drilldown` to `/txns-on-date`. Summary cards:
+   total / days-with-spend ratio / quiet days / busiest day.
+   Endpoint: `/api/v1/finance/reports/daily-spend?year=` (v.183).
+
+2. **`6ba01a6`** — Task 3 / `income-flow` income → categories.
+   Side-by-side ranked lists of income sources (left, green) and
+   expense outflows (right, red) with proportional bars. Real
+   Sankey ribbons deferred (SVG path math, out-of-foundation
+   scope); list view conveys the proportional flow and drill-down
+   is more discoverable. Click expense category → `/txns-by-
+   category?side=expense`. Summary cards: income / expense / net /
+   savings rate %.
+   Endpoint: `/api/v1/finance/reports/income-by-category-flow?year=` (v.185).
+
+3. **`36fd911`** — Task 4 / `net-worth` trend.
+   Falls back gracefully between manual snapshots and investment
+   auto-snapshots. Inline 800×220 SVG line chart (no Chart.js
+   dependency — pure SVG with 3 y-ticks / 3 x-date-labels). Summary
+   cards: current net worth / total assets / liabilities / YoY
+   change (compares latest to closest-to-365-days-prior snapshot).
+   Body adds accounts table ranked by balance with in-net-worth
+   checkmarks. No drill-down (snapshots are aggregates; per-snap
+   detail belongs in Finance).
+   Endpoint: `/api/v1/finance/reports/net-worth-trend`.
+
+4. **`b0b1c79`** — Task 5 / `subs-renewals` next 90 days.
+   Parallel fetch of `/subscriptions/summary` + `/subscriptions/`.
+   Renewals grouped into 5 time buckets (this week / next week /
+   this month / next month / 60-90 days) with bucket-total cost.
+   Each row shows name / category / cycle / account on left;
+   cost / date on right. Click → drill panel with full subscription
+   detail + 'Open in Subscriptions module →' link. Summary cards:
+   active count / monthly cost / annual projected / renewing-this-
+   month count (amber when >0).
+
+5. **Task 6 / docs + version bump (this commit).**
+   - `app/version.txt` → `202605.199`
+   - `REPORTS_REDESIGN_HANDOFF.md` status: 9/17 Money LIVE, v.200
+     wires the 7 trade-terminal tiles next.
+   - `STATE.md` (this block).
+   - smoke-test.sh: no new assertions (all 4 endpoints already
+     covered or trivially shaped).
+
+### Schema-safety gate
+
+Unchanged from v.198 baseline. v.199 is pure frontend — zero SQL,
+zero migrations, zero backend changes. 12 known flags stable.
+
+### Tests
+
+E2E baseline `115/0` last verified on the v.198 deploy. **This
+deploy runs SMOKE ONLY** via `-SkipE2E` per the every-other rule;
+next deploy after this one runs full Playwright again. The 2
+stale Reports tests fixed in the v.198 cycle stay updated for the
+new layout, so any v.199 viewer regressions would surface in the
+v.200 full-E2E run.
+
+### What's still NOT done (Money tab)
+
+- 7 trade-terminal Money tiles (portfolio-snap / portfolio-perf /
+  concentration / tax-location / 3 saved-AI-report log views) — v.200
+- The `pending-trans` shortcut on the Money tab is just a link to
+  the Pending tab; not a separate viewer (intentional per locked spec)
+
+### What's still NOT done (other tabs)
+
+- Health tab tiles (9) — v.201 (was v.200; bumped by one when v.199
+  split was course-corrected)
+- Household tab tiles (11) — v.202
+- Family tab tiles (7) — v.203
+- Inventory grouping enhancements — queued v.204+ per BACKLOG.md
+
+---
+
 ## ✅ v.198 DEPLOYED & VERIFIED — Reports Redesign Drop 2: Money 5 LIVE (2026-05-25)
 
 > **DEPLOYED 2026-05-25 ~00:51 via Path A (full Playwright per the

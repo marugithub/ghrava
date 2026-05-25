@@ -3,7 +3,7 @@
 **For:** Next Claude Code session OR new chat that picks up Reports work.
 **Created:** 2026-05-22 (end of v.185 design session).
 **Refined:** 2026-05-23 (post-v.193 design conversation — see REFINEMENT block below).
-**Status:** Foundation BUILT in v.197 + Money 5 LIVE wired in v.198. The 5 Money tiles (spending-by-cat / cash-flow / top-vendors / category-trends / hsa-fsa-irs) navigate to their viewer pages and consume existing finance + HSA endpoints with drill-down. 39 tiles remain non-functional ("Coming soon" toast); v.199+ wires the rest of Money, then v.200 Health, v.201 Household, v.202 Family per the locked tile lists.
+**Status:** Foundation BUILT in v.197 + Money 5 LIVE wired in v.198 + Money 4 more LIVE wired in v.199. **9 of 17 Money tiles LIVE** (spending-by-cat / cash-flow / top-vendors / category-trends / hsa-fsa-irs from v.198; spending-cal / income-flow / net-worth / subs-renewals from v.199). 35 tiles remain non-functional ("Coming soon" toast). v.200 wires the 7 trade-terminal Money tiles. Then v.201 Health, v.202 Household, v.203 Family. After Reports Redesign completes, v.204+ picks up the Inventory grouping enhancements queued in BACKLOG.md.
 
 ---
 
