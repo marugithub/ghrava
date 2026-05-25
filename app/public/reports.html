@@ -946,6 +946,125 @@ window.REPORT_VIEWERS['cash-flow'] = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// MONEY · Net worth trend (v.199) — current + history + accounts
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['net-worth'] = {
+  defaultFilters() { return []; },   // no filters — shows all history + current
+  async fetch() {
+    const r = await fetch('/api/v1/finance/reports/net-worth-trend');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const cur = data.current || {};
+    const snaps = data.snapshots || [];
+    const invTrend = data.investment_trend || [];
+    // Combined trend (prefer manual snapshots; fall back to investment-only when no manual snapshots exist)
+    const trend = snaps.length > 0 ? snaps.map(s => ({ date: s.snapshot_date, net: s.net_worth }))
+                                   : invTrend.map(t => ({ date: t.date, net: t.total }));
+    const high = trend.length > 0 ? Math.max(...trend.map(p => p.net || 0)) : null;
+    const low  = trend.length > 0 ? Math.min(...trend.map(p => p.net || 0)) : null;
+    // Year-over-year change — compare latest snapshot to one ≥ 365 days earlier
+    let yoy = null;
+    if (trend.length >= 2) {
+      const latest = trend[trend.length - 1];
+      const latestMs = new Date(latest.date).getTime();
+      const oneYearAgo = latestMs - 365 * 86400000;
+      // Find the snapshot closest to one year ago
+      let bestPast = trend[0];
+      let bestDelta = Math.abs(new Date(bestPast.date).getTime() - oneYearAgo);
+      for (const p of trend) {
+        const delta = Math.abs(new Date(p.date).getTime() - oneYearAgo);
+        if (delta < bestDelta) { bestPast = p; bestDelta = delta; }
+      }
+      if (bestPast && bestPast !== latest) yoy = (latest.net || 0) - (bestPast.net || 0);
+    }
+    const yoyColor = yoy == null ? 'var(--text)' : yoy >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    container.innerHTML = ''
+      + repSummaryCard('Net Worth Now', repFmt$(cur.net_worth), (cur.net_worth || 0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)')
+      + repSummaryCard('Total Assets',  repFmt$(cur.assets),       'var(--green,#22c55e)')
+      + repSummaryCard('Liabilities',   repFmt$(cur.liabilities),  'var(--red,#dc2626)')
+      + repSummaryCard('YoY Change',    yoy == null ? '—' : (yoy >= 0 ? '+' : '') + repFmt$(yoy), yoyColor);
+  },
+  renderBody(container, data) {
+    const cur = data.current || {};
+    const snaps = data.snapshots || [];
+    const invTrend = data.investment_trend || [];
+    const accounts = data.accounts || [];
+    const trend = snaps.length > 0
+      ? snaps.map(s => ({ date: s.snapshot_date, net: s.net_worth, assets: s.total_assets, liabs: s.total_liabilities }))
+      : invTrend.map(t => ({ date: t.date, net: t.total, assets: t.total, liabs: 0 }));
+
+    // ── Inline SVG line chart ────────────────────────────────────
+    let html = '';
+    if (trend.length >= 2) {
+      const w = 800, h = 220, pad = 36;
+      const minV = Math.min(...trend.map(p => p.net || 0), 0);
+      const maxV = Math.max(...trend.map(p => p.net || 0), 0);
+      const range = maxV - minV || 1;
+      const xStep = (w - pad * 2) / Math.max(1, trend.length - 1);
+      const y = v => h - pad - ((v - minV) / range) * (h - pad * 2);
+      const x = i => pad + i * xStep;
+      const points = trend.map((p, i) => x(i) + ',' + y(p.net || 0)).join(' ');
+      const areaPath = 'M ' + x(0) + ' ' + (h - pad) + ' L ' + trend.map((p, i) => x(i) + ' ' + y(p.net || 0)).join(' L ') + ' L ' + x(trend.length - 1) + ' ' + (h - pad) + ' Z';
+
+      // Y-axis labels (3 ticks: min / mid / max)
+      const yTicks = [maxV, (maxV + minV) / 2, minV];
+      let axisHtml = '';
+      for (const t of yTicks) {
+        axisHtml += '<text x="' + (pad - 6) + '" y="' + (y(t) + 4) + '" font-size="10" fill="var(--text3)" text-anchor="end">' + repFmt$k(t) + '</text>';
+        axisHtml += '<line x1="' + pad + '" y1="' + y(t) + '" x2="' + (w - pad) + '" y2="' + y(t) + '" stroke="var(--border)" stroke-width="0.5"/>';
+      }
+      // X-axis labels (first/middle/last date)
+      const dateLabels = [trend[0], trend[Math.floor(trend.length / 2)], trend[trend.length - 1]];
+      let xLabels = '';
+      dateLabels.forEach((p, idx) => {
+        const xPos = idx === 0 ? pad : idx === 1 ? w / 2 : w - pad;
+        const anchor = idx === 0 ? 'start' : idx === 1 ? 'middle' : 'end';
+        xLabels += '<text x="' + xPos + '" y="' + (h - 8) + '" font-size="10" fill="var(--text3)" text-anchor="' + anchor + '">' + (p.date || '').slice(0, 10) + '</text>';
+      });
+
+      html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:18px">'
+        + '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'
+        + axisHtml
+        + '<path d="' + areaPath + '" fill="rgba(99,102,241,0.15)"/>'
+        + '<polyline fill="none" stroke="var(--accent,#3b82f6)" stroke-width="2" points="' + points + '"/>'
+        + xLabels
+        + '</svg></div>';
+    } else {
+      html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:24px;text-align:center;color:var(--text3);font-size:12px;margin-bottom:18px">'
+        + (trend.length === 1 ? 'Only one snapshot yet — chart appears after the next monthly snapshot.' : 'No snapshots recorded yet. Net-worth history will populate as monthly snapshots accumulate.')
+        + '</div>';
+    }
+
+    // ── Accounts table ─────────────────────────────────────────
+    if (accounts.length > 0) {
+      html += '<div style="color:var(--text3);font-size:10px;letter-spacing:.04em;font-weight:600;margin-bottom:8px;text-transform:uppercase">Accounts ranked by balance</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px">'
+        +     '<th style="text-align:left;padding:8px 10px">Account</th>'
+        +     '<th style="text-align:left;padding:8px 10px">Type</th>'
+        +     '<th style="text-align:right;padding:8px 10px">Balance</th>'
+        +     '<th style="text-align:right;padding:8px 10px">In Net Worth</th>'
+        +   '</tr></thead><tbody>';
+      for (const a of accounts) {
+        const balColor = (a.current_balance || 0) >= 0 ? 'var(--text)' : 'var(--red,#dc2626)';
+        const incl = a.include_net_worth ? '✓' : '—';
+        html += '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:8px 10px;color:var(--text);font-weight:500">' + escapeHtml(a.name || '—') + '</td>'
+          + '<td style="padding:8px 10px;color:var(--text3)">' + escapeHtml(a.account_type || '—') + '</td>'
+          + '<td style="padding:8px 10px;text-align:right;color:' + balColor + ';font-family:var(--mono,monospace)">' + repFmt$(a.current_balance) + '</td>'
+          + '<td style="padding:8px 10px;text-align:right;color:var(--text3)">' + incl + '</td>'
+          + '</tr>';
+      }
+      html += '</tbody></table>';
+    }
+
+    container.innerHTML = html || '<div style="color:var(--text3);font-size:12px">No net-worth data available.</div>';
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
 // MONEY · Income → categories (v.199) — where every dollar went
 // ═══════════════════════════════════════════════════════════════
 window.REPORT_VIEWERS['income-flow'] = {
