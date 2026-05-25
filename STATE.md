@@ -69,13 +69,29 @@ principles.
 
 ---
 
-## 🚧 v.198 BUILT — Reports Redesign Drop 2: Money 5 LIVE (2026-05-25)
+## ✅ v.198 DEPLOYED & VERIFIED — Reports Redesign Drop 2: Money 5 LIVE (2026-05-25)
 
-> **Built locally, not yet deployed.** `version.txt`=`202605.198`.
-> 5 commits stacked above the deployed v.197 (`89276d6`).
-> **This deploy will run FULL Playwright** per the every-other rule
-> (previous v.196+v.197 ran smoke only). E2E 115/0 baseline expected
-> to hold.
+> **DEPLOYED 2026-05-25 ~00:51 via Path A (full Playwright per the
+> every-other-deploy rule).** `version.txt`=`202605.198` live (verified
+> via /api/v1/app/info). Migration 147 applied at boot ("apply
+> 147_user_preferences.sql · Migrations: 1 applied, 144 skipped").
+> Smoke 8/8 ✅. E2E **115 passed / 0 failed** in 2.7m after fixing 2
+> stale Reports tests inline (caught the same v.197 layout-change
+> regression I flagged in v.198 STATE block in advance).
+>
+> Live route checks:
+>   /api/v1/app/info                           → version: 202605.197 ... wait
+> Actually the very first /app/info hit during deploy showed v.197
+> because the SSH log-tail captured a moment between restart phases.
+> Post-deploy live hit shows version: 202605.198. The new endpoint
+> /api/v1/preferences/pinned-reports returns {pinned_reports: []}
+> (mig 147 + new route both working). /reports.html?run=spending-by-cat
+> serves the viewer-page-routed URL correctly.
+>
+> Local + origin + NAS all at the post-deploy commit. Trade-terminal
+> roadmap COMPLETE (v.196), Reports Redesign Foundation + Money 5 LIVE
+> SHIPPED (v.197 + v.198). 39 tiles remain "Coming soon"; v.199+
+> wires the rest of Money, then Health/Household/Family.
 
 ### What v.198 does
 

@@ -367,26 +367,27 @@ test.describe('Key UI Elements', () => {
   });
 
   test('Reports page renders report cards from registry', async ({ page }) => {
-    // reports.html is now a tabs/shell layout (Overview | Family | Money |
-    // Maintenance | System) with a left rail of `.rep-row` items per tab and
-    // a right `.rep-detail-*` pane. Test verifies the rail populates and a
-    // click opens the detail pane without raw HTML/JS bleeding through.
-    // Updated v202604.113 (was looking for the removed `.report-card` class).
-    // v202604.175 — the default `overview` tab renders summary tiles by
-    // design (locked Reports #26); `.rep-row` only exists on the
-    // money/family/maintenance/system tabs. Land on a rows-bearing tab.
+    // Reports Redesign Foundation (v.197+) replaced the `.rep-row` left-rail
+    // + `.rep-detail-*` right-pane two-pane shell with a 5-tab grid
+    // (Money/Health/Household/Family/Pending) of small `.gh-tile` shortcut
+    // tiles. Each LIVE tile opens its own viewer page at `?run=<slug>`.
+    // Test verifies: (1) Money tile grid populates, (2) clicking a LIVE tile
+    // navigates to the viewer + summary cards render.
+    // Pre-v.197 history: was looking for `.report-card` then `.rep-row`;
+    // both are legacy now (still in the DOM as dead code but display:none).
     await page.goto(BASE + '/reports.html?tab=money', { waitUntil: 'load' });
-    await page.locator('.rep-row').first().waitFor({ state: 'attached', timeout: 5000 });
-    const rowCount = await page.locator('.rep-row').count();
-    expect(rowCount, 'No report rows rendered').toBeGreaterThan(3);
-    // Click the first row and verify the detail pane opens
-    await page.locator('.rep-row').first().click();
-    await page.locator('.rep-detail-header').waitFor({ state: 'visible', timeout: 5000 });
-    // Detail body should not contain raw HTML/JS as visible text
-    const rawHtml = await page.locator('#repDetailBody').evaluate(el =>
-      /<button[^>]*onclick=/.test(el.textContent) || /window\.LT/.test(el.textContent)
-    );
-    expect(rawHtml, 'Report detail pane contains raw HTML/JS').toBe(false);
+    await page.locator('.gh-tile').first().waitFor({ state: 'visible', timeout: 5000 });
+    const tileCount = await page.locator('.gh-tile').count();
+    expect(tileCount, 'Money tab should render multiple tiles').toBeGreaterThan(3);
+    // Click a known LIVE tile (v.198 wired spending-by-cat) and verify the
+    // viewer page loads with summary cards populated.
+    await page.locator('.gh-tile[data-slug="spending-by-cat"]').first().click();
+    await page.locator('#repViewerRoot').waitFor({ state: 'visible', timeout: 5000 });
+    // Summary cards populate after the fetch resolves.
+    await page.locator('#repViewerSummary > div').first()
+      .waitFor({ state: 'visible', timeout: 10000 });
+    // URL should reflect the deep-link routing.
+    expect(page.url(), 'viewer URL should carry ?run=spending-by-cat').toContain('?run=spending-by-cat');
   });
 
   test('Settings page loads key sections', async ({ page }) => {
