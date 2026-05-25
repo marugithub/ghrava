@@ -946,6 +946,122 @@ window.REPORT_VIEWERS['cash-flow'] = {
 };
 
 // ═══════════════════════════════════════════════════════════════
+// MONEY · Income → categories (v.199) — where every dollar went
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['income-flow'] = {
+  defaultFilters() {
+    return [{ key: 'year', label: 'Year', value: repCurrentYear() }];
+  },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    const r = await fetch('/api/v1/finance/reports/income-by-category-flow?year=' + encodeURIComponent(year));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const net = (data.total_income || 0) - (data.total_expense || 0);
+    const netColor = net >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    const savingsRate = data.total_income > 0
+      ? Math.round((net / data.total_income) * 1000) / 10
+      : null;
+    container.innerHTML = ''
+      + repSummaryCard('Total Income',  repFmt$(data.total_income),  'var(--green,#22c55e)')
+      + repSummaryCard('Total Expense', repFmt$(data.total_expense), 'var(--red,#dc2626)')
+      + repSummaryCard('Net',           repFmt$(net), netColor)
+      + repSummaryCard('Savings Rate',  savingsRate != null ? savingsRate.toFixed(1) + '%' : '—', net >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const income  = data.income  || [];
+    const expense = data.expense || [];
+    if (income.length === 0 && expense.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No transactions for ' + (filters.find(f => f.key === 'year') || {}).value,
+        subtitle: 'Try a different year or import recent transactions.',
+      });
+      return;
+    }
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    const maxIncome  = Math.max(...income.map(r => r.amount || 0), 1);
+    const maxExpense = Math.max(...expense.map(r => r.amount || 0), 1);
+
+    // Side-by-side: income on left, expense on right. Simpler than a true
+    // Sankey (which would need SVG path math); the bar widths convey the
+    // proportional flow well enough for the at-a-glance use case.
+    let html = ''
+      + '<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">'
+      + '<div>'
+      +   '<div style="color:var(--green,#22c55e);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:10px">↗ Income sources</div>'
+      +   '<div id="rep-incflow-income"></div>'
+      + '</div>'
+      + '<div>'
+      +   '<div style="color:var(--red,#dc2626);font-size:11px;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:10px">↘ Expense outflows · click to drill</div>'
+      +   '<div id="rep-incflow-expense"></div>'
+      + '</div>'
+      + '</div>';
+    container.innerHTML = html;
+
+    const incEl = container.querySelector('#rep-incflow-income');
+    for (const row of income) {
+      const pct = (row.amount / maxIncome * 100).toFixed(1);
+      const item = document.createElement('div');
+      item.style.cssText = 'border-bottom:1px solid var(--border);padding:8px 0';
+      item.innerHTML = ''
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">'
+        +   '<span style="font-size:13px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + escapeHtml(row.category) + '</span>'
+        +   '<span style="font-size:13px;color:var(--green,#22c55e);font-family:var(--mono,monospace);font-weight:600">' + repFmt$(row.amount) + '</span>'
+        + '</div>'
+        + '<div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">'
+        +   '<div style="height:100%;background:var(--green,#22c55e);width:' + pct + '%"></div>'
+        + '</div>';
+      incEl.appendChild(item);
+    }
+    if (income.length === 0) incEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:12px 0">No income recorded.</div>';
+
+    const expEl = container.querySelector('#rep-incflow-expense');
+    for (const row of expense) {
+      const pct = (row.amount / maxExpense * 100).toFixed(1);
+      const item = document.createElement('div');
+      item.style.cssText = 'border-bottom:1px solid var(--border);padding:8px 0;cursor:pointer';
+      item.onmouseenter = () => { item.style.background = 'var(--bg2)'; };
+      item.onmouseleave = () => { item.style.background = ''; };
+      item.innerHTML = ''
+        + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:4px">'
+        +   '<span style="font-size:13px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1">' + escapeHtml(row.category) + '</span>'
+        +   '<span style="font-size:13px;color:var(--red,#dc2626);font-family:var(--mono,monospace);font-weight:600">' + repFmt$(row.amount) + '</span>'
+        + '</div>'
+        + '<div style="height:6px;background:var(--bg3);border-radius:3px;overflow:hidden">'
+        +   '<div style="height:100%;background:var(--red,#dc2626);width:' + pct + '%"></div>'
+        + '</div>';
+      item.onclick = async () => {
+        try {
+          const r = await fetch('/api/v1/finance/reports/txns-by-category?category=' + encodeURIComponent(row.category) + '&year=' + encodeURIComponent(year) + '&side=expense');
+          const d = await r.json();
+          const txns = d.txns || d.transactions || [];
+          let html = '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">' + txns.length + ' transactions · ' + repFmt$(row.amount) + ' total · ' + year + '</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:6px">';
+          for (const t of txns.slice(0, 50)) {
+            html += '<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px">'
+              + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+              +   '<span style="color:var(--text);font-weight:500">' + escapeHtml(t.description || '—') + '</span>'
+              +   '<span style="color:var(--red,#dc2626);font-family:var(--mono,monospace)">' + repFmt$(Math.abs(t.amount || 0)) + '</span>'
+              + '</div>'
+              + '<div style="color:var(--text3);font-size:11px;margin-top:2px">' + escapeHtml(t.date || '') + '</div>'
+              + '</div>';
+          }
+          if (txns.length > 50) html += '<div style="color:var(--text3);font-size:11px;text-align:center;padding:8px">' + (txns.length - 50) + ' more — open in Finance</div>';
+          html += '</div>';
+          onDrill({ title: row.category, html });
+        } catch (e) {
+          onDrill({ title: row.category, html: '<div style="color:var(--red,#dc2626)">Could not load: ' + escapeHtml(e.message) + '</div>' });
+        }
+      };
+      expEl.appendChild(item);
+    }
+    if (expense.length === 0) expEl.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:12px 0">No expenses recorded.</div>';
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
 // MONEY · Spending calendar (v.199) — 12-month heatmap of daily spend
 // ═══════════════════════════════════════════════════════════════
 window.REPORT_VIEWERS['spending-cal'] = {
