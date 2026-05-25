@@ -752,6 +752,201 @@ window.addEventListener('popstate', (e) => {
   }
 });
 
+// ─── Shared viewer helpers ────────────────────────────────────
+function repFmt$(n) {
+  if (n == null || isNaN(n)) return '—';
+  const abs = Math.abs(n);
+  return (n < 0 ? '-' : '') + '$' + abs.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function repFmt$k(n) {
+  if (n == null || isNaN(n)) return '—';
+  if (Math.abs(n) >= 1000000) return '$' + (n/1000000).toFixed(1) + 'M';
+  if (Math.abs(n) >= 1000)    return '$' + (n/1000).toFixed(1) + 'k';
+  return '$' + Math.round(n).toLocaleString();
+}
+function repSummaryCard(label, value, color) {
+  return ''
+    + '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px">'
+    +   '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px">' + label + '</div>'
+    +   '<div style="font-size:18px;font-weight:600;color:' + (color || 'var(--text)') + '">' + value + '</div>'
+    + '</div>';
+}
+function repCurrentYear() { return new Date().getFullYear().toString(); }
+
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Spending by category (v.198 — first LIVE viewer)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['spending-by-cat'] = {
+  defaultFilters() {
+    return [{ key: 'year', label: 'Year', value: repCurrentYear() }];
+  },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    const r = await fetch('/api/v1/finance/reports/spending-by-category?year=' + encodeURIComponent(year));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const t = data.totals || {};
+    const cats = data.categories || [];
+    const net = (t.total_income || 0) - (t.total_spent || 0);
+    const netColor = net >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    container.innerHTML = ''
+      + repSummaryCard('Total Spent',  repFmt$(t.total_spent),  'var(--red,#dc2626)')
+      + repSummaryCard('Total Income', repFmt$(t.total_income), 'var(--green,#22c55e)')
+      + repSummaryCard('Net',          repFmt$(net),            netColor)
+      + repSummaryCard('Categories',   String(cats.length))
+      + repSummaryCard('Transactions', String(t.tx_count || 0));
+  },
+  renderBody(container, data, filters, onDrill) {
+    const cats = data.categories || [];
+    if (cats.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No spending in ' + (filters.find(f => f.key === 'year') || {}).value,
+        subtitle: 'Try a different year or import recent transactions.',
+      });
+      return;
+    }
+    const totalSpent = cats.reduce((s, c) => s + (c.spent || 0), 0);
+    const year = (filters.find(f => f.key === 'year') || {}).value || repCurrentYear();
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Category</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Spent</th>'
+      +     '<th style="text-align:right;padding:8px 10px">% of total</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Transactions</th>'
+      +     '<th style="width:24px"></th>'
+      +   '</tr></thead><tbody id="rep-spending-tbody"></tbody>'
+      + '</table>';
+    const tbody = container.querySelector('#rep-spending-tbody');
+    for (const c of cats) {
+      const pct = totalSpent > 0 ? (c.spent / totalSpent * 100) : 0;
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid var(--border);cursor:pointer';
+      tr.innerHTML = ''
+        + '<td style="padding:8px 10px;color:var(--text)">' + escapeHtml(c.category) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--text);font-family:var(--mono,monospace)">' + repFmt$(c.spent) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--text3)">' + pct.toFixed(1) + '%</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--text3)">' + (c.tx_count || 0) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--accent)">→</td>';
+      tr.onclick = async () => {
+        // Drill: fetch /txns-by-category and show in slideout
+        try {
+          const r = await fetch('/api/v1/finance/reports/txns-by-category?category=' + encodeURIComponent(c.category) + '&year=' + encodeURIComponent(year) + '&side=expense');
+          const d = await r.json();
+          const txns = d.txns || d.transactions || [];
+          let html = '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">' + (txns.length || 0) + ' transactions · ' + repFmt$(c.spent) + ' total</div>';
+          html += '<div style="display:flex;flex-direction:column;gap:6px">';
+          for (const t of txns.slice(0, 50)) {
+            html += '<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px">'
+              + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+              +   '<span style="color:var(--text);font-weight:500">' + escapeHtml(t.description || t.merchant_name || '—') + '</span>'
+              +   '<span style="color:var(--red,#dc2626);font-family:var(--mono,monospace)">' + repFmt$(Math.abs(t.amount || 0)) + '</span>'
+              + '</div>'
+              + '<div style="color:var(--text3);font-size:11px;margin-top:2px">' + escapeHtml(t.date || '') + '</div>'
+              + '</div>';
+          }
+          if (txns.length > 50) html += '<div style="color:var(--text3);font-size:11px;text-align:center;padding:8px">' + (txns.length - 50) + ' more — open in Finance for full list</div>';
+          html += '</div>';
+          onDrill({ title: c.category, html });
+        } catch (e) {
+          onDrill({ title: c.category, html: '<div style="color:var(--red,#dc2626)">Could not load transactions: ' + escapeHtml(e.message) + '</div>' });
+        }
+      };
+      tbody.appendChild(tr);
+    }
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Cash-flow forecast (v.198)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['cash-flow'] = {
+  defaultFilters() {
+    return [{ key: 'days', label: 'Days ahead', value: '30' }];
+  },
+  async fetch(filters) {
+    const days = (filters.find(f => f.key === 'days') || {}).value || '30';
+    const r = await fetch('/api/v1/finance/forecast?days=' + encodeURIComponent(days));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const s = data.summary || {};
+    const netColor = (s.net || 0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    const lowColor = (s.projected_lowest || 0) < 0 ? 'var(--red,#dc2626)' : 'var(--text)';
+    container.innerHTML = ''
+      + repSummaryCard('Starting Balance', repFmt$(s.starting_balance))
+      + repSummaryCard('Net Change',       repFmt$(s.net), netColor)
+      + repSummaryCard('Ending Balance',   repFmt$(s.ending_balance), netColor)
+      + repSummaryCard('Lowest Point',     repFmt$(s.projected_lowest) + (s.projected_lowest_date ? ' <span style="font-size:11px;color:var(--text3)">on ' + s.projected_lowest_date + '</span>' : ''), lowColor);
+  },
+  renderBody(container, data, filters, onDrill) {
+    const daily = data.daily || [];
+    if (daily.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No upcoming recurring transactions',
+        subtitle: 'Add recurring transactions in Finance to see a forecast here.',
+      });
+      return;
+    }
+    // Show only days that have activity (skip zero-net days) to keep table tight.
+    const active = daily.filter(d => (d.items || []).length > 0);
+    container.innerHTML = ''
+      + '<div style="color:var(--text3);font-size:11px;margin-bottom:8px">' + active.length + ' day' + (active.length === 1 ? '' : 's') + ' with activity in the window · click a day to see line items</div>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Income</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Expenses</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Net</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Running Balance</th>'
+      +     '<th style="width:24px"></th>'
+      +   '</tr></thead><tbody id="rep-cashflow-tbody"></tbody>'
+      + '</table>';
+    const tbody = container.querySelector('#rep-cashflow-tbody');
+    for (const d of active) {
+      const tr = document.createElement('tr');
+      tr.style.cssText = 'border-bottom:1px solid var(--border);cursor:pointer';
+      const netColor = (d.net || 0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+      const balColor = (d.running_balance || 0) < 0 ? 'var(--red,#dc2626)' : 'var(--text)';
+      tr.innerHTML = ''
+        + '<td style="padding:8px 10px;color:var(--text)">' + escapeHtml(d.date) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--green,#22c55e);font-family:var(--mono,monospace)">' + (d.income > 0 ? '+' + repFmt$(d.income) : '—') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--red,#dc2626);font-family:var(--mono,monospace)">' + (d.expenses > 0 ? '-' + repFmt$(d.expenses) : '—') + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:' + netColor + ';font-family:var(--mono,monospace);font-weight:600">' + (d.net >= 0 ? '+' : '') + repFmt$(d.net) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:' + balColor + ';font-family:var(--mono,monospace)">' + repFmt$(d.running_balance) + '</td>'
+        + '<td style="padding:8px 10px;text-align:right;color:var(--accent)">→</td>';
+      tr.onclick = () => {
+        let html = '<div style="font-size:13px;color:var(--text2);margin-bottom:10px">' + (d.items || []).length + ' line items on ' + d.date + '</div>';
+        html += '<div style="display:flex;flex-direction:column;gap:6px">';
+        for (const it of (d.items || [])) {
+          const amtColor = (it.amount || 0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+          const sign = (it.amount || 0) >= 0 ? '+' : '';
+          html += '<div style="border:1px solid var(--border);border-radius:6px;padding:8px 10px;font-size:12px">'
+            + '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">'
+            +   '<span style="color:var(--text);font-weight:500">' + escapeHtml(it.description || '—') + '</span>'
+            +   '<span style="color:' + amtColor + ';font-family:var(--mono,monospace)">' + sign + repFmt$(it.amount) + '</span>'
+            + '</div>'
+            + '<div style="color:var(--text3);font-size:11px;margin-top:2px">' + escapeHtml(it.category || '') + (it.account_name ? ' · ' + escapeHtml(it.account_name) : '') + ' · ' + escapeHtml(it.frequency || '') + '</div>'
+            + '</div>';
+        }
+        html += '</div>';
+        onDrill({ title: d.date, html });
+      };
+      tbody.appendChild(tr);
+    }
+  },
+};
+
+// Small HTML-escape used by the viewers above.
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 // ── Boot — load pinned, render default tab OR open viewer if ?run=  ────
 (async function bootReportsV2() {
   await loadPinned();
