@@ -1709,14 +1709,14 @@ window.REPORT_VIEWERS['portfolio-snap'] = {
   renderSummary(container, data) {
     const s = data.summary || {};
     const gainColor = (s.total_gain_loss || 0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    // #repViewerSummary is already display:grid auto-fit (HTML line 205) —
+    // do NOT wrap in an extra div, or the cards collapse into a single cell.
     container.innerHTML = ''
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
-      +   repSummaryCard('Total value',   repFmt$(s.total_market_value))
-      +   repSummaryCard('Cost basis',    repFmt$(s.total_cost_basis))
-      +   repSummaryCard('Gain / loss',   repFmt$(s.total_gain_loss), gainColor)
-      +   repSummaryCard('Return',        ((s.total_gain_loss_pct||0)).toFixed(2) + '%', gainColor)
-      + '</div>'
-      + '<div style="margin-top:8px;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
+      + repSummaryCard('Total value',   repFmt$(s.total_market_value))
+      + repSummaryCard('Cost basis',    repFmt$(s.total_cost_basis))
+      + repSummaryCard('Gain / loss',   repFmt$(s.total_gain_loss), gainColor)
+      + repSummaryCard('Return',        (s.total_gain_loss_pct || 0).toFixed(2) + '%', gainColor)
+      + '<div style="grid-column:1/-1;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
   },
   renderBody(container, data, _filters, onDrill) {
     const accts = data.accounts || [];
@@ -1727,22 +1727,28 @@ window.REPORT_VIEWERS['portfolio-snap'] = {
     const rows = accts.map(a => {
       const gainColor = (a.gain_loss||0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
       const gainPct   = a.cost_basis > 0 ? ((a.gain_loss/a.cost_basis)*100).toFixed(2) + '%' : '—';
-      return '<tr data-id="' + a.id + '" style="cursor:pointer">'
-        + '<td>' + escapeHtml(a.institution || '—') + '</td>'
-        + '<td>' + escapeHtml(a.nickname || '—') + '</td>'
-        + '<td>' + escapeHtml(a.tax_treatment || 'taxable') + '</td>'
-        + '<td style="text-align:right">' + repFmt$(a.market_value) + '</td>'
-        + '<td style="text-align:right">' + repFmt$(a.cost_basis) + '</td>'
-        + '<td style="text-align:right;color:' + gainColor + '">' + repFmt$(a.gain_loss) + '</td>'
-        + '<td style="text-align:right;color:' + gainColor + '">' + gainPct + '</td>'
+      return '<tr data-id="' + a.id + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(a.institution || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(a.nickname || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(a.tax_treatment || 'taxable') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(a.market_value) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(a.cost_basis) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px;color:' + gainColor + '">' + repFmt$(a.gain_loss) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px;color:' + gainColor + '">' + gainPct + '</td>'
         + '</tr>';
     }).join('');
+    // Inline cell padding (no shared .rep-table CSS exists; match the pattern
+    // used by spending-by-cat / top-vendors at lines 818 / 1455).
     container.innerHTML = ''
-      + '<table style="width:100%;border-collapse:collapse" class="rep-table">'
-      +   '<thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase">'
-      +     '<th>Institution</th><th>Nickname</th><th>Tax</th>'
-      +     '<th style="text-align:right">Value</th><th style="text-align:right">Cost</th>'
-      +     '<th style="text-align:right">Gain</th><th style="text-align:right">%</th>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Institution</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Nickname</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Tax</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Value</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Cost</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Gain</th>'
+      +     '<th style="text-align:right;padding:8px 10px">%</th>'
       +   '</tr></thead>'
       +   '<tbody>' + rows + '</tbody>'
       + '</table>';
@@ -1753,14 +1759,14 @@ window.REPORT_VIEWERS['portfolio-snap'] = {
         if (!acct) return;
         const hRows = (acct.holdings || []).map(h => {
           const gainColor = (h.gain_loss_dollar||0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
-          return '<tr>'
-            + '<td><strong>' + escapeHtml(h.symbol || '—') + '</strong></td>'
-            + '<td>' + escapeHtml(h.name || '—') + '</td>'
-            + '<td style="text-align:right">' + (h.shares != null ? h.shares.toLocaleString() : '—') + '</td>'
-            + '<td style="text-align:right">' + repFmt$(h.price) + '</td>'
-            + '<td style="text-align:right">' + repFmt$(h.market_value) + '</td>'
-            + '<td style="text-align:right;color:' + gainColor + '">' + repFmt$(h.gain_loss_dollar) + '</td>'
-            + '<td style="text-align:right;color:' + gainColor + '">' + (h.gain_loss_pct != null ? h.gain_loss_pct.toFixed(2) + '%' : '—') + '</td>'
+          return '<tr style="border-bottom:1px solid var(--border)">'
+            + '<td style="padding:6px 10px"><strong>' + escapeHtml(h.symbol || '—') + '</strong></td>'
+            + '<td style="padding:6px 10px">' + escapeHtml(h.name || '—') + '</td>'
+            + '<td style="text-align:right;padding:6px 10px">' + (h.shares != null ? h.shares.toLocaleString() : '—') + '</td>'
+            + '<td style="text-align:right;padding:6px 10px">' + repFmt$(h.price) + '</td>'
+            + '<td style="text-align:right;padding:6px 10px">' + repFmt$(h.market_value) + '</td>'
+            + '<td style="text-align:right;padding:6px 10px;color:' + gainColor + '">' + repFmt$(h.gain_loss_dollar) + '</td>'
+            + '<td style="text-align:right;padding:6px 10px;color:' + gainColor + '">' + (h.gain_loss_pct != null ? h.gain_loss_pct.toFixed(2) + '%' : '—') + '</td>'
             + '</tr>';
         }).join('');
         onDrill({
@@ -1768,7 +1774,7 @@ window.REPORT_VIEWERS['portfolio-snap'] = {
           html: ''
             + '<div style="font-size:12px;color:var(--text3);margin-bottom:8px">' + escapeHtml(acct.account_type || '') + ' · ' + escapeHtml(acct.tax_treatment || 'taxable') + ' · ' + repFmt$(acct.market_value) + ' market value</div>'
             + (hRows
-              ? '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Symbol</th><th>Name</th><th style="text-align:right">Shares</th><th style="text-align:right">Price</th><th style="text-align:right">Value</th><th style="text-align:right">Gain</th><th style="text-align:right">%</th></tr></thead><tbody>' + hRows + '</tbody></table>'
+              ? '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em"><th style="text-align:left;padding:8px 10px">Symbol</th><th style="text-align:left;padding:8px 10px">Name</th><th style="text-align:right;padding:8px 10px">Shares</th><th style="text-align:right;padding:8px 10px">Price</th><th style="text-align:right;padding:8px 10px">Value</th><th style="text-align:right;padding:8px 10px">Gain</th><th style="text-align:right;padding:8px 10px">%</th></tr></thead><tbody>' + hRows + '</tbody></table>'
               : '<div style="color:var(--text3)">No holdings in this account.</div>'),
         });
       };
