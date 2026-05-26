@@ -2101,13 +2101,14 @@ window.REPORT_VIEWERS['tax-location'] = {
 };
 
 // tax-location heuristic — only fires inside taxable accounts.
+const TAX_LOC_HIGH_DIV_THRESHOLD = 0.03; // 3% yield — flag for Roth/IRA shelter
 function taxLocFlags(h, acct) {
   const flags = [];
   const tax = (acct.tax_treatment || 'taxable').toLowerCase();
   if (tax !== 'taxable') return flags;
   const at = (h.asset_type || '').toLowerCase();
-  if (at === 'bond' || at === 'bond_fund' || at.includes('bond')) flags.push('bonds-in-taxable');
-  if (typeof h.dividend_yield === 'number' && h.dividend_yield >= 0.03) flags.push('high-div-in-taxable');
+  if (at.includes('bond')) flags.push('bonds-in-taxable');
+  if (typeof h.dividend_yield === 'number' && h.dividend_yield >= TAX_LOC_HIGH_DIV_THRESHOLD) flags.push('high-div-in-taxable');
   return flags;
 }
 
