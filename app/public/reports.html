@@ -1696,6 +1696,86 @@ window.REPORT_VIEWERS['hsa-fsa-irs'] = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Portfolio snapshot (v.200 — trade-terminal tile)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['portfolio-snap'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const r = await fetch('/api/v1/trade/portfolio/live');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const s = data.summary || {};
+    const gainColor = (s.total_gain_loss || 0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    container.innerHTML = ''
+      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
+      +   repSummaryCard('Total value',   repFmt$(s.total_market_value))
+      +   repSummaryCard('Cost basis',    repFmt$(s.total_cost_basis))
+      +   repSummaryCard('Gain / loss',   repFmt$(s.total_gain_loss), gainColor)
+      +   repSummaryCard('Return',        ((s.total_gain_loss_pct||0)).toFixed(2) + '%', gainColor)
+      + '</div>'
+      + '<div style="margin-top:8px;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const accts = data.accounts || [];
+    if (!accts.length) {
+      window.GH_REPORT_STATES.empty(container, { title: 'No investment accounts', subtitle: 'Add a financial account in the Money module to populate this report.' });
+      return;
+    }
+    const rows = accts.map(a => {
+      const gainColor = (a.gain_loss||0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+      const gainPct   = a.cost_basis > 0 ? ((a.gain_loss/a.cost_basis)*100).toFixed(2) + '%' : '—';
+      return '<tr data-id="' + a.id + '" style="cursor:pointer">'
+        + '<td>' + escapeHtml(a.institution || '—') + '</td>'
+        + '<td>' + escapeHtml(a.nickname || '—') + '</td>'
+        + '<td>' + escapeHtml(a.tax_treatment || 'taxable') + '</td>'
+        + '<td style="text-align:right">' + repFmt$(a.market_value) + '</td>'
+        + '<td style="text-align:right">' + repFmt$(a.cost_basis) + '</td>'
+        + '<td style="text-align:right;color:' + gainColor + '">' + repFmt$(a.gain_loss) + '</td>'
+        + '<td style="text-align:right;color:' + gainColor + '">' + gainPct + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse" class="rep-table">'
+      +   '<thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase">'
+      +     '<th>Institution</th><th>Nickname</th><th>Tax</th>'
+      +     '<th style="text-align:right">Value</th><th style="text-align:right">Cost</th>'
+      +     '<th style="text-align:right">Gain</th><th style="text-align:right">%</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + rows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const id = parseInt(tr.dataset.id, 10);
+        const acct = (data.accounts||[]).find(x => x.id === id);
+        if (!acct) return;
+        const hRows = (acct.holdings || []).map(h => {
+          const gainColor = (h.gain_loss_dollar||0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+          return '<tr>'
+            + '<td><strong>' + escapeHtml(h.symbol || '—') + '</strong></td>'
+            + '<td>' + escapeHtml(h.name || '—') + '</td>'
+            + '<td style="text-align:right">' + (h.shares != null ? h.shares.toLocaleString() : '—') + '</td>'
+            + '<td style="text-align:right">' + repFmt$(h.price) + '</td>'
+            + '<td style="text-align:right">' + repFmt$(h.market_value) + '</td>'
+            + '<td style="text-align:right;color:' + gainColor + '">' + repFmt$(h.gain_loss_dollar) + '</td>'
+            + '<td style="text-align:right;color:' + gainColor + '">' + (h.gain_loss_pct != null ? h.gain_loss_pct.toFixed(2) + '%' : '—') + '</td>'
+            + '</tr>';
+        }).join('');
+        onDrill({
+          title: acct.institution + ' · ' + acct.nickname,
+          html: ''
+            + '<div style="font-size:12px;color:var(--text3);margin-bottom:8px">' + escapeHtml(acct.account_type || '') + ' · ' + escapeHtml(acct.tax_treatment || 'taxable') + ' · ' + repFmt$(acct.market_value) + ' market value</div>'
+            + (hRows
+              ? '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Symbol</th><th>Name</th><th style="text-align:right">Shares</th><th style="text-align:right">Price</th><th style="text-align:right">Value</th><th style="text-align:right">Gain</th><th style="text-align:right">%</th></tr></thead><tbody>' + hRows + '</tbody></table>'
+              : '<div style="color:var(--text3)">No holdings in this account.</div>'),
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
