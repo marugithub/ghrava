@@ -2291,6 +2291,129 @@ window.REPORT_VIEWERS['hsa-spending'] = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════
+// HEALTH · Active medications — current meds across family (v.201)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['meds-active'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const [medsRes, fmRes] = await Promise.all([
+      fetch('/api/v1/medical/medications')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/api/v1/data/table?name=family_members')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ]);
+    const fmMap = {};
+    (fmRes.rows || []).forEach(fm => { fmMap[fm.id] = fm.display_name || fm.id; });
+    const rows = (Array.isArray(medsRes) ? medsRes : [])
+      .map(m => Object.assign({}, m, { _member_name: fmMap[m.family_member_id] || m.patient || '—' }))
+      .filter(m => m.status === 'Active');
+    return { rows };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const activeCnt = rows.length;
+    const memberCnt = new Set(rows.map(m => m.family_member_id).filter(Boolean)).size;
+    const refillSoonCnt = rows.filter(m => { const d = daysUntil(m.next_refill_date); return d !== null && d <= 14; }).length;
+    const noRefillsCnt = rows.filter(m => m.refills_remaining === 0).length;
+    const refillColor = refillSoonCnt > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    const noRefColor  = noRefillsCnt > 0  ? 'var(--amber,#f59e0b)' : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Active meds',           activeCnt)
+      + repSummaryCard('Family members on meds', memberCnt)
+      + repSummaryCard('Refills due soon',       refillSoonCnt, refillColor)
+      + repSummaryCard('No refills remaining',   noRefillsCnt, noRefColor);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const rows = data.rows || [];
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No active medications',
+        subtitle: 'Add medications in the Medical module.',
+      });
+      return;
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const tableRows = rows.map((m, i) => {
+      const du = daysUntil(m.next_refill_date);
+      let refillCell;
+      if (!m.next_refill_date) {
+        refillCell = '<td style="padding:6px 10px">—</td>';
+      } else if (du !== null && du < 0) {
+        refillCell = '<td style="padding:6px 10px;color:var(--red,#ef4444)">' + escapeHtml(m.next_refill_date) + '</td>';
+      } else if (du !== null && du <= 14) {
+        refillCell = '<td style="padding:6px 10px;color:var(--amber,#f59e0b)">' + escapeHtml(m.next_refill_date) + '</td>';
+      } else {
+        refillCell = '<td style="padding:6px 10px">' + escapeHtml(m.next_refill_date) + '</td>';
+      }
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(m._member_name) + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(m.name || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(m.dosage || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(m.frequency || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(m.physician || '—') + '</td>'
+        + refillCell
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Member</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Medication</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Dosage</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Frequency</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Physician</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Next refill</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const m = rows[parseInt(tr.dataset.idx, 10)];
+        if (!m) return;
+        const du = daysUntil(m.next_refill_date);
+        let refillDisplay = escapeHtml(m.next_refill_date || '—');
+        if (m.next_refill_date && du !== null && du < 0) {
+          refillDisplay = '<span style="color:var(--red,#ef4444)">' + escapeHtml(m.next_refill_date) + ' (past-due)</span>';
+        } else if (m.next_refill_date && du !== null && du <= 14) {
+          refillDisplay = '<span style="color:var(--amber,#f59e0b)">' + escapeHtml(m.next_refill_date) + ' (due soon)</span>';
+        }
+        onDrill({
+          title: escapeHtml(m.name || 'Medication') + ' — ' + escapeHtml(m._member_name),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+            + '<tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Member</td><td style="padding:6px 10px">' + escapeHtml(m._member_name) + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Medication</td><td style="padding:6px 10px">' + escapeHtml(m.name || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Dosage</td><td style="padding:6px 10px">' + escapeHtml(m.dosage || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Frequency</td><td style="padding:6px 10px">' + escapeHtml(m.frequency || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Physician</td><td style="padding:6px 10px">' + escapeHtml(m.physician || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Purpose</td><td style="padding:6px 10px">' + escapeHtml(m.purpose || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Start date</td><td style="padding:6px 10px">' + escapeHtml(m.start_date || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">End date</td><td style="padding:6px 10px">' + escapeHtml(m.end_date || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Next refill</td><td style="padding:6px 10px">' + refillDisplay + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Refills remaining</td><td style="padding:6px 10px">' + (m.refills_remaining != null ? escapeHtml(String(m.refills_remaining)) : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Rx number</td><td style="padding:6px 10px">' + escapeHtml(m.rx_number || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Notes</td><td style="padding:6px 10px">' + escapeHtml(m.notes || '—') + '</td></tr>'
+            + '</tbody></table>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
