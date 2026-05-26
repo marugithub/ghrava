@@ -69,6 +69,38 @@ principles.
 
 ---
 
+## 🩹 v.201.1 HOTFIX — fix unmatched JSX fragment in trade.html (2026-05-26)
+
+> **Bug:** `/trade.html` rendered as a blank page on prod since v.196
+> deployed (2026-05-24). The Appearance section's accordion-fragment
+> `{openSections.appearance && <>` (line 5896) was missing its matching
+> `</>}` at line 5970 — the closer landed at line 5984 instead, *inside
+> the following Storage Panel*. Babel-standalone in the browser bailed
+> with `SyntaxError: Expected corresponding JSX closing tag for <>.
+> (5943:6)`. Entire React tree failed to mount; `#root` stayed empty.
+>
+> **Latent for ~2 days** because: (a) no E2E test opens `/trade.html`
+> and asserts the React root mounted, (b) the page returns HTTP 200
+> with 333KB of valid HTML so curl/smoke gates can't catch the runtime
+> failure, (c) the v.196 deploy's smoke-only gate (per the every-other
+> rule) never opened the page in a browser.
+>
+> **Discovery:** Al opened the page, saw blank. Used a throwaway
+> Playwright spec (`tests/trade-debug.spec.js` + `playwright.config.debug.js`)
+> to capture the actual `pageerror` event with line number; the spec
+> + debug config were deleted in the DEPLOYED marker commit.
+>
+> **Fix:** moved the orphan `</>}` from line 5984 to line 5970, where
+> it belongs (mirrors the provider/market/social section pattern at
+> lines 5727 / 5890 / 6042). One-line move; no other changes.
+>
+> **Followup added to v.202 backlog:** add a Playwright check that
+> opens `/trade.html`, waits 5s for Babel to transform, and asserts
+> `#root` innerHTML > 100 chars. Would have caught this in <10s.
+> Same family of gap as the v.200.1 deploy-gate smoke followup.
+
+---
+
 ## ✅ v.201 DEPLOYED & VERIFIED — Reports Redesign Drop 5: Health tab 7/9 LIVE (2026-05-26)
 
 > **NAS confirms `version=202605.201`** via `/api/v1/app/info` at
