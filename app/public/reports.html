@@ -2617,6 +2617,122 @@ window.REPORT_VIEWERS['immunizations'] = {
   },
 };
 
+window.REPORT_VIEWERS['procedures'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const [procRes, fmRes] = await Promise.all([
+      fetch('/api/v1/medical/procedures')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/api/v1/data/table?name=family_members')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ]);
+    const fmMap = {};
+    (fmRes.rows || []).forEach(fm => { fmMap[fm.id] = fm.display_name || String(fm.id); });
+    const rows = Array.isArray(procRes) ? procRes : [];
+    // Group by family_member_id
+    const memberOrder = [];
+    const memberMap = {};
+    rows.forEach(pr => {
+      const mid = pr.family_member_id || '__unknown__';
+      if (!memberMap[mid]) {
+        memberMap[mid] = { memberId: mid, memberName: fmMap[mid] || '—', rows: [] };
+        memberOrder.push(mid);
+      }
+      memberMap[mid].rows.push(pr);
+    });
+    const groups = memberOrder.map(mid => memberMap[mid]);
+    return { groups, allRows: rows };
+  },
+  renderSummary(container, data) {
+    const rows = data.allRows || [];
+    const currentYear = String(new Date().getFullYear());
+    const totalProcs      = rows.length;
+    const planned         = rows.filter(pr => (pr.status || '').toLowerCase() === 'planned').length;
+    const completedYear   = rows.filter(pr =>
+      (pr.status || '').toLowerCase() === 'completed' &&
+      pr.procedure_date && String(pr.procedure_date).startsWith(currentYear)
+    ).length;
+    const distinctTypes   = new Set(rows.map(pr => pr.procedure_type).filter(t => t && t.trim())).size;
+    const plannedColor = planned > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Total procedures',        totalProcs)
+      + repSummaryCard('Planned',                 planned,       plannedColor)
+      + repSummaryCard('Completed this year',     completedYear)
+      + repSummaryCard('Distinct procedure types', distinctTypes);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const groups  = data.groups  || [];
+    const allRows = data.allRows || [];
+    if (!allRows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No procedures recorded',
+        subtitle: 'Add records in the Medical module.',
+      });
+      return;
+    }
+    const statusBadge = (s) => {
+      const ss = (s || '').toLowerCase();
+      const map = {
+        planned:   { bg: 'rgba(245,158,11,0.15)',  color: 'var(--amber,#f59e0b)' },
+        completed: { bg: 'rgba(34,197,94,0.15)',   color: 'var(--green,#22c55e)' },
+        cancelled: { bg: 'rgba(148,163,184,0.15)', color: 'var(--text3,#94a3b8)' },
+      };
+      const m = map[ss] || { bg: 'var(--bg2)', color: 'var(--text3)' };
+      return '<span style="display:inline-block;padding:1px 8px;background:' + m.bg + ';color:' + m.color + ';border-radius:10px;font-size:11px">' + escapeHtml(s || '—') + '</span>';
+    };
+    const planned_badge = '<span style="display:inline-block;padding:1px 8px;background:rgba(245,158,11,0.15);color:var(--amber,#f59e0b);border-radius:10px;font-size:11px">planned</span>';
+    let html = '';
+    groups.forEach(grp => {
+      html += '<h3 style="margin:16px 0 8px;font-size:14px">' + escapeHtml(grp.memberName) + '</h3>';
+      const tableRows = grp.rows.map(pr => {
+        const dateCell = (!pr.procedure_date && (pr.status || '').toLowerCase() === 'planned')
+          ? planned_badge
+          : escapeHtml(pr.procedure_date || '—');
+        return '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-id="' + escapeHtml(String(pr.id || '')) + '">'
+          + '<td style="padding:6px 10px">' + escapeHtml(pr.procedure_name || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + dateCell + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(pr.facility_text || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(pr.procedure_type || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + statusBadge(pr.status) + '</td>'
+          + '</tr>';
+      }).join('');
+      html += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">'
+        + '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+        +   '<th style="text-align:left;padding:8px 10px">Procedure name</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Date</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Facility</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Type</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Status</th>'
+        + '</tr></thead>'
+        + '<tbody>' + tableRows + '</tbody>'
+        + '</table>';
+    });
+    container.innerHTML = html;
+    // Attach drilldown click handlers
+    container.querySelectorAll('tr[data-id]').forEach(tr => {
+      const rowId = tr.dataset.id;
+      const pr = allRows.find(r => String(r.id || '') === rowId);
+      if (!pr) return;
+      tr.addEventListener('click', () => {
+        const provLine = pr.provider_contact_id
+          ? '<p style="margin:4px 0"><strong>Provider contact ID:</strong> ' + escapeHtml(String(pr.provider_contact_id)) + '</p>'
+          : '';
+        onDrill({
+          title: escapeHtml(pr.procedure_name || 'Procedure'),
+          html: ''
+            + '<p style="margin:4px 0"><strong>Date:</strong> ' + escapeHtml(pr.procedure_date || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Facility:</strong> ' + escapeHtml(pr.facility_text || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Type:</strong> ' + escapeHtml(pr.procedure_type || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Status:</strong> ' + escapeHtml(pr.status || '—') + '</p>'
+            + provLine
+            + '<p style="margin:8px 0 4px"><strong>Outcome notes:</strong></p>'
+            + '<p style="margin:4px 0">' + escapeHtml(pr.outcome_notes || '—') + '</p>',
+        });
+      });
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
