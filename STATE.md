@@ -69,10 +69,21 @@ principles.
 
 ---
 
-## ✅ v.200 SHIPPED — Reports Redesign Drop 4: Money tab COMPLETE (2026-05-25)
+## ✅ v.200 DEPLOYED & VERIFIED — Reports Redesign Drop 4: Money tab COMPLETE (2026-05-25)
 
-> **Money tab is now 16 of 17 tiles LIVE.** The 17th (`pending-trans`) is the
-> intentional shortcut link to the Pending tab — not a viewer.
+> **NAS confirms `version=202605.200`** via `/api/v1/app/info` at
+> 2026-05-26T03:04Z (uptime 313s post-restart). NAS realigned to
+> `origin/main` @ `4f74b90`. 11 commits stacked above deployed v.199
+> (`72258c7`). Per the every-other-deploy rule, **this deploy ran FULL
+> Playwright** (v.199 ran SMOKE ONLY via `-SkipE2E`). Next deploy
+> (v.201) runs smoke only again.
+>
+> **Verification:** smoke 8/8 ✅, full E2E **115 passed / 0 failed**
+> in 3.1m ✅, fresh-log zero-error gate ✅, NAS `/api/v1/app/info`
+> version-report ✅, NAS git reset ✅.
+>
+> **Money tab is now 16 of 17 tiles LIVE.** The 17th (`pending-trans`)
+> is the intentional shortcut link to the Pending tab — not a viewer.
 >
 > This drop wires the 7 trade-terminal Money tiles to live viewer pages
 > inside `/reports.html`. Pure frontend; zero SQL; zero migrations. Trade
@@ -96,7 +107,9 @@ Unchanged from v.199 baseline. v.200 is pure frontend — zero SQL, zero migrati
 
 ### Tests
 
-v.199 ran SMOKE ONLY per the every-other rule. **The deploy after this drop runs FULL Playwright** + smoke. Expected: smoke 8/8 ✅; E2E baseline 115/0 with no new viewer regressions.
+v.199 ran SMOKE ONLY per the every-other rule. **This deploy ran FULL
+Playwright** + smoke. **Actual:** smoke 8/8 ✅ (22.0s); E2E **115 passed
+/ 0 failed** in 3.1m ✅ — no new viewer regressions.
 
 ### What's still NOT done
 
