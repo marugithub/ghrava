@@ -2835,7 +2835,7 @@ window.REPORT_VIEWERS['property-summary'] = {
   renderSummary(container, data) {
     const rows = data.rows || [];
     const totalProps  = rows.length;
-    const totalValue  = rows.reduce((s, p) => s + (p.current_value  || 0), 0);
+    const totalValue  = rows.reduce((s, p) => s + (p.current_est_value  || 0), 0);
     const totalCost   = rows.reduce((s, p) => s + (p.purchase_price || 0), 0);
     const netChange   = totalValue - totalCost;
     const netColor    = netChange >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)';
@@ -2856,23 +2856,23 @@ window.REPORT_VIEWERS['property-summary'] = {
     }
     const tableRows = rows.map((p, i) =>
       '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
-      + '<td style="padding:6px 10px">' + escapeHtml(p.name     || '—') + '</td>'
-      + '<td style="padding:6px 10px">' + escapeHtml(p.address  || '—') + '</td>'
-      + '<td style="padding:6px 10px">' + escapeHtml(p.property_type || '—') + '</td>'
-      + '<td style="text-align:right;padding:6px 10px">' + (p.square_feet != null ? escapeHtml(String(p.square_feet)) : '—') + '</td>'
-      + '<td style="text-align:right;padding:6px 10px">' + (p.year_built  != null ? escapeHtml(String(p.year_built))  : '—') + '</td>'
-      + '<td style="text-align:right;padding:6px 10px">' + (p.current_value  != null ? repFmt$(p.current_value)  : '—') + '</td>'
-      + '<td style="text-align:right;padding:6px 10px">' + (p.purchase_price != null ? repFmt$(p.purchase_price) : '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.nickname      || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.address_street || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.property_type  || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.address_city   || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.address_state  || '—') + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (p.current_est_value != null ? repFmt$(p.current_est_value) : '—') + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (p.purchase_price    != null ? repFmt$(p.purchase_price)    : '—') + '</td>'
       + '</tr>'
     ).join('');
     container.innerHTML = ''
       + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
       +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
-      +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Nickname</th>'
       +     '<th style="text-align:left;padding:8px 10px">Address</th>'
       +     '<th style="text-align:left;padding:8px 10px">Type</th>'
-      +     '<th style="text-align:right;padding:8px 10px">Sqft</th>'
-      +     '<th style="text-align:right;padding:8px 10px">Year built</th>'
+      +     '<th style="text-align:left;padding:8px 10px">City</th>'
+      +     '<th style="text-align:left;padding:8px 10px">State</th>'
       +     '<th style="text-align:right;padding:8px 10px">Current value</th>'
       +     '<th style="text-align:right;padding:8px 10px">Purchase price</th>'
       +   '</tr></thead>'
@@ -2882,22 +2882,23 @@ window.REPORT_VIEWERS['property-summary'] = {
       tr.onclick = () => {
         const p = rows[parseInt(tr.dataset.idx, 10)];
         if (!p) return;
-        const netChg   = (p.current_value || 0) - (p.purchase_price || 0);
-        const netColor = netChg >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#ef4444)';
         onDrill({
-          title: escapeHtml(p.name || 'Property'),
-          html: '<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Name</td><td style="padding:6px 10px">'          + escapeHtml(p.name          || '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Address</td><td style="padding:6px 10px">'                + escapeHtml(p.address       || '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Type</td><td style="padding:6px 10px">'                   + escapeHtml(p.property_type || '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Year built</td><td style="padding:6px 10px">'             + (p.year_built   != null ? escapeHtml(String(p.year_built))   : '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Sqft</td><td style="padding:6px 10px">'                   + (p.square_feet  != null ? escapeHtml(String(p.square_feet))  : '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Purchase date</td><td style="padding:6px 10px">'          + escapeHtml(p.purchase_date || '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Purchase price</td><td style="padding:6px 10px">'         + (p.purchase_price != null ? repFmt$(p.purchase_price) : '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Current value</td><td style="padding:6px 10px">'          + (p.current_value  != null ? repFmt$(p.current_value)  : '—') + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Net change</td><td style="padding:6px 10px;color:' + netColor + '">' + repFmt$(netChg) + '</td></tr>'
-            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Primary residence</td><td style="padding:6px 10px">' + (p.primary_residence ? 'Yes' : 'No') + '</td></tr>'
-            + '</tbody></table>',
+          title: escapeHtml(p.nickname || 'Property'),
+          html: '<div style="font-size:13px;line-height:1.7">'
+            + '<div><strong>Address:</strong> ' + escapeHtml([p.address_street, p.address_city, p.address_state, p.address_zip].filter(Boolean).join(', ') || '—') + '</div>'
+            + '<div><strong>Type:</strong> ' + escapeHtml(p.property_type || '—') + '</div>'
+            + '<div><strong>Current est value:</strong> ' + repFmt$(p.current_est_value) + '</div>'
+            + '<div><strong>Purchase price:</strong> ' + repFmt$(p.purchase_price) + '</div>'
+            + '<div><strong>Purchase date:</strong> ' + escapeHtml(p.purchase_date || '—') + '</div>'
+            + (p.mortgage_balance != null ? '<div><strong>Mortgage balance:</strong> ' + repFmt$(p.mortgage_balance) + '</div>' : '')
+            + (p.mortgage_lender ? '<div><strong>Mortgage lender:</strong> ' + escapeHtml(p.mortgage_lender) + '</div>' : '')
+            + (p.mortgage_monthly != null ? '<div><strong>Monthly mortgage:</strong> ' + repFmt$(p.mortgage_monthly) + '</div>' : '')
+            + (p.hoa_monthly != null ? '<div><strong>HOA monthly:</strong> ' + repFmt$(p.hoa_monthly) + '</div>' : '')
+            + (p.property_tax_annual != null ? '<div><strong>Property tax (annual):</strong> ' + repFmt$(p.property_tax_annual) + '</div>' : '')
+            + (p.insurance_annual != null ? '<div><strong>Insurance (annual):</strong> ' + repFmt$(p.insurance_annual) + '</div>' : '')
+            + (p.insurance_company ? '<div><strong>Insurance company:</strong> ' + escapeHtml(p.insurance_company) + '</div>' : '')
+            + (p.notes ? '<div style="margin-top:8px"><strong>Notes:</strong> ' + escapeHtml(p.notes) + '</div>' : '')
+            + '</div>',
         });
       };
     });
