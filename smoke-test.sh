@@ -358,8 +358,8 @@ else fail "GET /trading/portfolio/earnings-calendar  (HTTP $code)"; fi
 # Always returns 200 (empty arrays + _note when no holdings); Yahoo failures degrade individual
 # correlation pairs without failing the whole route. Just verify it returns JSON.
 assert_keys "GET /trading/portfolio/correlation"       "$BASE/api/v1/trading/portfolio/correlation" "holdings sectors correlation_pairs"
-# /trade/reports (v.200) — saved AI log store. Returns 200 with items array (may be empty on fresh install).
-assert_json "GET /trade/reports"                       "$BASE/api/v1/trade/reports"
+# /trading/reports (v.200) — saved AI log store. Returns 200 with items array (may be empty on fresh install).
+assert_json "GET /trading/reports"                     "$BASE/api/v1/trading/reports"
 
 # ── Preferences / Reports Redesign (v.197) ──────────────────
 section "Preferences (v.197)"

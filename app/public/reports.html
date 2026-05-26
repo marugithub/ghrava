@@ -1702,7 +1702,7 @@ window.REPORT_VIEWERS['hsa-fsa-irs'] = {
 window.REPORT_VIEWERS['portfolio-snap'] = {
   defaultFilters() { return []; },
   async fetch() {
-    const r = await fetch('/api/v1/trade/portfolio/live');
+    const r = await fetch('/api/v1/trading/portfolio/live');
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   },
@@ -1789,7 +1789,7 @@ window.REPORT_VIEWERS['portfolio-perf'] = {
   defaultFilters() { return [{ key:'months', label:'Months', value:'12' }]; },
   async fetch(filters) {
     const m = (filters.find(f => f.key === 'months') || {}).value || '12';
-    const r = await fetch('/api/v1/trade/portfolio/performance?months=' + encodeURIComponent(m));
+    const r = await fetch('/api/v1/trading/portfolio/performance?months=' + encodeURIComponent(m));
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   },
@@ -1889,7 +1889,7 @@ window.REPORT_VIEWERS['portfolio-perf'] = {
 window.REPORT_VIEWERS['concentration'] = {
   defaultFilters() { return []; },
   async fetch() {
-    const r = await fetch('/api/v1/trade/portfolio/correlation');
+    const r = await fetch('/api/v1/trading/portfolio/correlation');
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   },
@@ -2003,7 +2003,7 @@ window.REPORT_VIEWERS['concentration'] = {
 window.REPORT_VIEWERS['tax-location'] = {
   defaultFilters() { return []; },
   async fetch() {
-    const r = await fetch('/api/v1/trade/portfolio/live');
+    const r = await fetch('/api/v1/trading/portfolio/live');
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return r.json();
   },
@@ -2122,7 +2122,7 @@ function makeSavedAILogViewer(reportType, kindLabel) {
   return {
     defaultFilters() { return [{ key:'year', label:'Year', value: repCurrentYear() }]; },
     async fetch(filters) {
-      const r = await fetch('/api/v1/trade/reports');
+      const r = await fetch('/api/v1/trading/reports');
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const all = await r.json();
       const year = (filters.find(f => f.key === 'year') || {}).value || '';
@@ -2165,7 +2165,7 @@ function makeSavedAILogViewer(reportType, kindLabel) {
         tr.onclick = async () => {
           const fn = tr.dataset.fn;
           try {
-            const r2 = await fetch('/api/v1/trade/reports/' + encodeURIComponent(fn));
+            const r2 = await fetch('/api/v1/trading/reports/' + encodeURIComponent(fn));
             if (!r2.ok) throw new Error('HTTP ' + r2.status);
             const full = await r2.json();
             // Saved reports always wrap AI content under `full.data` (see

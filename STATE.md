@@ -69,6 +69,36 @@ principles.
 
 ---
 
+## 🩹 v.200.1 HOTFIX — fix wrong fetch path on 7 trade-terminal viewers (2026-05-25)
+
+> **Bug:** All 7 v.200 viewers (`portfolio-snap`, `portfolio-perf`,
+> `concentration`, `tax-location`, `trade-research`, `trade-rebalance`,
+> `trade-tax-opt`) fetched `/api/v1/trade/...` but the router is mounted
+> at `/api/v1/trading/...` (server.js:144). Every viewer hit 404 →
+> rendered the "Couldn't load this report" error state on click.
+>
+> **Slipped through every gate** because: (a) the v.200 plan template
+> had the wrong path, (b) per-task spec/code reviews compared against
+> the plan and confirmed match, (c) the deploy E2E baseline (115 tests)
+> doesn't exercise the new viewer slugs at all, (d) the manual bash
+> smoke-test.sh assertion I added in v.200 task 7 ALSO used the wrong
+> path so it would have failed had it been part of the deploy gate.
+>
+> **Fix:** single `replace_all` on `/api/v1/trade/` → `/api/v1/trading/`
+> in `app/public/reports.html` (6 occurrences) + matching fix in
+> `smoke-test.sh`. No other changes.
+>
+> **Discovery:** Al opened the tiles post-deploy, saw "Couldn't load"
+> error state. Quick `curl /api/v1/trade/portfolio/live` returned
+> `{"error":"Not found"}` with status 404 — confirmed the path bug.
+>
+> **Followup added to v.201 backlog:** add a deploy-gate smoke
+> assertion that every registered `window.REPORT_VIEWERS[slug]` fetch
+> returns 2xx. A single-loop smoke check across all 16 viewer fetches
+> would have caught this in <5s.
+
+---
+
 ## ✅ v.200 DEPLOYED & VERIFIED — Reports Redesign Drop 4: Money tab COMPLETE (2026-05-25)
 
 > **NAS confirms `version=202605.200`** via `/api/v1/app/info` at
