@@ -69,7 +69,20 @@ principles.
 
 ---
 
-## 🩹 v.201.1 HOTFIX — fix unmatched JSX fragment in trade.html (2026-05-26)
+## 🩹 v.201.1 DEPLOYED & VERIFIED — fix unmatched JSX fragment in trade.html (2026-05-26)
+
+> **NAS confirms `version=202605.201.1`** via `/api/v1/app/info` at
+> 2026-05-26T20:13Z (uptime 607s post-restart). NAS realigned to
+> `origin/main` @ `d071409`. **Verified via Playwright headless:**
+> root DOM mounts with 24,146 chars of rendered React; zero
+> `pageerror` events (previously: empty `#root` + 1 `SyntaxError:
+> Expected corresponding JSX closing tag for <>. (5943:6)`). Smoke
+> 8/8 ✅ (1.0m); E2E skipped via `-SkipE2E` (one-line JSX move, no
+> contract change).
+>
+> Total deploy time: **2m 58s**.
+>
+
 
 > **Bug:** `/trade.html` rendered as a blank page on prod since v.196
 > deployed (2026-05-24). The Appearance section's accordion-fragment
