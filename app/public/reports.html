@@ -1883,6 +1883,120 @@ window.REPORT_VIEWERS['portfolio-perf'] = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Concentration & correlation (v.200 — trade-terminal tile)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['concentration'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const r = await fetch('/api/v1/trade/portfolio/correlation');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  },
+  renderSummary(container, data) {
+    const top     = data.holdings || [];
+    const sectors = data.sectors  || [];
+    const top5pct = top.slice(0,5).reduce((s,h) => s + (h.pct || 0), 0);
+    const largest = top[0] ? (top[0].pct || 0) : 0;
+    // #repViewerSummary is already display:grid auto-fit — no wrapper div.
+    container.innerHTML = ''
+      + repSummaryCard('Top holdings',     String(top.length))
+      + repSummaryCard('Top-5 % of port',  top5pct.toFixed(1) + '%')
+      + repSummaryCard('Sectors',          String(sectors.length))
+      + repSummaryCard('Largest position', largest.toFixed(1) + '%', largest >= 10 ? 'var(--amber,#f59e0b)' : undefined)
+      + '<div style="grid-column:1/-1;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const top     = data.holdings || [];
+    const sectors = data.sectors  || [];
+    const pairs   = data.correlation_pairs || [];
+    const flags   = data._flags || {};
+    if (!top.length) {
+      window.GH_REPORT_STATES.empty(container, { title: 'No holdings to analyze', subtitle: 'Add holdings in the Money module first.' });
+      return;
+    }
+
+    // Flag banner — only if anything tripped
+    const flagBits = [];
+    if ((flags.single_over_10pct||[]).length) flagBits.push('Single position >10%: ' + flags.single_over_10pct.map(escapeHtml).join(', '));
+    if ((flags.sector_over_40pct||[]).length) flagBits.push('Sector >40%: ' + flags.sector_over_40pct.map(escapeHtml).join(', '));
+    if ((flags.pairs_over_85||[]).length)     flagBits.push('Highly-correlated pairs (>0.85): ' + flags.pairs_over_85.map(escapeHtml).join(', '));
+    const flagBanner = flagBits.length
+      ? '<div style="padding:10px;background:var(--bg2);border:1px solid var(--amber,#f59e0b);border-radius:8px;color:var(--amber,#f59e0b);font-size:12px;margin-bottom:12px"><strong>⚠ Concentration flags:</strong><br>' + flagBits.join('<br>') + '</div>'
+      : '';
+
+    // Shared inline-table styling — no .rep-table class exists.
+    const TBL_OPEN = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    const HEAD_TR  = '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">';
+    const THL = (label) => '<th style="text-align:left;padding:8px 10px">' + label + '</th>';
+    const THR = (label) => '<th style="text-align:right;padding:8px 10px">' + label + '</th>';
+    const ROW_TR = '<tr style="border-bottom:1px solid var(--border)">';
+    const ROW_TR_CLICK = (sym) => '<tr data-symbol="' + escapeHtml(sym) + '" style="cursor:pointer;border-bottom:1px solid var(--border)">';
+
+    const maxPct = Math.max.apply(null, top.map(h => h.pct || 0));
+    const topRows = top.map(h => {
+      const pct = h.pct || 0;
+      const barW = maxPct > 0 ? (pct/maxPct)*100 : 0;
+      return ROW_TR_CLICK(h.symbol||'')
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(h.symbol||'—') + '</strong></td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(h.sector || '—') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(h.value) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + pct.toFixed(2) + '%</td>'
+        + '<td style="padding:6px 10px"><div style="background:var(--bg);border-radius:3px;height:6px;width:120px"><div style="background:var(--accent,#3b82f6);height:6px;border-radius:3px;width:' + barW.toFixed(1) + '%"></div></div></td>'
+        + '</tr>';
+    }).join('');
+
+    const sectorRows = sectors.map(s => ROW_TR
+      + '<td style="padding:6px 10px">' + escapeHtml(s.sector || '—') + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + repFmt$(s.value) + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (s.pct != null ? s.pct.toFixed(1) + '%' : '—') + '</td>'
+      + '</tr>').join('');
+
+    const pairRows = pairs.slice(0, 10).map(p => {
+      const c = p.correlation || 0;
+      const color = Math.abs(c) >= 0.85 ? 'var(--amber,#f59e0b)' : (Math.abs(c) >= 0.6 ? 'var(--text)' : 'var(--text3)');
+      return ROW_TR
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(p.sym1) + '</strong> ↔ <strong>' + escapeHtml(p.sym2) + '</strong></td>'
+        + '<td style="text-align:right;padding:6px 10px;color:' + color + '">' + c.toFixed(3) + '</td>'
+        + '</tr>';
+    }).join('');
+
+    container.innerHTML = ''
+      + flagBanner
+      + '<h3 style="margin:0 0 8px;font-size:14px">Top 10 holdings</h3>'
+      + TBL_OPEN + HEAD_TR + THL('Symbol') + THL('Sector') + THR('Value') + THR('% of port') + '<th></th></tr></thead><tbody>' + topRows + '</tbody></table>'
+      + (sectors.length ? '<h3 style="margin:16px 0 8px;font-size:14px">Sector spread (all holdings)</h3>'
+          + TBL_OPEN + HEAD_TR + THL('Sector') + THR('Value') + THR('%') + '</tr></thead><tbody>' + sectorRows + '</tbody></table>' : '')
+      + (pairs.length ? '<h3 style="margin:16px 0 8px;font-size:14px">Top correlated pairs (90-day daily returns)</h3>'
+          + TBL_OPEN + HEAD_TR + THL('Pair') + THR('Correlation') + '</tr></thead><tbody>' + pairRows + '</tbody></table>'
+          + '<div style="margin-top:6px;font-size:11px;color:var(--text3)">Pairs ≥ 0.85 move nearly together — reducing one of each pair lowers concentration risk.</div>'
+          : '');
+
+    container.querySelectorAll('tbody tr[data-symbol]').forEach(tr => {
+      tr.onclick = () => {
+        const sym = tr.dataset.symbol;
+        const h = top.find(x => x.symbol === sym);
+        if (!h) return;
+        const relatedPairs = pairs.filter(p => p.sym1 === sym || p.sym2 === sym).slice(0, 5);
+        const relatedHtml = relatedPairs.length
+          ? '<div style="margin-top:8px"><strong>Top correlations involving ' + escapeHtml(sym) + ':</strong><ul style="margin:4px 0 0 16px;padding:0">'
+            + relatedPairs.map(p => '<li>' + escapeHtml(p.sym1 === sym ? p.sym2 : p.sym1) + ' — ' + p.correlation.toFixed(3) + '</li>').join('')
+            + '</ul></div>'
+          : '';
+        onDrill({
+          title: h.symbol + (h.sector ? ' · ' + h.sector : ''),
+          html: '<div style="font-size:13px;line-height:1.6">'
+            + '<div>Market value: <strong>' + repFmt$(h.value) + '</strong></div>'
+            + '<div>Portfolio weight: <strong>' + (h.pct || 0).toFixed(2) + '%</strong>' + ((h.pct||0) >= 10 ? ' <span style="color:var(--amber,#f59e0b)">(flagged: >10%)</span>' : '') + '</div>'
+            + (h.sector ? '<div>Sector: ' + escapeHtml(h.sector) + '</div>' : '')
+            + relatedHtml
+            + '</div>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
