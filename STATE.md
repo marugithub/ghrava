@@ -69,6 +69,45 @@ principles.
 
 ---
 
+## ✅ v.200 SHIPPED — Reports Redesign Drop 4: Money tab COMPLETE (2026-05-25)
+
+> **Money tab is now 16 of 17 tiles LIVE.** The 17th (`pending-trans`) is the
+> intentional shortcut link to the Pending tab — not a viewer.
+>
+> This drop wires the 7 trade-terminal Money tiles to live viewer pages
+> inside `/reports.html`. Pure frontend; zero SQL; zero migrations. Trade
+> terminal `/trade.html` stays frozen per the v.196 closure.
+
+### What v.200 ships (6 new viewer blocks; 7 tile slugs)
+
+1. **`portfolio-snap`** — live holdings by account. Reads `/api/v1/trade/portfolio/live`. 4 summary cards (total value / cost / gain / return %), accounts table; row click drills into per-account holdings.
+
+2. **`portfolio-perf`** — 12-month value, allocation, top gainers/losers. Reads `/api/v1/trade/portfolio/performance?months=12`. Inline SVG line chart (same pattern as v.199 net-worth), allocation table, leaders tables. No drill.
+
+3. **`concentration`** — top holdings + sector spread + correlation pairs. Reads `/api/v1/trade/portfolio/correlation`. 4 summary cards (top holdings / top-5 % / sectors / largest position — amber when ≥10 %), flag banner when `_flags` arrays non-empty, top-10 table with horizontal % bars, sector table, top-10 pair table; row click drills into holding detail with related correlations.
+
+4. **`tax-location`** — flag bonds and high-dividend holdings in taxable accounts. Reads `/api/v1/trade/portfolio/live` (computed client-side; no new endpoint). Two flag rules: `bonds-in-taxable` (any holding whose `asset_type` contains "bond" in a taxable account) and `high-div-in-taxable` (dividend yield ≥ `TAX_LOC_HIGH_DIV_THRESHOLD` = 3 %). Holdings in tax-deferred or Roth accounts never flag. Shows flagged at top + full holdings grouped by tax_treatment below; drilldown explains why + suggests a more efficient account type.
+
+5–7. **`trade-research` / `trade-rebalance` / `trade-tax-opt`** — saved-AI log viewers. Shared factory (`makeSavedAILogViewer`); each tile differs only by the `type` filter applied to `/api/v1/trade/reports` (`'AI Analysis'` / `'AI Rebalancing Advice'` / `'AI Tax Optimization'` — types locked at `trade.html:4913`). 4 summary cards (total / this year / latest / tickers), sortable table; row click drills into the full saved report via `/trade/reports/:filename`, extracting the narrative from `full.data.advice` / `full.data.summary` / `full.data.result.summary|reasoning` with a pretty-JSON fallback.
+
+### Schema-safety gate
+
+Unchanged from v.199 baseline. v.200 is pure frontend — zero SQL, zero migrations, zero backend changes.
+
+### Tests
+
+v.199 ran SMOKE ONLY per the every-other rule. **The deploy after this drop runs FULL Playwright** + smoke. Expected: smoke 8/8 ✅; E2E baseline 115/0 with no new viewer regressions.
+
+### What's still NOT done
+
+- Money: tile #17 `pending-trans` stays as Pending-tab link (intentional per locked spec)
+- Health tab tiles (9) — v.201
+- Household tab tiles (11) — v.202
+- Family tab tiles (7) — v.203
+- Inventory grouping enhancements — queued v.204+ per BACKLOG.md
+
+---
+
 ## ✅ v.199 DEPLOYED & VERIFIED — Reports Redesign Drop 3: Money +4 LIVE (2026-05-25)
 
 > **NAS confirms `version=202605.199`** via `/api/v1/app/info` at
