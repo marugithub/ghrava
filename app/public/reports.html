@@ -2733,6 +2733,96 @@ window.REPORT_VIEWERS['procedures'] = {
   },
 };
 
+window.REPORT_VIEWERS['receipts-missing'] = {
+  defaultFilters() { return [{ key: 'year', label: 'Year', value: String(repCurrentYear ? repCurrentYear() : new Date().getFullYear()) }]; },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value;
+    const url = '/api/v1/hsa/payments' + (year ? '?year=' + encodeURIComponent(year) : '');
+    const payments = await fetch(url)
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const all = Array.isArray(payments) ? payments : [];
+    const missing = all.filter(p => p.receipt_saved !== 1);
+    return { year, total: all.length, missing };
+  },
+  renderSummary(container, data) {
+    const { missing, total } = data;
+    const missingCount  = missing.length;
+    const amountAtRisk  = missing.reduce((s, p) => s + (p.you_paid || 0), 0);
+    const eligibleMissing = missing.filter(p => p.hsa_eligible === 1).length;
+    const pctMissing    = total > 0 ? Math.round((missingCount / total) * 100) : null;
+    const missingColor  = missingCount > 0 ? 'var(--red,#ef4444)' : 'inherit';
+    const riskColor     = amountAtRisk  > 0 ? 'var(--red,#ef4444)' : 'inherit';
+    const eligColor     = eligibleMissing > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Missing receipts',     missingCount,                                  missingColor)
+      + repSummaryCard('Amount at risk',       repFmt$(amountAtRisk),                         riskColor)
+      + repSummaryCard('Eligible but missing', eligibleMissing,                               eligColor)
+      + repSummaryCard('% missing',            pctMissing !== null ? pctMissing + '%' : '—');
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const { year, total, missing } = data;
+    if (total === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No HSA payments for ' + (year || 'this period'),
+        subtitle: 'Try a different year or add HSA payments.',
+      });
+      return;
+    }
+    if (missing.length === 0) {
+      container.innerHTML = '<div style="padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--green,#22c55e)">✓ All HSA payments have receipts attached.</div>';
+      return;
+    }
+    const rows = missing.map(p => {
+      const eligible = p.hsa_eligible === 1
+        ? '<span style="color:var(--green,#22c55e)">✓</span>'
+        : '—';
+      return '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-id="' + (p.id || '') + '">'
+        + '<td style="padding:6px 10px">'  + escapeHtml(p.date     || '—') + '</td>'
+        + '<td style="padding:6px 10px">'  + escapeHtml(p.patient  || '—') + '</td>'
+        + '<td style="padding:6px 10px">'  + escapeHtml(p.provider || '—') + '</td>'
+        + '<td style="padding:6px 10px">'  + escapeHtml(p.category || '—') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(p.you_paid) + '</td>'
+        + '<td style="text-align:center;padding:6px 10px">' + eligible + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Patient</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Provider</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Category</th>'
+      +     '<th style="text-align:right;padding:8px 10px">You Paid</th>'
+      +     '<th style="text-align:center;padding:8px 10px">Eligible</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + rows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const id = tr.dataset.id;
+        const p = missing.find(x => String(x.id) === String(id));
+        if (!p) return;
+        const eligible = p.hsa_eligible === 1
+          ? '<span style="color:var(--green,#22c55e)">Yes</span>'
+          : '<span style="color:var(--text3)">No</span>';
+        onDrill({
+          title: escapeHtml(p.provider || 'HSA Payment') + ' — ' + escapeHtml(p.date || ''),
+          html: ''
+            + '<p style="margin:4px 0"><strong>Date:</strong> '     + escapeHtml(p.date     || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Patient:</strong> '  + escapeHtml(p.patient  || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Provider:</strong> ' + escapeHtml(p.provider || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Category:</strong> ' + escapeHtml(p.category || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>You paid:</strong> ' + repFmt$(p.you_paid)            + '</p>'
+            + '<p style="margin:4px 0"><strong>HSA eligible:</strong> ' + eligible                   + '</p>'
+            + '<p style="margin:4px 0"><strong>Receipt saved:</strong> <span style="color:var(--red,#ef4444)">No</span></p>'
+            + (p.notes ? '<p style="margin:8px 0 4px"><strong>Notes:</strong></p><p style="margin:4px 0">' + escapeHtml(p.notes) + '</p>' : '')
+            + '<div style="margin-top:10px"><a href="/hsa.html" style="display:inline-block;padding:6px 12px;background:var(--accent);color:#fff;border-radius:6px;text-decoration:none;font-size:13px">Open in HSA module ↗</a></div>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
