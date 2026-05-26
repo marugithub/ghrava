@@ -2200,6 +2200,97 @@ window.REPORT_VIEWERS['trade-research']  = makeSavedAILogViewer('AI Analysis',  
 window.REPORT_VIEWERS['trade-rebalance'] = makeSavedAILogViewer('AI Rebalancing Advice', 'rebalancing');
 window.REPORT_VIEWERS['trade-tax-opt']   = makeSavedAILogViewer('AI Tax Optimization',   'tax-optimization');
 
+// ═══════════════════════════════════════════════════════════════
+// HEALTH · HSA spending — 5-year year-by-year breakdown (v.201)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['hsa-spending'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const curYear = repCurrentYear ? repCurrentYear() : new Date().getFullYear();
+    const years = [curYear - 4, curYear - 3, curYear - 2, curYear - 1, curYear];
+    const results = await Promise.all(
+      years.map(y =>
+        fetch('/api/v1/hsa/payments?year=' + y)
+          .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+          .then(payments => {
+            const total_spent = payments.reduce((s, p) => s + (p.you_paid || 0), 0);
+            const total_reimbursed = payments.reduce((s, p) => s + (p.reimbursed === 1 ? (p.you_paid || 0) : 0), 0);
+            return { year: y, count: payments.length, total_spent, total_reimbursed, payments };
+          })
+      )
+    );
+    return results;
+  },
+  renderSummary(container, data) {
+    const totalYears = data.filter(d => d.count > 0).length;
+    const totalSpent = data.reduce((s, d) => s + d.total_spent, 0);
+    const totalReimbursed = data.reduce((s, d) => s + d.total_reimbursed, 0);
+    const outstanding = totalSpent - totalReimbursed;
+    const outColor = outstanding > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    // #repViewerSummary is already display:grid auto-fit —
+    // do NOT wrap in an extra div, or the cards collapse into a single cell.
+    container.innerHTML = ''
+      + repSummaryCard('Years tracked',      totalYears + (totalYears === 1 ? ' year' : ' years'))
+      + repSummaryCard('Total spent (5y)',   repFmt$(totalSpent))
+      + repSummaryCard('Total reimbursed',   repFmt$(totalReimbursed))
+      + repSummaryCard('Outstanding',        repFmt$(outstanding), outColor);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const hasAny = data.some(d => d.count > 0);
+    if (!hasAny) {
+      window.GH_REPORT_STATES.empty(container, { title: 'No HSA payments recorded yet.' });
+      return;
+    }
+    const rows = data.slice().reverse().map(d => {
+      const outstanding = d.total_spent - d.total_reimbursed;
+      const outColor = outstanding > 0 ? 'color:var(--amber,#f59e0b)' : '';
+      return '<tr data-year="' + d.year + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + d.year + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + d.count + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(d.total_spent) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(d.total_reimbursed) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px;' + outColor + '">' + repFmt$(outstanding) + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Year</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Records</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Spent</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Reimbursed</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Outstanding</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + rows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const year = parseInt(tr.dataset.year, 10);
+        const entry = data.find(d => d.year === year);
+        if (!entry) return;
+        const dRows = (entry.payments || []).map(p => {
+          const reimb = p.reimbursed === 1
+            ? '<span style="color:var(--green,#22c55e)">Yes</span>'
+            : '<span style="color:var(--amber,#f59e0b)">No</span>';
+          return '<tr style="border-bottom:1px solid var(--border)">'
+            + '<td style="padding:6px 10px">' + escapeHtml(p.date || '—') + '</td>'
+            + '<td style="padding:6px 10px">' + escapeHtml(p.patient || '—') + '</td>'
+            + '<td style="padding:6px 10px">' + escapeHtml(p.category || '—') + '</td>'
+            + '<td style="text-align:right;padding:6px 10px">' + repFmt$(p.you_paid) + '</td>'
+            + '<td style="text-align:center;padding:6px 10px">' + reimb + '</td>'
+            + '</tr>';
+        }).join('');
+        onDrill({
+          title: year + ' HSA Payments',
+          html: dRows
+            ? '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em"><th style="text-align:left;padding:8px 10px">Date</th><th style="text-align:left;padding:8px 10px">Patient</th><th style="text-align:left;padding:8px 10px">Category</th><th style="text-align:right;padding:8px 10px">You Paid</th><th style="text-align:center;padding:8px 10px">Reimbursed</th></tr></thead><tbody>' + dRows + '</tbody></table>'
+            : '<div style="color:var(--text3)">No payments recorded for ' + year + '.</div>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
