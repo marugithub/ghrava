@@ -2112,6 +2112,80 @@ function taxLocFlags(h, acct) {
   return flags;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Saved-AI log viewers (v.200 — trade-terminal tiles)
+// Shared factory; three tiles differ only by report `type` filter.
+// Saved report types are locked in app/public/trade.html:4913 as
+// 'AI Analysis' / 'AI Rebalancing Advice' / 'AI Tax Optimization'.
+// ═══════════════════════════════════════════════════════════════
+function makeSavedAILogViewer(reportType, kindLabel) {
+  return {
+    defaultFilters() { return [{ key:'year', label:'Year', value: repCurrentYear() }]; },
+    async fetch(filters) {
+      const r = await fetch('/api/v1/trade/reports');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const all = await r.json();
+      const year = (filters.find(f => f.key === 'year') || {}).value || '';
+      return {
+        kindLabel,
+        rows: all.filter(x => x.type === reportType && (!year || (x.date && x.date.startsWith(year)))),
+      };
+    },
+    renderSummary(container, data) {
+      const rows = data.rows || [];
+      const thisYr = rows.filter(x => x.date && x.date.startsWith(repCurrentYear())).length;
+      const tickers = new Set(rows.map(x => x.ticker).filter(Boolean));
+      const latest = rows[0] ? rows[0].date : '—';
+      // #repViewerSummary is already display:grid auto-fit — no wrapper div.
+      container.innerHTML = ''
+        + repSummaryCard('Total saved',   String(rows.length))
+        + repSummaryCard('This year',     String(thisYr))
+        + repSummaryCard('Latest',        escapeHtml(latest))
+        + repSummaryCard('Tickers',       String(tickers.size));
+    },
+    renderBody(container, data, _filters, onDrill) {
+      const rows = data.rows || [];
+      if (!rows.length) {
+        window.GH_REPORT_STATES.empty(container, { title: 'No ' + data.kindLabel + ' reports', subtitle: 'Save reports from the trade terminal to populate this log.' });
+        return;
+      }
+      const trs = rows.map(r => '<tr data-fn="' + escapeHtml(r.filename) + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.date || '—') + '</td>'
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(r.ticker || '—') + '</strong></td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.title || '(untitled)') + '</td>'
+        + '</tr>').join('');
+      container.innerHTML = ''
+        + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+        +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+        +     '<th style="text-align:left;padding:8px 10px">Ticker</th>'
+        +     '<th style="text-align:left;padding:8px 10px">Title</th>'
+        +   '</tr></thead><tbody>' + trs + '</tbody></table>';
+      container.querySelectorAll('tbody tr[data-fn]').forEach(tr => {
+        tr.onclick = async () => {
+          const fn = tr.dataset.fn;
+          try {
+            const r2 = await fetch('/api/v1/trade/reports/' + encodeURIComponent(fn));
+            if (!r2.ok) throw new Error('HTTP ' + r2.status);
+            const full = await r2.json();
+            onDrill({
+              title: (full.ticker ? full.ticker + ' · ' : '') + (full.title || fn),
+              html: '<div style="font-size:12px;color:var(--text3);margin-bottom:8px">' + escapeHtml(full.date || '') + ' · ' + escapeHtml(full.type || '') + '</div>'
+                + '<div style="font-size:13px;line-height:1.6;white-space:pre-wrap">' + (full.html || full.body || full.content || escapeHtml(JSON.stringify(full, null, 2))) + '</div>',
+            });
+          } catch (e) {
+            onDrill({ title: 'Error loading report', html: '<div style="color:var(--red,#dc2626)">' + escapeHtml(e.message) + '</div>' });
+          }
+        };
+      });
+    },
+  };
+}
+
+window.REPORT_VIEWERS['trade-research']  = makeSavedAILogViewer('AI Analysis',           'research');
+window.REPORT_VIEWERS['trade-rebalance'] = makeSavedAILogViewer('AI Rebalancing Advice', 'rebalancing');
+window.REPORT_VIEWERS['trade-tax-opt']   = makeSavedAILogViewer('AI Tax Optimization',   'tax-optimization');
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
