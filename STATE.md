@@ -69,6 +69,51 @@ principles.
 
 ---
 
+## ✅ v.201 SHIPPED — Reports Redesign Drop 5: Health tab 7/9 LIVE (2026-05-26)
+
+> **Health tab is now 7 of 9 tiles LIVE.** The 2 remaining (`labs-trend`,
+> `bp-trend`) stay "in design" pending the metric_index design conversation
+> (rejected Path X = build abstraction; agreed Path Y = each report queries
+> its own sources, refactor to abstraction when 3+ consumers exist).
+>
+> This drop wires 6 net-new Health viewers to live viewer pages inside
+> `/reports.html`. `hsa-fsa-irs` was already LIVE from v.198 (shared tile
+> between Money and Health tabs). Pure frontend; zero SQL; zero migrations.
+
+### What v.201 ships (6 new viewer blocks)
+
+1. **`hsa-spending`** — 5-year HSA history. Reads `/api/v1/hsa/payments?year=Y` × 5 parallel for current_year-4 through current_year. 4 summary cards (Years tracked / Total spent (5y) / Total reimbursed / Outstanding — amber when >0), single table — Year / Records / Spent / Reimbursed / Outstanding — newest year on top. Row click drills into that year's per-payment list (no re-fetch — payments cached in the data object).
+
+2. **`meds-active`** — Active medications across family. Reads `/api/v1/medical/medications` + `/api/v1/data/table?name=family_members` in parallel; client filters `status === 'Active'` and joins to display names. 4 cards (Active meds / Family members on meds / Refills due soon — amber if next_refill_date ≤14 days / No refills remaining — amber when >0). Table: Member / Medication / Dosage / Frequency / Physician / Next refill (past-due red, ≤14d amber). Row click → drilldown with full med detail (start_date, end_date, purpose, notes, rx_number, refills_remaining).
+
+3. **`visits-history`** — Visits log filterable by year. Reads `/api/v1/medical/notes` (already enriched server-side with family_member_name / attachment_count / linked_conditions / physician_name / practice_name). Default filter: current year. 4 cards (Total visits / Distinct patients / Distinct providers / Follow-ups needed — amber when >0). 7-column table — Date / Patient / Provider / Practice / Follow-up ✓ / 📎 / Conditions (chip spans).
+
+4. **`immunizations`** — Cards-per-family-member. Reads `/api/v1/medical/immunizations` + family_members in parallel. 4 cards (Total shots / Boosters due — RED past-due / Boosters upcoming — AMBER ≤90 days / Distinct vaccines). Body grouped by family_member_id with member `<h3>` heading + sub-table per member: Vaccine / Date given / Dose # / Next due (red past-due, amber ≤90d) / Location. No drilldown (read-only display per spec).
+
+5. **`procedures`** — Cards-per-family-member, similar shape to immunizations. Reads `/api/v1/medical/procedures` + family_members. 4 cards (Total procedures / Planned — amber when >0 / Completed this year / Distinct procedure types). Body grouped by family_member_id; sub-table per member: Procedure name / Date (or amber "planned" badge when null+planned) / Facility / Type / Status (colored badge — planned amber / completed green / cancelled grey / other neutral). Row click → drilldown with outcome_notes + other fields + optional provider_contact_id.
+
+6. **`receipts-missing`** — HSA/FSA payments without attached receipts. Reads `/api/v1/hsa/payments?year=Y` (single fetch); client filters `receipt_saved !== 1`. Default filter: current year. 4 cards (Missing receipts — RED when >0 / Amount at risk — RED when >0 / Eligible but missing — AMBER when >0 / % missing — integer pct or "—"). Three body states: total===0 → standard empty state; total>0 && missing===0 → green ✓ "All HSA payments have receipts attached" banner (same pattern as tax-location's no-flags banner); else table — Date / Patient / Provider / Category / You paid / Eligible. Row click → drilldown with full payment detail + "Open in HSA module ↗" button-styled link.
+
+### Schema-safety gate
+
+Unchanged from v.200.1 baseline. v.201 is pure frontend — zero SQL, zero migrations, zero backend changes.
+
+### Tests
+
+Per the every-other-deploy rule: v.200 ran full Playwright, v.200.1 hotfix was smoke-only. **v.201 stays smoke-only via `-SkipE2E`.** v.202 (Household) rotates back to full E2E.
+
+Expected at deploy: smoke 8/8 ✅. Existing 115/0 E2E baseline retained from v.200 run.
+
+### What's still NOT done
+
+- **Health:** `labs-trend` and `bp-trend` — still "Coming soon"; pending metric_index design conversation.
+- **Household tab (11 tiles)** — v.202.
+- **Family tab (7 tiles)** — v.203.
+- **v.200.1 follow-up: deploy-gate smoke** that iterates `window.REPORT_VIEWERS` and asserts each fetch URL returns 2xx — would have caught v.200's 7-viewer 404 storm in <5s. Not in v.201; queued for v.202+.
+- **Inventory grouping enhancements** — v.204+ per BACKLOG.md.
+
+---
+
 ## 🩹 v.200.1 DEPLOYED & VERIFIED — fix wrong fetch path on 7 trade-terminal viewers (2026-05-25)
 
 > **NAS confirms `version=202605.200.1`** via `/api/v1/app/info` at
