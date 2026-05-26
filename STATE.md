@@ -69,8 +69,25 @@ principles.
 
 ---
 
-## ✅ v.201 SHIPPED — Reports Redesign Drop 5: Health tab 7/9 LIVE (2026-05-26)
+## ✅ v.201 DEPLOYED & VERIFIED — Reports Redesign Drop 5: Health tab 7/9 LIVE (2026-05-26)
 
+> **NAS confirms `version=202605.201`** via `/api/v1/app/info` at
+> 2026-05-26T19:31Z (uptime 213s post-restart). NAS realigned to
+> `origin/main` @ `301eb36`. 8 v.201 commits stacked above v.200.1
+> (`02be474`). Per the every-other-deploy rule, **this deploy ran
+> SMOKE ONLY via `-SkipE2E`** (v.200 ran full Playwright 115/0;
+> v.200.1 hotfix was smoke-only; v.202 rotates back to full E2E).
+> Total deploy time: **3m 02s**.
+>
+> **Verification:** smoke 8/8 ✅ (1.1m), fresh-log zero-error gate ✅,
+> NAS `/api/v1/app/info` version-report ✅, NAS git reset ✅, all 6
+> new endpoints curl-tested live-200 (v.200.1 lesson applied).
+>
+> **Build cycle:** ~50 min plan-to-deploy (vs ~90 min for v.200) —
+> savings from pre-verified endpoints, pointer-to-pattern plan
+> templates, and a single combined spec+quality review per task.
+> All 6 viewers passed first-round review; zero fix loops.
+>
 > **Health tab is now 7 of 9 tiles LIVE.** The 2 remaining (`labs-trend`,
 > `bp-trend`) stay "in design" pending the metric_index design conversation
 > (rejected Path X = build abstraction; agreed Path Y = each report queries
