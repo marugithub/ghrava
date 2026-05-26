@@ -2414,6 +2414,113 @@ window.REPORT_VIEWERS['meds-active'] = {
   },
 };
 
+window.REPORT_VIEWERS['visits-history'] = {
+  defaultFilters() { return [{ key: 'year', label: 'Year', value: repCurrentYear() }]; },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value;
+    const res = await fetch('/api/v1/medical/notes')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const all = Array.isArray(res) ? res : [];
+    const rows = year
+      ? all.filter(r => r.visit_date && r.visit_date.startsWith(year))
+      : all;
+    return { rows, year };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const totalVisits    = rows.length;
+    const distinctPats   = new Set(rows.map(r => r.patient).filter(Boolean)).size;
+    const distinctProvs  = new Set(rows.map(r => r.physician_name).filter(Boolean)).size;
+    const followUpCnt    = rows.filter(r => r.follow_up_needed === 1).length;
+    const followUpColor  = followUpCnt > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Total visits',        totalVisits)
+      + repSummaryCard('Distinct patients',   distinctPats)
+      + repSummaryCard('Distinct providers',  distinctProvs)
+      + repSummaryCard('Follow-ups needed',   followUpCnt, followUpColor);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const rows = data.rows || [];
+    const year = data.year;
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    year ? 'No visits recorded for ' + year : 'No visits recorded.',
+        subtitle: 'Add visit notes in the Medical module.',
+      });
+      return;
+    }
+    const tableRows = rows.map((v, i) => {
+      const followUpCell = v.follow_up_needed === 1
+        ? '<td style="padding:6px 10px;color:var(--amber,#f59e0b)">✓</td>'
+        : '<td style="padding:6px 10px">—</td>';
+      const attachCell = (v.attachment_count > 0)
+        ? '<td style="padding:6px 10px">' + v.attachment_count + '</td>'
+        : '<td style="padding:6px 10px"></td>';
+      const conditions = Array.isArray(v.linked_conditions) ? v.linked_conditions : [];
+      const condCell = conditions.length
+        ? '<td style="padding:6px 10px">'
+            + conditions.map(c =>
+                '<span style="display:inline-block;padding:1px 6px;margin:0 2px 0 0;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:11px">'
+                + escapeHtml(c.name) + '</span>'
+              ).join('')
+            + '</td>'
+        : '<td style="padding:6px 10px"></td>';
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(v.visit_date || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(v.patient || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(v.physician_name || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(v.practice_name || '—') + '</td>'
+        + followUpCell
+        + attachCell
+        + condCell
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Patient</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Provider</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Practice</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Follow-up</th>'
+      +     '<th style="text-align:left;padding:8px 10px">📎</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Conditions</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const v = rows[parseInt(tr.dataset.idx, 10)];
+        if (!v) return;
+        const conditions = Array.isArray(v.linked_conditions) ? v.linked_conditions : [];
+        const condHtml = conditions.length
+          ? conditions.map(c =>
+              '<span style="display:inline-block;padding:1px 6px;margin:0 2px 2px 0;background:var(--bg2);border:1px solid var(--border);border-radius:10px;font-size:11px">'
+              + escapeHtml(c.name) + '</span>'
+            ).join('')
+          : '—';
+        const followUpDisplay = v.follow_up_needed === 1
+          ? '<span style="color:var(--amber,#f59e0b)">Yes</span>'
+          : 'No';
+        onDrill({
+          title: escapeHtml(v.visit_date || 'Visit') + ' — ' + escapeHtml(v.patient || '—'),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+            + '<tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Date</td><td style="padding:6px 10px">' + escapeHtml(v.visit_date || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Patient</td><td style="padding:6px 10px">' + escapeHtml(v.patient || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Provider</td><td style="padding:6px 10px">' + escapeHtml(v.physician_name || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Practice</td><td style="padding:6px 10px">' + escapeHtml(v.practice_name || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Follow-up needed</td><td style="padding:6px 10px">' + followUpDisplay + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Attachments</td><td style="padding:6px 10px">' + (v.attachment_count > 0 ? v.attachment_count : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Conditions</td><td style="padding:6px 10px">' + condHtml + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Notes</td><td style="padding:6px 10px">' + escapeHtml(v.notes || '—') + '</td></tr>'
+            + '</tbody></table>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
