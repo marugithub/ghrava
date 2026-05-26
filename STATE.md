@@ -69,7 +69,17 @@ principles.
 
 ---
 
-## 🩹 v.200.1 HOTFIX — fix wrong fetch path on 7 trade-terminal viewers (2026-05-25)
+## 🩹 v.200.1 DEPLOYED & VERIFIED — fix wrong fetch path on 7 trade-terminal viewers (2026-05-25)
+
+> **NAS confirms `version=202605.200.1`** via `/api/v1/app/info` at
+> 2026-05-26T04:05Z. NAS realigned to `origin/main` @ `065c514`. All
+> 4 trading endpoints (`portfolio/live`, `portfolio/correlation`,
+> `portfolio/performance`, `trading/reports`) verified live-200 via
+> curl. Smoke 8/8 ✅ (30.3s); E2E skipped via `-SkipE2E` (v.200's
+> full E2E run 90 minutes ago is the reference; this is a 6-char
+> mechanical fix). Total deploy time: **1m 42s**.
+
+
 
 > **Bug:** All 7 v.200 viewers (`portfolio-snap`, `portfolio-perf`,
 > `concentration`, `tax-location`, `trade-research`, `trade-rebalance`,
