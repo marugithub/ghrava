@@ -72,6 +72,19 @@
 .vsw-btn.active { background: var(--accent-bg); border-color: var(--accent-bd); color: var(--accent); }
 .vsw-btn svg { width: 14px; height: 14px; }
 
+/* ── Compare / side-by-side table view ───────────────────────── */
+.cmp-table { width:100%; border-collapse:collapse; font-size:13px; }
+.cmp-table thead tr { border-bottom:1px solid var(--border); }
+.cmp-table thead th { padding:8px 10px; color:var(--text3); font-size:11px; text-transform:uppercase; letter-spacing:.04em; font-weight:600; text-align:left; white-space:nowrap; }
+.cmp-table tbody tr { cursor:pointer; border-bottom:1px solid var(--border); }
+.cmp-table tbody tr:hover { background:var(--bg2); }
+.cmp-table tbody td { padding:6px 10px; vertical-align:middle; }
+.cmp-badge { display:inline-block; font-size:11px; font-weight:600; padding:2px 7px; border-radius:4px; white-space:nowrap; }
+.cmp-badge-green  { background:rgba(16,185,129,.12); color:#10b981; }
+.cmp-badge-red    { background:rgba(239,68,68,.12);  color:#ef4444; }
+.cmp-badge-amber  { background:rgba(245,158,11,.12); color:#f59e0b; }
+@media(max-width:640px) { .cmp-col-size, .cmp-col-cat { display:none; } }
+
 /* ── Grid view ───────────────────────────────────────────────── */
 .inv-grid {
   display: grid;
@@ -813,6 +826,9 @@
       </button>
       <button class="vsw-btn" id="vswCompact" title="Compact view" onclick="setItemView('compact')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="3" y1="14" x2="21" y2="14"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <button class="vsw-btn" id="vswCompare" title="Compare view" onclick="setItemView('compare')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="18" height="4" rx="1"/><rect x="3" y="10" width="18" height="4" rx="1"/><rect x="3" y="17" width="18" height="4" rx="1"/></svg>
       </button>
     </div>
     <div id="bcBar" class="bc" style="display:none"></div>
@@ -1821,7 +1837,7 @@ function setView(v) {
 function setItemView(mode) {
   itemView = mode;
   try { localStorage.setItem('inv_item_view', mode); } catch {}
-  ['list','grid','compact'].forEach(m => {
+  ['list','grid','compact','compare'].forEach(m => {
     const btn = $(`vsw${m.charAt(0).toUpperCase()+m.slice(1)}`);
     if (btn) btn.classList.toggle('active', m === mode);
   });
@@ -1829,7 +1845,7 @@ function setItemView(mode) {
 }
 
 function applyViewSwitcherState() {
-  ['list','grid','compact'].forEach(m => {
+  ['list','grid','compact','compare'].forEach(m => {
     const btn = $(`vsw${m.charAt(0).toUpperCase()+m.slice(1)}`);
     if (btn) btn.classList.toggle('active', m === itemView);
   });
@@ -2223,6 +2239,7 @@ function loadMoreBrowseItems() {
   let appendHtml;
   if (itemView === 'grid')        appendHtml = next.map(i=>renderItemGridCard(i)).join('');
   else if (itemView === 'compact') appendHtml = next.map(i=>renderItemCompactCard(i)).join('');
+  else if (itemView === 'compare') return; // compare renders the full set at once — no paging
   else                             appendHtml = next.map(i=>renderItemCard(i)).join('');
   list.insertAdjacentHTML('beforeend', appendHtml);
   // Refresh the wrap (replace with new "Load more" HTML if more remain, else remove)
@@ -2273,6 +2290,8 @@ function renderContainerItemList(el, ctns, items, append=false) {
       listHtml = `<div class="inv-grid" id="browseItemList">${firstBatch.map(i=>renderItemGridCard(i)).join('')}</div>`;
     } else if (itemView === 'compact') {
       listHtml = `<div id="browseItemList">${firstBatch.map(i=>renderItemCompactCard(i)).join('')}</div>`;
+    } else if (itemView === 'compare') {
+      listHtml = renderItemCompareTable(items);
     } else {
       listHtml = `<div id="browseItemList">${firstBatch.map(i=>renderItemCard(i)).join('')}</div>`;
     }
@@ -2333,6 +2352,57 @@ function renderItemCompactCard(item) {
     <div class="item-compact-name">${item.name}</div>
     ${item.brand ? `<div class="item-compact-meta">${item.brand}</div>` : ''}
     ${item.location_path ? `<div class="item-compact-meta" style="max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">&#x1F4CD; ${item.location_path}</div>` : ''}
+  </div>`;
+}
+
+function renderItemCompareTable(items) {
+  // Sort by name ASC (column-sort is skipped; no other view-mode has it)
+  const sorted = [...items].sort((a, b) => (a.name||'').localeCompare(b.name||''));
+  const today = new Date(); today.setHours(0,0,0,0);
+
+  function warrantyBadge(item) {
+    if (item.lifetime_warranty === 1 || item.lifetime_warranty === true) {
+      return `<span class="cmp-badge cmp-badge-green">Lifetime</span>`;
+    }
+    if (!item.warranty_expires) return '<span style="color:var(--text3)">—</span>';
+    const exp = new Date(item.warranty_expires); exp.setHours(0,0,0,0);
+    if (exp < today) return `<span class="cmp-badge cmp-badge-red">Expired</span>`;
+    const daysLeft = Math.round((exp - today) / 86400000);
+    if (daysLeft <= 30) return `<span class="cmp-badge cmp-badge-amber">${daysLeft}d left</span>`;
+    return `<span style="color:var(--text2)">${item.warranty_expires}</span>`;
+  }
+
+  function effVal(item) {
+    const v = item.replacement_value || item.appraised_value || item.purchase_price || 0;
+    return v ? `$${fmtMoney(v)}` : '<span style="color:var(--text3)">—</span>';
+  }
+
+  const rows = sorted.map(item => `
+    <tr data-item="${item.id}">
+      <td style="font-weight:500;color:var(--text)">${esc(item.name)}</td>
+      <td class="cmp-col-size">${item.size ? esc(item.size) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${item.brand ? esc(item.brand) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td class="cmp-col-cat">${item.category ? esc(item.category) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td>${item.purchase_date ? esc(item.purchase_date) : '<span style="color:var(--text3)">—</span>'}</td>
+      <td style="text-align:right;white-space:nowrap">${effVal(item)}</td>
+      <td style="white-space:nowrap">${warrantyBadge(item)}</td>
+    </tr>`).join('');
+
+  return `<div id="browseItemList" style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <table class="cmp-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th class="cmp-col-size">Size</th>
+          <th>Brand</th>
+          <th class="cmp-col-cat">Category</th>
+          <th>Purchased</th>
+          <th style="text-align:right">Value</th>
+          <th>Warranty</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
   </div>`;
 }
 
