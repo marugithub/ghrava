@@ -4273,6 +4273,300 @@ window.REPORT_VIEWERS['family-snapshot'] = {
   },
 };
 
+window.REPORT_VIEWERS['member-detail'] = {
+  defaultFilters() { return [{ key: 'member', label: 'Member', value: '1' }]; },
+  async fetch(filters) {
+    const sel = (filters.find(f => f.key === 'member') || {}).value || '1';
+    const [fmRes, snapRes] = await Promise.all([
+      fetch('/api/v1/data/table?name=family_members').then(r => r.ok ? r.json() : { rows: [] }),
+      fetch('/api/v1/family-snapshot/' + encodeURIComponent(sel)).then(r => r.ok ? r.json() : {}),
+    ]);
+    return { members: fmRes.rows || [], snapshot: snapRes || {}, selectedId: String(sel) };
+  },
+  renderSummary(container, data) {
+    const snap = data.snapshot || {};
+    const curYear = repCurrentYear();
+    const activeMeds  = (snap.medications || []).filter(m => m.status === 'Active').length;
+    const conditions  = (snap.conditions  || []).length;
+    const visits      = (snap.visits      || []).length;
+    const hsaYtd      = (snap.hsa         || []).filter(p => p.date && p.date.startsWith(curYear)).length;
+    container.innerHTML = ''
+      + repSummaryCard('Active medications', String(activeMeds))
+      + repSummaryCard('Conditions',         String(conditions))
+      + repSummaryCard('Visits (all-time)',  String(visits))
+      + repSummaryCard('HSA payments YTD',   String(hsaYtd));
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const members    = data.members || [];
+    const snapshot   = data.snapshot || {};
+    const selectedId = data.selectedId || '1';
+
+    if (!members.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No family members',
+        subtitle: 'Add family members in Settings → Family.',
+      });
+      return;
+    }
+
+    const ageOf = (dob) => {
+      if (!dob) return null;
+      const d = new Date(dob + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      const now = new Date();
+      let a = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+      return a;
+    };
+
+    // ── Switcher options ──
+    const optionsHtml = members.map(m =>
+      '<option value="' + escapeHtml(String(m.id)) + '"'
+      + (String(m.id) === selectedId ? ' selected' : '') + '>'
+      + escapeHtml(m.display_name || ('Member ' + m.id))
+      + '</option>'
+    ).join('');
+
+    // ── Selected member info ──
+    const sm      = snapshot.member || {};
+    const member  = members.find(m => String(m.id) === selectedId) || {};
+    const dname   = escapeHtml(sm.display_name   || member.display_name   || '—');
+    const rel     = escapeHtml(sm.relationship   || member.relationship   || '—');
+    const dob     = sm.date_of_birth  || member.date_of_birth  || null;
+    const dobStr  = escapeHtml(dob || '—');
+    const age     = ageOf(dob);
+    const dobFull = dob ? (dobStr + (age !== null ? ' (age ' + age + ')' : '')) : '—';
+    const gender  = escapeHtml(sm.gender         || member.gender         || '—');
+    const ssn4    = sm.ssn_last4    || member.ssn_last4    || null;
+    const enotes  = sm.emergency_notes || member.emergency_notes || null;
+    const curYear = repCurrentYear();
+
+    // ── Meds ──
+    const meds       = (snapshot.medications || []);
+    const activeMeds = meds.filter(m => m.status === 'Active');
+    const medRows    = activeMeds.map((med, i) =>
+      '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-med-idx="' + i + '">'
+      + '<td style="padding:6px 10px">' + escapeHtml(med.name        || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(med.dosage      || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(med.frequency   || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(med.physician   || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(med.next_refill || '—') + '</td>'
+      + '</tr>'
+    ).join('');
+
+    // ── Conditions ──
+    const conditions = snapshot.conditions || [];
+    const condRows   = conditions.map((c, i) =>
+      '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-cond-idx="' + i + '">'
+      + '<td style="padding:6px 10px">' + escapeHtml(c.name       || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(c.status     || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(c.diagnosed  || '—') + '</td>'
+      + '<td style="padding:6px 10px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'
+      +   escapeHtml((c.notes || '').slice(0, 80) + ((c.notes || '').length > 80 ? '…' : ''))
+      + '</td>'
+      + '</tr>'
+    ).join('');
+
+    // ── Visits (most recent 10) ──
+    const visits     = (snapshot.visits || []).slice().sort((a, b) =>
+      (b.visit_date || '').localeCompare(a.visit_date || '')
+    ).slice(0, 10);
+    const visitRows  = visits.map((v, i) =>
+      '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-visit-idx="' + i + '">'
+      + '<td style="padding:6px 10px">' + escapeHtml(v.visit_date     || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(v.patient_name   || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(v.physician_name || v.provider || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(v.practice_name  || v.practice || '—') + '</td>'
+      + '</tr>'
+    ).join('');
+
+    // ── HSA payments (most recent 10) ──
+    const hsaAll  = (snapshot.hsa || []).slice().sort((a, b) =>
+      (b.date || '').localeCompare(a.date || '')
+    ).slice(0, 10);
+    const hsaRows = hsaAll.map((p, i) =>
+      '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-hsa-idx="' + i + '">'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.date     || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.provider || '—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(p.category || '—') + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (p.amount     != null ? repFmt$(p.amount)     : '—') + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (p.reimbursed != null ? repFmt$(p.reimbursed) : '—') + '</td>'
+      + '</tr>'
+    ).join('');
+
+    // ── Kids ──
+    const kids = snapshot.kids || [];
+
+    container.innerHTML = ''
+      // Switcher row
+      + '<div style="margin-bottom:18px;display:flex;align-items:center;gap:10px">'
+      +   '<label for="memberSwitcher" style="font-size:13px;font-weight:600;color:var(--text2)">Member:</label>'
+      +   '<select id="memberSwitcher" style="font-size:13px;padding:5px 10px;border:1px solid var(--border);border-radius:4px;background:var(--bg2);color:var(--text);cursor:pointer">'
+      +     optionsHtml
+      +   '</select>'
+      + '</div>'
+      // Identity block
+      + '<h3 style="margin:0 0 10px">' + dname + '</h3>'
+      + '<div style="display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:13px;margin-bottom:18px">'
+      +   '<span style="color:var(--text3)">Relationship</span><span>' + rel     + '</span>'
+      +   '<span style="color:var(--text3)">Date of birth</span><span>' + dobFull + '</span>'
+      +   '<span style="color:var(--text3)">Gender</span><span>'        + gender  + '</span>'
+      +   (ssn4 ? '<span style="color:var(--text3)">SSN last 4</span><span>' + escapeHtml(ssn4) + '</span>' : '')
+      + '</div>'
+      + (enotes
+        ? '<div style="margin-bottom:18px;padding:10px;background:var(--bg2);border-radius:4px;border-left:3px solid var(--amber,#d97706)">'
+          + '<strong style="font-size:12px;color:var(--text3)">EMERGENCY NOTES</strong>'
+          + '<div style="margin-top:6px;font-size:13px;white-space:pre-wrap">' + escapeHtml(enotes) + '</div>'
+          + '</div>'
+        : '')
+      // Active medications
+      + (activeMeds.length
+        ? '<h4 style="margin:0 0 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Active Medications (' + activeMeds.length + ')</h4>'
+          + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
+          +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+          +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Dosage</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Frequency</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Physician</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Next refill</th>'
+          +   '</tr></thead>'
+          +   '<tbody>' + medRows + '</tbody>'
+          + '</table>'
+        : '')
+      // Conditions
+      + (conditions.length
+        ? '<h4 style="margin:0 0 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Conditions (' + conditions.length + ')</h4>'
+          + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
+          +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+          +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Status</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Diagnosed</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Notes</th>'
+          +   '</tr></thead>'
+          +   '<tbody>' + condRows + '</tbody>'
+          + '</table>'
+        : '')
+      // Visits
+      + (visits.length
+        ? '<h4 style="margin:0 0 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Visits — most recent 10</h4>'
+          + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
+          +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+          +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Patient</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Provider</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Practice</th>'
+          +   '</tr></thead>'
+          +   '<tbody>' + visitRows + '</tbody>'
+          + '</table>'
+        : '')
+      // HSA payments
+      + (hsaAll.length
+        ? '<h4 style="margin:0 0 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">HSA Payments — most recent 10</h4>'
+          + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:20px">'
+          +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+          +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Provider</th>'
+          +     '<th style="text-align:left;padding:8px 10px">Category</th>'
+          +     '<th style="text-align:right;padding:8px 10px">You paid</th>'
+          +     '<th style="text-align:right;padding:8px 10px">Reimbursed</th>'
+          +   '</tr></thead>'
+          +   '<tbody>' + hsaRows + '</tbody>'
+          + '</table>'
+        : '')
+      // Kids
+      + (kids.length
+        ? '<h4 style="margin:0 0 8px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;color:var(--text3)">Kids</h4>'
+          + '<ul style="margin:0 0 20px;padding-left:18px;font-size:13px">'
+          +   kids.map(k => '<li>' + escapeHtml(k.display_name || k.name || String(k.id)) + '</li>').join('')
+          + '</ul>'
+        : '');
+
+    // ── Switcher wiring ──
+    const sw = container.querySelector('#memberSwitcher');
+    if (sw) {
+      sw.onchange = (e) => {
+        currentViewerFilters = [{ key: 'member', label: 'Member', value: e.target.value }];
+        loadAndRenderViewer('member-detail');
+      };
+    }
+
+    // ── Active medications drilldown ──
+    container.querySelectorAll('[data-med-idx]').forEach(tr => {
+      tr.onclick = () => {
+        const med = activeMeds[parseInt(tr.dataset.medIdx, 10)];
+        if (!med) return;
+        onDrill({
+          title: escapeHtml(med.name || 'Medication'),
+          html: '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+            + '<div><strong>Name:</strong> '        + escapeHtml(med.name        || '—') + '</div>'
+            + '<div><strong>Dosage:</strong> '      + escapeHtml(med.dosage      || '—') + '</div>'
+            + '<div><strong>Frequency:</strong> '   + escapeHtml(med.frequency   || '—') + '</div>'
+            + '<div><strong>Physician:</strong> '   + escapeHtml(med.physician   || '—') + '</div>'
+            + '<div><strong>Status:</strong> '      + escapeHtml(med.status      || '—') + '</div>'
+            + '<div><strong>Next refill:</strong> ' + escapeHtml(med.next_refill || '—') + '</div>'
+            + (med.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px">' + escapeHtml(med.notes) + '</div>' : '')
+            + '</div>',
+        });
+      };
+    });
+
+    // ── Conditions drilldown ──
+    container.querySelectorAll('[data-cond-idx]').forEach(tr => {
+      tr.onclick = () => {
+        const c = conditions[parseInt(tr.dataset.condIdx, 10)];
+        if (!c) return;
+        onDrill({
+          title: escapeHtml(c.name || 'Condition'),
+          html: '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+            + '<div><strong>Name:</strong> '       + escapeHtml(c.name      || '—') + '</div>'
+            + '<div><strong>Status:</strong> '     + escapeHtml(c.status    || '—') + '</div>'
+            + '<div><strong>Diagnosed:</strong> '  + escapeHtml(c.diagnosed || '—') + '</div>'
+            + (c.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px">' + escapeHtml(c.notes) + '</div>' : '')
+            + '</div>',
+        });
+      };
+    });
+
+    // ── Visits drilldown ──
+    container.querySelectorAll('[data-visit-idx]').forEach(tr => {
+      tr.onclick = () => {
+        const v = visits[parseInt(tr.dataset.visitIdx, 10)];
+        if (!v) return;
+        onDrill({
+          title: escapeHtml(v.visit_date || 'Visit'),
+          html: '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+            + '<div><strong>Date:</strong> '      + escapeHtml(v.visit_date     || '—') + '</div>'
+            + '<div><strong>Patient:</strong> '   + escapeHtml(v.patient_name   || '—') + '</div>'
+            + '<div><strong>Provider:</strong> '  + escapeHtml(v.physician_name || v.provider || '—') + '</div>'
+            + '<div><strong>Practice:</strong> '  + escapeHtml(v.practice_name  || v.practice || '—') + '</div>'
+            + (v.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px">' + escapeHtml(v.notes) + '</div>' : '')
+            + '</div>',
+        });
+      };
+    });
+
+    // ── HSA drilldown ──
+    container.querySelectorAll('[data-hsa-idx]').forEach(tr => {
+      tr.onclick = () => {
+        const p = hsaAll[parseInt(tr.dataset.hsaIdx, 10)];
+        if (!p) return;
+        onDrill({
+          title: escapeHtml(p.provider || 'HSA Payment'),
+          html: '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+            + '<div><strong>Date:</strong> '        + escapeHtml(p.date     || '—') + '</div>'
+            + '<div><strong>Provider:</strong> '    + escapeHtml(p.provider || '—') + '</div>'
+            + '<div><strong>Category:</strong> '    + escapeHtml(p.category || '—') + '</div>'
+            + '<div><strong>You paid:</strong> '    + (p.amount     != null ? repFmt$(p.amount)     : '—') + '</div>'
+            + '<div><strong>Reimbursed:</strong> '  + (p.reimbursed != null ? repFmt$(p.reimbursed) : '—') + '</div>'
+            + (p.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px">' + escapeHtml(p.notes) + '</div>' : '')
+            + '</div>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
