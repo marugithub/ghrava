@@ -69,6 +69,70 @@ principles.
 
 ---
 
+## ✅ v.202 SHIPPED — Reports Redesign Drop 6: Household tab 11/11 LIVE + 2 test gates (2026-05-26)
+
+> **Household tab is now 11 of 11 tiles LIVE.** This drop also adds
+> two HARD test gates that close the gap families flagged by the
+> v.200.1 and v.201.1 hotfixes — both gates ran against live prod
+> before being added to the deploy testMatch and PASSED.
+>
+> Reports Redesign now stands at **34 of 37 implementable tiles LIVE**.
+> Only Family tab (7 tiles, v.203) and `labs-trend` + `bp-trend`
+> (deferred pending metric_index design conversation) remain.
+>
+> Pure frontend except for the two new spec files; zero SQL; zero
+> migrations.
+
+### What v.202 ships
+
+**2 test gates (Tasks 2-3):**
+
+1. **`tests/trade-mount.spec.js`** — Opens `/trade.html`, waits 5s for Babel, asserts `#root` mounted with >100 chars + zero `pageerror` events. Catches the v.196 → v.201.1 family of bugs where JSX syntax errors leave React unmounted but the page returns HTTP 200.
+2. **`tests/reports-viewers-smoke.spec.js`** — Loads `/reports.html`, evaluates `window.REPORT_VIEWERS`, extracts each viewer's fetch URL pattern (regex captures `/api/v1/…` literals including query strings), and asserts every URL returns < 400. Catches the v.200.1 family of bugs where a wrong mount path (`/api/v1/trade/` vs `/api/v1/trading/`) slipped through every code review because reviewers compared against the plan.
+
+Both registered in `tests/playwright.config.js` testMatch. **E2E baseline shifts from 115 to 117** on the v.202 deploy.
+
+**11 Household viewers (Tasks 4-9):**
+
+3. **`property-summary`** — Homes with key dates / values. Reads `/api/v1/property/properties`. 4 cards (count / value / cost / net change). Table by nickname; drill includes mortgage + HOA + tax + insurance.
+
+4. **`property-maint`** — Maintenance log filtered to `source === 'property'` from `/api/v1/maintenance/upcoming`. 4 cards (open / overdue red / due-this-week amber / distinct properties). Date-color column.
+
+5. **`vehicles-summary`** — Fleet snapshot. Reads `/api/v1/property/vehicles` (endpoint joins per-vehicle `last_service` + `upcoming_service` + `attachment_count`). 4 cards (count / value / mileage / due-for-service). Table with year+make+model concat, VIN last-4-only privacy, plate, state, mileage, last/next service.
+
+6. **`vehicle-maint`** — Service log filtered to `source === 'vehicle'` from `/api/v1/maintenance/upcoming`. Same shape as property-maint.
+
+7. **`vehicle-fuel`** — Per-vehicle service iteration via Promise.all `/api/v1/property/vehicles` + per-vehicle `/api/v1/property/vehicles/:id/service`. Year filter (default current). Client filter `service_type` matching `/fuel|gas|fill/i`. 4 cards (fills / spent / avg cost / avg $/mile from consecutive odometer deltas).
+
+8. **`subs-overview`** — Cost rollup view (vs v.199 `subs-renewals`'s next-90-day view). Reads `/api/v1/subscriptions/summary` + `/api/v1/subscriptions/`. 4 cards (active / monthly / annual projected / renewing-this-month amber). Sort by `next_billing_date` ASC; past-due cells red.
+
+9. **`insurance-policies`** — All policies, sorted by `coverage_end_date` ASC. Reads `/api/v1/insurance/summary` + `/api/v1/insurance/`. 4 cards (active / annual premium / renewing-within-60d amber / distinct types). Past-due cells red.
+
+10. **`inventory-value`** — Items grouped by `category` (NOT location), sorted by total value DESC per category. Effective value = `replacement_value || appraised_value || purchase_price || 0`. 4 cards.
+
+11. **`warranty-expiry`** — Items filtered by `warranty_expires` ≤ N days (default 90). Window-days filter exposed. 4 cards (under-warranty / expiring-30d amber / expiring-window / expired RED).
+
+12. **`items-by-loc`** — Items grouped by parent (location or container), name resolved via parallel fetches of `/api/v1/inventory/locations` + `/api/v1/inventory/containers`. Sort groups by item count DESC.
+
+13. **`doc-expiry`** — Documents expiring within 90 days. Promise.all `/api/v1/documents/` + `/api/v1/documents/expiring`. Three-state body: no docs → empty state; no expiring → green banner with total-tracked count; else table.
+
+### Schema-safety gate
+
+Unchanged baseline. v.202 is pure frontend — zero SQL, zero migrations, zero backend changes.
+
+### Tests
+
+Per the every-other-deploy rule: v.200 ran full Playwright, v.200.1 / v.201 / v.201.1 were smoke-only. **v.202 runs FULL Playwright** + smoke. Expected: smoke 8/8 ✅; **E2E baseline shifts to 117 (115 + 2 new gates)**. The two new gates must both pass for the deploy to be considered healthy.
+
+### What's still NOT done
+
+- **Family tab (7 tiles)** — v.203.
+- **Health `labs-trend` + `bp-trend`** — still "Coming soon"; pending metric_index design.
+- **`portfolio-perf` "Top losers" header cosmetic** — still backlog.
+- **Inventory grouping enhancements** — v.204+ per BACKLOG.md.
+
+---
+
 ## 🩹 v.201.1 DEPLOYED & VERIFIED — fix unmatched JSX fragment in trade.html (2026-05-26)
 
 > **NAS confirms `version=202605.201.1`** via `/api/v1/app/info` at
