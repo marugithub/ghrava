@@ -564,6 +564,10 @@ function renderTabGridV2(tabId) {
       actions: [{ label: 'Clear search', onClick: () => { document.getElementById('repLensInput').value = ''; repLensQuery = ''; renderTabGridV2(tabId); refreshTabCounts(); } }],
     });
   }
+  // v.204 — hydrate tile previews after every grid render (covers initial boot
+  // and all subsequent tab switches). No-op until TILE_PREVIEWS is populated
+  // in Task 5.
+  if (window.__landingPreviewBundle) hydrateTilePreviews(window.__landingPreviewBundle);
 }
 
 // Lens search — matches against title + meta (per locked spec: titles +
@@ -749,6 +753,74 @@ window.TILE_ICONS = {
   'care-team':        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.1.78.3 1.55.59 2.27a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.72.29 1.49.49 2.27.59A2 2 0 0122 16.92z"/><path d="M14 6h2v2M16 6l-3 3"/></svg>',
   'family-contacts':  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="10" r="3"/><path d="M7 18a5 5 0 0110 0"/><path d="M4 7h2M4 11h2M4 15h2M4 19h2"/></svg>',
 };
+
+// ═══════════════════════════════════════════════════════════════
+// v.204 — Landing-page data orchestrator + hydrate hook.
+// loadLandingPreviews() fires ~11 summary fetches in parallel and
+// returns a shared bundle. hydrateTilePreviews(bundle) iterates
+// every rendered .rep-tile on the current tab, looks up
+// TILE_PREVIEWS[slug], and injects the returned HTML into the tile's
+// [data-preview-slot] div. Tiles whose slug is NOT in TILE_PREVIEWS
+// keep the default meta-line fallback emitted by renderTabGridV2.
+//
+// Task 5 fills TILE_PREVIEWS with per-slug renderers. Until then,
+// hydrate is a no-op — tiles look like Task 3 output.
+// ═══════════════════════════════════════════════════════════════
+window.TILE_PREVIEWS = window.TILE_PREVIEWS || {};
+
+async function loadLandingPreviews() {
+  const safeFetch = (url) =>
+    fetch(url).then(r => r.ok ? r.json() : null).catch(() => null);
+
+  const [
+    financeLanding, medicalSummary, hsaSummary, inventoryStats,
+    insuranceSummary, subsSummary, tradingReports, portfolioLive,
+    portfolioPerf, maintSummary, docsExpiring,
+  ] = await Promise.all([
+    safeFetch('/api/v1/finance/landing'),
+    safeFetch('/api/v1/medical/summary'),
+    safeFetch('/api/v1/hsa/summary'),
+    safeFetch('/api/v1/inventory/stats'),
+    safeFetch('/api/v1/insurance/summary'),
+    safeFetch('/api/v1/subscriptions/summary'),
+    safeFetch('/api/v1/trading/reports'),
+    safeFetch('/api/v1/trading/portfolio/live'),
+    safeFetch('/api/v1/trading/portfolio/performance?months=12'),
+    safeFetch('/api/v1/maintenance/summary'),
+    safeFetch('/api/v1/documents/expiring'),
+  ]);
+
+  const bundle = {
+    financeLanding, medicalSummary, hsaSummary, inventoryStats,
+    insuranceSummary, subsSummary, tradingReports, portfolioLive,
+    portfolioPerf, maintSummary, docsExpiring,
+  };
+  window.__landingPreviewBundle = bundle;   // test hook
+  return bundle;
+}
+
+function hydrateTilePreviews(bundle) {
+  if (!bundle) return;
+  const slots = document.querySelectorAll('.rep-tile [data-preview-slot]');
+  slots.forEach(slot => {
+    const slug = slot.getAttribute('data-preview-slot');
+    const renderer = window.TILE_PREVIEWS[slug];
+    if (!renderer) return;   // keep the meta-line fallback emitted by renderTabGridV2
+    try {
+      const html = renderer(bundle);
+      if (typeof html === 'string' && html) slot.innerHTML = html;
+    } catch (e) {
+      console.warn('[hydrateTilePreviews]', slug, e);
+      // Keep fallback on error.
+    }
+  });
+}
+
+// Re-hydrate after any switchTab call so newly-rendered tiles get previews.
+window.__hydrateOnTabSwitch = () => {
+  if (window.__landingPreviewBundle) hydrateTilePreviews(window.__landingPreviewBundle);
+};
+
 window.REPORT_VIEWERS = window.REPORT_VIEWERS || {};
 
 // ── Viewer page rendering ─────────────────────────────────────
@@ -5110,7 +5182,9 @@ function escapeHtml(s) {
 
 // ── Boot — load pinned, render default tab OR open viewer if ?run=  ────
 (async function bootReportsV2() {
-  await loadPinned();
+  // v.204 — kick off the landing-preview fetch in parallel with the
+  // pinned-strip fetch; both must resolve before we can render & hydrate.
+  const [, bundle] = await Promise.all([loadPinned(), loadLandingPreviews()]);
   // Honor ?run=<slug> if the slug is a registered live viewer; else fall
   // through to ?tab= (tile grid). ?tab= unrecognised → money default.
   const params = new URLSearchParams(window.location.search);
@@ -5133,6 +5207,7 @@ function escapeHtml(s) {
   const btn = document.querySelector(`.reports-tab[data-tab="${initial}"]`);
   switchTab(initial, btn);
   refreshTabCounts();
+  hydrateTilePreviews(bundle);
 })();
 
 // ── Render left pane for a given tab ──────────────────────────
