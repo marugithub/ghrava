@@ -3461,7 +3461,7 @@ window.REPORT_VIEWERS['insurance-policies'] = {
     const typeCount    = s.by_type ? s.by_type.length : 0;
     container.innerHTML = ''
       + repSummaryCard('Active policies',           String(activeCount))
-      + repSummaryCard('Annual premium',            repFmt$(annualPrem), 'var(--red,#dc2626)')
+      + repSummaryCard('Annual premium',            repFmt$(annualPrem))
       + repSummaryCard('Renewing within 60 days',   String(expiring60),  expiring60 > 0 ? 'var(--amber,#d97706)' : 'var(--green,#22c55e)')
       + repSummaryCard('Policy types',              String(typeCount));
   },
