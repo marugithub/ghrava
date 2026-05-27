@@ -278,6 +278,16 @@ router.get('/items/:id', (req, res) => {
   try {
     const item = db.prepare(ITEM_WITH_THUMB + ' WHERE i.id=?').get(req.params.id);
     if (!item) return notFound(res, 'Item');
+
+    // v.205 — sibling shortcut: count of OTHER items at same parent.
+    // schema: items(parent_type, parent_id, is_active, is_archived) — mig 001
+    const sib = db.prepare(
+      `SELECT COUNT(*) as n FROM items
+       WHERE parent_type=? AND parent_id=? AND id != ?
+         AND is_active=1 AND is_archived=0`
+    ).get(item.parent_type, item.parent_id, req.params.id);
+    item.sibling_count = sib?.n || 0;
+
     const tags         = db.prepare(`SELECT t.* FROM tags t JOIN taggables tb ON t.id=tb.tag_id WHERE tb.entity_type='item' AND tb.entity_id=?`).all(req.params.id);
     const attachments  = db.prepare(`SELECT * FROM attachments WHERE entity_type='item' AND entity_id=? ORDER BY is_primary_photo DESC, sort_order, created_at`).all(req.params.id);
     const photos       = attachments.filter(a => a.is_image);
@@ -285,7 +295,7 @@ router.get('/items/:id', (req, res) => {
     const maintenance  = db.prepare(`SELECT * FROM item_maintenance_log WHERE item_id=? ORDER BY log_date DESC`).all(req.params.id);
     const events       = getEvents(req.params.id, 30);
     const family_members = db.prepare(`SELECT fm.* FROM family_members fm JOIN record_family_members rfm ON rfm.family_member_id=fm.id WHERE rfm.entity_type='item' AND rfm.entity_id=?`).all(req.params.id);
-    res.json({ ...item, location_path: getPath(item.parent_type, item.parent_id), tags, attachments, photos, documents, maintenance, events, family_members });
+    res.json({ ...item, sibling_count: item.sibling_count, location_path: getPath(item.parent_type, item.parent_id), tags, attachments, photos, documents, maintenance, events, family_members });
   } catch (err) { serverError(res, err); }
 });
 
@@ -439,7 +449,14 @@ router.get('/containers', (req, res) => {
     if (parent_type) { sql += ' AND parent_type=?'; params.push(parent_type); }
     if (parent_id)   { sql += ' AND parent_id=?';   params.push(parent_id); }
     sql += ' ORDER BY name';
-    res.json(db.prepare(sql).all(...params));
+    const containers = db.prepare(sql).all(...params);
+    containers.forEach(c => {
+      const a = CONTAINER_AGG_STMT.get(c.id);
+      c.item_count           = a?.item_count           || 0;
+      c.total_value          = a?.total_value          || 0;
+      c.warranty_expiring_30d = a?.warranty_expiring_30d || 0;
+    });
+    res.json(containers);
   } catch (err) { serverError(res, err); }
 });
 
@@ -450,7 +467,14 @@ router.get('/containers/:id', (req, res) => {
     // Include contents so the UI can render items with thumbnails
     const containers = db.prepare('SELECT * FROM containers WHERE parent_type=? AND parent_id=? ORDER BY name').all('container', ctn.id);
     const items = db.prepare(ITEM_WITH_THUMB + ' WHERE i.parent_type=? AND i.parent_id=? AND i.is_active=1 AND i.is_archived=0 ORDER BY i.name').all('container', ctn.id);
-    res.json({ ...ctn, contents: { containers, items } });
+    const agg = CONTAINER_AGG_STMT.get(ctn.id);
+    res.json({
+      ...ctn,
+      item_count:            agg?.item_count            || 0,
+      total_value:           agg?.total_value           || 0,
+      warranty_expiring_30d: agg?.warranty_expiring_30d || 0,
+      contents: { containers, items },
+    });
   } catch (err) { serverError(res, err); }
 });
 
@@ -901,6 +925,24 @@ const ITEM_WITH_THUMB = `
     ON a.entity_type='item' AND a.entity_id=i.id
     AND a.is_image=1 AND a.is_primary_photo=1
 `;
+
+// v.205 — container aggregates: item_count + summed effective value + warranty flags.
+// effective value = first non-null of replacement_value, appraised_value, purchase_price.
+// lifetime_warranty=1 items are excluded from the expiring count.
+// schema: items(parent_type, parent_id, is_active, is_archived, replacement_value,
+//   appraised_value, purchase_price, warranty_expires, lifetime_warranty) — mig 001
+const CONTAINER_AGG_STMT = db.prepare(`
+  SELECT
+    COUNT(*) AS item_count,
+    COALESCE(SUM(COALESCE(replacement_value, appraised_value, purchase_price, 0)), 0) AS total_value,
+    SUM(CASE WHEN warranty_expires IS NOT NULL
+              AND warranty_expires <= date('now','+30 days')
+              AND warranty_expires >= date('now')
+              AND COALESCE(lifetime_warranty,0)=0
+             THEN 1 ELSE 0 END) AS warranty_expiring_30d
+  FROM items
+  WHERE parent_type='container' AND parent_id=? AND is_active=1 AND is_archived=0
+`);
 
 // Direct ref lookup — used by QR code deep-link (?open=ITM-xxxx or CNT-xxxx)
 // Separate from /items search because search uses LIKE on name/brand/etc, not item_ref
