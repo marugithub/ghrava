@@ -1114,7 +1114,7 @@
           <option value="">Loading…</option>
         </select>
       </div>
-      <div class="form-group"><label class="form-label">Warranty Expires</label><input class="form-input" type="date" id="itm_warranty"></div>
+      <div class="form-group"><label class="form-label">Warranty Expires</label><input class="form-input" type="date" id="itm_warranty"><div class="warranty-auto-hint" style="font-size:11px;color:var(--text3);margin-top:4px"></div></div>
     </div>
     <div class="form-group">
       <label class="form-label">Warranty Vendor</label>
@@ -1631,6 +1631,34 @@ const HW_CAT = 'Health & Wellness';
 
 function isHW(cat) { return cat === HW_CAT || cat === 'Medical'; }
 
+// v.205 — Auto-fill warranty_expires from category + purchase_date.
+// Best-effort: never overwrites existing value, silently swallows errors.
+async function maybeAutofillWarranty() {
+  const catEl  = $('itm_cat');
+  const pdEl   = $('itm_pdate');
+  const weEl   = $('itm_warranty');
+  const hintEl = document.querySelector('#itemDrawer .warranty-auto-hint');
+  if (!catEl || !pdEl || !weEl) return;
+  const cat = catEl.value;
+  const pd  = pdEl.value;
+  if (!cat || !pd || weEl.value) {
+    if (hintEl) hintEl.textContent = '';
+    return;
+  }
+  try {
+    const resp = await fetch('/api/v1/inventory/warranty-suggestions?category=' + encodeURIComponent(cat));
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data.known || data.months == null) return;
+    const d = new Date(pd + 'T00:00:00');
+    if (isNaN(d.getTime())) return;
+    d.setMonth(d.getMonth() + data.months);
+    const iso = d.toISOString().slice(0, 10);
+    weEl.value = iso;
+    if (hintEl) hintEl.textContent = 'Auto-filled from typical ' + cat + ' warranty (' + data.months + ' mo) — adjust if different';
+  } catch (e) { /* swallow; auto-fill is best-effort */ }
+}
+
 function onCatChange(val) {
   const hw = $('hwSection');
   if (isHW(val)) {
@@ -1639,6 +1667,7 @@ function onCatChange(val) {
   } else {
     hw.style.display = 'none';
   }
+  maybeAutofillWarranty();
 }
 
 function onHwSubcatChange(val) {
@@ -3364,6 +3393,9 @@ async function editItem(id) {
 $('itm_insured').addEventListener('change',()=>{
   $('insuranceFields').style.display = $('itm_insured').checked?'block':'none';
 });
+
+// v.205 — purchase_date change also triggers warranty auto-fill
+$('itm_pdate').addEventListener('change', maybeAutofillWarranty);
 
 // ── "Where does this live?" two-step picker ──────────────────
 let _whereLocs = [];

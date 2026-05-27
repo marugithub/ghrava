@@ -489,6 +489,37 @@ router.get('/stats', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+// ── Warranty period suggestions by category ──────────────────
+// v.205 — Warranty period suggestions by category.
+// Common consumer-product manufacturer-warranty periods. The frontend
+// auto-fills items.warranty_expires from this when the user picks a
+// category AND sets purchase_date AND warranty_expires is empty. The
+// value is a hint, not a guarantee — UI shows "auto-filled, adjust if
+// different".
+const WARRANTY_SUGGESTIONS = {
+  'Electronics':   12,
+  'Appliances':    24,
+  'Tools':         12,
+  'Office':        12,
+  'Kitchen':       12,
+  'Car':           36,
+  'Furniture':     12,
+  'Personal Care':  6,
+  'Beauty':        null,
+  'Books':         null,
+  'Clothing':      null,
+  'Toys':           6,
+  'Sports':        12,
+  'Music':         12,
+};
+
+router.get('/warranty-suggestions', (req, res) => {
+  const cat = req.query.category;
+  if (!cat) return badRequest(res, 'category param required');
+  const months = WARRANTY_SUGGESTIONS[cat] != null ? WARRANTY_SUGGESTIONS[cat] : null;
+  res.json({ category: cat, months, known: months != null });
+});
+
 // ══════════════════════════════════════════════════════════════
 // PRODUCT IMAGE FETCH — shared utility
 // Downloads a product image from a URL, resizes it, saves to
