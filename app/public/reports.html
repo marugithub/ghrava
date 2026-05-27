@@ -4567,6 +4567,237 @@ window.REPORT_VIEWERS['member-detail'] = {
   },
 };
 
+// FAMILY · Kids activities — per-kid activity schedule (v.203)
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['kids-activities'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const rKids = await fetch('/api/v1/kids/');
+    if (!rKids.ok) throw new Error('HTTP ' + rKids.status);
+    const kidRows = await rKids.json();
+    const kidList = Array.isArray(kidRows) ? kidRows : [];
+    const actArrays = await Promise.all(kidList.map(async kid => {
+      try {
+        const r = await fetch('/api/v1/kids/' + kid.id + '/activities');
+        if (!r.ok) return [];
+        const res = await r.json();
+        return Array.isArray(res) ? res : [];
+      } catch (_) {
+        return [];
+      }
+    }));
+    const kids = kidList.map((kid, i) => Object.assign({}, kid, { activities: actArrays[i] || [] }));
+    return { kids };
+  },
+  renderSummary(container, data) {
+    const kids = data.kids || [];
+    const allActs = [].concat(...kids.map(k => k.activities || []));
+    const totalKids       = kids.length;
+    const activeActs      = allActs.filter(a => (a.is_active ?? 1) === 1).length;
+    const distinctCats    = new Set(allActs.map(a => a.category).filter(Boolean)).size;
+    const totalMonthlyCost = allActs
+      .filter(a => (a.is_active ?? 1) === 1)
+      .reduce((s, a) => s + (a.cost_per_month || 0), 0);
+    container.innerHTML = ''
+      + repSummaryCard('Total kids',           totalKids)
+      + repSummaryCard('Active activities',    activeActs)
+      + repSummaryCard('Distinct categories',  distinctCats)
+      + repSummaryCard('Total monthly cost',   repFmt$(totalMonthlyCost));
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const kids = data.kids || [];
+    if (!kids.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No kids registered',
+        subtitle: 'Add kids in the Kids module.',
+      });
+      return;
+    }
+    const ageOf = (dob) => {
+      if (!dob) return null;
+      const d = new Date(dob + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      const now = new Date();
+      let a = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+      return a;
+    };
+    let html = '';
+    kids.forEach(kid => {
+      const age = ageOf(kid.date_of_birth);
+      let heading = escapeHtml(kid.display_name || ('Kid ' + kid.id));
+      if (kid.grade) heading += ' (Grade ' + escapeHtml(String(kid.grade)) + ')';
+      if (age !== null) heading += ' &mdash; age ' + age;
+      html += '<h3 style="margin:16px 0 8px;font-size:14px">' + heading + '</h3>';
+      const acts = (kid.activities || []).slice().sort((a, b) => {
+        const ai = (a.is_active ?? 1), bi = (b.is_active ?? 1);
+        if (bi !== ai) return bi - ai;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      if (!acts.length) {
+        html += '<div style="color:var(--text3);margin:4px 0 12px">No activities recorded for this child.</div>';
+      } else {
+        const tableRows = acts.map((act, idx) =>
+          '<tr data-kidid="' + escapeHtml(String(kid.id)) + '" data-actidx="' + idx + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(act.name        || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(act.category    || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(act.day_of_week || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + (act.start_time && act.end_time
+              ? escapeHtml(act.start_time) + '&ndash;' + escapeHtml(act.end_time)
+              : escapeHtml(act.start_time || act.end_time || '—')) + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(act.location    || '—') + '</td>'
+          + '<td style="padding:6px 10px;text-align:right">' + (act.cost_per_month != null ? repFmt$(act.cost_per_month) : '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(act.season      || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        html += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">'
+          + '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+          +   '<th style="text-align:left;padding:8px 10px">Activity</th>'
+          +   '<th style="text-align:left;padding:8px 10px">Category</th>'
+          +   '<th style="text-align:left;padding:8px 10px">Day</th>'
+          +   '<th style="text-align:left;padding:8px 10px">Time</th>'
+          +   '<th style="text-align:left;padding:8px 10px">Location</th>'
+          +   '<th style="text-align:right;padding:8px 10px">Cost/mo</th>'
+          +   '<th style="text-align:left;padding:8px 10px">Season</th>'
+          + '</tr></thead>'
+          + '<tbody>' + tableRows + '</tbody>'
+          + '</table>';
+      }
+    });
+    container.innerHTML = html;
+    // Build a lookup for click handlers
+    const kidMap = {};
+    kids.forEach(kid => { kidMap[String(kid.id)] = kid; });
+    const ageOf2 = ageOf;
+    container.querySelectorAll('tr[data-kidid]').forEach(tr => {
+      tr.onclick = () => {
+        const kid = kidMap[tr.dataset.kidid];
+        if (!kid) return;
+        const acts = (kid.activities || []).slice().sort((a, b) => {
+          const ai = (a.is_active ?? 1), bi = (b.is_active ?? 1);
+          if (bi !== ai) return bi - ai;
+          return (a.name || '').localeCompare(b.name || '');
+        });
+        const act = acts[parseInt(tr.dataset.actidx, 10)];
+        if (!act) return;
+        onDrill({
+          title: escapeHtml(act.name || 'Activity') + ' — ' + escapeHtml(kid.display_name || ''),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Activity</td><td style="padding:6px 10px">'     + escapeHtml(act.name        || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Category</td><td style="padding:6px 10px">'                  + escapeHtml(act.category    || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Day</td><td style="padding:6px 10px">'                       + escapeHtml(act.day_of_week || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Time</td><td style="padding:6px 10px">'                      + (act.start_time && act.end_time ? escapeHtml(act.start_time) + '–' + escapeHtml(act.end_time) : escapeHtml(act.start_time || act.end_time || '—')) + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Location</td><td style="padding:6px 10px">'                  + escapeHtml(act.location    || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Cost / mo</td><td style="padding:6px 10px">'                + (act.cost_per_month != null ? repFmt$(act.cost_per_month) : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Season</td><td style="padding:6px 10px">'                   + escapeHtml(act.season      || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Start date</td><td style="padding:6px 10px">'              + escapeHtml(act.start_date  || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">End date</td><td style="padding:6px 10px">'                + escapeHtml(act.end_date    || '—') + '</td></tr>'
+            + (act.notes ? '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Notes</td><td style="padding:6px 10px">' + escapeHtml(act.notes) + '</td></tr>' : '')
+            + '</tbody></table>',
+        });
+      };
+    });
+  },
+};
+
+// FAMILY · Kids school info — school/grade/teacher/health per kid (v.203)
+// ═══════════════════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['kids-school'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const r = await fetch('/api/v1/kids/');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    return { kids: Array.isArray(rows) ? rows : [] };
+  },
+  renderSummary(container, data) {
+    const kids = data.kids || [];
+    const totalKids         = kids.length;
+    const withGrade         = kids.filter(k => k.grade).length;
+    const withTeacher       = kids.filter(k => k.teacher_name || k.teacher_contact_id).length;
+    const withAllergies     = kids.filter(k => k.allergies && String(k.allergies).trim()).length;
+    container.innerHTML = ''
+      + repSummaryCard('Total kids',               totalKids)
+      + repSummaryCard('Kids with grade',           withGrade)
+      + repSummaryCard('Kids with teacher contact', withTeacher)
+      + repSummaryCard('Kids with allergies on file', withAllergies);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const kids = data.kids || [];
+    if (!kids.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No kids registered',
+        subtitle: 'Add kids in the Kids module.',
+      });
+      return;
+    }
+    const ageOf = (dob) => {
+      if (!dob) return null;
+      const d = new Date(dob + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      const now = new Date();
+      let a = now.getFullYear() - d.getFullYear();
+      const m = now.getMonth() - d.getMonth();
+      if (m < 0 || (m === 0 && now.getDate() < d.getDate())) a--;
+      return a;
+    };
+    const detailRow = (label, value) =>
+      '<div style="background:var(--bg2);border-radius:6px;padding:8px 10px">'
+      + '<div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--text3);margin-bottom:3px">' + label + '</div>'
+      + '<div style="font-size:13px">' + value + '</div>'
+      + '</div>';
+    let html = '';
+    kids.forEach((kid, kidIdx) => {
+      const age = ageOf(kid.date_of_birth);
+      let heading = escapeHtml(kid.display_name || ('Kid ' + kid.id));
+      if (age !== null) heading += ' &mdash; age ' + age;
+      const allergiesVal = (kid.allergies && String(kid.allergies).trim())
+        ? '<span style="color:var(--amber,#f59e0b)">' + escapeHtml(kid.allergies) + '</span>'
+        : '—';
+      const medsVal = kid.medications_note ? escapeHtml(kid.medications_note) : '—';
+      const emergVal = kid.emergency_note
+        ? '<span style="color:var(--red,#dc2626);white-space:pre-line">' + escapeHtml(kid.emergency_note) + '</span>'
+        : '—';
+      html += '<h3 data-kididx="' + kidIdx + '" style="margin:16px 0 8px;font-size:14px;cursor:pointer">' + heading + '</h3>'
+        + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;font-size:13px;margin-bottom:16px">'
+        +   detailRow('Grade',              escapeHtml(String(kid.grade    || '—')))
+        +   detailRow('School ID',          escapeHtml(String(kid.school_id || '—')))
+        +   detailRow('Homeroom',           escapeHtml(String(kid.homeroom  || '—')))
+        +   detailRow('Teacher',            escapeHtml(String(kid.teacher_name || '—')))
+        +   detailRow('Allergies',          allergiesVal)
+        +   detailRow('Medications note',   medsVal)
+        +   detailRow('Emergency note',     emergVal)
+        + '</div>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('h3[data-kididx]').forEach(h3 => {
+      h3.onclick = () => {
+        const kid = kids[parseInt(h3.dataset.kididx, 10)];
+        if (!kid) return;
+        const age = ageOf(kid.date_of_birth);
+        onDrill({
+          title: escapeHtml(kid.display_name || ('Kid ' + kid.id)) + (age !== null ? ' (age ' + age + ')' : ''),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:180px">Display name</td><td style="padding:6px 10px">'     + escapeHtml(kid.display_name        || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Date of birth</td><td style="padding:6px 10px">'               + escapeHtml(kid.date_of_birth        || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Grade</td><td style="padding:6px 10px">'                        + escapeHtml(String(kid.grade         || '—')) + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">School ID</td><td style="padding:6px 10px">'                    + escapeHtml(String(kid.school_id     || '—')) + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Homeroom</td><td style="padding:6px 10px">'                     + escapeHtml(kid.homeroom             || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Teacher</td><td style="padding:6px 10px">'                      + escapeHtml(kid.teacher_name         || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Teacher contact ID</td><td style="padding:6px 10px">'         + escapeHtml(String(kid.teacher_contact_id || '—')) + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Allergies</td><td style="padding:6px 10px">'                   + (kid.allergies && String(kid.allergies).trim() ? '<span style="color:var(--amber,#f59e0b)">' + escapeHtml(kid.allergies) + '</span>' : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Medications note</td><td style="padding:6px 10px">'           + escapeHtml(kid.medications_note    || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Emergency note</td><td style="padding:6px 10px">'             + (kid.emergency_note ? '<span style="color:var(--red,#dc2626);white-space:pre-line">' + escapeHtml(kid.emergency_note) + '</span>' : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Photo URL</td><td style="padding:6px 10px">'                  + escapeHtml(kid.photo_url            || '—') + '</td></tr>'
+            + (kid.notes ? '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Notes</td><td style="padding:6px 10px">' + escapeHtml(kid.notes) + '</td></tr>' : '')
+            + '</tbody></table>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
