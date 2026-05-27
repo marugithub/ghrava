@@ -3876,6 +3876,112 @@ window.REPORT_VIEWERS['items-by-loc'] = {
   },
 };
 
+// HOUSEHOLD · Document expiry — docs expiring in next 90 days (v.202)
+// ═══════════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['doc-expiry'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const [allRes, expiringRes] = await Promise.all([
+      fetch('/api/v1/documents/')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/api/v1/documents/expiring')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ]);
+    const all      = Array.isArray(allRes)      ? allRes      : [];
+    const expiring = Array.isArray(expiringRes) ? expiringRes : [];
+    return { all, expiring };
+  },
+  renderSummary(container, data) {
+    const { all, expiring } = data;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const within30     = expiring.filter(doc => { const du = daysUntil(doc.expiry_date); return du !== null && du <= 30; }).length;
+    const alreadyExpired = all.filter(doc => doc.expiry_date && daysUntil(doc.expiry_date) !== null && daysUntil(doc.expiry_date) < 0).length;
+    const trackedWithExpiry = all.filter(doc => doc.expiry_date).length;
+    const within30Color  = within30       > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    const expiredColor   = alreadyExpired > 0 ? 'var(--red,#ef4444)'   : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Expiring within 90 days', String(expiring.length))
+      + repSummaryCard('Expiring within 30 days', String(within30),       within30Color)
+      + repSummaryCard('Already expired',         String(alreadyExpired), expiredColor)
+      + repSummaryCard('Total tracked with expiry', String(trackedWithExpiry));
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const { all, expiring } = data;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    if (all.length === 0) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No documents tracked',
+        subtitle: 'Add documents in the Documents module.',
+      });
+      return;
+    }
+    if (expiring.length === 0) {
+      container.innerHTML = '<div style="padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--green,#22c55e)">✓ No documents expiring in the next 90 days. (' + all.filter(doc => doc.expiry_date).length + ' documents tracked.)</div>';
+      return;
+    }
+    // Server returns expiring sorted by expiry_date ASC — preserve order
+    const rows = expiring.map((doc, idx) => {
+      const du = daysUntil(doc.expiry_date);
+      const duStr = du === null ? '—' : (du < 0 ? 'Overdue' : du + 'd');
+      const duColor = du !== null && du <= 30 ? 'color:var(--amber,#f59e0b)' : '';
+      return '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-idx="' + idx + '">'
+        + '<td style="padding:6px 10px">' + escapeHtml(doc.title          || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(doc.category       || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(doc.issuer         || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(doc.family_member  || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(doc.expiry_date    || '—') + '</td>'
+        + '<td style="padding:6px 10px;' + duColor + '">' + duStr + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Title</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Category</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Issuer</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Family member</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Expiry date</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Days remaining</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + rows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const idx = parseInt(tr.dataset.idx, 10);
+        const doc = expiring[idx];
+        if (!doc) return;
+        onDrill({
+          title: escapeHtml(doc.title || 'Document'),
+          html: ''
+            + '<p style="margin:4px 0"><strong>Title:</strong> '         + escapeHtml(doc.title          || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Category:</strong> '      + escapeHtml(doc.category       || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Subcategory:</strong> '   + escapeHtml(doc.subcategory    || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Description:</strong> '   + escapeHtml(doc.description    || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Issuer:</strong> '        + escapeHtml(doc.issuer         || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Issue date:</strong> '    + escapeHtml(doc.issue_date     || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Expiry date:</strong> '   + escapeHtml(doc.expiry_date    || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Family member:</strong> ' + escapeHtml(doc.family_member  || '—') + '</p>'
+            + (doc.url_link ? '<p style="margin:4px 0"><strong>URL:</strong> <a href="' + escapeHtml(doc.url_link) + '" target="_blank" rel="noopener">' + escapeHtml(doc.url_link) + '</a></p>' : '')
+            + (doc.tags ? '<p style="margin:4px 0"><strong>Tags:</strong> ' + escapeHtml(doc.tags) + '</p>' : '')
+            + '<div style="margin-top:10px"><a href="/documents.html" style="display:inline-block;padding:6px 12px;background:var(--accent);color:#fff;border-radius:6px;text-decoration:none;font-size:13px">Open in Documents module ↗</a></div>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
