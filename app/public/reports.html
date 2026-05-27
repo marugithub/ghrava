@@ -499,6 +499,10 @@ function renderTabGridV2(tabId) {
   const tab = REPORT_TABS_V2[tabId];
   if (!tab) { root.innerHTML = ''; return; }
   root.innerHTML = '';   // wipe spinner / previous tab's grid
+
+  // v.204 — pick category class from tab id; pending stays unstyled (uses its own shortcut tiles).
+  const categoryClass = (tabId === 'money' || tabId === 'health' || tabId === 'household' || tabId === 'family') ? tabId : '';
+
   for (const group of tab.groups) {
     const label = document.createElement('div');
     label.className = 'rep-group-label';
@@ -512,24 +516,44 @@ function renderTabGridV2(tabId) {
     for (const t of group.tiles) {
       const matchesLens = repLensMatches(t);
       if (!matchesLens) continue;
-      window.GH_TILE.render({
-        container: grid,
-        slug: t.slug,
-        title: t.title,
-        meta: t.meta,
-        icon: tab.icon,
-        eyebrow: tab.label.toUpperCase() + ' · ' + (group.label.split(' ')[0]).toUpperCase(),
-        color: tab.color,
-        onClick: (slug) => {
-          // v.198 — if a viewer module is registered for this slug, open it.
-          // Otherwise fall back to the v.197 'Coming soon' toast.
-          if (window.REPORT_VIEWERS && window.REPORT_VIEWERS[slug]) {
-            window.openReportViewer(slug);
-          } else {
-            window.GH_REPORT_STATES.comingSoon(slug);
-          }
-        },
+
+      // v.204 — emit the new tile structure inline (icon + eyebrow + title + preview slot).
+      // GH_TILE is no longer used here; the shared component still exists for other surfaces.
+      const tile = document.createElement('div');
+      tile.className = 'rep-tile' + (categoryClass ? ' ' + categoryClass : '');
+      tile.setAttribute('data-slug', t.slug);
+      tile.setAttribute('tabindex', '0');
+      tile.setAttribute('role', 'button');
+      tile.setAttribute('aria-label', t.title);
+
+      const iconSvg = (window.TILE_ICONS && window.TILE_ICONS[t.slug]) || '';
+      // Eyebrow = the group label (e.g. 'spending', 'income & cash'). Already lowercase per the locked v.197 spec.
+      const eyebrow = group.label || '';
+      tile.innerHTML = ''
+        + '<div class="rep-tile-head">'
+        +   '<div class="rep-tile-icon">' + iconSvg + '</div>'
+        +   '<div class="rep-tile-head-text">'
+        +     '<span class="rep-tile-eyebrow">' + escapeHtml(eyebrow) + '</span>'
+        +     '<span class="rep-tile-title">' + escapeHtml(t.title || '') + '</span>'
+        +   '</div>'
+        + '</div>'
+        + '<div class="rep-tile-preview" data-preview-slot="' + escapeHtml(t.slug) + '">'
+        +   '<div class="rep-tile-meta">' + escapeHtml(t.meta || '') + '</div>'
+        + '</div>';
+
+      const onActivate = () => {
+        if (window.REPORT_VIEWERS && window.REPORT_VIEWERS[t.slug]) {
+          window.openReportViewer(t.slug);
+        } else {
+          window.GH_REPORT_STATES.comingSoon(t.slug);
+        }
+      };
+      tile.addEventListener('click', onActivate);
+      tile.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onActivate(); }
       });
+
+      grid.appendChild(tile);
     }
   }
   // Show empty state if Lens filtered everything out.
