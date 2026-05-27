@@ -3982,6 +3982,297 @@ window.REPORT_VIEWERS['doc-expiry'] = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════
+// FAMILY · Emergency info (v.203) — per-member emergency contact overview
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['emergency-info'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const fmRes = await fetch('/api/v1/data/table?name=family_members')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const baseMembers = (fmRes.rows || []);
+    const snapshots = await Promise.all(baseMembers.map(m =>
+      fetch('/api/v1/family-snapshot/' + m.id)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    ));
+    const members = baseMembers.map((m, i) => ({ ...m, _snapshot: snapshots[i] || {} }));
+    return { members };
+  },
+  renderSummary(container, data) {
+    const members = data.members || [];
+    const totalMembers     = members.length;
+    const withActiveMeds   = members.filter(m => {
+      const meds = (m._snapshot.medications || []);
+      return meds.some(med => (med.status || '').toLowerCase() === 'active');
+    }).length;
+    const withConditions   = members.filter(m => (m._snapshot.conditions || []).length > 0).length;
+    const withEmergNotes   = members.filter(m => m.emergency_notes && String(m.emergency_notes).trim()).length;
+    const medsColor = withActiveMeds > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Family members',              totalMembers)
+      + repSummaryCard('Members with active meds',    withActiveMeds, medsColor)
+      + repSummaryCard('Members with conditions',     withConditions)
+      + repSummaryCard('Members with emergency notes', withEmergNotes);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const members = data.members || [];
+    if (!members.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No family members',
+        subtitle: 'Add family members in Settings → Family.',
+      });
+      return;
+    }
+    const ageOf = (dob) => {
+      if (!dob) return null;
+      const d = new Date(dob + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      const now = new Date();
+      let a = now.getFullYear() - d.getFullYear();
+      const mo = now.getMonth() - d.getMonth();
+      if (mo < 0 || (mo === 0 && now.getDate() < d.getDate())) a--;
+      return a;
+    };
+    let html = '';
+    members.forEach((m, idx) => {
+      const snap       = m._snapshot || {};
+      const meds       = (snap.medications || []);
+      const conditions = (snap.conditions  || []);
+      const activeMeds = meds.filter(med => (med.status || '').toLowerCase() === 'active');
+      const age        = ageOf(m.date_of_birth);
+      const dobStr     = m.date_of_birth ? escapeHtml(m.date_of_birth) + (age !== null ? ' (' + age + ' yrs)' : '') : '—';
+      const firstMeds  = activeMeds.slice(0, 3).map(med => escapeHtml(med.name || '—')).join(', ');
+      const moreMeds   = activeMeds.length > 3 ? ' +' + (activeMeds.length - 3) + ' more' : '';
+      const firstConds = conditions.slice(0, 3).map(c => escapeHtml(c.name || '—')).join(', ');
+      const moreConds  = conditions.length > 3 ? ' +' + (conditions.length - 3) + ' more' : '';
+      html += '<div style="margin-bottom:16px;padding:14px;background:var(--bg2);border:1px solid var(--border);border-radius:8px">'
+        + '<h3 style="margin:0 0 10px;font-size:14px;cursor:pointer" data-member-idx="' + idx + '">'
+        +   escapeHtml(m.display_name || '—')
+        +   ' <span style="font-weight:normal;color:var(--text3);font-size:12px">(' + escapeHtml(m.relationship || '—') + ')</span>'
+        + '</h3>'
+        + '<div style="display:grid;gap:6px;font-size:13px">'
+        +   '<div><span style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">DOB:</span> ' + dobStr + '</div>'
+        + (m.gender ? '<div><span style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Gender:</span> ' + escapeHtml(m.gender) + '</div>' : '')
+        +   '<div><span style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Active meds:</span> '
+        +     (activeMeds.length === 0 ? 'None' : activeMeds.length + ' — ' + firstMeds + moreMeds)
+        +   '</div>'
+        +   '<div><span style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Conditions:</span> '
+        +     (conditions.length === 0 ? 'None' : conditions.length + ' — ' + firstConds + moreConds)
+        +   '</div>'
+        + (m.emergency_notes && String(m.emergency_notes).trim()
+            ? '<div><span style="color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Emergency notes:</span><div style="white-space:pre-wrap;margin-top:4px">' + escapeHtml(m.emergency_notes) + '</div></div>'
+            : '')
+        + '</div>'
+        + '</div>';
+    });
+    container.innerHTML = html;
+    // Attach drilldown handlers on h3 headings
+    container.querySelectorAll('h3[data-member-idx]').forEach(el => {
+      el.addEventListener('click', () => {
+        const idx = parseInt(el.dataset.memberIdx, 10);
+        const m   = members[idx];
+        if (!m) return;
+        const snap       = m._snapshot || {};
+        const meds       = (snap.medications || []);
+        const conditions = (snap.conditions  || []);
+        const visits     = (snap.visits      || []);
+        const sm = snap.member || {};
+        const medRows = meds.map(med =>
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(med.name    || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(med.dosage  || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(med.status  || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        const condRows = conditions.map(c =>
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(c.name || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        const visitRows = visits.map(v =>
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(v.visit_date      || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(v.physician_name  || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        onDrill({
+          title: escapeHtml(m.display_name || 'Family member'),
+          html: ''
+            + '<p style="margin:4px 0"><strong>Full legal name:</strong> ' + escapeHtml(sm.full_legal_name || m.full_legal_name || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Relationship:</strong> '   + escapeHtml(m.relationship || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Date of birth:</strong> '  + escapeHtml(m.date_of_birth || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Gender:</strong> '         + escapeHtml(m.gender || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>SSN last 4:</strong> '     + escapeHtml(m.ssn_last4 || '—') + '</p>'
+            + (m.emergency_notes ? '<p style="margin:8px 0 4px"><strong>Emergency notes:</strong></p><div style="white-space:pre-wrap;font-size:13px">' + escapeHtml(m.emergency_notes) + '</div>' : '')
+            + (meds.length ? '<h4 style="margin:12px 0 6px">Medications (' + meds.length + ')</h4>'
+              + '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>'
+              + '<tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+              + '<th style="text-align:left;padding:8px 10px">Name</th><th style="text-align:left;padding:8px 10px">Dosage</th><th style="text-align:left;padding:8px 10px">Status</th>'
+              + '</tr></thead><tbody>' + medRows + '</tbody></table>' : '')
+            + (conditions.length ? '<h4 style="margin:12px 0 6px">Conditions (' + conditions.length + ')</h4>'
+              + '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>'
+              + '<tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+              + '<th style="text-align:left;padding:8px 10px">Name</th>'
+              + '</tr></thead><tbody>' + condRows + '</tbody></table>' : '')
+            + (visits.length ? '<h4 style="margin:12px 0 6px">Visits (' + visits.length + ')</h4>'
+              + '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>'
+              + '<tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+              + '<th style="text-align:left;padding:8px 10px">Date</th><th style="text-align:left;padding:8px 10px">Physician</th>'
+              + '</tr></thead><tbody>' + visitRows + '</tbody></table>' : ''),
+        });
+      });
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// FAMILY · Family snapshot (v.203) — one-row-per-member summary table
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['family-snapshot'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const fmRes = await fetch('/api/v1/data/table?name=family_members')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const baseMembers = (fmRes.rows || []);
+    const snapshots = await Promise.all(baseMembers.map(m =>
+      fetch('/api/v1/family-snapshot/' + m.id)
+        .then(r => r.ok ? r.json() : null)
+        .catch(() => null)
+    ));
+    const members = baseMembers.map((m, i) => ({ ...m, _snapshot: snapshots[i] || {} }));
+    return { members };
+  },
+  renderSummary(container, data) {
+    const members   = data.members || [];
+    const curYear   = repCurrentYear();
+    const totalMembers   = members.length;
+    const totalActiveMeds = members.reduce((s, m) =>
+      s + (m._snapshot.medications || []).filter(med => (med.status || '').toLowerCase() === 'active').length, 0);
+    const totalConditions = members.reduce((s, m) =>
+      s + (m._snapshot.conditions || []).length, 0);
+    const totalVisitsYear = members.reduce((s, m) =>
+      s + (m._snapshot.visits || []).filter(v => v.visit_date && String(v.visit_date).startsWith(curYear)).length, 0);
+    container.innerHTML = ''
+      + repSummaryCard('Total members',              totalMembers)
+      + repSummaryCard('Total active medications',   totalActiveMeds)
+      + repSummaryCard('Total conditions',           totalConditions)
+      + repSummaryCard('Total visits this year',     totalVisitsYear);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const members = data.members || [];
+    if (!members.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No family members',
+        subtitle: 'Add family members in Settings → Family.',
+      });
+      return;
+    }
+    const ageOf = (dob) => {
+      if (!dob) return null;
+      const d = new Date(dob + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      const now = new Date();
+      let a = now.getFullYear() - d.getFullYear();
+      const mo = now.getMonth() - d.getMonth();
+      if (mo < 0 || (mo === 0 && now.getDate() < d.getDate())) a--;
+      return a;
+    };
+    const curYear = repCurrentYear();
+    // Sort: primary user first, then by display_name ASC
+    const sorted = members.slice().sort((a, b) => {
+      if (!!b.is_primary_user !== !!a.is_primary_user) return b.is_primary_user ? 1 : -1;
+      return (a.display_name || '').localeCompare(b.display_name || '');
+    });
+    const tableRows = sorted.map((m, idx) => {
+      const snap        = m._snapshot || {};
+      const activeMeds  = (snap.medications || []).filter(med => (med.status || '').toLowerCase() === 'active').length;
+      const conditions  = (snap.conditions  || []).length;
+      const visitsYear  = (snap.visits      || []).filter(v => v.visit_date && String(v.visit_date).startsWith(curYear)).length;
+      const age         = ageOf(m.date_of_birth);
+      const ageStr      = age !== null ? String(age) : '—';
+      const emergIcon   = m.emergency_notes && String(m.emergency_notes).trim() ? '✓' : '—';
+      return '<tr style="cursor:pointer;border-bottom:1px solid var(--border)" data-sorted-idx="' + idx + '">'
+        + '<td style="padding:6px 10px">' + escapeHtml(m.display_name  || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(m.relationship  || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + ageStr + '</td>'
+        + '<td style="padding:6px 10px">' + activeMeds + '</td>'
+        + '<td style="padding:6px 10px">' + conditions  + '</td>'
+        + '<td style="padding:6px 10px">' + visitsYear  + '</td>'
+        + '<td style="padding:6px 10px">' + emergIcon   + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Relationship</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Age</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Active meds</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Conditions</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Visits this year</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Emergency notes</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const idx = parseInt(tr.dataset.sortedIdx, 10);
+        const m   = sorted[idx];
+        if (!m) return;
+        const snap       = m._snapshot || {};
+        const meds       = (snap.medications || []);
+        const conditions = (snap.conditions  || []);
+        const visits     = (snap.visits      || []);
+        const sm = snap.member || {};
+        const medRows = meds.map(med =>
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(med.name    || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(med.dosage  || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(med.status  || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        const condRows = conditions.map(c =>
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(c.name || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        const visitRows = visits.map(v =>
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(v.visit_date      || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(v.physician_name  || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        onDrill({
+          title: escapeHtml(m.display_name || 'Family member'),
+          html: ''
+            + '<p style="margin:4px 0"><strong>Full legal name:</strong> ' + escapeHtml(sm.full_legal_name || m.full_legal_name || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Relationship:</strong> '   + escapeHtml(m.relationship || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Date of birth:</strong> '  + escapeHtml(m.date_of_birth || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>Gender:</strong> '         + escapeHtml(m.gender || '—') + '</p>'
+            + '<p style="margin:4px 0"><strong>SSN last 4:</strong> '     + escapeHtml(m.ssn_last4 || '—') + '</p>'
+            + (m.emergency_notes ? '<p style="margin:8px 0 4px"><strong>Emergency notes:</strong></p><div style="white-space:pre-wrap;font-size:13px">' + escapeHtml(m.emergency_notes) + '</div>' : '')
+            + (meds.length ? '<h4 style="margin:12px 0 6px">Medications (' + meds.length + ')</h4>'
+              + '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>'
+              + '<tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+              + '<th style="text-align:left;padding:8px 10px">Name</th><th style="text-align:left;padding:8px 10px">Dosage</th><th style="text-align:left;padding:8px 10px">Status</th>'
+              + '</tr></thead><tbody>' + medRows + '</tbody></table>' : '')
+            + (conditions.length ? '<h4 style="margin:12px 0 6px">Conditions (' + conditions.length + ')</h4>'
+              + '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>'
+              + '<tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+              + '<th style="text-align:left;padding:8px 10px">Name</th>'
+              + '</tr></thead><tbody>' + condRows + '</tbody></table>' : '')
+            + (visits.length ? '<h4 style="margin:12px 0 6px">Visits (' + visits.length + ')</h4>'
+              + '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead>'
+              + '<tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+              + '<th style="text-align:left;padding:8px 10px">Date</th><th style="text-align:left;padding:8px 10px">Physician</th>'
+              + '</tr></thead><tbody>' + visitRows + '</tbody></table>' : ''),
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
