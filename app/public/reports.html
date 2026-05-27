@@ -3007,6 +3007,331 @@ window.REPORT_VIEWERS['property-maint'] = {
   },
 };
 
+// HOUSEHOLD · Vehicles summary — fleet snapshot (v.202)
+// ═══════════════════════════════════════════════════════
+window.REPORT_VIEWERS['vehicles-summary'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const r = await fetch('/api/v1/property/vehicles');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const rows = await r.json();
+    return { rows: Array.isArray(rows) ? rows : [] };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const totalVehicles = rows.length;
+    const totalValue    = rows.reduce((s, v) => s + (v.current_est_value || 0), 0);
+    const totalMileage  = rows.reduce((s, v) => s + (v.odometer || 0), 0);
+    const dueCnt        = rows.filter(v => {
+      const nd = v.upcoming_service && v.upcoming_service.next_due_date;
+      if (!nd) return false;
+      const d = new Date(nd + 'T00:00:00');
+      return !isNaN(d.getTime()) && d <= today;
+    }).length;
+    const dueColor = dueCnt > 0 ? 'var(--amber,#f59e0b)' : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Total vehicles',    totalVehicles)
+      + repSummaryCard('Total value',       repFmt$(totalValue))
+      + repSummaryCard('Total mileage',     totalMileage.toLocaleString() + ' mi')
+      + repSummaryCard('Due for service',   dueCnt, dueColor);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const rows = data.rows || [];
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No vehicles recorded',
+        subtitle: 'Add a vehicle in the Property module.',
+      });
+      return;
+    }
+    const tableRows = rows.map((v, i) => {
+      const label = (() => {
+        const parts = [v.year, v.make, v.model, v.trim].filter(Boolean).map(escapeHtml).join(' ');
+        return parts || escapeHtml(v.nickname || '—');
+      })();
+      const vinPartial = v.vin ? '…' + escapeHtml(v.vin.slice(-4)) : '—';
+      const lastSvc    = v.last_service     ? escapeHtml(v.last_service.service_date     || '—') : '—';
+      const nextDue    = v.upcoming_service ? escapeHtml(v.upcoming_service.next_due_date || '—') : '—';
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">'                   + label                                           + '</td>'
+        + '<td style="padding:6px 10px">'                   + escapeHtml(v.color         || '—')              + '</td>'
+        + '<td style="padding:6px 10px">'                   + vinPartial                                      + '</td>'
+        + '<td style="padding:6px 10px">'                   + escapeHtml(v.license_plate  || '—')             + '</td>'
+        + '<td style="padding:6px 10px">'                   + escapeHtml(v.state          || '—')             + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">'  + (v.odometer != null ? v.odometer.toLocaleString() + ' mi' : '—') + '</td>'
+        + '<td style="padding:6px 10px">'                   + lastSvc                                         + '</td>'
+        + '<td style="padding:6px 10px">'                   + nextDue                                         + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Vehicle</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Color</th>'
+      +     '<th style="text-align:left;padding:8px 10px">VIN (last 4)</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Plate</th>'
+      +     '<th style="text-align:left;padding:8px 10px">State</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Mileage</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Last service</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Next due</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const v = rows[parseInt(tr.dataset.idx, 10)];
+        if (!v) return;
+        const label = (() => {
+          const parts = [v.year, v.make, v.model, v.trim].filter(Boolean).map(escapeHtml).join(' ');
+          return parts || escapeHtml(v.nickname || 'Vehicle');
+        })();
+        const ls = v.last_service;
+        const us = v.upcoming_service;
+        onDrill({
+          title: label,
+          html: '<div style="font-size:13px;line-height:1.7">'
+            + '<div><strong>Nickname:</strong> '          + escapeHtml(v.nickname        || '—') + '</div>'
+            + '<div><strong>Year / Make / Model:</strong> ' + escapeHtml([v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || '—') + '</div>'
+            + '<div><strong>Color:</strong> '             + escapeHtml(v.color           || '—') + '</div>'
+            + '<div><strong>VIN:</strong> '               + escapeHtml(v.vin             || '—') + '</div>'
+            + '<div><strong>License plate:</strong> '     + escapeHtml(v.license_plate   || '—') + '</div>'
+            + '<div><strong>State:</strong> '             + escapeHtml(v.state           || '—') + '</div>'
+            + '<div><strong>Odometer:</strong> '          + (v.odometer != null ? v.odometer.toLocaleString() + ' mi' : '—') + (v.odometer_date ? ' (as of ' + escapeHtml(v.odometer_date) + ')' : '') + '</div>'
+            + '<div><strong>Purchase date:</strong> '     + escapeHtml(v.purchase_date   || '—') + '</div>'
+            + '<div><strong>Purchase price:</strong> '    + (v.purchase_price != null    ? repFmt$(v.purchase_price)    : '—') + '</div>'
+            + '<div><strong>Current est value:</strong> ' + (v.current_est_value != null ? repFmt$(v.current_est_value) : '—') + '</div>'
+            + (v.loan_balance  != null ? '<div><strong>Loan balance:</strong> '  + repFmt$(v.loan_balance)  + '</div>' : '')
+            + (v.loan_lender               ? '<div><strong>Loan lender:</strong> '  + escapeHtml(v.loan_lender) + '</div>' : '')
+            + (v.loan_rate     != null ? '<div><strong>Loan rate:</strong> '     + v.loan_rate + '%</div>'    : '')
+            + (v.loan_monthly  != null ? '<div><strong>Monthly payment:</strong> ' + repFmt$(v.loan_monthly) + '</div>' : '')
+            + (v.loan_end_date             ? '<div><strong>Loan end date:</strong> '   + escapeHtml(v.loan_end_date) + '</div>' : '')
+            + (v.insurance_company         ? '<div><strong>Insurance co.:</strong> '   + escapeHtml(v.insurance_company) + '</div>' : '')
+            + (v.insurance_annual != null  ? '<div><strong>Insurance (annual):</strong> ' + repFmt$(v.insurance_annual) + '</div>' : '')
+            + (v.registration_expires      ? '<div><strong>Registration expires:</strong> ' + escapeHtml(v.registration_expires) + '</div>' : '')
+            + (v.inspection_expires        ? '<div><strong>Inspection expires:</strong> '   + escapeHtml(v.inspection_expires)   + '</div>' : '')
+            + (ls ? '<div style="margin-top:8px"><strong>Last service:</strong> ' + escapeHtml(ls.service_date || '—') + ' — ' + escapeHtml(ls.service_type || '—') + (ls.mileage != null ? ' @ ' + ls.mileage.toLocaleString() + ' mi' : '') + (ls.shop ? ' (' + escapeHtml(ls.shop) + ')' : '') + '</div>' : '')
+            + (us ? '<div><strong>Upcoming service:</strong> ' + escapeHtml(us.next_due_date || '—') + ' — ' + escapeHtml(us.service_type || '—') + (us.next_due_miles != null ? ' @ ' + us.next_due_miles.toLocaleString() + ' mi' : '') + '</div>' : '')
+            + (v.notes ? '<div style="margin-top:8px"><strong>Notes:</strong> ' + escapeHtml(v.notes) + '</div>' : '')
+            + '</div>',
+        });
+      };
+    });
+  },
+};
+
+// HOUSEHOLD · Vehicle maintenance — upcoming vehicle tasks (v.202)
+// ════════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['vehicle-maint'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const r = await fetch('/api/v1/maintenance/upcoming');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const res = await r.json();
+    return { items: (res.items || []).filter(i => i.source === 'vehicle') };
+  },
+  renderSummary(container, data) {
+    const items = data.items || [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const openCnt    = items.length;
+    const overdueCnt = items.filter(i => { const d = daysUntil(i.next_due_date); return d !== null && d < 0; }).length;
+    const weekCnt    = items.filter(i => { const d = daysUntil(i.next_due_date); return d !== null && d >= 0 && d <= 7; }).length;
+    const vehCnt     = new Set(items.map(i => i.entity_name).filter(Boolean)).size;
+    const overdueColor = overdueCnt > 0 ? 'var(--red,#ef4444)'    : 'inherit';
+    const weekColor    = weekCnt    > 0 ? 'var(--amber,#f59e0b)'  : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Open items',       openCnt)
+      + repSummaryCard('Overdue',          overdueCnt, overdueColor)
+      + repSummaryCard('Due this week',    weekCnt,    weekColor)
+      + repSummaryCard('Distinct vehicles', vehCnt);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const items = data.items || [];
+    if (!items.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No upcoming vehicle service',
+        subtitle: 'All vehicle service is up to date.',
+      });
+      return;
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const tableRows = items.map((t, i) => {
+      const du = daysUntil(t.next_due_date);
+      let duColor = 'inherit';
+      if (du !== null && du < 0)       duColor = 'var(--red,#ef4444)';
+      else if (du !== null && du <= 7) duColor = 'var(--amber,#f59e0b)';
+      let statusLabel = 'Upcoming';
+      if (du !== null && du < 0) statusLabel = 'Overdue';
+      else if (du !== null && du <= 7) statusLabel = 'Due soon';
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(t.entity_name   || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(t.description   || '—') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + (t.cost != null ? repFmt$(t.cost) : '—') + '</td>'
+        + '<td style="padding:6px 10px;color:' + duColor + '">' + escapeHtml(t.next_due_date || '—') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px;color:' + duColor + '">' + (du !== null ? du : '—') + '</td>'
+        + '<td style="padding:6px 10px;color:' + duColor + '">' + statusLabel + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Vehicle</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Service type</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Cost</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Next due</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Days until</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Status</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const t = items[parseInt(tr.dataset.idx, 10)];
+        if (!t) return;
+        const du = daysUntil(t.next_due_date);
+        let duColor = 'inherit';
+        if (du !== null && du < 0)       duColor = 'var(--red,#ef4444)';
+        else if (du !== null && du <= 7) duColor = 'var(--amber,#f59e0b)';
+        onDrill({
+          title: escapeHtml(t.description || 'Vehicle service') + ' — ' + escapeHtml(t.entity_name || ''),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Vehicle</td><td style="padding:6px 10px">'   + escapeHtml(t.entity_name   || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Service type</td><td style="padding:6px 10px">'         + escapeHtml(t.description   || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Category</td><td style="padding:6px 10px">'            + escapeHtml(t.category      || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Next due</td><td style="padding:6px 10px;color:' + duColor + '">' + escapeHtml(t.next_due_date || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Days until</td><td style="padding:6px 10px;color:' + duColor + '">' + (du !== null ? du : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Cost</td><td style="padding:6px 10px">'               + (t.cost != null ? repFmt$(t.cost) : '—') + '</td></tr>'
+            + '</tbody></table>'
+            + '<div style="margin-top:12px;font-size:12px"><a href="/property.html" style="color:var(--accent,#6366f1)">Open in Property module ↗</a></div>',
+        });
+      };
+    });
+  },
+};
+
+// HOUSEHOLD · Vehicle fuel log — fill-up history (v.202)
+// ═══════════════════════════════════════════════════════
+window.REPORT_VIEWERS['vehicle-fuel'] = {
+  defaultFilters() { return [{ key: 'year', label: 'Year', value: repCurrentYear() }]; },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value || '';
+    const rVeh = await fetch('/api/v1/property/vehicles');
+    if (!rVeh.ok) throw new Error('HTTP ' + rVeh.status);
+    const vehicles = await rVeh.json();
+    const vList = Array.isArray(vehicles) ? vehicles : [];
+    if (!vList.length) return { rows: [] };
+    const svcArrays = await Promise.all(vList.map(async v => {
+      const r = await fetch('/api/v1/property/vehicles/' + v.id + '/service');
+      if (!r.ok) return [];
+      const res = await r.json();
+      const recs = Array.isArray(res) ? res : (res.rows || []);
+      const name = [v.year, v.make, v.model, v.trim].filter(Boolean).join(' ') || v.nickname || String(v.id);
+      return recs.map(rec => Object.assign({}, rec, { _vehicle_name: name, _vehicle_id: v.id }));
+    }));
+    let rows = [].concat(...svcArrays);
+    rows = rows.filter(row => /fuel|gas|fill/i.test(row.service_type || ''));
+    if (year) rows = rows.filter(row => (row.service_date || '').startsWith(year));
+    return { rows };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const totalFillUps  = rows.length;
+    const totalSpent    = rows.reduce((s, r) => s + (r.cost || 0), 0);
+    const avgCostFill   = totalFillUps > 0 ? totalSpent / totalFillUps : null;
+    // Avg $/mile: per vehicle, sort by date asc, walk consecutive pairs with increasing mileage
+    const byVehicle = {};
+    rows.forEach(r => {
+      if (!byVehicle[r._vehicle_id]) byVehicle[r._vehicle_id] = [];
+      byVehicle[r._vehicle_id].push(r);
+    });
+    let totalCostForMile = 0, totalMileDelta = 0;
+    Object.values(byVehicle).forEach(vrows => {
+      const sorted = vrows.slice().sort((a, b) => (a.service_date || '') < (b.service_date || '') ? -1 : 1);
+      for (let i = 1; i < sorted.length; i++) {
+        const prev = sorted[i - 1], cur = sorted[i];
+        if (prev.mileage != null && cur.mileage != null && cur.mileage > prev.mileage && cur.cost != null) {
+          totalMileDelta   += cur.mileage - prev.mileage;
+          totalCostForMile += cur.cost;
+        }
+      }
+    });
+    const avgPerMile = totalMileDelta > 0 ? totalCostForMile / totalMileDelta : null;
+    container.innerHTML = ''
+      + repSummaryCard('Total fill-ups',       totalFillUps)
+      + repSummaryCard('Total spent',          repFmt$(totalSpent))
+      + repSummaryCard('Avg cost / fill',      avgCostFill   != null ? repFmt$(avgCostFill)   : '—')
+      + repSummaryCard('Avg $ / mile',         avgPerMile    != null ? repFmt$(avgPerMile)     : '—');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const rows = data.rows || [];
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No fuel records',
+        subtitle: 'Log a fuel fill-up in the Property module.',
+      });
+      return;
+    }
+    const sorted = rows.slice().sort((a, b) => (a.service_date || '') < (b.service_date || '') ? 1 : -1);
+    const tableRows = sorted.map((r, i) =>
+      '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+      + '<td style="padding:6px 10px">'                  + escapeHtml(r.service_date    || '—')  + '</td>'
+      + '<td style="padding:6px 10px">'                  + escapeHtml(r._vehicle_name   || '—')  + '</td>'
+      + '<td style="padding:6px 10px">'                  + escapeHtml(r.service_type    || '—')  + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (r.cost     != null ? repFmt$(r.cost)                    : '—') + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (r.mileage  != null ? r.mileage.toLocaleString() + ' mi' : '—') + '</td>'
+      + '<td style="padding:6px 10px">'                  + escapeHtml(r.shop            || '—')  + '</td>'
+      + '<td style="padding:6px 10px">'                  + escapeHtml(r.notes           || '—')  + '</td>'
+      + '</tr>'
+    ).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Vehicle</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Service type</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Cost</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Mileage</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Shop</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Notes</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const r = sorted[parseInt(tr.dataset.idx, 10)];
+        if (!r) return;
+        onDrill({
+          title: escapeHtml(r._vehicle_name || 'Fuel record') + ' — ' + escapeHtml(r.service_date || ''),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px"><tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Vehicle</td><td style="padding:6px 10px">'      + escapeHtml(r._vehicle_name  || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Date</td><td style="padding:6px 10px">'                   + escapeHtml(r.service_date   || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Service type</td><td style="padding:6px 10px">'           + escapeHtml(r.service_type   || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Cost</td><td style="padding:6px 10px">'                   + (r.cost     != null ? repFmt$(r.cost)                    : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Mileage</td><td style="padding:6px 10px">'                + (r.mileage  != null ? r.mileage.toLocaleString() + ' mi' : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Shop</td><td style="padding:6px 10px">'                   + escapeHtml(r.shop           || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Next due date</td><td style="padding:6px 10px">'         + escapeHtml(r.next_due_date  || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Next due miles</td><td style="padding:6px 10px">'        + (r.next_due_miles != null ? r.next_due_miles.toLocaleString() + ' mi' : '—') + '</td></tr>'
+            + (r.notes ? '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Notes</td><td style="padding:6px 10px">' + escapeHtml(r.notes) + '</td></tr>' : '')
+            + '</tbody></table>'
+            + '<div style="margin-top:12px;font-size:12px"><a href="/property.html" style="color:var(--accent,#6366f1)">Open in Vehicles module ↗</a></div>',
+        });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
