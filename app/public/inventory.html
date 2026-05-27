@@ -1298,7 +1298,20 @@
       <div class="form-group"><label class="form-label">Sale Date</label><input class="form-input" type="date" id="sell_date"></div>
       <div class="form-group"><label class="form-label">Sale Price $</label><input class="form-input" type="number" id="sell_price" step="0.01"></div>
     </div>
-    <div class="form-group"><label class="form-label">Sold To</label><input class="form-input" id="sell_to" placeholder="e.g. Facebook Marketplace, neighbor"></div>
+    <div class="form-group"><label class="form-label">Sold To</label><input class="form-input" id="sell_to" placeholder="e.g. neighbor, @handle"></div>
+    <div class="form-group"><label class="form-label">Platform</label>
+      <input class="form-input" id="sell_platform" list="sold-platforms" placeholder="e.g. eBay, Craigslist">
+      <datalist id="sold-platforms">
+        <option value="eBay">
+        <option value="Facebook Marketplace">
+        <option value="Craigslist">
+        <option value="OfferUp">
+        <option value="Mercari">
+        <option value="Local">
+        <option value="Other">
+      </datalist>
+    </div>
+    <div id="sell_err" style="display:none;font-size:13px;color:var(--red);margin-bottom:8px"></div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="$('sellDrawer').classList.remove('open')">Cancel</button>
       <button class="btn btn-primary" id="sellSave">Mark Sold</button>
@@ -2604,7 +2617,7 @@ async function openDetail(id) {
 
     <!-- Sold -->
     ${item.sold_date||item.sold_price?buildDetSection('Sale',[
-      ['Date', item.sold_date],['Price', item.sold_price?'$'+fmtMoney(item.sold_price):null],['Sold To', item.sold_to]
+      ['Date', item.sold_date],['Price', item.sold_price?'$'+fmtMoney(item.sold_price):null],['Sold To', item.sold_to],['Platform', item.sold_platform]
     ]):''}
 
     ${item.notes?`<div class="det-section"><div class="det-section-hdr" onclick="toggleSection(this)">Notes</div><div class="det-section-body" style="font-size:14px;color:var(--text2);line-height:1.7;white-space:pre-wrap">${item.notes}</div></div>`:''}
@@ -3563,18 +3576,29 @@ async function doUnarchive(id) {
 function openSell(id) {
   $('sell_item_id').value=id;
   $('sell_date').value=new Date().toISOString().slice(0,10);
-  $('sell_price').value=''; $('sell_to').value='';
+  $('sell_price').value=''; $('sell_to').value=''; $('sell_platform').value='';
+  $('sell_err').style.display='none'; $('sell_err').textContent='';
   $('detailDrawer').classList.remove('open');
   $('sellDrawer').classList.add('open');
 }
 
 $('sellSave').addEventListener('click', async ()=>{
   const id=$('sell_item_id').value;
-  await window.api('PUT', `/inventory/items/${id}/sell`, {
-    sold_date:$('sell_date').value||null, sold_price:$('sell_price').value?parseFloat($('sell_price').value):null, sold_to:$('sell_to').value||null
-  });
-  $('sellDrawer').classList.remove('open');
-  toast('Item marked sold & archived'); await loadStats(); renderBrowse();
+  const sold_date=$('sell_date').value;
+  if (!sold_date) { $('sell_err').textContent='Sale date is required.'; $('sell_err').style.display='block'; return; }
+  try {
+    await window.api('POST', `/inventory/items/${id}/sell`, {
+      sold_date,
+      sold_price:$('sell_price').value?parseFloat($('sell_price').value):null,
+      sold_to:$('sell_to').value||null,
+      sold_platform:$('sell_platform').value||null
+    });
+    $('sellDrawer').classList.remove('open');
+    toast('Item marked as sold'); await loadStats(); renderBrowse();
+  } catch(e) {
+    $('sell_err').textContent = e.message || 'Error saving. Please try again.';
+    $('sell_err').style.display='block';
+  }
 });
 
 // ══════════════════════════════════════════════════════════════

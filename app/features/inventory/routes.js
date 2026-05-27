@@ -1081,7 +1081,7 @@ router.put('/items/:id/unarchive', (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
-// Mark sold
+// Mark sold (legacy PUT — kept for backward compat)
 router.put('/items/:id/sell', (req, res) => {
   try {
     const { sold_date, sold_price, sold_to } = req.body;
@@ -1089,6 +1089,40 @@ router.put('/items/:id/sell', (req, res) => {
       .run(sold_date||null, sold_price||null, sold_to||null, req.params.id);
     logEvent(req.params.id, 'sold', { new_value: sold_price ? `$${sold_price}` : 'unknown', notes: sold_to ? `Sold to ${sold_to}` : null });
     res.json({ sold: true });
+  } catch (err) { serverError(res, err); }
+});
+
+// v.205 — Mark an item as sold. Sets the four sold_* columns and archives
+// the item with reason='sold' (or a caller-supplied reason). One unified
+// PATCH-like action rather than separate sold-fields + archive calls.
+router.post('/items/:id/sell', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    if (!d.sold_date) return badRequest(res, 'sold_date required');
+    // schema: items(sold_date, sold_price, sold_to, sold_platform,
+    //   is_archived, archived_at, archived_reason, updated_at) — mig 001 / mig 107
+    const info = db.prepare(`
+      UPDATE items SET
+        sold_date=?,
+        sold_price=?,
+        sold_to=?,
+        sold_platform=?,
+        is_archived=1,
+        archived_at=CURRENT_TIMESTAMP,
+        archived_reason=COALESCE(?, 'sold'),
+        updated_at=CURRENT_TIMESTAMP
+      WHERE id=?
+    `).run(
+      d.sold_date,
+      d.sold_price != null && d.sold_price !== '' ? parseFloat(d.sold_price) : null,
+      d.sold_to || null,
+      d.sold_platform || null,
+      d.archived_reason || null,
+      req.params.id
+    );
+    if (info.changes === 0) return notFound(res, 'Item');
+    const updated = db.prepare('SELECT * FROM items WHERE id=?').get(req.params.id);
+    res.json(updated);
   } catch (err) { serverError(res, err); }
 });
 
