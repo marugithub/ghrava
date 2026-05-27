@@ -369,19 +369,19 @@ test.describe('Key UI Elements', () => {
   test('Reports page renders report cards from registry', async ({ page }) => {
     // Reports Redesign Foundation (v.197+) replaced the `.rep-row` left-rail
     // + `.rep-detail-*` right-pane two-pane shell with a 5-tab grid
-    // (Money/Health/Household/Family/Pending) of small `.gh-tile` shortcut
+    // (Money/Health/Household/Family/Pending) of small `.rep-tile` shortcut
     // tiles. Each LIVE tile opens its own viewer page at `?run=<slug>`.
     // Test verifies: (1) Money tile grid populates, (2) clicking a LIVE tile
     // navigates to the viewer + summary cards render.
     // Pre-v.197 history: was looking for `.report-card` then `.rep-row`;
     // both are legacy now (still in the DOM as dead code but display:none).
     await page.goto(BASE + '/reports.html?tab=money', { waitUntil: 'load' });
-    await page.locator('.gh-tile').first().waitFor({ state: 'visible', timeout: 5000 });
-    const tileCount = await page.locator('.gh-tile').count();
+    await page.locator('.rep-tile').first().waitFor({ state: 'visible', timeout: 5000 });
+    const tileCount = await page.locator('.rep-tile').count();
     expect(tileCount, 'Money tab should render multiple tiles').toBeGreaterThan(3);
     // Click a known LIVE tile (v.198 wired spending-by-cat) and verify the
     // viewer page loads with summary cards populated.
-    await page.locator('.gh-tile[data-slug="spending-by-cat"]').first().click();
+    await page.locator('.rep-tile[data-slug="spending-by-cat"]').first().click();
     await page.locator('#repViewerRoot').waitFor({ state: 'visible', timeout: 5000 });
     // Summary cards populate after the fetch resolves.
     await page.locator('#repViewerSummary > div').first()
