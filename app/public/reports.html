@@ -3332,6 +3332,113 @@ window.REPORT_VIEWERS['vehicle-fuel'] = {
   },
 };
 
+// ═══════════════════════════════════════════════════════════════
+// HOUSEHOLD · Subscriptions overview (v.202) — monthly/annual cost rollup
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['subs-overview'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const [sumR, listR] = await Promise.all([
+      fetch('/api/v1/subscriptions/summary'),
+      fetch('/api/v1/subscriptions/'),
+    ]);
+    if (!sumR.ok)  throw new Error('summary HTTP ' + sumR.status);
+    if (!listR.ok) throw new Error('list HTTP ' + listR.status);
+    const summary = await sumR.json();
+    const subscriptions = await listR.json();
+    return { summary, subscriptions };
+  },
+  renderSummary(container, data) {
+    const s = data.summary || {};
+    const subs = data.subscriptions || [];
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+    const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+    const renewingThisMonth = subs.filter(sub =>
+      sub.next_billing_date && sub.next_billing_date >= monthStart && sub.next_billing_date <= monthEnd
+    ).length;
+    const monthly = s.monthly_cost != null ? s.monthly_cost : subs.reduce((acc, sub) => {
+      if (sub.billing_cycle === 'annual' || sub.billing_cycle === 'yearly') return acc + (sub.cost || 0) / 12;
+      return acc + (sub.cost || 0);
+    }, 0);
+    const annual = s.annual_cost != null ? s.annual_cost : monthly * 12;
+    const activeCount = s.total_active != null ? s.total_active : subs.length;
+    container.innerHTML = ''
+      + repSummaryCard('Active subscriptions', String(activeCount))
+      + repSummaryCard('Monthly cost',         repFmt$(monthly),  'var(--red,#dc2626)')
+      + repSummaryCard('Annual projected',     repFmt$(annual),   'var(--red,#dc2626)')
+      + repSummaryCard('Renewing this month',  String(renewingThisMonth), renewingThisMonth > 0 ? 'var(--amber,#d97706)' : 'var(--green,#22c55e)');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const subs = data.subscriptions || [];
+    if (!subs.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No active subscriptions',
+        subtitle: 'Add a subscription in the Subscriptions module.',
+      });
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const sorted = subs.slice().sort((a, b) => {
+      const da = a.next_billing_date || '9999-99-99';
+      const db = b.next_billing_date || '9999-99-99';
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+    const tableRows = sorted.map((sub, i) => {
+      const pastDue = sub.next_billing_date && sub.next_billing_date < today;
+      const dateStyle = pastDue ? 'padding:6px 10px;color:var(--red,#dc2626)' : 'padding:6px 10px';
+      const rowBg     = pastDue ? 'cursor:pointer;border-bottom:1px solid var(--border);background:rgba(220,38,38,.07)' : 'cursor:pointer;border-bottom:1px solid var(--border)';
+      const monthly = sub.billing_cycle === 'annual' || sub.billing_cycle === 'yearly'
+        ? (sub.cost || 0) / 12
+        : (sub.cost || 0);
+      return '<tr data-idx="' + i + '" style="' + rowBg + '">'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(sub.name             || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(sub.category         || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(sub.billing_cycle     || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(sub.account_name      || '—') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(monthly)                         + '</td>'
+        + '<td style="' + dateStyle + '">'                 + escapeHtml(sub.next_billing_date || '—') + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Category</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Cycle</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Account</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Monthly cost</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Next renewal</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const sub = sorted[parseInt(tr.dataset.idx, 10)];
+        if (!sub) return;
+        const cycle = sub.billing_cycle || 'monthly';
+        const html = ''
+          + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+          +   '<div><strong style="color:var(--text)">Name:</strong> '           + escapeHtml(sub.name          || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Category:</strong> '       + escapeHtml(sub.category      || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Cost:</strong> '           + repFmt$(sub.cost) + ' / ' + escapeHtml(cycle) + '</div>'
+          +   '<div><strong style="color:var(--text)">Billing cycle:</strong> '  + escapeHtml(cycle)                     + '</div>'
+          +   '<div><strong style="color:var(--text)">Next renewal:</strong> '   + escapeHtml(sub.next_billing_date || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Account:</strong> '        + escapeHtml(sub.account_name  || '—') + '</div>'
+          +   (sub.vendor      ? '<div><strong style="color:var(--text)">Vendor:</strong> '         + escapeHtml(sub.vendor)      + '</div>' : '')
+          +   (sub.started_date ? '<div><strong style="color:var(--text)">Started:</strong> '       + escapeHtml(sub.started_date) + '</div>' : '')
+          +   (sub.auto_renew  ? '<div style="color:var(--amber,#d97706)">⚡ Auto-renews</div>'
+                               : '<div style="color:var(--text3)">Manual renewal</div>')
+          +   (sub.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(sub.notes) + '</div>' : '')
+          +   (sub.attachment_count ? '<div style="color:var(--text3)">' + sub.attachment_count + ' attachment' + (sub.attachment_count === 1 ? '' : 's') + '</div>' : '')
+          +   '<div style="margin-top:10px"><a href="/subscriptions.html" style="color:var(--accent,#6366f1);font-size:12px;text-decoration:none">Open in Subscriptions module ↗</a></div>'
+          + '</div>';
+        onDrill({ title: escapeHtml(sub.name || 'Subscription'), html });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
