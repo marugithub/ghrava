@@ -766,7 +766,444 @@ window.TILE_ICONS = {
 // Task 5 fills TILE_PREVIEWS with per-slug renderers. Until then,
 // hydrate is a no-op — tiles look like Task 3 output.
 // ═══════════════════════════════════════════════════════════════
-window.TILE_PREVIEWS = window.TILE_PREVIEWS || {};
+// ──────────────────────────────────────────────────────────────
+// v.204 Task 5 — Preview-shape helpers. Each returns the inner
+// HTML of a .rep-tile-preview slot. Renderers pick the shape
+// that fits their data.
+// ──────────────────────────────────────────────────────────────
+function repPreviewKpiSpark({ kpiValue, kpiLabel, sparkPoints, delta, deltaTone }) {
+  // sparkPoints: array of numeric values (12+ recommended). Auto-scaled.
+  let sparkHtml = '';
+  if (Array.isArray(sparkPoints) && sparkPoints.length >= 2) {
+    const W = 96, H = 32;
+    const min = Math.min.apply(null, sparkPoints);
+    const max = Math.max.apply(null, sparkPoints);
+    const range = (max - min) || 1;
+    const pts = sparkPoints.map((v, i) => {
+      const x = (i / (sparkPoints.length - 1)) * W;
+      const y = H - ((v - min) / range) * H;
+      return x.toFixed(1) + ',' + y.toFixed(1);
+    });
+    const line = 'M' + pts.join(' L');
+    const area = line + ' L' + W + ',' + H + ' L0,' + H + ' Z';
+    sparkHtml = '<svg class="rep-tile-spark" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">'
+      + '<path class="area" d="' + area + '"/>'
+      + '<path class="line" d="' + line + '"/>'
+      + '</svg>';
+  }
+  const deltaHtml = delta
+    ? '<div class="rep-tile-delta ' + (deltaTone || '') + '">' + escapeHtml(delta) + '</div>'
+    : '';
+  return ''
+    + '<div class="rep-tile-preview-row">'
+    +   '<div class="rep-tile-kpi">'
+    +     '<span class="rep-tile-kpi-value">' + escapeHtml(kpiValue == null ? '—' : kpiValue) + '</span>'
+    +     '<span class="rep-tile-kpi-label">' + escapeHtml(kpiLabel || '') + '</span>'
+    +   '</div>'
+    +   sparkHtml
+    + '</div>'
+    + deltaHtml;
+}
+
+function repPreviewKpiPair({ leftValue, leftLabel, rightValue, rightLabel, rightTone }) {
+  const rightStyle = rightTone === 'amber' ? ';color:var(--amber,#f59e0b)'
+                   : rightTone === 'red'   ? ';color:var(--red,#ef4444)'
+                   : rightTone === 'green' ? ';color:var(--green,#22c55e)'
+                   : '';
+  return ''
+    + '<div class="rep-tile-preview-row">'
+    +   '<div class="rep-tile-kpi">'
+    +     '<span class="rep-tile-kpi-value">' + escapeHtml(leftValue == null ? '—' : leftValue) + '</span>'
+    +     '<span class="rep-tile-kpi-label">' + escapeHtml(leftLabel || '') + '</span>'
+    +   '</div>'
+    +   '<div class="rep-tile-kpi" style="text-align:right">'
+    +     '<span class="rep-tile-kpi-value small" style="' + rightStyle.slice(1) + '">' + escapeHtml(rightValue == null ? '—' : rightValue) + '</span>'
+    +     '<span class="rep-tile-kpi-label">' + escapeHtml(rightLabel || '') + '</span>'
+    +   '</div>'
+    + '</div>';
+}
+
+function repPreviewProgress({ kpiValue, kpiLabel, pct, pctLabel }) {
+  const clamped = Math.max(0, Math.min(100, pct || 0));
+  return ''
+    + '<div class="rep-tile-preview-row">'
+    +   '<div class="rep-tile-kpi">'
+    +     '<span class="rep-tile-kpi-value">' + escapeHtml(kpiValue == null ? '—' : kpiValue) + '</span>'
+    +     '<span class="rep-tile-kpi-label">' + escapeHtml(kpiLabel || '') + '</span>'
+    +   '</div>'
+    +   '<div class="rep-tile-kpi" style="text-align:right">'
+    +     '<span class="rep-tile-kpi-value small">' + clamped.toFixed(0) + '%</span>'
+    +     '<span class="rep-tile-kpi-label">' + escapeHtml(pctLabel || '') + '</span>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="rep-tile-progress"><div style="width:' + clamped.toFixed(1) + '%"></div></div>';
+}
+
+function repPreviewRecentRows({ rows }) {
+  if (!Array.isArray(rows) || !rows.length) return '<div class="rep-tile-meta">No recent items</div>';
+  return '<div class="rep-tile-recent">'
+    + rows.slice(0, 3).map(r =>
+        '<div class="rep-tile-recent-item">'
+        + '<span class="dot"></span>'
+        + '<span>' + escapeHtml(r.label || '') + '</span>'
+        + (r.when ? '<span class="when">' + escapeHtml(r.when) + '</span>' : '')
+        + '</div>'
+      ).join('')
+    + '</div>';
+}
+
+function repPreviewMeta(text) {
+  return '<div class="rep-tile-meta">' + escapeHtml(text || '') + '</div>';
+}
+
+// Tiny relative-time formatter for log-row "when" labels.
+function repRelTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const now = Date.now();
+  const diffMs = now - d.getTime();
+  const day = 86400000;
+  if (diffMs < day) return 'today';
+  if (diffMs < 2 * day) return '1d ago';
+  if (diffMs < 7 * day) return Math.round(diffMs / day) + 'd ago';
+  if (diffMs < 30 * day) return Math.round(diffMs / (7 * day)) + 'w ago';
+  if (diffMs < 365 * day) return Math.round(diffMs / (30 * day)) + 'mo ago';
+  return Math.round(diffMs / (365 * day)) + 'y ago';
+}
+
+window.TILE_PREVIEWS = {
+  // ─── MONEY ─────────────────────────────────────────────────
+  'spending-by-cat': (b) => {
+    const t = b?.financeLanding?.cash_flow;
+    if (!t) return repPreviewMeta('per-category totals, current month + YTD');
+    const spent = (t.month_expense != null) ? t.month_expense : t.total_spent;
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(spent || 0).toLocaleString(),
+      leftLabel: 'this month',
+      rightValue: t.tx_count != null ? String(t.tx_count) : '—',
+      rightLabel: 'transactions',
+    });
+  },
+  'top-vendors': (b) => {
+    const t = b?.financeLanding?.cash_flow;
+    if (!t) return repPreviewMeta('treemap of vendor totals');
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(t.month_expense || 0).toLocaleString(),
+      leftLabel: 'spent this month',
+      rightValue: t.tx_count != null ? String(t.tx_count) : '—',
+      rightLabel: 'transactions',
+    });
+  },
+  'spending-cal': (b) => {
+    const t = b?.financeLanding?.cash_flow;
+    if (!t) return repPreviewMeta('heatmap of daily spend');
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(t.month_expense || 0).toLocaleString(),
+      leftLabel: 'this month',
+      rightValue: t.tx_count != null ? String(t.tx_count) : '—',
+      rightLabel: 'days with spend',
+    });
+  },
+  'category-trends': (b) => {
+    const t = b?.financeLanding?.cash_flow;
+    if (!t) return repPreviewMeta('small-multiples, top categories');
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(t.month_expense || 0).toLocaleString(),
+      leftLabel: 'spent this month',
+      rightValue: '12',
+      rightLabel: 'months tracked',
+    });
+  },
+  'income-flow': (b) => {
+    const t = b?.financeLanding?.cash_flow;
+    if (!t) return repPreviewMeta('Sankey, where every dollar went');
+    const inc = t.month_income || 0;
+    const exp = t.month_expense || 0;
+    const net = inc - exp;
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(inc).toLocaleString(),
+      leftLabel: 'income this month',
+      rightValue: (net >= 0 ? '+' : '') + '$' + Math.round(net).toLocaleString(),
+      rightLabel: 'net',
+      rightTone: net >= 0 ? 'green' : 'red',
+    });
+  },
+  'cash-flow': (b) => {
+    const f = b?.financeLanding?.forecast;
+    if (!f || !Array.isArray(f.days) || !f.days.length) return repPreviewMeta('projected balance 30/60/90 days');
+    const points = f.days.map(d => d.balance);
+    const last = points[points.length - 1];
+    return repPreviewKpiSpark({
+      kpiValue: '$' + Math.round(last || 0).toLocaleString(),
+      kpiLabel: 'projected ' + f.days.length + 'd',
+      sparkPoints: points,
+    });
+  },
+  'net-worth': (b) => {
+    const nw = b?.financeLanding?.net_worth;
+    if (!nw) return repPreviewMeta('monthly snapshots');
+    const points = Array.isArray(nw.history) ? nw.history.map(p => p.value || p.net_worth || 0) : null;
+    const cur = nw.current != null ? nw.current : (points ? points[points.length - 1] : null);
+    const result = repPreviewKpiSpark({
+      kpiValue: cur != null ? '$' + Math.round(cur).toLocaleString() : '—',
+      kpiLabel: 'net worth',
+      sparkPoints: points,
+    });
+    return result;
+  },
+  'hsa-fsa-irs': (b) => {
+    const h = b?.hsaSummary;
+    if (!h) return repPreviewMeta('tax-export, current year');
+    const elig = h.expenses?.total_eligible_ytd || h.expenses?.total_ytd || 0;
+    const reim = h.total_reimbursed_ytd || 0;
+    const pct = elig > 0 ? Math.round((reim / elig) * 100) : 0;
+    return repPreviewProgress({
+      kpiValue: '$' + Math.round(elig).toLocaleString(),
+      kpiLabel: 'eligible YTD',
+      pct,
+      pctLabel: 'reimbursed',
+    });
+  },
+  'subs-renewals': (b) => {
+    const s = b?.subsSummary;
+    if (!s) return repPreviewMeta('next 90 days');
+    return repPreviewKpiPair({
+      leftValue: String(s.renewing_90d || s.upcoming_90d || s.active_count || 0),
+      leftLabel: 'in next 90 days',
+      rightValue: '$' + Math.round(s.total_monthly || 0).toLocaleString(),
+      rightLabel: 'monthly',
+    });
+  },
+  'portfolio-snap': (b) => {
+    const p = b?.portfolioLive?.summary;
+    if (!p) return repPreviewMeta('live holdings by account');
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(p.total_market_value || 0).toLocaleString(),
+      leftLabel: 'total value',
+      rightValue: ((p.total_gain_loss_pct || 0) >= 0 ? '+' : '') + (p.total_gain_loss_pct || 0).toFixed(1) + '%',
+      rightLabel: 'gain',
+      rightTone: (p.total_gain_loss || 0) >= 0 ? 'green' : 'red',
+    });
+  },
+  'portfolio-perf': (b) => {
+    const pp = b?.portfolioPerf;
+    if (!pp || !Array.isArray(pp.snapshots) || pp.snapshots.length < 2) return repPreviewMeta('12-month value, gain, return');
+    const points = pp.snapshots.map(s => s.total_value);
+    const last = points[points.length - 1];
+    const first = points[0];
+    const pct = first > 0 ? ((last - first) / first * 100) : 0;
+    return repPreviewKpiSpark({
+      kpiValue: '$' + Math.round(last || 0).toLocaleString(),
+      kpiLabel: '12-mo value',
+      sparkPoints: points,
+      delta: (pct >= 0 ? '▲ +' : '▼ ') + Math.abs(pct).toFixed(1) + '%',
+      deltaTone: pct >= 0 ? 'up' : 'down',
+    });
+  },
+  'concentration': (b) => {
+    const p = b?.portfolioLive;
+    if (!p || !Array.isArray(p.accounts)) return repPreviewMeta('top holdings + sector spread');
+    let holdingsCount = 0;
+    for (const a of p.accounts) holdingsCount += (a.holdings || []).length;
+    return repPreviewKpiPair({
+      leftValue: String(holdingsCount),
+      leftLabel: 'holdings',
+      rightValue: String((p.accounts || []).length),
+      rightLabel: 'accounts',
+    });
+  },
+  'tax-location': (b) => {
+    const p = b?.portfolioLive;
+    if (!p || !Array.isArray(p.accounts)) return repPreviewMeta('holdings in suboptimal accounts');
+    let total = 0, taxableHoldings = 0;
+    for (const a of p.accounts) {
+      const hs = a.holdings || [];
+      total += hs.length;
+      if ((a.tax_treatment || 'taxable') === 'taxable') taxableHoldings += hs.length;
+    }
+    return repPreviewKpiPair({
+      leftValue: String(total),
+      leftLabel: 'holdings reviewed',
+      rightValue: String(taxableHoldings),
+      rightLabel: 'in taxable',
+      rightTone: taxableHoldings > 0 ? 'amber' : '',
+    });
+  },
+  'trade-research':  (b) => repPreviewRecentRows({ rows: makeAiLogRows(b?.tradingReports, 'AI Analysis') }),
+  'trade-rebalance': (b) => repPreviewRecentRows({ rows: makeAiLogRows(b?.tradingReports, 'AI Rebalancing Advice') }),
+  'trade-tax-opt':   (b) => repPreviewRecentRows({ rows: makeAiLogRows(b?.tradingReports, 'AI Tax Optimization') }),
+  'pending-trans':   (b) => repPreviewMeta('open pending items'),
+
+  // ─── HEALTH ────────────────────────────────────────────────
+  'hsa-spending': (b) => {
+    const h = b?.hsaSummary;
+    if (!h) return repPreviewMeta('year-by-year breakdown');
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(h.expenses?.total_ytd || 0).toLocaleString(),
+      leftLabel: 'spent YTD',
+      rightValue: '$' + Math.round(h.total_reimbursed_ytd || 0).toLocaleString(),
+      rightLabel: 'reimbursed',
+    });
+  },
+  'meds-active': (b) => {
+    const m = b?.medicalSummary;
+    if (!m) return repPreviewMeta('all family, last fill date');
+    return repPreviewKpiPair({
+      leftValue: String(m.medications?.active_count != null ? m.medications.active_count : (m.medications_active || 0)),
+      leftLabel: 'across family',
+      rightValue: String(m.medications?.refills_due_14d || m.refills_due || 0),
+      rightLabel: 'refills due ≤14d',
+      rightTone: (m.medications?.refills_due_14d || m.refills_due || 0) > 0 ? 'amber' : '',
+    });
+  },
+  'visits-history': (b) => {
+    const m = b?.medicalSummary;
+    if (!m) return repPreviewMeta('filterable by member + provider');
+    return repPreviewKpiPair({
+      leftValue: String(m.visits?.this_year || m.visits_year || 0),
+      leftLabel: 'this year',
+      rightValue: String(m.visits?.follow_up_needed || m.follow_ups || 0),
+      rightLabel: 'follow-ups',
+      rightTone: (m.visits?.follow_up_needed || m.follow_ups || 0) > 0 ? 'amber' : '',
+    });
+  },
+  'immunizations': (b) => {
+    const m = b?.medicalSummary;
+    if (!m) return repPreviewMeta('card per family member');
+    return repPreviewKpiPair({
+      leftValue: String(m.immunizations?.total || m.immunizations_total || 0),
+      leftLabel: 'shots on file',
+      rightValue: String(m.immunizations?.upcoming || 0),
+      rightLabel: 'upcoming',
+      rightTone: (m.immunizations?.upcoming || 0) > 0 ? 'amber' : '',
+    });
+  },
+  'procedures': (b) => {
+    const m = b?.medicalSummary;
+    if (!m) return repPreviewMeta('card per family member');
+    return repPreviewKpiPair({
+      leftValue: String(m.procedures?.total || m.procedures_total || 0),
+      leftLabel: 'total',
+      rightValue: String(m.procedures?.planned || 0),
+      rightLabel: 'planned',
+      rightTone: (m.procedures?.planned || 0) > 0 ? 'amber' : '',
+    });
+  },
+  'receipts-missing': (b) => {
+    const h = b?.hsaSummary;
+    if (!h) return repPreviewMeta('HSA/FSA without attachments');
+    const missing = h.expenses?.missing_receipts || 0;
+    return repPreviewKpiPair({
+      leftValue: String(missing),
+      leftLabel: 'missing receipts',
+      rightValue: '$' + Math.round(h.expenses?.missing_value || 0).toLocaleString(),
+      rightLabel: 'at risk',
+      rightTone: missing > 0 ? 'red' : '',
+    });
+  },
+  'labs-trend': (b) => repPreviewMeta('in design — metric_index pending'),
+  'bp-trend':   (b) => repPreviewMeta('in design — metric_index pending'),
+
+  // ─── HOUSEHOLD ─────────────────────────────────────────────
+  'property-summary': (b) => repPreviewMeta('homes, values, key dates'),
+  'property-maint': (b) => {
+    const m = b?.maintSummary;
+    if (!m) return repPreviewMeta('all property maintenance');
+    return repPreviewKpiPair({
+      leftValue: String(m.due_30 || m.upcoming || 0),
+      leftLabel: 'due in 30 days',
+      rightValue: String(m.overdue || 0),
+      rightLabel: 'overdue',
+      rightTone: (m.overdue || 0) > 0 ? 'red' : '',
+    });
+  },
+  'vehicles-summary': (b) => repPreviewMeta('fleet snapshot'),
+  'vehicle-maint': (b) => {
+    const m = b?.maintSummary;
+    if (!m) return repPreviewMeta('service history per vehicle');
+    return repPreviewKpiPair({
+      leftValue: String(m.due_30 || 0),
+      leftLabel: 'due in 30 days',
+      rightValue: String(m.overdue || 0),
+      rightLabel: 'overdue',
+      rightTone: (m.overdue || 0) > 0 ? 'red' : '',
+    });
+  },
+  'vehicle-fuel': (b) => repPreviewMeta('cost per mile, MPG trend'),
+  'subs-overview': (b) => {
+    const s = b?.subsSummary;
+    if (!s) return repPreviewMeta('monthly + annual cost');
+    return repPreviewKpiPair({
+      leftValue: String(s.active_count || 0),
+      leftLabel: 'active',
+      rightValue: '$' + Math.round(s.total_monthly || 0).toLocaleString(),
+      rightLabel: 'per month',
+    });
+  },
+  'insurance-policies': (b) => {
+    const i = b?.insuranceSummary;
+    if (!i) return repPreviewMeta('active policies + premiums');
+    return repPreviewKpiPair({
+      leftValue: String(i.active || 0),
+      leftLabel: 'active policies',
+      rightValue: String(i.expiring_60d || 0),
+      rightLabel: 'renew ≤60d',
+      rightTone: (i.expiring_60d || 0) > 0 ? 'amber' : '',
+    });
+  },
+  'inventory-value': (b) => {
+    const s = b?.inventoryStats;
+    if (!s) return repPreviewMeta('home insurance ready');
+    return repPreviewKpiPair({
+      leftValue: '$' + Math.round(s.total_value || 0).toLocaleString(),
+      leftLabel: 'total value',
+      rightValue: String(s.items || 0),
+      rightLabel: 'items',
+    });
+  },
+  'warranty-expiry': (b) => repPreviewMeta('upcoming warranty expirations'),
+  'doc-expiry': (b) => {
+    const expiring = Array.isArray(b?.docsExpiring) ? b.docsExpiring : [];
+    return repPreviewKpiPair({
+      leftValue: String(expiring.length),
+      leftLabel: 'expiring 90d',
+      rightValue: '—',
+      rightLabel: '',
+    });
+  },
+  'items-by-loc': (b) => {
+    const s = b?.inventoryStats;
+    if (!s) return repPreviewMeta('inventory grouped by room');
+    return repPreviewKpiPair({
+      leftValue: String(s.items || 0),
+      leftLabel: 'items',
+      rightValue: String(s.containers || 0),
+      rightLabel: 'containers',
+    });
+  },
+
+  // ─── FAMILY ────────────────────────────────────────────────
+  'emergency-info':  (b) => repPreviewMeta('critical contacts + medical'),
+  'family-snapshot': (b) => repPreviewMeta('whole family overview'),
+  'member-detail':   (b) => repPreviewMeta('switcher inside viewer'),
+  'kids-activities': (b) => repPreviewMeta('sports, lessons, dates'),
+  'kids-school':     (b) => repPreviewMeta('teachers, terms, grades'),
+  'care-team':       (b) => repPreviewMeta('doctors, dentists, vets'),
+  'family-contacts': (b) => repPreviewMeta('extended family + emergency'),
+};
+
+// Helper for saved-AI log preview rows.
+function makeAiLogRows(reports, typeFilter) {
+  if (!Array.isArray(reports)) return [];
+  return reports
+    .filter(r => r.type === typeFilter)
+    .slice(0, 3)
+    .map(r => ({
+      label: (r.ticker ? r.ticker + ' — ' : '') + (r.title || r.filename || ''),
+      when: repRelTime(r.date),
+    }));
+}
 
 async function loadLandingPreviews() {
   const safeFetch = (url) =>
