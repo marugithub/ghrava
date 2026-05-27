@@ -69,7 +69,22 @@ principles.
 
 ---
 
-## ✅ v.202 SHIPPED — Reports Redesign Drop 6: Household tab 11/11 LIVE + 2 test gates (2026-05-26)
+## ✅ v.202 DEPLOYED & VERIFIED — Reports Redesign Drop 6: Household tab 11/11 LIVE + 2 test gates (2026-05-26)
+
+> **NAS confirms `version=202605.202`** via `/api/v1/app/info` at
+> 2026-05-26T22:12Z (uptime 967s post-restart). NAS realigned to
+> `origin/main` @ `32bb2a3`. Per the every-other rule, **this deploy
+> ran FULL Playwright** (v.201 + v.201.1 were smoke-only). Total
+> deploy time **~8 min**.
+>
+> **Verification:**
+> - Smoke 9/9 ✅ (1.2m) — bash smoke-test.sh's `/trade/reports` parity assertion shipped in v.200.1, plus 8 Playwright smoke checks
+> - Full Playwright E2E **117 passed / 0 failed** (4.3m) — baseline shifted from 115 → 117 (the two new gates)
+> - **Both new test gates passed first deploy run:** `reports-viewers-smoke` (10.2s + 2.6s in suite) confirmed every registered `window.REPORT_VIEWERS[slug]` fetches a real URL; `trade-mount` (10.0s) confirmed `/trade.html` React root mounts without JSX errors
+> - All 13 Household-related endpoints curl-tested live-200
+> - Fresh-log zero-error gate ✅
+>
+> **Build cycle ~75 min** (vs v.200's ~90 min and v.201's ~50 min) — driven by 13 tasks (2 test gates + 11 viewers + plan + docs) and one schema-mismatch fix loop (`property-summary` field-name correction caught in code review). All other tasks first-round approved.
 
 > **Household tab is now 11 of 11 tiles LIVE.** This drop also adds
 > two HARD test gates that close the gap families flagged by the
