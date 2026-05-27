@@ -10,6 +10,18 @@
 
 ---
 
+## Implementation patterns (apply to every viewer block — added after Task 2 code-quality review)
+
+These two patterns were missed in the initial plan draft and corrected after Task 2 ran. Tasks 3-6 must apply both:
+
+1. **No wrapper `<div>` around summary cards.** `#repViewerSummary` (HTML line 205) is already `display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px`. Wrapping the cards in another grid div collapses them into a single cell. Emit `repSummaryCard(...)` calls directly into `container.innerHTML`. If you have a metadata footer (e.g. "As of …"), attach it as a sibling with `style="grid-column:1/-1"` so it spans the row.
+
+2. **Inline cell padding on tables.** No `.rep-table` CSS class exists — relying on it leaves cells touch-tight. Match the established pattern (see spending-by-cat at line 818): every table opens as `<table style="width:100%;border-collapse:collapse;font-size:13px">`, each `<th>` gets `style="…;padding:8px 10px"`, each `<td>` gets `style="…padding:6px 10px"`, and the header `<tr>` carries `border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em`. Body rows can optionally add `border-bottom:1px solid var(--border)` for separators.
+
+The code blocks below already reflect both fixes. If you spot a residual `'<div style="display:grid;…">'` wrap or a `class="rep-table"` reference in any block, treat it as a plan bug and correct in place rather than copying it verbatim.
+
+---
+
 ## File Structure
 
 All changes are inside two files. No new files.
@@ -90,14 +102,14 @@ window.REPORT_VIEWERS['portfolio-snap'] = {
   renderSummary(container, data) {
     const s = data.summary || {};
     const gainColor = (s.total_gain_loss || 0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    // #repViewerSummary is already display:grid auto-fit (see HTML line 205) —
+    // do NOT wrap in an extra div, or the cards collapse into a single cell.
     container.innerHTML = ''
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
-      +   repSummaryCard('Total value',   repFmt$(s.total_market_value))
-      +   repSummaryCard('Cost basis',    repFmt$(s.total_cost_basis))
-      +   repSummaryCard('Gain / loss',   repFmt$(s.total_gain_loss), gainColor)
-      +   repSummaryCard('Return',        ((s.total_gain_loss_pct||0)).toFixed(2) + '%', gainColor)
-      + '</div>'
-      + '<div style="margin-top:8px;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
+      + repSummaryCard('Total value',   repFmt$(s.total_market_value))
+      + repSummaryCard('Cost basis',    repFmt$(s.total_cost_basis))
+      + repSummaryCard('Gain / loss',   repFmt$(s.total_gain_loss), gainColor)
+      + repSummaryCard('Return',        (s.total_gain_loss_pct || 0).toFixed(2) + '%', gainColor)
+      + '<div style="grid-column:1/-1;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
   },
   renderBody(container, data, _filters, onDrill) {
     const accts = data.accounts || [];
@@ -118,12 +130,18 @@ window.REPORT_VIEWERS['portfolio-snap'] = {
         + '<td style="text-align:right;color:' + gainColor + '">' + gainPct + '</td>'
         + '</tr>';
     }).join('');
+    // Inline cell padding (no shared .rep-table CSS exists; match pattern of
+    // spending-by-cat / top-vendors which set padding per-cell inline).
     container.innerHTML = ''
-      + '<table style="width:100%;border-collapse:collapse" class="rep-table">'
-      +   '<thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase">'
-      +     '<th>Institution</th><th>Nickname</th><th>Tax</th>'
-      +     '<th style="text-align:right">Value</th><th style="text-align:right">Cost</th>'
-      +     '<th style="text-align:right">Gain</th><th style="text-align:right">%</th>'
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Institution</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Nickname</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Tax</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Value</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Cost</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Gain</th>'
+      +     '<th style="text-align:right;padding:8px 10px">%</th>'
       +   '</tr></thead>'
       +   '<tbody>' + rows + '</tbody>'
       + '</table>';
@@ -207,13 +225,12 @@ window.REPORT_VIEWERS['portfolio-perf'] = {
     const chg$  = (first && last) ? (last.total_value - first.total_value) : 0;
     const chgPc = (first && first.total_value > 0) ? ((chg$/first.total_value)*100) : 0;
     const color = chg$ >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
+    // #repViewerSummary is already display:grid auto-fit — no wrapper div.
     container.innerHTML = ''
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
-      +   repSummaryCard('Current value', repFmt$(cur))
-      +   repSummaryCard('Change ($)',    repFmt$(chg$), color)
-      +   repSummaryCard('Change (%)',    chgPc.toFixed(2) + '%', color)
-      +   repSummaryCard('Snapshots',     String(snaps.length))
-      + '</div>';
+      + repSummaryCard('Current value', repFmt$(cur))
+      + repSummaryCard('Change ($)',    repFmt$(chg$), color)
+      + repSummaryCard('Change (%)',    chgPc.toFixed(2) + '%', color)
+      + repSummaryCard('Snapshots',     String(snaps.length));
   },
   renderBody(container, data) {
     const snaps = data.snapshots || [];
@@ -252,32 +269,41 @@ window.REPORT_VIEWERS['portfolio-perf'] = {
         + '</svg>';
     }
 
+    // Shared inline-table styling — no .rep-table class exists.
+    const TBL_OPEN   = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    const HEAD_TR    = '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">';
+    const THL = (label) => '<th style="text-align:left;padding:8px 10px">' + label + '</th>';
+    const THR = (label) => '<th style="text-align:right;padding:8px 10px">' + label + '</th>';
+    const ROW_TR = '<tr style="border-bottom:1px solid var(--border)">';
+
     const totalAlloc = alloc.reduce((s,a) => s + (a.value||0), 0);
     const allocRows = alloc.map(a => {
       const pct = totalAlloc > 0 ? ((a.value/totalAlloc)*100).toFixed(1) : '0.0';
-      return '<tr><td>' + escapeHtml(a.type) + '</td>'
-        + '<td style="text-align:right">' + repFmt$(a.value) + '</td>'
-        + '<td style="text-align:right">' + pct + '%</td>'
-        + '<td style="text-align:right">' + (a.count||0) + '</td></tr>';
+      return ROW_TR
+        + '<td style="padding:6px 10px">' + escapeHtml(a.type) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(a.value) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + pct + '%</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + (a.count||0) + '</td></tr>';
     }).join('');
 
     const rowsFor = (arr) => arr.map(h => {
       const c = (h.gain_loss_pct||0) >= 0 ? 'var(--green,#22c55e)' : 'var(--red,#dc2626)';
-      return '<tr><td><strong>' + escapeHtml(h.symbol) + '</strong></td>'
-        + '<td>' + escapeHtml(h.name || '—') + '</td>'
-        + '<td style="text-align:right">' + repFmt$(h.market_value) + '</td>'
-        + '<td style="text-align:right;color:' + c + '">' + repFmt$(h.gain_loss_dollar) + '</td>'
-        + '<td style="text-align:right;color:' + c + '">' + (h.gain_loss_pct != null ? h.gain_loss_pct.toFixed(2) + '%' : '—') + '</td></tr>';
+      return ROW_TR
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(h.symbol) + '</strong></td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(h.name || '—') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(h.market_value) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px;color:' + c + '">' + repFmt$(h.gain_loss_dollar) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px;color:' + c + '">' + (h.gain_loss_pct != null ? h.gain_loss_pct.toFixed(2) + '%' : '—') + '</td></tr>';
     }).join('');
 
     container.innerHTML = ''
       + chartHtml
       + (alloc.length ? '<h3 style="margin:16px 0 8px;font-size:14px">Asset allocation</h3>'
-          + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Type</th><th style="text-align:right">Value</th><th style="text-align:right">% of total</th><th style="text-align:right">Holdings</th></tr></thead><tbody>'+allocRows+'</tbody></table>' : '')
+          + TBL_OPEN + HEAD_TR + THL('Type') + THR('Value') + THR('% of total') + THR('Holdings') + '</tr></thead><tbody>' + allocRows + '</tbody></table>' : '')
       + (gainers.length ? '<h3 style="margin:16px 0 8px;font-size:14px">Top gainers</h3>'
-          + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Symbol</th><th>Name</th><th style="text-align:right">Value</th><th style="text-align:right">Gain $</th><th style="text-align:right">Gain %</th></tr></thead><tbody>'+rowsFor(gainers)+'</tbody></table>' : '')
+          + TBL_OPEN + HEAD_TR + THL('Symbol') + THL('Name') + THR('Value') + THR('Gain $') + THR('Gain %') + '</tr></thead><tbody>' + rowsFor(gainers) + '</tbody></table>' : '')
       + (losers.length ? '<h3 style="margin:16px 0 8px;font-size:14px">Top losers</h3>'
-          + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Symbol</th><th>Name</th><th style="text-align:right">Value</th><th style="text-align:right">Gain $</th><th style="text-align:right">Gain %</th></tr></thead><tbody>'+rowsFor(losers)+'</tbody></table>' : '');
+          + TBL_OPEN + HEAD_TR + THL('Symbol') + THL('Name') + THR('Value') + THR('Gain $') + THR('Gain %') + '</tr></thead><tbody>' + rowsFor(losers) + '</tbody></table>' : '');
   },
 };
 ```
@@ -337,14 +363,13 @@ window.REPORT_VIEWERS['concentration'] = {
     const sectors = data.sectors  || [];
     const top5pct = top.slice(0,5).reduce((s,h) => s + (h.pct || 0), 0);
     const largest = top[0] ? (top[0].pct || 0) : 0;
+    // #repViewerSummary is already display:grid auto-fit — no wrapper div.
     container.innerHTML = ''
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
-      +   repSummaryCard('Top holdings',     String(top.length))
-      +   repSummaryCard('Top-5 % of port',  top5pct.toFixed(1) + '%')
-      +   repSummaryCard('Sectors',          String(sectors.length))
-      +   repSummaryCard('Largest position', largest.toFixed(1) + '%', largest >= 10 ? 'var(--amber,#f59e0b)' : undefined)
-      + '</div>'
-      + '<div style="margin-top:8px;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
+      + repSummaryCard('Top holdings',     String(top.length))
+      + repSummaryCard('Top-5 % of port',  top5pct.toFixed(1) + '%')
+      + repSummaryCard('Sectors',          String(sectors.length))
+      + repSummaryCard('Largest position', largest.toFixed(1) + '%', largest >= 10 ? 'var(--amber,#f59e0b)' : undefined)
+      + '<div style="grid-column:1/-1;font-size:11px;color:var(--text3)">As of ' + escapeHtml(data._as_of || '—') + ' · source: ' + escapeHtml(data._source || '—') + '</div>';
   },
   renderBody(container, data, _filters, onDrill) {
     const top     = data.holdings || [];
@@ -365,42 +390,50 @@ window.REPORT_VIEWERS['concentration'] = {
       ? '<div style="padding:10px;background:var(--bg2);border:1px solid var(--amber,#f59e0b);border-radius:8px;color:var(--amber,#f59e0b);font-size:12px;margin-bottom:12px"><strong>⚠ Concentration flags:</strong><br>' + flagBits.join('<br>') + '</div>'
       : '';
 
+    // Shared inline-table styling — no .rep-table class exists.
+    const TBL_OPEN = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    const HEAD_TR  = '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">';
+    const THL = (label) => '<th style="text-align:left;padding:8px 10px">' + label + '</th>';
+    const THR = (label) => '<th style="text-align:right;padding:8px 10px">' + label + '</th>';
+    const ROW_TR = '<tr style="border-bottom:1px solid var(--border)">';
+    const ROW_TR_CLICK = (sym) => '<tr data-symbol="' + escapeHtml(sym) + '" style="cursor:pointer;border-bottom:1px solid var(--border)">';
+
     const maxPct = Math.max.apply(null, top.map(h => h.pct || 0));
     const topRows = top.map(h => {
       const pct = h.pct || 0;
       const barW = maxPct > 0 ? (pct/maxPct)*100 : 0;
-      return '<tr data-symbol="' + escapeHtml(h.symbol||'') + '" style="cursor:pointer">'
-        + '<td><strong>' + escapeHtml(h.symbol||'—') + '</strong></td>'
-        + '<td>' + escapeHtml(h.sector || '—') + '</td>'
-        + '<td style="text-align:right">' + repFmt$(h.value) + '</td>'
-        + '<td style="text-align:right">' + pct.toFixed(2) + '%</td>'
-        + '<td><div style="background:var(--bg);border-radius:3px;height:6px;width:120px"><div style="background:var(--accent,#3b82f6);height:6px;border-radius:3px;width:' + barW.toFixed(1) + '%"></div></div></td>'
+      return ROW_TR_CLICK(h.symbol||'')
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(h.symbol||'—') + '</strong></td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(h.sector || '—') + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(h.value) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + pct.toFixed(2) + '%</td>'
+        + '<td style="padding:6px 10px"><div style="background:var(--bg);border-radius:3px;height:6px;width:120px"><div style="background:var(--accent,#3b82f6);height:6px;border-radius:3px;width:' + barW.toFixed(1) + '%"></div></div></td>'
         + '</tr>';
     }).join('');
 
-    const sectorRows = sectors.map(s => '<tr>'
-      + '<td>' + escapeHtml(s.sector || '—') + '</td>'
-      + '<td style="text-align:right">' + repFmt$(s.value) + '</td>'
-      + '<td style="text-align:right">' + (s.pct != null ? s.pct.toFixed(1) + '%' : '—') + '</td>'
+    const sectorRows = sectors.map(s => ROW_TR
+      + '<td style="padding:6px 10px">' + escapeHtml(s.sector || '—') + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + repFmt$(s.value) + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + (s.pct != null ? s.pct.toFixed(1) + '%' : '—') + '</td>'
       + '</tr>').join('');
 
     const pairRows = pairs.slice(0, 10).map(p => {
       const c = p.correlation || 0;
       const color = Math.abs(c) >= 0.85 ? 'var(--amber,#f59e0b)' : (Math.abs(c) >= 0.6 ? 'var(--text)' : 'var(--text3)');
-      return '<tr>'
-        + '<td><strong>' + escapeHtml(p.sym1) + '</strong> ↔ <strong>' + escapeHtml(p.sym2) + '</strong></td>'
-        + '<td style="text-align:right;color:' + color + '">' + c.toFixed(3) + '</td>'
+      return ROW_TR
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(p.sym1) + '</strong> ↔ <strong>' + escapeHtml(p.sym2) + '</strong></td>'
+        + '<td style="text-align:right;padding:6px 10px;color:' + color + '">' + c.toFixed(3) + '</td>'
         + '</tr>';
     }).join('');
 
     container.innerHTML = ''
       + flagBanner
       + '<h3 style="margin:0 0 8px;font-size:14px">Top 10 holdings</h3>'
-      + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Symbol</th><th>Sector</th><th style="text-align:right">Value</th><th style="text-align:right">% of port</th><th></th></tr></thead><tbody>'+topRows+'</tbody></table>'
+      + TBL_OPEN + HEAD_TR + THL('Symbol') + THL('Sector') + THR('Value') + THR('% of port') + '<th></th></tr></thead><tbody>' + topRows + '</tbody></table>'
       + (sectors.length ? '<h3 style="margin:16px 0 8px;font-size:14px">Sector spread (all holdings)</h3>'
-          + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Sector</th><th style="text-align:right">Value</th><th style="text-align:right">%</th></tr></thead><tbody>'+sectorRows+'</tbody></table>' : '')
+          + TBL_OPEN + HEAD_TR + THL('Sector') + THR('Value') + THR('%') + '</tr></thead><tbody>' + sectorRows + '</tbody></table>' : '')
       + (pairs.length ? '<h3 style="margin:16px 0 8px;font-size:14px">Top correlated pairs (90-day daily returns)</h3>'
-          + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Pair</th><th style="text-align:right">Correlation</th></tr></thead><tbody>'+pairRows+'</tbody></table>'
+          + TBL_OPEN + HEAD_TR + THL('Pair') + THR('Correlation') + '</tr></thead><tbody>' + pairRows + '</tbody></table>'
           + '<div style="margin-top:6px;font-size:11px;color:var(--text3)">Pairs ≥ 0.85 move nearly together — reducing one of each pair lowers concentration risk.</div>'
           : '');
 
@@ -471,13 +504,12 @@ window.REPORT_VIEWERS['tax-location'] = {
     });
     const flagged = flat.filter(h => taxLocFlags(h, h._acct).length > 0);
     const taxableAccts = (data.accounts||[]).filter(a => (a.tax_treatment||'taxable') === 'taxable').length;
+    // #repViewerSummary is already display:grid auto-fit — no wrapper div.
     container.innerHTML = ''
-      + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
-      +   repSummaryCard('Holdings reviewed', String(flat.length))
-      +   repSummaryCard('Flagged',           String(flagged.length), flagged.length > 0 ? 'var(--amber,#f59e0b)' : undefined)
-      +   repSummaryCard('% flagged',         flat.length > 0 ? ((flagged.length/flat.length)*100).toFixed(1) + '%' : '0%')
-      +   repSummaryCard('Taxable accounts',  String(taxableAccts))
-      + '</div>';
+      + repSummaryCard('Holdings reviewed', String(flat.length))
+      + repSummaryCard('Flagged',           String(flagged.length), flagged.length > 0 ? 'var(--amber,#f59e0b)' : undefined)
+      + repSummaryCard('% flagged',         flat.length > 0 ? ((flagged.length/flat.length)*100).toFixed(1) + '%' : '0%')
+      + repSummaryCard('Taxable accounts',  String(taxableAccts));
   },
   renderBody(container, data, _filters, onDrill) {
     const flat = [];
@@ -487,12 +519,19 @@ window.REPORT_VIEWERS['tax-location'] = {
       window.GH_REPORT_STATES.empty(container, { title: 'No holdings to review', subtitle: 'Add holdings in the Money module first.' });
       return;
     }
-    const flagRows = flagged.map(h => '<tr data-sym="' + escapeHtml(h.symbol) + '" data-acct="' + h._acct.id + '" style="cursor:pointer">'
-      + '<td><strong>' + escapeHtml(h.symbol) + '</strong></td>'
-      + '<td>' + escapeHtml(h.name||'—') + '</td>'
-      + '<td>' + escapeHtml(h._acct.institution + ' · ' + h._acct.nickname) + '</td>'
-      + '<td style="text-align:right">' + repFmt$(h.market_value) + '</td>'
-      + '<td style="color:var(--amber,#f59e0b)">' + taxLocFlags(h, h._acct).join(', ') + '</td>'
+    // Shared inline-table styling — no .rep-table class exists.
+    const TBL_OPEN = '<table style="width:100%;border-collapse:collapse;font-size:13px">';
+    const HEAD_TR  = '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">';
+    const THL = (label) => '<th style="text-align:left;padding:8px 10px">' + label + '</th>';
+    const THR = (label) => '<th style="text-align:right;padding:8px 10px">' + label + '</th>';
+    const ROW_TR = '<tr style="border-bottom:1px solid var(--border)">';
+
+    const flagRows = flagged.map(h => '<tr data-sym="' + escapeHtml(h.symbol) + '" data-acct="' + h._acct.id + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+      + '<td style="padding:6px 10px"><strong>' + escapeHtml(h.symbol) + '</strong></td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(h.name||'—') + '</td>'
+      + '<td style="padding:6px 10px">' + escapeHtml(h._acct.institution + ' · ' + h._acct.nickname) + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + repFmt$(h.market_value) + '</td>'
+      + '<td style="padding:6px 10px;color:var(--amber,#f59e0b)">' + escapeHtml(taxLocFlags(h, h._acct).join(', ')) + '</td>'
       + '</tr>').join('');
 
     // Group all holdings by tax_treatment for context
@@ -505,15 +544,19 @@ window.REPORT_VIEWERS['tax-location'] = {
     const ctxSection = (key, label) => {
       const arr = buckets[key];
       if (!arr.length) return '';
-      const rows = arr.map(h => '<tr><td><strong>' + escapeHtml(h.symbol) + '</strong></td><td>' + escapeHtml(h.name||'—') + '</td><td>' + escapeHtml(h._acct.nickname) + '</td><td style="text-align:right">' + repFmt$(h.market_value) + '</td></tr>').join('');
+      const rows = arr.map(h => ROW_TR
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(h.symbol) + '</strong></td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(h.name||'—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(h._acct.nickname) + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(h.market_value) + '</td></tr>').join('');
       return '<h3 style="margin:16px 0 8px;font-size:14px">' + label + '</h3>'
-        + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Symbol</th><th>Name</th><th>Account</th><th style="text-align:right">Value</th></tr></thead><tbody>' + rows + '</tbody></table>';
+        + TBL_OPEN + HEAD_TR + THL('Symbol') + THL('Name') + THL('Account') + THR('Value') + '</tr></thead><tbody>' + rows + '</tbody></table>';
     };
 
     container.innerHTML = ''
       + (flagged.length
           ? '<h3 style="margin:0 0 8px;font-size:14px;color:var(--amber,#f59e0b)">Flagged: ' + flagged.length + ' holding' + (flagged.length===1?'':'s') + '</h3>'
-            + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Symbol</th><th>Name</th><th>Account</th><th style="text-align:right">Value</th><th>Reason</th></tr></thead><tbody>' + flagRows + '</tbody></table>'
+            + TBL_OPEN + HEAD_TR + THL('Symbol') + THL('Name') + THL('Account') + THR('Value') + THL('Reason') + '</tr></thead><tbody>' + flagRows + '</tbody></table>'
           : '<div style="padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;color:var(--green,#22c55e)">✓ No flagged placements. Your bonds and high-dividend holdings are in tax-advantaged accounts.</div>')
       + ctxSection('taxable',       'Taxable accounts')
       + ctxSection('tax-deferred',  'Tax-deferred accounts (Traditional IRA / 401k)')
@@ -548,13 +591,14 @@ window.REPORT_VIEWERS['tax-location'] = {
 };
 
 // tax-location heuristic — only fires inside taxable accounts.
+const TAX_LOC_HIGH_DIV_THRESHOLD = 0.03; // 3% yield — flag for Roth/IRA shelter
 function taxLocFlags(h, acct) {
   const flags = [];
   const tax = (acct.tax_treatment || 'taxable').toLowerCase();
   if (tax !== 'taxable') return flags;
   const at = (h.asset_type || '').toLowerCase();
-  if (at === 'bond' || at === 'bond_fund' || at.includes('bond')) flags.push('bonds-in-taxable');
-  if (typeof h.dividend_yield === 'number' && h.dividend_yield >= 0.03) flags.push('high-div-in-taxable');
+  if (at.includes('bond')) flags.push('bonds-in-taxable');
+  if (typeof h.dividend_yield === 'number' && h.dividend_yield >= TAX_LOC_HIGH_DIV_THRESHOLD) flags.push('high-div-in-taxable');
   return flags;
 }
 ```
@@ -609,13 +653,12 @@ function makeSavedAILogViewer(reportType, kindLabel) {
       const thisYr = rows.filter(x => x.date && x.date.startsWith(repCurrentYear())).length;
       const tickers = new Set(rows.map(x => x.ticker).filter(Boolean));
       const latest = rows[0] ? rows[0].date : '—';
+      // #repViewerSummary is already display:grid auto-fit — no wrapper div.
       container.innerHTML = ''
-        + '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px">'
-        +   repSummaryCard('Total saved',   String(rows.length))
-        +   repSummaryCard('This year',     String(thisYr))
-        +   repSummaryCard('Latest',        escapeHtml(latest))
-        +   repSummaryCard('Tickers',       String(tickers.size))
-        + '</div>';
+        + repSummaryCard('Total saved',   String(rows.length))
+        + repSummaryCard('This year',     String(thisYr))
+        + repSummaryCard('Latest',        escapeHtml(latest))
+        + repSummaryCard('Tickers',       String(tickers.size));
     },
     renderBody(container, data, _filters, onDrill) {
       const rows = data.rows || [];
@@ -623,13 +666,18 @@ function makeSavedAILogViewer(reportType, kindLabel) {
         window.GH_REPORT_STATES.empty(container, { title: 'No ' + data.kindLabel + ' reports', subtitle: 'Save reports from the trade terminal to populate this log.' });
         return;
       }
-      const trs = rows.map(r => '<tr data-fn="' + escapeHtml(r.filename) + '" style="cursor:pointer">'
-        + '<td>' + escapeHtml(r.date || '—') + '</td>'
-        + '<td><strong>' + escapeHtml(r.ticker || '—') + '</strong></td>'
-        + '<td>' + escapeHtml(r.title || '(untitled)') + '</td>'
+      const trs = rows.map(r => '<tr data-fn="' + escapeHtml(r.filename) + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.date || '—') + '</td>'
+        + '<td style="padding:6px 10px"><strong>' + escapeHtml(r.ticker || '—') + '</strong></td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.title || '(untitled)') + '</td>'
         + '</tr>').join('');
       container.innerHTML = ''
-        + '<table style="width:100%;border-collapse:collapse"><thead><tr style="text-align:left;color:var(--text3);font-size:11px;text-transform:uppercase"><th>Date</th><th>Ticker</th><th>Title</th></tr></thead><tbody>' + trs + '</tbody></table>';
+        + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+        +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+        +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+        +     '<th style="text-align:left;padding:8px 10px">Ticker</th>'
+        +     '<th style="text-align:left;padding:8px 10px">Title</th>'
+        +   '</tr></thead><tbody>' + trs + '</tbody></table>';
       container.querySelectorAll('tbody tr[data-fn]').forEach(tr => {
         tr.onclick = async () => {
           const fn = tr.dataset.fn;
@@ -637,10 +685,24 @@ function makeSavedAILogViewer(reportType, kindLabel) {
             const r2 = await fetch('/api/v1/trade/reports/' + encodeURIComponent(fn));
             if (!r2.ok) throw new Error('HTTP ' + r2.status);
             const full = await r2.json();
+            // Saved reports always wrap AI content under `full.data` (see
+            // routes.js:1214-1223). Different report types stash their narrative
+            // under different sub-keys; try the common ones, then fall back to
+            // a pretty-printed JSON of the data block.
+            const d = full.data || {};
+            const narrative =
+              (typeof d === 'string' && d)
+              || d.advice
+              || d.summary
+              || (d.result && (d.result.summary || d.result.reasoning))
+              || null;
+            const bodyHtml = narrative
+              ? '<pre style="font-size:13px;line-height:1.6;white-space:pre-wrap;font-family:inherit;margin:0">' + escapeHtml(narrative) + '</pre>'
+              : '<pre style="font-size:11px;line-height:1.4;white-space:pre-wrap;font-family:ui-monospace,monospace;color:var(--text3);margin:0">' + escapeHtml(JSON.stringify(d, null, 2)) + '</pre>';
             onDrill({
               title: (full.ticker ? full.ticker + ' · ' : '') + (full.title || fn),
               html: '<div style="font-size:12px;color:var(--text3);margin-bottom:8px">' + escapeHtml(full.date || '') + ' · ' + escapeHtml(full.type || '') + '</div>'
-                + '<div style="font-size:13px;line-height:1.6;white-space:pre-wrap">' + (full.html || full.body || full.content || escapeHtml(JSON.stringify(full, null, 2))) + '</div>',
+                + bodyHtml,
             });
           } catch (e) {
             onDrill({ title: 'Error loading report', html: '<div style="color:var(--red,#dc2626)">' + escapeHtml(e.message) + '</div>' });
@@ -656,7 +718,7 @@ window.REPORT_VIEWERS['trade-rebalance'] = makeSavedAILogViewer('AI Rebalancing 
 window.REPORT_VIEWERS['trade-tax-opt']   = makeSavedAILogViewer('AI Tax Optimization',   'tax-optimization');
 ```
 
-**Note on `html` field:** the saved-report file shape may store the body as `html`, `body`, or `content` — the renderer falls back through the three. If the actual shape uses a different field, the JSON pretty-print fallback still gives Al something usable. Adjust during smoke-check if needed.
+**Note on body extraction:** Saved reports always wrap AI content under `full.data` (see `routes.js:1214-1223`). The renderer extracts a narrative string by trying `d.advice` → `d.summary` → `d.result.summary` → `d.result.reasoning`. If none match, it pretty-prints `d` as JSON in a muted monospace `<pre>`. All paths are escaped — saved content is plain-text/markdown, never raw HTML.
 
 - [ ] **Step 2: Smoke-check** `/reports.html?run=trade-research` then `?run=trade-rebalance` then `?run=trade-tax-opt`. Confirm each lists matching reports and drilldown opens the saved body.
 

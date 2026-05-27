@@ -69,6 +69,51 @@ principles.
 
 ---
 
+## ✅ v.204 SHIPPED — Tile visual refresh: icons + colors + KPI previews (2026-05-27)
+
+> **Reports landing page no longer looks like a CLI menu.** Every tile
+> now carries a real SVG icon, a category color identity (Money amber,
+> Health green, Household blue, Family purple), and a live data preview
+> pulled from existing summary endpoints — KPI + sparkline for trends,
+> KPI pair for counts with flags, progress bar for ratios, recent-rows
+> for saved-AI logs.
+>
+> Pure frontend. Zero SQL, zero migrations, **zero new backend endpoints**.
+> ~11 existing summary endpoints fetched in parallel on landing load
+> (`/finance/landing`, `/medical/summary`, `/hsa/summary`, `/inventory/stats`,
+> `/insurance/summary`, `/subscriptions/summary`, `/trading/reports`,
+> `/trading/portfolio/live`, `/trading/portfolio/performance`,
+> `/maintenance/summary`, `/documents/expiring`). Each tile reads its
+> KPI from the shared bundle.
+
+### What v.204 ships (5 tasks, 1 file changed: `app/public/reports.html`)
+
+1. **Tile CSS shell** — new `.rep-tile` shape: 36×36 icon chip, top accent stripe, soft gradient background, 10px radius, hover lift, focus-visible outline. Per-category accent tokens (`--money/--health/--household/--family`).
+
+2. **`window.TILE_ICONS` registry** — 43 inline-SVG glyphs keyed by tile slug. 24×24 viewBox, single-color via `currentColor`, stroke-1.75 round-cap line style. Drawn inline; no external assets.
+
+3. **`renderTabGridV2` rewrite** — emits the new tile DOM directly (no longer delegates to `GH_TILE.render`, which is preserved for other consumers). Keyboard activation added (Enter/Space).
+
+4. **`loadLandingPreviews()` orchestrator** — fires 11 summary fetches in parallel via `Promise.all` with per-call `.catch(() => null)` guards. Returns a shared bundle. `hydrateTilePreviews(bundle)` iterates rendered `.rep-tile [data-preview-slot]` slots and calls `TILE_PREVIEWS[slug]`. Wired into `bootReportsV2` (parallel with `loadPinned`) and into the end of `renderTabGridV2` so every tab switch re-hydrates.
+
+5. **`window.TILE_PREVIEWS` — 43 per-slug renderers** built on 4 shape helpers (`repPreviewKpiSpark`, `repPreviewKpiPair`, `repPreviewProgress`, `repPreviewRecentRows`) + a meta-line fallback. Trends (cash-flow, net-worth, portfolio-perf) get auto-scaled 12-point inline SVG sparklines from their snapshot arrays. Counts get a primary KPI + secondary count colored amber/red when flagged. HSA & FSA gets a progress bar (reimbursed-of-eligible). Saved-AI logs (trade-research/rebalance/tax-opt) get 3 most-recent rows with relative timestamps.
+
+### Schema-safety gate
+
+Unchanged baseline. v.204 is pure frontend. No SQL, no migrations.
+
+### Tests
+
+Per the every-other-deploy rule: v.203 was smoke-only. **v.204 runs FULL Playwright** + smoke. The 2 existing deploy gates (`trade-mount.spec.js`, `reports-viewers-smoke.spec.js`) auto-cover regression — no new test specs needed. Expected E2E baseline: 117/0 (unchanged).
+
+### What's still NOT done
+
+- **`labs-trend` + `bp-trend`** — get icons + colors from v.204 but no KPI data (pending metric_index conversation).
+- **`portfolio-perf` "Top losers" header cosmetic** — still backlog.
+- **Some tiles fall back to meta-line text** because their backend summary endpoints don't expose the field we'd want for a one-glance KPI (e.g. `property-summary` total-value, `vehicles-summary` fleet snapshot, all Family tab tiles). These can light up incrementally in future drops by adding their KPI to the relevant summary endpoint.
+
+---
+
 ## ✅ v.203 DEPLOYED & VERIFIED — Reports Redesign Drop 7 (FINAL): Family tab 7/7 LIVE (2026-05-27)
 
 > **NAS confirms `version=202605.203`** via `/api/v1/app/info` at

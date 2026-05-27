@@ -3,7 +3,7 @@
 **For:** Next Claude Code session OR new chat that picks up Reports work.
 **Created:** 2026-05-22 (end of v.185 design session).
 **Refined:** 2026-05-23 (post-v.193 design conversation — see REFINEMENT block below).
-**Status:** Reports Redesign COMPLETE. Foundation BUILT in v.197 + Money tab COMPLETE in v.200 (16/17) + Health tab 7/9 LIVE in v.201 + Household tab 11/11 LIVE in v.202 + Family tab 7/7 LIVE in v.203. **41 of 41 implementable tiles LIVE.** `labs-trend` + `bp-trend` stay "in design" pending metric_index conversation. v.204+ picks up Inventory grouping enhancements queued in BACKLOG.md.
+**Status:** Reports Redesign COMPLETE + visual refresh shipped. Foundation BUILT in v.197 + Money tab COMPLETE in v.200 (16/17) + Health tab 7/9 LIVE in v.201 + Household tab 11/11 LIVE in v.202 + Family tab 7/7 LIVE in v.203 + tile visual refresh (icons + per-category color + KPI/sparkline previews) in v.204. **41 of 41 implementable tiles LIVE with rich previews.** `labs-trend` + `bp-trend` stay "in design" pending metric_index conversation. v.205+ picks up Inventory grouping enhancements queued in BACKLOG.md.
 
 ---
 
@@ -28,7 +28,7 @@ The Reports Redesign now starts at **v.197** (after trade-terminal Phase 8/
 - **v.197** — Reports Redesign drop 1 = scaffolding + Money tab live (combined)
 - **v.198** — Reports Redesign drop 2 = remaining Money reports
 - **v.199** — Reports Redesign drop 3 = Money +4 LIVE (spending-cal / income-flow / net-worth / subs-renewals)
-- **v.200** — Money trade-terminal tiles SHIPPED · **v.201 — Health tab 7/9 SHIPPED** · **v.202 — Household tab 11/11 SHIPPED** · **v.203 — Family tab 7/7 SHIPPED · Reports Redesign COMPLETE**
+- **v.200** — Money trade-terminal tiles SHIPPED · **v.201 — Health tab 7/9 SHIPPED** · **v.202 — Household tab 11/11 SHIPPED** · **v.203 — Family tab 7/7 SHIPPED · Reports Redesign COMPLETE** · **v.204 — tile visual refresh (icons + KPI previews) SHIPPED**
 
 See [[parallel-roadmaps-may-2026]] memory for the full queue context.
 
