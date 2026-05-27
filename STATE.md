@@ -69,7 +69,25 @@ principles.
 
 ---
 
-## ✅ v.204 SHIPPED — Tile visual refresh: icons + colors + KPI previews (2026-05-27)
+## ✅ v.204 DEPLOYED & VERIFIED — Tile visual refresh: icons + colors + KPI previews (2026-05-27)
+
+> **NAS confirms `version=202605.204`** via `/api/v1/app/info` after
+> deploy at 2026-05-27T11:05Z. NAS realigned to `origin/main` @
+> `79bde48` (5 v.204 commits + 1 E2E selector hotfix). Container
+> restarted cleanly; smoke 9/9 PASS (1.1m); initial full E2E was 116/1
+> — the **single failure was a stale selector** in `ghrava-e2e.spec.js`
+> looking for `.gh-tile` (v.197 class) instead of the new `.rep-tile`
+> (v.204 class). Test-file-only hotfix `79bde48` swapped 4 occurrences;
+> local re-run against live prod v.204: 1 passed (5.8s). Post-hotfix
+> E2E baseline restored to **117/0**.
+>
+> **Screenshots confirm the design lands as intended.** Money tab shows
+> amber accent stripe + amber icon chips + KPIs ("$X this month / N
+> transactions", "$X eligible YTD / 0% reimbursed" with progress bar,
+> portfolio snap with "+X.X%" gain delta, AI log tiles with empty-state
+> rows). Health tab flips cleanly to green per-category. Per-tab
+> identity (Money amber / Health green / Household blue / Family
+> purple) is visually distinct at a glance.
 
 > **Reports landing page no longer looks like a CLI menu.** Every tile
 > now carries a real SVG icon, a category color identity (Money amber,
