@@ -1,12 +1,10 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
-### 📋 QUEUED for v.203+ — Inventory grouping enhancements (chat-design first)
+### ✅ SHIPPED in v.205 — Inventory grouping enhancements (3 locked + sold + warranty-suggest)
 
-Queued 2026-05-25 after Al's inventory grouping question post-v.198.
-**Slot: AFTER the Reports Redesign drops finish** (v.199 Money remainder,
-v.200 Health, v.201 Household, v.202 Family). Starts v.203 or later.
-**Process: ONE design conversation covers ALL gaps + anything else we
-find needs doing on Inventory**, then build as one drop.
+Audited 2026-05-27 post-v.204. Al picked the "larger bundle" scope
+(3 locked + 2 audit gaps). Shipped in v.205 as one drop. Audit gaps
+A/B/C/E/G remain deferred to v.206+. Full v.205 details in STATE.md.
 
 **Confirmed working today (no action needed)**:
 - Containers can nest inside other containers via the "Containers

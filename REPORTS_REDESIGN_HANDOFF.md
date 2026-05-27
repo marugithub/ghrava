@@ -3,7 +3,7 @@
 **For:** Next Claude Code session OR new chat that picks up Reports work.
 **Created:** 2026-05-22 (end of v.185 design session).
 **Refined:** 2026-05-23 (post-v.193 design conversation — see REFINEMENT block below).
-**Status:** Reports Redesign COMPLETE + visual refresh shipped. Foundation BUILT in v.197 + Money tab COMPLETE in v.200 (16/17) + Health tab 7/9 LIVE in v.201 + Household tab 11/11 LIVE in v.202 + Family tab 7/7 LIVE in v.203 + tile visual refresh (icons + per-category color + KPI/sparkline previews) in v.204. **41 of 41 implementable tiles LIVE with rich previews.** `labs-trend` + `bp-trend` stay "in design" pending metric_index conversation. v.205+ picks up Inventory grouping enhancements queued in BACKLOG.md.
+**Status:** Reports Redesign COMPLETE + visual refresh shipped. Foundation BUILT in v.197 + Money tab COMPLETE in v.200 (16/17) + Health tab 7/9 LIVE in v.201 + Household tab 11/11 LIVE in v.202 + Family tab 7/7 LIVE in v.203 + tile visual refresh (icons + per-category color + KPI/sparkline previews) in v.204. **41 of 41 implementable tiles LIVE with rich previews.** `labs-trend` + `bp-trend` stay "in design" pending metric_index conversation. v.206+ picks up the next backlog item (see BACKLOG.md NEXT UP — likely audit gaps A/B/C/E/G from the Inventory module, or `labs-trend` + `bp-trend` after the metric_index conversation).
 
 ---
 

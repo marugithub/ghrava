@@ -69,6 +69,92 @@ principles.
 
 ---
 
+## ✅ v.205 SHIPPED — Inventory enhancements: 3 locked + sold workflow + warranty auto-suggest (2026-05-27)
+
+> **Inventory module gains 5 functional improvements in one drop.** Zero
+> schema changes, zero migrations. All target columns (`items.sold_*`,
+> `items.warranty_expires`, `items.purchase_date`, `containers.*`) already
+> existed.
+
+### What v.205 ships (5 changes across 6 implementation tasks)
+
+1. **Sibling shortcut on item detail** — `/items/:id` response gains
+   `sibling_count`; item-detail drawer renders "N other items in [parent
+   name] →" link that closes the drawer and navigates Browse to the
+   parent's contents view. Skips entirely when `sibling_count === 0`.
+   Singular/plural handled.
+
+2. **Container aggregated stats** — `/containers` (list) and
+   `/containers/:id` (detail) responses both gain `item_count`,
+   `total_value`, and `warranty_expiring_30d`. Single prepared statement
+   (`CONTAINER_AGG_STMT`) reused across both routes (no N+1). Browse
+   container cards render "N items · $X · ⚠ N warranty ending" with
+   per-segment skip logic (skips dollar if 0, skips warning if 0). Detail
+   header renders the same line.
+
+3. **Side-by-side comparison view-mode** — third option (`'compare'`)
+   alongside card / list views, persisted via existing `inv_item_view`
+   localStorage key. Renders all visible items as a compact 7-column
+   table: Name / Size / Brand / Category / Purchase date / Effective
+   value / Warranty status. Effective-value cascade mirrors v.202
+   inventory-value viewer. Warranty status badges: green Lifetime, red
+   Expired, amber "Nd left" (≤30 days), plain date (future), em-dash
+   (null). Mobile drops Size + Category at ≤640px. Default view
+   unchanged (compare is opt-in).
+
+4. **Sold-item workflow** — new `POST /api/v1/inventory/items/:id/sell`
+   route (requireAuth). One UPDATE sets `sold_date / sold_price /
+   sold_to / sold_platform` AND archives the item (`is_archived=1`,
+   `archived_reason='sold'`, `archived_at=CURRENT_TIMESTAMP`). Item-
+   detail drawer's existing `openSell()` action now includes a
+   `sold_platform` field with a `<datalist>` of 7 platform suggestions
+   (eBay, Facebook Marketplace, Craigslist, OfferUp, Mercari, Local,
+   Other). Old `PUT /items/:id/sell` preserved for backward compat.
+   Detail view renders the platform alongside date/price/sold_to.
+
+5. **Warranty auto-suggest by category** — new `GET /api/v1/inventory/
+   warranty-suggestions?category=X` returns `{category, months, known}`.
+   Hardcoded `WARRANTY_SUGGESTIONS` lookup covers 14 common consumer
+   categories (Electronics=12mo, Appliances=24mo, Car=36mo, etc.;
+   Beauty/Books/Clothing return `known:false`). Item-entry form's
+   `onCatChange()` + a `purchase_date` change listener both call
+   `maybeAutofillWarranty()` which fires the lookup, computes
+   `purchase_date + months`, and populates `warranty_expires` ONLY IF
+   the field is empty (never overwrites user input). Hint text appears
+   below the field: "Auto-filled from typical {Category} warranty
+   ({months} mo) — adjust if different". Silent failure on network
+   error.
+
+### Schema-safety gate
+
+Unchanged baseline. v.205 is pure backend route additions + frontend
+wiring. Zero new `db.prepare` SQL touching columns that don't exist.
+
+### Tests
+
+Per the every-other-deploy rule: v.204 ran FULL Playwright. **v.205 runs
+SMOKE ONLY via `-SkipE2E`.** v.206+ rotates back to full E2E. The 2
+existing deploy gates (`trade-mount.spec.js`, `reports-viewers-smoke.spec.js`)
+still pass — v.205 doesn't touch reports.html, trade.html, or any
+fetch URL the smoke gates iterate.
+
+Expected at deploy: smoke 9/9 ✅.
+
+### What's still NOT done (carried forward to v.206+)
+
+- **Container nesting depth >1** smoke check (audit gap A) — deferred
+- **QR codes + container photos** (audit gap B) — deferred
+- **Bulk move / bulk category-edit** (audit gap C) — deferred
+- **Category vocabulary drift / canonical category list** (audit gap E) — deferred
+- **Value rollup on locations** (audit gap G) — deferred
+- **`labs-trend` + `bp-trend`** — still pending metric_index conversation
+- **`portfolio-perf` "Top losers" header** cosmetic — backlog
+- **Mini-PC migration target OS** — pending hardware arrival
+- **Medication HSA-YTD on card** — pending product decision
+- **Tile visual layer** — Al said he'll work on visuals later (post-v.204)
+
+---
+
 ## ✅ v.204 DEPLOYED & VERIFIED — Tile visual refresh: icons + colors + KPI previews (2026-05-27)
 
 > **NAS confirms `version=202605.204`** via `/api/v1/app/info` after
