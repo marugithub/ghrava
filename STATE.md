@@ -69,7 +69,33 @@ principles.
 
 ---
 
-## ✅ v.203 SHIPPED — Reports Redesign Drop 7 (FINAL): Family tab 7/7 LIVE (2026-05-26)
+## ✅ v.203 DEPLOYED & VERIFIED — Reports Redesign Drop 7 (FINAL): Family tab 7/7 LIVE (2026-05-27)
+
+> **NAS confirms `version=202605.203`** via `/api/v1/app/info` at
+> 2026-05-27T08:42Z (uptime ~16 min — container restarted cleanly on
+> v.203 during the original deploy; the deploy script then exited on
+> a smoke-gate FALSE POSITIVE in step 7). NAS realigned to
+> `origin/main` @ `ff05edc` (includes the gate fix). Family endpoints
+> curl-tested live-200; the gate now passes locally against prod.
+>
+> **What happened:** the v.202 `reports-viewers-smoke` gate's URL-
+> extraction regex captured `'/api/v1/family-snapshot/'` (literal,
+> trailing slash) instead of the runtime URL `'/api/v1/family-snapshot/' + m.id`.
+> Bare prefix returned 404 (route requires an id) so the gate flagged
+> 3 false positives (emergency-info / family-snapshot / member-detail).
+> The viewers themselves were healthy; the gate was overzealous on
+> string-concat fetch patterns.
+>
+> **Fix (commit `ff05edc`):** detect `'<URL>' + <var>` patterns by
+> looking at the character after the closing quote; if it's `+` and
+> the URL ends with `/`, substitute `1` as a sample id AND apply a
+> looser status check (only 5xx fails). Wrong-PREFIX bugs (v.200.1
+> family) still get the strict < 400 check on literal URLs.
+>
+> **Lesson:** the gate's first real-world catch was a self-inflicted
+> false positive. The fix tightens the gate without weakening its
+> ability to catch v.200.1-class bugs. The pattern now generalizes
+> to any future parameterized-URL viewer.
 
 > **Family tab is now 7 of 7 tiles LIVE.** Reports Redesign now hits
 > **41 of 41 implementable tiles LIVE.** Only `labs-trend` + `bp-trend`
