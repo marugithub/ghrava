@@ -3539,6 +3539,343 @@ window.REPORT_VIEWERS['insurance-policies'] = {
   },
 };
 
+window.REPORT_VIEWERS['inventory-value'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const [itemsRes, statsRes] = await Promise.all([
+      fetch('/api/v1/inventory/items')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/api/v1/inventory/stats')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ]);
+    const items = Array.isArray(itemsRes) ? itemsRes : [];
+    const stats = statsRes || {};
+    return { items, stats };
+  },
+  renderSummary(container, data) {
+    const items = data.items || [];
+    const effVal = (it) => it.replacement_value || it.appraised_value || it.purchase_price || 0;
+    const totalValue = items.reduce((s, it) => s + effVal(it), 0);
+    const withValue  = items.filter(it => effVal(it) > 0);
+    const avgValue   = withValue.length ? totalValue / withValue.length : 0;
+    const noValue    = items.length - withValue.length;
+    container.innerHTML = ''
+      + repSummaryCard('Total items',          String(items.length))
+      + repSummaryCard('Total value',          repFmt$(totalValue))
+      + repSummaryCard('Average value',        repFmt$(avgValue))
+      + repSummaryCard('Items without value',  String(noValue), noValue > 0 ? 'var(--text3)' : 'inherit');
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const items = data.items || [];
+    if (!items.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No inventory items',
+        subtitle: 'Add items in the Inventory module.',
+      });
+      return;
+    }
+    const effVal = (it) => it.replacement_value || it.appraised_value || it.purchase_price || 0;
+    // Group by category
+    const catOrder = [];
+    const catMap   = {};
+    items.forEach(it => {
+      const cat = it.category || 'Uncategorized';
+      if (!catMap[cat]) { catMap[cat] = { cat, rows: [], total: 0 }; catOrder.push(cat); }
+      catMap[cat].rows.push(it);
+      catMap[cat].total += effVal(it);
+    });
+    // Sort categories by total value DESC
+    catOrder.sort((a, b) => catMap[b].total - catMap[a].total);
+    let html = '';
+    catOrder.forEach(cat => {
+      const grp = catMap[cat];
+      grp.rows.sort((a, b) => effVal(b) - effVal(a));
+      html += '<h3 style="margin:16px 0 8px;font-size:14px">' + escapeHtml(cat) + '</h3>';
+      const trs = grp.rows.map((it, i) =>
+        '<tr data-cat="' + escapeHtml(cat) + '" data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.item_ref  || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.name      || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.brand     || '—') + '</td>'
+          + '<td style="text-align:right;padding:6px 10px">' + repFmt$(effVal(it)) + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.condition || '—') + '</td>'
+          + '</tr>'
+      ).join('');
+      html += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">'
+        + '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+        +   '<th style="text-align:left;padding:8px 10px">Ref</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Name</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Brand</th>'
+        +   '<th style="text-align:right;padding:8px 10px">Effective value</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Condition</th>'
+        + '</tr></thead>'
+        + '<tbody>' + trs + '</tbody>'
+        + '</table>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const cat = tr.dataset.cat;
+        const idx = parseInt(tr.dataset.idx, 10);
+        const grp = catMap[cat];
+        if (!grp) return;
+        const it = grp.rows[idx];
+        if (!it) return;
+        const html = ''
+          + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+          +   '<div><strong style="color:var(--text)">Ref:</strong> '              + escapeHtml(it.item_ref        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Name:</strong> '             + escapeHtml(it.name            || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Category:</strong> '         + escapeHtml(it.category        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Brand:</strong> '            + escapeHtml(it.brand           || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Model:</strong> '            + escapeHtml(it.model_number    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Serial #:</strong> '         + escapeHtml(it.serial_number   || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Manufacturer:</strong> '     + escapeHtml(it.manufacturer    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Condition:</strong> '        + escapeHtml(it.condition       || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Quantity:</strong> '         + (it.quantity != null ? String(it.quantity) : '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Purchase date:</strong> '    + escapeHtml(it.purchase_date   || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Purchase price:</strong> '   + (it.purchase_price   != null ? repFmt$(it.purchase_price)   : '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Replacement value:</strong> '+ (it.replacement_value != null ? repFmt$(it.replacement_value) : '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Appraised value:</strong> '  + (it.appraised_value  != null ? repFmt$(it.appraised_value)  : '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Effective value:</strong> '  + repFmt$(effVal(it)) + '</div>'
+          +   '<div><strong style="color:var(--text)">Purchased from:</strong> '   + escapeHtml(it.purchased_from || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Insured:</strong> '          + (it.insured ? 'Yes' : 'No') + '</div>'
+          +   '<div><strong style="color:var(--text)">Warranty expires:</strong> ' + escapeHtml(it.warranty_expires || (it.lifetime_warranty ? 'Lifetime' : '—')) + '</div>'
+          +   (it.description ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(it.description) + '</div>' : '')
+          + '</div>';
+        onDrill({ title: escapeHtml(it.name || it.item_ref || 'Item'), html });
+      };
+    });
+  },
+};
+
+window.REPORT_VIEWERS['warranty-expiry'] = {
+  defaultFilters() { return [{ key: 'window', label: 'Days ahead', value: '90' }]; },
+  async fetch(filters) {
+    const window_days = parseInt((filters.find(f => f.key === 'window') || {}).value || '90', 10);
+    const res = await fetch('/api/v1/inventory/items');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const all = await res.json();
+    const items = Array.isArray(all) ? all : [];
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const rows = items.filter(it => {
+      if (!it.warranty_expires) return false;
+      const du = daysUntil(it.warranty_expires);
+      return du !== null && du <= window_days;
+    });
+    return { rows, allWithWarranty: items.filter(it => it.warranty_expires), window_days };
+  },
+  renderSummary(container, data) {
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const allW    = data.allWithWarranty || [];
+    const rows    = data.rows || [];
+    const exp30   = allW.filter(it => { const d = daysUntil(it.warranty_expires); return d !== null && d >= 0 && d <= 30; }).length;
+    const expired = rows.filter(it => { const d = daysUntil(it.warranty_expires); return d !== null && d < 0; }).length;
+    container.innerHTML = ''
+      + repSummaryCard('Items under warranty',      String(allW.length))
+      + repSummaryCard('Expiring within 30 days',   String(exp30),      exp30   > 0 ? 'var(--amber,#f59e0b)' : 'inherit')
+      + repSummaryCard('Expiring within window',    String(rows.length))
+      + repSummaryCard('Expired',                   String(expired),    expired > 0 ? 'var(--red,#dc2626)'   : 'inherit');
+  },
+  renderBody(container, data, filters, onDrill) {
+    const rows       = data.rows || [];
+    const window_days = data.window_days || 90;
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No warranties expiring within ' + window_days + ' days',
+        subtitle: 'Adjust the window or check the Inventory module.',
+      });
+      return;
+    }
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const daysUntil = (dateStr) => {
+      if (!dateStr) return null;
+      const d = new Date(dateStr + 'T00:00:00');
+      if (isNaN(d.getTime())) return null;
+      return Math.round((d - today) / 86400000);
+    };
+    const sorted = rows.slice().sort((a, b) => {
+      const da = a.warranty_expires || '9999-99-99';
+      const db = b.warranty_expires || '9999-99-99';
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+    const tableRows = sorted.map((it, i) => {
+      const du = daysUntil(it.warranty_expires);
+      const dayColor  = du === null ? 'inherit' : (du < 0 ? 'var(--red,#dc2626)' : (du <= 30 ? 'var(--amber,#f59e0b)' : 'inherit'));
+      const daysLabel = du === null ? '—' : (du < 0 ? 'Expired (' + Math.abs(du) + ' days ago)' : String(du) + ' days');
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">'                                + escapeHtml(it.item_ref        || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                                + escapeHtml(it.name            || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                                + escapeHtml(it.brand           || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                                + escapeHtml(it.purchase_date   || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                                + escapeHtml(it.warranty_expires|| '—') + '</td>'
+        + '<td style="padding:6px 10px;color:' + dayColor + '">'        + daysLabel                             + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Ref</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Brand</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Purchase date</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Warranty expires</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Days remaining</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const it = sorted[parseInt(tr.dataset.idx, 10)];
+        if (!it) return;
+        const du = daysUntil(it.warranty_expires);
+        const dayColor  = du === null ? 'inherit' : (du < 0 ? 'var(--red,#dc2626)' : (du <= 30 ? 'var(--amber,#f59e0b)' : 'inherit'));
+        const daysLabel = du === null ? '—' : (du < 0 ? 'Expired (' + Math.abs(du) + ' days ago)' : String(du) + ' days');
+        const html = ''
+          + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+          +   '<div><strong style="color:var(--text)">Ref:</strong> '              + escapeHtml(it.item_ref         || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Name:</strong> '             + escapeHtml(it.name             || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Brand:</strong> '            + escapeHtml(it.brand            || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Model:</strong> '            + escapeHtml(it.model_number     || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Serial #:</strong> '         + escapeHtml(it.serial_number    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Purchase date:</strong> '    + escapeHtml(it.purchase_date    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Warranty expires:</strong> ' + escapeHtml(it.warranty_expires || '—') + '</div>'
+          +   '<div style="color:' + dayColor + '"><strong style="color:var(--text)">Days remaining:</strong> ' + daysLabel + '</div>'
+          +   '<div><strong style="color:var(--text)">Condition:</strong> '        + escapeHtml(it.condition        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Category:</strong> '         + escapeHtml(it.category         || '—') + '</div>'
+          +   (it.description ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(it.description) + '</div>' : '')
+          +   '<div style="margin-top:10px"><a href="/inventory.html" style="color:var(--accent,#6366f1);font-size:12px;text-decoration:none">Open in Inventory module ↗</a></div>'
+          + '</div>';
+        onDrill({ title: escapeHtml(it.name || it.item_ref || 'Item'), html });
+      };
+    });
+  },
+};
+
+window.REPORT_VIEWERS['items-by-loc'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const [itemsRes, locsRes, contsRes] = await Promise.all([
+      fetch('/api/v1/inventory/items')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/api/v1/inventory/locations')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+      fetch('/api/v1/inventory/containers')
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }),
+    ]);
+    const items = Array.isArray(itemsRes) ? itemsRes : [];
+    const locMap = {};
+    (Array.isArray(locsRes) ? locsRes : []).forEach(l => { locMap[l.id] = l.name || String(l.id); });
+    const contMap = {};
+    (Array.isArray(contsRes) ? contsRes : []).forEach(c => { contMap[c.id] = c.name || c.container_ref || String(c.id); });
+    return { items, locMap, contMap };
+  },
+  renderSummary(container, data) {
+    const items   = data.items   || [];
+    const inLoc   = items.filter(it => it.parent_type === 'location').length;
+    const inCont  = items.filter(it => it.parent_type === 'container').length;
+    const parents = new Set(items.filter(it => it.parent_id != null).map(it => it.parent_id)).size;
+    container.innerHTML = ''
+      + repSummaryCard('Total items',        String(items.length))
+      + repSummaryCard('Distinct parents',   String(parents))
+      + repSummaryCard('Items in locations', String(inLoc))
+      + repSummaryCard('Items in containers',String(inCont));
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const items   = data.items   || [];
+    const locMap  = data.locMap  || {};
+    const contMap = data.contMap || {};
+    if (!items.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No inventory items',
+        subtitle: 'Add items in the Inventory module.',
+      });
+      return;
+    }
+    const effVal = (it) => it.replacement_value || it.appraised_value || it.purchase_price || 0;
+    const parentLabel = (it) => {
+      if (it.parent_type === 'location')  return locMap[it.parent_id]  || ('Location ' + it.parent_id);
+      if (it.parent_type === 'container') return contMap[it.parent_id] || ('Container ' + it.parent_id);
+      return 'Unassigned';
+    };
+    // Group by parent
+    const grpOrder = [];
+    const grpMap   = {};
+    items.forEach(it => {
+      const key = (it.parent_type || 'none') + '::' + (it.parent_id != null ? it.parent_id : '__none__');
+      if (!grpMap[key]) {
+        grpMap[key] = { key, label: parentLabel(it), rows: [] };
+        grpOrder.push(key);
+      }
+      grpMap[key].rows.push(it);
+    });
+    // Sort groups by item count DESC; items within group by name ASC
+    grpOrder.sort((a, b) => grpMap[b].rows.length - grpMap[a].rows.length);
+    let html = '';
+    grpOrder.forEach(key => {
+      const grp = grpMap[key];
+      grp.rows.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      html += '<h3 style="margin:16px 0 8px;font-size:14px">' + escapeHtml(grp.label) + ' (' + grp.rows.length + ' items)</h3>';
+      const trs = grp.rows.map((it, i) =>
+        '<tr data-key="' + escapeHtml(key) + '" data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.item_ref  || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.name      || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.category  || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(it.brand     || '—') + '</td>'
+          + '<td style="text-align:right;padding:6px 10px">' + repFmt$(effVal(it)) + '</td>'
+          + '</tr>'
+      ).join('');
+      html += '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:12px">'
+        + '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+        +   '<th style="text-align:left;padding:8px 10px">Ref</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Name</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Category</th>'
+        +   '<th style="text-align:left;padding:8px 10px">Brand</th>'
+        +   '<th style="text-align:right;padding:8px 10px">Effective value</th>'
+        + '</tr></thead>'
+        + '<tbody>' + trs + '</tbody>'
+        + '</table>';
+    });
+    container.innerHTML = html;
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const key = tr.dataset.key;
+        const idx = parseInt(tr.dataset.idx, 10);
+        const grp = grpMap[key];
+        if (!grp) return;
+        const it = grp.rows[idx];
+        if (!it) return;
+        const html = ''
+          + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+          +   '<div><strong style="color:var(--text)">Ref:</strong> '              + escapeHtml(it.item_ref        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Name:</strong> '             + escapeHtml(it.name            || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Category:</strong> '         + escapeHtml(it.category        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Brand:</strong> '            + escapeHtml(it.brand           || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Model:</strong> '            + escapeHtml(it.model_number    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Serial #:</strong> '         + escapeHtml(it.serial_number   || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Manufacturer:</strong> '     + escapeHtml(it.manufacturer    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Condition:</strong> '        + escapeHtml(it.condition       || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Quantity:</strong> '         + (it.quantity != null ? String(it.quantity) : '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Location/Container:</strong> '+ escapeHtml(parentLabel(it))  + '</div>'
+          +   '<div><strong style="color:var(--text)">Effective value:</strong> '  + repFmt$(effVal(it)) + '</div>'
+          +   (it.description ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(it.description) + '</div>' : '')
+          + '</div>';
+        onDrill({ title: escapeHtml(it.name || it.item_ref || 'Item'), html });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
