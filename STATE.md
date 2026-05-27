@@ -69,6 +69,55 @@ principles.
 
 ---
 
+## ✅ v.203 SHIPPED — Reports Redesign Drop 7 (FINAL): Family tab 7/7 LIVE (2026-05-26)
+
+> **Family tab is now 7 of 7 tiles LIVE.** Reports Redesign now hits
+> **41 of 41 implementable tiles LIVE.** Only `labs-trend` + `bp-trend`
+> remain "in design" pending the metric_index design conversation —
+> they were always carved out of the implementable scope.
+>
+> **Reports Redesign is COMPLETE.** What started as a v.197 foundation
+> (mig 147 + shared components + tab layout) wraps in 6 viewer drops:
+> v.198 Money (5 tiles) → v.199 Money (4 more) → v.200 Money trade-terminal (7) →
+> v.201 Health (6 net-new) → v.202 Household (11) + 2 deploy-gate test specs →
+> v.203 Family (7).
+>
+> Pure frontend; zero SQL; zero migrations.
+
+### What v.203 ships (7 new viewer blocks)
+
+1. **`emergency-info`** — Per-person emergency card grid. Reads `/api/v1/data/table?name=family_members` + per-member `/api/v1/family-snapshot/:id` in parallel. 4 cards (Family members / Members with active meds / Members with conditions / Members with emergency notes). Card-per-member layout with DOB+age / gender / active-meds list (count + first 3 names) / conditions list / emergency_notes (pre-wrap). Row click → drilldown with full member detail incl. medications, conditions, visits.
+
+2. **`family-snapshot`** — Whole-family rollup. Same per-member fetch as emergency-info. 4 cards (Total members / Total active medications / Total conditions / Visits this year). Single table — Name / Relationship / Age / Active meds / Conditions / Visits-this-year / Emergency-notes-badge. Sorted by `is_primary_user DESC` then `display_name ASC`. Same drilldown as emergency-info.
+
+3. **`member-detail`** — ONE tile with a member-switcher dropdown inside the viewer (per the locked spec — tile count stays stable regardless of family size). `defaultFilters` carries the selected member id (default = primary user, id 1). `renderBody` renders a `<select id="memberSwitcher">`; on change it mutates `currentViewerFilters` and calls `loadAndRenderViewer('member-detail')` to refetch for the new member. 4 cards reflecting selected member: Active meds / Conditions / Visits all-time / HSA payments YTD. Body shows identity block + meds/conditions/visits/HSA sub-tables + kids sub-list.
+
+4. **`kids-activities`** — Per-kid activity log. `/api/v1/kids/` + per-kid `/api/v1/kids/:id/activities` Promise.all. 4 cards (Total kids / Active activities / Distinct categories / Total monthly cost). Grouped per kid — `<h3>` heading with name + grade + age, then sub-table per kid: Activity / Category / Day / Time / Location / Cost-per-month / Season.
+
+5. **`kids-school`** — Per-kid school + health info. `/api/v1/kids/` only (school data denormalized on kids rows). 4 cards (Total kids / With grade / With teacher contact / With allergies on file). Card-per-kid with a content-area grid: Grade / School ID / Homeroom / Teacher / Allergies (amber when present) / Medications note / Emergency note (red when present, pre-wrap).
+
+6. **`care-team`** — Care contacts (medical/dental/vet/etc.). `/api/v1/settings/contacts` filtered by `contact_type` matching `/medical|dental|vet|provider|doctor|nurse|therapist/i`. 4 cards (Care contacts / Distinct specialties / With phone / With address). Table — Name / Specialty / Type / Phone / Email / Last contacted. Drill shows full contact incl. combined address.
+
+7. **`family-contacts`** — All non-care contacts (family/emergency/personal). Same fetch as care-team, inverted filter. 4 cards (Family contacts / Distinct contact types / With phone / With email). Table — Name / Type / Company / Phone / Email / Location (city, state).
+
+### Schema-safety gate
+
+Unchanged baseline. v.203 is pure frontend — zero SQL, zero migrations, zero backend changes.
+
+### Tests
+
+Per the every-other-deploy rule: v.202 ran FULL Playwright. **v.203 runs SMOKE ONLY via `-SkipE2E`.** v.204+ rotates back to full E2E. The two v.202 test gates (`trade-mount.spec.js` + `reports-viewers-smoke.spec.js`) will iterate the new viewers automatically on the next full-E2E run — no test-spec changes needed for v.203.
+
+Expected at deploy: smoke 9/9 ✅. The v.202 baseline of 117 E2E tests holds; the 7 new viewers get exercised by `reports-viewers-smoke` on the v.204+ full run.
+
+### What's still NOT done
+
+- **`labs-trend` + `bp-trend`** — still "Coming soon"; pending metric_index design conversation (Path Y was agreed: each report queries its own sources, refactor to abstraction when 3+ consumers exist).
+- **`portfolio-perf` "Top losers" header cosmetic** — still backlog.
+- **Inventory grouping enhancements** — v.204+ per BACKLOG.md.
+
+---
+
 ## ✅ v.202 DEPLOYED & VERIFIED — Reports Redesign Drop 6: Household tab 11/11 LIVE + 2 test gates (2026-05-26)
 
 > **NAS confirms `version=202605.202`** via `/api/v1/app/info` at
