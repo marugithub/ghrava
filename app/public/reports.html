@@ -4798,6 +4798,168 @@ window.REPORT_VIEWERS['kids-school'] = {
   },
 };
 
+window.REPORT_VIEWERS['care-team'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const CARE_TYPES = /medical|dental|vet|provider|doctor|nurse|therapist/i;
+    const r = await fetch('/api/v1/settings/contacts');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const all = await r.json();
+    const rows = (Array.isArray(all) ? all : []).filter(c => CARE_TYPES.test(c.contact_type || ''));
+    return { rows };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const specialties = new Set(rows.map(c => c.specialty).filter(Boolean));
+    const withPhone   = rows.filter(c => c.phone_primary || c.phone_secondary).length;
+    const withAddr    = rows.filter(c => c.address_street || c.address_city).length;
+    container.innerHTML = ''
+      + repSummaryCard('Care contacts',       String(rows.length))
+      + repSummaryCard('Distinct specialties', String(specialties.size))
+      + repSummaryCard('With phone',           String(withPhone))
+      + repSummaryCard('With address',         String(withAddr));
+  },
+  renderBody(container, data, filters, onDrill) {
+    const rows = data.rows || [];
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No care team contacts',
+        subtitle: 'Add medical/dental/vet contacts in Settings → Contacts.',
+      });
+      return;
+    }
+    const sorted = rows.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const tableRows = sorted.map((c, i) => {
+      const phone = c.phone_primary || c.phone_secondary || '—';
+      const lastCont = c.last_contacted ? escapeHtml(c.last_contacted) : '—';
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.name         || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.specialty    || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.contact_type || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(phone)                 + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.email        || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + lastCont                          + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Specialty</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Type</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Phone</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Email</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Last contacted</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const c = sorted[parseInt(tr.dataset.idx, 10)];
+        if (!c) return;
+        const addrParts = [c.address_street, c.address_city, c.address_state, c.address_zip].filter(Boolean);
+        const addr = addrParts.length ? escapeHtml(addrParts.join(', ')) : '—';
+        const html = ''
+          + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+          +   '<div><strong style="color:var(--text)">Name:</strong> '         + escapeHtml(c.name         || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Company:</strong> '      + escapeHtml(c.company      || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Type:</strong> '         + escapeHtml(c.contact_type || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Specialty:</strong> '    + escapeHtml(c.specialty    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Phone (primary):</strong> '   + escapeHtml(c.phone_primary   || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Phone (secondary):</strong> ' + escapeHtml(c.phone_secondary || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Email:</strong> '        + escapeHtml(c.email        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Address:</strong> '      + addr                              + '</div>'
+          +   '<div><strong style="color:var(--text)">Website:</strong> '      + escapeHtml(c.website      || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Last contacted:</strong> ' + escapeHtml(c.last_contacted || '—') + '</div>'
+          +   (c.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(c.notes) + '</div>' : '')
+          + '</div>';
+        onDrill({ title: escapeHtml(c.name || 'Contact'), html });
+      };
+    });
+  },
+};
+
+window.REPORT_VIEWERS['family-contacts'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const CARE_TYPES = /medical|dental|vet|provider|doctor|nurse|therapist/i;
+    const r = await fetch('/api/v1/settings/contacts');
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const all = await r.json();
+    const rows = (Array.isArray(all) ? all : []).filter(c => !CARE_TYPES.test(c.contact_type || ''));
+    return { rows };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const types     = new Set(rows.map(c => c.contact_type).filter(Boolean));
+    const withPhone = rows.filter(c => c.phone_primary || c.phone_secondary).length;
+    const withEmail = rows.filter(c => c.email).length;
+    container.innerHTML = ''
+      + repSummaryCard('Family contacts',     String(rows.length))
+      + repSummaryCard('Distinct types',      String(types.size))
+      + repSummaryCard('With phone',          String(withPhone))
+      + repSummaryCard('With email',          String(withEmail));
+  },
+  renderBody(container, data, filters, onDrill) {
+    const rows = data.rows || [];
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No family contacts',
+        subtitle: 'Add personal/emergency contacts in Settings → Contacts.',
+      });
+      return;
+    }
+    const sorted = rows.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+    const tableRows = sorted.map((c, i) => {
+      const phone    = c.phone_primary || c.phone_secondary || '—';
+      const location = [c.address_city, c.address_state].filter(Boolean).join(', ') || '—';
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.name         || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.contact_type || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.company      || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(phone)                 + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(c.email        || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(location)              + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Name</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Type</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Company</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Phone</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Email</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Location</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const c = sorted[parseInt(tr.dataset.idx, 10)];
+        if (!c) return;
+        const addrParts = [c.address_street, c.address_city, c.address_state, c.address_zip].filter(Boolean);
+        const addr = addrParts.length ? escapeHtml(addrParts.join(', ')) : '—';
+        const html = ''
+          + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+          +   '<div><strong style="color:var(--text)">Name:</strong> '         + escapeHtml(c.name         || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Company:</strong> '      + escapeHtml(c.company      || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Type:</strong> '         + escapeHtml(c.contact_type || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Specialty:</strong> '    + escapeHtml(c.specialty    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Phone (primary):</strong> '   + escapeHtml(c.phone_primary   || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Phone (secondary):</strong> ' + escapeHtml(c.phone_secondary || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Email:</strong> '        + escapeHtml(c.email        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Address:</strong> '      + addr                              + '</div>'
+          +   '<div><strong style="color:var(--text)">Website:</strong> '      + escapeHtml(c.website      || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Last contacted:</strong> ' + escapeHtml(c.last_contacted || '—') + '</div>'
+          +   (c.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(c.notes) + '</div>' : '')
+          + '</div>';
+        onDrill({ title: escapeHtml(c.name || 'Contact'), html });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
