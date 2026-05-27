@@ -3439,6 +3439,106 @@ window.REPORT_VIEWERS['subs-overview'] = {
   },
 };
 
+window.REPORT_VIEWERS['insurance-policies'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const [sumR, listR] = await Promise.all([
+      fetch('/api/v1/insurance/summary'),
+      fetch('/api/v1/insurance/'),
+    ]);
+    if (!sumR.ok)  throw new Error('summary HTTP ' + sumR.status);
+    if (!listR.ok) throw new Error('list HTTP ' + listR.status);
+    const summary = await sumR.json();
+    const policies = await listR.json();
+    return { summary, policies };
+  },
+  renderSummary(container, data) {
+    const s = data.summary || {};
+    const policies = data.policies || [];
+    const activeCount  = s.active != null ? s.active : policies.filter(p => p.status === 'active').length;
+    const annualPrem   = s.annual_premium != null ? s.annual_premium : 0;
+    const expiring60   = s.expiring_60d != null ? s.expiring_60d : 0;
+    const typeCount    = s.by_type ? s.by_type.length : 0;
+    container.innerHTML = ''
+      + repSummaryCard('Active policies',           String(activeCount))
+      + repSummaryCard('Annual premium',            repFmt$(annualPrem), 'var(--red,#dc2626)')
+      + repSummaryCard('Renewing within 60 days',   String(expiring60),  expiring60 > 0 ? 'var(--amber,#d97706)' : 'var(--green,#22c55e)')
+      + repSummaryCard('Policy types',              String(typeCount));
+  },
+  renderBody(container, data, filters, onDrill) {
+    const policies = data.policies || [];
+    if (!policies.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No active insurance policies',
+        subtitle: 'Add a policy in the Insurance module.',
+      });
+      return;
+    }
+    const today = new Date().toISOString().slice(0, 10);
+    const sorted = policies.slice().sort((a, b) => {
+      const da = a.coverage_end_date || '9999-99-99';
+      const db = b.coverage_end_date || '9999-99-99';
+      return da < db ? -1 : da > db ? 1 : 0;
+    });
+    const tableRows = sorted.map((pol, i) => {
+      const pastDue  = pol.coverage_end_date && pol.coverage_end_date < today;
+      const dateStyle = pastDue ? 'padding:6px 10px;color:var(--red,#dc2626)' : 'padding:6px 10px';
+      const rowBg     = pastDue
+        ? 'cursor:pointer;border-bottom:1px solid var(--border);background:rgba(220,38,38,.07)'
+        : 'cursor:pointer;border-bottom:1px solid var(--border)';
+      const providerName = pol.provider_name ? escapeHtml(pol.provider_name) : '—';
+      const coverage = pol.coverage_details
+        ? escapeHtml(pol.coverage_details)
+        : (pol.coverage_limit != null ? repFmt$(pol.coverage_limit) : '—');
+      return '<tr data-idx="' + i + '" style="' + rowBg + '">'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(pol.policy_type       || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                  + providerName                             + '</td>'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(pol.policy_number     || '—') + '</td>'
+        + '<td style="padding:6px 10px">'                  + coverage                                 + '</td>'
+        + '<td style="text-align:right;padding:6px 10px">' + repFmt$(pol.premium_amount)              + '</td>'
+        + '<td style="padding:6px 10px">'                  + escapeHtml(pol.premium_frequency || '—') + '</td>'
+        + '<td style="' + dateStyle + '">'                 + escapeHtml(pol.coverage_end_date || '—') + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Type</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Provider</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Policy #</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Coverage</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Premium</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Frequency</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Renewal date</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const pol = sorted[parseInt(tr.dataset.idx, 10)];
+        if (!pol) return;
+        const provName = pol.provider_name ? escapeHtml(pol.provider_name) : '—';
+        const html = ''
+          + '<div style="display:flex;flex-direction:column;gap:8px;font-size:12px">'
+          +   '<div><strong style="color:var(--text)">Type:</strong> '              + escapeHtml(pol.policy_type          || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Policy #:</strong> '          + escapeHtml(pol.policy_number        || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Provider:</strong> '          + provName                                    + '</div>'
+          +   '<div><strong style="color:var(--text)">Coverage start:</strong> '    + escapeHtml(pol.coverage_start_date  || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Coverage end:</strong> '      + escapeHtml(pol.coverage_end_date    || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Premium:</strong> '           + repFmt$(pol.premium_amount) + ' / ' + escapeHtml(pol.premium_frequency || '—') + '</div>'
+          +   '<div><strong style="color:var(--text)">Deductible:</strong> '        + (pol.deductible != null ? repFmt$(pol.deductible) : '—')     + '</div>'
+          +   '<div><strong style="color:var(--text)">Coverage limit:</strong> '    + (pol.coverage_limit != null ? repFmt$(pol.coverage_limit) : '—') + '</div>'
+          +   (pol.coverage_details ? '<div><strong style="color:var(--text)">Coverage details:</strong> ' + escapeHtml(pol.coverage_details) + '</div>' : '')
+          +   '<div><strong style="color:var(--text)">Status:</strong> '            + escapeHtml(pol.status               || '—') + '</div>'
+          +   (pol.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(pol.notes) + '</div>' : '')
+          +   '<div style="margin-top:10px"><a href="/insurance.html" style="color:var(--accent,#6366f1);font-size:12px;text-decoration:none">Open in Insurance module ↗</a></div>'
+          + '</div>';
+        onDrill({ title: escapeHtml(pol.policy_type || 'Policy') + (pol.policy_number ? ' – ' + escapeHtml(pol.policy_number) : ''), html });
+      };
+    });
+  },
+};
+
 // Small HTML-escape used by the viewers above.
 function escapeHtml(s) {
   return String(s == null ? '' : s)
