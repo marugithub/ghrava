@@ -69,7 +69,24 @@ principles.
 
 ---
 
-## ✅ v.205 SHIPPED — Inventory enhancements: 3 locked + sold workflow + warranty auto-suggest (2026-05-27)
+## ✅ v.205 DEPLOYED & VERIFIED — Inventory enhancements: 3 locked + sold workflow + warranty auto-suggest (2026-05-27)
+
+> **NAS confirms `version=202605.205`** via `/api/v1/app/info` at
+> 2026-05-27T13:32Z (uptime 213s post-restart). NAS realigned to
+> `origin/main` @ `517c680`. Smoke 9/9 ✅ (46.1s). E2E skipped via
+> `-SkipE2E` per the every-other rule (v.204 ran full Playwright;
+> v.206 rotates back to full).
+>
+> **All 5 features verified live on prod via curl:**
+> - `/warranty-suggestions?category=Electronics` → `{months:12, known:true}`; `?category=Beauty` → `{known:false, months:null}` ✅
+> - `/containers` list → all 3 containers carry `item_count`, `total_value`, `warranty_expiring_30d` (counts match prod data: Kitchen Box=2, Sorting bin=1, Toys Container=2)
+> - `/items/32` → `sibling_count: 1` (matches prod: item is in Toys Container which has 2 items total)
+> - `POST /items/9999/sell` → 404 (route exists and validates id; requireAuth gating works on real items)
+> - Fresh-log zero-error gate ✅
+>
+> **Build cycle ~75 min plan-to-deploy.** Five functional changes in
+> 6 tasks (plan + 2 backend + 3 frontend + docs). All first-round
+> approved; zero fix loops. Zero schema changes.
 
 > **Inventory module gains 5 functional improvements in one drop.** Zero
 > schema changes, zero migrations. All target columns (`items.sold_*`,
