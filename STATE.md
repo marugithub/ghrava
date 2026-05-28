@@ -69,7 +69,10 @@ principles.
 
 ---
 
-## ✅ v.207 SHIPPED — fix pending cert-renewal JOIN (silent bug) (2026-05-27)
+## ✅ v.207 DEPLOYED & VERIFIED — fix pending cert-renewal JOIN (silent bug) (2026-05-27)
+
+> NAS `version=202605.207` @ 2026-05-28T03:32Z; NAS git @ `b381620`. Smoke 9/9 ✅ (32s); E2E skipped (smoke-only per rotation; one-line backend fix). Fresh-log clean.
+
 
 > **One-line-class bug fix.** `pending/routes.js` `detectCertRenewals()`
 > was `JOIN certifications c` (the empty Excel-import legacy table) using
