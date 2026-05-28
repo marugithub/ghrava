@@ -429,8 +429,8 @@ const REPORT_TABS_V2 = {
         { slug:'procedures',      title:'Procedures record',     meta:'card per family member' },
       ]},
       { label: 'trends (in design)', tiles: [
-        { slug:'labs-trend',      title:'Labs trend',            meta:'in design — metric_index pending' },
-        { slug:'bp-trend',        title:'Blood pressure trend',  meta:'in design — metric_index pending' },
+        { slug:'labs-trend',      title:'Labs trend',            meta:'lab results over time' },
+        { slug:'bp-trend',        title:'Blood pressure trend',  meta:'systolic/diastolic over time' },
       ]},
     ],
   },
@@ -1102,8 +1102,8 @@ window.TILE_PREVIEWS = {
       rightTone: missing > 0 ? 'red' : '',
     });
   },
-  'labs-trend': (b) => repPreviewMeta('in design — metric_index pending'),
-  'bp-trend':   (b) => repPreviewMeta('in design — metric_index pending'),
+  'labs-trend': (b) => repPreviewMeta('lab results over time'),
+  'bp-trend':   (b) => repPreviewMeta('systolic/diastolic over time'),
 
   // ─── HOUSEHOLD ─────────────────────────────────────────────
   'property-summary': (b) => repPreviewMeta('homes, values, key dates'),
@@ -5605,6 +5605,244 @@ window.REPORT_VIEWERS['family-contacts'] = {
           +   (c.notes ? '<div style="margin-top:6px;padding:8px;background:var(--bg2);border-radius:4px;color:var(--text2)">' + escapeHtml(c.notes) + '</div>' : '')
           + '</div>';
         onDrill({ title: escapeHtml(c.name || 'Contact'), html });
+      };
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// HEALTH · Labs trend (v.208) — lab results over time
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['labs-trend'] = {
+  defaultFilters() { return [{ key: 'year', label: 'Year', value: repCurrentYear() }]; },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value;
+    const res = await fetch('/api/v1/medical/labs')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const all = Array.isArray(res) ? res : [];
+    const rows = year
+      ? all.filter(r => r.test_date && r.test_date.startsWith(year))
+      : all;
+    return { rows, year };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const totalResults   = rows.length;
+    const distinctTests  = new Set(rows.map(r => r.test_name).filter(Boolean)).size;
+    const latestDate     = rows[0] ? rows[0].test_date : '—';
+    const abnormalCount  = rows.filter(r => r.flag && !/^(normal|n)$/i.test(r.flag)).length;
+    const abnormalColor  = abnormalCount > 0 ? 'var(--red,#dc2626)' : 'inherit';
+    container.innerHTML = ''
+      + repSummaryCard('Total results',    String(totalResults))
+      + repSummaryCard('Distinct tests',   String(distinctTests))
+      + repSummaryCard('Latest result',    escapeHtml(latestDate || '—'))
+      + repSummaryCard('Abnormal flags',   String(abnormalCount), abnormalColor);
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const rows = data.rows || [];
+    const year = data.year;
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No lab results' + (year ? ' for ' + year : ''),
+        subtitle: 'Add lab results in the Medical module.',
+      });
+      return;
+    }
+    const tableRows = rows.map((r, i) => {
+      const resultVal = r.value_numeric != null
+        ? (r.value_numeric + (r.unit ? ' ' + r.unit : ''))
+        : (r.value_text || '—');
+      const refVal = r.reference_text
+        || (r.reference_low != null && r.reference_high != null
+            ? r.reference_low + '–' + r.reference_high : '—');
+      const flagColor = /high|^h$/i.test(r.flag || '') ? 'var(--red,#dc2626)'
+                      : /low|^l$/i.test(r.flag  || '') ? 'var(--amber,#f59e0b)'
+                      : 'var(--text3)';
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.test_date  || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.test_name  || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(resultVal)            + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(refVal)               + '</td>'
+        + '<td style="padding:6px 10px;color:' + flagColor + '">' + escapeHtml(r.flag || '—') + '</td>'
+        + '</tr>';
+    }).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Test</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Result</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Reference</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Flag</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const r = rows[parseInt(tr.dataset.idx, 10)];
+        if (!r) return;
+        const resultVal = r.value_numeric != null
+          ? (r.value_numeric + (r.unit ? ' ' + r.unit : ''))
+          : (r.value_text || '—');
+        const refVal = r.reference_text
+          || (r.reference_low != null && r.reference_high != null
+              ? r.reference_low + '–' + r.reference_high : '—');
+        onDrill({
+          title: escapeHtml(r.test_date || 'Lab result') + ' — ' + escapeHtml(r.test_name || '—'),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+            + '<tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Date</td><td style="padding:6px 10px">' + escapeHtml(r.test_date   || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Panel</td><td style="padding:6px 10px">'        + escapeHtml(r.panel_name  || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Test</td><td style="padding:6px 10px">'         + escapeHtml(r.test_name   || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Patient</td><td style="padding:6px 10px">'      + escapeHtml(r.patient     || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Result</td><td style="padding:6px 10px">'       + escapeHtml(resultVal)             + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Reference</td><td style="padding:6px 10px">'    + escapeHtml(refVal)                + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Flag</td><td style="padding:6px 10px">'         + escapeHtml(r.flag        || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Notes</td><td style="padding:6px 10px">'        + escapeHtml(r.notes       || '—') + '</td></tr>'
+            + '</tbody></table>',
+        });
+      };
+    });
+  },
+};
+
+// ═══════════════════════════════════════════════════════════════
+// HEALTH · BP trend (v.208) — systolic/diastolic over time
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['bp-trend'] = {
+  defaultFilters() { return [{ key: 'year', label: 'Year', value: repCurrentYear() }]; },
+  async fetch(filters) {
+    const year = (filters.find(f => f.key === 'year') || {}).value;
+    const res = await fetch('/api/v1/medical/vitals')
+      .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+    const all = Array.isArray(res) ? res : [];
+    const rows = year
+      ? all.filter(r => r.measure_date && r.measure_date.startsWith(year))
+      : all;
+    return { rows, year };
+  },
+  renderSummary(container, data) {
+    const rows = data.rows || [];
+    const totalReadings = rows.length;
+    const latestRow     = rows[0];
+    const latestBP      = latestRow && latestRow.systolic_bp != null && latestRow.diastolic_bp != null
+      ? latestRow.systolic_bp + '/' + latestRow.diastolic_bp
+      : '—';
+    const sysVals  = rows.map(r => r.systolic_bp).filter(v => v != null);
+    const diasVals = rows.map(r => r.diastolic_bp).filter(v => v != null);
+    const avgSys   = sysVals.length  ? Math.round(sysVals.reduce((a, b)  => a + b, 0) / sysVals.length)  : '—';
+    const avgDias  = diasVals.length ? Math.round(diasVals.reduce((a, b) => a + b, 0) / diasVals.length) : '—';
+    container.innerHTML = ''
+      + repSummaryCard('Total readings',  String(totalReadings))
+      + repSummaryCard('Latest BP',       String(latestBP))
+      + repSummaryCard('Avg systolic',    String(avgSys))
+      + repSummaryCard('Avg diastolic',   String(avgDias));
+  },
+  renderBody(container, data, _filters, onDrill) {
+    const rows = data.rows || [];
+    const year = data.year;
+    if (!rows.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title:    'No BP readings' + (year ? ' for ' + year : ''),
+        subtitle: 'Add vitals in the Medical module.',
+      });
+      return;
+    }
+    let html = '';
+
+    // ── Inline SVG dual-line chart (systolic + diastolic) ──────
+    const chartRows = rows.slice().reverse().filter(r => r.systolic_bp != null && r.diastolic_bp != null);
+    if (chartRows.length >= 2) {
+      const w = 800, h = 220, pad = 36;
+      const allVals = chartRows.flatMap(r => [r.systolic_bp, r.diastolic_bp]);
+      const minV = Math.min(...allVals);
+      const maxV = Math.max(...allVals);
+      const range = maxV - minV || 1;
+      const xStep = (w - pad * 2) / Math.max(1, chartRows.length - 1);
+      const yFn = v => h - pad - ((v - minV) / range) * (h - pad * 2);
+      const xFn = i => pad + i * xStep;
+      const sysPts  = chartRows.map((r, i) => xFn(i) + ',' + yFn(r.systolic_bp)).join(' ');
+      const diasPts = chartRows.map((r, i) => xFn(i) + ',' + yFn(r.diastolic_bp)).join(' ');
+
+      // Y-axis ticks (min / mid / max)
+      const yTicks = [maxV, (maxV + minV) / 2, minV];
+      let axisHtml = '';
+      for (const t of yTicks) {
+        axisHtml += '<text x="' + (pad - 6) + '" y="' + (yFn(t) + 4) + '" font-size="10" fill="var(--text3)" text-anchor="end">' + Math.round(t) + '</text>';
+        axisHtml += '<line x1="' + pad + '" y1="' + yFn(t) + '" x2="' + (w - pad) + '" y2="' + yFn(t) + '" stroke="var(--border)" stroke-width="0.5"/>';
+      }
+      // X-axis labels (first / middle / last)
+      const dateLabels = [chartRows[0], chartRows[Math.floor(chartRows.length / 2)], chartRows[chartRows.length - 1]];
+      let xLabels = '';
+      dateLabels.forEach((r, idx) => {
+        const xPos   = idx === 0 ? pad : idx === 1 ? w / 2 : w - pad;
+        const anchor = idx === 0 ? 'start' : idx === 1 ? 'middle' : 'end';
+        xLabels += '<text x="' + xPos + '" y="' + (h - 8) + '" font-size="10" fill="var(--text3)" text-anchor="' + anchor + '">' + (r.measure_date || '').slice(0, 10) + '</text>';
+      });
+
+      html += '<div style="background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:14px;margin-bottom:18px">'
+        + '<svg viewBox="0 0 ' + w + ' ' + h + '" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'
+        + axisHtml
+        + '<polyline fill="none" stroke="var(--red,#dc2626)"    stroke-width="2" points="' + sysPts  + '"/>'
+        + '<polyline fill="none" stroke="var(--accent,#3b82f6)" stroke-width="2" points="' + diasPts + '"/>'
+        + xLabels
+        + '</svg>'
+        + '<div style="font-size:11px;color:var(--text3);margin-top:6px;text-align:center">'
+        +   '<span style="color:var(--red,#dc2626)">&#9679;</span> Systolic&nbsp;&nbsp;'
+        +   '<span style="color:var(--accent,#3b82f6)">&#9679;</span> Diastolic'
+        + '</div>'
+        + '</div>';
+    }
+
+    // ── Readings table ──────────────────────────────────────────
+    const tableRows = rows.map((r, i) => {
+      return '<tr data-idx="' + i + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.measure_date          || '—') + '</td>'
+        + '<td style="padding:6px 10px">' + (r.systolic_bp  != null ? r.systolic_bp  : '—') + '</td>'
+        + '<td style="padding:6px 10px">' + (r.diastolic_bp != null ? r.diastolic_bp : '—') + '</td>'
+        + '<td style="padding:6px 10px">' + (r.heart_rate   != null ? r.heart_rate   : '—') + '</td>'
+        + '<td style="padding:6px 10px">' + (r.weight_lbs   != null ? r.weight_lbs   : '—') + '</td>'
+        + '<td style="padding:6px 10px">' + (r.blood_glucose != null ? r.blood_glucose : '—') + '</td>'
+        + '<td style="padding:6px 10px">' + escapeHtml(r.notes || '') + '</td>'
+        + '</tr>';
+    }).join('');
+    html += '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Date</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Systolic</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Diastolic</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Pulse</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Weight</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Glucose</th>'
+      +     '<th style="text-align:left;padding:8px 10px">Notes</th>'
+      +   '</tr></thead>'
+      +   '<tbody>' + tableRows + '</tbody>'
+      + '</table>';
+    container.innerHTML = html;
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const r = rows[parseInt(tr.dataset.idx, 10)];
+        if (!r) return;
+        onDrill({
+          title: escapeHtml(r.measure_date || 'Vitals') + (r.systolic_bp != null ? ' — ' + r.systolic_bp + '/' + r.diastolic_bp : ''),
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+            + '<tbody>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em;width:160px">Date</td><td style="padding:6px 10px">'         + escapeHtml(r.measure_date  || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Time</td><td style="padding:6px 10px">'                  + escapeHtml(r.measure_time  || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Patient</td><td style="padding:6px 10px">'              + escapeHtml(r.patient       || '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Systolic BP</td><td style="padding:6px 10px">'          + (r.systolic_bp    != null ? r.systolic_bp    : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Diastolic BP</td><td style="padding:6px 10px">'         + (r.diastolic_bp   != null ? r.diastolic_bp   : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Heart rate</td><td style="padding:6px 10px">'           + (r.heart_rate     != null ? r.heart_rate     : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Weight (lbs)</td><td style="padding:6px 10px">'         + (r.weight_lbs     != null ? r.weight_lbs     : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Height (in)</td><td style="padding:6px 10px">'          + (r.height_in      != null ? r.height_in      : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">BMI</td><td style="padding:6px 10px">'                  + (r.bmi            != null ? r.bmi            : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Temperature (°F)</td><td style="padding:6px 10px">'     + (r.temperature_f  != null ? r.temperature_f  : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">O2 sat (%)</td><td style="padding:6px 10px">'            + (r.o2_sat         != null ? r.o2_sat         : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Resp. rate</td><td style="padding:6px 10px">'            + (r.respiratory_rate != null ? r.respiratory_rate : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Blood glucose</td><td style="padding:6px 10px">'        + (r.blood_glucose  != null ? r.blood_glucose  : '—') + '</td></tr>'
+            + '<tr style="border-bottom:1px solid var(--border)"><td style="padding:6px 10px;color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">Notes</td><td style="padding:6px 10px">'                + escapeHtml(r.notes || '—') + '</td></tr>'
+            + '</tbody></table>',
+        });
       };
     });
   },
