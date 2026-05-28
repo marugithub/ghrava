@@ -69,6 +69,86 @@ principles.
 
 ---
 
+## ✅ v.206 SHIPPED — Schema tooling: prod-grounded SCHEMA.md + drift detection (2026-05-27)
+
+> **SCHEMA.md is now grounded in the live NAS container's actual
+> schema, not in migration replay.** `gen-schema-doc.py` gained a
+> `--prod` mode that queries the running container via SSH + docker
+> exec + node + better-sqlite3, then writes SCHEMA.md with prod as
+> canonical + a DRIFT section flagging any tables/columns where
+> migrations and prod disagree.
+>
+> **Tooling-only drop.** Zero app code changes, zero schema migrations,
+> zero new backend endpoints. The app surface is identical to v.205.
+> SCHEMA.md grew from 2607 lines (migration-replay only) to 3868 lines
+> (prod-grounded with DRIFT). 51 drift entries now documented inline.
+
+### What v.206 ships (3 functional changes across 4 tasks)
+
+1. **`gen-schema-doc.py` gains `--prod` mode.** New CLI flags:
+   `--prod` (bool), `--ssh-host`, `--ssh-key`, `--docker-path`,
+   `--container`, `--nas-app-mount`. When `--prod` is set, the script
+   drops a tiny better-sqlite3 dump script onto `Z:\ghrava\app\.tmp-schema-dump.js`,
+   execs it via `ssh + docker exec ghrava node /app/.tmp-schema-dump.js`,
+   parses the JSON output, and cleans up the tmp file. Falls back
+   gracefully to migration-replay-only if SSH is unreachable.
+
+2. **DRIFT detection.** New `diff_schemas()` compares migration-replay
+   output against prod query result. Returns lists of:
+   - Tables only on prod (46 found)
+   - Tables only in migrations (5 found)
+   - Columns only in prod (per-table)
+   - Columns only in migrations (per-table)
+
+3. **SCHEMA.md regenerated as prod-canonical.** When `--prod` is used,
+   the regenerated SCHEMA.md treats prod as authoritative:
+   - Summary section reports prod table count (165) + drift count (51)
+   - Top-of-file DRIFT sections list every mismatch with row counts and
+     suspected origin
+   - Per-table heading carries `[in:both | prod-only | migration-only]`
+     annotation
+   - Migration-only tables appear in a dedicated section at end of file
+
+### What this enables (and what's DEFERRED to v.207+)
+
+Per Al's "tooling-only, no drops yet" sign-off, v.206 explicitly does
+NOT drop any tables or columns. The newly-trustworthy SCHEMA.md is the
+foundation for cleanup in subsequent drops. See `BACKLOG.md` NEXT UP
+for the v.207+ candidate list:
+
+- **v.207 candidate:** DROP 20 mystery tables (Excel-import legacy,
+  all 0 rows, all 0 SQL refs after fixing pending/routes.js JOIN bug)
+- **v.207 candidate:** DROP 7 `_legacy_*` tables (Al approved; mig 126
+  unification preserves, no rollback needed)
+- **v.207 candidate:** Fix `pending/routes.js:357` `JOIN certifications`
+  → `JOIN career_certifications` (silent bug — cert-renewal pending
+  detection never fires; ships alongside the certifications-table drop)
+- **v.208 candidate:** ~38 dead columns from the prod-grounded audit —
+  re-verify each against the new SCHEMA.md before drop
+
+### Schema-safety gate
+
+Unchanged. v.206 is tooling-only. No new `db.prepare` SQL touching
+new columns. The regenerated SCHEMA.md IS the updated gate input —
+future schema validators read this prod-true version.
+
+### Tests
+
+Per the every-other-deploy rule: v.205 was smoke-only. **v.206 runs
+FULL Playwright** + smoke. Expected baseline 117/0 — nothing on the
+running app surface changed; tests should pass unchanged.
+
+### What's still NOT done
+
+- All cleanup items moved to v.207+ candidate list (see BACKLOG.md)
+- `labs-trend` + `bp-trend` — still pending metric_index conversation
+- `portfolio-perf` "Top losers" header — cosmetic backlog
+- Tile visual layer — Al said he'll work on visuals himself
+- Mini-PC migration — pending hardware
+- Medication HSA-YTD on card — parked product decision
+
+---
+
 ## ✅ v.205 DEPLOYED & VERIFIED — Inventory enhancements: 3 locked + sold workflow + warranty auto-suggest (2026-05-27)
 
 > **NAS confirms `version=202605.205`** via `/api/v1/app/info` at

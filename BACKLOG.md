@@ -1,5 +1,48 @@
 ## 🔝 NEXT UP — review first (top of BACKLOG on purpose)
 
+### 📋 QUEUED for v.207 — Schema cleanup pass 1 (table drops)
+
+Surfaced by the v.206 prod-grounded SCHEMA.md regen. All candidates
+verified against live prod via the new `--prod` mode.
+
+**Drop 20 mystery tables** (all 0 rows on prod, all 0 SQL refs in
+current code; originated from a one-time Excel master-sheet import
+that predates the current Ghrava migration system):
+
+```
+beneficiaries, ce_hours, certifications, credit_cards, doctor_visit_notes,
+estate_documents, federal_benefits, fers_inputs, gift_log, important_dates,
+insurance, loans_debt, medical_conditions, medications, qnap_share_paths,
+retirement_contributions, stock_price_history, stock_transactions,
+tax_documents, tsp_allocation
+```
+
+**Drop 7 _legacy_* preserve tables** (Al approved 2026-05-27; mig 126
+unification stable; no rollback needed):
+
+```
+_legacy_finance_accounts, _legacy_finance_transactions (76 rows),
+_legacy_financial_accounts, _legacy_holdings, _legacy_import_batches,
+_legacy_imported_transactions, _legacy_fin_import_batches
+```
+
+**Fix one silent bug found during the audit:** `pending/routes.js:357`
+does `JOIN certifications c` but the column patterns (`c.cert_name`,
+`c.renewal_fee`) match `career_certifications`, not the empty mystery
+`certifications` table. The cert-renewal pending detector silently
+returns zero hits. Change `JOIN certifications c` →
+`JOIN career_certifications c`. Restores intended functionality.
+
+Estimate: ~75 min total for v.207 (migration + bug fix + smoke deploy).
+
+### 📋 QUEUED for v.208 — Schema cleanup pass 2 (dead columns)
+
+After v.207 lands, re-run `--prod` to get the cleanest possible
+SCHEMA.md. Then audit the ~38 DEAD columns flagged in the v.206 audit
+(`docs/superpowers/plans/v206-prod-schema.json` and the prior Explore
+output). Drop those columns in v.208, deferring any TBD / LATENT /
+DUPE candidates for a per-row review session.
+
 ### ✅ SHIPPED in v.205 — Inventory grouping enhancements (3 locked + sold + warranty-suggest)
 
 Audited 2026-05-27 post-v.204. Al picked the "larger bundle" scope
