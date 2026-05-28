@@ -69,9 +69,9 @@ principles.
 
 ---
 
-## 🚀 v.208 — labs-trend + bp-trend viewers (Health tab 9/9 LIVE) (2026-05-28)
+## ✅ v.208 DEPLOYED & VERIFIED — labs-trend + bp-trend viewers (Health tab 9/9 LIVE) (2026-05-28)
 
-> _DEPLOYED marker pending — fill after NAS verify._
+> NAS `version=202605.208` @ 2026-05-28T14:04Z; NAS git @ `3a23a75`. Smoke 9/9 ✅ (1.0m) — incl. `reports-viewers-smoke` exercising both new viewer fetch URLs. Full E2E **116 passed / 0 failed** (6.3m; 1 flaky `Finance budget routes` ECONNRESET, passed on retry #1 — same transient as prior baselines). `/api/v1/medical/labs` + `/api/v1/medical/vitals` both **200** live (v.200.1 lesson: curl-verified post-deploy). Fresh-log clean. **New baseline: v.208 @ 3a23a75, smoke 9/9 + full E2E 116/0.** Reports Redesign now **43/43 implementable tiles LIVE**; Health tab COMPLETE 9/9.
 
 > **Wires the last 2 Health-tab report tiles.** `labs-trend` and
 > `bp-trend` were "in design — metric_index pending" placeholders.
