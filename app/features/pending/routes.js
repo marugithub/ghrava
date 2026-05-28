@@ -346,15 +346,17 @@ function detectCertRenewals(certId) {
   return db.prepare(`
     SELECT
       'certification'                                       AS source_module,
-      ('$' || ROUND(ABS(t.amount),2) || ' — renewal fee for ' || c.cert_name || '?') AS prompt,
+      ('$' || ROUND(ABS(t.amount),2) || ' — renewal fee for ' || c.name || '?') AS prompt,
       t.id                                                  AS transaction_id,
       t.description                                         AS tx_description,
       t.amount                                              AS tx_amount,
       t.date                                                AS tx_date,
       c.id                                                  AS suggested_record_id,
-      c.cert_name                                           AS suggested_label
+      c.name                                                AS suggested_label
+    -- v.207: was JOIN certifications (empty Excel-import legacy table); the
+    -- real cert data lives in career_certifications. schema: career_certifications(id, name, renewal_fee)
     FROM transactions t
-    JOIN certifications c
+    JOIN career_certifications c
       ON c.renewal_fee IS NOT NULL
      AND ABS(ABS(t.amount) - c.renewal_fee) < 1.00
     WHERE t.is_transfer = 0

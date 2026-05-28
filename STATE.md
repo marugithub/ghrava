@@ -69,7 +69,25 @@ principles.
 
 ---
 
-## ✅ v.206 DEPLOYED & VERIFIED — Schema tooling: prod-grounded SCHEMA.md + drift detection (2026-05-27)
+## ✅ v.207 SHIPPED — fix pending cert-renewal JOIN (silent bug) (2026-05-27)
+
+> **One-line-class bug fix.** `pending/routes.js` `detectCertRenewals()`
+> was `JOIN certifications c` (the empty Excel-import legacy table) using
+> `c.cert_name`. The real cert data lives in `career_certifications`
+> (6 rows, column is `name` not `cert_name`). Cert-renewal suggestions
+> in the Pending tab silently never fired. Fixed: JOIN → career_certifications,
+> `c.cert_name` → `c.name` (2 spots). No schema change.
+>
+> **Schema cleanup deliberately PAUSED** (not shipped). The v.206
+> prod-grounded SCHEMA.md already removed the "confusing lingering
+> tables" problem by documenting + drift-flagging everything. Per Al's
+> "empty ≠ dead, I build structure ahead of use" — the 20 Excel-import
+> tables are a coherent FERS/TSP/estate/investment planning set
+> (scaffolded, not abandoned), so no destructive drops without explicit
+> per-table confirmation. See `docs/superpowers/plans/2026-05-27-v207-schema-cleanup.md`
+> for the paused drop analysis + the FK-entanglement findings.
+
+
 
 > **NAS confirms `version=202605.206`** via `/api/v1/app/info` at
 > 2026-05-28T02:53Z (uptime 347s post-restart). NAS realigned to
