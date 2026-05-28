@@ -668,6 +668,99 @@ router.get('/items/:id/fetch-image', async (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// ── Manual photo upload (multi-file) ───────────────────────────
+// POST /api/v1/inventory/items/:id/photos   field: 'photos' (up to 10)
+// Mirrors fetchProductImage: sharp-resize into the attachments volume +
+// 400px thumb, then one attachments row per file. First photo becomes the
+// primary if the item has none yet.
+const uploadPhotoMem = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024, files: 10 } });
+router.post('/items/:id/photos', requireAuth, uploadPhotoMem.array('photos', 10), async (req, res) => {
+  try {
+    const itemId = parseInt(req.params.id);
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(itemId);
+    if (!item) return notFound(res, 'Item');
+    if (!req.files || !req.files.length) return badRequest(res, 'No photos uploaded');
+    ensureAttachDirs();
+    // schema: attachments.is_primary_photo (mig 001_initial.sql)
+    const hasPrimary = db.prepare(
+      'SELECT id FROM attachments WHERE entity_type=? AND entity_id=? AND is_primary_photo=1'
+    ).get('item', itemId);
+    const created = [];
+    for (let i = 0; i < req.files.length; i++) {
+      const f = req.files[i];
+      const slug = slugify((f.originalname || 'photo').replace(/\.[^.]*$/, ''));
+      const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+      let storedName = `inventory_${slug}_${date}.jpg`, n = 2;
+      while (fs.existsSync(`${ATT_BASE}/${storedName}`)) { storedName = `inventory_${slug}_${date}_${n}.jpg`; n++; }
+      const storedPath = `${ATT_BASE}/${storedName}`;
+      const thumbPath  = `${ATT_THUMB}/thumb_${storedName}`;
+      const uncPath    = `${UNC_BASE_INV}\\${storedName}`;
+      try {
+        if (sharp) {
+          await sharp(f.buffer).resize(800, 800, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(storedPath);
+          await sharp(f.buffer).resize(400, 400, { fit: 'cover', position: 'centre' }).jpeg({ quality: 80 }).toFile(thumbPath);
+        } else {
+          fs.writeFileSync(storedPath, f.buffer);
+          fs.writeFileSync(thumbPath, f.buffer);
+        }
+      } catch (e) { continue; }
+      const fileSize = fs.statSync(storedPath).size;
+      const makePrimary = (!hasPrimary && i === 0) ? 1 : 0;
+      // schema: attachments(entity_type,entity_id,module,label,original_filename,stored_filename,stored_path,unc_path,file_size,mime_type,is_image,is_primary_photo,thumb_path,notes) — mig 001_initial.sql
+      const info = db.prepare(`
+        INSERT INTO attachments
+          (entity_type, entity_id, module, label, original_filename, stored_filename,
+           stored_path, unc_path, file_size, mime_type, is_image, is_primary_photo,
+           thumb_path, notes)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      `).run('item', itemId, 'inventory', 'Photo', f.originalname || storedName, storedName,
+             storedPath, uncPath, fileSize, 'image/jpeg', 1, makePrimary, thumbPath, null);
+      created.push(info.lastInsertRowid);
+    }
+    if (!created.length) return serverError(res, new Error('No photos could be processed'));
+    res.status(201).json({ ok: true, uploaded: created.length, ids: created });
+  } catch (err) { serverError(res, err); }
+});
+
+// ── Document upload ────────────────────────────────────────────
+// POST /api/v1/inventory/items/:id/documents   field: 'document'
+router.post('/items/:id/documents', requireAuth, uploadDoc.single('document'), (req, res) => {
+  try {
+    const itemId = parseInt(req.params.id);
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(itemId);
+    if (!item) return notFound(res, 'Item');
+    if (!req.file) return badRequest(res, 'No document uploaded');
+    const f = req.file;
+    const uncPath = `\\\\soninas\\Backups\\MyAppAttachments\\inventory\\docs\\${itemId}\\${path.basename(f.path)}`;
+    // schema: attachments(...) — mig 001_initial.sql
+    const info = db.prepare(`
+      INSERT INTO attachments
+        (entity_type, entity_id, module, label, original_filename, stored_filename,
+         stored_path, unc_path, file_size, mime_type, is_image, is_primary_photo,
+         thumb_path, notes)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    `).run('item', itemId, 'inventory', (req.body && req.body.label) || 'Document',
+           f.originalname, path.basename(f.path), f.path, uncPath, f.size,
+           f.mimetype || 'application/octet-stream', 0, 0, null, null);
+    res.status(201).json({ ok: true, id: info.lastInsertRowid });
+  } catch (err) { serverError(res, err); }
+});
+
+// ── Delete an attachment (document or photo) from an item ──────
+// DELETE /api/v1/inventory/items/:id/documents/:docId
+router.delete('/items/:id/documents/:docId', requireAuth, (req, res) => {
+  try {
+    // schema: attachments.id/entity_type/entity_id (mig 001_initial.sql)
+    const a = db.prepare('SELECT * FROM attachments WHERE id=? AND entity_type=? AND entity_id=?')
+      .get(req.params.docId, 'item', req.params.id);
+    if (!a) return notFound(res, 'Attachment');
+    try { if (a.stored_path && fs.existsSync(a.stored_path)) fs.unlinkSync(a.stored_path); } catch {}
+    try { if (a.thumb_path && fs.existsSync(a.thumb_path)) fs.unlinkSync(a.thumb_path); } catch {}
+    db.prepare('DELETE FROM attachments WHERE id=?').run(req.params.docId);
+    res.json({ ok: true });
+  } catch (err) { serverError(res, err); }
+});
+
 // ── Backfill images for all items with UPC but no primary photo ─
 // POST /api/v1/inventory/items/backfill-images
 // Processes up to 50 items per call to avoid long-running requests.
