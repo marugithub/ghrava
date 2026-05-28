@@ -1085,6 +1085,16 @@
     </div>
     <div class="form-group"><label class="form-label">Serial Number</label><input class="form-input" id="itm_serial"></div>
 
+    <!-- Photos -->
+    <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border)">Photos</div>
+    <div class="form-group">
+      <label class="btn btn-ghost" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        <span id="newItemPhotoLabel">Add photos</span>
+        <input type="file" id="newItemPhotoInput" accept="image/*" multiple capture="environment" style="display:none">
+      </label>
+    </div>
+
     <!-- Purchase section -->
     <div style="font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);padding:12px 0 8px;border-top:1px solid var(--border);margin-top:4px">Purchase</div>
     <div class="form-row">
@@ -1243,7 +1253,14 @@
     </div>
 
     <div class="btn-row">
-      <button class="btn btn-ghost" onclick="$('itemDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-ghost" onclick="$('itemDrawer').classList.remove('open')" style="display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        Cancel
+      </button>
+      <button class="btn btn-ghost" id="itemAddAnother" title="Save and add another (keeps location/category)" style="display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+        Add
+      </button>
       <button class="btn btn-primary" id="itemSave" style="display:flex;align-items:center;justify-content:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Save
@@ -1434,6 +1451,7 @@ let showArchived = false;
 let editingId = null;
 let currentDetailId = null;
 let currentPhotos = [];
+let pendingItemPhotos = [];   // photos chosen during item entry; uploaded right after Save
 let viewerIdx = 0;
 let searchTimer;
 let itmFormTags = [];
@@ -2808,6 +2826,17 @@ $('photoInput').addEventListener('change', async e=>{
   e.target.value='';
 });
 
+// ── Photos staged during item entry (no id yet) — held until Save ──────
+(() => {
+  const npi = $('newItemPhotoInput');
+  if (!npi) return;
+  npi.addEventListener('change', e => {
+    pendingItemPhotos = Array.from(e.target.files || []);
+    const lbl = $('newItemPhotoLabel');
+    if (lbl) lbl.textContent = pendingItemPhotos.length ? `${pendingItemPhotos.length} photo(s) ready` : 'Add photos';
+  });
+})();
+
 async function delDoc(itemId, docId) {
   confirm('Delete document?','This cannot be undone.',async()=>{
     await apiDelete(`/inventory/items/${itemId}/documents/${docId}`);
@@ -3312,6 +3341,9 @@ async function openItemDrawer(item=null) {
   if (delBtn) { delBtn.style.display = item ? 'flex' : 'none'; }
   $('upc_input').value=''; $('upcFeedback').style.display='none';
   $('upc_input').dataset.manualUrl='';
+  pendingItemPhotos = [];
+  if ($('newItemPhotoLabel')) $('newItemPhotoLabel').textContent = 'Add photos';
+  if ($('newItemPhotoInput')) $('newItemPhotoInput').value = '';
   GH_FAMILY.init('itmFamilyWrap', []);
   $('itm_name').value=''; $('itm_qty').value=1;
   await populateCategoryDropdown('');
@@ -3533,12 +3565,14 @@ function confirmDeleteItem() {
   });
 }
 
-$('itemSave').addEventListener('click', async ()=>{
+async function doItemSave(addAnother){
+  const wasNew = !editingId;
   const name=$('itm_name').value.trim();
   const pt=$('itm_parent_type').value, pid=$('itm_parent_id').value;
   if(!name){toast('Name required','err');return;}
   if(!pt||!pid){toast('Pick a location first','err');return;}
-  const btn=$('itemSave'); btn.textContent='Saving…'; btn.disabled=true;
+  const btn = addAnother ? $('itemAddAnother') : $('itemSave');
+  const _origHTML = btn.innerHTML; btn.textContent='Saving…'; btn.disabled=true;
   try{
     const url=editingId?`/inventory/items/${editingId}`:`/inventory/items`;
     const method=editingId?'PUT':'POST';
@@ -3573,15 +3607,39 @@ $('itemSave').addEventListener('click', async ()=>{
     }
     // Attach manual PDF if found
     const manualUrl=$('upc_input').dataset.manualUrl;
-    if(manualUrl&&!editingId){
+    if(manualUrl&&wasNew){
       try{await apiPost(`/inventory/items/${saved.id}/attach-url`,{url:manualUrl,label:'Manual'});}catch{}
     }
-    $('itemDrawer').classList.remove('open');
-    toast(editingId?'Item updated':'Item added');
+    // Upload any photos staged during entry — item now has an id (mirrors the
+    // detail-drawer photo upload: same /items/:id/photos endpoint + 'photos' field)
+    if (pendingItemPhotos.length && saved.id) {
+      try {
+        const pfd = new FormData();
+        pendingItemPhotos.forEach(f => pfd.append('photos', f));
+        const pr = await fetch(`${API}/items/${saved.id}/photos`, { method:'POST', headers:{'Authorization':'Bearer '+LT.authToken}, body: pfd });
+        if (!pr.ok) throw new Error((await pr.json()).error||'Photo upload failed');
+        toast(`${pendingItemPhotos.length} photo(s) added`);
+      } catch(e) { toast('Item saved, but photos failed: '+e.message, 'err'); }
+      pendingItemPhotos = [];
+    }
+    toast(wasNew?'Item added':'Item updated');
     await loadStats(); renderBrowse();
+    if (addAnother) {
+      // Keep going: blank form, but carry the repeating context for fast batch entry
+      const sCat=$('itm_cat').value, sBiz=$('itm_is_business').checked;
+      await openItemDrawer();
+      if (sCat) await populateCategoryDropdown(sCat);
+      if (pt && pid) await initWherePicker(pt, +pid);
+      $('itm_is_business').checked = sBiz;
+      $('itm_name').focus();
+    } else {
+      $('itemDrawer').classList.remove('open');
+    }
   }catch(err){toast(err.message,'err');}
-  finally{btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg> Save';btn.disabled=false;}
-});
+  finally{btn.innerHTML=_origHTML;btn.disabled=false;}
+}
+$('itemSave').addEventListener('click', ()=>doItemSave(false));
+$('itemAddAnother').addEventListener('click', ()=>doItemSave(true));
 
 // ══════════════════════════════════════════════════════════════
 // ARCHIVE / SELL / UNARCHIVE
