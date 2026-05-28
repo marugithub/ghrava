@@ -705,7 +705,14 @@ These weren't in the seed JSON but Al needs them eventually.
 
 ---
 
-## 🛠 Reports engine — design needed before code
+## 🛠 Reports engine — metric_index abstraction (DEFERRED, not blocking)
+
+> **Update (v.208):** Path Y shipped — `labs-trend` + `bp-trend` query their
+> own sources (`/api/v1/medical/labs`, `/api/v1/medical/vitals`) directly.
+> Health tab is 9/9 LIVE. The `metric_index` view below is **no longer
+> blocking any tile** — it stays here as a future consolidation idea, to be
+> built only if/when 3+ report consumers need the unified vertical/horizontal
+> slice. Don't build it speculatively.
 
 Al wants to slice clinical + financial data both vertically (one metric over years) and horizontally (many metrics over a window).
 

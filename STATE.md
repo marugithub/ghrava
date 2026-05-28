@@ -69,6 +69,45 @@ principles.
 
 ---
 
+## 🚀 v.208 — labs-trend + bp-trend viewers (Health tab 9/9 LIVE) (2026-05-28)
+
+> _DEPLOYED marker pending — fill after NAS verify._
+
+> **Wires the last 2 Health-tab report tiles.** `labs-trend` and
+> `bp-trend` were "in design — metric_index pending" placeholders.
+> Now both are live viewers in `reports.html`, bringing the Health tab
+> to **9/9 LIVE** and Reports to **43/43 implementable tiles**.
+>
+> **Path Y (decided):** each report queries its own source directly —
+> NO metric_index abstraction. The parked "metric_index conversation"
+> is resolved by shipping the simpler direct-query path.
+>
+> - **`labs-trend`** — matches the `visits-history` viewer shape:
+>   year filter, 4 summary cards (Total results · Distinct tests ·
+>   Latest result · Abnormal flags), table (Date / Test / Result /
+>   Reference / Flag) with flag coloring (high=red, low=amber).
+>   Source: `GET /api/v1/medical/labs` (`med_lab_results`).
+> - **`bp-trend`** — matches `visits-history` table + reuses the
+>   `net-worth` inline-SVG line-chart idiom: dual polyline (systolic
+>   red / diastolic accent) over time + table (Date / Systolic /
+>   Diastolic / Pulse / Weight / Glucose / Notes). Chart only renders
+>   with ≥2 dual-value readings; degrades to table-only otherwise.
+>   Source: `GET /api/v1/medical/vitals` (`med_vitals_readings`).
+>
+> **Pure frontend.** Both endpoints already existed + verified live-200.
+> Both tables empty on prod now — viewers render data when present AND
+> degrade to clean year-aware empty states (empty ≠ broken).
+>
+> **No invented visual patterns** — both viewers reuse the established
+> report-viewer vocabulary (`repSummaryCard`, standard table styling,
+> the net-worth SVG idiom, year-filter, drilldown). Per the working
+> model, this is match-existing, not new design.
+>
+> Per the every-other-deploy rule: v.207 was smoke-only → **v.208 runs
+> FULL Playwright.** Plan: `docs/superpowers/plans/2026-05-28-v208-labs-bp-trend.md`.
+
+---
+
 ## ✅ v.207 DEPLOYED & VERIFIED — fix pending cert-renewal JOIN (silent bug) (2026-05-27)
 
 > NAS `version=202605.207` @ 2026-05-28T03:32Z; NAS git @ `b381620`. Smoke 9/9 ✅ (32s); E2E skipped (smoke-only per rotation; one-line backend fix). Fresh-log clean.

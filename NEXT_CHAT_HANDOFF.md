@@ -88,12 +88,11 @@ the full list):
    redesign). Blocks any medication-card asterisk work. Small build either
    way once decided.
 
-2. **Reports Group 2 (Health) — metric_index design.** Needs canonical metric
-   vocabulary, cross-module join model, default time windows per metric type.
-   ~30 min design conversation. Blocks the Lab Trends and BP Trends charts.
-   Path X (build metric_index abstraction) was rejected this session in favor
-   of Path Y (each report queries its own sources, refactor to abstraction
-   when 3+ consumers exist).
+2. **Reports Group 2 (Health) — metric_index design. ✅ RESOLVED (v.208).**
+   Path Y shipped: `labs-trend` queries `/api/v1/medical/labs` and `bp-trend`
+   queries `/api/v1/medical/vitals` directly — no metric_index abstraction.
+   Both Health tiles are now LIVE (Health tab 9/9). The metric_index view
+   stays a BACKLOG idea, to be built only if/when 3+ consumers need it.
 
 3. **Mini-PC migration target OS.** Debian 12 recommended in
    MIGRATION_TO_MICROPC.md. Final call when hardware shows up.
