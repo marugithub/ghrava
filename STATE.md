@@ -69,7 +69,17 @@ principles.
 
 ---
 
-## ✅ v.206 SHIPPED — Schema tooling: prod-grounded SCHEMA.md + drift detection (2026-05-27)
+## ✅ v.206 DEPLOYED & VERIFIED — Schema tooling: prod-grounded SCHEMA.md + drift detection (2026-05-27)
+
+> **NAS confirms `version=202605.206`** via `/api/v1/app/info` at
+> 2026-05-28T02:53Z (uptime 347s post-restart). NAS realigned to
+> `origin/main` @ `a97b4c9`. Per the every-other-deploy rule, this
+> deploy ran FULL Playwright: smoke 9/9 ✅ (29s); full E2E
+> **117 passed / 0 failed** (3.4m) — baseline restored / held.
+>
+> Tooling-only drop verified: app surface identical, container healthy,
+> no E2E regressions. The new `gen-schema-doc.py --prod` mode is now
+> available locally for any future schema audit.
 
 > **SCHEMA.md is now grounded in the live NAS container's actual
 > schema, not in migration replay.** `gen-schema-doc.py` gained a
