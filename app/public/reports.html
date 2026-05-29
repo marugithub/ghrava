@@ -399,6 +399,7 @@ const REPORT_TABS_V2 = {
       ]},
       { label: 'tax & receipts', tiles: [
         { slug:'hsa-fsa-irs',     title:'HSA & FSA — IRS ready', meta:'tax-export, current year' },
+        { slug:'donations',       title:'Donations — tax',       meta:'charitable donations by year, FMV' },
         { slug:'subs-renewals',   title:'Subscriptions renewals',meta:'next 90 days' },
       ]},
       { label: 'trade terminal', tiles: [
@@ -2849,6 +2850,85 @@ function makeSavedAILogViewer(reportType, kindLabel) {
 window.REPORT_VIEWERS['trade-research']  = makeSavedAILogViewer('AI Analysis',           'research');
 window.REPORT_VIEWERS['trade-rebalance'] = makeSavedAILogViewer('AI Rebalancing Advice', 'rebalancing');
 window.REPORT_VIEWERS['trade-tax-opt']   = makeSavedAILogViewer('AI Tax Optimization',   'tax-optimization');
+
+// ═══════════════════════════════════════════════════════════════
+// MONEY · Donations — tax (effect-dispatcher Slice 2, v.213)
+// PULL proof: sums the action ledger's `donate` verbs into a by-year
+// charitable-donation tax report. No running total is maintained — the
+// endpoint query IS the deductible number. Source:
+// /api/v1/actions/report/donations. Mirrors the hsa-spending viewer.
+// ═══════════════════════════════════════════════════════════════
+window.REPORT_VIEWERS['donations'] = {
+  defaultFilters() { return []; },
+  async fetch() {
+    const res = await fetch('/api/v1/actions/report/donations');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    // Group the flat donation rows by tax year (client-side roll-up).
+    const byYear = {};
+    (data.donations || []).forEach(d => {
+      const y = d.year || '—';
+      (byYear[y] = byYear[y] || { year: y, count: 0, total_fmv: 0, rows: [] });
+      byYear[y].count += 1;
+      byYear[y].total_fmv += (d.fmv || 0);
+      byYear[y].rows.push(d);
+    });
+    const years = Object.values(byYear).sort((a, b) => String(b.year).localeCompare(String(a.year)));
+    return { years, grand_total: data.total_fmv || 0, grand_count: data.count || 0 };
+  },
+  renderSummary(container, data) {
+    const curYear = String(repCurrentYear ? repCurrentYear() : new Date().getFullYear());
+    const thisYear = data.years.find(y => y.year === curYear);
+    container.innerHTML = ''
+      + repSummaryCard('Donations (all time)',   data.grand_count + (data.grand_count === 1 ? ' item' : ' items'))
+      + repSummaryCard('Deductible value (all)', repFmt$(data.grand_total))
+      + repSummaryCard(curYear + ' value',       repFmt$(thisYear ? thisYear.total_fmv : 0))
+      + repSummaryCard('Years',                  String(data.years.length));
+  },
+  renderBody(container, data, _filters, onDrill) {
+    if (!data.years.length) {
+      window.GH_REPORT_STATES.empty(container, {
+        title: 'No donations recorded yet.',
+        subtitle: 'Donate an item from its inventory detail to start the tax record.',
+      });
+      return;
+    }
+    const rows = data.years.map(y =>
+      '<tr data-year="' + y.year + '" style="cursor:pointer;border-bottom:1px solid var(--border)">'
+      + '<td style="padding:6px 10px">' + escapeHtml(y.year) + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + y.count + '</td>'
+      + '<td style="text-align:right;padding:6px 10px">' + repFmt$(y.total_fmv) + '</td>'
+      + '</tr>'
+    ).join('');
+    container.innerHTML = ''
+      + '<table style="width:100%;border-collapse:collapse;font-size:13px">'
+      +   '<thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em">'
+      +     '<th style="text-align:left;padding:8px 10px">Tax year</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Items</th>'
+      +     '<th style="text-align:right;padding:8px 10px">Deductible value</th>'
+      +   '</tr></thead><tbody>' + rows + '</tbody>'
+      + '</table>';
+    container.querySelectorAll('tbody tr').forEach(tr => {
+      tr.onclick = () => {
+        const y = data.years.find(x => String(x.year) === tr.dataset.year);
+        if (!y) return;
+        const dRows = y.rows.map(d =>
+          '<tr style="border-bottom:1px solid var(--border)">'
+          + '<td style="padding:6px 10px">' + escapeHtml(d.date || '—') + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(d.item_name || '—') + '</td>'
+          + '<td style="text-align:right;padding:6px 10px">' + (d.qty || 1) + '</td>'
+          + '<td style="text-align:right;padding:6px 10px">' + repFmt$(d.fmv) + '</td>'
+          + '<td style="padding:6px 10px">' + escapeHtml(d.note || '—') + '</td>'
+          + '</tr>'
+        ).join('');
+        onDrill({
+          title: y.year + ' Donations',
+          html: '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr style="border-bottom:1px solid var(--border);color:var(--text3);font-size:11px;text-transform:uppercase;letter-spacing:.04em"><th style="text-align:left;padding:8px 10px">Date</th><th style="text-align:left;padding:8px 10px">Item</th><th style="text-align:right;padding:8px 10px">Qty</th><th style="text-align:right;padding:8px 10px">FMV</th><th style="text-align:left;padding:8px 10px">Donated to</th></tr></thead><tbody>' + dRows + '</tbody></table>',
+        });
+      };
+    });
+  },
+};
 
 // ═══════════════════════════════════════════════════════════════
 // HEALTH · HSA spending — 5-year year-by-year breakdown (v.201)

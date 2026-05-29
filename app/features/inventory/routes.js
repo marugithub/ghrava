@@ -1271,6 +1271,7 @@ router.post('/items/:id/donate', requireAuth, (req, res) => {
       subjectId: id,
       payload: {
         qty,
+        date: d.date || null,              // donation date (tax year); report PULLs on this
         fmv: d.fmv != null && d.fmv !== '' ? parseFloat(d.fmv) : null,
         org_contact_id: d.org_contact_id || null,
         note: d.note || 'Donated',

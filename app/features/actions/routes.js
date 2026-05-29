@@ -47,6 +47,40 @@ router.get('/for/:type/:id', (req, res) => {
   } catch (e) { serverError(res, e); }
 });
 
+// GET /report/donations — PULL: the donations/tax report sums donate verbs
+// straight from the action ledger (reversed ones excluded). No running total
+// is maintained anywhere — this query IS the deductible number. Must be
+// declared BEFORE GET /:id or '/report' is captured as an :id.
+router.get('/report/donations', (req, res) => {
+  try {
+    // schema: actions(verb,subject_type,subject_id,payload,status,created_at) mig 146; items.name
+    const rows = db.prepare(`
+      SELECT a.id AS action_id, a.subject_id AS item_id, a.payload, a.created_at,
+             i.name AS item_name
+      FROM actions a
+      LEFT JOIN items i ON i.id = a.subject_id
+      WHERE a.verb = 'donate' AND a.subject_type = 'item' AND a.status != 'reversed'
+      ORDER BY a.created_at DESC
+    `).all();
+    const donations = rows.map(r => {
+      let p = {}; try { p = JSON.parse(r.payload || '{}'); } catch {}
+      const date = String(p.date || r.created_at || '').slice(0, 10);
+      return {
+        action_id: r.action_id,
+        item_id:   r.item_id,
+        item_name: r.item_name || '(item removed)',
+        date,
+        year:      date.slice(0, 4),
+        qty:       p.qty != null ? p.qty : 1,
+        fmv:       p.fmv != null ? p.fmv : null,
+        note:      p.note || null,
+      };
+    });
+    const total_fmv = donations.reduce((s, d) => s + (d.fmv || 0), 0);
+    res.json({ count: donations.length, total_fmv, donations });
+  } catch (e) { serverError(res, e); }
+});
+
 // GET /:id — one action with its effects
 router.get('/:id', (req, res) => {
   try {
