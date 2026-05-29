@@ -1336,6 +1336,30 @@
   </div>
 </div>
 
+<!-- ══ DONATE DRAWER ════════════════════════════════════════ -->
+<!-- Mirrors the Sell drawer. Donate runs through the effect dispatcher
+     (POST /inventory/items/:id/donate) so it is reversible from history. -->
+<div class="drawer-overlay" id="donateDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Donate Item</div>
+    <input type="hidden" id="donate_item_id">
+    <div class="sell-section">
+      <div style="font-size:13px;color:var(--green);margin-bottom:4px">Quantity is reduced; the item is archived when it reaches zero. Reversible from history.</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quantity</label><input class="form-input" type="number" id="donate_qty" min="1" step="1" value="1"></div>
+      <div class="form-group"><label class="form-label">Fair Market Value $</label><input class="form-input" type="number" id="donate_fmv" step="0.01" placeholder="for tax record"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Donated To</label><input class="form-input" id="donate_to" placeholder="e.g. Goodwill, Salvation Army"></div>
+    <div id="donate_err" style="display:none;font-size:13px;color:var(--red);margin-bottom:8px"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('donateDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="donateSave">Donate</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ ARCHIVE DRAWER ══════════════════════════════════════ -->
 <div class="drawer-overlay" id="archiveDrawer">
   <div class="drawer">
@@ -1638,7 +1662,7 @@ function setModeFilter(mode) {
 }
 const CTN_ICONS = { movable:'📦', fixed:'🗄️', shelf:'📚', drawer:'🗃️', closet:'🚪', other:'📦' };
 const MAINT_COLORS = { repair:'#ef4444', service:'#5c72fa', inspection:'#f59e0b', cleaning:'#22c55e', upgrade:'#a78bfa', replacement:'#f97316', other:'#64748b' };
-const EVENT_COLORS = { created:'#22c55e', moved:'#5c72fa', field_updated:'#94a3b8', photo_added:'#a78bfa', photo_removed:'#ef4444', document_added:'#f59e0b', archived:'#f97316', unarchived:'#22c55e', sold:'#10b981', quantity_changed:'#5c72fa', maintenance_logged:'#f59e0b', condition_changed:'#ec4899' };
+const EVENT_COLORS = { created:'#22c55e', moved:'#5c72fa', field_updated:'#94a3b8', photo_added:'#a78bfa', photo_removed:'#ef4444', document_added:'#f59e0b', archived:'#f97316', unarchived:'#22c55e', sold:'#10b981', quantity_changed:'#5c72fa', maintenance_logged:'#f59e0b', condition_changed:'#ec4899', donated:'#14b8a6', consumed:'#f59e0b' };
 
 function catCfg(cat) { return CAT_CONFIG[cat] || CAT_CONFIG.Other; }
 
@@ -2706,9 +2730,10 @@ async function openDetail(id) {
       </div>
     </div>
 
-    <!-- Sell action — archive/close moved to header icons -->
+    <!-- Disposition actions — archive/close moved to header icons -->
     <div class="btn-row" style="margin-top:12px">
       ${!isArchived ? `<button class="btn btn-ghost" onclick="openSell(${id})">Mark as Sold</button>` : ''}
+      ${!isArchived ? `<button class="btn btn-ghost" onclick="openDonate(${id})">Donate</button>` : ''}
     </div>
   `;
 
@@ -3688,6 +3713,35 @@ $('sellSave').addEventListener('click', async ()=>{
   } catch(e) {
     $('sell_err').textContent = e.message || 'Error saving. Please try again.';
     $('sell_err').style.display='block';
+  }
+});
+
+// Donate — mirrors Sell, but routes through the effect dispatcher so the
+// action is recorded to the ledger and reversible (POST .../donate).
+function openDonate(id) {
+  $('donate_item_id').value=id;
+  $('donate_qty').value='1';
+  $('donate_fmv').value=''; $('donate_to').value='';
+  $('donate_err').style.display='none'; $('donate_err').textContent='';
+  $('detailDrawer').classList.remove('open');
+  $('donateDrawer').classList.add('open');
+}
+
+$('donateSave').addEventListener('click', async ()=>{
+  const id=$('donate_item_id').value;
+  const qty=parseInt($('donate_qty').value,10);
+  if (!qty || qty<1) { $('donate_err').textContent='Quantity must be at least 1.'; $('donate_err').style.display='block'; return; }
+  try {
+    await window.api('POST', `/inventory/items/${id}/donate`, {
+      qty,
+      fmv:$('donate_fmv').value?parseFloat($('donate_fmv').value):null,
+      note:$('donate_to').value||null
+    });
+    $('donateDrawer').classList.remove('open');
+    toast('Item donated'); await loadStats(); renderBrowse();
+  } catch(e) {
+    $('donate_err').textContent = e.message || 'Error saving. Please try again.';
+    $('donate_err').style.display='block';
   }
 });
 
