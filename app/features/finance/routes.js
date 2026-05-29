@@ -941,13 +941,18 @@ router.post('/transactions', (req, res) => {
     const yearFromNow = new Date(); yearFromNow.setFullYear(yearFromNow.getFullYear() + 1);
     const needsReview = dDate > yearFromNow ? 1 : 0;
 
+    // Auto-categorize when the user didn't pick a category — same rules the
+    // import path applies (v.216: manual entry was the only path that skipped
+    // them). Explicit d.category always wins; applyCategoryRules is a hoisted
+    // function declaration so it's callable here.
+    const category = d.category || applyCategoryRules(d.description) || null;
     const r = db.prepare(`
       INSERT INTO transactions
         (account_id, date, description, amount, category, notes, is_reconciled, source, needs_review)
       VALUES (?,?,?,?,?,?,?,'manual',?)
     `).run(
       d.account_id, d.date, d.description,
-      amt, d.category || null, d.notes || null,
+      amt, category, d.notes || null,
       d.is_reconciled ? 1 : 0,
       needsReview
     );
