@@ -13,6 +13,7 @@ const { saveFamilyMembers, getFamilyMembers, withFamilyMembers } = require('../.
 const { runDataCleanup } = require('../../shared/data-cleanup');
 const { requireAuth } = require('../auth/middleware');
 const { logEvent, getEvents } = require('../../shared/auditLog');
+const { applyVerb } = require('../../shared/effects/dispatch');
 const QRCode   = require('qrcode');
 const multer   = require('multer');
 const path     = require('path');
@@ -1247,6 +1248,38 @@ router.post('/items/:id/sell', requireAuth, (req, res) => {
     if (info.changes === 0) return notFound(res, 'Item');
     const updated = db.prepare('SELECT * FROM items WHERE id=?').get(req.params.id);
     res.json(updated);
+  } catch (err) { serverError(res, err); }
+});
+
+// v.211 — Donate n units via the EFFECT DISPATCHER (action grammar slice 1).
+// Unlike Sell (a direct UPDATE), Donate runs through applyVerb so it is
+// recorded to the action ledger and is reversible. Decrements quantity,
+// records user-entered FMV (tax report sums it), archives when stock hits
+// zero. Mirrors the Sell action's shape; sibling disposition verb.
+router.post('/items/:id/donate', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    const id = parseInt(req.params.id, 10);
+    const qty = d.qty != null && d.qty !== '' ? parseInt(d.qty, 10) : 1;
+    if (!Number.isInteger(qty) || qty <= 0) return badRequest(res, 'qty must be a positive integer');
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(id);
+    if (!item) return notFound(res, 'Item');
+
+    const result = applyVerb({
+      verb: 'donate',
+      subjectType: 'item',
+      subjectId: id,
+      payload: {
+        qty,
+        fmv: d.fmv != null && d.fmv !== '' ? parseFloat(d.fmv) : null,
+        org_contact_id: d.org_contact_id || null,
+        note: d.note || 'Donated',
+      },
+      actor: 'user',
+    });
+
+    const updated = db.prepare('SELECT * FROM items WHERE id=?').get(id);
+    res.json({ action: result, item: updated });
   } catch (err) { serverError(res, err); }
 });
 

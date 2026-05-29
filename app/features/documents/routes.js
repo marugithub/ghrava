@@ -95,7 +95,7 @@ router.get('/:id', (req, res) => {
   try {
     const doc = db.prepare('SELECT * FROM documents WHERE id=?').get(req.params.id);
     if (!doc) return notFound(res, 'Document');
-    res.json(withTags(doc));
+    res.json(withTagNames(doc, 'document'));
   } catch (e) { serverError(res, e); }
 });
 
@@ -117,7 +117,7 @@ router.post('/', requireAuth, (req, res) => {
     const newId = r.lastInsertRowid;
     if (d.tags && d.tags.length) saveTagsByName(newId, 'document', d.tags);
     if (d.family_member_ids !== undefined) saveFamilyMembers(newId, 'document', d.family_member_ids);
-    res.status(201).json(withTagNames(db.prepare('SELECT * FROM documents WHERE id=?', 'document').get(newId)));
+    res.status(201).json(withTagNames(db.prepare('SELECT * FROM documents WHERE id=?').get(newId), 'document'));
   } catch (e) { serverError(res, e); }
 });
 
