@@ -156,10 +156,14 @@ Existing `auto-link-*.js` stay AS-IS for now (they work). Later they become auto
    `POST /:id/discard` (reversible). **Verified live:** validator 681/exit 0; 14/14 live-tests
    (donate regression + items discard/consume + perfume status archive↔active + book
    is_active/physical_status archive↔restore); full E2E 117/0. Proves the `(entity_type, id)` design.
-   - **NOTE:** the auto-linker→verb cutover (original Slice 4 idea) is DEFERRED — it rewires
-     finance import (crown-jewel path) and hits a nested-transaction landmine (`applyVerb` opens a
-     txn; import already runs in one). Do it as its OWN verified deploy, making applyVerb
-     transaction-aware first. Not batched.
+   - **NOTE — auto-linker→verb cutover: DECIDED AGAINST 2026-05-29 (Al).** Not deferred — we chose
+     NOT to do it. On reading the code: the auto-linkers are HIGH-VOLUME passive inference (fire on
+     every txn of every import), already idempotent + reviewable. Routing them through the per-action
+     ledger would (a) FLOOD the ledger and bury real user actions, (b) risk finance import (the
+     crown-jewel path + nested-txn landmine), (c) for little gain — the per-domain matching logic
+     still has to live somewhere. The action ledger is for DELIBERATE user actions; passive auto-
+     inference is a different job. **Leave the auto-linkers as-is.** If user-initiated cross-domain
+     linking is ever wanted, add a manual `link`/`unlink` verb (safe, no import touch) — but not now.
 
 ## 8. DECISIONS — RESOLVED with Al 2026-05-29
 
