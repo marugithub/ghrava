@@ -620,10 +620,12 @@ async function fetchProductImage(itemId) {
   try {
     if (sharp) {
       await sharp(imgBuffer)
+        .rotate()
         .resize(800, 800, { fit: 'inside', withoutEnlargement: true })
         .jpeg({ quality: 85 })
         .toFile(storedPath);
       await sharp(imgBuffer)
+        .rotate()
         .resize(400, 400, { fit: 'cover', position: 'centre' })
         .jpeg({ quality: 80 })
         .toFile(thumbPath);
@@ -698,8 +700,10 @@ router.post('/items/:id/photos', requireAuth, uploadPhotoMem.array('photos', 10)
       const uncPath    = `${UNC_BASE_INV}\\${storedName}`;
       try {
         if (sharp) {
-          await sharp(f.buffer).resize(800, 800, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(storedPath);
-          await sharp(f.buffer).resize(400, 400, { fit: 'cover', position: 'centre' }).jpeg({ quality: 80 }).toFile(thumbPath);
+          // .rotate() with no args = auto-orient from EXIF, then strip the
+          // orientation tag — without it, portrait phone photos save sideways.
+          await sharp(f.buffer).rotate().resize(800, 800, { fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 85 }).toFile(storedPath);
+          await sharp(f.buffer).rotate().resize(400, 400, { fit: 'cover', position: 'centre' }).jpeg({ quality: 80 }).toFile(thumbPath);
         } else {
           fs.writeFileSync(storedPath, f.buffer);
           fs.writeFileSync(thumbPath, f.buffer);

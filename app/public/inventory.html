@@ -1261,6 +1261,10 @@
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
         Add
       </button>
+      <button class="btn btn-ghost" id="itemNew" title="Save and start a new blank entry (e.g. next barcode)" style="display:flex;align-items:center;justify-content:center;gap:6px">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        New
+      </button>
       <button class="btn btn-primary" id="itemSave" style="display:flex;align-items:center;justify-content:center;gap:6px">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
         Save
@@ -3639,13 +3643,16 @@ function confirmDeleteItem() {
   });
 }
 
-async function doItemSave(addAnother){
+// mode: 'save' (save + close) | 'add' (save + blank, keep location/category for
+// batch) | 'new' (save + fully blank entry, e.g. next barcode scan).
+async function doItemSave(mode){
+  mode = mode || 'save';
   const wasNew = !editingId;
   const name=$('itm_name').value.trim();
   const pt=$('itm_parent_type').value, pid=$('itm_parent_id').value;
   if(!name){toast('Name required','err');return;}
   if(!pt||!pid){toast('Pick a location first','err');return;}
-  const btn = addAnother ? $('itemAddAnother') : $('itemSave');
+  const btn = mode==='add' ? $('itemAddAnother') : mode==='new' ? $('itemNew') : $('itemSave');
   const _origHTML = btn.innerHTML; btn.textContent='Saving…'; btn.disabled=true;
   try{
     const url=editingId?`/inventory/items/${editingId}`:`/inventory/items`;
@@ -3698,13 +3705,19 @@ async function doItemSave(addAnother){
     }
     toast(wasNew?'Item added':'Item updated');
     await loadStats(); renderBrowse();
-    if (addAnother) {
-      // Keep going: blank form, but carry the repeating context for fast batch entry
+    if (mode === 'add') {
+      // Save & Add another: blank form, carry the repeating context (location/
+      // category/business) for fast batch entry.
       const sCat=$('itm_cat').value, sBiz=$('itm_is_business').checked;
       await openItemDrawer();
       if (sCat) await populateCategoryDropdown(sCat);
       if (pt && pid) await initWherePicker(pt, +pid);
       $('itm_is_business').checked = sBiz;
+      $('itm_name').focus();
+    } else if (mode === 'new') {
+      // Save & New: fully blank entry (no carried context) — ready for the next
+      // item or barcode scan. Does not auto-launch the camera scanner.
+      await openItemDrawer();
       $('itm_name').focus();
     } else {
       $('itemDrawer').classList.remove('open');
@@ -3712,8 +3725,9 @@ async function doItemSave(addAnother){
   }catch(err){toast(err.message,'err');}
   finally{btn.innerHTML=_origHTML;btn.disabled=false;}
 }
-$('itemSave').addEventListener('click', ()=>doItemSave(false));
-$('itemAddAnother').addEventListener('click', ()=>doItemSave(true));
+$('itemSave').addEventListener('click', ()=>doItemSave('save'));
+$('itemAddAnother').addEventListener('click', ()=>doItemSave('add'));
+$('itemNew').addEventListener('click', ()=>doItemSave('new'));
 
 // ══════════════════════════════════════════════════════════════
 // ARCHIVE / SELL / UNARCHIVE
