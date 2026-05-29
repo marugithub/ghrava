@@ -147,10 +147,19 @@ Existing `auto-link-*.js` stay AS-IS for now (they work). Later they become auto
    tax year. **Verified live:** validator 681/exit 0; PULL test (donate→appears under 2026 @ $25 →
    reverse→drops out→baseline); smoke 9/9 incl. reports-viewers-smoke. **PULL proven: no running
    total maintained — the query IS the deductible number.**
-3. **Slice 3 — generalize:** add `discard`; make the dispatcher key on `(entity_type,id)` so
-   perfume/books can use it.
-4. **Slice 4 — migrate a linker:** reframe ONE existing auto-linker (e.g. subscriptions) as an
-   auto-fired verb, proving the unification path. Only after 1-3 are solid.
+3. **Slice 3 — discard + complete the inventory disposition UI:** ✅ **SHIPPED v.214
+   (202605.214 @ b23a8c1).** `discard` verb; inventory `POST /items/:id/discard` + `/consume`;
+   detail gains Discard + Use buttons (family now Sell/Donate/Use/Discard, all reversible).
+4. **Slice 4 — generalize across entity types:** ✅ **SHIPPED v.214 (with Slice 3).** primitives
+   refactored to a per-entity `ENTITY` config (qty col, archive column-set, event-log support);
+   one generic `discard` verb now serves item/book/perfume; perfume + books get
+   `POST /:id/discard` (reversible). **Verified live:** validator 681/exit 0; 14/14 live-tests
+   (donate regression + items discard/consume + perfume status archive↔active + book
+   is_active/physical_status archive↔restore); full E2E 117/0. Proves the `(entity_type, id)` design.
+   - **NOTE:** the auto-linker→verb cutover (original Slice 4 idea) is DEFERRED — it rewires
+     finance import (crown-jewel path) and hits a nested-transaction landmine (`applyVerb` opens a
+     txn; import already runs in one). Do it as its OWN verified deploy, making applyVerb
+     transaction-aware first. Not batched.
 
 ## 8. DECISIONS — RESOLVED with Al 2026-05-29
 

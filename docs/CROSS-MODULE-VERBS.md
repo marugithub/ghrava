@@ -92,8 +92,13 @@ The four disposition verbs on `items` (serve inventory + wardrobe; dispatcher ge
 |---|------|--------|---------|-------------|--------|
 | 1 | `sell` | income/txn + archive | inventory → finance | — | ✅ built (direct UPDATE) |
 | 2 | `donate` | qty↓/archive-on-zero + record FMV (tax PULLs it) | inventory/wardrobe → finance/tax | auto* | ✅ **SHIPPED v.211** via dispatcher |
-| 3 | `consume(n)` | qty↓ N + archive-on-zero + log | inventory → (maintenance later) | auto | ✅ verb live (no UI yet) |
-| 4 | `discard` | qty↓/archive + reason | inventory | auto | ○ proposed |
+| 3 | `consume(n)` | qty↓ N + archive-on-zero + log | inventory → (maintenance later) | auto | ✅ **SHIPPED v.214** (Use button) |
+| 4 | `discard` | qty↓/archive + reason; GENERIC across item/book/perfume | inventory/wardrobe/books/perfume | auto | ✅ **SHIPPED v.214** |
+
+**Generalization (v.214):** the dispatcher now keys on `(entity_type, id)` via a per-entity
+`ENTITY` config — `discard` works on items (is_archived), books (is_active+physical_status),
+perfumes (status), all reversible. `POST /api/v1/{perfume,books}/:id/discard` live. Auto-linker→verb
+unification still pending (finance/nested-txn risk — its own deploy).
 
 *donate FMV is user-entered → auto (not review). Review gate reserved for system-inferred
 values / cross-module money pushes per D2. Donate UI (mirror Sell) still pending; endpoint
