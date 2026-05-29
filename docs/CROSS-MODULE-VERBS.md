@@ -90,10 +90,14 @@ The four disposition verbs on `items` (serve inventory + wardrobe; dispatcher ge
 
 | # | Verb | Effect | Modules | Auto/review | Status |
 |---|------|--------|---------|-------------|--------|
-| 1 | `sell` | income/txn + archive | inventory → finance | — | ✅ built |
-| 2 | `donate` | qty↓/archive + accrue FMV → tax | inventory/wardrobe → finance/tax | review | ◑ columns exist, no effect |
-| 3 | `consume(n)` | qty↓ N + log event | inventory → (maintenance later) | auto | ○ proposed |
+| 1 | `sell` | income/txn + archive | inventory → finance | — | ✅ built (direct UPDATE) |
+| 2 | `donate` | qty↓/archive-on-zero + record FMV (tax PULLs it) | inventory/wardrobe → finance/tax | auto* | ✅ **SHIPPED v.211** via dispatcher |
+| 3 | `consume(n)` | qty↓ N + archive-on-zero + log | inventory → (maintenance later) | auto | ✅ verb live (no UI yet) |
 | 4 | `discard` | qty↓/archive + reason | inventory | auto | ○ proposed |
+
+*donate FMV is user-entered → auto (not review). Review gate reserved for system-inferred
+values / cross-module money pushes per D2. Donate UI (mirror Sell) still pending; endpoint
+`POST /api/v1/inventory/items/:id/donate` is live + HTTP-tested. Undo via `/api/v1/actions/:id/reverse`.
 
 **Parked (real, not core yet):** acquire→expense, insurance scheduled-property manifest,
 all read-only "surfacing" (handled by reports/autoTodos), maintenance→parts auto-fire
@@ -105,10 +109,10 @@ all read-only "surfacing" (handled by reports/autoTodos), maintenance→parts au
 
 | Sev | Module | Issue |
 |---|---|---|
-| HIGH | property | `property_maintenance` routes defined AFTER `module.exports` (305-382) — verify they register |
-| HIGH | documents | `routes.js:98` calls undefined `withTags(doc)`; `:120` stray arg to db.prepare |
-| MED | hsa | `auto-link-hsa.js:37-38` SELECTs `hsa_payments.family_member_id` — column may not exist |
-| MED | books | duplicate `fetch-cover`/`ensureBookDirs`/`downloadBuffer` defs; 2nd handler dead code |
+| FALSE-POS | property | routes after `module.exports` — REVERIFIED not a bug: export is a reference + require is synchronous, so routes register. Style smell only (move export to EOF). |
+| ~~HIGH~~ FIXED v.211 | documents | `routes.js:98` undefined `withTags` (GET /:id → 500) + `:120` stray arg — **fixed, verified GET /documents/11 → 200** |
+| FALSE-POS | hsa | `auto-link-hsa.js` `hsa_payments.family_member_id` — REVERIFIED column exists (module-level prepare would crash boot otherwise; app boots + validator clean). `fmId` is intentionally null. |
+| MED (cleanup) | books | duplicate `fetch-cover`/`ensureBookDirs`/`downloadBuffer` defs; 2nd handler dead code (working handler fine — not user-breaking) |
 | LOW | finance | reports.js UNIONs legacy txn tables; manual POST txn skips category-rules |
 | LOW | kids | family-sync runs every GET; display_name string match fragile |
 | LOW | trading | trading.json deep-merge drops non-apiKeys settings |

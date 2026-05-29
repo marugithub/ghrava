@@ -131,10 +131,14 @@ Existing `auto-link-*.js` stay AS-IS for now (they work). Later they become auto
 
 ## 7. Build slices (incremental)
 
-1. **Slice 1 — skeleton:** migration (action ledger) + `primitives.js` (decrement_qty, archive,
-   log_event, record_disposition) + `dispatch.js applyVerb/reverseAction` + verbs `consume`,`donate`.
-   Wire the inventory "Use / Donate" action to `applyVerb`. Live-test (like v.210: action → effect
-   → ledger row → reverse → restored).
+1. **Slice 1 — skeleton:** ✅ **SHIPPED v.211 (202605.211 @ bc46c8f, 2026-05-29).** migration 146
+   (action ledger) + `primitives.js` (decrement_qty, archive, set_field, log_event) +
+   `dispatch.js applyVerb/reverseAction` + verbs `donate`,`consume` + generic `/api/v1/actions`
+   (history + reverse) + inventory `POST /items/:id/donate` via `applyVerb`. **Verified live:**
+   validator 680 stmts exit 0; 15/15 HTTP live-tests (create → donate qty↓ + FMV + status →
+   history → reverse restores → double-reverse 409 → donate-all archives-on-zero → reverse
+   un-archives → cleanup); smoke 8/8. **Remaining for Slice-1-complete: the donate UI** (mirror
+   Sell + standard button row) — backend-only so far; endpoint is live + tested via HTTP.
 2. **Slice 2 — report pull:** a donations/disposition report that SUMs the ledger (proves PULL).
 3. **Slice 3 — generalize:** add `discard`; make the dispatcher key on `(entity_type,id)` so
    perfume/books can use it.
