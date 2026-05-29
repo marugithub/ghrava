@@ -137,8 +137,9 @@ Existing `auto-link-*.js` stay AS-IS for now (they work). Later they become auto
    (history + reverse) + inventory `POST /items/:id/donate` via `applyVerb`. **Verified live:**
    validator 680 stmts exit 0; 15/15 HTTP live-tests (create → donate qty↓ + FMV + status →
    history → reverse restores → double-reverse 409 → donate-all archives-on-zero → reverse
-   un-archives → cleanup); smoke 8/8. **Remaining for Slice-1-complete: the donate UI** (mirror
-   Sell + standard button row) — backend-only so far; endpoint is live + tested via HTTP.
+   un-archives → cleanup); smoke 8/8. **Slice 1 COMPLETE — donate UI shipped v.212 (202605.212 @
+   bfcefd8):** Donate button beside Mark-as-Sold → Donate drawer (qty/FMV/donated-to) → dispatcher
+   endpoint; mirrors Sell per build standards. Verified: full E2E 117/0, served page carries the UI.
 2. **Slice 2 — report pull:** a donations/disposition report that SUMs the ledger (proves PULL).
 3. **Slice 3 — generalize:** add `discard`; make the dispatcher key on `(entity_type,id)` so
    perfume/books can use it.
