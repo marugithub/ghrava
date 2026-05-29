@@ -47,4 +47,19 @@ module.exports = {
       { op: 'log_event',     args: { event: 'consumed', note: '$reason' } },
     ],
   },
+
+  // Discard / trash with a reason. GENERIC across entity types — the same
+  // verb serves items (decrement → archive on zero), and books/perfumes
+  // (no quantity → archive immediately via their own lifecycle column).
+  // The archive primitive carries the reason per entity; log_event is a
+  // no-op for non-item subjects. Proves the (entity_type, id) design.
+  discard: {
+    subjects: ['item', 'book', 'perfume'],
+    reversible: true,
+    effects: [
+      { op: 'decrement_qty', args: { n: '$qty' } },                          // no-op for book/perfume
+      { op: 'archive',       args: { reason: '$reason' }, when: 'zero_or_no_qty' },
+      { op: 'log_event',     args: { event: 'discarded', note: '$reason' } },// no-op for book/perfume
+    ],
+  },
 };

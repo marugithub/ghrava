@@ -1363,6 +1363,50 @@
   </div>
 </div>
 
+<!-- ══ DISCARD DRAWER ════════════════════════════════════════ -->
+<!-- Reversible via the effect dispatcher (POST /inventory/items/:id/discard). -->
+<div class="drawer-overlay" id="discardDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Discard Item</div>
+    <input type="hidden" id="discard_item_id">
+    <div class="sell-section">
+      <div style="font-size:13px;color:var(--green);margin-bottom:4px">Quantity is reduced; the item is archived when it reaches zero. Reversible from history.</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quantity</label><input class="form-input" type="number" id="discard_qty" min="1" step="1" value="1"></div>
+      <div class="form-group"><label class="form-label">Reason</label><input class="form-input" id="discard_reason" placeholder="e.g. Broken, Expired"></div>
+    </div>
+    <div id="discard_err" style="display:none;font-size:13px;color:var(--red);margin-bottom:8px"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('discardDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-danger" id="discardSave">Discard</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ USE / CONSUME DRAWER ══════════════════════════════════ -->
+<!-- Exposes the consume verb (POST /inventory/items/:id/consume). Reversible. -->
+<div class="drawer-overlay" id="consumeDrawer">
+  <div class="drawer">
+    <div class="drawer-handle"></div>
+    <div class="drawer-title">Use Item</div>
+    <input type="hidden" id="consume_item_id">
+    <div class="sell-section">
+      <div style="font-size:13px;color:var(--green);margin-bottom:4px">Records quantity used (supplies, parts). Archived when it reaches zero. Reversible.</div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Quantity used</label><input class="form-input" type="number" id="consume_qty" min="1" step="1" value="1"></div>
+      <div class="form-group"><label class="form-label">Note</label><input class="form-input" id="consume_reason" placeholder="e.g. Oil change"></div>
+    </div>
+    <div id="consume_err" style="display:none;font-size:13px;color:var(--red);margin-bottom:8px"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="$('consumeDrawer').classList.remove('open')">Cancel</button>
+      <button class="btn btn-primary" id="consumeSave">Use</button>
+    </div>
+  </div>
+</div>
+
 <!-- ══ ARCHIVE DRAWER ══════════════════════════════════════ -->
 <div class="drawer-overlay" id="archiveDrawer">
   <div class="drawer">
@@ -2737,6 +2781,8 @@ async function openDetail(id) {
     <div class="btn-row" style="margin-top:12px">
       ${!isArchived ? `<button class="btn btn-ghost" onclick="openSell(${id})">Mark as Sold</button>` : ''}
       ${!isArchived ? `<button class="btn btn-ghost" onclick="openDonate(${id})">Donate</button>` : ''}
+      ${!isArchived ? `<button class="btn btn-ghost" onclick="openConsume(${id})">Use</button>` : ''}
+      ${!isArchived ? `<button class="btn btn-ghost" onclick="openDiscard(${id})">Discard</button>` : ''}
     </div>
   `;
 
@@ -3747,6 +3793,50 @@ $('donateSave').addEventListener('click', async ()=>{
   } catch(e) {
     $('donate_err').textContent = e.message || 'Error saving. Please try again.';
     $('donate_err').style.display='block';
+  }
+});
+
+// Discard — reversible via the effect dispatcher (POST .../discard).
+function openDiscard(id) {
+  $('discard_item_id').value=id;
+  $('discard_qty').value='1'; $('discard_reason').value='';
+  $('discard_err').style.display='none'; $('discard_err').textContent='';
+  $('detailDrawer').classList.remove('open');
+  $('discardDrawer').classList.add('open');
+}
+$('discardSave').addEventListener('click', async ()=>{
+  const id=$('discard_item_id').value;
+  const qty=parseInt($('discard_qty').value,10);
+  if (!qty || qty<1) { $('discard_err').textContent='Quantity must be at least 1.'; $('discard_err').style.display='block'; return; }
+  try {
+    await window.api('POST', `/inventory/items/${id}/discard`, { qty, reason:$('discard_reason').value||null });
+    $('discardDrawer').classList.remove('open');
+    toast('Item discarded'); await loadStats(); renderBrowse();
+  } catch(e) {
+    $('discard_err').textContent = e.message || 'Error saving. Please try again.';
+    $('discard_err').style.display='block';
+  }
+});
+
+// Use / consume — reversible via the effect dispatcher (POST .../consume).
+function openConsume(id) {
+  $('consume_item_id').value=id;
+  $('consume_qty').value='1'; $('consume_reason').value='';
+  $('consume_err').style.display='none'; $('consume_err').textContent='';
+  $('detailDrawer').classList.remove('open');
+  $('consumeDrawer').classList.add('open');
+}
+$('consumeSave').addEventListener('click', async ()=>{
+  const id=$('consume_item_id').value;
+  const qty=parseInt($('consume_qty').value,10);
+  if (!qty || qty<1) { $('consume_err').textContent='Quantity must be at least 1.'; $('consume_err').style.display='block'; return; }
+  try {
+    await window.api('POST', `/inventory/items/${id}/consume`, { qty, reason:$('consume_reason').value||null });
+    $('consumeDrawer').classList.remove('open');
+    toast('Item updated'); await loadStats(); renderBrowse();
+  } catch(e) {
+    $('consume_err').textContent = e.message || 'Error saving. Please try again.';
+    $('consume_err').style.display='block';
   }
 });
 

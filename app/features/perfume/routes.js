@@ -9,6 +9,7 @@ const router  = express.Router();
 const db      = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { serverError, badRequest, notFound } = require('../../shared/errors');
+const { applyVerb } = require('../../shared/effects/dispatch');
 
 // ── Perfumes ──────────────────────────────────────────────────
 router.get('/', (req, res) => {
@@ -221,6 +222,23 @@ router.delete('/layers/:id', requireAuth, (req, res) => {
     db.prepare('DELETE FROM perfume_layers WHERE id=?').run(req.params.id);
     res.json({ ok: true });
   } catch(e) { serverError(res, e); }
+});
+
+// v.214 — Discard (archive) a perfume via the effect dispatcher (reversible).
+// Generic discard verb on subject 'perfume' → archive sets status='archived';
+// reverse restores it. Proves the dispatcher generalizes beyond items.
+router.post('/:id/discard', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const row = db.prepare('SELECT id FROM perfumes WHERE id=?').get(id);
+    if (!row) return notFound(res, 'Perfume');
+    const result = applyVerb({
+      verb: 'discard', subjectType: 'perfume', subjectId: id,
+      payload: { reason: (req.body && req.body.reason) || 'Discarded' }, actor: 'user',
+    });
+    const updated = db.prepare('SELECT * FROM perfumes WHERE id=?').get(id);
+    res.json({ action: result, perfume: updated });
+  } catch (e) { serverError(res, e); }
 });
 
 module.exports = router;

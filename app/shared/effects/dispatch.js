@@ -32,6 +32,10 @@ function evalWhen(when, ctx) {
   switch (when) {
     case 'qty_reaches_zero':
       return ctx.resulting_qty != null && ctx.resulting_qty <= 0;
+    case 'zero_or_no_qty':
+      // fires for quantity entities that hit 0 AND for entities with no
+      // quantity at all (book/perfume) — used by the generic `discard` verb.
+      return ctx.resulting_qty == null || ctx.resulting_qty <= 0;
     default:
       throw new Error(`effects: unknown when '${when}'`);
   }

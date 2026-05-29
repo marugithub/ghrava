@@ -1284,6 +1284,44 @@ router.post('/items/:id/donate', requireAuth, (req, res) => {
   } catch (err) { serverError(res, err); }
 });
 
+// v.214 — Discard n units via the effect dispatcher (reversible). Mirrors
+// Donate: decrements quantity, archives with the reason when it reaches zero.
+router.post('/items/:id/discard', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    const id = parseInt(req.params.id, 10);
+    const qty = d.qty != null && d.qty !== '' ? parseInt(d.qty, 10) : 1;
+    if (!Number.isInteger(qty) || qty <= 0) return badRequest(res, 'qty must be a positive integer');
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(id);
+    if (!item) return notFound(res, 'Item');
+    const result = applyVerb({
+      verb: 'discard', subjectType: 'item', subjectId: id,
+      payload: { qty, reason: d.reason || 'Discarded' }, actor: 'user',
+    });
+    const updated = db.prepare('SELECT * FROM items WHERE id=?').get(id);
+    res.json({ action: result, item: updated });
+  } catch (err) { serverError(res, err); }
+});
+
+// v.214 — Consume n units via the effect dispatcher (reversible). Exposes the
+// existing consume verb (e.g. supplies used). Decrements + archives on zero.
+router.post('/items/:id/consume', requireAuth, (req, res) => {
+  try {
+    const d = req.body || {};
+    const id = parseInt(req.params.id, 10);
+    const qty = d.qty != null && d.qty !== '' ? parseInt(d.qty, 10) : 1;
+    if (!Number.isInteger(qty) || qty <= 0) return badRequest(res, 'qty must be a positive integer');
+    const item = db.prepare('SELECT id FROM items WHERE id=?').get(id);
+    if (!item) return notFound(res, 'Item');
+    const result = applyVerb({
+      verb: 'consume', subjectType: 'item', subjectId: id,
+      payload: { qty, reason: d.reason || 'Used' }, actor: 'user',
+    });
+    const updated = db.prepare('SELECT * FROM items WHERE id=?').get(id);
+    res.json({ action: result, item: updated });
+  } catch (err) { serverError(res, err); }
+});
+
 // Hard delete (only if already archived)
 router.delete('/items/:id', (req, res) => {
   try {

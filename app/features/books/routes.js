@@ -21,6 +21,7 @@ const db      = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
 const { clearReview } = require('../../shared/needs-review');
+const { applyVerb } = require('../../shared/effects/dispatch');
 
 // Public GETs, auth writes
 // ── List all books ─────────────────────────────────────────────
@@ -326,6 +327,23 @@ router.post('/:id/fetch-cover', requireAuth, async (req, res) => {
     );
 
     res.json({ ok: true, attachment: db.prepare('SELECT * FROM attachments WHERE id=?').get(info.lastInsertRowid) });
+  } catch (e) { serverError(res, e); }
+});
+
+// v.214 — Discard a book via the effect dispatcher (reversible). Generic
+// discard verb on subject 'book' → archive sets is_active=0 + physical_status;
+// reverse restores it. Proves the dispatcher generalizes beyond items.
+router.post('/:id/discard', requireAuth, (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const row = db.prepare('SELECT id FROM books WHERE id=?').get(id);
+    if (!row) return notFound(res, 'Book');
+    const result = applyVerb({
+      verb: 'discard', subjectType: 'book', subjectId: id,
+      payload: { reason: (req.body && req.body.reason) || 'Discarded' }, actor: 'user',
+    });
+    const updated = db.prepare('SELECT * FROM books WHERE id=?').get(id);
+    res.json({ action: result, book: updated });
   } catch (e) { serverError(res, e); }
 });
 
