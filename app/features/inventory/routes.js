@@ -1043,16 +1043,17 @@ router.delete('/containers/:id', (req, res) => {
 // ══════════════════════════════════════════════════════════════
 // ITEMS
 // ══════════════════════════════════════════════════════════════
+// Primary photo resolved via LIMIT-1 subqueries, NOT a JOIN: a LEFT JOIN on
+// is_primary_photo=1 emits one ROW PER matching attachment, so an item with two
+// images both flagged primary (race between UPC auto-fetch + manual upload)
+// showed up twice on the list. Subqueries guarantee exactly one row per item.
 const ITEM_WITH_THUMB = `
   SELECT i.*,
-    a.stored_path  as thumb_path,
-    a.thumb_path   as thumb_small,
-    a.id           as primary_photo_id,
+    (SELECT stored_path FROM attachments WHERE entity_type='item' AND entity_id=i.id AND is_image=1 AND is_primary_photo=1 ORDER BY sort_order, created_at, id LIMIT 1) as thumb_path,
+    (SELECT thumb_path  FROM attachments WHERE entity_type='item' AND entity_id=i.id AND is_image=1 AND is_primary_photo=1 ORDER BY sort_order, created_at, id LIMIT 1) as thumb_small,
+    (SELECT id          FROM attachments WHERE entity_type='item' AND entity_id=i.id AND is_image=1 AND is_primary_photo=1 ORDER BY sort_order, created_at, id LIMIT 1) as primary_photo_id,
     (SELECT COUNT(*) FROM attachments WHERE entity_type='item' AND entity_id=i.id) as attachment_count
   FROM items i
-  LEFT JOIN attachments a
-    ON a.entity_type='item' AND a.entity_id=i.id
-    AND a.is_image=1 AND a.is_primary_photo=1
 `;
 
 // v.205 — container aggregates: item_count + summed effective value + warranty flags.
