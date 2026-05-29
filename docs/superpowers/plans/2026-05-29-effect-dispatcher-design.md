@@ -140,7 +140,13 @@ Existing `auto-link-*.js` stay AS-IS for now (they work). Later they become auto
    un-archives → cleanup); smoke 8/8. **Slice 1 COMPLETE — donate UI shipped v.212 (202605.212 @
    bfcefd8):** Donate button beside Mark-as-Sold → Donate drawer (qty/FMV/donated-to) → dispatcher
    endpoint; mirrors Sell per build standards. Verified: full E2E 117/0, served page carries the UI.
-2. **Slice 2 — report pull:** a donations/disposition report that SUMs the ledger (proves PULL).
+2. **Slice 2 — report pull:** ✅ **SHIPPED v.213 (202605.213 @ 25a496c, 2026-05-29).** Donations
+   tile (Money › tax & receipts) + `GET /api/v1/actions/report/donations` (sums `donate` verbs
+   from the ledger, excludes reversed) + viewer (year roll-up + per-year drilldown, mirrors
+   hsa-spending). Donate flow now captures a Donation Date → action payload → report buckets by
+   tax year. **Verified live:** validator 681/exit 0; PULL test (donate→appears under 2026 @ $25 →
+   reverse→drops out→baseline); smoke 9/9 incl. reports-viewers-smoke. **PULL proven: no running
+   total maintained — the query IS the deductible number.**
 3. **Slice 3 — generalize:** add `discard`; make the dispatcher key on `(entity_type,id)` so
    perfume/books can use it.
 4. **Slice 4 — migrate a linker:** reframe ONE existing auto-linker (e.g. subscriptions) as an
