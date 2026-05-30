@@ -59,7 +59,7 @@ function resolveFamilyMember(seed) {
 // All run inside a single transaction in the route handler.
 // ─────────────────────────────────────────────────────────────────────
 
-function importCareTeam(rows, fmId) {
+function importCareTeam(rows, fmId, patient) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
   // contacts schema (verified against mig 001 + mig 010 + mig 131):
@@ -102,7 +102,7 @@ function importCareTeam(rows, fmId) {
   return { inserted, skipped };
 }
 
-function importConditions(rows, fmId) {
+function importConditions(rows, fmId, patient) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
   const findByHash = db.prepare(`SELECT id FROM med_conditions WHERE dedup_hash = ?`);
@@ -119,7 +119,7 @@ function importConditions(rows, fmId) {
     if (findByHash.get(hash)) { skipped++; continue; }
     insertCond.run(
       fmId,
-      null,
+      patient,
       r.name,
       r.status || 'Active',
       r.first_noted || r.start_date || null,
@@ -134,7 +134,7 @@ function importConditions(rows, fmId) {
   return { inserted, skipped };
 }
 
-function importMedications(rows, fmId) {
+function importMedications(rows, fmId, patient) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
   const findByHash = db.prepare(`SELECT id FROM med_medications WHERE dedup_hash = ?`);
@@ -152,7 +152,7 @@ function importMedications(rows, fmId) {
     const hash = hashKey([fmId, r.name, dosage]);
     if (findByHash.get(hash)) { skipped++; continue; }
     insertMed.run(
-      fmId, null,
+      fmId, patient,
       r.name,
       r.brand_name || null,
       r.generic_name || null,
@@ -177,7 +177,7 @@ function importMedications(rows, fmId) {
   return { inserted, skipped };
 }
 
-function importLabs(rows, fmId) {
+function importLabs(rows, fmId, patient) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
   const findByHash = db.prepare(`SELECT id FROM med_lab_results WHERE dedup_hash = ?`);
@@ -193,7 +193,7 @@ function importLabs(rows, fmId) {
     const hash = hashKey([fmId, r.test_name, r.test_date, r.value_numeric ?? r.value]);
     if (findByHash.get(hash)) { skipped++; continue; }
     insertLab.run(
-      fmId, null,
+      fmId, patient,
       r.panel_name || null,
       r.test_name,
       r.test_date,
@@ -212,7 +212,7 @@ function importLabs(rows, fmId) {
   return { inserted, skipped };
 }
 
-function importVitals(rows, fmId) {
+function importVitals(rows, fmId, patient) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
   const findByHash = db.prepare(`SELECT id FROM med_vitals_readings WHERE dedup_hash = ?`);
@@ -229,7 +229,7 @@ function importVitals(rows, fmId) {
     const hash = hashKey([fmId, r.measure_date, r.systolic_bp, r.diastolic_bp, r.weight_lbs]);
     if (findByHash.get(hash)) { skipped++; continue; }
     insertVital.run(
-      fmId, null,
+      fmId, patient,
       r.measure_date,
       r.systolic_bp ?? null,
       r.diastolic_bp ?? null,
@@ -250,7 +250,7 @@ function importVitals(rows, fmId) {
   return { inserted, skipped };
 }
 
-function importDiagnostics(rows, fmId) {
+function importDiagnostics(rows, fmId, patient) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
   const findByHash = db.prepare(`SELECT id FROM med_diagnostics WHERE dedup_hash = ?`);
@@ -266,7 +266,7 @@ function importDiagnostics(rows, fmId) {
     const hash = hashKey([fmId, r.test_name, r.test_date]);
     if (findByHash.get(hash)) { skipped++; continue; }
     insertDiag.run(
-      fmId, null,
+      fmId, patient,
       r.test_name,
       r.test_type || null,
       r.test_date,
@@ -282,7 +282,7 @@ function importDiagnostics(rows, fmId) {
   return { inserted, skipped };
 }
 
-function importAllergies(rows, fmId) {
+function importAllergies(rows, fmId, patient) {
   if (!Array.isArray(rows) || rows.length === 0) return { inserted: 0, skipped: 0 };
   let inserted = 0, skipped = 0;
   const findByHash = db.prepare(`SELECT id FROM med_allergies WHERE dedup_hash = ?`);
@@ -298,7 +298,7 @@ function importAllergies(rows, fmId) {
     const hash = hashKey([fmId, r.allergen]);
     if (findByHash.get(hash)) { skipped++; continue; }
     insertAllergy.run(
-      fmId, null,
+      fmId, patient,
       r.allergen,
       r.allergen_type || null,
       r.reaction || null,
@@ -349,13 +349,13 @@ router.post('/bulk-seed', requireAuth, (req, res) => {
     }
 
     const results = db.transaction(() => ({
-      care_team:    importCareTeam(seed.care_team || [], fm.id),
-      conditions:   importConditions(seed.conditions || [], fm.id),
-      medications:  importMedications(seed.medications || [], fm.id),
-      labs:         importLabs(seed.labs || [], fm.id),
-      vitals:       importVitals(seed.vitals || [], fm.id),
-      diagnostics:  importDiagnostics(seed.diagnostics || [], fm.id),
-      allergies:    importAllergies(seed.allergies || [], fm.id),
+      care_team:    importCareTeam(seed.care_team || [], fm.id, fm.display_name),
+      conditions:   importConditions(seed.conditions || [], fm.id, fm.display_name),
+      medications:  importMedications(seed.medications || [], fm.id, fm.display_name),
+      labs:         importLabs(seed.labs || [], fm.id, fm.display_name),
+      vitals:       importVitals(seed.vitals || [], fm.id, fm.display_name),
+      diagnostics:  importDiagnostics(seed.diagnostics || [], fm.id, fm.display_name),
+      allergies:    importAllergies(seed.allergies || [], fm.id, fm.display_name),
     }))();
 
     res.json({
