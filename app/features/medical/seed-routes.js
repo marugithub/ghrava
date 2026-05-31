@@ -27,6 +27,10 @@ const db      = require('../../db/db');
 const { requireAuth } = require('../auth/middleware');
 const { badRequest, notFound, serverError } = require('../../shared/errors');
 const crypto = require('crypto');
+const multer = require('multer');
+const ingest = require('./ingest');
+
+const uploadIngest = multer({ storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024 } });
 
 function hashKey(parts) {
   return crypto.createHash('sha256')
@@ -365,6 +369,78 @@ router.post('/bulk-seed', requireAuth, (req, res) => {
       results,
       total_inserted:      Object.values(results).reduce((s, r) => s + (r.inserted || 0), 0),
       total_skipped:       Object.values(results).reduce((s, r) => s + (r.skipped || 0), 0),
+    });
+  } catch (e) { serverError(res, e); }
+});
+
+// ─────────────────────────────────────────────────────────────────────
+// POST /api/v1/medical/ingest
+// Multipart: file (pdf/html/txt/csv) + family_member_id OR patient_name.
+// Extracts text → detects source → parses → feeds the SAME importers as
+// bulk-seed. ?dry_run=1 (or _dry_run=true) previews without writing.
+// Parsers are heuristic + source-specific — always dry-run a new doc type.
+// ─────────────────────────────────────────────────────────────────────
+router.post('/ingest', requireAuth, uploadIngest.single('file'), async (req, res) => {
+  if (!req.file) return badRequest(res, 'No file uploaded (field name: file)');
+  try {
+    const fm = resolveFamilyMember(req.body || {});
+    if (!fm) {
+      return badRequest(res,
+        'Could not resolve family member. Provide family_member_id in the form, ' +
+        'OR patient_name matching a family_members.display_name.');
+    }
+
+    const ing = await ingest.process(req.file.buffer, req.file.originalname);
+    const s = ing.sections || {};
+    const sectionCount = (arr) => Array.isArray(arr) ? arr.length : 0;
+    const parsedCounts = {
+      care_team:   sectionCount(s.care_team),
+      conditions:  sectionCount(s.conditions),
+      medications: sectionCount(s.medications),
+      labs:        sectionCount(s.labs),
+      vitals:      sectionCount(s.vitals),
+      diagnostics: sectionCount(s.diagnostics),
+      allergies:   sectionCount(s.allergies),
+    };
+    // `visits` is parsed but has no med_* importer yet — report, don't import.
+    const visitsUnmapped = sectionCount(s.visits);
+
+    const dryRun = req.query.dry_run === '1' || req.body._dry_run === 'true' || req.body._dry_run === true;
+    if (dryRun) {
+      return res.json({
+        dry_run:            true,
+        file:               req.file.originalname,
+        file_type:          ing.fileType,
+        detected_source:    ing.source,
+        extracted_chars:    ing.chars,
+        mapped_family_id:   fm.id,
+        mapped_family_name: fm.display_name,
+        parsed_counts:      parsedCounts,
+        visits_unmapped:    visitsUnmapped,
+        parsed:             s,   // full parsed sections for inspection
+      });
+    }
+
+    const results = db.transaction(() => ({
+      care_team:    importCareTeam(s.care_team || [], fm.id, fm.display_name),
+      conditions:   importConditions(s.conditions || [], fm.id, fm.display_name),
+      medications:  importMedications(s.medications || [], fm.id, fm.display_name),
+      labs:         importLabs(s.labs || [], fm.id, fm.display_name),
+      vitals:       importVitals(s.vitals || [], fm.id, fm.display_name),
+      diagnostics:  importDiagnostics(s.diagnostics || [], fm.id, fm.display_name),
+      allergies:    importAllergies(s.allergies || [], fm.id, fm.display_name),
+    }))();
+
+    res.json({
+      ok:                  true,
+      file:                req.file.originalname,
+      detected_source:     ing.source,
+      mapped_family_id:    fm.id,
+      mapped_family_name:  fm.display_name,
+      results,
+      visits_unmapped:     visitsUnmapped,
+      total_inserted:      Object.values(results).reduce((n, r) => n + (r.inserted || 0), 0),
+      total_skipped:       Object.values(results).reduce((n, r) => n + (r.skipped || 0), 0),
     });
   } catch (e) { serverError(res, e); }
 });
